@@ -215,7 +215,8 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
 
                         if (p.vtnr != 0)
                                 return sd_varlink_error_invalid_parameter_name(link, "VTNr");
-                }
+                } else
+                        return sd_varlink_error_invalid_parameter_name(link, "TTY");
         }
 
         if (seat) {

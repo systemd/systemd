@@ -15,6 +15,7 @@
 #include "bus-util.h"
 #include "constants.h"
 #include "daemon-util.h"
+#include "escape.h"
 #include "hashmap.h"
 #include "label-util.h"
 #include "localed-util.h"
@@ -129,6 +130,8 @@ static int process_locale_list_item(
                 bool use_localegen,
                 sd_bus_error *error) {
 
+        _cleanup_free_ char *escaped = NULL;
+
         assert(assignment);
         assert(new_locale);
 
@@ -146,8 +149,10 @@ static int process_locale_list_item(
 
                 e++;
 
-                if (!locale_is_valid(e))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale %s is not valid, refusing.", e);
+                if (!locale_is_valid(e)) {
+                        escaped = cescape(e);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale %s is not valid, refusing.", strna(escaped));
+                }
                 if (!use_localegen && locale_is_installed(e) <= 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale %s not installed, refusing.", e);
                 if (new_locale[p])
@@ -156,7 +161,8 @@ static int process_locale_list_item(
                 return strdup_to(&new_locale[p], e);
         }
 
-        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale assignment %s not valid, refusing.", assignment);
+        escaped = cescape(assignment);
+        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Locale assignment %s not valid, refusing.", strna(escaped));
 }
 
 static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX], sd_bus_error *error) {
@@ -223,8 +229,10 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 
         /* If single locale without variable name is provided, then we assume it is LANG=. */
         if (strv_length(l) == 1 && !strchr(l[0], '=')) {
-                if (!locale_is_valid(l[0]))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid locale specification: %s", l[0]);
+                if (!locale_is_valid(l[0])) {
+                        _cleanup_free_ char *escaped = cescape(l[0]);
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid locale specification: %s", strna(escaped));
+                }
                 if (!use_localegen && locale_is_installed(l[0]) <= 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified locale is not installed: %s", l[0]);
 
