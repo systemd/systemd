@@ -88,6 +88,22 @@ add_logs_filtering_override "logs-filtering.service" "11-reset" ""
 add_logs_filtering_override "logs-filtering.service" "12-allow-with-spaces" "foo bar"
 [[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
 
+add_logs_filtering_override "logs-filtering.service" "13-reset" ""
+add_logs_filtering_override "logs-filtering.service" "14-exclude-head" "~^Logging"
+[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+add_logs_filtering_override "logs-filtering.service" "15-reset" ""
+add_logs_filtering_override "logs-filtering.service" "16-exclude-head-no-match" "~^foo"
+[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+add_logs_filtering_override "logs-filtering.service" "17-reset" ""
+add_logs_filtering_override "logs-filtering.service" "18-include-head" "^Logging"
+[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+add_logs_filtering_override "logs-filtering.service" "19-reset" ""
+add_logs_filtering_override "logs-filtering.service" "20-include-head-no-match" "^foo"
+[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
 add_logs_filtering_override "delegated-cgroup-filtering.service" "00-allow-all" ".*"
 [[ -n $(run_service_and_fetch_logs "delegated-cgroup-filtering.service") ]]
 
