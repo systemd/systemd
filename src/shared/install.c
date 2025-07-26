@@ -3350,8 +3350,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                         if (strchr(COMMENTS, line[0]))
                                 continue;
 
-                        parameter = first_word(line, "enable");
-                        if (parameter) {
+                        if ((parameter = first_word(line, "enable"))) {
                                 char *unit_name;
                                 char **instances = NULL;
 
@@ -3367,10 +3366,8 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                         .action = PRESET_ENABLE,
                                         .instances = instances,
                                 };
-                        }
 
-                        parameter = first_word(line, "disable");
-                        if (parameter) {
+                        } else if ((parameter = first_word(line, "disable"))) {
                                 char *pattern;
 
                                 pattern = strdup(parameter);
@@ -3381,10 +3378,8 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                         .pattern = pattern,
                                         .action = PRESET_DISABLE,
                                 };
-                        }
 
-                        parameter = first_word(line, "ignore");
-                        if (parameter) {
+                        } else if ((parameter = first_word(line, "ignore"))) {
                                 char *pattern;
 
                                 pattern = strdup(parameter);
@@ -3397,7 +3392,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                 };
                         }
 
-                        if (rule.action) {
+                        if (rule.action != 0) {
                                 if (!GREEDY_REALLOC(ps.rules, ps.n_rules + 1))
                                         return -ENOMEM;
 
