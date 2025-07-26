@@ -623,7 +623,7 @@
         <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <para>Note that this option is only supported in combination with <option>--offline=yes</option>
-        since <filename>btrfs-progs</filename> 6.11 or newer.</para>
+        since <filename>btrfs-progs</filename> 6.12 or newer.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
