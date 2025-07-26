@@ -10,12 +10,13 @@
 # lumingzh <lumingzh@qq.com>, 2024.
 # z z <3397542367@qq.com>, 2025.
 # Hang Li <dabao1955@163.com>, 2025.
+# Jesse Guo <jesseguotech@outlook.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-04-06 18:46+0000\n"
-"Last-Translator: Hang Li <dabao1955@163.com>\n"
+"PO-Revision-Date: 2025-07-26 15:17+0000\n"
+"Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -23,7 +24,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.10.4\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -821,18 +822,13 @@ msgid ""
 msgstr "创建本地虚拟机或容器需要认证。"
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "创建本地虚拟机或容器"
+msgstr "注册本地虚拟机或容器"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
-msgstr "创建本地虚拟机或容器需要认证。"
+msgstr "注册本地虚拟机或容器需要认证。"
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -1053,13 +1049,11 @@ msgstr "订阅查询结果需要认证。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "订阅DNS配置"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "订阅查询结果需要认证。"
+msgstr "订阅DNS配置需要认证。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
