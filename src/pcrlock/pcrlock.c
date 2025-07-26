@@ -4846,7 +4846,13 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
 }
 
 static int verb_make_policy(int argc, char *argv[], void *userdata) {
-        return make_policy(arg_force, arg_recovery_pin);
+        int r;
+
+        r = make_policy(arg_force, arg_recovery_pin);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 static int undefine_policy_nv_index(
@@ -5454,4 +5460,4 @@ static int run(int argc, char *argv[]) {
         return pcrlock_main(argc, argv);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
