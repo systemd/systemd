@@ -1197,6 +1197,10 @@ static int manager_create_session_by_bus(
                 if (vtnr != 0)
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                                 "Console TTY specified but VT number is not 0");
+        } else {
+                _cleanup_free_ char *escaped = cescape(tty);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Invalid tty: %s", strna(escaped));
         }
 
         if (seat) {
