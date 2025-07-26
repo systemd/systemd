@@ -4,12 +4,12 @@
 # Seong-ho Cho <shcho@gnome.org>, 2015, 2021.
 # Dongsu Park <dongsu@endocode.com>, 2015.
 # simmon <simmon@nplob.com>, 2021.
-# 김인수 <simmon@nplob.com>, 2022, 2023, 2024.
+# 김인수 <simmon@nplob.com>, 2022, 2023, 2024, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2024-11-29 12:38+0000\n"
+"PO-Revision-Date: 2025-07-26 09:04+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
 "main/ko/>\n"
@@ -18,7 +18,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.8.2\n"
+"X-Generator: Weblate 5.12.2\n"
 "X-Poedit-SourceCharset: UTF-8\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -143,13 +143,11 @@ msgstr "사용자의 홈 영역을 활성화에 인증이 필요합니다."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "홈 디렉토리의 서명 키를 관리합니다"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "시스템 서비스 또는 기타 단위를 관리하려면 인증이 필요합니다."
+msgstr "홈 디렉토리를 위해 서명 키를 관리하려면 인증이 필요합니다."
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
@@ -841,18 +839,13 @@ msgid ""
 msgstr "로컬 가상 장비 및 컨테이너를 생성하려면 인증이 필요합니다."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "로컬 가상 장비 및 컨테이너 생성"
+msgstr "로컬 가상 장비나 컨테이너를 등록합니다"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
-msgstr "로컬 가상 장비 및 컨테이너를 생성하려면 인증이 필요합니다."
+msgstr "로컬 가상 장비나 컨테이너를 등록하려면 인증이 필요합니다."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -1072,13 +1065,11 @@ msgstr "질의 결과를 승락하려면 인증이 필요합니다."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "DNS 구성으로 등록하다"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "질의 결과를 승락하려면 인증이 필요합니다."
+msgstr "DNS 구성으로 등록하려면 인증이 필요합니다."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1216,14 +1207,10 @@ msgid ""
 msgstr "'$(unit)'의 처리에 유닉스 신호를 전송하려면 인증이 필요합니다."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "'$(unit)'의 처리에 유닉스 신호를 전송하려면 인증이 필요합니다."
+msgstr "'$(unit)'의 하위그룹 처리로 유닉스 신호를 전송하려면 인증이 필요합니다."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
