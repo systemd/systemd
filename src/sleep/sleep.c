@@ -233,6 +233,48 @@ static int lock_all_homes(void) {
         return 0;
 }
 
+/*
+ * The 'wakeup_count' attribute provides a means by which wakeup events can be
+ * handled in a non-racy way.
+ *
+ * If a wakeup event occurs when the system is in a sleep state, it simply is
+ * woken up.  In turn, if an event that would wake the system up from a sleep
+ * state occurs when it is undergoing a transition to that sleep state, the
+ * transition should be aborted.  Moreover, if such an event occurs when the
+ * system is in the working state, an attempt to start a transition to the
+ * given sleep state should fail during certain period after the detection of
+ * the event.  Using the 'state' attribute alone is not sufficient to satisfy
+ * these requirements, because a wakeup event may occur exactly when 'state'
+ * is being written to and may be delivered to user space right before it is
+ * frozen, so the event will remain only partially processed until the system is
+ * woken up by another event.  In particular, it won't cause the transition to
+ * a sleep state to be aborted.
+ *
+ * For more details see https://lwn.net/Articles/392897/
+ *
+ * Possible return values:
+ *  1: Successfully saved wakeup count, continue sleep cycle
+ *  0: Failed to save wakeup count, abort sleep cycle
+ * <0: Failed to read or write wakeup_count file.
+ */
+static int write_wakeup_count(void) {
+        _cleanup_free_ char *buf = NULL;
+        int r;
+
+        r = read_full_virtual_file("/sys/power/wakeup_count", &buf, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to read kernel wakeup count: %m");
+
+        r = write_string_file("/sys/power/wakeup_count", buf, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r == -EINVAL) {
+                log_info("Early wakeup detected");
+                return 0;
+        } else if (r < 0)
+                return log_debug_errno(r, "Failed to write wakeup count: %m");
+
+        return 1;
+}
+
 static int execute(
                 const SleepConfig *sleep_config,
                 SleepOperation operation,
@@ -262,6 +304,11 @@ static int execute(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No sleep states configured for sleep operation %s, can't sleep.",
                                        sleep_operation_to_string(operation));
+
+        /* Write wakeup_count to avoid any race condition */
+        r = write_wakeup_count();
+        if (r <= 0)
+                return r;
 
         /* This file is opened first, so that if we hit an error, we can abort before modifying any state. */
         state_fd = open("/sys/power/state", O_WRONLY|O_CLOEXEC);
