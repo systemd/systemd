@@ -155,8 +155,10 @@ int manager_get_session_from_creds(
                 return get_sender_session(m, message, true, error, ret);
 
         session = hashmap_get(m->sessions, name);
-        if (!session)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", name);
+        if (!session) {
+                _cleanup_free_ char *escaped = cescape(name);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SESSION, "No session '%s' known", strna(escaped));
+        }
 
         *ret = session;
         return 0;
@@ -234,8 +236,10 @@ int manager_get_seat_from_creds(
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "Session '%s' has no seat.", session->id);
         } else {
                 seat = hashmap_get(m->seats, name);
-                if (!seat)
-                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", name);
+                if (!seat) {
+                        _cleanup_free_ char *escaped = cescape(name);
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT, "No seat '%s' known", strna(escaped));
+                }
         }
 
         *ret = seat;
@@ -1128,9 +1132,11 @@ static int manager_create_session_by_bus(
                 t = _SESSION_TYPE_INVALID;
         else {
                 t = session_type_from_string(type);
-                if (t < 0)
+                if (t < 0) {
+                        _cleanup_free_ char *escaped = cescape(type);
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Invalid session type %s", type);
+                                                 "Invalid session type %s", strna(escaped));
+                }
         }
 
         SessionClass c;
@@ -1138,9 +1144,11 @@ static int manager_create_session_by_bus(
                 c = _SESSION_CLASS_INVALID;
         else {
                 c = session_class_from_string(class);
-                if (c < 0)
+                if (c < 0) {
+                        _cleanup_free_ char *escaped = cescape(class);
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Invalid session class %s", class);
+                                                 "Invalid session class %s", strna(escaped));
+                }
                 if (c == SESSION_NONE)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Refusing session class %s", class);
@@ -1149,9 +1157,11 @@ static int manager_create_session_by_bus(
         if (isempty(desktop))
                 desktop = NULL;
         else {
-                if (!string_is_safe(desktop))
+                if (!string_is_safe(desktop)) {
+                        _cleanup_free_ char *escaped = cescape(desktop);
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Invalid desktop string %s", desktop);
+                                                 "Invalid desktop string %s", strna(escaped));
+                }
         }
 
         Seat *seat = NULL;
@@ -1159,9 +1169,11 @@ static int manager_create_session_by_bus(
                 seat = NULL;
         else {
                 seat = hashmap_get(m->seats, cseat);
-                if (!seat)
+                if (!seat) {
+                        _cleanup_free_ char *escaped = cescape(cseat);
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_SEAT,
-                                                 "No seat '%s' known", cseat);
+                                                 "No seat '%s' known", strna(escaped));
+                }
         }
 
         if (isempty(tty))
@@ -1795,8 +1807,10 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        if (!path_is_normalized(sysfs))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", sysfs);
+        if (!path_is_normalized(sysfs)) {
+                _cleanup_free_ char *escaped = cescape(sysfs);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", strna(escaped));
+        }
         if (!path_startswith(sysfs, "/sys"))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not in /sys", sysfs);
 
@@ -2803,8 +2817,10 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         }
 
         handle = handle_action_from_string(type);
-        if (!HANDLE_ACTION_IS_SHUTDOWN(handle))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type: %s", type);
+        if (!HANDLE_ACTION_IS_SHUTDOWN(handle)) {
+                _cleanup_free_ char *escaped = cescape(type);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported shutdown type: %s", strna(escaped));
+        }
 
         assert_se(a = handle_action_lookup(handle));
         assert(a->polkit_action);
@@ -3133,8 +3149,10 @@ static int method_set_reboot_parameter(
         if (r < 0)
                 return r;
 
-        if (!reboot_parameter_is_valid(arg))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid reboot parameter '%s'.", arg);
+        if (!reboot_parameter_is_valid(arg)) {
+                _cleanup_free_ char *escaped = cescape(arg);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid reboot parameter '%s'.", strna(escaped));
+        }
 
         r = detect_container();
         if (r < 0)
@@ -3586,8 +3604,10 @@ static int method_set_reboot_to_boot_loader_entry(
                         return r;
                 if (r == 0)
                         return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Boot loader entry '%s' is not known.", v);
-        } else
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Boot loader entry name '%s' is not valid, refusing.", v);
+        } else {
+                _cleanup_free_ char *escaped = cescape(v);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Boot loader entry name '%s' is not valid, refusing.", strna(escaped));
+        }
 
         r = getenv_bool("SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY");
         if (r == -ENXIO) {
@@ -3794,14 +3814,18 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                 return r;
 
         w = inhibit_what_from_string(what);
-        if (w <= 0)
+        if (w <= 0) {
+                _cleanup_free_ char *escaped = cescape(what);
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid what specification %s", what);
+                                         "Invalid what specification %s", strna(escaped));
+        }
 
         mm = inhibit_mode_from_string(mode);
-        if (mm < 0)
+        if (mm < 0) {
+                _cleanup_free_ char *escaped = cescape(mode);
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid mode specification %s", mode);
+                                         "Invalid mode specification %s", strna(escaped));
+        }
 
         /* Delay is only supported for shutdown/sleep */
         if (mm == INHIBIT_DELAY && (w & ~(INHIBIT_SHUTDOWN|INHIBIT_SLEEP)))
