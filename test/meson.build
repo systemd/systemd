@@ -341,6 +341,7 @@ if install_tests
                 'knot-data',
                 'test-journals',
                 'units',
+                'test-devlinkd',
                 'test-execute',
                 'test-fstab-generator',
                 'test-path',
