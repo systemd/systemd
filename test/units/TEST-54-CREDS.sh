@@ -554,4 +554,5 @@ free
 
 systemd-analyze log-level info
 
-touch /testok
+#touch /testok
+exit 1
