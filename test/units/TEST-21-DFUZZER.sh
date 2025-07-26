@@ -181,6 +181,19 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     PAYLOAD_MAX=10000 # 10K
 fi
 
+# Disable debugging logs from systemd-homed, systemd-nsresourced, and systemd-userdbd.
+# Otherwise, journal is filled with the debugging logs by them.
+systemctl service-log-level systemd-homed.service info
+for service in systemd-nsresourced.service systemd-userdbd.service; do
+    mkdir -p "/run/systemd/system/${service}.d"
+    cat >"/run/systemd/system/${service}.d/10-disable-debug.conf" <<EOF
+[Service]
+Environment=SYSTEMD_LOG_LEVEL=info
+EOF
+    systemctl daemon-reload
+    systemctl restart "$service"
+done
+
 test_systemd() {
     systemd-run "$@" --pipe --wait \
                 -- dfuzzer -b "$PAYLOAD_MAX" -n org.freedesktop.systemd1
