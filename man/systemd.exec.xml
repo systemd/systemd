@@ -4200,6 +4200,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varlistentry>
           <term><varname>$LISTEN_FDS</varname></term>
           <term><varname>$LISTEN_PID</varname></term>
+          <term><varname>$LISTEN_PIDFDID</varname></term>
           <term><varname>$LISTEN_FDNAMES</varname></term>
 
           <listitem><para>Information about file descriptors passed to a
