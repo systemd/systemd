@@ -15,7 +15,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-07-26 19:27+0000\n"
+"PO-Revision-Date: 2025-07-26 20:30+0000\n"
 "Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
@@ -76,11 +76,11 @@ msgstr "无速率限制地转储 systemd 状态"
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr "无限制地转储 systemd 状态需要身份验证。"
+msgstr "无速率限制地转储 systemd 状态需要身份验证。"
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr "创建一个家区域"
+msgstr "创建家区域"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
@@ -88,7 +88,7 @@ msgstr "创建用户家区域需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr "移除一个家区域"
+msgstr "移除家区域"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
@@ -105,7 +105,7 @@ msgstr "根据用户家区域检查凭证需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr "更新一个家区域"
+msgstr "更新家区域"
 
 # Pay attention to the concept of "seat".
 #
