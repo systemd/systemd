@@ -168,41 +168,33 @@ basic_sources += generated_gperf_headers
 
 ############################################################
 
-r = run_command(
-        [
-                'env', '--chdir', meson.project_build_root(),
-                files('check-filesystems.sh'),
-                cpp,
-                files('filesystems-gperf.gperf'),
-                system_include_args,
-        ],
-        check: false,
-)
-if r.returncode() != 0
-        warning('Unknown filesystems defined in kernel headers:\n\n' + r.stdout())
-endif
+filesystem_sets_py = files('filesystem-sets.py')
+filesystem_sets_c = custom_target(
+        output : 'filesystem-sets.c',
+        command : [filesystem_sets_py,
+                   'fs-type-to-string',
+                   'filesystem-sets',
+                   'fs-in-group'],
+        capture : true)
+
+filesystems_gperf_gperf = custom_target(
+        output : 'filesystems-gperf.gperf',
+        command : [filesystem_sets_py,
+                   'gperf'],
+        capture : true)
 
 filesystems_gperf_h = custom_target(
-        input : 'filesystems-gperf.gperf',
+        input : filesystems_gperf_gperf,
         output : 'filesystems-gperf.h',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
-filesystem_list_inc = custom_target(
-        input : 'filesystems-gperf.gperf',
-        output : 'filesystem-list.inc',
-        command : [files('generate-filesystem-list.py'),
-                   '@INPUT@'],
-        capture : true)
+generated_sources += [filesystem_sets_c, filesystems_gperf_gperf, filesystems_gperf_h]
+basic_sources += [filesystem_sets_c, filesystems_gperf_h]
 
-filesystem_switch_case_inc = custom_target(
-        input : 'filesystems-gperf.gperf',
-        output : 'filesystem-switch-case.inc',
-        command : [files('generate-filesystem-switch-case.py'),
-                   '@INPUT@'],
-        capture : true)
-
-generated_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h]
-basic_sources += [filesystem_list_inc, filesystem_switch_case_inc, filesystems_gperf_h]
+test('kernel-filesystem-magics',
+     filesystem_sets_py,
+     args : ['check'],
+     env : ['CPP=@0@'.format(cpp)])
 
 libbasic_static = static_library(
         'basic',
