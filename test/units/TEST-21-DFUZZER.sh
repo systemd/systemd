@@ -177,7 +177,7 @@ PAYLOAD_MAX=50000
 # Tweak the maximum payload size if we're running under sanitizers, since
 # with larger payloads we start hitting reply timeouts
 if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
-    PAYLOAD_MAX=10000 # 10K
+    PAYLOAD_MAX=1000
 fi
 
 # Disable debugging logs from systemd-homed, systemd-nsresourced, and systemd-userdbd.
