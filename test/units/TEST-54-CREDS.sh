@@ -459,6 +459,20 @@ systemd-run -p ProtectSystem=full \
             systemd-creds cat huge | cmp - <(echo "fresh")
 rm /tmp/cred-huge
 
+# For issue #37939
+dd if=/dev/urandom of=/tmp/cred-huge bs=600K count=1
+chmod 777 /tmp/cred-huge
+(! systemd-run -p ProtectSystem=full \
+            -p 'LoadCredential=huge:/tmp/cred-huge' \
+            -p 'Restart=always' \
+            -p 'RestartSec=0' \
+            -p 'StartLimitIntervalSec=10000' \
+            -p 'StartLimitBurst=10000' \
+            --unit=test-54-restart-loop.service \
+            --wait \
+            false)
+rm /tmp/cred-huge
+
 echo stable >/tmp/cred-stable
 systemd-run -p 'LoadCredential=stable:/tmp/cred-stable' \
             -p 'ExecStartPost=systemd-creds cat stable' \
