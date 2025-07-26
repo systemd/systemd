@@ -12,6 +12,7 @@
 #include "bus-signature.h"
 #include "bus-slot.h"
 #include "bus-type.h"
+#include "escape.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "string-util.h"
@@ -858,10 +859,11 @@ static int property_get_all_callbacks_run(
                 return 0;
 
         if (!found_interface) {
+                _cleanup_free_ char *escaped = cescape(iface);
                 r = sd_bus_reply_method_errorf(
                                 m,
                                 SD_BUS_ERROR_UNKNOWN_INTERFACE,
-                                "Unknown interface '%s'.", iface);
+                                "Unknown interface '%s'.", strna(escaped));
                 if (r < 0)
                         return r;
 
@@ -1468,10 +1470,14 @@ int bus_process_object(sd_bus *bus, sd_bus_message *m) {
                 (void) sd_bus_message_read_basic(m, 's', &interface);
                 (void) sd_bus_message_read_basic(m, 's', &property);
 
+                _cleanup_free_ char
+                        *escaped_interface = cescape(strnull(interface)),
+                        *escaped_property = cescape(strnull(property));
+
                 r = sd_bus_reply_method_errorf(
                                 m,
                                 SD_BUS_ERROR_UNKNOWN_PROPERTY,
-                                "Unknown interface %s or property %s.", strnull(interface), strnull(property));
+                                "Unknown interface %s or property %s.", strna(escaped_interface), strna(escaped_property));
         } else
                 r = sd_bus_reply_method_errorf(
                                 m,
