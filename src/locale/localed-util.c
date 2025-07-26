@@ -9,6 +9,7 @@
 #include "copy.h"
 #include "env-file.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -60,15 +61,16 @@ static int verify_keymap(const char *keymap, int log_level, sd_bus_error *error)
         assert(keymap);
 
         r = keymap_exists(keymap); /* This also verifies that the keymap name is kosher. */
-        if (r < 0) {
+        if (r <= 0) {
+                _cleanup_free_ char *escaped = cescape(keymap);
+                if (r < 0) {
+                        if (error)
+                                sd_bus_error_set_errnof(error, r, "Failed to check keymap %s: %m", strna(escaped));
+                        return log_full_errno(log_level, r, "Failed to check keymap %s: %m", strna(escaped));
+                }
                 if (error)
-                        sd_bus_error_set_errnof(error, r, "Failed to check keymap %s: %m", keymap);
-                return log_full_errno(log_level, r, "Failed to check keymap %s: %m", keymap);
-        }
-        if (r == 0) {
-                if (error)
-                        sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", keymap);
-                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOENT), "Keymap %s is not installed.", keymap);
+                        sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Keymap %s is not installed.", strna(escaped));
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOENT), "Keymap %s is not installed.", strna(escaped));
         }
 
         return 0;
