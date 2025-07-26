@@ -15,7 +15,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-07-26 15:53+0000\n"
+"PO-Revision-Date: 2025-07-26 18:51+0000\n"
 "Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
@@ -155,10 +155,8 @@ msgid "Manage Home Directory Signing Keys"
 msgstr "管理家目录签名密钥"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "管理系统服务或其它单元需要认证。"
+msgstr "管理家目录的签名密钥需要认证。"
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
