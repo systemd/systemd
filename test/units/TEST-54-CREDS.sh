@@ -459,20 +459,6 @@ systemd-run -p ProtectSystem=full \
             systemd-creds cat huge | cmp - <(echo "fresh")
 rm /tmp/cred-huge
 
-# For issue #37939
-dd if=/dev/urandom of=/tmp/cred-huge bs=600K count=1
-chmod 777 /tmp/cred-huge
-(! systemd-run -p ProtectSystem=full \
-            -p 'LoadCredential=huge:/tmp/cred-huge' \
-            -p 'Restart=always' \
-            -p 'RestartSec=0' \
-            -p 'StartLimitIntervalSec=10000' \
-            -p 'StartLimitBurst=10000' \
-            --unit=test-54-restart-loop.service \
-            --wait \
-            false)
-rm /tmp/cred-huge
-
 echo stable >/tmp/cred-stable
 systemd-run -p 'LoadCredential=stable:/tmp/cred-stable' \
             -p 'ExecStartPost=systemd-creds cat stable' \
@@ -540,6 +526,31 @@ dd if=/dev/urandom of=/tmp/brummbaer.data bs=4096 count=1
 run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
 run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
 run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
+
+# For issue #37939
+cat /proc/1/mountinfo
+cat /proc/1/mountinfo >/tmp/before
+free
+
+dd if=/dev/urandom of=/tmp/brummbaer.data bs=1024 count=1023
+run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
+run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
+run0 -u testuser -- \
+     systemd-run \
+     --user \
+     -p ProtectSystem=full \
+     -p 'ImportCredential=brummbaer' \
+     -p 'Restart=always' \
+     -p 'RestartSec=0' \
+     -p 'StartLimitIntervalSec=10000' \
+     -p 'StartLimitBurst=10' \
+     --unit=test-54-restart-loop.service \
+     --wait \
+     false || :
+
+cat /proc/1/mountinfo
+cat /proc/1/mountinfo | diff /tmp/before -
+free
 
 systemd-analyze log-level info
 
