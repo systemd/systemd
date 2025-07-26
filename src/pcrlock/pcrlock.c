@@ -4842,7 +4842,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
 
         log_info("Overall time spent: %s", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start_usec), 1));
 
-        return 1; /* installed new policy */
+        return 0;
 }
 
 static int verb_make_policy(int argc, char *argv[], void *userdata) {
@@ -5454,4 +5454,4 @@ static int run(int argc, char *argv[]) {
         return pcrlock_main(argc, argv);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
