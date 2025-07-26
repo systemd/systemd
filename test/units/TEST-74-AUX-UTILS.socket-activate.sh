@@ -6,25 +6,28 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-CAT_PID="$(systemd-notify --fork -- systemd-socket-activate -l 1234 --accept --inetd cat)"
+PID="$(systemd-notify --fork -- systemd-socket-activate -l 1234 --accept --inetd cat)"
+assert_in systemd-socket "$(cat /proc/"$PID"/comm)"
 assert_eq "$(echo -n hello | socat - 'TCP:localhost:1234')" hello
-kill "$CAT_PID"
+assert_in systemd-socket "$(cat /proc/"$PID"/comm)"
+kill "$PID"
+wait "$PID" || :
 
-# Check whether socat's ACCEPT-FD is available (introduced in v1.8)
-systemd-socket-activate -l 1234 --now socat ACCEPT-FD:3 PIPE &
-sleep 1
-jobs >/dev/null
-if kill %% &>/dev/null; then
-    systemd-socket-activate -l 1234 --now socat ACCEPT-FD:3 PIPE &
-    SOCAT_PID="$!"
+PID=$(systemd-notify --fork -- systemd-socket-activate -l 1234 --now socat ACCEPT-FD:3 PIPE)
+for _ in {1..100}; do
+    sleep 0.1
+    if [[ ! -d "/proc/$PID" ]]; then
+        # ACCEPT-FD is available since socat v1.8
+        : "systemd-socket-activate or socat died. Maybe socat does not support ACCEPT-FD. Skipping test."
+        break
+    fi
 
-    # unfortunately we need to sleep since socket-activate only sends sd_notify when --accept is passed,
-    # so we can't rely on that to avoid a race.
-    sleep 1
-
-    assert_in socat "$(</proc/"$SOCAT_PID"/comm)"
-    assert_eq "$(echo -n bye | socat - 'TCP:localhost:1234')" bye
-fi
+    if [[ "$(cat /proc/"$PID"/comm || :)" =~ socat ]]; then
+        assert_eq "$(echo -n bye | socat - 'TCP:localhost:1234')" bye
+        wait "$PID" || :
+        break
+    fi
+done
 
 # --accept is not allowed with --now
 (! systemd-socket-activate -l 1234 --accept --now cat)
