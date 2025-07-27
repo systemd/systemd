@@ -342,4 +342,21 @@ EOF
     bootctl remove
 }
 
+testcase_secureboot() {
+    if [ ! -d /sys/firmware/efi ]; then
+        echo "Not booted with EFI, skipping secureboot tests."
+        return 0
+    fi
+
+    # Ensure secure boot is enabled and not in setup mode
+    cmp /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\1')
+    cmp /sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\0')
+    bootctl status | grep -q "Secure Boot: enabled"
+
+    # Ensure the addon is fully loaded and parsed
+    bootctl status | grep -q "global-addon: loader/addons/test.addon.efi"
+    bootctl status | grep "cmdline" | grep -q addonfoobar
+    grep -q addonfoobar /proc/cmdline
+}
+
 run_testcases
