@@ -15,7 +15,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-07-26 20:30+0000\n"
+"PO-Revision-Date: 2025-07-26 22:59+0000\n"
 "Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
@@ -140,7 +140,7 @@ msgstr "更改家区域的密码"
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "更改家区域密码需要认证。"
+msgstr "更改用户的家区域密码需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
@@ -152,7 +152,7 @@ msgstr "激活用户的家区域需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr "管理家目录签名密钥"
+msgstr "管理家目录的签名密钥"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
