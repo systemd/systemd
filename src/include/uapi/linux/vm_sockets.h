@@ -17,7 +17,7 @@
 #ifndef _VM_SOCKETS_H
 #define _VM_SOCKETS_H
 
-#include <sys/socket.h>
+#include <sys/socket.h>        /* for struct sockaddr and sa_family_t */
 
 #include <linux/socket.h>
 #include <linux/types.h>

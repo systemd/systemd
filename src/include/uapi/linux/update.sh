@@ -29,9 +29,5 @@ for i in *.h */*.h; do
             # add casts in ethtool_cmd_speed()
             sed -r -i '/return (ep->speed_hi << 16) | ep->speed;/ s/return .*;/return ((__u32) ep->speed_hi << 16) | (__u32) ep->speed;/' "$i"
             ;;
-        vm_sockets.h)
-            # the header requires struct sockaddr declared
-            sed -r -i '/#define _VM_SOCKETS_H/a \\n#include <sys/socket.h>' "$i"
-            ;;
     esac
 done
