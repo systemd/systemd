@@ -15,7 +15,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-07-26 20:30+0000\n"
+"PO-Revision-Date: 2025-07-27 09:55+0000\n"
 "Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
@@ -96,12 +96,12 @@ msgstr "移除用户家区域需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr "检查家区域凭证"
+msgstr "核验家区域的凭证"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "根据用户家区域检查凭证需要认证。"
+msgstr "将凭据与用户家区域进行核验需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -140,7 +140,7 @@ msgstr "更改家区域的密码"
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr "更改家区域密码需要认证。"
+msgstr "更改用户的家区域密码需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
@@ -152,7 +152,7 @@ msgstr "激活用户的家区域需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr "管理家目录签名密钥"
+msgstr "管理家目录的签名密钥"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
@@ -263,7 +263,7 @@ msgstr "用户 %s 的安全令牌 PIN 不正确（仅剩一次重试机会！）
 #: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr "用户 %s 的家目录目前未启用，请先在本地登录。"
+msgstr "用户 %s 的家目录目前未激活，请先在本地登录。"
 
 #: src/home/pam_systemd_home.c:687
 #, c-format
