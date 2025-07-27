@@ -109,6 +109,7 @@ typedef struct BootEntry {
         char16_t *loader;
         char16_t *url;
         char16_t *devicetree;
+        char16_t *devicetree_dir;
         char16_t *options;
         bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
         char16_t **initrd;
@@ -404,6 +405,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("        initrd: %ls\n", *initrd);
                 if (entry->devicetree)
                         printf("    devicetree: %ls\n", entry->devicetree);
+                if (entry->devicetree_dir)
+                        printf("devicetree-dir: %ls\n", entry->devicetree_dir);
                 if (entry->options)
                         printf("       options: %ls\n", entry->options);
                 if (entry->profile > 0)
@@ -994,6 +997,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->loader);
         free(entry->url);
         free(entry->devicetree);
+        free(entry->devicetree_dir);
         free(entry->options);
         strv_free(entry->initrd);
         free(entry->directory);
@@ -1396,6 +1400,10 @@ static void boot_entry_add_type1(
                 } else if (streq8(key, "devicetree")) {
                         free(entry->devicetree);
                         entry->devicetree = xstr8_to_path(value);
+
+                } else if (streq8(key, "devicetree-dir")) {
+                        free(entry->devicetree_dir);
+                        entry->devicetree_dir = xstr8_to_path(value);
 
                 } else if (streq8(key, "initrd")) {
                         entry->initrd = xrealloc(
@@ -2684,10 +2692,26 @@ static EFI_STATUS call_image_start(
                 /* DTBs are loaded by the kernel before ExitBootServices(), and they can be used to map and
                  * assign arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here
                  * is unverified. */
-                if (entry->devicetree && !secure_boot_enabled()) {
-                        err = devicetree_install(&dtstate, image_root, entry->devicetree);
-                        if (err != EFI_SUCCESS)
-                                return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
+                if (!secure_boot_enabled()) {
+                        _cleanup_free_ char16_t *devicetree_path = NULL;
+
+                        if (entry->devicetree) {
+                                devicetree_path = xstrdup16(entry->devicetree);
+                        } else if (entry->devicetree_dir) {
+                                _cleanup_free_ char16_t *devicetree_name = NULL;
+
+                                err = devicetree_get_canonical_name(&devicetree_name, image_root, entry->devicetree_dir);
+                                if (err != EFI_SUCCESS)
+                                        return log_error_status(err, "Error detecting dtb name: %m");
+
+                                devicetree_path = xasprintf("%ls\\%ls", entry->devicetree_dir, devicetree_name);
+                        }
+
+                        if (devicetree_path) {
+                                err = devicetree_install(&dtstate, image_root, devicetree_path);
+                                if (err != EFI_SUCCESS)
+                                        return log_error_status(err, "Error loading %ls: %m", devicetree_path);
+                        }
                 }
 
                 err = initrd_register(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size, &initrd_handle);
