@@ -64,6 +64,7 @@ jobs:
             vm: 1
             no_qemu: 0
             no_kvm: 0
+            shim: 0
           - distro: debian
             release: testing
             runner: ubuntu-24.04
@@ -74,6 +75,7 @@ jobs:
             vm: 0
             no_qemu: 0
             no_kvm: 0
+            shim: 1
           - distro: debian
             release: testing
             runner: ubuntu-24.04-arm
@@ -84,6 +86,7 @@ jobs:
             vm: 0
             no_qemu: 1
             no_kvm: 1
+            shim: 0
           - distro: ubuntu
             release: noble
             runner: ubuntu-24.04
@@ -94,6 +97,7 @@ jobs:
             vm: 0
             no_qemu: 0
             no_kvm: 0
+            shim: 0
           - distro: fedora
             release: "42"
             runner: ubuntu-24.04
@@ -104,6 +108,7 @@ jobs:
             vm: 0
             no_qemu: 0
             no_kvm: 0
+            shim: 0
           - distro: fedora
             release: rawhide
             runner: ubuntu-24.04
@@ -114,6 +119,7 @@ jobs:
             vm: 0
             no_qemu: 0
             no_kvm: 0
+            shim: 0
           - distro: opensuse
             release: tumbleweed
             runner: ubuntu-24.04
@@ -124,6 +130,7 @@ jobs:
             vm: 0
             no_qemu: 0
             no_kvm: 0
+            shim: 0
           - distro: centos
             release: "9"
             runner: ubuntu-24.04
@@ -134,6 +141,7 @@ jobs:
             vm: 0
             no_qemu: 0
             no_kvm: 0
+            shim: 0
           - distro: centos
             release: "10"
             runner: ubuntu-24.04
@@ -144,6 +152,7 @@ jobs:
             vm: 0
             no_qemu: 0
             no_kvm: 0
+            shim: 0
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -226,6 +235,23 @@ jobs:
             --buildtype=debugoptimized \
             -Dbpf-framework=disabled \
             build
+
+      - name: Prepare shim integration
+        run: |
+          if [ ${{ matrix.shim }} = 1 ]; then
+            { printf '[Content]\nPackages=shim-signed\nShimBootloader=signed\n'; \
+              printf '[Runtime]\nFirmware=uefi-secure-boot\nFirmwareVariables=%%O/ovmf_vars_shim.fd\n'; } \
+              >>mkosi/mkosi.local.conf
+
+            sudo mkdir -p build/mkosi.output/
+            sudo mkosi -f box -- \
+              virt-fw-vars \
+              --secure-boot \
+              --enroll-cert mkosi/mkosi.crt \
+              --add-mok 605dab50-e046-4300-abb6-3dd810dd8b23 mkosi/mkosi.crt \
+              --input /usr/share/OVMF/OVMF_VARS_4M.fd \
+              --output build/mkosi.output/ovmf_vars_shim.fd
+          fi
 
       - name: Build image
         run: sudo mkosi box -- meson compile -C build mkosi
