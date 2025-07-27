@@ -21,7 +21,42 @@ fi
 
 (! systemd-detect-virt -cq)
 
+restore_esp() {
+    if [ ! -d /tmp/esp.bak ]; then
+        return
+    fi
+
+    if [ -d /tmp/esp.bak/EFI/ ]; then
+        cp -r /tmp/esp.bak/EFI/* "$(bootctl --print-esp-path)/EFI/"
+    fi
+    if [ -d /tmp/esp.bak/loader/ ]; then
+        cp -r /tmp/esp.bak/loader/* "$(bootctl --print-esp-path)/loader/"
+    fi
+    rm -rf /tmp/esp.bak
+}
+
+backup_esp() {
+    if [ -d /tmp/esp.bak ]; then
+        return
+    fi
+
+    if [[ -d "$(bootctl --print-esp-path)/EFI" ]]; then
+        mkdir -p /tmp/esp.bak
+        cp -r "$(bootctl --print-esp-path)/EFI/" /tmp/esp.bak/
+    fi
+    if [[ -d "$(bootctl --print-esp-path)/loader" ]]; then
+        mkdir -p /tmp/esp.bak
+        cp -r "$(bootctl --print-esp-path)/loader/" /tmp/esp.bak/
+    fi
+}
+
 basic_tests() {
+    # Ensure the system's ESP (no --image/--root args) is still available for the next tests
+    if [ $# -eq 0 ]; then
+        backup_esp
+        trap restore_esp RETURN ERR
+    fi
+
     bootctl "$@" --help
     bootctl "$@" --version
 
@@ -274,6 +309,10 @@ testcase_bootctl_varlink() {
 }
 
 testcase_bootctl_secure_boot_auto_enroll() {
+    # mkosi can also add keys here, so back them up and restored them
+    backup_esp
+    trap restore_esp RETURN ERR
+
     cat >/tmp/openssl.conf <<EOF
 [ req ]
 prompt = no
@@ -292,6 +331,9 @@ EOF
     openssl req -config /tmp/openssl.conf -subj="/CN=waldo" \
             -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
             -keyout /tmp/sb.key -out /tmp/sb.crt
+
+    # This will fail if there are already keys in the ESP, so we remove them first
+    rm -rf "$(bootctl --print-esp-path)/loader/keys/auto"
 
     bootctl install --make-entry-directory=yes --secure-boot-auto-enroll=yes --certificate /tmp/sb.crt --private-key /tmp/sb.key
     for var in PK KEK db; do
