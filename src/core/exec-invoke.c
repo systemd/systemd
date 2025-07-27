@@ -1456,35 +1456,23 @@ fail:
 }
 
 static void rename_process_from_path(const char *path) {
-        _cleanup_free_ char *buf = NULL;
-        const char *p;
-
         assert(path);
 
-        /* This resulting string must fit in 10 chars (i.e. the length of "/sbin/init") to look pretty in
-         * /bin/ps */
+        _cleanup_free_ char *buf = NULL;
+        if (path_extract_filename(path, &buf) < 0)
+                return (void) rename_process("(...)");
 
-        if (path_extract_filename(path, &buf) < 0) {
-                rename_process("(...)");
-                return;
-        }
+        size_t len = strlen(buf);
+        char comm[TASK_COMM_LEN], *p = comm;
+        *p++ = '(';
+        p = mempcpy(p, buf + LESS_BY(len, (size_t) (TASK_COMM_LEN - 3)), MAX(len, (size_t) (TASK_COMM_LEN - 3)));
+        *p++ = ')';
+        *p = '\0';
 
-        size_t l = strlen(buf);
-        if (l > 8) {
-                /* The end of the process name is usually more interesting, since the first bit might just be
-                 * "systemd-" */
-                p = buf + l - 8;
-                l = 8;
-        } else
-                p = buf;
+        size_t len_invocation = program_invocation_name ? strlen(program_invocation_name) : SIZE_MAX;
+        _cleanup_free_ char *invocation = strjoin("(", buf + LESS_BY(len, len_invocation + 2), ")");
 
-        char process_name[11];
-        process_name[0] = '(';
-        memcpy(process_name+1, p, l);
-        process_name[1+l] = ')';
-        process_name[1+l+1] = 0;
-
-        (void) rename_process(process_name);
+        (void) rename_process_full(comm, invocation ?: comm);
 }
 
 static bool context_has_address_families(const ExecContext *c) {

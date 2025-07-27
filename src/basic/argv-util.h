@@ -12,4 +12,7 @@ bool invoked_as(char *argv[], const char *token);
 bool invoked_by_systemd(void);
 bool argv_looks_like_help(int argc, char **argv);
 
-int rename_process(const char name[]);
+int rename_process_full(const char *name, const char *invocation);
+static inline int rename_process(const char *name) {
+        return rename_process_full(name, name);
+}
