@@ -392,9 +392,6 @@ void manager_process_syslog_message(
         if (!client_context_test_priority(context, priority))
                 return;
 
-        if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
-                return;
-
         syslog_ts = msg;
         syslog_ts_len = syslog_skip_timestamp(&msg);
         if (syslog_ts_len == 0)
@@ -402,6 +399,9 @@ void manager_process_syslog_message(
                 store_raw = true;
 
         syslog_parse_identifier(&msg, &identifier, &pid);
+
+        if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
+                return;
 
         if (m->config.forward_to_syslog)
                 forward_syslog_raw(m, priority, buf, raw_len, ucred, tv);
