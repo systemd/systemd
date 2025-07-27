@@ -7,6 +7,7 @@
 #include "errno-list.h"
 #include "errno-util.h"
 #include "string-util.h"
+#include "utf8.h"
 
 BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map bus_standard_errors[] = {
         SD_BUS_ERROR_MAP(SD_BUS_ERROR_FAILED,                             EACCES),
@@ -246,7 +247,7 @@ _public_ int sd_bus_error_setfv(sd_bus_error *e, const char *name, const char *f
                          * this, since we at least managed to write the error name */
 
                         if (vasprintf(&mesg, format, ap) >= 0)
-                                e->message = TAKE_PTR(mesg);
+                                e->message = utf8_escape_non_printable(mesg);
                 }
 
                 e->_need_free = 1;
