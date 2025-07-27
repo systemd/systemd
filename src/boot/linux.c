@@ -48,6 +48,7 @@ static EFI_STATUS load_via_boot_services(
                 EFI_HANDLE parent,
                 EFI_LOADED_IMAGE_PROTOCOL* parent_loaded_image,
                 uint32_t compat_entry_point,
+                const char16_t *cmdline,
                 const struct iovec *kernel,
                 const struct iovec *initrd) {
         _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
@@ -95,6 +96,11 @@ static EFI_STATUS load_via_boot_services(
                         kernel_image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(EFI_LOAD_ERROR, "Error getting kernel image from protocol from shim: %m");
+
+        if (cmdline) {
+                loaded_image->LoadOptions = (void *) cmdline;
+                loaded_image->LoadOptionsSize = strsize16(loaded_image->LoadOptions);
+        }
 
         _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         err = initrd_register(initrd->iov_base, initrd->iov_len, &initrd_handle);
@@ -174,6 +180,7 @@ EFI_STATUS linux_exec(
                                 parent,
                                 parent_loaded_image,
                                 compat_entry_point,
+                                cmdline,
                                 kernel,
                                 initrd);
 
