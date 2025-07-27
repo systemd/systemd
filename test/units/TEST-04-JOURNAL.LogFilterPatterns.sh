@@ -119,6 +119,7 @@ test_delegate() {
 }
 
 test_service logs-filtering.service
+test_service logs-filtering-syslog.service
 test_delegate delegated-cgroup-filtering.service
 
 systemctl log-level "$SAVED_LOG_LEVEL"
