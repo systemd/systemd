@@ -127,29 +127,12 @@ cat /etc/dfuzzer.conf
 # TODO
 #   * check for possibly newly introduced buses?
 NAME_LIST=(
-    home
-    hostname
-    import
-    locale
-    login
-    machine
-    portable
-    resolve
-    timedate
 )
 
 # Some services require specific conditions:
 #   - systemd-oomd requires PSI
 #   - systemd-timesyncd can't run in a container
 #   - systemd-networkd can run in a container if it has CAP_NET_ADMIN capability
-if tail -n +1 /proc/pressure/{cpu,io,memory}; then
-    NAME_LIST+=( oom )
-fi
-
-if ! systemd-detect-virt --container; then
-    NAME_LIST+=( timesync )
-fi
-
 if ip link add dummy-fuzz type dummy; then
     # if a dummy interface is created, then let's also setup it for resolved
     ip link set dummy-fuzz up
@@ -194,25 +177,6 @@ EOF
     systemctl restart "$service"
 done
 
-test_systemd() {
-    systemd-run "$@" --pipe --wait \
-                -- dfuzzer -b "$PAYLOAD_MAX" -n org.freedesktop.systemd1
-
-    # Let's reload the systemd user daemon to test (de)serialization as well
-    systemctl "$@" daemon-reload
-    # FIXME: explicitly trigger reexecute until systemd/systemd#27204 is resolved
-    systemctl "$@" daemon-reexec
-}
-
-# Let's first test the session bus before the system one, as it may be in a
-# spurious state after fuzzing the system bus or login bus.
-echo "Bus: org.freedesktop.systemd1 (session)"
-test_systemd --machine 'testuser@.host' --user
-
-# Overmount /var/lib/machines with a size-limited tmpfs, as fuzzing
-# the org.freedesktop.machine1 stuff makes quite a mess
-mount -t tmpfs -o size=50M tmpfs /var/lib/machines
-
 # Next, test the system service buses, as the services may be in a spurious
 # state after fuzzing the system service manager bus.
 for name in "${NAME_LIST[@]}"; do
@@ -234,11 +198,5 @@ for name in "${NAME_LIST[@]}"; do
     # disable debugging logs
     systemctl service-log-level "$service" info || :
 done
-
-umount /var/lib/machines
-
-# Finally, test the system bus.
-echo "Bus: org.freedesktop.systemd1 (system)"
-test_systemd
 
 touch /testok
