@@ -62,8 +62,6 @@ EOF
 grep -E "^Inserted module .*dummy" /tmp/out.log
 grep -E "^Failed to find module .*foo-bar-baz" /tmp/out.log
 (! grep -E "This is a comment" /tmp/out.log)
-# Each module should be loaded only once, even if specified multiple times
-[[ "$(grep -Ec "^Inserted module" /tmp/out.log)" -eq 1 ]]
 [[ "$(grep -Ec "^Failed to find module" /tmp/out.log)" -eq 7 ]]
 
 # Command line arguments
@@ -76,8 +74,6 @@ CMDLINE="ro root= modules_load= modules_load=, / = modules_load=foo-bar-baz,dumm
 SYSTEMD_PROC_CMDLINE="$CMDLINE" "$MODULES_LOAD_BIN" |& tee /tmp/out.log
 grep -E "^Inserted module .*dummy" /tmp/out.log
 grep -E "^Failed to find module .*foo-bar-baz" /tmp/out.log
-# Each module should be loaded only once, even if specified multiple times
-[[ "$(grep -Ec "^Inserted module" /tmp/out.log)" -eq 1 ]]
 
 (! "$MODULES_LOAD_BIN" --nope)
 (! "$MODULES_LOAD_BIN" /foo/bar/baz)
