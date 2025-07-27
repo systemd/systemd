@@ -47,67 +47,78 @@ at_exit() {
 
 trap at_exit EXIT
 
-# Accept all log messages
-add_logs_filtering_override "logs-filtering.service" "00-reset" ""
-[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+test_service() {
+    service="${1:?}"
 
-add_logs_filtering_override "logs-filtering.service" "01-allow-all" ".*"
-[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    # Accept all log messages
+    add_logs_filtering_override "$service" "00-reset" ""
+    [[ -n $(run_service_and_fetch_logs "$service") ]]
 
-# Discard all log messages
-add_logs_filtering_override "logs-filtering.service" "02-discard-all" "~.*"
-[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    add_logs_filtering_override "$service" "01-allow-all" ".*"
+    [[ -n $(run_service_and_fetch_logs "$service") ]]
 
-# Accept all test messages
-add_logs_filtering_override "logs-filtering.service" "03-reset" ""
-[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    # Discard all log messages
+    add_logs_filtering_override "$service" "02-discard-all" "~.*"
+    [[ -z $(run_service_and_fetch_logs "$service") ]]
 
-# Discard all test messages
-add_logs_filtering_override "logs-filtering.service" "04-discard-gg" "~.*gg.*"
-[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    # Accept all test messages
+    add_logs_filtering_override "$service" "03-reset" ""
+    [[ -n $(run_service_and_fetch_logs "$service") ]]
 
-# Deny filter takes precedence
-add_logs_filtering_override "logs-filtering.service" "05-allow-all-but-too-late" ".*"
-[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    # Discard all test messages
+    add_logs_filtering_override "$service" "04-discard-gg" "~.*gg.*"
+    [[ -z $(run_service_and_fetch_logs "$service") ]]
 
-# Use tilde in a deny pattern
-add_logs_filtering_override "logs-filtering.service" "06-reset" ""
-add_logs_filtering_override "logs-filtering.service" "07-prevent-tilde" "~~more~"
-[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    # Deny filter takes precedence
+    add_logs_filtering_override "$service" "05-allow-all-but-too-late" ".*"
+    [[ -z $(run_service_and_fetch_logs "$service") ]]
 
-# Only allow a pattern that won't be matched
-add_logs_filtering_override "logs-filtering.service" "08-reset" ""
-add_logs_filtering_override "logs-filtering.service" "09-allow-only-non-existing" "non-existing string"
-[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    # Use tilde in a deny pattern
+    add_logs_filtering_override "$service" "06-reset" ""
+    add_logs_filtering_override "$service" "07-prevent-tilde" "~~more~"
+    [[ -z $(run_service_and_fetch_logs "$service") ]]
 
-# Allow a pattern starting with a tilde
-add_logs_filtering_override "logs-filtering.service" "10-allow-with-escape-char" "\\\\x7emore~"
-[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    # Only allow a pattern that won't be matched
+    add_logs_filtering_override "$service" "08-reset" ""
+    add_logs_filtering_override "$service" "09-allow-only-non-existing" "non-existing string"
+    [[ -z $(run_service_and_fetch_logs "$service") ]]
 
-add_logs_filtering_override "logs-filtering.service" "11-reset" ""
-add_logs_filtering_override "logs-filtering.service" "12-allow-with-spaces" "foo bar"
-[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    # Allow a pattern starting with a tilde
+    add_logs_filtering_override "$service" "10-allow-with-escape-char" "\\\\x7emore~"
+    [[ -n $(run_service_and_fetch_logs "$service") ]]
 
-add_logs_filtering_override "logs-filtering.service" "13-reset" ""
-add_logs_filtering_override "logs-filtering.service" "14-exclude-head" "~^Logging"
-[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    add_logs_filtering_override "$service" "11-reset" ""
+    add_logs_filtering_override "$service" "12-allow-with-spaces" "foo bar"
+    [[ -n $(run_service_and_fetch_logs "$service") ]]
 
-add_logs_filtering_override "logs-filtering.service" "15-reset" ""
-add_logs_filtering_override "logs-filtering.service" "16-exclude-head-no-match" "~^foo"
-[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    add_logs_filtering_override "$service" "13-reset" ""
+    add_logs_filtering_override "$service" "14-exclude-head" "~^Logging"
+    [[ -z $(run_service_and_fetch_logs "$service") ]]
 
-add_logs_filtering_override "logs-filtering.service" "17-reset" ""
-add_logs_filtering_override "logs-filtering.service" "18-include-head" "^Logging"
-[[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    add_logs_filtering_override "$service" "15-reset" ""
+    add_logs_filtering_override "$service" "16-exclude-head-no-match" "~^foo"
+    [[ -n $(run_service_and_fetch_logs "$service") ]]
 
-add_logs_filtering_override "logs-filtering.service" "19-reset" ""
-add_logs_filtering_override "logs-filtering.service" "20-include-head-no-match" "^foo"
-[[ -z $(run_service_and_fetch_logs "logs-filtering.service") ]]
+    add_logs_filtering_override "$service" "17-reset" ""
+    add_logs_filtering_override "$service" "18-include-head" "^Logging"
+    [[ -n $(run_service_and_fetch_logs "$service") ]]
 
-add_logs_filtering_override "delegated-cgroup-filtering.service" "00-allow-all" ".*"
-[[ -n $(run_service_and_fetch_logs "delegated-cgroup-filtering.service") ]]
+    add_logs_filtering_override "$service" "19-reset" ""
+    add_logs_filtering_override "$service" "20-include-head-no-match" "^foo"
+    [[ -z $(run_service_and_fetch_logs "$service") ]]
+}
 
-add_logs_filtering_override "delegated-cgroup-filtering.service" "01-discard-hello" "~hello"
-[[ -z $(run_service_and_fetch_logs "delegated-cgroup-filtering.service") ]]
+test_delegate() {
+    local service="${1:?}"
+
+    add_logs_filtering_override "$service" "00-allow-all" ".*"
+    [[ -n $(run_service_and_fetch_logs "$service") ]]
+
+    add_logs_filtering_override "$service" "01-discard-hello" "~hello"
+    [[ -z $(run_service_and_fetch_logs "$service") ]]
+}
+
+test_service logs-filtering.service
+test_delegate delegated-cgroup-filtering.service
 
 systemctl log-level "$SAVED_LOG_LEVEL"

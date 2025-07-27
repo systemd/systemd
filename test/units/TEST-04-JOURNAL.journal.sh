@@ -109,10 +109,10 @@ systemctl start silent-success
 # Test syslog identifiers exclusion
 systemctl start verbose-success.service
 [[ -n "$(journalctl -b -q -u verbose-success.service -t systemd)" ]]
-[[ -n "$(journalctl -b -q -u verbose-success.service -t echo)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -t bash)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -T systemd)" ]]
-[[ -n "$(journalctl -b -q -u verbose-success.service -T echo)" ]]
-[[ -z "$(journalctl -b -q -u verbose-success.service -T echo -T '(echo)' -T sleep -T '(sleep)' -T systemd -T '(systemd)' -T systemd-executor)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -T bash)" ]]
+[[ -z "$(journalctl -b -q -u verbose-success.service -T bash -T '(bash)' -T systemd -T '(systemd)')" ]]
 
 # Exercise the matching machinery
 SYSTEMD_LOG_LEVEL=debug journalctl -b -n 1 /dev/null /dev/zero /dev/null /dev/null /dev/null
