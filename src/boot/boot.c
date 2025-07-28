@@ -241,7 +241,7 @@ static char16_t* update_timeout_efivar(Config *config, bool inc) {
         case TIMEOUT_MENU_FORCE:
                 return xstrdup16(u"Timeout disabled, menu will always be shown.");
         case TIMEOUT_MENU_HIDDEN:
-                return xstrdup16(u"Menu hidden. Hold down key at bootup to show menu.");
+                return xstrdup16(u"Menu hidden. Hold down space at bootup to show menu.");
         default:
                 return xasprintf("Menu timeout set to %u s.", (uint32_t)config->timeout_sec_efivar);
         }
