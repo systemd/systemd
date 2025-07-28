@@ -1091,14 +1091,24 @@ PTYForward* pty_forward_free(PTYForward *f) {
 }
 
 int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
+        bool changed = false;
         int r;
 
         assert(f);
 
-        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP) == b)
-                return 0;
+        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP) != b) {
+                SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
+                changed = true;
+        }
 
-        SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
+        /* When false, also unset the initial one. */
+        if (!b && FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_INITIAL_VHANGUP)) {
+                SET_FLAG(f->flags, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, false);
+                changed = true;
+        }
+
+        if (!changed)
+                return 0;
 
         if (!ignore_vhangup(f)) {
 
