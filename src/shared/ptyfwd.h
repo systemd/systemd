@@ -12,7 +12,7 @@ typedef enum PTYForwardFlags {
         /* Continue reading after hangup? */
         PTY_FORWARD_IGNORE_VHANGUP         = 1 << 1,
 
-        /* Continue reading after hangup but only if we never read anything else? */
+        /* Continue reading after the initial hangup but only if we never read anything else? */
         PTY_FORWARD_IGNORE_INITIAL_VHANGUP = 1 << 2,
 
         /* Don't tint the background, or set window title */
