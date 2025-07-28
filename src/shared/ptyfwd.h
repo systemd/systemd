@@ -12,7 +12,7 @@ typedef enum PTYForwardFlags {
         /* Continue reading after hangup? */
         PTY_FORWARD_IGNORE_VHANGUP         = 1 << 1,
 
-        /* Continue reading after hangup but only if we never read anything else? */
+        /* Continue reading after the initial hangup but only if we never read anything else? */
         PTY_FORWARD_IGNORE_INITIAL_VHANGUP = 1 << 2,
 
         /* Don't tint the background, or set window title */
@@ -34,7 +34,7 @@ bool pty_forward_get_ignore_vhangup(PTYForward *f);
 void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler handler, void *userdata);
 void pty_forward_set_hotkey_handler(PTYForward *f, PTYForwardHotkeyHandler handler, void *userdata);
 
-bool pty_forward_drain(PTYForward *f);
+int pty_forward_drain(PTYForward *f);
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority);
 

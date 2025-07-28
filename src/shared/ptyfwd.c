@@ -60,6 +60,7 @@ struct PTYForward {
         sd_event_source *master_event_source;
         sd_event_source *sigwinch_event_source;
         sd_event_source *exit_event_source;
+        sd_event_source *defer_event_source;
 
         struct termios saved_stdin_attr;
         struct termios saved_stdout_attr;
@@ -122,6 +123,7 @@ static void pty_forward_disconnect(PTYForward *f) {
         f->master_event_source = sd_event_source_unref(f->master_event_source);
         f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
         f->exit_event_source = sd_event_source_unref(f->exit_event_source);
+        f->defer_event_source = sd_event_source_unref(f->defer_event_source);
         f->event = sd_event_unref(f->event);
 
         if (f->output_fd >= 0) {
@@ -722,9 +724,12 @@ static int do_shovel(PTYForward *f) {
                                  * temporary closing of everything on the other side, we treat it like EAGAIN
                                  * here and try again, unless ignore_vhangup is off. */
 
-                                if (errno == EAGAIN || (errno == EIO && ignore_vhangup(f)))
+                                if (errno == EAGAIN)
                                         f->master_readable = false;
-                                else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
+                                else if (errno == EIO && ignore_vhangup(f)) {
+                                        f->master_readable = false;
+                                        f->read_from_master = true; /* To make the second vhangup not ignored. */
+                                } else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
                                         f->master_readable = f->master_writable = false;
                                         f->master_hangup = true;
 
@@ -786,6 +791,18 @@ static int do_shovel(PTYForward *f) {
                         break;
         }
 
+        return 0;
+}
+
+static int shovel(PTYForward *f) {
+        int r;
+
+        assert(f);
+
+        r = do_shovel(f);
+        if (r < 0)
+                return pty_forward_done(f, r);
+
         if (f->stdin_hangup || f->stdout_hangup || f->master_hangup) {
                 /* Exit the loop if any side hung up and if there's
                  * nothing more to write or nothing we could write. */
@@ -803,16 +820,17 @@ static int do_shovel(PTYForward *f) {
         return 0;
 }
 
-static int shovel(PTYForward *f) {
-        int r;
-
+static int shovel_force(PTYForward *f) {
         assert(f);
 
-        r = do_shovel(f);
-        if (r < 0)
-                return pty_forward_done(f, r);
+        if (!f->master_hangup)
+                f->master_writable = f->master_readable = true;
+        if (!f->stdin_hangup)
+                f->stdin_readable = true;
+        if (!f->stdout_hangup)
+                f->stdout_writable = true;
 
-        return r;
+        return shovel(f);
 }
 
 static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
@@ -883,20 +901,29 @@ static int on_exit_event(sd_event_source *e, void *userdata) {
 
         if (!pty_forward_drain(f)) {
                 /* If not drained, try to drain the buffer. */
-
-                if (!f->master_hangup)
-                        f->master_writable = f->master_readable = true;
-                if (!f->stdin_hangup)
-                        f->stdin_readable = true;
-                if (!f->stdout_hangup)
-                        f->stdout_writable = true;
-
-                r = shovel(f);
+                r = shovel_force(f);
                 if (r < 0)
                         return r;
         }
 
         return pty_forward_done(f, 0);
+}
+
+static int on_defer_event(sd_event_source *s, void *userdata) {
+        PTYForward *f = ASSERT_PTR(userdata);
+        return shovel_force(f);
+}
+
+static int pty_forward_add_defer(PTYForward *f) {
+        assert(f);
+
+        if (f->done)
+                return 0;
+
+        if (f->defer_event_source)
+                return sd_event_source_set_enabled(f->defer_event_source, SD_EVENT_ONESHOT);
+
+        return sd_event_add_defer(f->event, &f->defer_event_source, on_defer_event, f);
 }
 
 int pty_forward_new(
@@ -1083,26 +1110,29 @@ PTYForward* pty_forward_free(PTYForward *f) {
 }
 
 int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
-        int r;
+        bool changed = false;
 
         assert(f);
 
-        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP) == b)
-                return 0;
-
-        SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
-
-        if (!ignore_vhangup(f)) {
-
-                /* We shall now react to vhangup()s? Let's check immediately if we might be in one. */
-
-                f->master_readable = true;
-                r = shovel(f);
-                if (r < 0)
-                        return r;
+        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP) != b) {
+                SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
+                changed = true;
         }
 
-        return 0;
+        /* When false, also unset the initial one. */
+        if (!b && FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_INITIAL_VHANGUP)) {
+                SET_FLAG(f->flags, PTY_FORWARD_IGNORE_INITIAL_VHANGUP, false);
+                changed = true;
+        }
+
+        if (!changed)
+                return 0;
+
+        if (ignore_vhangup(f) || f->master_hangup)
+                return 0;
+
+        /* We shall now react to vhangup()s? Let's check if we might be in one. */
+        return pty_forward_add_defer(f);
 }
 
 bool pty_forward_get_ignore_vhangup(PTYForward *f) {
@@ -1125,18 +1155,14 @@ void pty_forward_set_hotkey_handler(PTYForward *f, PTYForwardHotkeyHandler cb, v
         f->hotkey_userdata = userdata;
 }
 
-bool pty_forward_drain(PTYForward *f) {
+int pty_forward_drain(PTYForward *f) {
         assert(f);
 
-        /* Starts draining the forwarder. Specifically:
-         *
-         * - Returns true if there are no unprocessed bytes from the pty, false otherwise
-         *
-         * - Makes sure the handler function is called the next time the number of unprocessed bytes hits zero
-         */
+        /* Starts draining the forwarder. This makes sure the handler function is called the next time the
+         * number of unprocessed bytes hits zero. */
 
         f->drain = true;
-        return drained(f);
+        return pty_forward_add_defer(f);
 }
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority) {
