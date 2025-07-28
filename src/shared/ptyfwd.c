@@ -815,6 +815,19 @@ static int shovel(PTYForward *f) {
         return 0;
 }
 
+static int shovel_force(PTYForward *f) {
+        assert(f);
+
+        if (!f->master_hangup)
+                f->master_writable = f->master_readable = true;
+        if (!f->stdin_hangup)
+                f->stdin_readable = true;
+        if (!f->stdout_hangup)
+                f->stdout_writable = true;
+
+        return shovel(f);
+}
+
 static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
         PTYForward *f = ASSERT_PTR(userdata);
 
@@ -883,15 +896,7 @@ static int on_exit_event(sd_event_source *e, void *userdata) {
 
         if (!pty_forward_drain(f)) {
                 /* If not drained, try to drain the buffer. */
-
-                if (!f->master_hangup)
-                        f->master_writable = f->master_readable = true;
-                if (!f->stdin_hangup)
-                        f->stdin_readable = true;
-                if (!f->stdout_hangup)
-                        f->stdout_writable = true;
-
-                r = shovel(f);
+                r = shovel_force(f);
                 if (r < 0)
                         return r;
         }
