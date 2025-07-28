@@ -5,4 +5,7 @@ echo $$ >/sys/fs/cgroup/system.slice/delegated-cgroup-filtering.service/the_chil
 
 echo "child_process: hello, world!"
 echo "child_process: hello, people!"
-sleep .15
+
+# If the service finishes extremely fast, journald cannot find the source of the
+# stream. Hence, we need to call 'journalctl --sync' before service finishes.
+journalctl --sync
