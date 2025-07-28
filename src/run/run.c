@@ -1836,6 +1836,14 @@ static void run_context_check_done(RunContext *c) {
                 log_error_errno(r, "Failed to drain PTY forwarder: %m");
                 return (void) sd_event_exit(c->event, EXIT_FAILURE);
         }
+
+        /* Tell the forwarder to exit on the next vhangup(), so that we still flush out what might be
+         * queued and exit then. */
+        r = pty_forward_set_ignore_vhangup(c->forward, false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to disable ignore_vhangup flag in the PTY forwarder: %m");
+                return (void) sd_event_exit(c->event, EXIT_FAILURE);
+        }
 }
 
 static int map_job(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
