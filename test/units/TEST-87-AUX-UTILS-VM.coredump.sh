@@ -23,7 +23,8 @@ at_exit() {
 
 trap at_exit EXIT
 
-# To make all coredump entries stored in system.journal.
+# Sync and rotate journal to make all coredump entries stored in system.journal.
+journalctl --sync
 journalctl --rotate
 
 # Check that we're the ones to receive coredumps
@@ -108,6 +109,16 @@ EOF
     rm -rf "/var/lib/machines/$CONTAINER"
     unset CONTAINER
 fi
+
+# Sync and rotate journals (again) to make coredumps stored in archived journal. Otherwise, the main active
+# journal file may be already mostly filled with the coredumps, and may trigger rotation during the sanity
+# checks below. If coredumpctl accesses the main journal currently rotationg, then it warns the following and
+# skips reading the main journal, and cannot find the recent coredumps:
+# TEST-87-AUX-UTILS-VM.sh[839]: + coredumpctl -n 1
+# TEST-87-AUX-UTILS-VM.sh[1172]: Journal file /var/log/journal/a8285330872602d1377cbaaf68869946/system.journal is truncated, ignoring file.
+# TEST-87-AUX-UTILS-VM.sh[1172]: No coredumps found.
+journalctl --sync
+journalctl --rotate
 
 coredumpctl
 SYSTEMD_LOG_LEVEL=debug coredumpctl
