@@ -301,6 +301,11 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
     may be used in combination with `/run/host/userdb/` above: one defines the
     user record, the other contains the user's home directory.
 
+12. The `/run/host/root/` directory may be used to bind mount the host root
+    filesystem. Container managers are not required to bind mount this
+    directory, and any container manager that seeks to maintain a security
+    boundary should not provide this directory.
+
 ## What You Shouldn't Do
 
 1. Do not drop `CAP_MKNOD` from the container. `PrivateDevices=` is a commonly
