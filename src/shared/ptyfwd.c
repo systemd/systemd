@@ -249,18 +249,6 @@ static RequestOperation look_for_escape(PTYForward *f, const char *buffer, size_
         return REQUEST_NOP;
 }
 
-static bool ignore_vhangup(PTYForward *f) {
-        assert(f);
-
-        if (f->flags & PTY_FORWARD_IGNORE_VHANGUP)
-                return true;
-
-        if ((f->flags & PTY_FORWARD_IGNORE_INITIAL_VHANGUP) && !f->read_from_master)
-                return true;
-
-        return false;
-}
-
 static bool drained(PTYForward *f) {
         int q = 0;
 
@@ -720,9 +708,9 @@ static int do_shovel(PTYForward *f) {
 
                                 /* Note that EIO on the master device might be caused by vhangup() or
                                  * temporary closing of everything on the other side, we treat it like EAGAIN
-                                 * here and try again, unless ignore_vhangup is off. */
+                                 * here and try again, unless vhangup() is honored. */
 
-                                if (errno == EAGAIN || (errno == EIO && ignore_vhangup(f)))
+                                if (errno == EAGAIN || (errno == EIO && !pty_forward_vhangup_honored(f)))
                                         f->master_readable = false;
                                 else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
                                         f->master_readable = f->master_writable = false;
@@ -1087,33 +1075,29 @@ PTYForward* pty_forward_free(PTYForward *f) {
         return mfree(f);
 }
 
-int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
-        int r;
-
+int pty_forward_honor_vhangup(PTYForward *f) {
         assert(f);
 
-        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP) == b)
-                return 0;
+        if ((f->flags & (PTY_FORWARD_IGNORE_VHANGUP | PTY_FORWARD_IGNORE_INITIAL_VHANGUP)) == 0)
+                return 0; /* nothing changed. */
 
-        SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
+        f->flags &= ~(PTY_FORWARD_IGNORE_VHANGUP | PTY_FORWARD_IGNORE_INITIAL_VHANGUP);
 
-        if (!ignore_vhangup(f)) {
-
-                /* We shall now react to vhangup()s? Let's check immediately if we might be in one. */
-
-                f->master_readable = true;
-                r = shovel(f);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        /* We shall now react to vhangup()s? Let's check immediately if we might be in one. */
+        f->master_readable = true;
+        return shovel(f);
 }
 
-bool pty_forward_get_ignore_vhangup(PTYForward *f) {
+bool pty_forward_vhangup_honored(const PTYForward *f) {
         assert(f);
 
-        return FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP);
+        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP))
+                return false;
+
+        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_INITIAL_VHANGUP) && !f->read_from_master)
+                return false;
+
+        return true;
 }
 
 void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler cb, void *userdata) {

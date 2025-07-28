@@ -1236,10 +1236,10 @@ static int on_machine_removed(sd_bus_message *m, void *userdata, sd_bus_error *r
         /* Tell the forwarder to exit on the next vhangup(), so that we still flush out what might be queued
          * and exit then. */
 
-        r = pty_forward_set_ignore_vhangup(forward, false);
+        r = pty_forward_honor_vhangup(forward);
         if (r < 0) {
                 /* On error, quit immediately. */
-                log_error_errno(r, "Failed to set ignore_vhangup flag: %m");
+                log_error_errno(r, "Failed to make PTY forwarder honor vhangup(): %m");
                 (void) sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), EXIT_FAILURE);
         }
 
@@ -1285,8 +1285,8 @@ static int process_forward(sd_event *event, sd_bus_slot *machine_removed_slot, i
                 return log_error_errno(r, "Failed to run event loop: %m");
 
         bool machine_died =
-                (flags & PTY_FORWARD_IGNORE_VHANGUP) &&
-                pty_forward_get_ignore_vhangup(forward) == 0;
+                FLAGS_SET(flags, PTY_FORWARD_IGNORE_VHANGUP) &&
+                !pty_forward_vhangup_honored(forward);
 
         if (!arg_quiet) {
                 if (machine_died)
