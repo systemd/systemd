@@ -1087,33 +1087,23 @@ PTYForward* pty_forward_free(PTYForward *f) {
         return mfree(f);
 }
 
-int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
-        int r;
-
+int pty_forward_honor_vhangup(PTYForward *f) {
         assert(f);
 
-        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP) == b)
-                return 0;
+        if ((f->flags & (PTY_FORWARD_IGNORE_VHANGUP | PTY_FORWARD_IGNORE_INITIAL_VHANGUP)) == 0)
+                return 0; /* nothing changed. */
 
-        SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
+        f->flags &= ~(PTY_FORWARD_IGNORE_VHANGUP | PTY_FORWARD_IGNORE_INITIAL_VHANGUP);
 
-        if (!ignore_vhangup(f)) {
-
-                /* We shall now react to vhangup()s? Let's check immediately if we might be in one. */
-
-                f->master_readable = true;
-                r = shovel(f);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        /* We shall now react to vhangup()s? Let's check immediately if we might be in one. */
+        f->master_readable = true;
+        return shovel(f);
 }
 
-bool pty_forward_get_ignore_vhangup(PTYForward *f) {
+bool pty_forward_vhangup_honored(PTYForward *f) {
         assert(f);
 
-        return FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP);
+        return !ignore_vhangup(f);
 }
 
 void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler cb, void *userdata) {
