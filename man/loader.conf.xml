@@ -53,6 +53,12 @@
     Those files are described by the
     <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
     Specification</ulink>.</para>
+
+    <para>Note: the behaviour of <command>systemd-boot</command> is also influenced by EFI variables. Some of
+    the settings specified in this file can be overriden by those, for example the default boot menu entry or
+    the menu timeouts. See
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
   </refsect1>
 
   <refsect1>
