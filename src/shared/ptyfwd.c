@@ -786,6 +786,18 @@ static int do_shovel(PTYForward *f) {
                         break;
         }
 
+        return 0;
+}
+
+static int shovel(PTYForward *f) {
+        int r;
+
+        assert(f);
+
+        r = do_shovel(f);
+        if (r < 0)
+                return pty_forward_done(f, r);
+
         if (f->stdin_hangup || f->stdout_hangup || f->master_hangup) {
                 /* Exit the loop if any side hung up and if there's
                  * nothing more to write or nothing we could write. */
@@ -801,18 +813,6 @@ static int do_shovel(PTYForward *f) {
                 return pty_forward_done(f, 0);
 
         return 0;
-}
-
-static int shovel(PTYForward *f) {
-        int r;
-
-        assert(f);
-
-        r = do_shovel(f);
-        if (r < 0)
-                return pty_forward_done(f, r);
-
-        return r;
 }
 
 static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
