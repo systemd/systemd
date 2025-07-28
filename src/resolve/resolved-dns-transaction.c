@@ -2036,22 +2036,17 @@ static size_t dns_transaction_curl_header_callback(void *contents, size_t size, 
 static size_t dns_transaction_curl_write_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
         DnsTransaction *t = ASSERT_PTR(userdata);
         size_t sz = size * nmemb;
-        int r;
 
         t->payload = memdup(contents, sz);
         if (!t->payload) {
                 log_debug("Failed to extract HTTP payload to further processing");
-                r = log_oom();
-                goto fail;
+                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                /* Per libcurl API, returning a byte count different from sz signals a transfer error. */
+                return 0;
         }
 
         t->payload_size += sz;
-
         return sz;
-
- fail:
-        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
-        return r;
 }
 
 static int dns_transaction_curl_recv(DnsTransaction *t, DnsPacket **p) {
