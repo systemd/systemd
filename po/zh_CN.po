@@ -15,7 +15,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-07-27 09:55+0000\n"
+"PO-Revision-Date: 2025-07-28 17:25+0000\n"
 "Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
@@ -101,7 +101,7 @@ msgstr "核验家区域的凭证"
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "将凭据与用户家区域进行核验需要认证。"
+msgstr "依据用户的家区域核验凭证需要认证。"
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -331,7 +331,7 @@ msgstr "设置静态主机名"
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
-msgstr "设定静态本地主机名或美观主机名需要认证。"
+msgstr "设置静态本地主机名或美观主机名需要认证。"
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -367,7 +367,7 @@ msgstr "获得系统描述需要认证。"
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a disk image"
-msgstr "导入虚拟机或容器镜像"
+msgstr "导入磁盘镜像"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import an image."
@@ -375,7 +375,7 @@ msgstr "导入镜像需要认证。"
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
-msgstr "导出一个磁盘映像"
+msgstr "导出磁盘镜像"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export disk image."
@@ -391,7 +391,7 @@ msgstr "下载磁盘镜像需要认证。"
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr "取消磁盘映像的传输"
+msgstr "取消磁盘镜像的传输"
 
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
@@ -408,11 +408,11 @@ msgstr "设置系统区域和语言需要认证。"
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
-msgstr "设置系统键盘"
+msgstr "设置系统键盘设置"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr "设置系统键盘需要认证。"
+msgstr "设置系统键盘设置需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
@@ -479,13 +479,13 @@ msgstr "允许应用程序阻止系统响应挂起键需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr "允许应用程序阻止系统响应挂起键"
+msgstr "允许应用程序阻止系统响应休眠键"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
-msgstr "允许应用程序阻止系统响应挂起键需要认证。"
+msgstr "允许应用程序阻止系统响应休眠键需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
@@ -525,14 +525,14 @@ msgstr "允许未登录用户运行程序需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
-msgstr "允许将设备附加至会话座位"
+msgstr "允许将设备附加至席位"
 
 # Pay attention to the concept of "seat".
 #
 # To fully understand the meaning, please refer to session management in old ConsoleKit and new systemd-logind.
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr "允许将设备附加至某个会话座位需要认证。"
+msgstr "将设备附加至席位需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
