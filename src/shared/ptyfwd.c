@@ -1087,15 +1087,16 @@ PTYForward* pty_forward_free(PTYForward *f) {
         return mfree(f);
 }
 
-int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
+int pty_forward_set_flags(PTYForward *f, PTYForwardFlags mask, PTYForwardFlags flags) {
         int r;
 
         assert(f);
+        assert((mask & ~(PTY_FORWARD_IGNORE_VHANGUP | PTY_FORWARD_IGNORE_INITIAL_VHANGUP)) == 0);
 
-        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP) == b)
-                return 0;
+        if (((f->flags ^ flags) & mask) == 0)
+                return 0; /* nothing changed. */
 
-        SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
+        f->flags = (f->flags & ~mask) | (flags & mask);
 
         if (!ignore_vhangup(f)) {
 
@@ -1110,10 +1111,10 @@ int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
         return 0;
 }
 
-bool pty_forward_get_ignore_vhangup(PTYForward *f) {
+PTYForwardFlags pty_forward_get_flags(PTYForward *f) {
         assert(f);
 
-        return FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP);
+        return f->flags;
 }
 
 void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler cb, void *userdata) {
