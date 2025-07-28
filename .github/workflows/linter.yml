@@ -36,7 +36,7 @@ jobs:
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_GITHUB_ACTIONS: true
 
-      - uses: systemd/mkosi@184472f0f1f831ca29953546ec01fd941ff763a6
+      - uses: systemd/mkosi@cb1a3c90490922441548d09b09c7b76426e4bc20
 
       - name: Check that tabs are not used in Python code
         run: sh -c '! git grep -P "\\t" -- src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
