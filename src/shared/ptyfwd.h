@@ -34,7 +34,7 @@ bool pty_forward_vhangup_honored(PTYForward *f);
 void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler handler, void *userdata);
 void pty_forward_set_hotkey_handler(PTYForward *f, PTYForwardHotkeyHandler handler, void *userdata);
 
-bool pty_forward_drain(PTYForward *f);
+int pty_forward_drain(PTYForward *f);
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority);
 
