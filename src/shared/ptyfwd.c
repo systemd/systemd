@@ -722,9 +722,12 @@ static int do_shovel(PTYForward *f) {
                                  * temporary closing of everything on the other side, we treat it like EAGAIN
                                  * here and try again, unless ignore_vhangup is off. */
 
-                                if (errno == EAGAIN || (errno == EIO && ignore_vhangup(f)))
+                                if (errno == EAGAIN)
                                         f->master_readable = false;
-                                else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
+                                else if (errno == EIO && ignore_vhangup(f)) {
+                                        f->master_readable = false;
+                                        f->read_from_master = true; /* To make the second vhangup not ignored. */
+                                } else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
                                         f->master_readable = f->master_writable = false;
                                         f->master_hangup = true;
 
