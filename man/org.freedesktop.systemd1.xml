@@ -2552,9 +2552,9 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
       <para><varname>SubState</varname> encodes states of the same state machine that
       <varname>ActiveState</varname> covers, but knows more fine-grained states that are
-      unit-type-specific. Where <varname>ActiveState</varname> only covers six high-level states,
+      unit-type-specific. Where <varname>ActiveState</varname> only covers eight high-level states,
       <varname>SubState</varname> covers possibly many more low-level unit-type-specific states that are
-      mapped to the six high-level states. Note that multiple low-level states might map to the same
+      mapped to the eight high-level states. Note that multiple low-level states might map to the same
       high-level state, but not vice versa. Not all high-level states have low-level counterparts on all unit
       types. At this point the low-level states are not documented here, and are more likely to be extended
       later on than the common high-level states explained above.</para>
