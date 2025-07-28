@@ -1820,15 +1820,20 @@ static int run_context_check_started(RunContext *c) {
 static void run_context_check_done(RunContext *c) {
         assert(c);
 
-        bool done = STRPTR_IN_SET(c->active_state, "inactive", "failed") &&
-                !c->start_job &&   /* our start job */
-                !c->job;           /* any other job */
+        if (!STRPTR_IN_SET(c->active_state, "inactive", "failed") ||
+            c->start_job ||   /* our start job */
+            c->job)           /* any other job */
+                return;
 
-        if (done && c->forward) /* If the service is gone, it's time to drain the output */
-                done = pty_forward_drain(c->forward);
+        /* If the service is gone, it's time to drain the output */
 
-        if (done)
-                (void) sd_event_exit(c->event, EXIT_SUCCESS);
+        if (!c->forward)
+                return;
+
+        if (!pty_forward_drain(c->forward))
+                return;
+
+        (void) sd_event_exit(c->event, EXIT_SUCCESS);
 }
 
 static int map_job(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
