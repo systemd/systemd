@@ -1142,18 +1142,14 @@ void pty_forward_set_hotkey_handler(PTYForward *f, PTYForwardHotkeyHandler cb, v
         f->hotkey_userdata = userdata;
 }
 
-bool pty_forward_drain(PTYForward *f) {
+int pty_forward_drain(PTYForward *f) {
         assert(f);
 
-        /* Starts draining the forwarder. Specifically:
-         *
-         * - Returns true if there are no unprocessed bytes from the pty, false otherwise
-         *
-         * - Makes sure the handler function is called the next time the number of unprocessed bytes hits zero
-         */
+        /* Starts draining the forwarder. This makes sure the handler function is called the next time the
+         * number of unprocessed bytes hits zero. */
 
         f->drain = true;
-        return drained(f);
+        return pty_forward_add_defer(f);
 }
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority) {
