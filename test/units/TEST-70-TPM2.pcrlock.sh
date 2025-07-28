@@ -155,7 +155,11 @@ test -f "$CREDENTIAL_FILE"
 CREDENTIAL_NAME=${CREDENTIAL_FILE#/tmp/fakexbootldr/loader/credentials/}
 CREDENTIAL_NAME=${CREDENTIAL_NAME%.cred}
 
-systemd-creds decrypt --name="$CREDENTIAL_NAME" "$CREDENTIAL_FILE"
+# If SB is enabled then this will fail as it's not locked but TPM2 is enabled
+if cmp /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\1'); then
+    ALLOW_NULL=--allow-null
+fi
+systemd-creds decrypt "${ALLOW_NULL:-}" --name="$CREDENTIAL_NAME" "$CREDENTIAL_FILE"
 ln -s "$CREDENTIAL_FILE" /tmp/fakexbootldr/loader/credentials/"$CREDENTIAL_NAME"
 test -f /tmp/fakexbootldr/loader/credentials/"$CREDENTIAL_NAME"
 
