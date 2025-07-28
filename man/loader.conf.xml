@@ -251,8 +251,9 @@
       <varlistentry>
         <term>beep</term>
 
-        <listitem><para>Takes a boolean argument. If timeout enabled beep every second, otherwise beep n times when n-th entry in boot menu is selected (default disabled).
-        Currently, only x86 is supported, where it uses the PC speaker.</para>
+        <listitem><para>Takes a boolean argument. If timeout enabled beep every second, otherwise beep n
+        times when n-th entry in boot menu is selected (default disabled). Currently, only x86 is supported,
+        where it uses the PC speaker.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
@@ -399,8 +400,8 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
         <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
         current form) in a future version of systemd.</para>
 
-        <para>Work around BitLocker requiring a recovery key when the boot loader was
-        updated (disabled by default).</para>
+        <para>Work around BitLocker requiring a recovery key when the boot loader was updated (disabled by
+        default).</para>
 
         <para>Try to detect BitLocker encrypted drives along with an active TPM. If both are found and
         Windows Boot Manager is selected in the boot menu, set the <literal>BootNext</literal> EFI variable
@@ -439,8 +440,11 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
           <varlistentry>
             <term><option>auto</option></term>
             <listitem>
-            <para>Perform the reboot if and only if boot counting is enabled for this entry and the tries left counter wasn't already at 0.</para>
-            <para>This is the default, as it is typically a safe option, that ensures a clean measurement log on each boot attempt, but also does not risk an unbounded reboot loop.</para>
+            <para>Perform the reboot if and only if boot counting is enabled for this entry and the tries
+            left counter wasn't already at 0.</para>
+
+            <para>This is the default, as it is typically a safe option, that ensures a clean measurement log
+            on each boot attempt, but also does not risk an unbounded reboot loop.</para>
             </listitem>
           </varlistentry>
 

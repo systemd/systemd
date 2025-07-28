@@ -396,9 +396,9 @@
     <variablelist class='efi-variables'>
       <varlistentry>
         <term><varname>LoaderBootCountPath</varname></term>
-        <listitem><para>If boot counting is enabled, contains the path to the file in whose name the boot counters are
-        encoded. Set by the boot
-        loader. <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <listitem><para>If boot counting is enabled, contains the path to the file in whose name the boot
+        counters are encoded. Set by the boot loader.
+        <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         uses this information to mark a boot as successful as determined by the successful activation of the
         <filename>boot-complete.target</filename> target unit.</para>
 
