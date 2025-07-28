@@ -60,6 +60,7 @@ struct PTYForward {
         sd_event_source *master_event_source;
         sd_event_source *sigwinch_event_source;
         sd_event_source *exit_event_source;
+        sd_event_source *check_vhangup_event_source;
 
         struct termios saved_stdin_attr;
         struct termios saved_stdout_attr;
@@ -122,6 +123,7 @@ static void pty_forward_disconnect(PTYForward *f) {
         f->master_event_source = sd_event_source_unref(f->master_event_source);
         f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
         f->exit_event_source = sd_event_source_unref(f->exit_event_source);
+        f->check_vhangup_event_source = sd_event_source_unref(f->check_vhangup_event_source);
         f->event = sd_event_unref(f->event);
 
         if (f->output_fd >= 0) {
@@ -814,6 +816,9 @@ static int shovel(PTYForward *f) {
 
         assert(f);
 
+        if (f->master_readable)
+                f->check_vhangup_event_source = sd_event_source_unref(f->check_vhangup_event_source);
+
         r = do_shovel(f);
         if (r < 0)
                 return pty_forward_done(f, r);
@@ -1088,9 +1093,18 @@ PTYForward* pty_forward_free(PTYForward *f) {
         return mfree(f);
 }
 
+static int on_check_vhangup_event(sd_event_source *s, void *userdata) {
+        PTYForward *f = ASSERT_PTR(userdata);
+
+        if (ignore_vhangup(f) || f->done || f->master_hangup)
+                return 0;
+
+        f->master_readable = true;
+        return shovel(f);
+}
+
 int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
         bool changed = false;
-        int r;
 
         assert(f);
 
@@ -1108,17 +1122,16 @@ int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
         if (!changed)
                 return 0;
 
-        if (!ignore_vhangup(f)) {
-
-                /* We shall now react to vhangup()s? Let's check immediately if we might be in one. */
-
-                f->master_readable = true;
-                r = shovel(f);
-                if (r < 0)
-                        return r;
+        if (ignore_vhangup(f) ||
+            f->done ||
+            f->master_hangup ||
+            sd_event_get_state(f->event) == SD_EVENT_FINISHED) {
+                f->check_vhangup_event_source = sd_event_source_unref(f->check_vhangup_event_source);
+                return 0;
         }
 
-        return 0;
+        /* We shall now react to vhangup()s? Let's check if we might be in one. */
+        return sd_event_add_defer(f->event, &f->check_vhangup_event_source, on_check_vhangup_event, f);
 }
 
 bool pty_forward_get_ignore_vhangup(PTYForward *f) {
