@@ -83,6 +83,17 @@ static int status_entries(
                 printf(", %s$BOOT%s", ansi_green(), ansi_normal());
         printf(")");
 
+        if (config->loader_conf_status != 0) {
+                assert(esp_path);
+                printf("\n       config: %s%s/%s%s",
+                       ansi_grey(), esp_path, ansi_normal(), "/loader/loader.conf");
+                if (config->loader_conf_status < 0)
+                        printf(": %s%s%s",
+                               config->loader_conf_status == -ENOENT ? "" : ansi_highlight_yellow(),
+                               STRERROR(config->loader_conf_status),
+                               config->loader_conf_status == -ENOENT ? "" : ansi_normal());
+        }
+
         if (xbootldr_path) {
                 printf("\n     XBOOTLDR: %s (", xbootldr_path);
                 if (!sd_id128_is_null(xbootldr_partition_uuid))
