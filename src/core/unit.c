@@ -6188,26 +6188,26 @@ bool unit_can_isolate_refuse_manual(Unit *u) {
         return unit_can_isolate(u) && !u->refuse_manual_start;
 }
 
-void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret, FreezerState *ret_target) {
-        Unit *slice;
-        FreezerState curr, parent, next, tgt;
+void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret, FreezerState *ret_objective) {
+        FreezerState curr, parent, next, objective;
 
         assert(u);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_PARENT_FREEZE,
                               FREEZER_THAW, FREEZER_PARENT_THAW));
         assert(ret);
-        assert(ret_target);
+        assert(ret_objective);
 
         /* This function determines the correct freezer state transitions for a unit
-         * given the action being requested. It returns the next state, and also the "target",
+         * given the action being requested. It returns the next state, and also the "objective",
          * which is either FREEZER_FROZEN or FREEZER_RUNNING, depending on what actual state we
          * ultimately want to achieve. */
 
-         curr = u->freezer_state;
-         slice = UNIT_GET_SLICE(u);
-         if (slice)
+        curr = u->freezer_state;
+
+        Unit *slice = UNIT_GET_SLICE(u);
+        if (slice)
                 parent = slice->freezer_state;
-         else
+        else
                 parent = FREEZER_RUNNING;
 
         if (action == FREEZER_FREEZE) {
@@ -6251,13 +6251,13 @@ void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret, F
                         next = FREEZER_THAWING;
         }
 
-        tgt = freezer_state_finish(next);
-        if (tgt == FREEZER_FROZEN_BY_PARENT)
-                tgt = FREEZER_FROZEN;
-        assert(IN_SET(tgt, FREEZER_RUNNING, FREEZER_FROZEN));
+        objective = freezer_state_finish(next);
+        if (objective == FREEZER_FROZEN_BY_PARENT)
+                objective = FREEZER_FROZEN;
+        assert(IN_SET(objective, FREEZER_RUNNING, FREEZER_FROZEN));
 
         *ret = next;
-        *ret_target = tgt;
+        *ret_objective = objective;
 }
 
 bool unit_can_freeze(Unit *u) {
@@ -6270,6 +6270,22 @@ bool unit_can_freeze(Unit *u) {
                 return UNIT_VTABLE(u)->can_freeze(u);
 
         return UNIT_VTABLE(u)->freezer_action;
+}
+
+void unit_set_freezer_state(Unit *u, FreezerState state) {
+        assert(u);
+        assert(state >= 0);
+        assert(state < _FREEZER_STATE_MAX);
+
+        if (u->freezer_state == state)
+                return;
+
+        log_unit_debug(u, "Freezer state changed %s -> %s",
+                       freezer_state_to_string(u->freezer_state), freezer_state_to_string(state));
+
+        u->freezer_state = state;
+
+        unit_add_to_dbus_queue(u);
 }
 
 void unit_frozen(Unit *u) {
