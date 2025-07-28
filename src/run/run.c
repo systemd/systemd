@@ -1830,6 +1830,14 @@ static void run_context_check_done(RunContext *c) {
         if (!c->forward)
                 return;
 
+        /* Tell the forwarder to exit on the next vhangup(), so that we still flush out what might be queued
+         * and exit then. */
+        r = pty_forward_set_ignore_vhangup(c->forward, false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to disable ignore_vhangup flag in the PTY forwarder: %m");
+                return (void) sd_event_exit(c->event, EXIT_FAILURE);
+        }
+
         if (!pty_forward_drain(c->forward))
                 return;
 
