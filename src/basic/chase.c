@@ -509,16 +509,18 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 close_and_replace(fd, child);
         }
 
-        if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY)) {
-                r = stat_verify_directory(&st);
-                if (r < 0)
-                        return r;
-        }
+        if (exists) {
+                if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY)) {
+                        r = stat_verify_directory(&st);
+                        if (r < 0)
+                                return r;
+                }
 
-        if (FLAGS_SET(flags, CHASE_MUST_BE_REGULAR)) {
-                r = stat_verify_regular(&st);
-                if (r < 0)
-                        return r;
+                if (FLAGS_SET(flags, CHASE_MUST_BE_REGULAR)) {
+                        r = stat_verify_regular(&st);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (ret_path) {
