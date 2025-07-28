@@ -60,6 +60,7 @@ struct PTYForward {
         sd_event_source *master_event_source;
         sd_event_source *sigwinch_event_source;
         sd_event_source *exit_event_source;
+        sd_event_source *defer_event_source;
 
         struct termios saved_stdin_attr;
         struct termios saved_stdout_attr;
@@ -122,6 +123,7 @@ static void pty_forward_disconnect(PTYForward *f) {
         f->master_event_source = sd_event_source_unref(f->master_event_source);
         f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
         f->exit_event_source = sd_event_source_unref(f->exit_event_source);
+        f->defer_event_source = sd_event_source_unref(f->defer_event_source);
         f->event = sd_event_unref(f->event);
 
         if (f->output_fd >= 0) {
@@ -892,6 +894,23 @@ static int on_exit_event(sd_event_source *e, void *userdata) {
         return pty_forward_done(f, 0);
 }
 
+static int on_defer_event(sd_event_source *s, void *userdata) {
+        PTYForward *f = ASSERT_PTR(userdata);
+        return shovel_force(f);
+}
+
+static int pty_forward_add_defer(PTYForward *f) {
+        assert(f);
+
+        if (f->done)
+                return 0;
+
+        if (f->defer_event_source)
+                return sd_event_source_set_enabled(f->defer_event_source, SD_EVENT_ONESHOT);
+
+        return sd_event_add_defer(f->event, &f->defer_event_source, on_defer_event, f);
+}
+
 int pty_forward_new(
                 sd_event *event,
                 int master,
@@ -1083,9 +1102,11 @@ int pty_forward_honor_vhangup(PTYForward *f) {
 
         f->flags &= ~(PTY_FORWARD_IGNORE_VHANGUP | PTY_FORWARD_IGNORE_INITIAL_VHANGUP);
 
-        /* We shall now react to vhangup()s? Let's check immediately if we might be in one. */
-        f->master_readable = true;
-        return shovel(f);
+        if (f->master_hangup)
+                return 0;
+
+        /* We shall now react to vhangup()s? Let's check if we might be in one. */
+        return pty_forward_add_defer(f);
 }
 
 bool pty_forward_vhangup_honored(const PTYForward *f) {
