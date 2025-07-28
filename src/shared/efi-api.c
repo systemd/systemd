@@ -548,9 +548,9 @@ void efi_id128_to_guid(sd_id128_t id, void *ret_guid) {
         assert(ret_guid);
 
         EFI_GUID uuid = {
-                .Data1 = id.bytes[0] << 24 | id.bytes[1] << 16 | id.bytes[2] << 8 | id.bytes[3],
-                .Data2 = id.bytes[4] << 8 | id.bytes[5],
-                .Data3 = id.bytes[6] << 8 | id.bytes[7],
+                .Data1 = (uint32_t) id.bytes[0] << 24 | (uint32_t) id.bytes[1] << 16 | (uint32_t) id.bytes[2] << 8 | id.bytes[3],
+                .Data2 = (uint16_t) id.bytes[4] << 8 | id.bytes[5],
+                .Data3 = (uint16_t) id.bytes[6] << 8 | id.bytes[7],
         };
         memcpy(uuid.Data4, id.bytes+8, sizeof(uuid.Data4));
         memcpy(ret_guid, &uuid, sizeof(uuid));
