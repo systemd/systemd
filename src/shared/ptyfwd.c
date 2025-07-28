@@ -272,8 +272,9 @@ static bool drained(PTYForward *f) {
         if (f->out_buffer_full > 0)
                 return false;
 
-        if (f->master_readable)
-                return false;
+        /* If we have received vhangup and our output buffer is empty, then there is nothing we need to do. */
+        if (f->master_hangup)
+                return true;
 
         if (ioctl(f->master, TIOCINQ, &q) < 0)
                 log_debug_errno(errno, "TIOCINQ failed on master: %m");
@@ -285,7 +286,9 @@ static bool drained(PTYForward *f) {
         else if (q > 0)
                 return false;
 
-        return true;
+        /* If we ignore vhangup, and both input and output buffer in master (obtained by TIOCINQ and TIOCOUTQ in the above) are empty,
+         * then assume there is nothing we need to forward. Otherwise, we may enter an infinite loop. */
+        return ignore_vhangup(f);
 }
 
 static char* background_color_sequence(PTYForward *f) {
