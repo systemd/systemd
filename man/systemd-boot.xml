@@ -290,15 +290,15 @@
     </variablelist>
 
     <para>The boot menu is shown when a non-zero menu timeout has been configured. If the menu timeout has
-    been set to zero, it is sufficient to press any key — before the boot loader initializes — to bring up
-    the boot menu, except for the keys listed immediately above as they directly boot into the selected boot
-    menu item. Note that depending on the firmware implementation the time window where key presses are
-    accepted before the boot loader initializes might be short. If the window is missed, reboot and try
-    again, possibly pressing a suitable key (e.g. the space bar) continuously; on most systems it should be
-    possible to hit the time window after a few attempts. To avoid this problem, consider setting a non-zero
-    timeout, thus showing the boot menu unconditionally. Some desktop environments might offer an option to
-    directly boot into the boot menu, to avoid the problem altogether. Alternatively, use the command line
-    <command>systemctl reboot --boot-loader-menu=0</command> from the shell.</para>
+    been set to zero, hold down a key (<keycap>space</keycap> is recommended) before the boot loader
+    initializes to bring up the boot menu. Note that depending on the firmware implementation the time window
+    where key presses are accepted before the boot loader initializes might be short. If the window is
+    missed, reboot and try again, possibly repeatedly pressing a suitable key; on most systems it should be
+    possible to hit the time window after a few attempts. Keys other than the space bar may be used, except
+    for the keys listed above. If showing the menu on demand doesn't work well, consider setting a non-zero
+    timeout to show the boot menu unconditionally. Some desktop environments might offer an option to boot
+    directly into the boot menu, which also avoids the problem altogether. Alternatively, use the command
+    line <command>systemctl reboot --boot-loader-menu=</command> with a non-zero value from the shell.</para>
 
     <para>In the editor, most keys simply insert themselves, but the following keys
     may be used to perform additional actions:</para>
