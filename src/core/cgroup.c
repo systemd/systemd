@@ -1454,12 +1454,6 @@ static void set_io_weight(Unit *u, uint64_t weight) {
         (void) set_attribute_and_warn(u, "io.weight", buf);
 }
 
-static void cgroup_apply_bpf_foreign_program(Unit *u) {
-        assert(u);
-
-        (void) bpf_foreign_install(u);
-}
-
 static void cgroup_context_apply(
                 Unit *u,
                 CGroupMask apply_mask,
@@ -1609,7 +1603,7 @@ static void cgroup_context_apply(
                 cgroup_apply_firewall(u);
 
         if (apply_mask & CGROUP_MASK_BPF_FOREIGN)
-                cgroup_apply_bpf_foreign_program(u);
+                (void) bpf_foreign_install(u);
 
         if (apply_mask & CGROUP_MASK_BPF_SOCKET_BIND)
                 cgroup_apply_socket_bind(u);
