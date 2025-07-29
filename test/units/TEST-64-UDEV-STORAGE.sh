@@ -1186,6 +1186,12 @@ EOF
     helper_check_device_units
     # Cleanup
     mdadm -v --stop "$raid_dev"
+
+    # Clear superblocks to make the MD device will not be restarted even if the VM is restarted.
+    # This is a workaround for issue #38240.
+    mdadm -v -f --zero-superblock "${devices[@]}"
+    udevadm settle --timeout=30
+
     # Check if all expected symlinks were removed after the cleanup
     udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
     helper_check_device_units
@@ -1243,6 +1249,12 @@ testcase_mdadm_lvm() {
     # Cleanup
     lvm vgchange -an "$vgroup"
     mdadm -v --stop "$raid_dev"
+
+    # Clear superblocks to make the MD device will not be restarted even if the VM is restarted.
+    # This is a workaround for issue #38240.
+    mdadm -v -f --zero-superblock "${devices[@]}"
+    udevadm settle --timeout=30
+
     # Check if all expected symlinks were removed after the cleanup
     udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
     helper_check_device_units
