@@ -62,7 +62,7 @@ get_chassis() (
 )
 
 stop_hostnamed() {
-    systemctl stop systemd-hostnamed.service
+    systemctl stop --job-mode=replace-irreversibly systemd-hostnamed.service
     # Reset trigger limit. This might fail if the unit was unloaded already, so ignore any errors.
     systemctl reset-failed systemd-hostnamed || :
 }
