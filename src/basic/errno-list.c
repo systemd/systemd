@@ -26,17 +26,12 @@ int errno_from_name(const char *name) {
 }
 
 const char* errno_to_name(int id) {
-        if (id == 0) /* To stay in line with our own impl */
+        if (id == 0)  /* We return NULL for success here.
+                       * errno_name_full() returns "0". */
                 return NULL;
 
         if (id < 0)
                 id = -id;
-
-#if HAVE_STRERRORNAME_NP
-        const char *n = strerrorname_np(id);
-        if (n)
-                return n;
-#endif
 
         if ((size_t) id >= ELEMENTSOF(errno_names))
                 return NULL;

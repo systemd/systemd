@@ -573,7 +573,6 @@ conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
         ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
         ['execveat',          '''#include <unistd.h>'''],       # since glibc-2.34
         ['close_range',       '''#include <unistd.h>'''],       # since glibc-2.34
