@@ -15,7 +15,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-07-28 17:25+0000\n"
+"PO-Revision-Date: 2025-07-29 19:53+0000\n"
 "Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
@@ -552,7 +552,7 @@ msgstr "关闭系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
-msgstr "存在其他已登录用户时仍然关机"
+msgstr "存在其他已登录用户时关闭系统"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
@@ -562,13 +562,13 @@ msgstr "存在其他已登录用户时关闭系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr "有其它应用程序阻止时仍然关机"
+msgstr "在应用程序阻止时关闭系统"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
-msgstr "在其它应用程序阻止关机时关闭系统需要认证。"
+msgstr "在应用程序阻止时关闭系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -580,7 +580,7 @@ msgstr "重启系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
-msgstr "存在其他已登录用户时仍然重启"
+msgstr "存在其他已登录用户时重启系统"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
@@ -590,13 +590,13 @@ msgstr "存在其他已登录用户时重启系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
-msgstr "有其它应用程序阻止时仍然重启"
+msgstr "在应用程序阻止时重启系统"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
-msgstr "在其它应用程序阻止重启时重启系统需要认证。"
+msgstr "在应用程序阻止时重启系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -608,23 +608,23 @@ msgstr "停止系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
-msgstr "当存在其他已登录用户时仍然停止系统"
+msgstr "存在其他已登录用户时停止系统"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
-msgstr "当存在其他已登录用户时停止系统需要认证。"
+msgstr "存在其他已登录用户时停止系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr "当存在应用程序阻止时仍然停止系统"
+msgstr "在应用程序阻止时停止系统"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
-msgstr "当应用程序阻止停止系统时需要认证。"
+msgstr "在应用程序阻止时停止系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -636,7 +636,7 @@ msgstr "挂起系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr "存在其他已登录用户时仍然挂起系统"
+msgstr "存在其他已登录用户时挂起系统"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
@@ -646,13 +646,13 @@ msgstr "存在其他已登录用户时挂起系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr "有其它应用程序阻止时仍然挂起系统"
+msgstr "在应用程序阻止时挂起系统"
 
 #: src/login/org.freedesktop.login1.policy:290
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
-msgstr "在其它应用程序阻止挂起时挂起系统需要认证。"
+msgstr "在应用程序阻止时挂起系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -664,31 +664,31 @@ msgstr "休眠系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr "存在其他已登录用户时仍然休眠"
+msgstr "存在其他已登录用户时休眠系统"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
-msgstr "存在其他已登录用户时进行休眠系统需要认证。"
+msgstr "存在其他已登录用户时休眠系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr "有其它应用程序阻止时仍然休眠"
+msgstr "在应用程序阻止时休眠系统"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
-msgstr "在其它应用程序阻止休眠时进行休眠需要认证。"
+msgstr "在应用程序阻止时休眠系统需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
-msgstr "管理活动会话、用户与会话座位"
+msgstr "管理活动会话、用户与席位"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr "管理活动会话、用户与会话座位需要认证。"
+msgstr "管理活动会话、用户与席位需要认证。"
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
