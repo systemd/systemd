@@ -632,6 +632,7 @@ EOF
         homedsshtest@localhost env
 
     wait_for_state homedsshtest inactive
+    homectl remove homedsshtest
 fi
 
 NEWPASSWORD=hunter4711 homectl create aliastest --storage=directory --alias=aliastest2 --alias=aliastest3 --realm=myrealm
@@ -656,6 +657,8 @@ getent passwd aliastest3
 getent passwd aliastest@myrealm
 getent passwd aliastest2@myrealm
 getent passwd aliastest3@myrealm
+
+homectl remove aliastest
 
 NEWPASSWORD=quux homectl create tmpfsquota --storage=subvolume --dev-shm-limit=50K --tmp-limit=50K -P
 for p in /dev/shm /tmp; do
