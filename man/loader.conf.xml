@@ -21,47 +21,50 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>,
-    <filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename>
-    <filename><replaceable>XBOOTLDR</replaceable>/loader/entries/*.conf</filename>
-    </para>
+    <para><filename><replaceable>ESP</replaceable>/loader/loader.conf</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
     <para>
-    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> will
-    read <filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>, and any files with the
-    <literal>.conf</literal> extension under
-    <filename><replaceable>ESP</replaceable>/loader/entries/</filename> on the EFI system partition (ESP),
-    and <filename><replaceable>XBOOTLDR</replaceable>/loader/entries/</filename> on the extended boot loader
-    partition (XBOOTLDR) as defined by <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
-    Specification</ulink>.
-    </para>
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> reads
+    <filename><replaceable>ESP</replaceable>/loader/loader.conf</filename>. This file configures whether the
+    menu is shown and for how long, the font, audible beep, types of menu entries to show, the default
+    choice, and some aspects of Secure Boot enrollment and firmware handling. See the list of available
+    options below.</para>
 
-    <para>Each of these configuration files must consist of series of newline (i.e. ASCII code 10) separated
-    lines, each consisting of an option name, followed by whitespace, and the option
-    value. <literal>#</literal> may be used to start a comment line. Empty and comment lines are ignored. The
-    files use UTF-8 encoding.</para>
+    <para>The file uses UTF-8 encoding and consists of series of lines separated by "line feed" (i.e. ASCII
+    code 10). Lines that are empty or start with the comment sign (<literal>#</literal>) are ignored. Other
+    lines consist of an option name, followed by whitespace, and the option value.
+    </para>
 
     <para>Boolean arguments may be written as
-    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>t</literal>/<literal>on</literal>/<literal>1</literal> or
+    <literal>yes</literal>/<literal>y</literal>/<literal>true</literal>/<literal>t</literal>/<literal>on</literal>/<literal>1</literal>
+    or
     <literal>no</literal>/<literal>n</literal>/<literal>false</literal>/<literal>f</literal>/<literal>off</literal>/<literal>0</literal>.
     </para>
+
+    <para>Note: <command>systemd-boot</command> will also read boot loader entry files,
+    type #1 (<filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename> and
+    <filename><replaceable>XBOOTLDR</replaceable>/loader/entries/*.conf</filename>)
+    and type #2 (<filename><replaceable>ESP</replaceable>/EFI/Linux/*.uki</filename>
+    and <filename><replaceable>XBOOTLDR</replaceable>/EFI/Linux/*.uki</filename>).
+    Those files are described by the
+    <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+    Specification</ulink>.</para>
+
+    <para>Note: the behaviour of <command>systemd-boot</command> is also influenced by EFI variables. Some of
+    the settings specified in this file can be overridden by those, for example the default boot menu entry
+    or the menu timeouts. See
+    <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
   </refsect1>
 
   <refsect1>
     <title>Options</title>
 
-    <para>The configuration options supported by
-    <filename><replaceable>ESP</replaceable>/loader/entries/*.conf</filename> and
-    <filename><replaceable>XBOOTLDR</replaceable>/loader/entries/*.conf</filename> files are defined as part
-    of the <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
-    Specification</ulink>.</para>
-
-    <para>The following configuration are supported by the <filename>loader.conf</filename> configuration
-    file:</para>
+    <para>The following configuration are supported in <filename>loader.conf</filename>:</para>
 
     <variablelist>
       <varlistentry>
@@ -254,8 +257,9 @@
       <varlistentry>
         <term>beep</term>
 
-        <listitem><para>Takes a boolean argument. If timeout enabled beep every second, otherwise beep n times when n-th entry in boot menu is selected (default disabled).
-        Currently, only x86 is supported, where it uses the PC speaker.</para>
+        <listitem><para>Takes a boolean argument. If timeout enabled beep every second, otherwise beep n
+        times when n-th entry in boot menu is selected (default disabled). Currently, only x86 is supported,
+        where it uses the PC speaker.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
       </varlistentry>
@@ -402,8 +406,8 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
         <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
         current form) in a future version of systemd.</para>
 
-        <para>Work around BitLocker requiring a recovery key when the boot loader was
-        updated (disabled by default).</para>
+        <para>Work around BitLocker requiring a recovery key when the boot loader was updated (disabled by
+        default).</para>
 
         <para>Try to detect BitLocker encrypted drives along with an active TPM. If both are found and
         Windows Boot Manager is selected in the boot menu, set the <literal>BootNext</literal> EFI variable
@@ -442,8 +446,11 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
           <varlistentry>
             <term><option>auto</option></term>
             <listitem>
-            <para>Perform the reboot if and only if boot counting is enabled for this entry and the tries left counter wasn't already at 0.</para>
-            <para>This is the default, as it is typically a safe option, that ensures a clean measurement log on each boot attempt, but also does not risk an unbounded reboot loop.</para>
+            <para>Perform the reboot if and only if boot counting is enabled for this entry and the tries
+            left counter wasn't already at 0.</para>
+
+            <para>This is the default, as it is typically a safe option, that ensures a clean measurement log
+            on each boot attempt, but also does not risk an unbounded reboot loop.</para>
             </listitem>
           </varlistentry>
 

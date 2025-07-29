@@ -67,6 +67,8 @@ typedef struct BootEntry {
         }
 
 typedef struct BootConfig {
+        int loader_conf_status;  /* 0 → before loading, 1 → loaded, negative → error. */
+
         char *default_pattern;
 
         char *entry_oneshot;
