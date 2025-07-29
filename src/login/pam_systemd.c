@@ -1462,6 +1462,7 @@ static int export_legacy_dbus_address(
         int r;
 
         assert(handle);
+        assert(runtime);
 
         /* We need to export $DBUS_SESSION_BUS_ADDRESS because various applications will not connect
          * correctly to the bus without it. This setting matches what dbus.socket does for the user session
@@ -1474,9 +1475,6 @@ static int export_legacy_dbus_address(
          * check here, and let applications try on their own, by using "unix:path=%s/bus;autolaunch:". But we
          * expect the socket to be present by the time we do this check, so we can just as well check once
          * here. */
-
-        if (!runtime)
-                return PAM_SUCCESS;
 
         const char *s = strjoina(runtime, "/bus");
         if (access(s, F_OK) < 0)  {
@@ -1491,6 +1489,46 @@ static int export_legacy_dbus_address(
                 return pam_log_oom(handle);
 
         return update_environment(handle, "DBUS_SESSION_BUS_ADDRESS", t);
+}
+
+static int setup_runtime_directory(
+                pam_handle_t *handle,
+                UserRecord *ur,
+                const char *runtime_directory,
+                const char *area) {
+
+        int r;
+
+        assert(handle);
+        assert(ur);
+
+        if (!runtime_directory) {
+                /* If this is an area switch request, always reset $XDG_RUNTIME_DIR if we got nothing
+                 * to ensure the main runtime dir won't be clobbered. */
+                if (area)
+                        return update_environment(handle, "XDG_RUNTIME_DIR", NULL);
+
+                return PAM_SUCCESS;
+        }
+
+        /* Also create a per-area subdirectory for $XDG_RUNTIME_DIR, so that each area has their own
+         * set of runtime services. We follow the same directory structure as for $HOME. Note that we
+         * do not define any form of automatic clean-up for the per-aera subdirs beyond the regular
+         * clean-up of the whole $XDG_RUNTIME_DIR hierarchy when the user finally logs out. */
+        _cleanup_free_ char *per_area_runtime_directory = NULL;
+        if (area) {
+                r = make_area_runtime_directory(handle, ur, runtime_directory, area, &per_area_runtime_directory);
+                if (r != PAM_SUCCESS)
+                        return r;
+
+                runtime_directory = per_area_runtime_directory;
+        }
+
+        r = update_environment(handle, "XDG_RUNTIME_DIR", runtime_directory);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        return export_legacy_dbus_address(handle, runtime_directory);
 }
 
 static int setup_environment(
@@ -1560,25 +1598,7 @@ static int setup_environment(
         if (r != PAM_SUCCESS)
                 return r;
 
-        _cleanup_free_ char *per_area_runtime_directory = NULL;
-        if (runtime_directory && area) {
-                /* Also create a per-area subdirectory for $XDG_RUNTIME_DIR, so that each area has their own
-                 * set of runtime services. We follow the same directory structure as for $HOME. Note that we
-                 * do not define any form of automatic clean-up for the per-aera subdirs beyond the regular
-                 * clean-up of the whole $XDG_RUNTIME_DIR hierarchy when the user finally logs out. */
-
-                r = make_area_runtime_directory(handle, ur, runtime_directory, area, &per_area_runtime_directory);
-                if (r != PAM_SUCCESS)
-                        return r;
-
-                runtime_directory = per_area_runtime_directory;
-        }
-
-        r = update_environment(handle, "XDG_RUNTIME_DIR", runtime_directory);
-        if (r != PAM_SUCCESS)
-                return r;
-
-        return export_legacy_dbus_address(handle, runtime_directory);
+        return setup_runtime_directory(handle, ur, runtime_directory, area);
 }
 
 static int open_osc_context(pam_handle_t *handle, const char *session_type, UserRecord *ur) {
