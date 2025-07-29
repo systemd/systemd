@@ -1818,17 +1818,32 @@ static int run_context_check_started(RunContext *c) {
 }
 
 static void run_context_check_done(RunContext *c) {
+        int r;
+
         assert(c);
 
-        bool done = STRPTR_IN_SET(c->active_state, "inactive", "failed") &&
-                !c->start_job &&   /* our start job */
-                !c->job;           /* any other job */
+        if (!STRPTR_IN_SET(c->active_state, "inactive", "failed") ||
+            c->start_job ||   /* our start job */
+            c->job)           /* any other job */
+                return;
 
-        if (done && c->forward) /* If the service is gone, it's time to drain the output */
-                done = pty_forward_drain(c->forward);
+        if (!c->forward)
+                return (void) sd_event_exit(c->event, EXIT_SUCCESS);
 
-        if (done)
-                (void) sd_event_exit(c->event, EXIT_SUCCESS);
+        /* If the service is gone, it's time to drain the output */
+        r = pty_forward_drain(c->forward);
+        if (r < 0) {
+                log_error_errno(r, "Failed to drain PTY forwarder: %m");
+                return (void) sd_event_exit(c->event, EXIT_FAILURE);
+        }
+
+        /* Tell the forwarder to exit on the next vhangup(), so that we still flush out what might be
+         * queued and exit then. */
+        r = pty_forward_set_flags(c->forward, /* mask = */ PTY_FORWARD_IGNORE_INITIAL_VHANGUP, /* flags = */ 0);
+        if (r < 0) {
+                log_error_errno(r, "Failed to disable ignore_initial_vhangup flag in PTY forwarder: %m");
+                return (void) sd_event_exit(c->event, EXIT_FAILURE);
+        }
 }
 
 static int map_job(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
@@ -1982,6 +1997,8 @@ static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
                 (void) sd_event_exit(c->event, EXIT_FAILURE);
                 return log_error_errno(rcode, "Error on PTY forwarding logic: %m");
         }
+
+        c->forward = pty_forward_free(c->forward);
 
         run_context_check_done(c);
         return 0;
