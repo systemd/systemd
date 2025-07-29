@@ -7,5 +7,6 @@ integration_tests += [
                 'storage': 'persistent',
                 'coredump-exclude-regex' : '/(test-usr-dump|test-dump|bash)$',
                 'vm' : true,
+                'firmware' : 'auto',
         },
 ]
