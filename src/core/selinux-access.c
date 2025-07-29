@@ -154,9 +154,8 @@ static int access_init(sd_bus_error *error) {
                 return 1;
 
         if (avc_open(NULL, 0) != 0) {
-                r = -errno;  /* Save original errno for later */
-
-                r = log_selinux_enforcing_errno(r, "Failed to open the SELinux AVC: %m");
+                /* Passing errno to save original value for later */
+                r = log_selinux_enforcing_errno(errno, "Failed to open the SELinux AVC: %m");
                 if (r == 0)
                         /* log_selinux_enforcing_errno() can return 0 if the enforcement isn't on.
                          * In this case don't do any AVC checks.
