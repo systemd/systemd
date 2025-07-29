@@ -624,6 +624,7 @@ EOF
         homedsshtest@localhost env
 
     wait_for_state homedsshtest inactive
+    homectl remove homedsshtest
 fi
 
 systemd-analyze log-level info
