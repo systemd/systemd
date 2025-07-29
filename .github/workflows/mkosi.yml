@@ -163,9 +163,9 @@ jobs:
       # so that nothing tries to use anything in these directories anymore while we're busy deleting them.
       - name: Free disk space
         run: |
-          sudo mv /usr/local /usr/local.trash
-          sudo mv /opt/hostedtoolcache /opt/hostedtoolcache.trash
-          sudo systemd-run rm -rf /usr/local.trash /opt/hostedtoolcache.trash
+          sudo mv /usr/local /usr/local.trash || true
+          sudo mv /opt/hostedtoolcache /opt/hostedtoolcache.trash || true
+          sudo systemd-run rm -rf /usr/local.trash /opt/hostedtoolcache.trash || true
 
       - name: Btrfs
         run: |
