@@ -370,48 +370,6 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         return 0;
 }
 
-static int export_legacy_dbus_address(
-                pam_handle_t *handle,
-                const char *runtime) {
-
-        int r;
-
-        assert(handle);
-
-        /* We need to export $DBUS_SESSION_BUS_ADDRESS because various applications will not connect
-         * correctly to the bus without it. This setting matches what dbus.socket does for the user session
-         * using 'systemctl --user set-environment'. We want to have the same configuration in processes
-         * started from the PAM session.
-         *
-         * The setting of the address is guarded by the access() check because it is also possible to compile
-         * dbus without --enable-user-session, in which case this socket is not used, and
-         * $DBUS_SESSION_BUS_ADDRESS should not be set. An alternative approach would to not do the access()
-         * check here, and let applications try on their own, by using "unix:path=%s/bus;autolaunch:". But we
-         * expect the socket to be present by the time we do this check, so we can just as well check once
-         * here. */
-
-        if (!runtime)
-                return PAM_SUCCESS;
-
-        const char *s = strjoina(runtime, "/bus");
-        if (access(s, F_OK) < 0)  {
-                if (errno != ENOENT)
-                        pam_syslog_errno(handle, LOG_WARNING, errno, "Failed to check if %s/bus exists, ignoring: %m", runtime);
-
-                return PAM_SUCCESS;
-        }
-
-        _cleanup_free_ char *t = NULL;
-        if (asprintf(&t, DEFAULT_USER_BUS_ADDRESS_FMT, runtime) < 0)
-                return pam_log_oom(handle);
-
-        r = pam_misc_setenv(handle, "DBUS_SESSION_BUS_ADDRESS", t, /* readonly= */ false);
-        if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set bus variable: @PAMERR@");
-
-        return PAM_SUCCESS;
-}
-
 static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
         int r;
 
@@ -1495,6 +1453,42 @@ static int make_area_runtime_directory(
 
         *ret = j;
         return 0;
+}
+
+static int export_legacy_dbus_address(
+                pam_handle_t *handle,
+                const char *runtime) {
+
+        assert(handle);
+
+        /* We need to export $DBUS_SESSION_BUS_ADDRESS because various applications will not connect
+         * correctly to the bus without it. This setting matches what dbus.socket does for the user session
+         * using 'systemctl --user set-environment'. We want to have the same configuration in processes
+         * started from the PAM session.
+         *
+         * The setting of the address is guarded by the access() check because it is also possible to compile
+         * dbus without --enable-user-session, in which case this socket is not used, and
+         * $DBUS_SESSION_BUS_ADDRESS should not be set. An alternative approach would to not do the access()
+         * check here, and let applications try on their own, by using "unix:path=%s/bus;autolaunch:". But we
+         * expect the socket to be present by the time we do this check, so we can just as well check once
+         * here. */
+
+        if (!runtime)
+                return PAM_SUCCESS;
+
+        const char *s = strjoina(runtime, "/bus");
+        if (access(s, F_OK) < 0) {
+                if (errno != ENOENT)
+                        pam_syslog_errno(handle, LOG_WARNING, errno, "Failed to check if %s/bus exists, ignoring: %m", runtime);
+
+                return PAM_SUCCESS;
+        }
+
+        _cleanup_free_ char *t = NULL;
+        if (asprintf(&t, DEFAULT_USER_BUS_ADDRESS_FMT, runtime) < 0)
+                return pam_log_oom(handle);
+
+        return update_environment(handle, "DBUS_SESSION_BUS_ADDRESS", t);
 }
 
 static int setup_environment(
