@@ -2541,5 +2541,5 @@ int seccomp_parse_errno_or_action(const char *p) {
 const char* seccomp_errno_or_action_to_string(int num) {
         if (num == SECCOMP_ERROR_NUMBER_KILL)
                 return "kill";
-        return errno_to_name(num);
+        return errno_name_no_fallback(num);
 }

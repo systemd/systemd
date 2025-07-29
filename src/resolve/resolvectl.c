@@ -3146,9 +3146,9 @@ static void monitor_query_dump(sd_json_variant *v) {
                streq_ptr(p.state, "success") ? ansi_highlight_green() : ansi_highlight_red(),
                glyph(GLYPH_ARROW_LEFT),
                ansi_normal(),
-               strna(streq_ptr(p.state, "errno") ? errno_to_name(p.error) :
-                     streq_ptr(p.state, "rcode-failure") ? dns_rcode_to_string(p.rcode) :
-                     p.state));
+               streq_ptr(p.state, "errno") ? ERRNO_NAME(p.error) :
+               streq_ptr(p.state, "rcode-failure") ? strna(dns_rcode_to_string(p.rcode)) :
+               strna(p.state));
 
         if (!isempty(p.result))
                 printf(": %s", p.result);

@@ -36,9 +36,7 @@ static char* format_uids(char **buf, uid_t* uids, int count) {
         return *buf;
 }
 
-static const char *e(int r) {
-        return r == 0 ? "OK" : errno_to_name(r);
-}
+#define e(r) (r == 0 ? "OK" : ERRNO_NAME(r))
 
 TEST(login) {
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
