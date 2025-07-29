@@ -169,7 +169,7 @@ TEST(path_is_temporary_fs) {
                 r = path_is_temporary_fs(s);
 
                 log_info_errno(r, "path_is_temporary_fs(\"%s\"): %d, %s",
-                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+                               s, r, r < 0 ? ERRNO_NAME(r) : yes_no(r));
         }
 
         /* run might not be a mount point in build chroots */
@@ -186,7 +186,7 @@ TEST(path_is_read_only_fs) {
                 r = path_is_read_only_fs(s);
 
                 log_info_errno(r, "path_is_read_only_fs(\"%s\"): %d, %s",
-                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+                               s, r, r < 0 ? ERRNO_NAME(r) : yes_no(r));
         }
 
         if (path_is_mount_point_full("/sys", NULL, AT_SYMLINK_FOLLOW) > 0)

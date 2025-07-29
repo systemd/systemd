@@ -1460,8 +1460,8 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
                         /* ENOTCONN is legitimate if TCP RST was received. Other socket families might return
                          * different errors. This connection is over, but the socket unit lives on. */
                         return log_unit_debug_errno(UNIT(s), r,
-                                                    "Got %s on incoming socket, assuming aborted connection attempt, ignoring.",
-                                                    errno_to_name(r));
+                                                    "Got error %s on incoming socket, assuming aborted connection attempt, ignoring.",
+                                                    ERRNO_NAME(r));
                 if (r < 0)
                         return r;
         }

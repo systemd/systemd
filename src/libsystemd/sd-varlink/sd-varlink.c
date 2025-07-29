@@ -2699,7 +2699,7 @@ _public_ int sd_varlink_error_errno(sd_varlink *v, int error) {
          * open, even to foreign systems. */
 
         error = abs(error);
-        const char *name = errno_to_name(error);
+        const char *name = errno_name_no_fallback(error);
 
         return sd_varlink_errorbo(
                         v,

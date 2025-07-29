@@ -406,7 +406,6 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         DnsQueryCandidate *c;
         DnsZoneItem *z;
         DnsTransaction *d;
-        const char *st;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
         assert(t);
@@ -430,11 +429,6 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
-        if (state == DNS_TRANSACTION_ERRNO)
-                st = errno_to_name(t->answer_errno);
-        else
-                st = dns_transaction_state_to_string(state);
-
         log_debug("%s transaction %" PRIu16 " for <%s> on scope %s on %s/%s now complete with <%s> from %s (%s; %s).",
                   t->bypass ? "Bypass" : "Regular",
                   t->id,
@@ -442,7 +436,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->ifname : "*",
                   af_to_name_short(t->scope->family),
-                  st,
+                  state == DNS_TRANSACTION_ERRNO ? ERRNO_NAME(t->answer_errno) : dns_transaction_state_to_string(state),
                   t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source),
                   FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) ? "not validated" :
                   (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED) ? "authenticated" : "unsigned"),

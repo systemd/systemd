@@ -1069,7 +1069,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
 
                 r = connect_unix_path(fd, dirfd(d), de->d_name);
                 if (r < 0) {
-                        no = strjoin("No (", errno_to_name(r), ")");
+                        no = strjoin("No (", ERRNO_NAME(r), ")");
                         if (!no)
                                 return log_oom();
                 }
