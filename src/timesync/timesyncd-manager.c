@@ -815,12 +815,18 @@ int manager_connect(Manager *m) {
                         ServerName *f;
                         bool restart = true;
 
-                        /* Our current server name list is exhausted,
-                         * let's find the next one to iterate. First we try the runtime list, then the system list,
-                         * then the link list. After having processed the link list we jump back to the system list
-                         * if no runtime server list.
-                         * However, if all lists are empty, we change to the fallback list. */
-                        if (!m->current_server_name || m->current_server_name->type == SERVER_LINK) {
+                        /* Our current server name list is exhausted, let's find the next one to iterate.
+                         * There are two scenarios: secure time servers are configured or not.
+                         * - If there is a NTSKE list: try that first, switching to the fallback list as backup.
+                         * - Otherwise, we try the runtime list first, then the system list, then the link list.
+                         *   After having processed the link list we jump back to the system list if no
+                         *   runtime server list. If all lists are empty, we change to the fallback list. */
+                        if (m->nts_ke_servers) {
+                                if(!m->current_server_name)
+                                        f = m->nts_ke_servers;
+                                else
+                                        f = NULL;
+                        }  else if (!m->current_server_name || m->current_server_name->type == SERVER_LINK) {
                                 f = m->runtime_servers;
                                 if (!f)
                                         f = m->system_servers;
