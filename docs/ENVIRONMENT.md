@@ -351,12 +351,13 @@ All tools:
   default is not appropriate for a given system. Defaults to `5`, accepts
   positive integers.
 
-* `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC` — can be set to override the mount
-  units interval rate limit for parsing `/proc/self/mountinfo`. Similar to
-  `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST`, the interval limit maybe adjusted when
-  the default is not appropriate for a given system. The default value is 1 and the
-  default application time unit is second, and the time unit can beoverriden as usual
-  by specifying it explicitly, see the systemd.time(7) man page.
+* `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC` — can be set to override the
+  mount units interval rate limit for parsing `/proc/self/mountinfo`. Similar
+  to `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST`, the interval limit maybe
+  adjusted when the default is not appropriate for a given system. The default
+  value is 1, the default application time unit is second, and the time unit
+  can be overridden as usual by specifying it explicitly, see the
+  systemd.time(7) man page.
 
 `systemd-remount-fs`:
 
