@@ -156,12 +156,11 @@ static int access_init(sd_bus_error *error) {
         if (avc_open(NULL, 0) != 0) {
                 r = -errno;  /* Save original errno for later */
 
-                bool enforce = security_getenforce() != 0;
-                log_full_errno(enforce ? LOG_ERR : LOG_WARNING, r, "Failed to open the SELinux AVC: %m");
-
-                /* If enforcement isn't on, then let's suppress this error, and just don't do any AVC checks.
-                 * The warning we printed is hence all the admin will see. */
-                if (!enforce)
+                r = log_selinux_enforcing_errno(r, "Failed to open the SELinux AVC: %m");
+                if (r == 0)
+                        /* log_selinux_enforcing_errno() can return 0 if the enforcement isn't on.
+                         * In this case don't do any AVC checks.
+                         * The warning we printed is hence all the admin will see. */
                         return 0;
 
                 /* Return an access denied error based on the original errno, if we couldn't load the AVC but
@@ -347,14 +346,15 @@ int mac_selinux_access_check_varlink_internal(
 
         r = access_init(/* error= */ NULL);
         if (r <= 0)
-                return log_debug_errno(r, "Failed to init SELinux: %m");
+                /* access_init() does log_selinux_enforcing_errno() */
+                return r;
 
         /* delay call until we checked in `access_init()` if SELinux is actually enabled */
         bool enforce = mac_selinux_enforcing();
 
         int fd = sd_varlink_get_fd(link);
         if (fd < 0)
-                return log_debug_errno(fd, "Failed to get varlink peer fd: %m");
+                return log_selinux_enforcing_errno(fd, "Failed to get varlink peer fd: %m");
 
         /* We should call mac_selinux_get_peer_label() here similarly to get_our_contexts().
          * See the explanation there why not. */
