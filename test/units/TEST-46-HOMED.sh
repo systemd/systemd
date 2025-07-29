@@ -4,9 +4,9 @@ set -eux
 set -o pipefail
 
 # Check if homectl is installed, and if it isn't bail out early instead of failing
-if ! test -x /usr/bin/homectl ; then
-        echo "no homed" >/skipped
-        exit 77
+if ! command -v homectl >/dev/null; then
+    echo "no homed" >/skipped
+    exit 77
 fi
 
 inspect() {
@@ -27,10 +27,7 @@ inspect() {
 }
 
 wait_for_state() {
-    for i in {1..10}; do
-        (( i > 1 )) && sleep 0.5
-        homectl inspect "$1" | grep -qF "State: $2" && break
-    done
+    timeout 2m bash -c "until homectl inspect '${1:?}' | grep -qF 'State: $2'; do sleep 2; done"
 }
 
 FSTYPE="$(stat --file-system --format "%T" /)"
@@ -109,32 +106,32 @@ inspect test-user
 # Do some keyring tests, but only on real kernels, since keyring access inside of containers will fail
 # (See: https://github.com/systemd/systemd/issues/17606)
 if ! systemd-detect-virt -cq ; then
-        PASSWORD=xEhErW0ndafV4s homectl activate test-user
-        inspect test-user
+    PASSWORD=xEhErW0ndafV4s homectl activate test-user
+    inspect test-user
 
-        # Key should now be in the keyring
-        homectl update test-user --real-name "Keyring Test"
-        inspect test-user
+    # Key should now be in the keyring
+    homectl update test-user --real-name "Keyring Test"
+    inspect test-user
 
-        # These commands shouldn't use the keyring
-        (! timeout 5s homectl authenticate test-user )
-        (! NEWPASSWORD="foobar" timeout 5s homectl passwd test-user )
+    # These commands shouldn't use the keyring
+    (! timeout 5s homectl authenticate test-user )
+    (! NEWPASSWORD="foobar" timeout 5s homectl passwd test-user )
 
-        homectl lock test-user
-        inspect test-user
+    homectl lock test-user
+    inspect test-user
 
-        # Key should be gone from keyring
-        (! timeout 5s homectl update test-user --real-name "Keyring Test 2" )
+    # Key should be gone from keyring
+    (! timeout 5s homectl update test-user --real-name "Keyring Test 2" )
 
-        PASSWORD=xEhErW0ndafV4s homectl unlock test-user
-        inspect test-user
+    PASSWORD=xEhErW0ndafV4s homectl unlock test-user
+    inspect test-user
 
-        # Key should have been re-instantiated into the keyring
-        homectl update test-user --real-name "Keyring Test 3"
-        inspect test-user
+    # Key should have been re-instantiated into the keyring
+    homectl update test-user --real-name "Keyring Test 3"
+    inspect test-user
 
-        homectl deactivate test-user
-        inspect test-user
+    homectl deactivate test-user
+    inspect test-user
 fi
 
 # Do some resize tests, but only if we run on real kernels and are on btrfs, as quota inside of containers
@@ -228,13 +225,13 @@ homectl remove test-user
 # blob directory tests
 # See docs/USER_RECORD_BLOB_DIRS.md
 checkblob() {
-        test -f "/var/cache/systemd/home/blob-user/$1"
-        stat -c "%u %#a" "/var/cache/systemd/home/blob-user/$1" | grep "^0 0644"
-        test -f "/home/blob-user/.identity-blob/$1"
-        stat -c "%u %#a" "/home/blob-user/.identity-blob/$1" | grep "^12345 0644"
+    test -f "/var/cache/systemd/home/blob-user/$1"
+    stat -c "%u %#a" "/var/cache/systemd/home/blob-user/$1" | grep "^0 0644"
+    test -f "/home/blob-user/.identity-blob/$1"
+    stat -c "%u %#a" "/home/blob-user/.identity-blob/$1" | grep "^12345 0644"
 
-        diff "/var/cache/systemd/home/blob-user/$1" "$2"
-        diff "/var/cache/systemd/home/blob-user/$1" "/home/blob-user/.identity-blob/$1"
+    diff "/var/cache/systemd/home/blob-user/$1" "$2"
+    diff "/var/cache/systemd/home/blob-user/$1" "/home/blob-user/.identity-blob/$1"
 }
 
 mkdir /tmp/blob1 /tmp/blob2
