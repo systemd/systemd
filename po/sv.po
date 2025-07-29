@@ -5,14 +5,14 @@
 # Andreas Henriksson <andreas@fatal.se>, 2016.
 # Josef Andersson <l10nl18nsweja@gmail.com>, 2015, 2017.
 # Göran Uddeborg <goeran@uddeborg.se>, 2020, 2021, 2024.
-# Luna Jernberg <bittin@reimu.nl>, 2020, 2023, 2024.
+# Luna Jernberg <bittin@reimu.nl>, 2020, 2023, 2024, 2025.
 # Anders Jonsson <anders.jonsson@norsjovallen.se>, 2022, 2024.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2024-11-29 12:38+0000\n"
+"PO-Revision-Date: 2025-07-29 19:53+0000\n"
 "Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
 "main/sv/>\n"
@@ -21,7 +21,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.8.2\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -152,14 +152,11 @@ msgstr "Autentisering krävs för att aktivera en användares hemarea."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Hantera nycklar för signering av hemkatalog"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr ""
-"Autentisering krävs för att hantera systemtjänster eller andra enheter."
+msgstr "Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
@@ -891,19 +888,15 @@ msgstr ""
 "Autentisering krävs för att skapa en lokal virtuell maskin eller behållare."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "Skapa en lokal virtuell maskin eller behållare"
+msgstr "Registrera en lokal virtuell maskin eller behållare"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
-"Autentisering krävs för att skapa en lokal virtuell maskin eller behållare."
+"Autentisering krävs för att registrera en lokal virtuell maskin eller "
+"behållare."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -1128,13 +1121,11 @@ msgstr "Autentisering krävs för att prenumerera på frågesvar."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Prenumerera på DNS-konfiguration"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "Autentisering krävs för att prenumerera på frågesvar."
+msgstr "Autentisering krävs för att prenumerera på DNS-konfiguration."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1279,16 +1270,12 @@ msgstr ""
 "”$(unit)”."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
 "Autentisering krävs för att skicka en UNIX-signal till processerna i "
-"”$(unit)”."
+"undergruppen '$(unit)'."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
