@@ -21,7 +21,12 @@ typedef struct HomeSetup {
         sd_id128_t found_luks_uuid;
         sd_id128_t found_fs_uuid;
 
-        uint8_t fscrypt_key_descriptor[FS_KEY_DESCRIPTOR_SIZE];
+        // union for v1 key descriptor and v2 key identifier
+        union {
+                uint8_t fscrypt_key_descriptor[FSCRYPT_KEY_DESCRIPTOR_SIZE]; /* v1 key descriptor */
+                uint16_t fscrypt_key_identifier[FS_KEY_IDENTIFIER_SIZE]; /* v2 key identifier */
+        }
+        
 
         void *volume_key;
         size_t volume_key_size;
@@ -34,6 +39,8 @@ typedef struct HomeSetup {
         bool do_offline_fallocate:1;
         bool do_mark_clean:1;
         bool do_drop_caches:1;
+        bool use_fscrypt_v2:1;        /* Whether the home directory is encrypted with fscrypt v2 policy */
+
 
         uint64_t partition_offset;
         uint64_t partition_size;
