@@ -603,7 +603,8 @@ bool exec_is_cgroup_mount_read_only(const ExecContext *context);
 
 const char* exec_get_private_notify_socket_path(const ExecContext *context, const ExecParameters *params, bool needs_sandboxing);
 
-int exec_log_level_max(const ExecContext *context, const ExecParameters *params);
+int exec_log_level_max_with_exec_params(const ExecContext *context, const ExecParameters *params);
+int exec_log_level_max(const ExecContext *context);
 
 /* These logging macros do the same logging as those in unit.h, but using ExecContext and ExecParameters
  * instead of the unit object, so that it can be used in the sd-executor context (where the unit object is
@@ -625,7 +626,7 @@ int exec_log_level_max(const ExecContext *context, const ExecParameters *params)
         LOG_CONTEXT_PUSH_KEY_VALUE(LOG_EXEC_ID_FIELD(p), p->unit_id);                              \
         LOG_CONTEXT_PUSH_KEY_VALUE(LOG_EXEC_INVOCATION_ID_FIELD(p), p->invocation_id_string);      \
         LOG_CONTEXT_PUSH_IOV(c->log_extra_fields, c->n_log_extra_fields)                           \
-        LOG_CONTEXT_SET_LOG_LEVEL(exec_log_level_max(c, p))                                        \
+        LOG_CONTEXT_SET_LOG_LEVEL(exec_log_level_max_with_exec_params(c, p))                       \
         LOG_SET_PREFIX(p->unit_id);
 
 #define LOG_CONTEXT_PUSH_EXEC(ec, ep) \
