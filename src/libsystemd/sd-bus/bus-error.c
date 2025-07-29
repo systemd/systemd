@@ -165,10 +165,11 @@ static int errno_to_bus_error_name_new(int error, char **ret) {
         const char *name;
         char *n;
 
-        if (error < 0)
-                error = -error;
-
-        name = errno_to_name(error);
+        /* D-Bus names must not start with a digit. Thus, an name like System.Error.500 would not be legal.
+         * Let's just return 0 if an unknown errno is encountered, which will cause the caller to fall back
+         * to BUS_ERROR_FAILED.
+         */
+        name = errno_name_no_fallback(error);
         if (!name)
                 return 0;
 

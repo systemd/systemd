@@ -61,7 +61,7 @@ static void test_getpwnam_r(void *handle, const char *module, const char *name) 
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s",
                  fname, name,
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---");
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---");
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_passwd(&pwd);
 }
@@ -87,7 +87,7 @@ static void test_getgrnam_r(void *handle, const char *module, const char *name) 
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s",
                  fname, name,
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---");
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---");
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_group(&gr);
 }
@@ -113,7 +113,7 @@ static void test_getpwuid_r(void *handle, const char *module, uid_t uid) {
         log_info("%s("UID_FMT") → status=%s%-20serrno=%d/%s",
                  fname, uid,
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---");
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---");
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_passwd(&pwd);
 }
@@ -139,7 +139,7 @@ static void test_getgrgid_r(void *handle, const char *module, gid_t gid) {
         log_info("%s("GID_FMT") → status=%s%-20serrno=%d/%s",
                  fname, gid,
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---");
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---");
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_group(&gr);
 }

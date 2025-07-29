@@ -1159,7 +1159,7 @@ static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void 
         } else if (si->si_status != EXIT_SUCCESS) {
                 /* If we received an error code via sd_notify(), use it */
                 if (h->worker_error_code != 0)
-                        ret = log_debug_errno(h->worker_error_code, "Worker reported error code %s.", errno_to_name(h->worker_error_code));
+                        ret = log_debug_errno(h->worker_error_code, "Worker reported error code %s.", ERRNO_NAME(h->worker_error_code));
                 else
                         ret = log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Worker exited with exit code %i.", si->si_status);
         } else
