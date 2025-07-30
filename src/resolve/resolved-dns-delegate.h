@@ -4,7 +4,7 @@
 #include "list.h"
 #include "resolved-forward.h"
 
-#define DELEGATE_SEARCH_DOMAINS_MAX 256
+#define DELEGATE_SEARCH_DOMAINS_MAX 1024
 #define DELEGATE_DNS_SERVERS_MAX 256
 
 /* A DnsDelegate object is used to manage additional, explicitly configured unicast DNS lookup scopes,
