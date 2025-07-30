@@ -1184,7 +1184,7 @@ def pack_strings(strings: set[str], base: int) -> tuple[bytes, dict[str, int]]:
 
 
 def parse_hwid_dir(path: Path) -> bytes:
-    hwid_files = path.rglob('*.json')
+    hwid_files = sorted(path.rglob('*.json'))
     devstr_to_type: dict[str, int] = {
         'devicetree': DEVICE_TYPE_DEVICETREE,
         'uefi-fw': DEVICE_TYPE_UEFI_FW,
