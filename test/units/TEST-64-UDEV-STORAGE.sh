@@ -478,8 +478,8 @@ EOF
 }
 
 testcase_simultaneous_events_2() {
-    local disk expected i iterations key link num_part part script_dir target timeout
-    local -a devices symlinks
+    local disk i iterations key link num_part part script_dir target timeout
+    local -a devices
     local -A running
 
     script_dir="$(mktemp --directory "/tmp/test-udev-storage.script.XXXXXXXXXX")"
