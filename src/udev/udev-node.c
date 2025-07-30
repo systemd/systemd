@@ -379,15 +379,13 @@ static int stack_directory_open_and_lock(
         return 0;
 }
 
-static int node_get_current(const char *slink, int dirfd, char **ret_id, int *ret_prio) {
+static int node_get_current(const char *slink, int dirfd, sd_device **ret_device, int *ret_prio) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_free_ char *id_dup = NULL;
         const char *id;
         int r;
 
         assert(slink);
         assert(dirfd >= 0);
-        assert(ret_id);
 
         r = sd_device_new_from_devname(&dev, slink);
         if (r < 0)
@@ -397,18 +395,78 @@ static int node_get_current(const char *slink, int dirfd, char **ret_id, int *re
         if (r < 0)
                 return r;
 
-        id_dup = strdup(id);
-        if (!id_dup)
-                return -ENOMEM;
-
         if (ret_prio) {
                 r = stack_directory_read_one(dirfd, id, NULL, ret_prio);
                 if (r < 0)
                         return r;
         }
 
-        *ret_id = TAKE_PTR(id_dup);
+        if (ret_device)
+                *ret_device = TAKE_PTR(dev);
         return 0;
+}
+
+enum {
+        DEVLINK_UPDATE_NONE,
+        DEVLINK_UPDATE_CREATE_OURS,
+        DEVLINK_UPDATE_SEARCH_STACKDIR,
+};
+
+static int link_get_update_method(sd_device *dev, sd_device *current_dev, int current_prio, bool add) {
+        int r;
+
+        assert(dev);
+
+        if (!current_dev)
+                /* The requested devlink does not exist, or the target device does not exist and the devlink
+                 * points to a non-existing device. Let's search the device that has the highest priority,
+                 * and update the devlink. */
+                return DEVLINK_UPDATE_SEARCH_STACKDIR;
+
+        const char *id;
+        r = sd_device_get_device_id(dev, &id);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device id: %m");
+
+        const char *current_id;
+        r = sd_device_get_device_id(current_dev, &current_id);
+        if (r < 0)
+                return log_device_debug_errno(current_dev, r, "Failed to get current device id: %m");
+
+        if (add) {
+                int prio;
+                r = device_get_devlink_priority(dev, &prio);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get devlink priority: %m");
+
+                if (streq(current_id, id)) {
+                        if (current_prio <= prio)
+                                /* The devlink is ours and already exists, and the new priority is equal or
+                                 * higher than the previous. Hence, it is not necessary to recreate it. */
+                                return DEVLINK_UPDATE_NONE;
+
+                        /* The devlink priority is downgraded. Another device may have a higher priority now.
+                         * Let's find the device node with the highest priority. */
+                        return DEVLINK_UPDATE_SEARCH_STACKDIR;
+                }
+
+                if (current_prio > prio)
+                        /* The devlink with a higher priority already exists and is owned by another device.
+                         * Hence, it is not necessary to recreate it. */
+                        return DEVLINK_UPDATE_NONE;
+
+                /* This device has the equal or a higher priority than the current. Let's create the devlink
+                 * to our device node. */
+                return DEVLINK_UPDATE_CREATE_OURS;
+        }
+
+        if (streq(current_id, id))
+                /* The current devlink is ours, and the target device will be removed. Hence, we need to
+                 * search the device that has the highest priority. and update the devlink. */
+                return DEVLINK_UPDATE_SEARCH_STACKDIR;
+
+        /* The devlink already exists and is owned by another device. Hence, we should not touch it. */
+        return DEVLINK_UPDATE_NONE;
 }
 
 static int link_update(sd_device *dev, const char *slink, bool add) {
@@ -420,8 +478,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         _cleanup_(release_lock_file) LockFile lockfile = LOCK_FILE_INIT; /* #3 */
         _cleanup_(rmdir_and_freep) char *dirpath = NULL; /* #2 */
         _cleanup_close_ int dirfd = -EBADF; /* #1 */
-        _cleanup_free_ char *current_id = NULL, *devnode = NULL;
-        int r, current_prio;
+        int r;
 
         assert(dev);
         assert(slink);
@@ -430,7 +487,9 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (r < 0)
                 return r;
 
-        r = node_get_current(slink, dirfd, &current_id, add ? &current_prio : NULL);
+        _cleanup_(sd_device_unrefp) sd_device *current_dev = NULL;
+        int current_prio = 0;
+        r = node_get_current(slink, dirfd, &current_dev, add ? &current_prio : NULL);
         if (r < 0 && !ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(r))
                 return log_device_debug_errno(dev, r, "Failed to get the current device node priority for '%s': %m", slink);
 
@@ -438,64 +497,31 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to update stack directory for '%s': %m", slink);
 
-        if (current_id) {
-                const char *id;
-
-                r = sd_device_get_device_id(dev, &id);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to get device id: %m");
-
-                if (add) {
-                        int prio;
-
-                        r = device_get_devlink_priority(dev, &prio);
-                        if (r < 0)
-                                return log_device_debug_errno(dev, r, "Failed to get devlink priority: %m");
-
-                        if (streq(current_id, id)) {
-                                if (current_prio <= prio)
-                                        /* The devlink is ours and already exists, and the new priority is
-                                         * equal or higher than the previous. Hence, it is not necessary to
-                                         * recreate it. */
-                                        return 0;
-
-                                /* The devlink priority is downgraded. Another device may have a higher
-                                 * priority now. Let's find the device node with the highest priority. */
-                        } else {
-                                if (current_prio > prio)
-                                        /* The devlink with a higher priority already exists and is owned by
-                                         * another device. Hence, it is not necessary to recreate it. */
-                                        return 0;
-
-                                /* This device has the equal or a higher priority than the current. Let's
-                                 * create the devlink to our device node. */
-                                return node_create_symlink(dev, /* devnode = */ NULL, slink);
-                        }
-
-                } else {
-                        if (!streq(current_id, id))
-                                /* The devlink already exists and is owned by another device. Hence, it is
-                                 * not necessary to recreate it. */
-                                return 0;
-
-                        /* The current devlink is ours, and the target device will be removed. Hence, we need
-                         * to search the device that has the highest priority. and update the devlink. */
-                }
-        } else {
-                /* The requested devlink does not exist, or the target device does not exist and the devlink
-                 * points to a non-existing device. Let's search the device that has the highest priority,
-                 * and update the devlink. */
-                ;
-        }
-
-        r = stack_directory_find_prioritized_devnode(dev, dirfd, add, &devnode);
+        r = link_get_update_method(dev, current_dev, current_prio, add);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to determine device node with the highest priority for '%s': %m", slink);
-        if (r > 0)
-                return node_create_symlink(dev, devnode, slink);
+                return r;
 
-        log_device_debug(dev, "No reference left for '%s', removing", slink);
-        return node_remove_symlink(dev, slink);
+        switch (r) {
+        case DEVLINK_UPDATE_NONE:
+                return 0;
+
+        case DEVLINK_UPDATE_CREATE_OURS:
+                return node_create_symlink(dev, /* devnode = */ NULL, slink);
+
+        case DEVLINK_UPDATE_SEARCH_STACKDIR: {
+                _cleanup_free_ char *devnode = NULL;
+                r = stack_directory_find_prioritized_devnode(dev, dirfd, add, &devnode);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to determine device node with the highest priority for '%s': %m", slink);
+                if (r > 0)
+                        return node_create_symlink(dev, devnode, slink);
+
+                log_device_debug(dev, "No reference left for '%s', removing", slink);
+                return node_remove_symlink(dev, slink);
+        }
+        default:
+                assert_not_reached();
+        }
 }
 
 static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
