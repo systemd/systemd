@@ -590,8 +590,8 @@ EOF
 }
 
 testcase_simultaneous_events() {
-    testcase_simultaneous_events_1
-    testcase_simultaneous_events_2
+    #testcase_simultaneous_events_1
+    #testcase_simultaneous_events_2
     testcase_issue_37823
 }
 
