@@ -1062,7 +1062,7 @@ def pack_strings(strings: set[str], base: int) -> tuple[bytes, dict[str, int]]:
 
 
 def parse_hwid_dir(path: Path) -> bytes:
-    hwid_files = path.rglob('*.json')
+    hwid_files = sorted(path.rglob('*.json'))
 
     strings: set[str] = set()
     devices: collections.defaultdict[tuple[str, str], set[uuid.UUID]] = collections.defaultdict(set)
