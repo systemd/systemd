@@ -172,6 +172,7 @@ static ssize_t request_reader_entries(
 
         while (pos >= m->size) {
                 off_t sz;
+                bool wait_for_events = false;
 
                 /* End of this entry, so let's serialize the next
                  * one */
@@ -191,10 +192,12 @@ static ssize_t request_reader_entries(
                         /* We skipped beyond the end, make sure entries between the cursor and n_skip offset
                          * from it are not returned. */
                         if (r < m->n_skip + 1) {
-                                m->n_skip -= r;
                                 if (m->follow)
-                                        return 0;
-                                return MHD_CONTENT_READER_END_OF_STREAM;
+                                        wait_for_events = true;
+                                else
+                                        return MHD_CONTENT_READER_END_OF_STREAM;
+
+                                m->n_skip -= r;
                         }
                 } else
                         r = sd_journal_next(m->journal);
@@ -203,20 +206,22 @@ static ssize_t request_reader_entries(
                         log_error_errno(r, "Failed to advance journal pointer: %m");
                         return MHD_CONTENT_READER_END_WITH_ERROR;
                 } else if (r == 0) {
+                        if (m->follow)
+                                wait_for_events = true;
+                        else
+                                return MHD_CONTENT_READER_END_OF_STREAM;
+                }
 
-                        if (m->follow) {
-                                r = sd_journal_wait(m->journal, (uint64_t) JOURNAL_WAIT_TIMEOUT);
-                                if (r < 0) {
-                                        log_error_errno(r, "Couldn't wait for journal event: %m");
-                                        return MHD_CONTENT_READER_END_WITH_ERROR;
-                                }
-                                if (r == SD_JOURNAL_NOP)
-                                        break;
-
-                                continue;
+                if (wait_for_events) {
+                        r = sd_journal_wait(m->journal, (uint64_t) JOURNAL_WAIT_TIMEOUT);
+                        if (r < 0) {
+                                log_error_errno(r, "Couldn't wait for journal event: %m");
+                                return MHD_CONTENT_READER_END_WITH_ERROR;
                         }
+                        if (r == SD_JOURNAL_NOP)
+                                break;
 
-                        return MHD_CONTENT_READER_END_OF_STREAM;
+                        continue;
                 }
 
                 if (m->discrete) {
