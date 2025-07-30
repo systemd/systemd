@@ -472,8 +472,17 @@ EOF
     done
 
     helper_check_device_units
-    rm -f "$rule" "$partscript"
 
+    # Cleanup and check if unnecessary devlinks are removed.
+    for disk in {0..9}; do
+        udevadm lock --timeout="$timeout" --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" || :
+    done
+    udevadm settle --timeout="$timeout"
+    for ((part = 1; part <= num_part; part++)); do
+        udevadm wait --timeout=10 --removed "/dev/disk/by-partlabel/test${part}"
+    done
+
+    rm -f "$rule" "$partscript"
     udevadm control --reload
 }
 
@@ -515,17 +524,6 @@ EOF
 
     echo "## $iterations iterations start: $(date '+%H:%M:%S.%N')"
     for ((i = 1; i <= iterations; i++)); do
-
-        for disk in {0..9}; do
-            udevadm lock --timeout="$timeout" --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" &
-            running[$disk]=$!
-        done
-
-        for key in "${!running[@]}"; do
-            wait "${running[$key]}"
-            unset "running[$key]"
-        done
-
         for disk in {0..9}; do
             udevadm lock --timeout="$timeout" --device="${devices[$disk]}" sfdisk -q -X gpt "${devices[$disk]}" <"$script_dir/partscript-$i" &
             running[$disk]=$!
@@ -537,8 +535,26 @@ EOF
         done
 
         udevadm wait --settle --timeout="$timeout" "${devices[@]}" "/dev/disk/by-partlabel/testlabel-$i"
+
+        for disk in {0..9}; do
+            udevadm lock --timeout="$timeout" --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" &
+            running[$disk]=$!
+        done
+
+        for key in "${!running[@]}"; do
+            wait "${running[$key]}"
+            unset "running[$key]"
+        done
     done
+    udevadm settle --timeout="$timeout"
     echo "## $iterations iterations end: $(date '+%H:%M:%S.%N')"
+
+    # Check if unnecessary devlinks are removed.
+    for ((i = 1; i <= iterations; i++)); do
+        udevadm wait --timeout=10 --removed "/dev/disk/by-partlabel/testlabel-$i"
+    done
+
+    helper_check_device_units
 }
 
 testcase_simultaneous_events() {
