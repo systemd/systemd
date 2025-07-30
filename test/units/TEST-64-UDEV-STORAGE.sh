@@ -559,9 +559,61 @@ EOF
     udevadm wait --timeout=10 --removed "/dev/disk/by-partlabel/testlabel-$iterations"
 }
 
+testcase_simultaneous_events_3() {
+    local device i iterations link num_part part script_dir target timeout
+
+    # for issue #37823
+
+    script_dir="$(mktemp --directory "/tmp/test-udev-storage.script.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$script_dir'" RETURN
+
+    num_part=5
+    iterations=30
+    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        timeout=120
+    else
+        timeout=60
+    fi
+
+    link="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_deadbeeftest0"
+    device="$(readlink -f "$link")"
+    if [[ ! -b "$device" ]]; then
+        echo "ERROR: failed to find the test SCSI block device $link"
+        return 1
+    fi
+
+    for ((i = 1; i <= iterations; i++)); do
+        cat >"$script_dir/partscript-$i" <<EOF
+$(for ((part = 1; part <= num_part; part++)); do printf 'name="test3-%d", size=1M\n' "$i"; done)
+EOF
+    done
+
+    ls -l /dev/disk/by-partlabel/
+
+    echo "## $iterations iterations start: $(date '+%H:%M:%S.%N')"
+    udevadm lock --timeout="$timeout" --device="$device" \
+            bash -c "for ((i = 1; i <= $iterations; i++)); do sfdisk -q -X gpt $device <$script_dir/partscript-\$i; done"
+    udevadm settle --timeout="$timeout"
+    echo "## $iterations iterations end: $(date '+%H:%M:%S.%N')"
+
+    ls -l /dev/disk/by-partlabel/
+
+    # Check devlinks
+    for ((i = 1; i < iterations; i++)); do
+        udevadm wait --settle --timeout=10 --removed "/dev/disk/by-partlabel/test3-$i"
+    done
+    udevadm wait --settle --timeout=10 "/dev/disk/by-partlabel/test3-$iterations"
+
+    # Cleanup and check if the last devlink is removed
+    udevadm lock --timeout="$timeout" --device="$device" sfdisk -q --delete "$device"
+    udevadm wait --settle --timeout="$timeout" --removed "/dev/disk/by-partlabel/test3-$iterations"
+}
+
 testcase_simultaneous_events() {
     testcase_simultaneous_events_1
     testcase_simultaneous_events_2
+    testcase_simultaneous_events_3
 }
 
 testcase_lvm_basic() {
