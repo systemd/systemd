@@ -46,11 +46,11 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
-#define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
-#define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))
+#define DEFAULT_DATA_HASH_TABLE_SIZE 2047U
+#define DEFAULT_FIELD_HASH_TABLE_SIZE 1023U
 
-#define DEFAULT_COMPRESS_THRESHOLD (512ULL)
-#define MIN_COMPRESS_THRESHOLD (8ULL)
+#define DEFAULT_COMPRESS_THRESHOLD 512U
+#define MIN_COMPRESS_THRESHOLD 8U
 
 /* This is the minimum journal file size */
 #define JOURNAL_FILE_SIZE_MIN (512 * U64_KB)             /* 512 KiB */
@@ -1286,15 +1286,14 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
            beyond 75% fill level. Calculate the hash table size for
            the maximum file size based on these metrics. */
 
-        s = (f->metrics.max_size * 4 / 768 / 3) * sizeof(HashItem);
-        if (s < DEFAULT_DATA_HASH_TABLE_SIZE)
-                s = DEFAULT_DATA_HASH_TABLE_SIZE;
+        s = MAX(f->metrics.max_size * 4 / 768 / 3,
+                DEFAULT_DATA_HASH_TABLE_SIZE);
 
-        log_debug("Reserving %"PRIu64" entries in data hash table.", s / sizeof(HashItem));
+        log_debug("Reserving %"PRIu64" entries in data hash table.", s);
 
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
-                                       offsetof(Object, hash_table.items) + s,
+                                       offsetof(Object, hash_table.items) + s * sizeof(HashItem),
                                        &o, &p);
         if (r < 0)
                 return r;
@@ -1302,7 +1301,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         memzero(o->hash_table.items, s);
 
         f->header->data_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
-        f->header->data_hash_table_size = htole64(s);
+        f->header->data_hash_table_size = htole64(s * sizeof(HashItem));
 
         return 0;
 }
@@ -1319,19 +1318,19 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
          * number should grow very slowly only */
 
         s = DEFAULT_FIELD_HASH_TABLE_SIZE;
-        log_debug("Reserving %"PRIu64" entries in field hash table.", s / sizeof(HashItem));
+        log_debug("Reserving %"PRIu64" entries in field hash table.", s);
 
         r = journal_file_append_object(f,
                                        OBJECT_FIELD_HASH_TABLE,
-                                       offsetof(Object, hash_table.items) + s,
+                                       offsetof(Object, hash_table.items) + s * sizeof(HashItem),
                                        &o, &p);
         if (r < 0)
                 return r;
 
-        memzero(o->hash_table.items, s);
+        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->field_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
-        f->header->field_hash_table_size = htole64(s);
+        f->header->field_hash_table_size = htole64(s * sizeof(HashItem));
 
         return 0;
 }
