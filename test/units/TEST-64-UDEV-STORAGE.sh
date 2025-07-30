@@ -541,9 +541,54 @@ EOF
     echo "## $iterations iterations end: $(date '+%H:%M:%S.%N')"
 }
 
+testcase_issue_37823() {
+    local device i iterations link num_part part script_dir target timeout
+
+    # for issue #37823
+
+    script_dir="$(mktemp --directory "/tmp/test-udev-storage.script.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$script_dir'" RETURN
+
+    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        num_part=5
+        iterations=10
+        timeout=2400
+    else
+        num_part=20
+        iterations=50
+        timeout=300
+    fi
+
+    link="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_deadbeeftest0"
+    device="$(readlink -f "$link")"
+    if [[ ! -b "$device" ]]; then
+        echo "ERROR: failed to find the test SCSI block device $link"
+        return 1
+    fi
+
+    for ((i = 1; i <= iterations; i++)); do
+        cat >"$script_dir/partscript-$i" <<EOF
+$(for ((part = 1; part <= num_part; part++)); do printf 'name="testlabel-%d", size=1M\n' "$i"; done)
+EOF
+    done
+
+    echo "## $iterations iterations start: $(date '+%H:%M:%S.%N')"
+    udevadm lock --timeout="$timeout" --device="$device" sfdisk -q --delete "$device" || :
+    for ((i = 1; i <= iterations; i++)); do
+        udevadm lock --timeout="$timeout" --device="$device" sfdisk -q -X gpt "$device" <"$script_dir/partscript-$i"
+    done
+    for ((i = 1; i < iterations; i++)); do
+        udevadm wait --settle --timeout="$timeout" --removed "/dev/disk/by-partlabel/testlabel-$i"
+    done
+    udevadm wait --settle --timeout="$timeout" "/dev/disk/by-partlabel/testlabel-$iterations"
+    echo "## $iterations iterations end: $(date '+%H:%M:%S.%N')"
+}
+
 testcase_simultaneous_events() {
     testcase_simultaneous_events_1
     testcase_simultaneous_events_2
+    testcase_issue_37823
 }
 
 testcase_lvm_basic() {
