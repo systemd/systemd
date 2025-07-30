@@ -571,7 +571,7 @@ EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
 ExtensionDirectories=-${VDIR}
-ExecStart=bash -c ' \\
+ExecStart=bash -x -c ' \\
     trap "{ \\
         systemd-notify --reloading; \\
         (ls /etc | grep marker || echo no-marker) >/tmp/markers/50g; \\
@@ -612,7 +612,7 @@ EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
 ExtensionImages=-$VDIR2
-ExecStart=bash -c ' \\
+ExecStart=bash -x -c ' \\
     trap "{ \\
         systemd-notify --reloading; \\
         (ls /etc | grep marker || echo no-marker) >/tmp/markers/50h; \\
@@ -650,7 +650,7 @@ BindPaths=/tmp/markers/
 RootImage=$MINIMAL_IMAGE.raw
 ExtensionDirectories=-${VDIR}
 NotifyAccess=all
-ExecStart=bash -c ' \
+ExecStart=bash -x -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
         printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -685,7 +685,7 @@ BindPaths=/tmp/markers/
 RootDirectory=/tmp/vpickminimg
 ExtensionDirectories=-${VDIR}
 NotifyAccess=all
-ExecStart=bash -c ' \
+ExecStart=bash -x -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
         printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -715,7 +715,7 @@ RootImage=$MINIMAL_IMAGE.raw
 ExtensionImages=-$VDIR2 /tmp/app0.raw
 PrivateUsers=yes
 NotifyAccess=all
-ExecStart=bash -c ' \
+ExecStart=bash -x -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
         printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
