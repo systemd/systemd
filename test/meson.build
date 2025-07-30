@@ -357,7 +357,6 @@ if install_tests
                 'integration-tests/TEST-30-ONCLOCKCHANGE/TEST-30-ONCLOCKCHANGE.units',
                 'integration-tests/TEST-52-HONORFIRSTSHUTDOWN/TEST-52-HONORFIRSTSHUTDOWN.units',
                 'integration-tests/TEST-63-PATH/TEST-63-PATH.units',
-                'integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units',
                 'integration-tests/TEST-80-NOTIFYACCESS/TEST-80-NOTIFYACCESS.units',
         ]
 
