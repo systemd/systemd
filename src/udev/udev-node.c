@@ -29,6 +29,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "udev-node.h"
+#include "udev-util.h"
 #include "user-util.h"
 
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
@@ -439,6 +440,27 @@ static int link_get_update_method(sd_device *dev, sd_device *current_dev, int di
                 /* This device has the equal or a higher priority than the current. Let's create the devlink
                  * to our device node. */
                 return DEVLINK_UPDATE_CREATE_OURS;
+        }
+
+        if (device_for_action(dev, SD_DEVICE_REMOVE)) {
+                /* If this removal of the devlink is requested due to this is a 'remove' event, unlike the
+                 * other cases, we need to also check paths to device nodes. If 'current_dev' is created with
+                 * the same node but with a different device number soon after 'dev' is removed, then the
+                 * 'add' event for 'current_dev' should be blocked by the 'remove' event for 'dev'. Hence,
+                 * the devlink should not be owned by 'current_dev', but owned by 'dev'. */
+
+                const char *node;
+                r = sd_device_get_devname(dev, &node);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get device node: %m");
+
+                const char *current_node;
+                r = sd_device_get_devname(current_dev, &current_node);
+                if (r < 0)
+                        return log_device_debug_errno(current_dev, r, "Failed to get current device node: %m");
+
+                if (streq(current_node, node))
+                        return DEVLINK_UPDATE_SEARCH_STACKDIR;
         }
 
         if (!streq(current_id, id))
