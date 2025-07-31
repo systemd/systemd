@@ -48,17 +48,18 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
         Spawn *spawn = ASSERT_PTR(userdata);
         char buf[4096], *p;
         size_t size;
-        ssize_t l;
+        ssize_t l, l_orig;
         int r;
 
         assert(fd == spawn->fd_stdout || fd == spawn->fd_stderr);
         assert(!spawn->result || spawn->result_len < spawn->result_size);
 
-        if (fd == spawn->fd_stdout && spawn->result) {
+        /* Use buf to handle following read for truncated event source */
+        if (fd == spawn->fd_stdout && spawn->result && !spawn->truncated) {
                 p = spawn->result + spawn->result_len;
                 size = spawn->result_size - spawn->result_len;
         } else {
-                p = buf;
+                p = buf; /* only for logging data */
                 size = sizeof(buf);
         }
 
@@ -73,15 +74,17 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                 return 0;
         }
 
+        l_orig = l;
         if ((size_t) l == size) {
                 log_device_warning(spawn->device, "Truncating stdout of '%s' up to %zu byte.",
                                    spawn->cmd, spawn->result_size);
                 l--;
                 spawn->truncated = true;
+                spawn->result_len += l;
         }
 
         p[l] = '\0';
-        if (fd == spawn->fd_stdout && spawn->result)
+        if (fd == spawn->fd_stdout && spawn->result && !spawn->truncated)
                 spawn->result_len += l;
 
         /* Log output only if we watch stderr. */
@@ -99,7 +102,10 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                                          fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
-        if (l == 0 || spawn->truncated)
+        /* Need to re-enable event source as long as not yet EOF,
+         * otherwise cmd may block on writing for full buffer.
+         */
+        if (l_orig == 0)
                 return 0;
 
 reenable:
