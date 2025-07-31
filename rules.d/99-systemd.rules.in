@@ -89,4 +89,6 @@ SUBSYSTEM=="module", KERNEL=="configfs", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sy
 SUBSYSTEM=="tpmrm", KERNEL=="tpmrm[0-9]*", TAG+="systemd", ENV{SYSTEMD_WANTS}+="tpm2.target"
 SUBSYSTEM=="tpm", KERNEL=="tpm[0-9]*", TAG+="systemd"
 
+SUBSYSTEM=="block", OPTIONS="dump"
+
 LABEL="systemd_end"
