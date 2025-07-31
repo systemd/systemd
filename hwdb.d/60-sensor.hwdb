@@ -157,7 +157,7 @@ sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT200TA:*
 
 # Asus Transformer Mini T103HAF
 sensor:modalias:platform:HID-SENSOR-200073*:dmi:*svn*ASUSTeK*:pnT103HAF:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, -1 
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, -1
 
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnTP201SA:*
 sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pn*E205SA:*
@@ -524,7 +524,7 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnEVE*:pnEveV:*
 # Exo
 #########################################
 
-# EXO Wings 2in1 w1125 
+# EXO Wings 2in1 w1125
 sensor:modalias:acpi:SMO8500*:dmi:*:svnEXO*:pnWings:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
@@ -654,7 +654,7 @@ sensor:modalias:acpi:SMO8840*:dmi:*:svnHUAWEI:pnBOHK-WAX9X:*
 sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:*:svnTobefilledbyO.E.M.:pnTW891:pvrTobefilledbyO.E.M.:rvnTobefilledbyO.E.M.:rnTW891:rvr1.0:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
-# I.T.Works TW701 7" windows tablet, same hw as Trekstor ST70416-6
+# I.T.Works TW701 7 inch windows tablet, same hw as Trekstor ST70416-6
 sensor:modalias:acpi:BMA250*:dmi:*:bvritWORKS.G.WI71C.JGBMRB*:*:svnInsyde:pni71c:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
@@ -908,7 +908,7 @@ sensor:modalias:acpi:KIOX010A*:dmi:*:svnCompletElectroServSA:pnMY8312:*
 # Nuvision (TMax)
 #########################################
 
-# Nuvision/TMAX 8" Windows signature edition. TM800W560L
+# Nuvision/TMAX 8 inch Windows signature edition. TM800W560L
 sensor:modalias:acpi:KIOX000A*:dmi:*:svnTMAX:pnTM800W560L:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
