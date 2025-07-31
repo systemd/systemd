@@ -197,9 +197,13 @@ int journal_file_set_offline_thread_join(JournalFile *f) {
         if (f->offline_state == OFFLINE_JOINED)
                 return 0;
 
+        log_debug("Joining journal offlining thread for %s.", f->path);
+
         r = pthread_join(f->offline_thread, NULL);
         if (r)
                 return -r;
+
+        log_debug("Journal offlining thread for %s joined.", f->path);
 
         f->offline_state = OFFLINE_JOINED;
 

@@ -22,6 +22,8 @@ void sync_req_varlink_reply(SyncReq *req) {
         if (req->offline)
                 manager_full_sync(req->manager, /* wait = */ true);
 
+        log_debug("Client request to sync journal (%s offlining) completed.", req->offline ? "with" : "without");
+
         /* Disconnect the SyncReq from the Varlink connection object, and free it */
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = TAKE_PTR(req->link);
         sd_varlink_set_userdata(vl, req->manager); /* reinstall manager object */
@@ -96,6 +98,7 @@ static int vl_method_rotate(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         log_info("Received client request to rotate journal, rotating.");
         manager_full_rotate(m);
+        log_debug("Client request to rotate journal completed.");
 
         return sd_varlink_reply(link, NULL);
 }
@@ -119,6 +122,7 @@ static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters,
 
         log_info("Received client request to flush runtime journal.");
         manager_full_flush(m);
+        log_debug("Client request to flush runtime journal completed.");
 
         return sd_varlink_reply(link, NULL);
 }
@@ -142,6 +146,7 @@ static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameter
 
         log_info("Received client request to relinquish %s access.", m->system_storage.path);
         manager_relinquish_var(m);
+        log_debug("Client request to relinquish %s access completed.", m->system_storage.path);
 
         return sd_varlink_reply(link, NULL);
 }
