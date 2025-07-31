@@ -117,7 +117,7 @@ check_device_unit() {(
         fi
     done
 
-    read -r -a links < <(udevadm info "$syspath" | sed -ne '/SYSTEMD_ALIAS=/ { s/^E: SYSTEMD_ALIAS=//; p }' 2>/dev/null)
+    read -r -a links < <(udevadm info -q property --property SYSTEMD_ALIAS --value "$syspath" 2>/dev/null)
     for link in "${links[@]}"; do
         if [[ "$link" == "$path" ]]; then # SYSTEMD_ALIAS= are absolute
             return 0
@@ -131,7 +131,7 @@ check_device_unit() {(
 check_device_units() {(
     set +x
 
-    local log_level path paths
+    local log_level path paths unit units
 
     log_level="${1?}"
     shift
@@ -143,12 +143,13 @@ check_device_units() {(
         fi
     done
 
-    while read -r unit _; do
+    read -r -a units < <(systemctl list-units --all --type=device --no-legend dev-* | awk '$1 !~ /dev-tty.+/ && $4 == "plugged" { print $1 }' | sed -e 's/\.device$//')
+    for unit in "${units[@]}"; do
         path=$(systemd-escape --path --unescape "$unit")
         if ! check_device_unit "$log_level" "$path"; then
            return 1
         fi
-    done < <(systemctl list-units --all --type=device --no-legend dev-* | awk '$1 !~ /dev-tty.+/ && $4 == "plugged" { print $1 }' | sed -e 's/\.device$//')
+    done
 
     return 0
 )}
