@@ -1367,7 +1367,7 @@ static int nsec3_hashed_domain_make(DnsResourceRecord *nsec3, const char *domain
  * that there is no proof either way. The latter is the case if a proof of non-existence of a given
  * name uses an NSEC3 record with the opt-out bit set. Lastly, if we are given insufficient NSEC3 records
  * to conclude anything we indicate this by returning NO_RR. */
-static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
+static int dnssec_test_nsec3(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl, bool find_glue) {
         _cleanup_free_ char *next_closer_domain = NULL, *wildcard_domain = NULL;
         const char *zone, *p, *pp = NULL, *wildcard;
         DnsResourceRecord *rr, *enclosure_rr, *zone_rr, *wildcard_rr = NULL;
@@ -1473,8 +1473,8 @@ found_closest_encloser:
                         if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
                                 return -EBADMSG;
                 } else {
-                        if (bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_NS) &&
-                            !bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA))
+                        if ((bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_NS) &&
+                            !bitmap_isset(enclosure_rr->nsec3.types, DNS_TYPE_SOA)) != find_glue)
                                 return -EBADMSG;
                 }
 
@@ -1771,7 +1771,7 @@ static int dnssec_nsec_generate_wildcard(DnsResourceRecord *rr, const char *name
         return 0;
 }
 
-int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
+int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl, bool find_glue) {
         bool have_nsec3 = false, covering_rr_authenticated = false, wildcard_rr_authenticated = false;
         DnsResourceRecord *rr, *covering_rr = NULL, *wildcard_rr = NULL;
         DnsAnswerFlags flags;
@@ -1823,8 +1823,8 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
                         } else {
                                 /* For all RR types, ensure that if NS is set SOA is set too, so that we know
                                  * we got the child's NSEC. */
-                                if (bitmap_isset(rr->nsec.types, DNS_TYPE_NS) &&
-                                    !bitmap_isset(rr->nsec.types, DNS_TYPE_SOA))
+                                if ((bitmap_isset(rr->nsec.types, DNS_TYPE_NS) &&
+                                    !bitmap_isset(rr->nsec.types, DNS_TYPE_SOA)) != find_glue)
                                         continue;
                         }
 
@@ -1916,7 +1916,7 @@ int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *r
 
         /* OK, this was not sufficient. Let's see if NSEC3 can help. */
         if (have_nsec3)
-                return dnssec_test_nsec3(answer, key, result, authenticated, ttl);
+                return dnssec_test_nsec3(answer, key, result, authenticated, ttl, find_glue);
 
         /* No appropriate NSEC RR found, report this. */
         *result = DNSSEC_NSEC_NO_RR;
@@ -2206,7 +2206,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         return -EOPNOTSUPP;
 }
 
-int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl) {
+int dnssec_nsec_test(DnsAnswer *answer, DnsResourceKey *key, DnssecNsecResult *result, bool *authenticated, uint32_t *ttl, bool find_glue) {
 
         return -EOPNOTSUPP;
 }
