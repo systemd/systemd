@@ -285,6 +285,21 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnASUS:pn*:*
  KEYBOARD_KEY_ee=volumedown
  KEYBOARD_KEY_ef=mute
 
+# Asus ROG series keyboards send power off when keyboard wake up
+# disable it by ignoring these keys
+# thanks to jnettlet for his gist
+evdev:input:b*v0B05p*e0111*
+  KEYBOARD_KEY_10081=reserved
+  KEYBOARD_KEY_10082=reserved
+  KEYBOARD_KEY_70070=reserved
+  KEYBOARD_KEY_70071=reserved
+  KEYBOARD_KEY_70072=reserved
+  KEYBOARD_KEY_70073=reserved
+  KEYBOARD_KEY_70074=reserved
+  KEYBOARD_KEY_70075=reserved
+  KEYBOARD_KEY_70076=reserved
+  KEYBOARD_KEY_70077=reserved
+
 # Asus TF103C misses the home button in its PNP0C40 GPIO resources
 # causing the volume-button mappings to be off by one, correct this
 evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:*:svnASUSTeKCOMPUTERINC.:pnTF103C*:*
@@ -2290,8 +2305,8 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn
 
 # Positivo (K116J)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositivo*:rnK116J*
- KEYBOARD_KEY_69=www                                    
- KEYBOARD_KEY_6e=search                                 
+ KEYBOARD_KEY_69=www
+ KEYBOARD_KEY_6e=search
 
 ###########################################################
 # Multilaser
