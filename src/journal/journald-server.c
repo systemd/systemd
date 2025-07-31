@@ -554,10 +554,13 @@ static int server_do_rotate(
         JournalFileFlags file_flags;
         int r;
 
+        assert(f);
         assert(s);
 
         if (!*f)
                 return -EINVAL;
+
+        log_debug("Rotating journal file %s.", (*f)->path);
 
         file_flags =
                 (s->compress.enabled ? JOURNAL_COMPRESS : 0)|
@@ -2201,6 +2204,8 @@ static int synchronize_second_half(sd_event_source *event_source, void *userdata
          * messages are processed. */
         server_full_sync(s, /* wait = */ true);
 
+        log_debug("Client request to sync journal completed.");
+
         /* Let's get rid of the event source now, by marking it as non-floating again. It then has no ref
          * anymore and is immediately destroyed after we return from this function, i.e. from this event
          * source handler at the end. */
@@ -2266,6 +2271,7 @@ static int vl_method_rotate(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         log_info("Received client request to rotate journal, rotating.");
         server_full_rotate(s);
+        log_debug("Client request to rotate journal completed.");
 
         return sd_varlink_reply(link, NULL);
 }
@@ -2282,6 +2288,7 @@ static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters,
 
         log_info("Received client request to flush runtime journal.");
         server_full_flush(s);
+        log_debug("Client request to flush runtime journal completed.");
 
         return sd_varlink_reply(link, NULL);
 }
@@ -2298,6 +2305,7 @@ static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameter
 
         log_info("Received client request to relinquish %s access.", s->system_storage.path);
         server_relinquish_var(s);
+        log_debug("Client request to relinquish %s access completed.", s->system_storage.path);
 
         return sd_varlink_reply(link, NULL);
 }
