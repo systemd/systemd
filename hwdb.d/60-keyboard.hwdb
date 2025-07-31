@@ -288,8 +288,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnASUS:pn*:*
 # Asus ROG series keyboards send power off when keyboard wake up
 # disable it by ignoring these keys
 # thanks to jnettlet for his gist
-evdev:input:b*v0B05p193Ee0111*
-evdev:input:b*v0B05p1A07e0111*
+evdev:input:b*v0B05p*e0111*
   KEYBOARD_KEY_10081=reserved
   KEYBOARD_KEY_10082=reserved
   KEYBOARD_KEY_70070=reserved
