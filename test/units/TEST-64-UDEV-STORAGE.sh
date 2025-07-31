@@ -117,8 +117,7 @@ check_device_unit() {(
         fi
     done
 
-    read -r -a links < <(udevadm info "$syspath" | sed -ne '/SYSTEMD_ALIAS=/ { s/^E: SYSTEMD_ALIAS=//; p }' 2>/dev/null)
-    for link in "${links[@]}"; do
+    for link in $(udevadm info -q property --property SYSTEMD_ALIAS --value); do
         if [[ "$link" == "$path" ]]; then # SYSTEMD_ALIAS= are absolute
             return 0
         fi
