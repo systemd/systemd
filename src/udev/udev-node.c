@@ -29,6 +29,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "udev-node.h"
+#include "udev-util.h"
 #include "user-util.h"
 
 #define UDEV_NODE_HASH_KEY SD_ID128_MAKE(b9,6a,f1,ce,40,31,44,1a,9e,19,ec,8b,ae,f3,e3,2f)
@@ -430,15 +431,32 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (r < 0)
                 return r;
 
-        r = node_get_current(slink, dirfd, &current_id, add ? &current_prio : NULL);
-        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(r))
-                return log_device_debug_errno(dev, r, "Failed to get the current device node priority for '%s': %m", slink);
+        if (!device_for_action(dev, SD_DEVICE_REMOVE)) {
+                r = node_get_current(slink, dirfd, &current_id, add ? &current_prio : NULL);
+                if (r < 0 && !ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(r))
+                        return log_device_debug_errno(dev, r, "Failed to get the current device node priority for '%s': %m", slink);
+        }
 
         r = stack_directory_update(dev, dirfd, add);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to update stack directory for '%s': %m", slink);
 
-        if (current_id) {
+        if (device_for_action(dev, SD_DEVICE_REMOVE)) {
+                assert(!add);
+
+                /* If the removal of the devlink is requested due to this is a 'remove' event, it is trivial
+                 * that the devlink will not be owned by the device anymore. As the kernel already removes
+                 * the device node, we can conclude that the devlink is already owned by another device if
+                 * the devlink is resolvable. In that case, we should not touch it and keep it as is. */
+                if (access(slink, F_OK) >= 0)
+                        return 0;
+
+                /* If the devlink is not resolvable, then the devlink might be owned by this device, or
+                 * potentially owned by another device that is also already removed. In ether case, we need
+                 * to find the current owner of the devlink by searching in the stack directory, and update
+                 * the devlink. */
+
+        } else if (current_id) {
                 const char *id;
 
                 r = sd_device_get_device_id(dev, &id);
