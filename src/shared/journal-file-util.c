@@ -318,12 +318,17 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
 
         target_state = f->archive ? STATE_ARCHIVED : STATE_OFFLINE;
 
+        log_debug("Journal file %s is %ssynchronously transitioning to %s.", f->path, !wait ? "a" : "", f->archive ? "archived" : "offline");
+
         /* An offlining journal is implicitly online and may modify f->header->state,
          * we must also join any potentially lingering offline thread when already in
          * the desired offline state.
          */
-        if (!journal_file_is_offlining(f) && f->header->state == target_state)
+        if (!journal_file_is_offlining(f) && f->header->state == target_state) {
+                log_debug("Journal file %s is already %s, waiting for offlining thread.",
+                          f->path, f->archive ? "archived" : "offline");
                 return journal_file_set_offline_thread_join(f);
+        }
 
         /* Restart an in-flight offline thread and wait if needed, or join a lingering done one. */
         restarted = journal_file_set_offline_try_restart(f);
@@ -335,6 +340,8 @@ int journal_file_set_offline(JournalFile *f, bool wait) {
 
         if (restarted)
                 return 0;
+
+        log_debug("Starting new %ssynchronous offlining operation for journal file %s.", !wait ? "a" : "", f->path);
 
         /* Initiate a new offline. */
         f->offline_state = OFFLINE_SYNCING;
