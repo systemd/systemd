@@ -285,9 +285,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnASUS:pn*:*
  KEYBOARD_KEY_ee=volumedown
  KEYBOARD_KEY_ef=mute
 
-# Asus ROG series keyboards send power off when keyboard wake up
-# disable it by ignoring these keys
-# thanks to jnettlet for his gist
+# Stop Asus ROG series keyboards from sending POWER and SLEEP key presses
+# when the keyboard goes to sleep.
 evdev:input:b*v0B05p*e0111*
   KEYBOARD_KEY_10081=reserved
   KEYBOARD_KEY_10082=reserved
