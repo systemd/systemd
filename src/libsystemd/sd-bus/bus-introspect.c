@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
+#include "sd-bus-vtable.h"
+
 #include "bus-internal.h"
 #include "bus-introspect.h"
 #include "bus-objects.h"
-#include "bus-protocol.h"
 #include "bus-signature.h"
-#include "fd-util.h"
-#include "fileio.h"
-#include "memory-util.h"
 #include "memstream-util.h"
+#include "ordered-set.h"
 #include "string-util.h"
 
 #define BUS_INTROSPECT_DOCTYPE                                       \
@@ -68,12 +69,12 @@
         "  </signal>\n"                                                 \
         " </interface>\n"
 
-int introspect_begin(struct introspect *i, bool trusted) {
+int introspect_begin(BusIntrospect *i, bool trusted) {
         FILE *f;
 
         assert(i);
 
-        *i = (struct introspect) {
+        *i = (BusIntrospect) {
                 .trusted = trusted,
         };
 
@@ -87,7 +88,7 @@ int introspect_begin(struct introspect *i, bool trusted) {
         return 0;
 }
 
-int introspect_write_default_interfaces(struct introspect *i, bool object_manager) {
+int introspect_write_default_interfaces(BusIntrospect *i, bool object_manager) {
         assert(i);
         assert(i->m.f);
 
@@ -101,7 +102,7 @@ int introspect_write_default_interfaces(struct introspect *i, bool object_manage
         return 0;
 }
 
-static int set_interface_name(struct introspect *i, const char *interface_name) {
+static int set_interface_name(BusIntrospect *i, const char *interface_name) {
         assert(i);
         assert(i->m.f);
 
@@ -117,7 +118,7 @@ static int set_interface_name(struct introspect *i, const char *interface_name) 
         return free_and_strdup(&i->interface_name, interface_name);
 }
 
-int introspect_write_child_nodes(struct introspect *i, OrderedSet *s, const char *prefix) {
+int introspect_write_child_nodes(BusIntrospect *i, OrderedSet *s, const char *prefix) {
         char *node;
 
         assert(i);
@@ -139,7 +140,7 @@ int introspect_write_child_nodes(struct introspect *i, OrderedSet *s, const char
         return 0;
 }
 
-static void introspect_write_flags(struct introspect *i, int type, uint64_t flags) {
+static void introspect_write_flags(BusIntrospect *i, int type, uint64_t flags) {
         assert(i);
         assert(i->m.f);
 
@@ -169,7 +170,7 @@ static void introspect_write_flags(struct introspect *i, int type, uint64_t flag
 
 /* Note that "names" is both an input and an output parameter. It initially points to the first argument name in a
    NULL-separated list of strings, and is then advanced with each argument, and the resulting pointer is returned. */
-static int introspect_write_arguments(struct introspect *i, const char *signature, const char **names, const char *direction) {
+static int introspect_write_arguments(BusIntrospect *i, const char *signature, const char **names, const char *direction) {
         int r;
 
         assert(i);
@@ -202,7 +203,7 @@ static int introspect_write_arguments(struct introspect *i, const char *signatur
 }
 
 int introspect_write_interface(
-                struct introspect *i,
+                BusIntrospect *i,
                 const char *interface_name,
                 const sd_bus_vtable *v) {
 
@@ -269,7 +270,7 @@ int introspect_write_interface(
         return 0;
 }
 
-int introspect_finish(struct introspect *i, char **ret) {
+int introspect_finish(BusIntrospect *i, char **ret) {
         assert(i);
         assert(i->m.f);
 
@@ -280,7 +281,7 @@ int introspect_finish(struct introspect *i, char **ret) {
         return memstream_finalize(&i->m, ret, NULL);
 }
 
-void introspect_done(struct introspect *i) {
+void introspect_done(BusIntrospect *i) {
         assert(i);
 
         /* Normally introspect_finish() does all the work, this is just a backup for error paths */

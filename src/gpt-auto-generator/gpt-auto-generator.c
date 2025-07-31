@@ -1,41 +1,36 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdlib.h>
 #include <sys/file.h>
-#include <unistd.h>
 
-#include "sd-device.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "blkid-util.h"
 #include "blockdev-util.h"
-#include "btrfs-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
-#include "dirent-util.h"
 #include "dissect-image.h"
 #include "dropin.h"
 #include "efi-loader.h"
+#include "efivars.h"
+#include "errno-util.h"
 #include "factory-reset.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
-#include "hexdecoct.h"
 #include "image-policy.h"
 #include "initrd-util.h"
+#include "loop-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
-#include "specifier.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "unit-name.h"
 #include "virt.h"
 
@@ -821,7 +816,7 @@ static int add_root_mount(void) {
                         return 0;
                 }
 
-                r = efi_loader_get_device_part_uuid(/* ret_uuid= */ NULL);
+                r = efi_loader_get_device_part_uuid(/* ret= */ NULL);
                 if (r == -ENOENT) {
                         log_notice("EFI loader partition unknown, not processing %s.\n"
                                    "(The boot loader did not set EFI variable LoaderDevicePartUUID.)",
@@ -918,8 +913,7 @@ static int add_usr_mount(void) {
         int r;
 
         /* /usr/ discovery must be enabled explicitly. */
-        if (arg_auto_usr == GPT_AUTO_ROOT_OFF ||
-            arg_auto_usr < 0)
+        if (arg_auto_usr <= 0)
                 return 0;
 
         /* We do not support the other gpt-auto modes for /usr/, but the parser should already have checked that. */
@@ -980,26 +974,29 @@ static int add_usr_mount(void) {
                       "/dev/disk/by-designator/usr",
                       in_initrd() ? "/sysusr/usr" : "/usr",
                       arg_usr_fstype,
-                      (in_initrd() ? MOUNT_VALIDATEFS : 0),
+                      /* flags = */ 0,
                       options,
                       "/usr/ Partition",
                       in_initrd() ? SPECIAL_INITRD_USR_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
         if (r < 0)
                 return r;
 
-        log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind");
+        if (in_initrd()) {
+                log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind");
 
-        return add_mount("usr-bind",
-                         "/sysusr/usr",
-                         "/sysroot/usr",
-                         /* fstype= */ NULL,
-                         /* flags= */ 0,
-                         "bind",
-                         "/usr/ Partition (Final)",
-                         in_initrd() ? SPECIAL_INITRD_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
-#else
-        return 0;
+                r = add_mount("usr-bind",
+                              "/sysusr/usr",
+                              "/sysroot/usr",
+                              /* fstype= */ NULL,
+                              MOUNT_VALIDATEFS,
+                              "bind",
+                              "/usr/ Partition (Final)",
+                              SPECIAL_INITRD_FS_TARGET);
+                if (r < 0)
+                        return r;
+        }
 #endif
+        return 0;
 }
 
 static int process_loader_partitions(DissectedPartition *esp, DissectedPartition *xbootldr) {

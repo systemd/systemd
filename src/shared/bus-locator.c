@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "bus-locator.h"
-#include "macro.h"
 
 const BusLocator* const bus_home_mgr = &(BusLocator){
         .destination = "org.freedesktop.home1",
@@ -91,7 +92,7 @@ const BusLocator* const bus_hostname = &(BusLocator){
  * within a single struct. */
 int bus_call_method_async(
                 sd_bus *bus,
-                sd_bus_slot **slot,
+                sd_bus_slot **ret_slot,
                 const BusLocator *locator,
                 const char *member,
                 sd_bus_message_handler_t callback,
@@ -104,7 +105,7 @@ int bus_call_method_async(
         assert(locator);
 
         va_start(ap, types);
-        r = sd_bus_call_method_asyncv(bus, slot, locator->destination, locator->path, locator->interface, member, callback, userdata, types, ap);
+        r = sd_bus_call_method_asyncv(bus, ret_slot, locator->destination, locator->path, locator->interface, member, callback, userdata, types, ap);
         va_end(ap);
 
         return r;
@@ -114,8 +115,8 @@ int bus_call_method(
                 sd_bus *bus,
                 const BusLocator *locator,
                 const char *member,
-                sd_bus_error *error,
-                sd_bus_message **reply,
+                sd_bus_error *reterr_error,
+                sd_bus_message **ret_reply,
                 const char *types, ...) {
 
         va_list ap;
@@ -124,7 +125,7 @@ int bus_call_method(
         assert(locator);
 
         va_start(ap, types);
-        r = sd_bus_call_methodv(bus, locator->destination, locator->path, locator->interface, member, error, reply, types, ap);
+        r = sd_bus_call_methodv(bus, locator->destination, locator->path, locator->interface, member, reterr_error, ret_reply, types, ap);
         va_end(ap);
 
         return r;
@@ -134,56 +135,57 @@ int bus_get_property(
                 sd_bus *bus,
                 const BusLocator *locator,
                 const char *member,
-                sd_bus_error *error,
-                sd_bus_message **reply,
+                sd_bus_error *reterr_error,
+                sd_bus_message **ret_reply,
                 const char *type) {
 
         assert(locator);
 
-        return sd_bus_get_property(bus, locator->destination, locator->path, locator->interface, member, error, reply, type);
+        return sd_bus_get_property(bus, locator->destination, locator->path, locator->interface, member, reterr_error, ret_reply, type);
 }
 
 int bus_get_property_trivial(
                 sd_bus *bus,
                 const BusLocator *locator,
                 const char *member,
-                sd_bus_error *error,
-                char type, void *ptr) {
+                sd_bus_error *reterr_error,
+                char type,
+                void *ret) {
 
         assert(locator);
 
-        return sd_bus_get_property_trivial(bus, locator->destination, locator->path, locator->interface, member, error, type, ptr);
+        return sd_bus_get_property_trivial(bus, locator->destination, locator->path, locator->interface, member, reterr_error, type, ret);
 }
 
 int bus_get_property_string(
                 sd_bus *bus,
                 const BusLocator *locator,
                 const char *member,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 char **ret) {
 
         assert(locator);
 
-        return sd_bus_get_property_string(bus, locator->destination, locator->path, locator->interface, member, error, ret);
+        return sd_bus_get_property_string(bus, locator->destination, locator->path, locator->interface, member, reterr_error, ret);
 }
 
 int bus_get_property_strv(
                 sd_bus *bus,
                 const BusLocator *locator,
                 const char *member,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 char ***ret) {
 
         assert(locator);
 
-        return sd_bus_get_property_strv(bus, locator->destination, locator->path, locator->interface, member, error, ret);
+        return sd_bus_get_property_strv(bus, locator->destination, locator->path, locator->interface, member, reterr_error, ret);
 }
 
 int bus_set_property(
                 sd_bus *bus,
                 const BusLocator *locator,
                 const char *member,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 const char *type, ...) {
 
         va_list ap;
@@ -192,7 +194,7 @@ int bus_set_property(
         assert(locator);
 
         va_start(ap, type);
-        r = sd_bus_set_propertyv(bus, locator->destination, locator->path, locator->interface, member, error, type, ap);
+        r = sd_bus_set_propertyv(bus, locator->destination, locator->path, locator->interface, member, reterr_error, type, ap);
         va_end(ap);
 
         return r;
@@ -200,7 +202,7 @@ int bus_set_property(
 
 int bus_match_signal(
                 sd_bus *bus,
-                sd_bus_slot **ret,
+                sd_bus_slot **ret_slot,
                 const BusLocator *locator,
                 const char *member,
                 sd_bus_message_handler_t callback,
@@ -208,12 +210,12 @@ int bus_match_signal(
 
         assert(locator);
 
-        return sd_bus_match_signal(bus, ret, locator->destination, locator->path, locator->interface, member, callback, userdata);
+        return sd_bus_match_signal(bus, ret_slot, locator->destination, locator->path, locator->interface, member, callback, userdata);
 }
 
 int bus_match_signal_async(
                 sd_bus *bus,
-                sd_bus_slot **ret,
+                sd_bus_slot **ret_slot,
                 const BusLocator *locator,
                 const char *member,
                 sd_bus_message_handler_t callback,
@@ -222,16 +224,16 @@ int bus_match_signal_async(
 
         assert(locator);
 
-        return sd_bus_match_signal_async(bus, ret, locator->destination, locator->path, locator->interface, member, callback, install_callback, userdata);
+        return sd_bus_match_signal_async(bus, ret_slot, locator->destination, locator->path, locator->interface, member, callback, install_callback, userdata);
 }
 
 int bus_message_new_method_call(
                 sd_bus *bus,
-                sd_bus_message **m,
+                sd_bus_message **ret,
                 const BusLocator *locator,
                 const char *member) {
 
         assert(locator);
 
-        return sd_bus_message_new_method_call(bus, m, locator->destination, locator->path, locator->interface, member);
+        return sd_bus_message_new_method_call(bus, ret, locator->destination, locator->path, locator->interface, member);
 }

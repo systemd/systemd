@@ -2,7 +2,7 @@
  * Copyright © 2020 VMware, Inc. */
 #pragma once
 
-#include "conf-parser.h"
+#include "forward.h"
 #include "qdisc.h"
 
 typedef struct GenericRandomEarlyDetection {

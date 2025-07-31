@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "data-fd-util.h"
 #include "fd-util.h"
 #include "memfd-util.h"
-#include "memory-util.h"
 #include "process-util.h"
-#include "random-util.h"
 #include "tests.h"
 
 static void assert_equal_fd(int fd1, int fd2) {

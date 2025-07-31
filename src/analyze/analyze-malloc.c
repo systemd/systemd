@@ -2,11 +2,15 @@
 
 #include "sd-bus.h"
 
-#include "analyze-malloc.h"
 #include "analyze.h"
+#include "analyze-malloc.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-message-util.h"
+#include "bus-util.h"
+#include "log.h"
+#include "pager.h"
+#include "strv.h"
 
 static int dump_malloc_info(sd_bus *bus, char *service) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -61,5 +65,5 @@ int verb_malloc(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        return EXIT_SUCCESS;
+        return 0;
 }

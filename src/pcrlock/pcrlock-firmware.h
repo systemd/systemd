@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
-
+#include "forward.h"
 #include "tpm2-event-log.h"
-#include "tpm2-util.h"
 
 int validate_firmware_event(
                 const TCG_PCR_EVENT2 *event,

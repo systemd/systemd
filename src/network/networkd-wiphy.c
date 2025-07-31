@@ -1,18 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if_arp.h>
 #include <linux/nl80211.h>
+#include <net/if_arp.h>
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
+#include "hashmap.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-wiphy.h"
-#include "parse-util.h"
 #include "path-util.h"
+#include "string-util.h"
 #include "udev-util.h"
 #include "wifi-util.h"
 
-Wiphy *wiphy_free(Wiphy *w) {
+static Wiphy* wiphy_free(Wiphy *w) {
         if (!w)
                 return NULL;
 
@@ -28,6 +34,13 @@ Wiphy *wiphy_free(Wiphy *w) {
         free(w->name);
         return mfree(w);
 }
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Wiphy*, wiphy_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                wiphy_hash_ops,
+                void, trivial_hash_func, trivial_compare_func,
+                Wiphy, wiphy_free);
 
 static int wiphy_new(Manager *manager, sd_netlink_message *message, Wiphy **ret) {
         _cleanup_(wiphy_freep) Wiphy *w = NULL;
@@ -56,7 +69,7 @@ static int wiphy_new(Manager *manager, sd_netlink_message *message, Wiphy **ret)
                 .name = TAKE_PTR(name),
         };
 
-        r = hashmap_ensure_put(&manager->wiphy_by_index, NULL, UINT32_TO_PTR(w->index), w);
+        r = hashmap_ensure_put(&manager->wiphy_by_index, &wiphy_hash_ops, UINT32_TO_PTR(w->index), w);
         if (r < 0)
                 return r;
 
@@ -118,7 +131,10 @@ static int link_get_wiphy(Link *link, Wiphy **ret) {
         if (!link->dev)
                 return -ENODEV;
 
-        if (!device_is_devtype(link->dev, "wlan"))
+        r = device_is_devtype(link->dev, "wlan");
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -EOPNOTSUPP;
 
         r = sd_device_new_child(&phy, link->dev, "phy80211");

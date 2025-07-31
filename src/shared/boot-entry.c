@@ -1,14 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "boot-entry.h"
 #include "chase.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "id128-util.h"
+#include "log.h"
 #include "os-util.h"
 #include "path-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "utf8.h"
 
 bool boot_entry_token_valid(const char *p) {

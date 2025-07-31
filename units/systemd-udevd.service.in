@@ -16,9 +16,25 @@ Before=sysinit.target
 Wants=systemd-udev-load-credentials.service
 ConditionPathIsReadWrite=/sys
 
+# To avoid systemd-udevd being SIGKILLed during a soft reboot,
+# and causing queued uevents to be lost.
+# Note, typically soft-reboot.target will be never reached,
+# and systemd-soft-reboot.service will trigger soft-reboot.
+# Hence, this must be stopped before systemd-soft-reboot.service.
+Before=soft-reboot.target systemd-soft-reboot.service
+Conflicts=soft-reboot.target
+
+# To avoid this service being triggered by a relevant socket unit during
+# switching root, which easily happens due to kernel events.
+# Note, unlike soft-reboot (and any other shutting down processes),
+# initrd-switching-root.service is started after initrd-switch-root.target.
+# Hence, we need to also add the service to Conflicts=.
+Before=initrd-switch-root.target initrd-switch-root.service
+Conflicts=initrd-switch-root.target initrd-switch-root.service
+
 [Service]
 CapabilityBoundingSet=~CAP_SYS_TIME CAP_WAKE_ALARM
-Delegate=pids
+Delegate=
 DelegateSubgroup=udev
 Type=notify-reload
 # Note that udev will reset the value internally for its workers

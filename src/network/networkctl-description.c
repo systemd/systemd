@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "glob-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "networkctl.h"
 #include "networkctl-description.h"
 #include "networkctl-util.h"

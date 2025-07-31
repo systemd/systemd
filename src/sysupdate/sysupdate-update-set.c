@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "ansi-color.h"
-#include "alloc-util.h"
+#include <stdlib.h>
+
 #include "string-util.h"
 #include "sysupdate-update-set.h"
 

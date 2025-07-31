@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
 
-#include "bus-util.h"
+#include "sd-bus.h"
+
 #include "manager.h"
 #include "manager-dump.h"
 #include "rm-rf.h"

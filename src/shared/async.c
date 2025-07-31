@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stddef.h>
+#include <sched.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -10,8 +9,8 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "signal-util.h"
 
 int asynchronous_sync(PidRef *ret_pid) {

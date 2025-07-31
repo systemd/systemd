@@ -1,21 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sched.h>
-#include <stdio.h>
-
-#include "sd-bus.h"
 #include "sd-id128.h"
 
 #include "capability-util.h"
-#include "conf-parser.h"
+#include "conf-parser-forward.h"
 #include "cpu-set-util.h"
-#include "macro.h"
-#include "nspawn-expose-ports.h"
-#include "nspawn-mount.h"
+#include "forward.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
-#include "time-util.h"
+#include "volatile-util.h"
+
+typedef struct CustomMount CustomMount;
+typedef struct ExposePort ExposePort;
 
 typedef enum StartMode {
         START_PID1, /* Run parameters as command line as process 1 */
@@ -126,10 +123,11 @@ typedef enum SettingsMask {
         SETTING_CONSOLE_MODE      = UINT64_C(1) << 29,
         SETTING_CREDENTIALS       = UINT64_C(1) << 30,
         SETTING_BIND_USER         = UINT64_C(1) << 31,
-        SETTING_SUPPRESS_SYNC     = UINT64_C(1) << 32,
-        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 33, /* we define one bit per resource limit here */
-        SETTING_RLIMIT_LAST       = UINT64_C(1) << (33 + _RLIMIT_MAX - 1),
-        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (33 + _RLIMIT_MAX)) -1,
+        SETTING_BIND_USER_SHELL   = UINT64_C(1) << 32,
+        SETTING_SUPPRESS_SYNC     = UINT64_C(1) << 33,
+        SETTING_RLIMIT_FIRST      = UINT64_C(1) << 34, /* we define one bit per resource limit here */
+        SETTING_RLIMIT_LAST       = UINT64_C(1) << (34 + _RLIMIT_MAX - 1),
+        _SETTINGS_MASK_ALL        = (UINT64_C(1) << (34 + _RLIMIT_MAX)) -1,
         _SETTING_FORCE_ENUM_WIDTH = UINT64_MAX
 } SettingsMask;
 
@@ -198,6 +196,9 @@ typedef struct Settings {
         size_t n_custom_mounts;
         UserNamespaceOwnership userns_ownership;
         char **bind_user;
+        char *bind_user_shell;
+        bool bind_user_shell_copy;
+        bool bind_user_shell_set;
 
         /* [Network] */
         int private_network;
@@ -267,13 +268,13 @@ CONFIG_PARSER_PROTOTYPE(config_parse_pid2);
 CONFIG_PARSER_PROTOTYPE(config_parse_private_users);
 CONFIG_PARSER_PROTOTYPE(config_parse_syscall_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_oom_score_adjust);
-CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity);
 CONFIG_PARSER_PROTOTYPE(config_parse_resolv_conf);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_journal);
 CONFIG_PARSER_PROTOTYPE(config_parse_timezone_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_userns_chown);
 CONFIG_PARSER_PROTOTYPE(config_parse_userns_ownership);
 CONFIG_PARSER_PROTOTYPE(config_parse_bind_user);
+CONFIG_PARSER_PROTOTYPE(config_parse_bind_user_shell);
 
 const char* resolv_conf_mode_to_string(ResolvConfMode a) _const_;
 ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;

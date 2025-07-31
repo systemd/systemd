@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: MIT-0
+[Match]
+Kind=dummy
+OriginalName=test1
+
+[Link]
+NamePolicy=keep
+Property=ID_NET_MANAGED_BY=hoge

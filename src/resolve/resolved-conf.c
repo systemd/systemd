@@ -2,131 +2,21 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
-#include "constants.h"
 #include "creds-util.h"
-#include "dns-domain.h"
+#include "dns-type.h"
 #include "extract-word.h"
-#include "hexdecoct.h"
-#include "parse-util.h"
+#include "ordered-set.h"
 #include "proc-cmdline.h"
 #include "resolved-conf.h"
 #include "resolved-dns-search-domain.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
-#include "resolved-dnssd.h"
 #include "resolved-manager.h"
+#include "set.h"
 #include "socket-netlink.h"
-#include "specifier.h"
-#include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
-#include "utf8.h"
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_dns_stub_listener_mode, dns_stub_listener_mode, DnsStubListenerMode);
-
-static int manager_add_dns_server_by_string(Manager *m, DnsServerType type, const char *word) {
-        _cleanup_free_ char *server_name = NULL;
-        union in_addr_union address;
-        int family, r, ifindex = 0;
-        uint16_t port;
-        DnsServer *s;
-
-        assert(m);
-        assert(word);
-
-        r = in_addr_port_ifindex_name_from_string_auto(word, &family, &address, &port, &ifindex, &server_name);
-        if (r < 0)
-                return r;
-
-        /* Silently filter out 0.0.0.0, 127.0.0.53, 127.0.0.54 (our own stub DNS listener) */
-        if (!dns_server_address_valid(family, &address))
-                return 0;
-
-        /* By default, the port number is determined with the transaction feature level.
-         * See dns_transaction_port() and dns_server_port(). */
-        if (IN_SET(port, 53, 853))
-                port = 0;
-
-        /* Filter out duplicates */
-        s = dns_server_find(manager_get_first_dns_server(m, type), family, &address, port, ifindex, server_name);
-        if (s) {
-                /* Drop the marker. This is used to find the servers that ceased to exist, see
-                 * manager_mark_dns_servers() and manager_flush_marked_dns_servers(). */
-                dns_server_move_back_and_unmark(s);
-                return 0;
-        }
-
-        return dns_server_new(m, NULL, type, NULL, family, &address, port, ifindex, server_name, RESOLVE_CONFIG_SOURCE_FILE);
-}
-
-int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string) {
-        int r;
-
-        assert(m);
-        assert(string);
-
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-
-                r = extract_first_word(&string, &word, NULL, 0);
-                if (r <= 0)
-                        return r;
-
-                r = manager_add_dns_server_by_string(m, type, word);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to add DNS server address '%s', ignoring: %m", word);
-        }
-}
-
-static int manager_add_search_domain_by_string(Manager *m, const char *domain) {
-        DnsSearchDomain *d;
-        bool route_only;
-        int r;
-
-        assert(m);
-        assert(domain);
-
-        route_only = *domain == '~';
-        if (route_only)
-                domain++;
-
-        if (dns_name_is_root(domain) || streq(domain, "*")) {
-                route_only = true;
-                domain = ".";
-        }
-
-        r = dns_search_domain_find(m->search_domains, domain, &d);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                dns_search_domain_move_back_and_unmark(d);
-        else {
-                r = dns_search_domain_new(m, &d, DNS_SEARCH_DOMAIN_SYSTEM, NULL, domain);
-                if (r < 0)
-                        return r;
-        }
-
-        d->route_only = route_only;
-        return 0;
-}
-
-int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
-        int r;
-
-        assert(m);
-        assert(string);
-
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-
-                r = extract_first_word(&string, &word, NULL, EXTRACT_UNQUOTE);
-                if (r <= 0)
-                        return r;
-
-                r = manager_add_search_domain_by_string(m, word);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to add search domain '%s', ignoring: %m", word);
-        }
-}
 
 int config_parse_dns_servers(
                 const char *unit,
@@ -398,9 +288,9 @@ int manager_parse_config_file(Manager *m) {
                         return r;
         }
 
-#if !HAVE_OPENSSL_OR_GCRYPT
+#if !HAVE_OPENSSL
         if (m->dnssec_mode != DNSSEC_NO) {
-                log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without a cryptographic library. Turning off DNSSEC support.");
+                log_warning("DNSSEC option cannot be enabled or set to allow-downgrade when systemd-resolved is built without openssl. Turning off DNSSEC support.");
                 m->dnssec_mode = DNSSEC_NO;
         }
 #endif

@@ -1,28 +1,33 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdlib.h>
+#include <unistd.h>
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "build.h"
 #include "copy.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "errno-list.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "fs-util.h"
+#include "log.h"
 #include "main-func.h"
-#include "mkdir-label.h"
+#include "mkdir.h"
 #include "pager.h"
 #include "parse-argument.h"
-#include "parse-util.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "uid-classification.h"
 #include "uid-range.h"
 #include "umask-util.h"
@@ -166,6 +171,12 @@ static const struct {
                 .last = SYSTEM_UID_MAX,
                 .name = "system",
                 .disposition = USER_SYSTEM,
+        },
+        {
+                .first = GREETER_UID_MIN,
+                .last = GREETER_UID_MAX,
+                .name = "dynamic greeter",
+                .disposition = USER_DYNAMIC,
         },
         {
                 .first = DYNAMIC_UID_MIN,
@@ -479,7 +490,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected user database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next user: %m");
+                                        return log_error_errno(r, "Failed to acquire next user: %m");
 
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -819,7 +830,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected group database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next group: %m");
+                                        return log_error_errno(r, "Failed to acquire next group: %m");
 
                                 if (draw_separator && arg_output == OUTPUT_FRIENDLY)
                                         putchar('\n');
@@ -966,7 +977,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected membership database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next membership: %m");
+                                        return log_error_errno(r, "Failed to acquire next membership: %m");
 
                                 r = show_membership(user, group, table);
                                 if (r < 0)
@@ -993,7 +1004,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
                                 if (r == -EHOSTDOWN)
                                         return log_error_errno(r, "Selected membership database service is not available for this request.");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed acquire next membership: %m");
+                                        return log_error_errno(r, "Failed to acquire next membership: %m");
 
                                 r = show_membership(user, group, table);
                                 if (r < 0)
@@ -1035,7 +1046,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
                         return 0;
                 }
 
-                return log_error_errno(errno, "Failed to open /run/systemd/userdb/: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/run/systemd/userdb/");
         }
 
         t = table_new("service", "listening");
@@ -1058,7 +1069,7 @@ static int display_services(int argc, char *argv[], void *userdata) {
 
                 r = connect_unix_path(fd, dirfd(d), de->d_name);
                 if (r < 0) {
-                        no = strjoin("No (", errno_to_name(r), ")");
+                        no = strjoin("No (", ERRNO_NAME(r), ")");
                         if (!no)
                                 return log_oom();
                 }
@@ -1170,17 +1181,31 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int load_credential_one(int credential_dir_fd, const char *name, int userdb_dir_fd) {
+static int load_credential_one(
+                int credential_dir_fd,
+                const char *name,
+                int userdb_dir_persist_fd,
+                int userdb_dir_transient_fd) {
+
         int r;
 
         assert(credential_dir_fd >= 0);
         assert(name);
-        assert(userdb_dir_fd >= 0);
+        assert(userdb_dir_persist_fd >= 0);
+        assert(userdb_dir_transient_fd >= 0);
 
-        const char *user = startswith(name, "userdb.user.");
-        const char *group = startswith(name, "userdb.group.");
+        const char *suffix = startswith(name, "userdb.");
+        if (!suffix)
+                return 0;
+
+        const char *transient = startswith(suffix, "transient."),
+                *user = startswith(transient ?: suffix, "user."),
+                *group = startswith(transient ?: suffix, "group.");
         if (!user && !group)
                 return 0;
+
+        const char *userdb_dir = transient ? "/run/userdb" : "/etc/userdb";
+        int userdb_dir_fd = transient ? userdb_dir_transient_fd : userdb_dir_persist_fd;
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
@@ -1339,12 +1364,12 @@ static int load_credential_one(int credential_dir_fd, const char *name, int user
 
         r = write_string_file_at(userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
-                return log_error_errno(r, "Failed to write JSON record to /etc/userdb/%s: %m", fn);
+                return log_error_errno(r, "Failed to write JSON record to %s/%s: %m", userdb_dir, fn);
 
         if (symlinkat(fn, userdb_dir_fd, link) < 0)
-                return log_error_errno(errno, "Failed to create symlink from %s to %s", link, fn);
+                return log_error_errno(errno, "Failed to create symlink from %s to %s: %m", link, fn);
 
-        log_info("Installed /etc/userdb/%s from credential.", fn);
+        log_info("Installed %s/%s from credential.", userdb_dir, fn);
 
         if ((ur && !sd_json_variant_is_blank_object(ur_privileged->json)) ||
             (gr && !sd_json_variant_is_blank_object(gr_privileged->json))) {
@@ -1360,7 +1385,7 @@ static int load_credential_one(int credential_dir_fd, const char *name, int user
 
                 r = write_string_file_at(userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to write JSON record to /etc/userdb/%s: %m", fn);
+                        return log_error_errno(r, "Failed to write JSON record to %s/%s: %m", userdb_dir, fn);
 
                 link = mfree(link);
 
@@ -1373,9 +1398,9 @@ static int load_credential_one(int credential_dir_fd, const char *name, int user
                 }
 
                 if (symlinkat(fn, userdb_dir_fd, link) < 0)
-                        return log_error_errno(errno, "Failed to create symlink from %s to %s", link, fn);
+                        return log_error_errno(errno, "Failed to create symlink from %s to %s: %m", link, fn);
 
-                log_info("Installed /etc/userdb/%s from credential.", fn);
+                log_info("Installed %s/%s from credential.", userdb_dir, fn);
         }
 
         if (ur)
@@ -1388,7 +1413,7 @@ static int load_credential_one(int credential_dir_fd, const char *name, int user
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to create %s: %m", membership);
 
-                        log_info("Installed /etc/userdb/%s from credential.", membership);
+                        log_info("Installed %s/%s from credential.", userdb_dir, membership);
                 }
         else
                 STRV_FOREACH(u, gr->members) {
@@ -1400,7 +1425,7 @@ static int load_credential_one(int credential_dir_fd, const char *name, int user
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to create %s: %m", membership);
 
-                        log_info("Installed /etc/userdb/%s from credential.", membership);
+                        log_info("Installed %s/%s from credential.", userdb_dir, membership);
                 }
 
         if (ur && user_record_disposition(ur) == USER_REGULAR) {
@@ -1450,13 +1475,21 @@ static int load_credentials(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate credentials: %m");
 
-        _cleanup_close_ int userdb_dir_fd = xopenat_full(
-                AT_FDCWD, "/etc/userdb",
-                /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
-                /* xopen_flags= */ XO_LABEL,
-                /* mode= */ 0755);
-        if (userdb_dir_fd < 0)
-                return log_error_errno(userdb_dir_fd, "Failed to open '/etc/userdb/': %m");
+        _cleanup_close_ int userdb_persist_dir_fd = xopenat_full(
+                        AT_FDCWD, "/etc/userdb",
+                        /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
+                        /* xopen_flags= */ XO_LABEL,
+                        /* mode= */ 0755);
+        if (userdb_persist_dir_fd < 0)
+                return log_error_errno(userdb_persist_dir_fd, "Failed to open /etc/userdb/: %m");
+
+        _cleanup_close_ int userdb_transient_dir_fd = xopenat_full(
+                        AT_FDCWD, "/run/userdb",
+                        /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
+                        /* xopen_flags= */ XO_LABEL,
+                        /* mode= */ 0755);
+        if (userdb_transient_dir_fd < 0)
+                return log_error_errno(userdb_transient_dir_fd, "Failed to open /run/userdb/: %m");
 
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
                 struct dirent *de = *i;
@@ -1464,7 +1497,11 @@ static int load_credentials(int argc, char *argv[], void *userdata) {
                 if (de->d_type != DT_REG)
                         continue;
 
-                RET_GATHER(r, load_credential_one(credential_dir_fd, de->d_name, userdb_dir_fd));
+                RET_GATHER(r, load_credential_one(
+                                credential_dir_fd,
+                                de->d_name,
+                                userdb_persist_dir_fd,
+                                userdb_transient_dir_fd));
         }
 
         return r;

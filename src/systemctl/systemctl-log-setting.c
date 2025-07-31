@@ -1,12 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-error.h"
-#include "bus-locator.h"
+#include "log.h"
 #include "pretty-print.h"
-#include "syslog-util.h"
+#include "string-util.h"
+#include "systemctl.h"
 #include "systemctl-log-setting.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
+#include "unit-def.h"
+#include "unit-name.h"
 #include "verb-log-control.h"
 
 static void give_log_control1_hint(const char *name) {

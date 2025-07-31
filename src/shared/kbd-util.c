@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "kbd-util.h"
@@ -83,7 +84,7 @@ static int keymap_recurse_dir_callback(
 }
 
 int get_keymaps(char ***ret) {
-        _cleanup_set_free_free_ Set *keymaps = NULL;
+        _cleanup_set_free_ Set *keymaps = NULL;
         _cleanup_strv_free_ char **keymap_dirs = NULL;
         int r;
 
@@ -91,7 +92,7 @@ int get_keymaps(char ***ret) {
         if (r < 0)
                 return r;
 
-        keymaps = set_new(&string_hash_ops);
+        keymaps = set_new(&string_hash_ops_free);
         if (!keymaps)
                 return -ENOMEM;
 
@@ -114,13 +115,9 @@ int get_keymaps(char ***ret) {
                         log_debug_errno(r, "Failed to read keymap list from %s, ignoring: %m", *dir);
         }
 
-        _cleanup_strv_free_ char **l = set_get_strv(keymaps);
+        _cleanup_strv_free_ char **l = set_to_strv(&keymaps);
         if (!l)
                 return -ENOMEM;
-
-        keymaps = set_free(keymaps); /* If we got the strv above, then do a set_free() rather than
-                                      * set_free_free() since the entries of the set are now owned by the
-                                      * strv */
 
         if (strv_isempty(l))
                 return -ENOENT;

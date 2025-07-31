@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "journald-server.h"
+#include "journald-forward.h"
 
-int server_open_varlink(Server *s, const char *socket, int fd);
+int manager_open_varlink(Manager *m, const char *socket, int fd);
+
+void sync_req_varlink_reply(SyncReq *req);

@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <netinet/in.h>
 #include <linux/if_bridge.h>
 
-#include "conf-parser.h"
+#include "forward.h"
 
 typedef enum BridgeState {
         NETDEV_BRIDGE_STATE_DISABLED   = BR_STATE_DISABLED,

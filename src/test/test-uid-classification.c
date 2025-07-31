@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <unistd.h>
-#include <sys/types.h>
 
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"

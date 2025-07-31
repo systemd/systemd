@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <sched.h>
+#include <linux/magic.h>
 #include <sys/statvfs.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -12,18 +10,16 @@
 #include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "filesystems.h"
 #include "fs-util.h"
 #include "hash-funcs.h"
-#include "macro.h"
-#include "missing_fs.h"
-#include "missing_magic.h"
+#include "log.h"
 #include "mountpoint-util.h"
-#include "nulstr-util.h"
-#include "parse-util.h"
+#include "path-util.h"
+#include "siphash24.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 static int verify_stat_at(
                 int fd,
@@ -171,7 +167,7 @@ int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) 
                 struct dirent *de;
                 ssize_t n;
 
-                n = posix_getdents(fd, buf, m, /* flags = */ 0);
+                n = getdents64(fd, buf, m);
                 if (n < 0)
                         return -errno;
                 if (n == 0)
@@ -188,19 +184,19 @@ int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) 
         return 1;
 }
 
-bool null_or_empty(struct stat *st) {
+bool stat_may_be_dev_null(struct stat *st) {
         assert(st);
-
-        if (S_ISREG(st->st_mode) && st->st_size <= 0)
-                return true;
 
         /* We don't want to hardcode the major/minor of /dev/null, hence we do a simpler "is this a character
          * device node?" check. */
 
-        if (S_ISCHR(st->st_mode))
-                return true;
+        return S_ISCHR(st->st_mode);
+}
 
-        return false;
+bool stat_is_empty(struct stat *st) {
+        assert(st);
+
+        return S_ISREG(st->st_mode) && st->st_size <= 0;
 }
 
 int null_or_empty_path_with_root(const char *fn, const char *root) {
@@ -224,20 +220,22 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
 }
 
 int fd_is_read_only_fs(int fd) {
-        struct statvfs st;
+        struct statfs st;
 
         assert(fd >= 0);
 
-        if (fstatvfs(fd, &st) < 0)
+        if (fstatfs(fd, &st) < 0)
                 return -errno;
 
-        if (st.f_flag & ST_RDONLY)
+        if (st.f_flags & ST_RDONLY)
                 return true;
 
-        /* On NFS, fstatvfs() might not reflect whether we can actually write to the remote share. Let's try
-         * again with access(W_OK) which is more reliable, at least sometimes. */
-        if (access_fd(fd, W_OK) == -EROFS)
-                return true;
+        if (is_network_fs(&st)) {
+                /* On NFS, fstatfs() might not reflect whether we can actually write to the remote share.
+                 * Let's try again with access(W_OK) which is more reliable, at least sometimes. */
+                if (access_fd(fd, W_OK) == -EROFS)
+                        return true;
+        }
 
         return false;
 }
@@ -496,6 +494,13 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
         }
 
         return RET_NERRNO(fstatfs(dir_fd, ret));
+}
+
+usec_t statx_timestamp_load(const struct statx_timestamp *ts) {
+        return timespec_load(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
+}
+nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) {
+        return timespec_load_nsec(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
 }
 
 void inode_hash_func(const struct stat *q, struct siphash *state) {

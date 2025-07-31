@@ -1,15 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "conf-parser.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
-typedef struct Address Address;
-typedef struct Route Route;
+#include "networkd-forward.h"
 
 unsigned routes_max(void);
 

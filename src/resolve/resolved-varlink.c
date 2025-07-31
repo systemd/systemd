@@ -1,12 +1,33 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
+#include "alloc-util.h"
 #include "bus-polkit.h"
+#include "dns-domain.h"
+#include "dns-type.h"
+#include "errno-util.h"
 #include "glyph-util.h"
 #include "in-addr-util.h"
 #include "json-util.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-browse-services.h"
+#include "resolved-dns-dnssec.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-query.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-search-domain.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-synthesize.h"
+#include "resolved-dns-transaction.h"
+#include "resolved-link.h"
+#include "resolved-manager.h"
 #include "resolved-varlink.h"
+#include "set.h"
 #include "socket-netlink.h"
+#include "string-util.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.service.h"
@@ -31,6 +52,13 @@ typedef struct LookupParametersResolveService {
         int ifindex;
         uint64_t flags;
 } LookupParametersResolveService;
+
+typedef struct LookupParamatersBrowseServices {
+        const char *domain;
+        const char *type;
+        int ifindex;
+        uint64_t flags;
+} LookupParamatersBrowseServices;
 
 static void lookup_parameters_destroy(LookupParameters *p) {
         assert(p);
@@ -128,9 +156,17 @@ static int reply_query_state(DnsQuery *q) {
 
 static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
         DnsQuery *q;
+        Manager *m;
 
         assert(s);
         assert(link);
+
+        m = sd_varlink_server_get_userdata(s);
+        if (!m)
+                return;
+
+        DnsServiceBrowser *sb = hashmap_remove(m->dns_service_browsers, link);
+        dns_service_browser_unref(sb);
 
         q = sd_varlink_get_userdata(link);
         if (!q)
@@ -1174,17 +1210,12 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
 }
 
 static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const char *action) {
-        static const sd_json_dispatch_field dispatch_table[] = {
-                VARLINK_DISPATCH_POLKIT_FIELD,
-                {}
-        };
-
         int r;
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
 
         assert(action);
 
-        r = sd_varlink_dispatch(link, parameters, dispatch_table, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
@@ -1194,6 +1225,41 @@ static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const ch
                                 action,
                                 /* details= */ NULL,
                                 &m->polkit_registry);
+}
+
+static int vl_method_browse_services(sd_varlink* link, sd_json_variant* parameters, sd_varlink_method_flags_t flags, void* userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "domain",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParamatersBrowseServices, domain),  0 },
+                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParamatersBrowseServices, type),    0 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParamatersBrowseServices, ifindex), 0 },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParamatersBrowseServices, flags),   0 },
+                {}
+        };
+
+        LookupParamatersBrowseServices p = {};
+        Manager *m;
+        int r = 0;
+
+        assert(link);
+
+        /* if the client didn't set the more flag, it is using us incorrectly */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (validate_and_mangle_query_flags(m, &p.flags, /* name = */ NULL, /* ok = */ 0))
+                return sd_varlink_error_invalid_parameter_name(link, "flags");
+
+        r = dns_subscribe_browse_service(m, link, p.domain, p.type, p.ifindex, p.flags);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
+        return 1;
 }
 
 static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -1409,9 +1475,14 @@ static int varlink_monitor_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
-        r = sd_varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0666);
+        r = sd_varlink_server_listen_name(server, "varlink-monitor");
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to get varlink listen fd: %m");
+        if (r == 0) {
+                r = sd_varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+        }
 
         r = sd_varlink_server_attach_event(server, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
@@ -1450,7 +1521,8 @@ static int varlink_main_server_init(Manager *m) {
                         "io.systemd.Resolve.ResolveRecord",   vl_method_resolve_record,
                         "io.systemd.service.Ping",            varlink_method_ping,
                         "io.systemd.service.SetLogLevel",     varlink_method_set_log_level,
-                        "io.systemd.service.GetEnvironment",  varlink_method_get_environment);
+                        "io.systemd.service.GetEnvironment",  varlink_method_get_environment,
+                        "io.systemd.Resolve.BrowseServices",  vl_method_browse_services);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
@@ -1458,9 +1530,14 @@ static int varlink_main_server_init(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink disconnect handler: %m");
 
-        r = sd_varlink_server_listen_address(s, "/run/systemd/resolve/io.systemd.Resolve", 0666);
+        r = sd_varlink_server_listen_auto(s);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to get varlink listen fd: %m");
+        if (r == 0) {
+                r = sd_varlink_server_listen_address(s, "/run/systemd/resolve/io.systemd.Resolve", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+        }
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

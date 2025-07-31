@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "alloc-util.h"
 #include "hexdecoct.h"
-#include "macro.h"
 #include "random-util.h"
 #include "string-util.h"
 #include "tests.h"

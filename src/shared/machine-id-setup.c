@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sched.h>
 #include <sys/mount.h>
 #include <unistd.h>
 
@@ -12,13 +11,12 @@
 #include "chase.h"
 #include "creds-util.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "id128-util.h"
 #include "initrd-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "machine-id-setup.h"
-#include "macro.h"
-#include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
@@ -26,6 +24,7 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
 #include "umask-util.h"
 #include "virt.h"
@@ -147,7 +146,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
                         r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to open '/etc/': %m");
+                                return log_error_errno(r, "Failed to open %s: %m", "/etc/");
 
                         etc_machine_id = path_join(etc, "machine-id");
                         if (!etc_machine_id)
@@ -252,7 +251,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
                 r = chase("/run/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, &run, &run_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to open '/run/': %m");
+                        return log_error_errno(r, "Failed to open %s: %m", "/run/");
 
                 run_machine_id = path_join(run, "machine-id");
                 if (!run_machine_id)
@@ -268,9 +267,9 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
 
                 unlink_run_machine_id = true;
         } else {
-                r = chase("/run/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &run_machine_id, /* ret_inode_fd= */ NULL);
+                r = chase("/run/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &run_machine_id, /* ret_fd= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to open '/run/machine-id': %m");
+                        return log_error_errno(r, "Failed to open %s: %m", "/run/machine-id");
         }
 
         /* And now, let's mount it over */
@@ -284,7 +283,7 @@ int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlag
         log_full(FLAGS_SET(flags, MACHINE_ID_SETUP_FORCE_TRANSIENT) ? LOG_DEBUG : LOG_INFO, "Installed transient '%s' file.", etc_machine_id);
 
         /* Mark the mount read-only (note: we are not going via FORMAT_PROC_FD_PATH() here because that fd is not updated to our new bind mount) */
-        (void) mount_follow_verbose(LOG_WARNING, /* source= */ NULL, etc_machine_id, /* fstype= */ NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, /* options= */ NULL);
+        (void) mount_follow_verbose(LOG_WARNING, /* what= */ NULL, etc_machine_id, /* fstype= */ NULL, MS_BIND|MS_RDONLY|MS_REMOUNT, /* options= */ NULL);
 
 finish:
         if (!in_initrd())
@@ -323,7 +322,7 @@ int machine_id_commit(const char *root) {
         _cleanup_free_ char *etc = NULL;
         r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to open /etc/: %m");
+                return log_error_errno(r, "Failed to open %s: %m", "/etc/");
 
         _cleanup_free_ char *etc_machine_id = path_join(etc, "machine-id");
         if (!etc_machine_id)
@@ -371,7 +370,7 @@ int machine_id_commit(const char *root) {
         _cleanup_close_ int etc_fd_again = -EBADF;
         r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &etc_fd_again);
         if (r < 0)
-                return log_error_errno(r, "Failed to open /etc/: %m");
+                return log_error_errno(r, "Failed to open %s: %m", "/etc/");
 
         r = umountat_detach_verbose(LOG_ERR, etc_fd_again, "machine-id");
         if (r < 0)
@@ -395,7 +394,7 @@ int machine_id_commit(const char *root) {
                                          "Failed to switch back to initial mount namespace: %m.\n"
                                          "We'll keep transient %s file until next reboot.", etc_machine_id);
 
-        r = umountat_detach_verbose(LOG_DEBUG, fd, /* filename= */ NULL);
+        r = umountat_detach_verbose(LOG_DEBUG, fd, /* where= */ NULL);
         if (r < 0)
                 return log_warning_errno(r,
                                          "Failed to unmount transient %s file: %m.\n"

@@ -27,8 +27,7 @@
 #   udevadm trigger -v -p DEVNAME=/dev/iio:deviceXXX
 # where /dev/iio:deviceXXX is the device in question.
 #
-# If your changes are generally applicable, preferably send them as a pull
-# request to
+# If your changes are generally applicable, send them as a pull request to
 #   https://github.com/systemd/systemd
 # or create a bug report on https://github.com/systemd/systemd/issues and
 # include your new rules, a description of the device, and the output of
@@ -866,6 +865,14 @@ sensor:modalias:acpi:KIOX020A*:dmi:*:rvnMEDION:rnMEDION*:*
 sensor:modalias:acpi:KIOX000A*:dmi:*:rvnMETAPHYUNI:rnMetawillBook01:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
  ACCEL_LOCATION=display
+
+#########################################
+# Microtech
+#########################################
+
+# Microtech e-tab Pro
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnMicrotech:pne-tabPro:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
 # MPMAN

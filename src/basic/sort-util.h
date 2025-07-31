@@ -1,15 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdlib.h>
-
-#include "macro.h"
-
-/* This is the same as glibc's internal __compar_d_fn_t type. glibc exports a public comparison_fn_t, for the
- * external type __compar_fn_t, but doesn't do anything similar for __compar_d_fn_t. Let's hence do that
- * ourselves, picking a name that is obvious, but likely enough to not clash with glibc's choice of naming if
- * they should ever add one. */
-typedef int (*comparison_userdata_fn_t)(const void *, const void *, void *);
+#include "forward.h"
 
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  comparison_userdata_fn_t compar, void *arg);
@@ -21,18 +13,7 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                 (typeof((b)[0])*) xbsearch_r((const void*) _k, (b), (n), sizeof((b)[0]), (comparison_userdata_fn_t) _func_, userdata); \
         })
 
-/**
- * Normal bsearch requires base to be nonnull. Here were require
- * that only if nmemb > 0.
- */
-static inline void* bsearch_safe(const void *key, const void *base,
-                                 size_t nmemb, size_t size, comparison_fn_t compar) {
-        if (nmemb <= 0)
-                return NULL;
-
-        assert(base);
-        return bsearch(key, base, nmemb, size, compar);
-}
+void* bsearch_safe(const void *key, const void *base, size_t nmemb, size_t size, comparison_fn_t compar);
 
 #define typesafe_bsearch(k, b, n, func)                                 \
         ({                                                              \
@@ -41,33 +22,17 @@ static inline void* bsearch_safe(const void *key, const void *base,
                 (typeof((b)[0])*) bsearch_safe((const void*) _k, (b), (n), sizeof((b)[0]), (comparison_fn_t) _func_); \
         })
 
-/**
- * Normal qsort requires base to be nonnull. Here were require
- * that only if nmemb > 0.
- */
-static inline void _qsort_safe(void *base, size_t nmemb, size_t size, comparison_fn_t compar) {
-        if (nmemb <= 1)
-                return;
-
-        assert(base);
-        qsort(base, nmemb, size, compar);
-}
+void qsort_safe(void *base, size_t nmemb, size_t size, comparison_fn_t compar);
 
 /* A wrapper around the above, but that adds typesafety: the element size is automatically derived from the type and so
  * is the prototype for the comparison function */
 #define typesafe_qsort(p, n, func)                                      \
         ({                                                              \
                 int (*_func_)(const typeof((p)[0])*, const typeof((p)[0])*) = func; \
-                _qsort_safe((p), (n), sizeof((p)[0]), (comparison_fn_t) _func_); \
+                qsort_safe((p), (n), sizeof((p)[0]), (comparison_fn_t) _func_); \
         })
 
-static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, comparison_userdata_fn_t compar, void *userdata) {
-        if (nmemb <= 1)
-                return;
-
-        assert(base);
-        qsort_r(base, nmemb, size, compar, userdata);
-}
+void qsort_r_safe(void *base, size_t nmemb, size_t size, comparison_userdata_fn_t compar, void *userdata);
 
 #define typesafe_qsort_r(p, n, func, userdata)                          \
         ({                                                              \

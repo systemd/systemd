@@ -1,18 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
-
 #include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "fileio.h"
 #include "glob-util.h"
 #include "log.h"
-#include "macro.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
-#include "path-util.h"
-#include "string-util.h"
+#include "siphash24.h"
 #include "strv.h"
 #include "tests.h"
 #include "unaligned.h"
@@ -124,29 +120,26 @@ static void test_dns_resource_record_get_cname_target(void) {
 }
 
 int main(int argc, char **argv) {
-        int N;
-        _cleanup_globfree_ glob_t g = {};
+        _cleanup_strv_free_ char **v = NULL;
         char **fnames;
 
         test_setup_logging(LOG_DEBUG);
 
-        if (argc >= 2) {
-                N = argc - 1;
+        if (argc >= 2)
                 fnames = argv + 1;
-        } else {
+        else {
                 _cleanup_free_ char *pkts_glob = NULL;
-                assert_se(get_testdata_dir("test-resolve/*.pkts", &pkts_glob) >= 0);
-                assert_se(glob(pkts_glob, GLOB_NOSORT, NULL, &g) == 0);
-                N = g.gl_pathc;
-                fnames = g.gl_pathv;
+                ASSERT_OK(get_testdata_dir("test-resolve/*.pkts", &pkts_glob));
+                ASSERT_OK(safe_glob(pkts_glob, GLOB_NOSORT, &v));
+                fnames = v;
         }
 
-        for (int i = 0; i < N; i++) {
-                test_packet_from_file(fnames[i], false);
-                puts("");
-                test_packet_from_file(fnames[i], true);
-                if (i + 1 < N)
+        STRV_FOREACH(p, fnames) {
+                if (p != fnames)
                         puts("");
+                test_packet_from_file(*p, false);
+                puts("");
+                test_packet_from_file(*p, true);
         }
 
         test_dns_resource_record_get_cname_target();

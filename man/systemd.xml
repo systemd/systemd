@@ -30,7 +30,6 @@
     <cmdsynopsis>
       <command>init</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="req">COMMAND</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -46,13 +45,6 @@
     started automatically through the
     <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     service.</para>
-
-    <para>For compatibility with SysV, if the binary is called as <command>init</command> and is not the
-    first process on the machine (PID is not 1), it will execute <command>telinit</command> and pass all
-    command line arguments unmodified. That means <command>init</command> and <command>telinit</command> are
-    mostly equivalent when invoked from normal login sessions. See
-    <citerefentry><refentrytitle>telinit</refentrytitle><manvolnum>8</manvolnum></citerefentry> for more
-    information.</para>
 
     <para>When run as a system instance, systemd interprets the
     configuration file <filename>system.conf</filename> and the files
@@ -235,14 +227,8 @@
     xawf -eo pid,user,cgroup,args</command> is particularly useful to list all processes and the systemd
     units they belong to.).</para>
 
-    <para>systemd is compatible with the SysV init system to a large
-    degree: SysV init scripts are supported and simply read as an
-    alternative (though limited) configuration file format. The SysV
-    <filename>/dev/initctl</filename> interface is provided, and
-    compatibility implementations of the various SysV client tools are
-    available. In addition to that, various established Unix
-    functionality such as <filename>/etc/fstab</filename> or the
-    <filename>utmp</filename> database are supported.</para>
+    <para>systemd is compatible with various established Unix functionality such as
+    <filename>/etc/fstab</filename> or the <filename>utmp</filename> database.</para>
 
     <para>systemd has a minimal transaction system: if a unit is
     requested to start up or shut down it will add it and all its
@@ -326,32 +312,6 @@
         directories is provided in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         </para></listitem>
-      </varlistentry>
-    </variablelist>
-
-    <variablelist>
-      <varlistentry>
-        <term>SysV init scripts directory</term>
-
-        <listitem><para>The location of the SysV init script directory
-        varies between distributions. If systemd cannot find a native
-        unit file for a requested service, it will look for a SysV
-        init script of the same name (with the
-        <filename>.service</filename> suffix
-        removed).</para></listitem>
-      </varlistentry>
-    </variablelist>
-
-    <variablelist>
-      <varlistentry>
-        <term>SysV runlevel link farm directory</term>
-
-        <listitem><para>The location of the SysV runlevel link farm
-        directory varies between distributions. systemd will take the
-        link farm into account when figuring out whether a service
-        shall be enabled. Note that a service unit with a native unit
-        configuration file cannot be started by activating it in the
-        SysV runlevel link farm.</para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
@@ -1066,12 +1026,9 @@
         <term><varname>5</varname></term>
 
         <listitem><para>Boot into the specified legacy SysV runlevel.
-        These are equivalent to
-        <varname>systemd.unit=runlevel2.target</varname>,
-        <varname>systemd.unit=runlevel3.target</varname>,
-        <varname>systemd.unit=runlevel4.target</varname>, and
-        <varname>systemd.unit=runlevel5.target</varname>,
-        respectively, and provided for compatibility reasons and to be
+        <varname>2</varname>, <varname>3</varname>, and <varname>4</varname> are equivalent to
+        <varname>systemd.unit=multi-user.target</varname>; and <varname>5</varname> is equivalent to
+        <varname>systemd.unit=graphical.target</varname>, and provided for compatibility reasons and to be
         easier to type.</para>
 
         <xi:include href="version-info.xml" xpointer="v186"/></listitem>
@@ -1523,16 +1480,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><filename>/dev/initctl</filename></term>
-
-        <listitem><para>Limited compatibility support for the SysV
-        client interface, as implemented by the
-        <filename>systemd-initctl.service</filename> unit. This is a
-        named pipe in the file system. This interface is obsolete and
-        should not be used in new applications.</para></listitem>
-      </varlistentry>
-
-      <varlistentry>
         <term><filename>/usr/lib/clock-epoch</filename></term>
 
         <listitem><para>The modification time ("mtime") of this file is used for the time epoch, see previous
@@ -1560,11 +1507,10 @@
       <variablelist>
         <varlistentry>
           <term>systemd 252</term>
+
           <listitem><para>Kernel command-line arguments <varname>systemd.unified_cgroup_hierarchy</varname>
           and <varname>systemd.legacy_systemd_cgroup_controller</varname> were deprecated. Please switch to
-          the unified cgroup hierarchy.</para>
-
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          the unified cgroup hierarchy.</para></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>

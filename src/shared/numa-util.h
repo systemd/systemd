@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/mempolicy.h>
+
 #include "cpu-set-util.h"
-#include "missing_syscall.h"
+#include "forward.h"
 
 static inline bool mpol_is_valid(int t) {
         return t >= MPOL_DEFAULT && t <= MPOL_LOCAL;
@@ -22,7 +24,7 @@ static inline int numa_policy_get_type(const NUMAPolicy *p) {
 
 static inline void numa_policy_reset(NUMAPolicy *p) {
         assert(p);
-        cpu_set_reset(&p->nodes);
+        cpu_set_done(&p->nodes);
         p->type = -1;
 }
 

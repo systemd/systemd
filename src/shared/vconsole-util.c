@@ -1,9 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+#include <unistd.h>
+
+#include "alloc-util.h"
 #include "env-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "kbd-util.h"
+#include "log.h"
 #include "string-util.h"
 #include "strv.h"
 #include "vconsole-util.h"

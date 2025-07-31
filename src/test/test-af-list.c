@@ -1,17 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/socket.h>
-
-#include "macro.h"
-#include "string-util.h"
+#include "af-list.h"
 #include "tests.h"
 
 _unused_
 static const struct af_name* lookup_af(register const char *str, register GPERF_LEN_TYPE len);
 
-#include "af-from-name.h"
-#include "af-list.h"
-#include "af-to-name.h"
+#include "af-from-name.inc"
+#include "af-to-name.inc"
 
 TEST(af_list) {
         for (unsigned i = 0; i < ELEMENTSOF(af_names); i++) {

@@ -198,7 +198,7 @@ contexts be discarded, not the opposite). Overly long fields should be
 discarded (or potentially truncated, depending on the field type). This
 specification does not recommend any specific stack or string limits for now.
 
-The usual terminal reset sequences should *not* effect the stack of contexts
+The usual terminal reset sequences should *not* affect the stack of contexts
 (this is a safety feature: a program down the stack should not be able to
 affect the stack further up, possibly hiding relevant information). A temporary
 TTY hangup (`vhangup()`) should result in a full reset of the stack.

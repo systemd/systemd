@@ -1,17 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "sd-id128.h"
-#include "sd-json.h"
-
-#include "output-mode.h"
-#include "pager.h"
+#include "forward.h"
 #include "pcre2-util.h"
-#include "set.h"
-#include "time-util.h"
 
 typedef enum JournalctlAction {
         ACTION_SHOW,
@@ -97,6 +88,8 @@ extern Set *arg_output_fields;
 extern char *arg_pattern;
 extern pcre2_code *arg_compiled_pattern;
 extern PatternCompileCase arg_case;
+extern ImagePolicy *arg_image_policy;
+extern bool arg_synchronize_on_exit;
 
 static inline bool arg_lines_needs_seek_end(void) {
         return arg_lines >= 0 && !arg_lines_oldest;

@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-#include <sys/types.h>
-
 #include "sd-json.h"
 
-#include "macro.h"
+#include "forward.h"
+#include "log.h"
 #include "pager.h"
 
 typedef enum TableDataType {
@@ -85,6 +82,7 @@ typedef enum TableErsatz {
         TABLE_ERSATZ_UNSET,
         TABLE_ERSATZ_NA,
         _TABLE_ERSATZ_MAX,
+        _TABLE_ERSATZ_INVALID = -EINVAL,
 } TableErsatz;
 
 typedef struct Table Table;

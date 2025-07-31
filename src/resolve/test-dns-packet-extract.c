@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dns-type.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-question.h"
 #include "resolved-dns-rr.h"
-
-#include "log.h"
 #include "tests.h"
 
 #define BIT_QR (1 << 7)
@@ -45,7 +45,7 @@ TEST(packet_header_query_basic) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 0);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), 0);
+        ASSERT_EQ(dns_packet_rcode(packet), 0);
 
         ASSERT_EQ(DNS_PACKET_QDCOUNT(packet), 1);
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packet), 0);
@@ -78,7 +78,7 @@ TEST(packet_header_query_status_recursion_desired) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 0);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), 0);
+        ASSERT_EQ(dns_packet_rcode(packet), 0);
 
         ASSERT_EQ(DNS_PACKET_QDCOUNT(packet), 339);
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packet), 0);
@@ -111,7 +111,7 @@ TEST(packet_header_reply_authoritative) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 0);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), DNS_RCODE_SUCCESS);
+        ASSERT_EQ(dns_packet_rcode(packet), DNS_RCODE_SUCCESS);
 
         ASSERT_EQ(DNS_PACKET_QDCOUNT(packet), 3);
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packet), 4);
@@ -144,7 +144,7 @@ TEST(packet_header_reply_nxdomain) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 0);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), DNS_RCODE_NXDOMAIN);
+        ASSERT_EQ(dns_packet_rcode(packet), DNS_RCODE_NXDOMAIN);
 
         ASSERT_EQ(DNS_PACKET_QDCOUNT(packet), 1);
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packet), 0);
@@ -177,7 +177,7 @@ TEST(packet_header_reply_recursive_non_authoritative) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 1);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 0);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), DNS_RCODE_SUCCESS);
+        ASSERT_EQ(dns_packet_rcode(packet), DNS_RCODE_SUCCESS);
 
         ASSERT_EQ(DNS_PACKET_QDCOUNT(packet), 1283);
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packet), 3588);
@@ -210,7 +210,7 @@ TEST(packet_header_reply_delegate) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 0);
         ASSERT_EQ(DNS_PACKET_CD(packet), 0);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), DNS_RCODE_SUCCESS);
+        ASSERT_EQ(dns_packet_rcode(packet), DNS_RCODE_SUCCESS);
 
         ASSERT_EQ(DNS_PACKET_QDCOUNT(packet), 1);
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packet), 0);
@@ -243,7 +243,7 @@ TEST(packet_header_reply_dnssec_bits) {
         ASSERT_EQ(DNS_PACKET_RA(packet), 0);
         ASSERT_EQ(DNS_PACKET_AD(packet), 1);
         ASSERT_EQ(DNS_PACKET_CD(packet), 1);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), DNS_RCODE_SUCCESS);
+        ASSERT_EQ(dns_packet_rcode(packet), DNS_RCODE_SUCCESS);
 
         ASSERT_EQ(DNS_PACKET_QDCOUNT(packet), 3);
         ASSERT_EQ(DNS_PACKET_ANCOUNT(packet), 4);
@@ -2984,9 +2984,9 @@ TEST(packet_reply_opt_no_do_empty) {
         ASSERT_TRUE(dns_resource_record_equal(packet->opt, rr));
         dns_resource_record_unref(rr);
 
-        ASSERT_EQ(DNS_PACKET_PAYLOAD_SIZE_MAX(packet), 513u);
-        ASSERT_EQ(DNS_PACKET_RCODE(packet), 2467u);
-        ASSERT_EQ(DNS_PACKET_DO(packet), 0u);
+        ASSERT_EQ(dns_packet_payload_size_max(packet), 513u);
+        ASSERT_EQ(dns_packet_rcode(packet), 2467u);
+        ASSERT_EQ(dns_packet_do(packet), 0u);
 }
 
 TEST(packet_reply_opt_multiple) {
@@ -3116,8 +3116,8 @@ TEST(packet_query_opt_version_ok) {
         ASSERT_TRUE(dns_resource_record_equal(packet->opt, rr));
         dns_resource_record_unref(rr);
 
-        ASSERT_EQ(DNS_PACKET_PAYLOAD_SIZE_MAX(packet), 513u);
-        ASSERT_EQ(DNS_PACKET_DO(packet), 0u);
+        ASSERT_EQ(dns_packet_payload_size_max(packet), 513u);
+        ASSERT_EQ(dns_packet_do(packet), 0u);
 }
 
 TEST(packet_reply_opt_version_bad) {
@@ -3182,8 +3182,8 @@ TEST(packet_reply_opt_with_do) {
         ASSERT_TRUE(dns_resource_record_equal(packet->opt, rr));
         dns_resource_record_unref(rr);
 
-        ASSERT_EQ(DNS_PACKET_PAYLOAD_SIZE_MAX(packet), 4097u);
-        ASSERT_EQ(DNS_PACKET_DO(packet), 1u);
+        ASSERT_EQ(dns_packet_payload_size_max(packet), 4097u);
+        ASSERT_EQ(dns_packet_do(packet), 1u);
 }
 
 TEST(packet_reply_opt_with_data) {

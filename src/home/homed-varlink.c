@@ -1,12 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "format-util.h"
+#include "sd-varlink.h"
+
 #include "group-record.h"
+#include "hashmap.h"
+#include "homed-home.h"
+#include "homed-manager.h"
 #include "homed-varlink.h"
 #include "json-util.h"
+#include "log.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-record-util.h"
 #include "user-record.h"
+#include "user-record-util.h"
 #include "user-util.h"
 
 typedef struct LookupParameters {

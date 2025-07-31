@@ -5,10 +5,8 @@
   Author: Auke Kok <auke-jan.h.kok@intel.com>
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/xattr.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -16,28 +14,31 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "label.h"
+#include "label-util.h"
 #include "log.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "smack-util.h"
-#include "stdio-util.h"
 #include "string-table.h"
 #include "xattr-util.h"
-
-#if ENABLE_SMACK
 
 #define SMACK_FLOOR_LABEL "_"
 #define SMACK_STAR_LABEL  "*"
 
 bool mac_smack_use(void) {
+#if ENABLE_SMACK
         static int cached_use = -1;
 
         if (cached_use < 0)
                 cached_use = access("/sys/fs/smackfs/", F_OK) >= 0;
 
         return cached_use;
+#else
+        return false;
+#endif
 }
+
+#if ENABLE_SMACK
 
 static const char* const smack_attr_table[_SMACK_ATTR_MAX] = {
         [SMACK_ATTR_ACCESS]     = "security.SMACK64",
@@ -50,7 +51,10 @@ static const char* const smack_attr_table[_SMACK_ATTR_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(smack_attr, SmackAttr);
 
+#endif
+
 int mac_smack_read_at(int fd, const char *path, SmackAttr attr, char **ret) {
+#if ENABLE_SMACK
         assert(fd >= 0 || fd == AT_FDCWD);
         assert(attr >= 0 && attr < _SMACK_ATTR_MAX);
         assert(ret);
@@ -61,9 +65,13 @@ int mac_smack_read_at(int fd, const char *path, SmackAttr attr, char **ret) {
         }
 
         return getxattr_at_malloc(fd, path, smack_attr_to_string(attr), /* at_flags = */ 0, ret, /* ret_size= */ NULL);
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 int mac_smack_apply_at(int fd, const char *path, SmackAttr attr, const char *label) {
+#if ENABLE_SMACK
         assert(fd >= 0 || fd == AT_FDCWD);
         assert(attr >= 0 && attr < _SMACK_ATTR_MAX);
 
@@ -74,9 +82,13 @@ int mac_smack_apply_at(int fd, const char *path, SmackAttr attr, const char *lab
                 return xremovexattr(fd, path, /* at_flags = */ 0, smack_attr_to_string(attr));
 
         return xsetxattr(fd, path, /* at_flags = */ 0, smack_attr_to_string(attr), label);
+#else
+        return 0;
+#endif
 }
 
 int mac_smack_apply_pid(pid_t pid, const char *label) {
+#if ENABLE_SMACK
         const char *p;
 
         assert(pid >= 0);
@@ -87,7 +99,12 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
 
         p = procfs_file_alloca(pid, "attr/current");
         return write_string_file(p, label, WRITE_STRING_FILE_DISABLE_BUFFER);
+#else
+        return 0;
+#endif
 }
+
+#if ENABLE_SMACK
 
 static int smack_fix_fd(
                 int fd,
@@ -146,12 +163,15 @@ static int smack_fix_fd(
         return 0;
 }
 
+#endif
+
 int mac_smack_fix_full(
                 int atfd,
                 const char *inode_path,
                 const char *label_path,
                 LabelFixFlags flags) {
 
+#if ENABLE_SMACK
         _cleanup_close_ int opened_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r, inode_fd;
@@ -186,26 +206,14 @@ int mac_smack_fix_full(
         }
 
         return smack_fix_fd(inode_fd, label_path, flags);
-}
-
-int mac_smack_copy(const char *dest, const char *src) {
-        _cleanup_free_ char *label = NULL;
-        int r;
-
-        assert(dest);
-        assert(src);
-
-        r = mac_smack_read(src, SMACK_ATTR_ACCESS, &label);
-        if (r < 0)
-                return r;
-
-        r = mac_smack_apply(dest, SMACK_ATTR_ACCESS, label);
-        if (r < 0)
-                return r;
-
-        return r;
-}
+#else
+        return 0;
 #endif
+}
+
+int mac_smack_fix(const char *path, LabelFixFlags flags) {
+        return mac_smack_fix_full(AT_FDCWD, path, path, flags);
+}
 
 int renameat_and_apply_smack_floor_label(int fdf, const char *from, int fdt, const char *to) {
 

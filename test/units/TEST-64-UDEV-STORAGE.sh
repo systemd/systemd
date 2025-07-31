@@ -1165,8 +1165,11 @@ uuid="deadbeef-dead-dead-beef-111111111111", name="mdpart1", size=8M
 uuid="deadbeef-dead-dead-beef-222222222222", name="mdpart2", size=32M
 uuid="deadbeef-dead-dead-beef-333333333333", name="mdpart3", size=16M
 EOF
+    udevadm wait --settle --timeout=30 "$raid_dev" "${raid_dev}1" "${raid_dev}2" "${raid_dev}3"
     # FIXME: For some reasons, the command sometimes stuck and the test will timeout.
     # Let's enable debug logging and set a timeout to make not consume CI resource.
+    # UPDATE: The above 'udevadm wait' command should fix the issue.
+    # But, let's keep the debug option for a while.
     SYSTEMD_LOG_LEVEL=debug timeout 30 udevadm trigger --settle --parent-match "$raid_dev"
     udevadm wait --settle --timeout=30 "/dev/disk/by-id/md-uuid-$uuid-part2"
     mkfs.ext4 -L "$part_name" "/dev/disk/by-id/md-uuid-$uuid-part2"
@@ -1183,6 +1186,12 @@ EOF
     helper_check_device_units
     # Cleanup
     mdadm -v --stop "$raid_dev"
+
+    # Clear superblocks to make the MD device will not be restarted even if the VM is restarted.
+    # This is a workaround for issue #38240.
+    mdadm -v --zero-superblock --force "${devices[@]}"
+    udevadm settle --timeout=30
+
     # Check if all expected symlinks were removed after the cleanup
     udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
     helper_check_device_units
@@ -1240,6 +1249,12 @@ testcase_mdadm_lvm() {
     # Cleanup
     lvm vgchange -an "$vgroup"
     mdadm -v --stop "$raid_dev"
+
+    # Clear superblocks to make the MD device will not be restarted even if the VM is restarted.
+    # This is a workaround for issue #38240.
+    mdadm -v --zero-superblock --force "${devices[@]}"
+    udevadm settle --timeout=30
+
     # Check if all expected symlinks were removed after the cleanup
     udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
     helper_check_device_units

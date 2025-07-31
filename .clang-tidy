@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+---
+Checks: '
+    -*,
+    misc-header-include-cycle,
+    readability-duplicate-include,
+    bugprone-argument-comment
+'
+WarningsAsErrors: '*'
+HeaderFileExtensions:
+  - h
+ImplementationFileExtensions:
+  - c
+...

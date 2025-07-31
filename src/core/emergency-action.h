@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "runtime-scope.h"
+#include "core-forward.h"
 
 typedef enum EmergencyAction {
         EMERGENCY_ACTION_NONE,
@@ -33,9 +31,6 @@ typedef enum EmergencyActionFlags {
         EMERGENCY_ACTION_SLEEP_5S    = 1 << 2, /* wait 5s before executing action; only honoured together with EMERGENCY_ACTION_WARN */
         _EMERGENCY_ACTION_FLAGS_MAX  = (1 << 3) - 1,
 } EmergencyActionFlags;
-
-#include "macro.h"
-#include "manager.h"
 
 void emergency_action(
                 Manager *m,

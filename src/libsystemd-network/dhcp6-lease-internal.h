@@ -5,15 +5,11 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <inttypes.h>
-
 #include "sd-dhcp6-lease.h"
-#include "dns-resolver-internal.h"
 
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
-#include "macro.h"
-#include "set.h"
+#include "forward.h"
 #include "time-util.h"
 
 struct sd_dhcp6_lease {
@@ -47,6 +43,9 @@ struct sd_dhcp6_lease {
         char **ntp_fqdn;
         struct in6_addr *sntp;
         size_t sntp_count;
+        struct in6_addr *sip;
+        size_t sip_count;
+        char **sip_domains;
         char *fqdn;
         char *captive_portal;
         struct sd_dhcp6_option **sorted_vendor_options;
@@ -66,6 +65,8 @@ int dhcp6_lease_add_dns(sd_dhcp6_lease *lease, const uint8_t *optval, size_t opt
 int dhcp6_lease_add_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_add_ntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_add_sntp(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
+int dhcp6_lease_add_sip_addrs(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
+int dhcp6_lease_add_sip_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_set_fqdn(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 int dhcp6_lease_set_captive_portal(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen);
 

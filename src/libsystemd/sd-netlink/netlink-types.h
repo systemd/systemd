@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "sd-netlink.h"
+#include "forward.h"
 
 typedef enum NLAType {
         NETLINK_TYPE_UNSPEC,                    /* NLA_UNSPEC */
@@ -37,6 +35,7 @@ typedef struct NLAPolicySetUnion NLAPolicySetUnion;
 
 const NLAPolicy *rtnl_get_policy(uint16_t nlmsg_type);
 const NLAPolicy *nfnl_get_policy(uint16_t nlmsg_type);
+const NLAPolicy *sdnl_get_policy(uint16_t nlmsg_type, uint16_t nlmsg_flags);
 const NLAPolicySet *genl_get_policy_set_by_name(const char *name);
 int genl_get_policy_set_and_header_size(
                 sd_netlink *nl,
@@ -52,6 +51,7 @@ const NLAPolicySetUnion *policy_get_policy_set_union(const NLAPolicy *policy);
 int netlink_get_policy_set_and_header_size(
                 sd_netlink *nl,
                 uint16_t type,
+                uint16_t flags,
                 const NLAPolicySet **ret_policy_set,
                 size_t *ret_header_size);
 

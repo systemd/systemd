@@ -1,22 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <net/if.h>
+#include <stdlib.h>
 
 #include "alloc-util.h"
 #include "build.h"
-#include "constants.h"
-#include "dns-domain.h"
 #include "extract-word.h"
 #include "fileio.h"
-#include "parse-util.h"
+#include "log.h"
 #include "pretty-print.h"
 #include "resolvconf-compat.h"
 #include "resolvectl.h"
-#include "resolved-def.h"
 #include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static int resolvconf_help(void) {
         _cleanup_free_ char *link = NULL;

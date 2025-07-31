@@ -6,8 +6,6 @@
 
 #include "alloc-util.h"
 #include "journal-internal.h"
-#include "log.h"
-#include "string-util.h"
 #include "tests.h"
 
 int main(int argc, char *argv[]) {

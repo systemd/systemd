@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hashmap.h"
+#include "sysupdate-forward.h"
 
 typedef struct WebCacheItem {
         char *url;

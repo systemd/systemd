@@ -1,12 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
+#include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-filesystems.h"
+#include "ansi-color.h"
 #include "fileio.h"
 #include "filesystems.h"
+#include "log.h"
+#include "nulstr-util.h"
+#include "pager.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 
 static int load_available_kernel_filesystems(Set **ret) {
         _cleanup_set_free_ Set *filesystems = NULL;

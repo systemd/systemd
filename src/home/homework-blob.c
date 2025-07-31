@@ -1,23 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
+#include "alloc-util.h"
 #include "copy.h"
-#include "fileio.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "home-util.h"
 #include "homework-blob.h"
-#include "homework.h"
 #include "install-file.h"
-#include "macro.h"
-#include "path-util.h"
+#include "log.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
 #include "sha256.h"
-#include "string-util.h"
+#include "stat-util.h"
 #include "tmpfile-util.h"
-#include "umask-util.h"
-#include "utf8.h"
+#include "user-record-util.h"
+#include "user-record.h"
+#include "user-util.h"
 
 static int copy_one_blob(
                 int src_fd,

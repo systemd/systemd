@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-integration_test_wrapper = find_program('integration-test-wrapper.py')
+# We'd give these more descriptive names but only alphanumeric characters are allowed.
+add_test_setup('integration')
+add_test_setup('shell', env : {'TEST_SHELL' : '1'})
+
+integration_test_wrapper = files('integration-test-wrapper.py')
 integration_tests = []
 integration_test_template = {
         'mkosi-args' : [],
@@ -26,6 +30,7 @@ integration_test_template = {
         'coredump-exclude-regex' : '',
         'sanitizer-exclude-regex' : '',
         'rtc' : false,
+        'tpm' : false,
 }
 
 foreach dirname : [
@@ -38,6 +43,7 @@ foreach dirname : [
         'TEST-07-PID1',
         'TEST-08-INITRD',
         'TEST-09-REBOOT',
+        'TEST-10-MOUNT',
         'TEST-13-NSPAWN',
         'TEST-15-DROPIN',
         'TEST-16-EXTEND-TIMEOUT',
@@ -95,6 +101,8 @@ foreach dirname : [
         'TEST-85-NETWORK',
         'TEST-86-MULTI-PROFILE-UKI',
         'TEST-87-AUX-UTILS-VM',
+        'TEST-88-UPGRADE',
+        'TEST-89-RESOLVED-MDNS',
 ]
         subdir(dirname)
 endforeach
@@ -120,15 +128,19 @@ foreach integration_test : integration_tests
                 integration_test_args += ['--rtc']
         endif
 
+        if integration_test['tpm']
+                integration_test_args += ['--tpm']
+        endif
+
         if not integration_test['enabled']
                 integration_test_args += ['--skip']
         endif
 
-        if not mkosi.found()
-                continue
+        if mkosi.found()
+                integration_test_args += ['--mkosi', mkosi.full_path()]
         endif
 
-        integration_test_args += ['--mkosi', mkosi.full_path(), '--']
+        integration_test_args += ['--']
 
         if integration_test['cmdline'].length() > 0
                 integration_test_args += [
@@ -146,19 +158,12 @@ foreach integration_test : integration_tests
 
         integration_test_args += integration_test['mkosi-args']
 
-        integration_test_env = {}
-
-        if want_integration_tests
-                integration_test_env += {'SYSTEMD_INTEGRATION_TESTS': '1'}
-        endif
-
         # We don't explicitly depend on the "mkosi" target because that means the image is rebuilt on every
         # "ninja -C build". Instead, the mkosi target has to be rebuilt manually before running the
         # integration tests with mkosi.
         test(
                 integration_test['name'],
                 integration_test_wrapper,
-                env : integration_test_env,
                 args : integration_test_args,
                 timeout : integration_test['timeout'],
                 priority : integration_test['priority'],

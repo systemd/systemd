@@ -1,36 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-#include <stddef.h>
 #include <stdio.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-id128.h"
 
 #include "all-units.h"
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "conf-parser.h"
-#include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
-#include "hostname-util.h"
-#include "install-printf.h"
 #include "install.h"
+#include "install-printf.h"
 #include "load-fragment.h"
-#include "macro.h"
-#include "memory-util.h"
+#include "manager.h"
 #include "open-file.h"
 #include "pcre2-util.h"
 #include "rm-rf.h"
+#include "set.h"
 #include "specifier.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
-#include "tmpfile-util.h"
 #include "user-util.h"
 
 /* Nontrivial value serves as a placeholder to check that parsing function (didn't) change it */

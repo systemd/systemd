@@ -2,11 +2,11 @@
 
 #include "alloc-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "user-util.h"
 #include "xdg-autostart-service.h"
 
 TEST(translate_name) {

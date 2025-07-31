@@ -1,19 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
-#include "ordered-set.h"
-#include "socket-util.h"
-
-typedef struct DnsServer DnsServer;
-typedef struct DnsStream DnsStream;
-typedef struct DnsTransaction DnsTransaction;
-typedef struct Manager Manager;
-typedef struct DnsStubListenerExtra DnsStubListenerExtra;
-
+#include "forward.h"
+#include "list.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dnstls.h"
+#include "resolved-forward.h"
+#include "socket-util.h"
+#include "sparse-endian.h"
+#include "time-util.h"
 
 /* Various timeouts for establishing TCP connections. First the default timeout for that. */
 #define DNS_STREAM_DEFAULT_TIMEOUT_USEC (10 * USEC_PER_SEC)
@@ -45,7 +40,7 @@ typedef enum DnsStreamType {
  *   3. The DNS stub logic when accepting a TCP-based lookup
  */
 
-struct DnsStream {
+typedef struct DnsStream {
         Manager *manager;
         unsigned n_ref;
 
@@ -93,7 +88,7 @@ struct DnsStream {
         DnsStubListenerExtra *stub_listener_extra;
 
         LIST_FIELDS(DnsStream, streams);
-};
+} DnsStream;
 
 int dns_stream_new(
                 Manager *m,

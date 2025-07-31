@@ -1,16 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
 #include "sd-device.h"
 
-#include "alloc-util.h"
+#include "forward.h"
 #include "log.h"
-#include "macro.h"
-#include "strv.h"
 
 #define device_unref_and_replace(a, b)                                  \
         unref_and_replace_full(a, b, sd_device_ref, sd_device_unref)
@@ -96,33 +90,23 @@
 #define log_device_error_errno(device, error, ...)   log_device_full_errno(device, LOG_ERR,     error, __VA_ARGS__)
 
 int devname_from_devnum(mode_t mode, dev_t devnum, char **ret);
-static inline int devname_from_stat_rdev(const struct stat *st, char **ret) {
-        assert(st);
-        return devname_from_devnum(st->st_mode, st->st_rdev, ret);
-}
+int devname_from_stat_rdev(const struct stat *st, char **ret);
 int device_open_from_devnum(mode_t mode, dev_t devnum, int flags, char **ret_devname);
 
 char** device_make_log_fields(sd_device *device);
 
-bool device_in_subsystem(sd_device *device, const char *subsystem);
-bool device_is_devtype(sd_device *device, const char *devtype);
+int device_in_subsystem_strv(sd_device *device, char * const *subsystems);
+#define device_in_subsystem(device, ...) \
+        device_in_subsystem_strv(device, STRV_MAKE(__VA_ARGS__))
 
-static inline bool device_property_can_set(const char *property) {
-        return property &&
-                !STR_IN_SET(property,
-                            /* basic properties set by kernel, only in netlink event */
-                            "ACTION", "SEQNUM", "SYNTH_UUID",
-                            /* basic properties set by kernel, both in netlink event and uevent file */
-                            "DEVPATH", "DEVPATH_OLD", "SUBSYSTEM", "DEVTYPE", "DRIVER", "MODALIAS",
-                            /* device node */
-                            "DEVNAME", "DEVMODE", "DEVUID", "DEVGID", "MAJOR", "MINOR",
-                            /* block device */
-                            "DISKSEQ", "PARTN",
-                            /* network interface (INTERFACE_OLD is set by udevd) */
-                            "IFINDEX", "INTERFACE", "INTERFACE_OLD",
-                            /* basic properties set by udevd */
-                            "DEVLINKS", "TAGS", "CURRENT_TAGS", "USEC_INITIALIZED", "UDEV_DATABASE_VERSION") &&
-                /* Similar to SYNTH_UUID, but set based on KEY=VALUE arguments passed by userspace.
-                 * See kernel's f36776fafbaa0094390dd4e7e3e29805e0b82730 (v4.13) */
-                !startswith(property, "SYNTH_ARG_");
-}
+int device_is_devtype(sd_device *device, const char *devtype);
+
+int device_is_subsystem_devtype(sd_device *device, const char *subsystem, const char *devtype);
+
+int device_get_seat(sd_device *device, const char **ret);
+
+int device_sysname_startswith_strv(sd_device *device, char * const *prefixes, const char **ret_suffix);
+#define device_sysname_startswith(device, ...) \
+        device_sysname_startswith_strv(device, STRV_MAKE(__VA_ARGS__), NULL)
+
+bool device_property_can_set(const char *property) _pure_;

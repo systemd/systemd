@@ -1,12 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
+#include "alloc-util.h"
 #include "conf-files.h"
+#include "constants.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "ipe-setup.h"
-#include "nulstr-util.h"
+#include "log.h"
 #include "path-util.h"
+#include "string-util.h"
+#include "strv.h"
 
 #define IPE_SECFS_DIR "/sys/kernel/security/ipe"
 #define IPE_SECFS_NEW_POLICY IPE_SECFS_DIR "/new_policy"

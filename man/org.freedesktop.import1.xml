@@ -214,12 +214,13 @@ node /org/freedesktop/import1 {
       to the tar or raw file to import. It should reference a file on disk, a pipe or a socket. When
       <function>ImportTar()</function>/<function>ImportTarEx()</function> is used the file descriptor should
       refer to a tar file, optionally compressed with <citerefentry project="die-net"><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project="die-net"><refentrytitle>zstd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project="die-net"><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry>, or
       <citerefentry project="die-net"><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
       <command>systemd-importd</command> will detect the used compression scheme (if any) automatically. When
       <function>ImportRaw()</function>/<function>ImportRawEx()</function> is used the file descriptor should
       refer to a raw or qcow2 disk image containing an MBR or GPT disk label, also optionally compressed with
-      gzip, bzip2 or xz. In either case, if the file is specified as a file descriptor on disk, progress
+      gzip, zstd, bzip2 or xz. In either case, if the file is specified as a file descriptor on disk, progress
       information is generated for the import operation (as in that case we know the total size on disk). If
       a socket or pipe is specified, progress information is not available. The file descriptor argument is
       followed by a local name for the image. This should be a name suitable as a hostname and will be used
@@ -250,9 +251,9 @@ node /org/freedesktop/import1 {
       name to export as their first parameter, followed by a file descriptor (opened for writing) where the
       tar or raw file will be written. It may either reference a file on disk or a pipe/socket. The third
       argument specifies in which compression format to write the image. It takes one of
-      <literal>uncompressed</literal>, <literal>xz</literal>, <literal>bzip2</literal> or
-      <literal>gzip</literal>, depending on which compression scheme is required. The image written to the
-      specified file descriptor will be a tar file in case of
+      <literal>uncompressed</literal>, <literal>xz</literal>, <literal>bzip2</literal>,
+      <literal>gzip</literal> or <literal>zstd</literal>, depending on which compression scheme is required.
+      The image written to the specified file descriptor will be a tar file in case of
       <function>ExportTar()</function>/<function>ExportTarEx()</function> or a raw disk image in case of
       <function>ExportRaw()</function>/<function>ExportRawEx()</function>. Note that currently raw disk
       images may not be exported as tar files, and vice versa. This restriction might be lifted
@@ -267,8 +268,8 @@ node /org/freedesktop/import1 {
       <function>PullRaw()</function>/<function>PullRawEx()</function> may be used to download, verify and
       import a system image from a URL. They take a URL argument which should point to a tar or raw file on
       the <literal>http://</literal> or <literal>https://</literal> protocols, possibly compressed with xz,
-      bzip2 or gzip. The second argument is a local name for the image. It should be suitable as a hostname,
-      similarly to the matching argument of the
+      bzip2, gzip or zstd. The second argument is a local name for the image. It should be suitable as a
+      hostname, similarly to the matching argument of the
       <function>ImportTar()</function>/<function>ImportTarEx()</function> and
       <function>ImportRaw()</function>/<function>ImportRawEx()</function> methods above. The third argument
       indicates the verification mode for the image. It may be one of <literal>no</literal>,

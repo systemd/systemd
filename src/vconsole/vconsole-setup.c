@@ -3,25 +3,18 @@
   Copyright © 2016 Michal Soltys <soltys@ziu.info>
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <linux/kd.h>
 #include <linux/tiocl.h>
 #include <linux/vt.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sysexits.h>
 #include <termios.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "creds-util.h"
-#include "dev-setup.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -32,12 +25,10 @@
 #include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
-#include "virt.h"
 
 typedef struct Context {
         char *keymap;

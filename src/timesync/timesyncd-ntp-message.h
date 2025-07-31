@@ -2,6 +2,7 @@
 #pragma once
 
 #include "sparse-endian.h"
+#include "timesyncd-forward.h"
 
 /* NTP protocol, packet header */
 #define NTP_LEAP_PLUSSEC                1

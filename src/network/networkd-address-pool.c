@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "networkd-address-pool.h"
 #include "networkd-address.h"
+#include "networkd-address-pool.h"
+#include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-queue.h"
-#include "string-util.h"
+#include "ordered-set.h"
+#include "set.h"
 
 #define RANDOM_PREFIX_TRIAL_MAX  1024
 

@@ -1,13 +1,38 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-device.h"
+#include "sd-netlink.h"
+
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "device-util.h"
-#include "netlink-util.h"
+#include "ether-addr-util.h"
 #include "netif-sriov.h"
 #include "parse-util.h"
 #include "set.h"
+#include "siphash24.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
+
+static SRIOV* sr_iov_free(SRIOV *sr_iov) {
+        if (!sr_iov)
+                return NULL;
+
+        if (sr_iov->sr_iov_by_section && sr_iov->section)
+                ordered_hashmap_remove(sr_iov->sr_iov_by_section, sr_iov->section);
+
+        config_section_free(sr_iov->section);
+
+        return mfree(sr_iov);
+}
+
+DEFINE_SECTION_CLEANUP_FUNCTIONS(SRIOV, sr_iov_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                sr_iov_hash_ops_by_section,
+                ConfigSection, config_section_hash_func, config_section_compare_func,
+                SRIOV, sr_iov_free);
 
 static int sr_iov_new(SRIOV **ret) {
         SRIOV *sr_iov;
@@ -57,7 +82,7 @@ static int sr_iov_new_static(OrderedHashmap **sr_iov_by_section, const char *fil
         if (r < 0)
                 return r;
 
-        r = ordered_hashmap_ensure_put(sr_iov_by_section, &config_section_hash_ops, n, sr_iov);
+        r = ordered_hashmap_ensure_put(sr_iov_by_section, &sr_iov_hash_ops_by_section, n, sr_iov);
         if (r < 0)
                 return r;
 
@@ -66,18 +91,6 @@ static int sr_iov_new_static(OrderedHashmap **sr_iov_by_section, const char *fil
 
         *ret = TAKE_PTR(sr_iov);
         return 0;
-}
-
-SRIOV *sr_iov_free(SRIOV *sr_iov) {
-        if (!sr_iov)
-                return NULL;
-
-        if (sr_iov->sr_iov_by_section && sr_iov->section)
-                ordered_hashmap_remove(sr_iov->sr_iov_by_section, sr_iov->section);
-
-        config_section_free(sr_iov->section);
-
-        return mfree(sr_iov);
 }
 
 void sr_iov_hash_func(const SRIOV *sr_iov, struct siphash *state) {
@@ -100,7 +113,46 @@ DEFINE_PRIVATE_HASH_OPS(
         sr_iov_hash_func,
         sr_iov_compare_func);
 
-int sr_iov_set_netlink_message(SRIOV *sr_iov, sd_netlink_message *req) {
+static const char * const sr_iov_attribute_table[_SR_IOV_ATTRIBUTE_MAX] = {
+        [SR_IOV_VF_MAC]          = "MAC address",
+        [SR_IOV_VF_SPOOFCHK]     = "spoof check",
+        [SR_IOV_VF_RSS_QUERY_EN] = "RSS query",
+        [SR_IOV_VF_TRUST]        = "trust",
+        [SR_IOV_VF_LINK_STATE]   = "link state",
+        [SR_IOV_VF_VLAN_LIST]    = "vlan list",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(sr_iov_attribute, SRIOVAttribute);
+
+bool sr_iov_has_config(SRIOV *sr_iov, SRIOVAttribute attr) {
+        assert(sr_iov);
+
+        switch (attr) {
+        case SR_IOV_VF_MAC:
+                return !ether_addr_is_null(&sr_iov->mac);
+
+        case SR_IOV_VF_SPOOFCHK:
+                return sr_iov->vf_spoof_check_setting >= 0;
+
+        case SR_IOV_VF_RSS_QUERY_EN:
+                return sr_iov->query_rss >= 0;
+
+        case SR_IOV_VF_TRUST:
+                return sr_iov->trust >= 0;
+
+        case SR_IOV_VF_LINK_STATE:
+                return sr_iov->link_state >= 0;
+
+        case SR_IOV_VF_VLAN_LIST:
+                return sr_iov->vlan > 0;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+int sr_iov_set_netlink_message(SRIOV *sr_iov, SRIOVAttribute attr, sd_netlink_message *req) {
+
         int r;
 
         assert(sr_iov);
@@ -114,62 +166,71 @@ int sr_iov_set_netlink_message(SRIOV *sr_iov, sd_netlink_message *req) {
         if (r < 0)
                 return r;
 
-        if (!ether_addr_is_null(&sr_iov->mac)) {
+        switch (attr) {
+        case SR_IOV_VF_MAC: {
+                if (ether_addr_is_null(&sr_iov->mac))
+                        return -ENODATA;
+
                 struct ifla_vf_mac ivm = {
                         .vf = sr_iov->vf,
                 };
 
                 memcpy(ivm.mac, &sr_iov->mac, ETH_ALEN);
                 r = sd_netlink_message_append_data(req, IFLA_VF_MAC, &ivm, sizeof(struct ifla_vf_mac));
-                if (r < 0)
-                        return r;
+                break;
         }
+        case SR_IOV_VF_SPOOFCHK: {
+                if (sr_iov->vf_spoof_check_setting < 0)
+                        return -ENODATA;
 
-        if (sr_iov->vf_spoof_check_setting >= 0) {
                 struct ifla_vf_spoofchk ivs = {
                         .vf = sr_iov->vf,
                         .setting = sr_iov->vf_spoof_check_setting,
                 };
 
                 r = sd_netlink_message_append_data(req, IFLA_VF_SPOOFCHK, &ivs, sizeof(struct ifla_vf_spoofchk));
-                if (r < 0)
-                        return r;
+                break;
         }
+        case SR_IOV_VF_RSS_QUERY_EN: {
+                if (sr_iov->query_rss < 0)
+                        return -ENODATA;
 
-        if (sr_iov->query_rss >= 0) {
                 struct ifla_vf_rss_query_en ivs = {
                         .vf = sr_iov->vf,
                         .setting = sr_iov->query_rss,
                 };
 
                 r = sd_netlink_message_append_data(req, IFLA_VF_RSS_QUERY_EN, &ivs, sizeof(struct ifla_vf_rss_query_en));
-                if (r < 0)
-                        return r;
+                break;
         }
+        case SR_IOV_VF_TRUST: {
+                if (sr_iov->trust < 0)
+                        return -ENODATA;
 
-        if (sr_iov->trust >= 0) {
                 struct ifla_vf_trust ivt = {
                         .vf = sr_iov->vf,
                         .setting = sr_iov->trust,
                 };
 
                 r = sd_netlink_message_append_data(req, IFLA_VF_TRUST, &ivt, sizeof(struct ifla_vf_trust));
-                if (r < 0)
-                        return r;
+                break;
         }
+        case SR_IOV_VF_LINK_STATE: {
+                if (sr_iov->link_state < 0)
+                        return -ENODATA;
 
-        if (sr_iov->link_state >= 0) {
                 struct ifla_vf_link_state ivl = {
                         .vf = sr_iov->vf,
                         .link_state = sr_iov->link_state,
                 };
 
                 r = sd_netlink_message_append_data(req, IFLA_VF_LINK_STATE, &ivl, sizeof(struct ifla_vf_link_state));
-                if (r < 0)
-                        return r;
+                break;
         }
+        case SR_IOV_VF_VLAN_LIST: {
+                if (sr_iov->vlan <= 0)
+                        return -ENODATA;
 
-        if (sr_iov->vlan > 0) {
                 /* Because of padding, first the buffer must be initialized with 0. */
                 struct ifla_vf_vlan_info ivvi = {};
                 ivvi.vf = sr_iov->vf;
@@ -186,9 +247,13 @@ int sr_iov_set_netlink_message(SRIOV *sr_iov, sd_netlink_message *req) {
                         return r;
 
                 r = sd_netlink_message_close_container(req);
-                if (r < 0)
-                        return r;
+                break;
         }
+        default:
+                assert_not_reached();
+        }
+        if (r < 0)
+                return r;
 
         r = sd_netlink_message_close_container(req);
         if (r < 0)

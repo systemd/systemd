@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/in.h>
+#include <netinet/in.h>
 #include <sys/socket.h>
-#include <stdio.h>
 
-#include "macro.h"
 #include "parse-helpers.h"
 #include "tests.h"
 

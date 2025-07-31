@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "hexdecoct.h"
 #include "openssl-util.h"
 #include "tests.h"
 
@@ -423,7 +422,7 @@ TEST(openssl_cipher) {
                 "32c62bbaeb0decc5c874b8e0148f86475b5bb10a36f7078a75a6f11704c2f06a",
                 /* hex_iv= */ NULL,
                 /* data= */ NULL, /* n_data= */ 0,
-                /* expected= */ NULL);
+                /* hex_expected= */ NULL);
 
         check_cipher(
                 "aes", 128, "cfb",
@@ -451,14 +450,14 @@ TEST(openssl_cipher) {
                 "b8fe4b89f6f25dd58cadceb68c99d508",
                 /* hex_iv= */ NULL,
                 /* data= */ NULL, /* n_data= */ 0,
-                /* expected= */ NULL);
+                /* hex_expected= */ NULL);
 
         check_cipher(
                 "aes", 128, "cfb",
                 "b8fe4b89f6f25dd58cadceb68c99d508",
                 "00000000000000000000000000000000",
                 /* data= */ NULL, /* n_data= */ 0,
-                /* expected= */ NULL);
+                /* hex_expected= */ NULL);
 }
 
 TEST(ecc_ecdh) {

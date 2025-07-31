@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <math.h>
+#include <math.h>       /* IWYU pragma: export */
 
-#include "macro.h"
+#include "forward.h"
 
 /* On some optimization level, iszero(x) is converted to (x == 0.0), and emits warning -Wfloat-equal.
  * The argument must be a floating point, i.e. one of float, double, or long double. */

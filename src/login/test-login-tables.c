@@ -2,6 +2,7 @@
 
 #include "logind-action.h"
 #include "logind-session.h"
+#include "logind-user.h"
 #include "sleep-config.h"
 #include "test-tables.h"
 #include "tests.h"
@@ -23,13 +24,13 @@ static void test_sleep_handle_action(void) {
 int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
-        test_table(handle_action, HANDLE_ACTION);
-        test_table(inhibit_mode, INHIBIT_MODE);
-        test_table(kill_whom, KILL_WHOM);
-        test_table(session_class, SESSION_CLASS);
-        test_table(session_state, SESSION_STATE);
-        test_table(session_type, SESSION_TYPE);
-        test_table(user_state, USER_STATE);
+        test_table(HandleAction, handle_action, HANDLE_ACTION);
+        test_table(InhibitMode, inhibit_mode, INHIBIT_MODE);
+        test_table(KillWhom, kill_whom, KILL_WHOM);
+        test_table(SessionClass, session_class, SESSION_CLASS);
+        test_table(SessionState, session_state, SESSION_STATE);
+        test_table(SessionType, session_type, SESSION_TYPE);
+        test_table(UserState, user_state, USER_STATE);
 
         test_sleep_handle_action();
 

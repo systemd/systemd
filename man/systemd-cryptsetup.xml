@@ -49,7 +49,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-cryptsetup</filename> is used to set up (with <command>attach</command>) and tear
+    <para><command>systemd-cryptsetup</command> is used to set up (with <command>attach</command>) and tear
     down (with <command>detach</command>) access to an encrypted block device. It is primarily used via
     <filename>systemd-cryptsetup@.service</filename> during early boot, but may also be called manually.
     The positional arguments <parameter>VOLUME</parameter>, <parameter>SOURCE-DEVICE</parameter>,

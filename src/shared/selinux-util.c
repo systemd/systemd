@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <stddef.h>
+#include <malloc.h>
 #include <string.h>
+#include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <sys/un.h>
 #include <syslog.h>
 
@@ -21,12 +19,11 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "label.h"
+#include "label-util.h"
 #include "log.h"
-#include "macro.h"
-#include "mallinfo-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
-#include "stdio-util.h"
+#include "string-util.h"
 #include "time-util.h"
 
 #if HAVE_SELINUX
@@ -43,21 +40,6 @@ static Initialized initialized = UNINITIALIZED;
 static int last_policyload = 0;
 static struct selabel_handle *label_hnd = NULL;
 static bool have_status_page = false;
-
-#define log_enforcing(...)                                              \
-        log_full(mac_selinux_enforcing() ? LOG_ERR : LOG_WARNING, __VA_ARGS__)
-
-#define log_enforcing_errno(error, ...)                                 \
-        ({                                                              \
-                bool _enforcing = mac_selinux_enforcing();              \
-                int _level = _enforcing ? LOG_ERR : LOG_WARNING;        \
-                int _e = (error);                                       \
-                                                                        \
-                int _r = (log_get_max_level() >= LOG_PRI(_level))       \
-                        ? log_internal(_level, _e, PROJECT_FILE, __LINE__, __func__, __VA_ARGS__) \
-                        : -ERRNO_VALUE(_e);                             \
-                _enforcing ? _r : 0;                                    \
-        })
 
 static int mac_selinux_label_pre(int dir_fd, const char *path, mode_t mode) {
         return mac_selinux_create_file_prepare_at(dir_fd, path, mode);
@@ -109,33 +91,24 @@ static int open_label_db(void) {
         struct selabel_handle *hnd;
         /* Avoid maybe-uninitialized false positives */
         usec_t before_timestamp = USEC_INFINITY, after_timestamp = USEC_INFINITY;
-#  if HAVE_GENERIC_MALLINFO
-        generic_mallinfo before_mallinfo = {};
-#  endif
+        struct mallinfo2 before_mallinfo = {};
 
         if (DEBUG_LOGGING) {
-#  if HAVE_GENERIC_MALLINFO
-                before_mallinfo = generic_mallinfo_get();
-#  endif
+                before_mallinfo = mallinfo2();
                 before_timestamp = now(CLOCK_MONOTONIC);
         }
 
         hnd = selabel_open(SELABEL_CTX_FILE, NULL, 0);
         if (!hnd)
-                return log_enforcing_errno(errno, "Failed to initialize SELinux labeling handle: %m");
+                return log_selinux_enforcing_errno(errno, "Failed to initialize SELinux labeling handle: %m");
 
         if (DEBUG_LOGGING) {
                 after_timestamp = now(CLOCK_MONOTONIC);
-#  if HAVE_GENERIC_MALLINFO
-                generic_mallinfo after_mallinfo = generic_mallinfo_get();
-                size_t l = LESS_BY((size_t) after_mallinfo.uordblks, (size_t) before_mallinfo.uordblks);
+                struct mallinfo2 after_mallinfo = mallinfo2();
+                size_t l = LESS_BY(after_mallinfo.uordblks, before_mallinfo.uordblks);
                 log_debug("Successfully loaded SELinux database in %s, size on heap is %zuK.",
                           FORMAT_TIMESPAN(after_timestamp - before_timestamp, 0),
                           DIV_ROUND_UP(l, 1024));
-#  else
-                log_debug("Successfully loaded SELinux database in %s.",
-                          FORMAT_TIMESPAN(after_timestamp - before_timestamp, 0));
-#  endif
         }
 
         /* release memory after measurement */
@@ -167,10 +140,12 @@ static int selinux_init(bool force) {
         if (!force && initialized != LAZY_INITIALIZED)
                 return 1;
 
+        mac_selinux_disable_logging();
+
         r = selinux_status_open(/* netlink fallback= */ 1);
         if (r < 0) {
                 if (!ERRNO_IS_PRIVILEGE(errno))
-                        return log_enforcing_errno(errno, "Failed to open SELinux status page: %m");
+                        return log_selinux_enforcing_errno(errno, "Failed to open SELinux status page: %m");
                 log_warning_errno(errno, "selinux_status_open() with netlink fallback failed, not checking for policy reloads: %m");
         } else if (r == 1)
                 log_warning("selinux_status_open() failed to open the status page, using the netlink fallback.");
@@ -264,6 +239,20 @@ void mac_selinux_finish(void) {
 }
 
 #if HAVE_SELINUX
+_printf_(2,3)
+static int selinux_log_glue(int type, const char *fmt, ...) {
+        return 0;
+}
+#endif
+
+void mac_selinux_disable_logging(void) {
+#if HAVE_SELINUX
+        /* Turn off all of SELinux' own logging, we want to do that ourselves */
+        selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = selinux_log_glue });
+#endif
+}
+
+#if HAVE_SELINUX
 static int selinux_fix_fd(
                 int fd,
                 const char *label_path,
@@ -290,7 +279,7 @@ static int selinux_fix_fd(
                 if (errno == ENOENT)
                         return 0;
 
-                return log_enforcing_errno(errno, "Unable to lookup intended SELinux security context of %s: %m", label_path);
+                return log_selinux_enforcing_errno(errno, "Unable to lookup intended SELinux security context of %s: %m", label_path);
         }
 
         if (setfilecon_raw(FORMAT_PROC_FD_PATH(fd), fcon) < 0) {
@@ -310,7 +299,7 @@ static int selinux_fix_fd(
                 if (getfilecon_raw(FORMAT_PROC_FD_PATH(fd), &oldcon) >= 0 && streq_ptr(fcon, oldcon))
                         return 0;
 
-                return log_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", label_path);
+                return log_selinux_enforcing_errno(r, "Unable to fix SELinux security context of %s: %m", label_path);
         }
 
         return 0;
@@ -383,7 +372,7 @@ int mac_selinux_apply(const char *path, const char *label) {
         assert(label);
 
         if (setfilecon(path, label) < 0)
-                return log_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, path);
+                return log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, path);
 #endif
         return 0;
 }
@@ -402,7 +391,7 @@ int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
         assert(label);
 
         if (setfilecon(FORMAT_PROC_FD_PATH(fd), label) < 0)
-                return log_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, strna(path));
+                return log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s on path %s: %m", label, strna(path));
 #endif
         return 0;
 }
@@ -456,6 +445,32 @@ int mac_selinux_get_our_label(char **ret_label) {
 
         _cleanup_freecon_ char *con = NULL;
         if (getcon_raw(&con) < 0)
+                return -errno;
+        if (!con)
+                return -EOPNOTSUPP;
+
+        *ret_label = TAKE_PTR(con);
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int mac_selinux_get_peer_label(int socket_fd, char **ret_label) {
+        assert(socket_fd >= 0);
+        assert(ret_label);
+
+#if HAVE_SELINUX
+        int r;
+
+        r = selinux_init(/* force= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EOPNOTSUPP;
+
+        _cleanup_freecon_ char *con = NULL;
+        if (getpeercon_raw(socket_fd, &con) < 0)
                 return -errno;
         if (!con)
                 return -EOPNOTSUPP;
@@ -554,11 +569,11 @@ static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode)
                 if (errno == ENOENT)
                         return 0;
 
-                return log_enforcing_errno(errno, "Failed to determine SELinux security context for %s: %m", abspath);
+                return log_selinux_enforcing_errno(errno, "Failed to determine SELinux security context for %s: %m", abspath);
         }
 
         if (setfscreatecon_raw(filecon) < 0)
-                return log_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", filecon, abspath);
+                return log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", filecon, abspath);
 
         return 0;
 }
@@ -611,7 +626,7 @@ int mac_selinux_create_file_prepare_label(const char *path, const char *label) {
                 return r;
 
         if (setfscreatecon_raw(label) < 0)
-                return log_enforcing_errno(errno, "Failed to set specified SELinux security context '%s' for '%s': %m", label, strna(path));
+                return log_selinux_enforcing_errno(errno, "Failed to set specified SELinux security context '%s' for '%s': %m", label, strna(path));
 #endif
         return 0;
 }
@@ -640,7 +655,7 @@ int mac_selinux_create_socket_prepare(const char *label) {
                 return r;
 
         if (setsockcreatecon(label) < 0)
-                return log_enforcing_errno(errno, "Failed to set SELinux security context %s for sockets: %m", label);
+                return log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s for sockets: %m", label);
 #endif
 
         return 0;
@@ -720,12 +735,12 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
                 if (errno == ENOENT)
                         goto skipped;
 
-                r = log_enforcing_errno(errno, "Failed to determine SELinux security context for %s: %m", path);
+                r = log_selinux_enforcing_errno(errno, "Failed to determine SELinux security context for %s: %m", path);
                 if (r < 0)
                         return r;
         } else {
                 if (setfscreatecon_raw(fcon) < 0) {
-                        r = log_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", fcon, path);
+                        r = log_selinux_enforcing_errno(errno, "Failed to set SELinux security context %s for %s: %m", fcon, path);
                         if (r < 0)
                                 return r;
                 } else

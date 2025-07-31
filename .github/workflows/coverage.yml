@@ -25,7 +25,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: systemd/mkosi@7e4ec15aee6b98300b2ee14265bc647a716a9f8a
+      - uses: systemd/mkosi@cb1a3c90490922441548d09b09c7b76426e4bc20
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
@@ -50,9 +50,6 @@ jobs:
 
       - name: Configure
         run: |
-          # XXX: drop after the HyperV bug that breaks secure boot KVM guests is solved
-          sed -i "s/'firmware'\s*:\s*'auto'/'firmware' : 'uefi'/g" test/*/meson.build
-
           tee mkosi/mkosi.local.conf <<EOF
           [Distribution]
           Distribution=arch
@@ -83,23 +80,22 @@ jobs:
         run: mkosi summary
 
       - name: Build tools tree
-        run: sudo mkosi -f sandbox -- true
+        run: sudo mkosi -f box -- true
 
       - name: Configure meson
         run: |
-          sudo mkosi sandbox -- \
+          sudo mkosi box -- \
             meson setup \
             --buildtype=debugoptimized \
-            -Dintegration-tests=true \
             build
 
       - name: Build image
-        run: sudo mkosi sandbox -- meson compile -C build mkosi
+        run: sudo mkosi box -- meson compile -C build mkosi
 
       - name: Initial coverage report
         run: |
           sudo mkdir -p build/test/coverage
-          sudo mkosi sandbox -- \
+          sudo mkosi box -- \
             lcov \
             --directory build/mkosi.builddir/arch~rolling~x86-64 \
             --capture \
@@ -116,11 +112,14 @@ jobs:
           # --preserve-env makes sure all the github actions environment variables are propagated which are
           # used in integration-test-wrapper.py to construct the `gh` command line to download the journals
           # of failed tests.
-          sudo --preserve-env mkosi sandbox -- \
+          sudo --preserve-env mkosi box -- \
+            env \
+            TEST_RUNNER=ubuntu-24.04 \
             meson test \
             -C build \
             --no-rebuild \
-            --suite integration-tests \
+            --setup=integration \
+            --suite=integration-tests \
             --print-errorlogs \
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \
@@ -145,10 +144,10 @@ jobs:
               lcov_args+=(--add-tracefile "${file}")
           done < <(find build/test/coverage -name "TEST-*.coverage-info")
 
-          sudo mkosi sandbox -- lcov --ignore-errors inconsistent,inconsistent "${lcov_args[@]}" --output-file build/test/coverage/everything.coverage-info
+          sudo mkosi box -- lcov --ignore-errors inconsistent,inconsistent "${lcov_args[@]}" --output-file build/test/coverage/everything.coverage-info
 
       - name: List coverage report
-        run: sudo mkosi sandbox -- lcov --ignore-errors inconsistent,inconsistent --list build/test/coverage/everything.coverage-info
+        run: sudo mkosi box -- lcov --ignore-errors inconsistent,inconsistent --list build/test/coverage/everything.coverage-info
 
       - name: Coveralls
         uses: coverallsapp/github-action@648a8eb78e6d50909eff900e4ec85cab4524a45b

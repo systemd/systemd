@@ -1,13 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+/* IWYU pragma: always_keep */
 
-#include "efi-fundamental.h"
-#include "macro-fundamental.h"
+#include <limits.h>                     /* IWYU pragma: export */
+#include <stdarg.h>                     /* IWYU pragma: export */
+#include <stdbool.h>                    /* IWYU pragma: export */
+#include <stddef.h>                     /* IWYU pragma: export */
+#include <stdint.h>                     /* IWYU pragma: export */
+
+#include "assert-fundamental.h"         /* IWYU pragma: export */
+#include "cleanup-fundamental.h"        /* IWYU pragma: export */
+#include "efi-fundamental.h"            /* IWYU pragma: export */
+#include "macro-fundamental.h"          /* IWYU pragma: export */
 
 #if SD_BOOT
 /* uchar.h/wchar.h are not suitable for freestanding environments. */
@@ -44,6 +49,8 @@ assert_cc(alignof(char32_t) == 4);
 #  include <uchar.h>
 #  include <wchar.h>
 #endif
+
+struct iovec;
 
 /* We use size_t/ssize_t to represent UEFI UINTN/INTN. */
 typedef size_t EFI_STATUS;
@@ -126,6 +133,16 @@ typedef uint64_t EFI_PHYSICAL_ADDRESS;
 
 #define EFI_CUSTOM_MODE_ENABLE_GUID \
         GUID_DEF(0xc076ec0c, 0x7028, 0x4399, 0xa0, 0x72, 0x71, 0xee, 0x5c, 0x44, 0x8b, 0x9f)
+#define EFI_SYSTEM_RESOURCE_TABLE_GUID \
+        GUID_DEF(0xb122a263, 0x3661, 0x4f68, 0x99, 0x29, 0x78, 0xf8, 0xb0, 0xd6, 0x21, 0x80)
+
+/* EFI System Resource Table (ESRT) Firmware Type Definitions */
+#define ESRT_FW_TYPE_UNKNOWN        0x00000000U
+#define ESRT_FW_TYPE_SYSTEMFIRMWARE 0x00000001U
+#define ESRT_FW_TYPE_DEVICEFIRMWARE 0x00000002U
+#define ESRT_FW_TYPE_UEFIDRIVER     0x00000003U
+
+#define LAST_ATTEMPT_STATUS_SUCCESS 0x00000000U
 
 #define EVT_TIMER                         0x80000000U
 #define EVT_RUNTIME                       0x40000000U
@@ -425,6 +442,23 @@ typedef struct {
                 void *VendorTable;
         } *ConfigurationTable;
 } EFI_SYSTEM_TABLE;
+
+typedef struct {
+        EFI_GUID FwClass;
+        uint32_t FwType;
+        uint32_t FwVersion;
+        uint32_t LowestSupportedFwVersion;
+        uint32_t CapsuleFlags;
+        uint32_t LastAttemptVersion;
+        uint32_t LastAttemptStatus;
+} EFI_SYSTEM_RESOURCE_ENTRY;
+
+typedef struct {
+        uint32_t FwResourceCount;
+        uint32_t FwResourceCountMax;
+        uint64_t FwResourceVersion;
+        EFI_SYSTEM_RESOURCE_ENTRY Entries[];
+} EFI_SYSTEM_RESOURCE_TABLE;
 
 extern EFI_SYSTEM_TABLE *ST;
 extern EFI_BOOT_SERVICES *BS;

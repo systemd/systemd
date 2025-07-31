@@ -1,15 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <inttypes.h>
-#include <malloc.h>
-#include <stdlib.h>
+#include <stdio.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #if HAVE_LZ4
+#include <lz4.h>
 #include <lz4hc.h>
+#include <lz4frame.h>
 #endif
 
 #if HAVE_XZ
@@ -24,11 +23,10 @@
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "compress.h"
-#include "fd-util.h"
+#include "dlfcn-util.h"
 #include "fileio.h"
 #include "io-util.h"
-#include "macro.h"
-#include "sparse-endian.h"
+#include "log.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "unaligned.h"
@@ -46,8 +44,9 @@ static DLSYM_PROTOTYPE(LZ4F_decompress) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_freeCompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_freeDecompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_isError) = NULL;
+static DLSYM_PROTOTYPE(LZ4_compress_HC) = NULL;
+/* These are used in test-compress.c so we don't make them static. */
 DLSYM_PROTOTYPE(LZ4_compress_default) = NULL;
-DLSYM_PROTOTYPE(LZ4_compress_HC) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe_partial) = NULL;
 DLSYM_PROTOTYPE(LZ4_versionNumber) = NULL;
@@ -377,15 +376,14 @@ int decompress_blob_xz(
                 size_t used;
 
                 ret = sym_lzma_code(&s, LZMA_FINISH);
-
                 if (ret == LZMA_STREAM_END)
                         break;
-                else if (ret != LZMA_OK)
+                if (ret != LZMA_OK)
                         return -ENOMEM;
 
                 if (dst_max > 0 && (space - s.avail_out) >= dst_max)
                         break;
-                else if (dst_max > 0 && space == dst_max)
+                if (dst_max > 0 && space == dst_max)
                         return -ENOBUFS;
 
                 used = space - s.avail_out;
@@ -491,11 +489,10 @@ int decompress_blob_zstd(
         };
 
         size_t k = sym_ZSTD_decompressStream(dctx, &output, &input);
-        if (sym_ZSTD_isError(k)) {
-                log_debug("ZSTD decoder failed: %s", sym_ZSTD_getErrorName(k));
-                return zstd_ret_to_errno(k);
-        }
-        assert(output.pos >= size);
+        if (sym_ZSTD_isError(k))
+                return log_debug_errno(zstd_ret_to_errno(k), "ZSTD decoder failed: %s", sym_ZSTD_getErrorName(k));
+        if (output.pos < size)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "ZSTD decoded less data than indicated, probably corrupted stream.");
 
         *dst_size = size;
         return 0;
@@ -512,20 +509,22 @@ int decompress_blob(
                 size_t* dst_size,
                 size_t dst_max) {
 
-        if (compression == COMPRESSION_XZ)
+        switch (compression) {
+        case COMPRESSION_XZ:
                 return decompress_blob_xz(
                                 src, src_size,
                                 dst, dst_size, dst_max);
-        else if (compression == COMPRESSION_LZ4)
+        case COMPRESSION_LZ4:
                 return decompress_blob_lz4(
                                 src, src_size,
                                 dst, dst_size, dst_max);
-        else if (compression == COMPRESSION_ZSTD)
+        case COMPRESSION_ZSTD:
                 return decompress_blob_zstd(
                                 src, src_size,
                                 dst, dst_size, dst_max);
-        else
+        default:
                 return -EPROTONOSUPPORT;
+        }
 }
 
 int decompress_startswith_xz(
@@ -736,27 +735,30 @@ int decompress_startswith(
                 size_t prefix_len,
                 uint8_t extra) {
 
-        if (compression == COMPRESSION_XZ)
+        switch (compression) {
+
+        case COMPRESSION_XZ:
                 return decompress_startswith_xz(
                                 src, src_size,
                                 buffer,
                                 prefix, prefix_len,
                                 extra);
 
-        else if (compression == COMPRESSION_LZ4)
+        case COMPRESSION_LZ4:
                 return decompress_startswith_lz4(
                                 src, src_size,
                                 buffer,
                                 prefix, prefix_len,
                                 extra);
-        else if (compression == COMPRESSION_ZSTD)
+        case COMPRESSION_ZSTD:
                 return decompress_startswith_zstd(
                                 src, src_size,
                                 buffer,
                                 prefix, prefix_len,
                                 extra);
-        else
+        default:
                 return -EBADMSG;
+        }
 }
 
 int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size) {
@@ -828,9 +830,12 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncom
                                 if (ret_uncompressed_size)
                                         *ret_uncompressed_size = s.total_in;
 
-                                log_debug("XZ compression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
-                                          s.total_in, s.total_out,
-                                          (double) s.total_out / s.total_in * 100);
+                                if (s.total_in == 0)
+                                        log_debug("XZ compression finished (no input data)");
+                                else
+                                        log_debug("XZ compression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
+                                                  s.total_in, s.total_out,
+                                                  (double) s.total_out / s.total_in * 100);
 
                                 return 0;
                         }
@@ -923,9 +928,12 @@ int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unco
         if (ret_uncompressed_size)
                 *ret_uncompressed_size = total_in;
 
-        log_debug("LZ4 compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
-                  total_in, total_out,
-                  (double) total_out / total_in * 100);
+        if (total_in == 0)
+                log_debug("LZ4 compression finished (no input data)");
+        else
+                log_debug("LZ4 compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                          total_in, total_out,
+                          (double) total_out / total_in * 100);
 
         return 0;
 #else
@@ -998,9 +1006,12 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes) {
                                 return k;
 
                         if (ret == LZMA_STREAM_END) {
-                                log_debug("XZ decompression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
-                                          s.total_in, s.total_out,
-                                          (double) s.total_out / s.total_in * 100);
+                                if (s.total_in == 0)
+                                        log_debug("XZ decompression finished (no input data)");
+                                else
+                                        log_debug("XZ decompression finished (%"PRIu64" -> %"PRIu64" bytes, %.1f%%)",
+                                                  s.total_in, s.total_out,
+                                                  (double) s.total_out / s.total_in * 100);
 
                                 return 0;
                         }
@@ -1068,9 +1079,12 @@ int decompress_stream_lz4(int in, int out, uint64_t max_bytes) {
                         goto cleanup;
         }
 
-        log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",
-                  total_in, total_out,
-                  total_in > 0 ? (double) total_out / total_in * 100 : 0.0);
+        if (total_in == 0)
+                log_debug("LZ4 decompression finished (no input data)");
+        else
+                log_debug("LZ4 decompression finished (%zu -> %zu bytes, %.1f%%)",
+                          total_in, total_out,
+                          (double) total_out / total_in * 100);
         r = 0;
  cleanup:
         munmap(src, st.st_size);
@@ -1178,12 +1192,11 @@ int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_unc
         if (ret_uncompressed_size)
                 *ret_uncompressed_size = in_bytes;
 
-        if (in_bytes > 0)
+        if (in_bytes == 0)
+                log_debug("ZSTD compression finished (no input data)");
+        else
                 log_debug("ZSTD compression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
                           in_bytes, max_bytes - left, (double) (max_bytes - left) / in_bytes * 100);
-        else
-                log_debug("ZSTD compression finished (%" PRIu64 " -> %" PRIu64 " bytes)",
-                          in_bytes, max_bytes - left);
 
         return 0;
 #else
@@ -1291,11 +1304,13 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
                 return zstd_ret_to_errno(last_result);
         }
 
-        log_debug(
-                "ZSTD decompression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
-                in_bytes,
-                max_bytes - left,
-                (double) (max_bytes - left) / in_bytes * 100);
+        if (in_bytes == 0)
+                log_debug("ZSTD decompression finished (no input data)");
+        else
+                log_debug("ZSTD decompression finished (%" PRIu64 " -> %" PRIu64 " bytes, %.1f%%)",
+                          in_bytes,
+                          max_bytes - left,
+                          (double) (max_bytes - left) / in_bytes * 100);
         return 0;
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
@@ -1307,10 +1322,10 @@ int decompress_stream(const char *filename, int fdf, int fdt, uint64_t max_bytes
 
         if (endswith(filename, ".lz4"))
                 return decompress_stream_lz4(fdf, fdt, max_bytes);
-        else if (endswith(filename, ".xz"))
+        if (endswith(filename, ".xz"))
                 return decompress_stream_xz(fdf, fdt, max_bytes);
-        else if (endswith(filename, ".zst"))
+        if (endswith(filename, ".zst"))
                 return decompress_stream_zstd(fdf, fdt, max_bytes);
-        else
-                return -EPROTONOSUPPORT;
+
+        return -EPROTONOSUPPORT;
 }

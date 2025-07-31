@@ -1,16 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "conf-parser.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir.h"
 #include "rm-rf.h"
-#include "string-util.h"
 #include "strv.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
 static void test_config_parse_path_one(const char *rvalue, const char *expected) {
@@ -171,14 +171,14 @@ TEST(config_parse_unsigned) {
 }
 
 TEST(config_parse_strv) {
-        test_config_parse_strv_one("", false, STRV_MAKE_EMPTY);
+        test_config_parse_strv_one("", false, STRV_EMPTY);
         test_config_parse_strv_one("foo", false, STRV_MAKE("foo"));
         test_config_parse_strv_one("foo bar foo", false, STRV_MAKE("foo", "bar", "foo"));
         test_config_parse_strv_one("\"foo bar\" foo", false, STRV_MAKE("foo bar", "foo"));
         test_config_parse_strv_one("\xc3\x80", false, STRV_MAKE("\xc3\x80"));
         test_config_parse_strv_one("\xc3\x7f", false, STRV_MAKE("\xc3\x7f"));
 
-        test_config_parse_strv_one("", true, STRV_MAKE_EMPTY);
+        test_config_parse_strv_one("", true, STRV_EMPTY);
         test_config_parse_strv_one("foo", true, STRV_MAKE("foo"));
         test_config_parse_strv_one("foo bar foo", true, STRV_MAKE("foo", "bar"));
         test_config_parse_strv_one("\"foo bar\" foo", true, STRV_MAKE("foo bar", "foo"));

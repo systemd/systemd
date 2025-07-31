@@ -1,0 +1,151 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_send" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_send</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_send</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_send</refname>
+    <refname>sd_varlink_sendb</refname>
+    <refname>sd_varlink_sendbo</refname>
+
+    <refpurpose>Enqueues a Varlink method call, not expecting a reply</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_send</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char *<parameter>method</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>parameters</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_sendb</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char *<parameter>method</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_sendbo</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>const char *<parameter>method</parameter></paramdef>
+        <paramdef>…</paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_varlink_send()</function> submits a method call via a Varlink connection. It takes the
+    Varlink connection object, a method name as string parameter, and a JSON object containing the parameters
+    to pass as function parameters. This call is asynchronous: the message will not be delivered immediately
+    but only once
+    <citerefentry><refentrytitle>sd_varlink_process</refentrytitle><manvolnum>3</manvolnum></citerefentry> is
+    invoked (which will happen automatically in one of the following event loop iterations if the Varlink
+    connection is attached to an even loop).</para>
+
+    <para><function>sd_varlink_sendb()</function> is similar to <function>sd_varlink_send()</function>, but
+    instead of expecting a fully constructed <type>sd_json_variant</type> object carrying the parameters,
+    this object is constructed on-the-fly directly from the parameter list, in a style identical to
+    <citerefentry><refentrytitle>sd_json_build</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para><function>sd_varlink_sendbo()</function> is identical to <function>sd_varlink_sendb()</function>,
+    but an enclosing object is implicitly added, so that the parameter list is expected to consist of field
+    pairs only. For details about the expected argument list, see
+    <citerefentry><refentrytitle>sd_json_buildo</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+    <para>Use <function>sd_varlink_send()</function>, <function>sd_varlink_sendb()</function> and
+    <function>sd_varlink_sendbo()</function> only if no method call results are required, as they neither
+    provide return parameters nor success/failure information. Use
+    <citerefentry><refentrytitle>sd_varlink_call</refentrytitle><manvolnum>3</manvolnum></citerefentry> (and
+    related calls) to submit a method call synchronously, returning the server's response.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_varlink_send()</function>, <function>sd_varlink_sendb()</function> and
+    <function>sd_varlink_sendbo()</function> return a non-negative integer. On failure, they return a
+    negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOTCONN</constant></term>
+
+          <listitem><para>The Varlink connection object is not connected.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBUSY</constant></term>
+
+          <listitem><para>The Varlink connection object is already used for other purposes, i.e. executing a
+          method call or similar.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOBUFS</constant></term>
+
+          <listitem><para>The internal limit of queued messages for the Varlink connection has been
+          reached. This limit is set very high, and hitting it typically indicates that the Varlink
+          connection object is stalled — possibly because <function>sd_varlink_process()</function> has not
+          been called regularly enough, or because the peer is not processing any queued messages. This limit
+          is a safety precaution to ensure a stalled peer will not result in unbounded memory allocations on
+          the client side.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_varlink_send()</function>, <function>sd_varlink_sendb()</function>,
+    <function>sd_varlink_sendbo()</function> were added in version 257.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_call</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_varlink_build</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

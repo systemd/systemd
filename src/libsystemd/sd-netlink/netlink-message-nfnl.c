@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <linux/netfilter/nfnetlink.h>
-#include <linux/netfilter/nf_tables.h>
 #include <linux/netfilter.h>
+#include <linux/netfilter/nf_tables.h>
+#include <linux/netfilter/nfnetlink.h>
 
 #include "sd-netlink.h"
 
+#include "alloc-util.h"
+#include "errno-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "netlink-internal.h"
-#include "netlink-types.h"
 #include "netlink-util.h"
 
 bool nfproto_is_valid(int nfproto) {
@@ -32,7 +33,7 @@ int sd_nfnl_message_new(sd_netlink *nfnl, sd_netlink_message **ret, int nfproto,
         assert_return(nfproto_is_valid(nfproto), -EINVAL);
         assert_return(NFNL_MSG_TYPE(msg_type) == msg_type, -EINVAL);
 
-        r = message_new(nfnl, &m, subsys << 8 | msg_type);
+        r = message_new(nfnl, &m, subsys << 8 | msg_type, NLM_F_REQUEST | NLM_F_ACK);
         if (r < 0)
                 return r;
 

@@ -1,20 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <netinet/in.h>
-#include <stdbool.h>
 #include <string.h>
 #include <sys/un.h>
 
-#include "journald-server.h"
+#include "alloc-util.h"
+#include "journald-manager.h"
 #include "log.h"
-#include "path-util.h"
 #include "socket-util.h"
 #include "sparse-endian.h"
 #include "tests.h"
 
 #define _COMPRESS_PARSE_CHECK(str, enab, thresh, varname)               \
         do {                                                            \
-                JournalCompressOptions varname = {true, 111};           \
+                JournalCompressOptions varname = {-222, 111};           \
                 config_parse_compress("", "", 0, "", 0, "", 0, str,     \
                                       &varname, NULL);                  \
                 assert_se((enab) == varname.enabled);                   \
@@ -26,21 +25,21 @@
         _COMPRESS_PARSE_CHECK(str, enabled, threshold, conf##__COUNTER__)
 
 TEST(config_compress) {
-        COMPRESS_PARSE_CHECK("yes", true, 111);
-        COMPRESS_PARSE_CHECK("no", false, 111);
-        COMPRESS_PARSE_CHECK("y", true, 111);
-        COMPRESS_PARSE_CHECK("n", false, 111);
-        COMPRESS_PARSE_CHECK("true", true, 111);
-        COMPRESS_PARSE_CHECK("false", false, 111);
-        COMPRESS_PARSE_CHECK("t", true, 111);
-        COMPRESS_PARSE_CHECK("f", false, 111);
-        COMPRESS_PARSE_CHECK("on", true, 111);
-        COMPRESS_PARSE_CHECK("off", false, 111);
+        COMPRESS_PARSE_CHECK("yes", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("no", false, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("y", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("n", false, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("true", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("false", false, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("t", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("f", false, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("on", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("off", false, UINT64_MAX);
 
         /* Weird size/bool overlapping case. We preserve backward compatibility instead of assuming these are byte
          * counts. */
-        COMPRESS_PARSE_CHECK("1", true, 111);
-        COMPRESS_PARSE_CHECK("0", false, 111);
+        COMPRESS_PARSE_CHECK("1", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("0", false, UINT64_MAX);
 
         /* IEC sizing */
         COMPRESS_PARSE_CHECK("1B", true, 1);
@@ -49,9 +48,9 @@ TEST(config_compress) {
         COMPRESS_PARSE_CHECK("1G", true, 1024 * 1024 * 1024);
 
         /* Invalid Case */
-        COMPRESS_PARSE_CHECK("-1", true, 111);
-        COMPRESS_PARSE_CHECK("blah blah", true, 111);
-        COMPRESS_PARSE_CHECK("", true, UINT64_MAX);
+        COMPRESS_PARSE_CHECK("-1", -222, 111);
+        COMPRESS_PARSE_CHECK("blah blah", -222, 111);
+        COMPRESS_PARSE_CHECK("", -1, UINT64_MAX);
 }
 
 #define _FORWARD_TO_SOCKET_PARSE_CHECK_FAILS(str, addr, varname)             \

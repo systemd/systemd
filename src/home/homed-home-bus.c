@@ -1,15 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/capability.h>
+#include "sd-bus.h"
+#include "sd-event.h"
 
+#include "alloc-util.h"
 #include "bus-common-errors.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "home-util.h"
 #include "homed-bus.h"
-#include "homed-home-bus.h"
 #include "homed-home.h"
+#include "homed-home-bus.h"
+#include "homed-manager.h"
+#include "homed-operation.h"
+#include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-record-util.h"
 #include "user-util.h"
@@ -434,7 +442,7 @@ int bus_home_update_record(
                 return r;
 
         if ((flags & ~SD_HOMED_UPDATE_FLAGS_ALL) != 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
 
         if (blobs) {
                 const char *failed = NULL;

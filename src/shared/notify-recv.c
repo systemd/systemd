@@ -1,23 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
+#include "alloc-util.h"
 #include "async.h"
+#include "constants.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fdset.h"
+#include "log.h"
 #include "notify-recv.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "socket-util.h"
 #include "strv.h"
-#include "user-util.h"
 
-int notify_socket_prepare(
+int notify_socket_prepare_full(
                 sd_event *event,
                 int64_t priority,
                 sd_event_io_handler_t handler,
                 void *userdata,
-                char **ret_path) {
+                bool accept_fds,
+                char **ret_path,
+                sd_event_source **ret_event_source) {
 
         int r;
 
         assert(event);
-        assert(ret_path);
 
         /* This creates an autobind AF_UNIX socket and adds an IO event source for the socket, which helps
          * prepare the notification socket used to communicate with worker processes. */
@@ -40,6 +49,13 @@ int notify_socket_prepare(
         if (r < 0)
                 log_debug_errno(r, "Failed to enable SO_PASSPIDFD on notification socket, ignoring: %m");
 
+        if (!accept_fds) {
+                /* since kernel v6.16 */
+                r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to disable SO_PASSRIGHTS on notification socket, ignoring: %m");
+        }
+
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         r = sd_event_add_io(event, &s, fd, EPOLLIN, handler, userdata);
         if (r < 0)
@@ -56,11 +72,17 @@ int notify_socket_prepare(
 
         (void) sd_event_source_set_description(s, "notify-socket");
 
-        r = sd_event_source_set_floating(s, true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to make notification event source floating: %m");
+        if (ret_event_source)
+                *ret_event_source = TAKE_PTR(s);
+        else {
+                r = sd_event_source_set_floating(s, true);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to make notification event source floating: %m");
+        }
 
-        *ret_path = TAKE_PTR(path);
+        if (ret_path)
+                *ret_path = TAKE_PTR(path);
+
         return 0;
 }
 

@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cpio.h"
-#include "device-path-util.h"
+#include "efi-log.h"
+#include "iovec-util-fundamental.h"
 #include "measure.h"
-#include "proto/device-path.h"
+#include "string-util-fundamental.h"
 #include "util.h"
 
 static char *write_cpio_word(char *p, uint32_t v) {

@@ -2,13 +2,9 @@
 
 #pragma once
 
-#include <stddef.h>
-#include <stdbool.h>
-#include <sys/uio.h>
-
 #include "sd-id128.h"
 
-#include "io-util.h"
+#include "forward.h"
 #include "iovec-wrapper.h"
 #include "time-util.h"
 

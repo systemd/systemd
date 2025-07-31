@@ -1,14 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "conf-parser.h"
 #include "cpu-set-util.h"
-#include "hostname-util.h"
+#include "extract-word.h"
 #include "namespace-util.h"
+#include "nspawn-expose-ports.h"
+#include "nspawn-mount.h"
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"
@@ -132,8 +137,9 @@ Settings* settings_free(Settings *s) {
         strv_free(s->syscall_deny_list);
         rlimit_free_all(s->rlimit);
         free(s->hostname);
-        cpu_set_reset(&s->cpu_set);
+        cpu_set_done(&s->cpu_set);
         strv_free(s->bind_user);
+        free(s->bind_user_shell);
 
         strv_free(s->network_interfaces);
         strv_free(s->network_macvlan);
@@ -813,25 +819,6 @@ int config_parse_oom_score_adjust(
         return 0;
 }
 
-int config_parse_cpu_affinity(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Settings *settings = ASSERT_PTR(data);
-
-        assert(rvalue);
-
-        return parse_cpu_set_extend(rvalue, &settings->cpu_set, true, unit, filename, line, lvalue);
-}
-
 DEFINE_CONFIG_PARSE_ENUM(config_parse_resolv_conf, resolv_conf_mode, ResolvConfMode);
 
 static const char *const resolv_conf_mode_table[_RESOLV_CONF_MODE_MAX] = {
@@ -1012,6 +999,48 @@ int config_parse_bind_user(
                 if (strv_consume(bind_user, TAKE_PTR(word)) < 0)
                         return log_oom();
         }
+
+        return 0;
+}
+
+int config_parse_bind_user_shell(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Settings *settings = ASSERT_PTR(data);
+        char *sh = NULL;
+        bool copy = false;
+        int r;
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                settings->bind_user_shell = mfree(settings->bind_user_shell);
+                settings->bind_user_shell_copy = false;
+                settings->bind_user_shell_set = false;
+
+                return 0;
+        }
+
+        r = parse_user_shell(rvalue, &sh, &copy);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse BindUserShell= value, ignoring: %s", rvalue);
+                return 0;
+        }
+
+        free_and_replace(settings->bind_user_shell, sh);
+        settings->bind_user_shell_copy = copy;
+        settings->bind_user_shell_set = true;
 
         return 0;
 }

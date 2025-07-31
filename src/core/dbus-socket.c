@@ -9,18 +9,19 @@
 #include "dbus-util.h"
 #include "fd-util.h"
 #include "ip-protocol-list.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "socket.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "unit.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, socket_result, SocketResult);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_bind_ipv6_only, socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 static BUS_DEFINE_PROPERTY_GET(property_get_fdname, "s", Socket, socket_fdname);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_timestamping, socket_timestamping, SocketTimestamping);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_defer_trigger, socket_defer_trigger, SocketDeferTrigger);
 
 static int property_get_listen(
                 sd_bus *bus,
@@ -86,9 +87,10 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("Transparent", "b", bus_property_get_bool, offsetof(Socket, transparent), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Broadcast", "b", bus_property_get_bool, offsetof(Socket, broadcast), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassCredentials", "b", bus_property_get_bool, offsetof(Socket, pass_cred), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("PassFileDescriptorsToExec", "b", bus_property_get_bool, offsetof(Socket, pass_fds_to_exec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PassPIDFD", "b", bus_property_get_bool, offsetof(Socket, pass_pidfd), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassSecurity", "b", bus_property_get_bool, offsetof(Socket, pass_sec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassPacketInfo", "b", bus_property_get_bool, offsetof(Socket, pass_pktinfo), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("AcceptFileDescriptors", "b", bus_property_get_bool, offsetof(Socket, pass_rights), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Timestamping", "s", property_get_timestamping, offsetof(Socket, timestamping), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoveOnStop", "b", bus_property_get_bool, offsetof(Socket, remove_on_stop), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Listen", "a(ss)", property_get_listen, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -114,8 +116,11 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("TriggerLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, trigger_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PollLimitIntervalUSec", "t", bus_property_get_usec, offsetof(Socket, poll_limit.interval), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PollLimitBurst", "u", bus_property_get_unsigned, offsetof(Socket, poll_limit.burst), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DeferTrigger", "s", property_get_defer_trigger, offsetof(Socket, defer_trigger), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DeferTriggerMaxUSec", "t", bus_property_get_usec, offsetof(Socket, defer_trigger_max_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("UID", "u", bus_property_get_uid, offsetof(Unit, ref_uid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("GID", "u", bus_property_get_gid, offsetof(Unit, ref_gid), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("PassFileDescriptorsToExec", "b", bus_property_get_bool, offsetof(Socket, pass_fds_to_exec), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPre", offsetof(Socket, exec_command[SOCKET_EXEC_START_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStartPost", offsetof(Socket, exec_command[SOCKET_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPre", offsetof(Socket, exec_command[SOCKET_EXEC_STOP_PRE]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -146,6 +151,7 @@ static BUS_DEFINE_SET_TRANSIENT_STRING_WITH_CHECK(ifname, ifname_valid);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING_ALLOC(ip_tos, "i", int32_t, int, "%" PRIi32, ip_tos_to_string_alloc);
 static BUS_DEFINE_SET_TRANSIENT_TO_STRING(socket_protocol, "i", int32_t, int, "%" PRIi32, socket_protocol_to_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(socket_timestamping, SocketTimestamping, socket_timestamping_from_string_harder);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(socket_defer_trigger, SocketDeferTrigger, socket_defer_trigger_from_string);
 
 static int bus_socket_set_transient_property(
                 Socket *s,
@@ -191,14 +197,17 @@ static int bus_socket_set_transient_property(
         if (streq(name, "PassCredentials"))
                 return bus_set_transient_bool(u, name, &s->pass_cred, message, flags, error);
 
-        if (streq(name, "PassFileDescriptorsToExec"))
-                return bus_set_transient_bool(u, name, &s->pass_fds_to_exec, message, flags, error);
+        if (streq(name, "PassPIDFD"))
+                return bus_set_transient_bool(u, name, &s->pass_pidfd, message, flags, error);
 
         if (streq(name, "PassSecurity"))
                 return bus_set_transient_bool(u, name, &s->pass_sec, message, flags, error);
 
         if (streq(name, "PassPacketInfo"))
                 return bus_set_transient_bool(u, name, &s->pass_pktinfo, message, flags, error);
+
+        if (streq(name, "AcceptFileDescriptors"))
+                return bus_set_transient_bool(u, name, &s->pass_rights, message, flags, error);
 
         if (streq(name, "Timestamping"))
                 return bus_set_transient_socket_timestamping(u, name, &s->timestamping, message, flags, error);
@@ -269,6 +278,12 @@ static int bus_socket_set_transient_property(
         if (streq(name, "PollLimitIntervalUSec"))
                 return bus_set_transient_usec(u, name, &s->poll_limit.interval, message, flags, error);
 
+        if (streq(name, "DeferTrigger"))
+                return bus_set_transient_socket_defer_trigger(u, name, &s->defer_trigger, message, flags, error);
+
+        if (streq(name, "DeferTriggerMaxUSec"))
+                return bus_set_transient_usec_fix_0(u, name, &s->defer_trigger_max_usec, message, flags, error);
+
         if (streq(name, "SmackLabel"))
                 return bus_set_transient_string(u, name, &s->smack, message, flags, error);
 
@@ -311,6 +326,9 @@ static int bus_socket_set_transient_property(
         if (streq(name, "SocketProtocol"))
                 return bus_set_transient_socket_protocol(u, name, &s->socket_protocol, message, flags, error);
 
+        if (streq(name, "PassFileDescriptorsToExec"))
+                return bus_set_transient_bool(u, name, &s->pass_fds_to_exec, message, flags, error);
+
         ci = socket_exec_command_from_string(name);
         if (ci >= 0)
                 return bus_set_transient_exec_command(u, name,
@@ -348,8 +366,9 @@ static int bus_socket_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "Listen")) {
+        if (streq(name, "Listen")) {
                 const char *t, *a;
                 bool empty = true;
 

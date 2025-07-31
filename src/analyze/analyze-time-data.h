@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "time-util.h"
+#include "forward.h"
 #include "unit-def.h"
 
 typedef struct BootTimes {

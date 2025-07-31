@@ -17,12 +17,8 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <sys/types.h>
-
-#include "sd-dhcp6-protocol.h"
-
 #include "_sd-common.h"
+#include "sd-dhcp6-protocol.h"  /* IWYU pragma: export */
 
 _SD_BEGIN_DECLARATIONS;
 

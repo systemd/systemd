@@ -15,7 +15,7 @@ from pathlib import Path
 URL = 'https://github.com/systemd/mkosi'
 BRANCH = 'main'  # We only want to ever use commits on upstream 'main' branch
 CONFIG = Path('mkosi/mkosi.conf')
-WORKFLOWS = [Path('.github/workflows/mkosi.yml'), Path('.github/workflows/coverage.yml')]
+WORKFLOWS = [Path('.github/workflows') / f for f in ['mkosi.yml', 'coverage.yml', 'linter.yml']]
 
 def parse_args():
     p = argparse.ArgumentParser(
@@ -75,7 +75,7 @@ def update_mkosi(args):
         print(f'mkosi: commit {new_commit!s} is still fresh')
         return
 
-    cmd = ['git', '-C', args.dir.as_posix(), 'log', '--graph',
+    cmd = ['git', '-C', args.dir.as_posix(), 'log', '--graph', '--first-parent', '--no-merges',
            '--pretty=oneline', '--no-decorate', '--abbrev-commit', '--abbrev=10',
            f'{old_commit}..{new_commit}']
     print(f"+ {shlex.join(cmd)}")

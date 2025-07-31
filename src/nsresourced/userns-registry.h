@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "macro.h"
+#include "forward.h"
 
 #define USER_NAMESPACE_CGROUPS_DELEGATE_MAX 16U
 #define USER_NAMESPACE_NETIFS_DELEGATE_MAX 16U

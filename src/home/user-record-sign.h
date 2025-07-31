@@ -3,7 +3,7 @@
 
 #include <openssl/evp.h>
 
-#include "user-record.h"
+#include "forward.h"
 
 int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret);
 

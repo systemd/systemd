@@ -9,7 +9,7 @@ set -o pipefail
 # Coverage test for udevadm
 
 # shellcheck disable=SC2317
-cleanup_17_10() {
+cleanup() {
     set +e
 
     losetup -d "$loopdev"
@@ -19,9 +19,9 @@ cleanup_17_10() {
 }
 
 # Set up some test devices
-trap cleanup_17_10 EXIT
+trap cleanup EXIT
 
-netdev=dummy17.10
+netdev=hoge
 ip link add $netdev type dummy
 
 blk="$(mktemp)"
@@ -55,20 +55,36 @@ udevadm control -l notice
 udevadm control --log-level info
 udevadm control --log-level debug
 (! udevadm control -l hello)
-udevadm control -s
-udevadm control -S
+
+# Check if processing queued events has been stopped.
+udevadm control --stop-exec-queue
+ip link add foobar type dummy
+(! udevadm info --wait-for-initialization=3 /sys/class/net/foobar)
+(! udevadm settle --timeout=0)
+# Check if processing queued events has been restarted.
+udevadm control --start-exec-queue
+udevadm settle --timeout=30
+udevadm info --wait-for-initialization=0 /sys/class/net/foobar
+ip link del foobar
+
 udevadm control -R
 udevadm control -p HELLO=world
 udevadm control -m 42
 udevadm control --ping -t 5
-udevadm control --trace yes
 udevadm control --trace no
+udevadm control --trace yes
 udevadm control --load-credentials
 udevadm control -h
+# Sanity check for serialization and deserialization
+systemctl restart systemd-udevd.service
+udevadm control --revert
 
 udevadm info /dev/null
 udevadm info /sys/class/net/$netdev
 udevadm info "$(systemd-escape -p --suffix device /sys/devices/virtual/net/$netdev)"
+[[ "$(udevadm info --json=short n1 | jq -r .DEVICE_ID)" == n1 ]]
+udevadm info "$(udevadm info --json=short /dev/null | jq -r .DEVICE_ID)"
+udevadm info "$(udevadm info --json=short /sys/class/net/$netdev | jq -r .DEVICE_ID)"
 udevadm info --property DEVNAME /sys/class/net/$netdev
 udevadm info --property DEVNAME --value /sys/class/net/$netdev
 udevadm info --property HELLO /sys/class/net/$netdev
@@ -174,8 +190,8 @@ udevadm test-builtin "factory_reset status" "$loopdev"
 # systemd-hwdb update is extremely slow when combined with sanitizers and run
 # in a VM without acceleration, so let's just skip the one particular test
 # if we detect this combination
-if ! [[ -v ASAN_OPTIONS && "$(systemd-detect-virt -v)" == "qemu" ]]; then
-    modprobe scsi_debug
+# scsi_debug is not available in all architectures/kernels combinations
+if ! [[ -v ASAN_OPTIONS && "$(systemd-detect-virt -v)" == "qemu" ]] && modprobe scsi_debug; then
     scsidev=$(readlink -f /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/[0-9]*)
     mkdir -p /etc/udev/hwdb.d
     cat >/etc/udev/hwdb.d/99-test.hwdb <<EOF
@@ -243,6 +259,10 @@ udevadm trigger -s net
 udevadm trigger -S net
 udevadm trigger -a subsystem=net
 udevadm trigger --attr-match hello=world
+udevadm trigger -a subsystem
+udevadm trigger -A subsystem=net
+udevadm trigger --attr-nomatch hello=world
+udevadm trigger -A subsystem
 udevadm trigger -p DEVNAME=null
 udevadm trigger --property-match HELLO=world
 udevadm trigger -g systemd

@@ -2,6 +2,10 @@
 
 #include <linux/if_tunnel.h>
 
+#include "sd-bus.h"
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
@@ -12,6 +16,8 @@
 #include "networkctl-link-info.h"
 #include "networkctl-util.h"
 #include "sort-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
 #include "wifi-util.h"
@@ -326,7 +332,7 @@ static void acquire_wlan_link_info(LinkInfo *link) {
         if (!link->sd_device)
                 return;
 
-        if (!device_is_devtype(link->sd_device, "wlan"))
+        if (device_is_devtype(link->sd_device, "wlan") <= 0)
                 return;
 
         r = sd_genl_socket_open(&genl);

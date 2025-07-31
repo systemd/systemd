@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "fd-util.h"
+#include "sd-json.h"
+
 #include "fuzz.h"
-#include "memory-util.h"
 #include "memstream-util.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-rr.h"
+#include "string-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL, *copy = NULL;

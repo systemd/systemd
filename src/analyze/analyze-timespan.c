@@ -2,11 +2,12 @@
 
 #include "analyze.h"
 #include "analyze-timespan.h"
-#include "calendarspec.h"
+#include "ansi-color.h"
 #include "format-table.h"
 #include "glyph-util.h"
+#include "log.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
 
 int verb_timespan(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(input_timespan, strv_skip(argv, 1)) {

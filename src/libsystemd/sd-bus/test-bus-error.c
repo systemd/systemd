@@ -139,7 +139,7 @@ static int dump_mapping_table(void) {
                         continue;
                 }
 
-                printf("%s -> %i/%s\n", strna(m->name), m->code, strna(errno_to_name(m->code)));
+                printf("%s -> %i/%s\n", strna(m->name), m->code, ERRNO_NAME(m->code));
                 m++;
         }
         printf("---------------------------\n");

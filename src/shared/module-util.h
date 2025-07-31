@@ -1,13 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "dlfcn-util.h"
+#include "forward.h"
 
 #if HAVE_KMOD
 
-#include <libkmod.h>
+#include <libkmod.h> /* IWYU pragma: export */
 
-#include "macro.h"
+#include "dlfcn-util.h"
 
 extern DLSYM_PROTOTYPE(kmod_list_next);
 extern DLSYM_PROTOTYPE(kmod_load_resources);

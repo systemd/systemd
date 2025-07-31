@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "cap-list.h"
+#include "alloc-util.h"
+#include "capability-list.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
@@ -12,8 +12,11 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "sha256.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
+#include "time-util.h"
+#include "user-record.h"
+#include "group-record.h"
 #include "user-record-show.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -258,6 +261,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                         }
                 }
         }
+
+        if (!sd_id128_is_null(hr->uuid))
+                printf("        UUID: " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(hr->uuid));
 
         if (hr->real_name && !streq(hr->real_name, hr->user_name))
                 printf("   Real Name: %s\n", hr->real_name);
@@ -669,6 +675,9 @@ void group_record_show(GroupRecord *gr, bool show_full_user_info) {
 
         if (gid_is_valid(gr->gid))
                 printf("         GID: " GID_FMT "\n", gr->gid);
+
+        if (!sd_id128_is_null(gr->uuid))
+                printf("        UUID: " SD_ID128_UUID_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(gr->uuid));
 
         if (show_full_user_info) {
                 _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;

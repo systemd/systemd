@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <assert.h>
 #include <unistd.h>
 
 #include "firewall-util.h"
 #include "in-addr-util.h"
-#include "log.h"
 #include "netlink-internal.h"
 #include "parse-util.h"
 #include "string-util.h"

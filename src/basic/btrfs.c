@@ -2,11 +2,14 @@
 
 #include <linux/btrfs.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 
+#include "alloc-util.h"
 #include "btrfs.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "path-util.h"
+#include "string-util.h"
 
 int btrfs_validate_subvolume_name(const char *name) {
 

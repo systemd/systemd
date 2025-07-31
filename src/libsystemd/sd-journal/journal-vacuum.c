@@ -12,9 +12,11 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "journal-def.h"
-#include "journal-file.h"
 #include "journal-internal.h"
 #include "journal-vacuum.h"
+#include "log.h"
+#include "log-ratelimit.h"
+#include "ratelimit.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -253,7 +255,7 @@ int journal_directory_vacuum(
 
                 r = journal_file_empty(dirfd(d), p);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed check if %s is empty, ignoring: %m", p);
+                        log_debug_errno(r, "Failed to check if %s is empty, ignoring: %m", p);
                         continue;
                 }
                 if (r > 0) {

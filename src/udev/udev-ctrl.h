@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "sd-event.h"
-
-#include "macro.h"
-#include "time-util.h"
-
-typedef struct UdevCtrl UdevCtrl;
+#include "udev-forward.h"
 
 typedef enum UdevCtrlMessageType {
         _UDEV_CTRL_END_MESSAGES,

@@ -4,7 +4,9 @@
 
 #include "env-util.h"
 #include "json-util.h"
+#include "log.h"
 #include "strv.h"
+#include "utf8.h"
 #include "varlink-io.systemd.service.h"
 
 static SD_VARLINK_DEFINE_METHOD(Ping);

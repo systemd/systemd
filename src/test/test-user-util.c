@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "format-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "string-util.h"

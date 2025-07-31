@@ -1,36 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdlib.h>
 #include <sys/mount.h>
-#include <sys/statvfs.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "bus-util.h"
-#include "cgroup-setup.h"
-#include "cgroup-util.h"
 #include "conf-files.h"
 #include "dev-setup.h"
-#include "dirent-util.h"
-#include "efi-loader.h"
+#include "efivars.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "label-util.h"
 #include "log.h"
-#include "macro.h"
 #include "mkdir-label.h"
 #include "mount-setup.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "nulstr-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"
-#include "set.h"
 #include "smack-util.h"
+#include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
+#include "time-util.h"
 #include "virt.h"
 
 typedef enum MountMode {
@@ -48,8 +39,8 @@ typedef struct MountPoint {
         const char *type;
         const char *options;
         unsigned long flags;
-        bool (*condition_fn)(void);
         MountMode mode;
+        bool (*condition_fn)(void);
 } MountPoint;
 
 static bool cgroupfs_recursiveprot_supported(void) {
@@ -83,43 +74,43 @@ int mount_cgroupfs(const char *path) {
 
 static const MountPoint mount_table[] = {
         { "proc",        "/proc",                     "proc",       NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,          MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK },
+          MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK },
         { "sysfs",       "/sys",                      "sysfs",      NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+          MNT_FATAL|MNT_IN_CONTAINER },
         { "devtmpfs",    "/dev",                      "devtmpfs",   "mode=0755" TMPFS_LIMITS_DEV,               MS_NOSUID|MS_STRICTATIME,
-          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+          MNT_FATAL|MNT_IN_CONTAINER },
         { "securityfs",  "/sys/kernel/security",      "securityfs", NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,          MNT_NONE                   },
+          MNT_NONE                   },
 #if ENABLE_SMACK
         { "smackfs",     "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*",                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          mac_smack_use, MNT_FATAL                  },
+          MNT_FATAL, mac_smack_use   },
         { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777,smackfsroot=*",                 MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          mac_smack_use, MNT_FATAL|MNT_USRQUOTA_GRACEFUL },
+          MNT_FATAL|MNT_USRQUOTA_GRACEFUL, mac_smack_use },
 #endif
         { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777",                               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          NULL,          MNT_FATAL|MNT_IN_CONTAINER|MNT_USRQUOTA_GRACEFUL },
+          MNT_FATAL|MNT_IN_CONTAINER|MNT_USRQUOTA_GRACEFUL },
         { "devpts",      "/dev/pts",                  "devpts",     "mode=" STRINGIFY(TTY_MODE) ",gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
-          NULL,          MNT_IN_CONTAINER           },
+          MNT_IN_CONTAINER           },
 #if ENABLE_SMACK
         { "tmpfs",       "/run",                      "tmpfs",      "mode=0755,smackfsroot=*" TMPFS_LIMITS_RUN, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          mac_smack_use, MNT_FATAL                  },
+          MNT_FATAL, mac_smack_use   },
 #endif
         { "tmpfs",       "/run",                      "tmpfs",      "mode=0755" TMPFS_LIMITS_RUN,               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          NULL,          MNT_FATAL|MNT_IN_CONTAINER },
+          MNT_FATAL|MNT_IN_CONTAINER },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate,memory_recursiveprot",          MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          cgroupfs_recursiveprot_supported, MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+          MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE, cgroupfs_recursiveprot_supported },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL, MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+          MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
 #if ENABLE_PSTORE
         { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,          MNT_NONE                   },
+          MNT_NONE                   },
 #endif
 #if ENABLE_EFI
         { "efivarfs",    "/sys/firmware/efi/efivars", "efivarfs",   NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          is_efi_boot,   MNT_NONE                   },
+          MNT_NONE, is_efi_boot      },
 #endif
         { "bpf",         "/sys/fs/bpf",               "bpf",        "mode=0700",                                MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          NULL,          MNT_NONE,                  },
+          MNT_NONE                   },
 };
 
 /* The first three entries we might need before SELinux is up. The

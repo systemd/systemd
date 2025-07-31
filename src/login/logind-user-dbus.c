@@ -1,19 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
-#include "bus-util.h"
 #include "format-util.h"
-#include "logind-dbus.h"
-#include "logind-session-dbus.h"
-#include "logind-user-dbus.h"
-#include "logind-user.h"
+#include "hashmap.h"
 #include "logind.h"
+#include "logind-dbus.h"
+#include "logind-session.h"
+#include "logind-session-dbus.h"
+#include "logind-user.h"
+#include "logind-user-dbus.h"
 #include "signal-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "user-record.h"
 #include "user-util.h"
 
 static int property_get_uid(
@@ -399,9 +403,8 @@ int user_send_signal(User *u, bool new_user) {
                         "uo", (uint32_t) u->user_record->uid, p);
 }
 
-int user_send_changed(User *u, const char *properties, ...) {
+int user_send_changed_strv(User *u, char **properties) {
         _cleanup_free_ char *p = NULL;
-        char **l;
 
         assert(u);
 
@@ -412,7 +415,5 @@ int user_send_changed(User *u, const char *properties, ...) {
         if (!p)
                 return -ENOMEM;
 
-        l = strv_from_stdarg_alloca(properties);
-
-        return sd_bus_emit_properties_changed_strv(u->manager->bus, p, "org.freedesktop.login1.User", l);
+        return sd_bus_emit_properties_changed_strv(u->manager->bus, p, "org.freedesktop.login1.User", properties);
 }

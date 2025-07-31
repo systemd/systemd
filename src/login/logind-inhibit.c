@@ -1,22 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 #include <threads.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
 #include "env-file.h"
-#include "errno-list.h"
 #include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "io-util.h"
+#include "log.h"
+#include "logind-session.h"
+#include "logind.h"
 #include "logind-dbus.h"
 #include "logind-inhibit.h"
 #include "mkdir-label.h"
@@ -88,76 +91,60 @@ Inhibitor* inhibitor_free(Inhibitor *i) {
 }
 
 static int inhibitor_save(Inhibitor *i) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(i);
 
         r = mkdir_safe_label("/run/systemd/inhibit", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/inhibit/: %m");
 
-        r = fopen_temporary(i->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(i->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", i->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", i->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
                 "WHAT=%s\n"
                 "MODE=%s\n"
-                "UID="UID_FMT"\n"
-                "PID="PID_FMT"\n",
+                "UID="UID_FMT"\n",
                 inhibit_what_to_string(i->what),
                 inhibit_mode_to_string(i->mode),
-                i->uid,
-                i->pid.pid);
+                i->uid);
 
-        if (i->who) {
-                _cleanup_free_ char *cc = NULL;
+        if (pidref_is_set(&i->pid)) {
+                fprintf(f, "PID="PID_FMT"\n", i->pid.pid);
 
-                cc = cescape(i->who);
-                if (!cc) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "WHO=%s\n", cc);
+                (void) pidref_acquire_pidfd_id(&i->pid);
+                if (i->pid.fd_id != 0)
+                        fprintf(f, "PIDFDID=%" PRIu64 "\n", i->pid.fd_id);
         }
 
-        if (i->why) {
-                _cleanup_free_ char *cc = NULL;
+        /* For historical reasons there's double escaping applied here: once here via cescape(), and once by
+         * env_file_fputs_assignment() */
+        _cleanup_free_ char *who_escaped = cescape(i->who);
+        if (!who_escaped)
+                return log_oom();
+        env_file_fputs_assignment(f, "WHO=", who_escaped);
 
-                cc = cescape(i->why);
-                if (!cc) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
+        _cleanup_free_ char *why_escaped = cescape(i->why);
+        if (!why_escaped)
+                return log_oom();
+        env_file_fputs_assignment(f, "WHY=", why_escaped);
 
-                fprintf(f, "WHY=%s\n", cc);
-        }
+        env_file_fputs_assignment(f, "FIFO=", i->fifo_path);
 
-        if (i->fifo_path)
-                fprintf(f, "FIFO=%s\n", i->fifo_path);
-
-        r = fflush_and_check(f);
+        r = flink_tmpfile(f, temp_path, i->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", i->state_file);
 
-        if (rename(temp_path, i->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        temp_path = mfree(temp_path);
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
         return 0;
-
-fail:
-        (void) unlink(i->state_file);
-
-        return log_error_errno(r, "Failed to save inhibit data %s: %m", i->state_file);
 }
 
 static int bus_manager_send_inhibited_change(Inhibitor *i) {
@@ -167,7 +154,7 @@ static int bus_manager_send_inhibited_change(Inhibitor *i) {
 
         property = IN_SET(i->mode, INHIBIT_BLOCK, INHIBIT_BLOCK_WEAK) ? "BlockInhibited" : "DelayInhibited";
 
-        return manager_send_changed(i->manager, property, NULL);
+        return manager_send_changed(i->manager, property);
 }
 
 int inhibitor_start(Inhibitor *i) {
@@ -212,7 +199,7 @@ void inhibitor_stop(Inhibitor *i) {
 }
 
 int inhibitor_load(Inhibitor *i) {
-        _cleanup_free_ char *what = NULL, *uid = NULL, *pid = NULL, *who = NULL, *why = NULL, *mode = NULL;
+        _cleanup_free_ char *what = NULL, *uid = NULL, *pid = NULL, *pidfdid = NULL, *who = NULL, *why = NULL, *mode = NULL;
         InhibitWhat w;
         InhibitMode mm;
         char *cc;
@@ -223,6 +210,7 @@ int inhibitor_load(Inhibitor *i) {
                            "WHAT", &what,
                            "UID", &uid,
                            "PID", &pid,
+                           "PIDFDID", &pidfdid,
                            "WHO", &who,
                            "WHY", &why,
                            "MODE", &mode,
@@ -244,11 +232,25 @@ int inhibitor_load(Inhibitor *i) {
                         log_debug_errno(r, "Failed to parse UID of inhibitor: %s", uid);
         }
 
+        pidref_done(&i->pid);
         if (pid) {
-                pidref_done(&i->pid);
                 r = pidref_set_pidstr(&i->pid, pid);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to parse PID of inhibitor: %s", pid);
+                        log_debug_errno(r, "Failed to parse PID of inhibitor, ignoring: %s", pid);
+                else if (pidfdid) {
+                        uint64_t fd_id;
+                        r = safe_atou64(pidfdid, &fd_id);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse leader pidfd ID, ignoring: %s", pidfdid);
+                        else {
+                                (void) pidref_acquire_pidfd_id(&i->pid);
+
+                                if (fd_id != i->pid.fd_id) {
+                                        log_debug("PID got recycled, ignoring.");
+                                        pidref_done(&i->pid);
+                                }
+                        }
+                }
         }
 
         if (who) {
@@ -419,10 +421,10 @@ bool manager_is_inhibited(
                 if (!(i->what & w))
                         continue;
 
-                if ((flags & MANAGER_IS_INHIBITED_CHECK_DELAY) != (i->mode == INHIBIT_DELAY))
+                if (FLAGS_SET(flags, MANAGER_IS_INHIBITED_CHECK_DELAY) != (i->mode == INHIBIT_DELAY))
                         continue;
 
-                if ((flags & MANAGER_IS_INHIBITED_IGNORE_INACTIVE) &&
+                if (FLAGS_SET(flags, MANAGER_IS_INHIBITED_IGNORE_INACTIVE) &&
                     pidref_is_active_session(m, &i->pid) <= 0)
                         continue;
 

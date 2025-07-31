@@ -1,29 +1,46 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-locator.h"
 #include "bus-log-control-api.h"
 #include "bus-message-util.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "dns-domain.h"
 #include "format-util.h"
-#include "memory-util.h"
 #include "path-util.h"
+#include "resolve-util.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-delegate.h"
+#include "resolved-dns-delegate-bus.h"
+#include "resolved-dns-dnssec.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-query.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-search-domain.h"
+#include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
+#include "resolved-dns-stub.h"
 #include "resolved-dns-synthesize.h"
-#include "resolved-dnssd-bus.h"
+#include "resolved-dns-transaction.h"
 #include "resolved-dnssd.h"
+#include "resolved-dnssd-bus.h"
+#include "resolved-link.h"
 #include "resolved-link-bus.h"
+#include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
+#include "set.h"
 #include "socket-netlink.h"
-#include "stdio-util.h"
-#include "strv.h"
-#include "syslog-util.h"
-#include "user-util.h"
+#include "string-util.h"
 #include "utf8.h"
 
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_resolve_support, resolve_support, ResolveSupport);
@@ -1830,24 +1847,24 @@ static int bus_method_reset_server_features(sd_bus_message *message, void *userd
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int dnssd_service_on_bus_track(sd_bus_track *t, void *userdata) {
-        DnssdService *s = ASSERT_PTR(userdata);
+static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata) {
+        DnssdRegisteredService *s = ASSERT_PTR(userdata);
 
         assert(t);
 
         log_debug("Client of active request vanished, destroying DNS-SD service.");
-        dnssd_service_free(s);
+        dnssd_registered_service_free(s);
 
         return 0;
 }
 
 static int bus_method_register_service(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
+        _cleanup_(dnssd_registered_service_freep) DnssdRegisteredService *service = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
         const char *id, *name_template, *type;
         _cleanup_free_ char *path = NULL;
-        DnssdService *s = NULL;
+        DnssdRegisteredService *s = NULL;
         Manager *m = ASSERT_PTR(userdata);
         uid_t euid;
         int r;
@@ -1857,7 +1874,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (m->mdns_support != RESOLVE_SUPPORT_YES)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
 
-        service = new0(DnssdService, 1);
+        service = new0(DnssdRegisteredService, 1);
         if (!service)
                 return log_oom();
 
@@ -1883,7 +1900,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (!dnssd_srv_type_is_valid(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DNS-SD service type '%s' is invalid", type);
 
-        s = hashmap_get(m->dnssd_services, id);
+        s = hashmap_get(m->dnssd_registered_services, id);
         if (s)
                 return sd_bus_error_setf(error, BUS_ERROR_DNSSD_SERVICE_EXISTS, "DNS-SD service '%s' exists already", id);
 
@@ -1996,11 +2013,11 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = hashmap_ensure_put(&m->dnssd_services, &string_hash_ops, service->id, service);
+        r = hashmap_ensure_put(&m->dnssd_registered_services, &string_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 
-        r = sd_bus_track_new(sd_bus_message_get_bus(message), &bus_track, dnssd_service_on_bus_track, service);
+        r = sd_bus_track_new(sd_bus_message_get_bus(message), &bus_track, dnssd_registered_service_on_bus_track, service);
         if (r < 0)
                 return r;
 
@@ -2019,7 +2036,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
 
 static int call_dnssd_method(Manager *m, sd_bus_message *message, sd_bus_message_handler_t handler, sd_bus_error *error) {
         _cleanup_free_ char *name = NULL;
-        DnssdService *s = NULL;
+        DnssdRegisteredService *s = NULL;
         const char *path;
         int r;
 
@@ -2037,7 +2054,7 @@ static int call_dnssd_method(Manager *m, sd_bus_message *message, sd_bus_message
         if (r < 0)
                 return r;
 
-        s = hashmap_get(m->dnssd_services, name);
+        s = hashmap_get(m->dnssd_registered_services, name);
         if (!s)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_DNSSD_SERVICE, "DNS-SD service '%s' not known", name);
 
@@ -2050,6 +2067,64 @@ static int bus_method_unregister_service(sd_bus_message *message, void *userdata
         assert(message);
 
         return call_dnssd_method(m, message, bus_dnssd_method_unregister, error);
+}
+
+static int bus_method_get_delegate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *p = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        const char *id;
+        r = sd_bus_message_read(message, "s", &id);
+        if (r < 0)
+                return r;
+
+        DnsDelegate *d = hashmap_get(m->delegates, id);
+        if (!d)
+                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_DELEGATE, "Delegate '%s' not known", id);
+
+        p = dns_delegate_bus_path(d);
+        if (!p)
+                return -ENOMEM;
+
+        return sd_bus_reply_method_return(message, "o", p);
+}
+
+static int bus_method_list_delegates(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(so)");
+        if (r < 0)
+                return r;
+
+        DnsDelegate *d;
+        HASHMAP_FOREACH(d, m->delegates) {
+                _cleanup_free_ char *p = NULL;
+
+                p = dns_delegate_bus_path(d);
+                if (!p)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(reply, "(so)", d->id, p);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_message_send(reply);
 }
 
 static const sd_bus_vtable resolve_vtable[] = {
@@ -2190,6 +2265,16 @@ static const sd_bus_vtable resolve_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 bus_method_reset_server_features,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetDelegate",
+                                SD_BUS_ARGS("s", id),
+                                SD_BUS_RESULT("o", path),
+                                bus_method_get_delegate,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("ListDelegates",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("a(so)", delegates),
+                                bus_method_list_delegates,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END,
 };
@@ -2199,7 +2284,8 @@ const BusObjectImplementation manager_object = {
         "org.freedesktop.resolve1.Manager",
         .vtables = BUS_VTABLES(resolve_vtable),
         .children = BUS_IMPLEMENTATIONS(&link_object,
-                                        &dnssd_object),
+                                        &dnssd_object,
+                                        &dns_delegate_object),
 };
 
 static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
@@ -2271,20 +2357,19 @@ int manager_connect_bus(Manager *m) {
         return 0;
 }
 
-int _manager_send_changed(Manager *manager, const char *property, ...) {
+int manager_send_changed_strv(Manager *manager, char **properties) {
         assert(manager);
 
         if (sd_bus_is_ready(manager->bus) <= 0)
                 return 0;
 
-        char **l = strv_from_stdarg_alloca(property);
-
         int r = sd_bus_emit_properties_changed_strv(
                         manager->bus,
                         "/org/freedesktop/resolve1",
                         "org.freedesktop.resolve1.Manager",
-                        l);
+                        properties);
         if (r < 0)
-                log_notice_errno(r, "Failed to emit notification about changed property %s: %m", property);
+                log_notice_errno(r, "Failed to emit notification about changed properties: %m");
+
         return r;
 }

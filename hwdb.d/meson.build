@@ -31,16 +31,17 @@ hwdb_files_test = files(
         '70-cameras.hwdb',
         '70-hardware-wallets.hwdb',
         '70-joystick.hwdb',
+        '70-maker-tools.hwdb',
         '70-mouse.hwdb',
         '70-pda.hwdb',
         '70-pointingstick.hwdb',
+        '70-software-radio.hwdb',
         '70-sound-card.hwdb',
         '70-touchpad.hwdb',
         '80-ieee1394-unit-function.hwdb')
 
 if conf.get('ENABLE_HWDB') == 1
         auto_suspend_rules = custom_target(
-                '60-autosuspend-chromiumos.hwdb',
                 output : '60-autosuspend-chromiumos.hwdb',
                 command : make_autosuspend_rules_py,
                 capture : true,
@@ -62,9 +63,8 @@ if conf.get('ENABLE_HWDB') == 1
         endif
 
         if want_tests != 'false'
-                parse_hwdb_py = find_program('parse_hwdb.py')
                 test('parse-hwdb',
-                     parse_hwdb_py,
+                     files('parse_hwdb.py'),
                      suite : 'dist',
                      args : [hwdb_files_test,
                              auto_suspend_rules],

@@ -1,11 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <malloc.h>
+#include <sys/signalfd.h>
+
+#include "sd-event.h"
+
+#include "alloc-util.h"
 #include "common-signal.h"
-#include "fd-util.h"
-#include "fileio.h"
+#include "format-util.h"
+#include "log.h"
 #include "memstream-util.h"
 #include "process-util.h"
 #include "signal-util.h"
+#include "string-util.h"
 
 int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         struct sigrtmin18_info *info = userdata;
@@ -13,6 +20,11 @@ int sigrtmin18_handler(sd_event_source *s, const struct signalfd_siginfo *si, vo
 
         assert(s);
         assert(si);
+
+        if (!si_code_from_process(si->ssi_code)) {
+                log_notice("Received control signal %s with unexpected .si_code %i, ignoring.", signal_to_string(si->ssi_signo), si->ssi_code);
+                return 0;
+        }
 
         (void) pid_get_comm(si->ssi_pid, &comm);
 

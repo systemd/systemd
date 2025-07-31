@@ -55,5 +55,6 @@
 #DefaultMemoryPressureThresholdSec=200ms
 #DefaultMemoryPressureWatch=auto
 #DefaultSmackProcessLabel=
+#DefaultRestrictSUIDSGID=
 #ReloadLimitIntervalSec=
 #ReloadLimitBurst

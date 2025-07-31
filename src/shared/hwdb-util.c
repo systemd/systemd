@@ -3,16 +3,18 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "conf-files.h"
-#include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
 #include "hwdb-internal.h"
 #include "hwdb-util.h"
 #include "label-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "path-util.h"
@@ -20,6 +22,7 @@
 #include "strbuf.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -408,6 +411,8 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
         if (r < 0)
                 return r;
 
+        filename_tmp = mfree(filename_tmp);
+
         /* write succeeded */
 
         log_debug("=== trie on-disk ===");
@@ -453,7 +458,7 @@ static int insert_data(struct trie *trie, char **match_list, char *line, const c
         return 0;
 }
 
-static int import_file(struct trie *trie, const char *filename, uint16_t file_priority, bool compat) {
+static int import_file(struct trie *trie, int fd, const char *filename, uint16_t file_priority, bool compat) {
         enum {
                 HW_NONE,
                 HW_MATCH,
@@ -464,7 +469,11 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
         uint32_t line_number = 0;
         int r;
 
-        f = fopen(filename, "re");
+        assert(trie);
+        assert(fd >= 0);
+        assert(filename);
+
+        f = fopen(FORMAT_PROC_FD_PATH(fd), "re");
         if (!f)
                 return -errno;
 
@@ -568,9 +577,8 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
 int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool compat) {
         _cleanup_free_ char *hwdb_bin = NULL;
         _cleanup_(trie_freep) struct trie *trie = NULL;
-        _cleanup_strv_free_ char **files = NULL;
         uint16_t file_priority = 1;
-        int r = 0, err;
+        int r, ret = 0;
 
         /* The argument 'compat' controls the format version of database. If false, then hwdb.bin will be
          * created with additional information such that priority, line number, and filename of database
@@ -597,11 +605,16 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
 
         trie->nodes_count++;
 
-        err = conf_files_list_strv(&files, ".hwdb", root, 0, conf_file_dirs);
-        if (err < 0)
-                return log_error_errno(err, "Failed to enumerate hwdb files: %m");
+        ConfFile **files = NULL;
+        size_t n_files = 0;
 
-        if (strv_isempty(files)) {
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        r = conf_files_list_strv_full(".hwdb", root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED, conf_file_dirs, &files, &n_files);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate hwdb files: %m");
+
+        if (n_files == 0) {
                 if (unlink(hwdb_bin) < 0) {
                         if (errno != ENOENT)
                                 return log_error_errno(errno, "Failed to remove compiled hwdb database %s: %m", hwdb_bin);
@@ -613,11 +626,11 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
                 return 0;
         }
 
-        STRV_FOREACH(f, files) {
-                log_debug("Reading file \"%s\"", *f);
-                err = import_file(trie, *f, file_priority++, compat);
-                if (err < 0 && strict)
-                        r = err;
+        FOREACH_ARRAY(i, files, n_files) {
+                ConfFile *c = *i;
+
+                log_debug("Reading file \"%s\" -> \"%s\"", c->original_path, c->resolved_path);
+                RET_GATHER(ret, import_file(trie, c->fd, c->original_path, file_priority++, compat));
         }
 
         strbuf_complete(trie->strings);
@@ -637,15 +650,15 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
                   trie->strings->dedup_len, trie->strings->dedup_count);
 
         (void) mkdir_parents_label(hwdb_bin, 0755);
-        err = trie_store(trie, hwdb_bin, compat);
-        if (err < 0)
-                return log_error_errno(err, "Failed to write database %s: %m", hwdb_bin);
+        r = trie_store(trie, hwdb_bin, compat);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write database %s: %m", hwdb_bin);
 
-        err = label_fix(hwdb_bin, 0);
-        if (err < 0)
-                return err;
+        r = label_fix(hwdb_bin, 0);
+        if (r < 0)
+                return r;
 
-        return r;
+        return strict ? ret : 0;
 }
 
 int hwdb_query(const char *modalias, const char *root) {

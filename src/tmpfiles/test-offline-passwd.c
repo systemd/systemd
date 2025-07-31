@@ -2,9 +2,9 @@
 
 #include <getopt.h>
 
-#include "offline-passwd.h"
-#include "user-util.h"
 #include "format-util.h"
+#include "hashmap.h"
+#include "offline-passwd.h"
 #include "tests.h"
 
 static char *arg_root = NULL;

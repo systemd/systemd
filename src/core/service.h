@@ -1,17 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Service Service;
-typedef struct ServiceFDStore ServiceFDStore;
-typedef struct ServiceExtraFD ServiceExtraFD;
-
+#include "cgroup.h"
+#include "core-forward.h"
 #include "exit-status.h"
 #include "kill.h"
-#include "open-file.h"
-#include "path.h"
 #include "pidref.h"
-#include "ratelimit.h"
-#include "socket.h"
 #include "unit.h"
 
 typedef enum ServiceRestart {
@@ -101,7 +95,7 @@ typedef enum ServiceRestartMode {
         _SERVICE_RESTART_MODE_INVALID = -EINVAL,
 } ServiceRestartMode;
 
-struct ServiceFDStore {
+typedef struct ServiceFDStore {
         Service *service;
 
         int fd;
@@ -109,15 +103,15 @@ struct ServiceFDStore {
         sd_event_source *event_source;
         bool do_poll;
 
-        LIST_FIELDS(ServiceFDStore, fd_store);
-};
+        LIST_FIELDS(struct ServiceFDStore, fd_store);
+} ServiceFDStore;
 
-struct ServiceExtraFD {
+typedef struct ServiceExtraFD {
         int fd;
         char *fdname;
-};
+} ServiceExtraFD;
 
-struct Service {
+typedef struct Service {
         Unit meta;
 
         ServiceType type;
@@ -246,7 +240,7 @@ struct Service {
 
         /* The D-Bus request, we will reply once the operation is finished, so that callers can block */
         sd_bus_message *mount_request;
-};
+} Service;
 
 static inline usec_t service_timeout_abort_usec(Service *s) {
         assert(s);

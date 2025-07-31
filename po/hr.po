@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-11-28 18:16+0900\n"
+"POT-Creation-Date: 2025-07-23 15:38+0100\n"
 "PO-Revision-Date: 2024-08-04 03:41+0000\n"
 "Last-Translator: Marin Kresic <marinjurekresic@gmail.com>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
@@ -148,82 +148,92 @@ msgstr "Stvori osobni prostor"
 msgid "Authentication is required to activate a user's home area."
 msgstr "Potrebna je ovjera za stvaranje osobnog prostora korisnika."
 
-#: src/home/pam_systemd_home.c:293
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr ""
+
+#: src/home/org.freedesktop.home1.policy:94
+#, fuzzy
+#| msgid "Authentication is required to manage system services or other units."
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr "Potrebna je ovjera za upravljanje uslugama sustava ili jedinicama."
+
+#: src/home/pam_systemd_home.c:336
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:298
+#: src/home/pam_systemd_home.c:341
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:310
+#: src/home/pam_systemd_home.c:353
 msgid "Password: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:312
+#: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:313
+#: src/home/pam_systemd_home.c:356
 msgid "Sorry, try again: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:335
+#: src/home/pam_systemd_home.c:378
 msgid "Recovery key: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:337
+#: src/home/pam_systemd_home.c:380
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:338
+#: src/home/pam_systemd_home.c:381
 msgid "Sorry, reenter recovery key: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:358
+#: src/home/pam_systemd_home.c:401
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:359 src/home/pam_systemd_home.c:362
+#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
 msgid "Try again with password: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:361
+#: src/home/pam_systemd_home.c:404
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:381
+#: src/home/pam_systemd_home.c:424
 msgid "Security token PIN: "
 msgstr ""
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:441
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:409
+#: src/home/pam_systemd_home.c:452
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:420
+#: src/home/pam_systemd_home.c:463
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:429
+#: src/home/pam_systemd_home.c:472
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -231,82 +241,82 @@ msgstr ""
 "PIN sigurnosnog tokena je zaključan, molimo prvo ga otključajte. (Napomena: "
 "Uklanjanje i ponovno umetanje moglo bi biti dovoljno.)"
 
-#: src/home/pam_systemd_home.c:437
+#: src/home/pam_systemd_home.c:480
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "PIN sigurnosnog tokena nije ispravan za korisnika %s."
 
-#: src/home/pam_systemd_home.c:438 src/home/pam_systemd_home.c:457
-#: src/home/pam_systemd_home.c:476
+#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
+#: src/home/pam_systemd_home.c:519
 #, fuzzy
 msgid "Sorry, retry security token PIN: "
 msgstr "Pokušajte ponovo unijeti PIN sigurnosnog tokena: "
 
-#: src/home/pam_systemd_home.c:456
+#: src/home/pam_systemd_home.c:499
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "PIN sigurnosnog tokena korisnika %s nije ispravan (preostalo je još nekoliko "
 "pokušaja!)"
 
-#: src/home/pam_systemd_home.c:475
+#: src/home/pam_systemd_home.c:518
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "PIN sigurnosnog tokena korisnika %s nije ispravan (preostao je još jedan "
 "pokušaj!)"
 
-#: src/home/pam_systemd_home.c:643
+#: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Početni direktorij korisnika %s trenutno nije aktivan, molimo prvo se "
 "lokalno prijavite."
 
-#: src/home/pam_systemd_home.c:645
+#: src/home/pam_systemd_home.c:687
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:677
+#: src/home/pam_systemd_home.c:719
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:964
+#: src/home/pam_systemd_home.c:1005
 msgid "User record is blocked, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:968
+#: src/home/pam_systemd_home.c:1009
 msgid "User record is not valid yet, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:972
+#: src/home/pam_systemd_home.c:1013
 msgid "User record is not valid anymore, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:977 src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
 msgid "User record not valid, prohibiting access."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:989
+#: src/home/pam_systemd_home.c:1028
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1000
+#: src/home/pam_systemd_home.c:1039
 msgid "Password change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1004
+#: src/home/pam_systemd_home.c:1043
 msgid "Password expired, change required."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1010
+#: src/home/pam_systemd_home.c:1049
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 
-#: src/home/pam_systemd_home.c:1014
+#: src/home/pam_systemd_home.c:1053
 msgid "Password will expire soon, please change."
 msgstr ""
 
@@ -885,10 +895,23 @@ msgstr ""
 "spremnicima."
 
 #: src/machine/org.freedesktop.machine1.policy:106
+#, fuzzy
+msgid "Register a local virtual machine or container"
+msgstr "Upravljanje lokalnim vurtualnim strojevima i spremnicima"
+
+#: src/machine/org.freedesktop.machine1.policy:107
+#, fuzzy
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr ""
+"Potrebna je ovjera za upravljanje lokalnim vurtualnim strojevima i "
+"spremnicima."
+
+#: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
 msgstr "Upravljanje lokalnim vurtualnim strojevima i spremnicima slika"
 
-#: src/machine/org.freedesktop.machine1.policy:107
+#: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
@@ -1107,37 +1130,46 @@ msgid "Authentication is required to subscribe query results."
 msgstr "Potrebna je ovjera za suspendiranje sustava."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
-msgid "Dump cache"
+msgid "Subscribe to DNS configuration"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 #, fuzzy
-msgid "Authentication is required to dump cache."
-msgstr "Potrebna je ovjera za postavljanje domena."
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "Potrebna je ovjera za suspendiranje sustava."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
-msgid "Dump server state"
+msgid "Dump cache"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
 #, fuzzy
-msgid "Authentication is required to dump server state."
-msgstr "Potrebna je ovjera za postavljanje NTP poslužitelja."
+msgid "Authentication is required to dump cache."
+msgstr "Potrebna je ovjera za postavljanje domena."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
-msgid "Dump statistics"
+msgid "Dump server state"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 #, fuzzy
-msgid "Authentication is required to dump statistics."
-msgstr "Potrebna je ovjera za postavljanje domena."
+msgid "Authentication is required to dump server state."
+msgstr "Potrebna je ovjera za postavljanje NTP poslužitelja."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
-msgid "Reset statistics"
+msgid "Dump statistics"
 msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
+#, fuzzy
+msgid "Authentication is required to dump statistics."
+msgstr "Potrebna je ovjera za postavljanje domena."
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr ""
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
 #, fuzzy
 msgid "Authentication is required to reset statistics."
 msgstr "Potrebna je ovjera za vraćanje izvornih NTP postavki."
@@ -1230,37 +1262,47 @@ msgstr ""
 "Potrebna je ovjera za uključivanje ili isključivanje mrežnog usklađivanja "
 "vremena."
 
-#: src/core/dbus-unit.c:370
+#: src/core/dbus-unit.c:371
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Potrebna je ovjera za pokretanje '$(unit)'."
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Potrebna je ovjera za zaustavljanje '$(unit)'."
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Potrebna je ovjera za ponovno učitavnje '$(unit)'."
 
-#: src/core/dbus-unit.c:373 src/core/dbus-unit.c:374
+#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Potrebna je ovjera za ponovno pokretanje'$(unit)'."
 
-#: src/core/dbus-unit.c:566
+#: src/core/dbus-unit.c:567
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
 msgstr "Potrebna je ovjera za slanje UNIX signala u procese '$(unit)'."
 
-#: src/core/dbus-unit.c:594
+#: src/core/dbus-unit.c:620
+#, fuzzy
+#| msgid ""
+#| "Authentication is required to send a UNIX signal to the processes of "
+#| "'$(unit)'."
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr "Potrebna je ovjera za slanje UNIX signala u procese '$(unit)'."
+
+#: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Potrebna je ovjera za vraćanje \"neuspjelog\" stanja '$(unit)'."
 
-#: src/core/dbus-unit.c:624
+#: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Potrebna je ovjera za postavljanje svojstava na '$(unit)'."
 
-#: src/core/dbus-unit.c:721
+#: src/core/dbus-unit.c:775
 msgid ""
 "Authentication is required to delete files and directories associated with "
 "'$(unit)'."
@@ -1268,7 +1310,7 @@ msgstr ""
 "Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa "
 "'$(unit)'."
 
-#: src/core/dbus-unit.c:758
+#: src/core/dbus-unit.c:812
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

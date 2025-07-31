@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
+#include "ether-addr-util.h"
 #include "log.h"
 #include "string-table.h"
 #include "string-util.h"

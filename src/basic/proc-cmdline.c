@@ -1,15 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
-#include <stddef.h>
+#include <stdlib.h>
 
 #include "alloc-util.h"
-#include "efivars.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "getopt-defs.h"
 #include "initrd-util.h"
-#include "macro.h"
+#include "log.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -414,4 +412,15 @@ int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
         va_end(ap);
 
         return r;
+}
+
+bool proc_cmdline_value_missing(const char *key, const char *value) {
+        assert(key);
+
+        if (!value) {
+                log_warning("Missing argument for %s= kernel command line switch, ignoring.", key);
+                return true;
+        }
+
+        return false;
 }

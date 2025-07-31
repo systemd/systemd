@@ -1,25 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "sd-bus.h"
-#include "sd-device.h"
 #include "sd-event.h"
-#include "sd-varlink.h"
 
-#include "common-signal.h"
-#include "cgroup-util.h"
 #include "cgroup.h"
-#include "fdset.h"
-#include "hashmap.h"
-#include "list.h"
-#include "prioq.h"
-#include "ratelimit.h"
+#include "common-signal.h"
+#include "execute.h"
+#include "forward.h"
+#include "log.h"
+#include "path-lookup.h"
+#include "show-status.h"
+#include "unit.h"
 
 struct libmnt_monitor;
-typedef struct Unit Unit;
 
 /* Enforce upper limit how many names we allow */
 #define MANAGER_MAX_NAMES 131072 /* 128K */
@@ -31,8 +24,6 @@ enum {
 };
 
 assert_cc((int) _MANAGER_SIGNAL_COMMAND_MAX <= (int) _COMMON_SIGNAL_COMMAND_PRIVATE_END);
-
-typedef struct Manager Manager;
 
 /* An externally visible state. We don't actually maintain this as state variable, but derive it from various fields
  * when requested */
@@ -61,21 +52,6 @@ typedef enum ManagerObjective {
         _MANAGER_OBJECTIVE_MAX,
         _MANAGER_OBJECTIVE_INVALID = -EINVAL,
 } ManagerObjective;
-
-typedef enum StatusType {
-        STATUS_TYPE_EPHEMERAL,
-        STATUS_TYPE_NORMAL,
-        STATUS_TYPE_NOTICE,
-        STATUS_TYPE_EMERGENCY,
-} StatusType;
-
-typedef enum OOMPolicy {
-        OOM_CONTINUE,          /* The kernel or systemd-oomd kills the process it wants to kill, and that's it */
-        OOM_STOP,              /* The kernel or systemd-oomd kills the process it wants to kill, and we stop the unit */
-        OOM_KILL,              /* The kernel or systemd-oomd kills the process it wants to kill, and all others in the unit, and we stop the unit */
-        _OOM_POLICY_MAX,
-        _OOM_POLICY_INVALID = -EINVAL,
-} OOMPolicy;
 
 /* Notes:
  * 1. TIMESTAMP_FIRMWARE, TIMESTAMP_LOADER, TIMESTAMP_KERNEL, TIMESTAMP_INITRD,
@@ -135,14 +111,6 @@ typedef enum WatchdogType {
         _WATCHDOG_TYPE_MAX,
 } WatchdogType;
 
-#include "execute.h"
-#include "job.h"
-#include "path-lookup.h"
-#include "show-status.h"
-#include "transaction.h"
-#include "unit-name.h"
-#include "unit.h"
-
 typedef enum ManagerTestRunFlags {
         MANAGER_TEST_NORMAL                  = 0,       /* run normally */
         MANAGER_TEST_RUN_MINIMAL             = 1 << 0,  /* create basic data structures */
@@ -165,15 +133,15 @@ typedef struct UnitDefaults {
 
         RateLimit start_limit;
 
-        bool cpu_accounting;
         bool memory_accounting;
         bool io_accounting;
-        bool blockio_accounting;
         bool tasks_accounting;
         bool ip_accounting;
 
         CGroupTasksMax tasks_max;
         usec_t timer_accuracy_usec;
+
+        bool restrict_suid_sgid;
 
         OOMPolicy oom_policy;
         int oom_score_adjust;
@@ -187,7 +155,7 @@ typedef struct UnitDefaults {
         struct rlimit *rlimit[_RLIMIT_MAX];
 } UnitDefaults;
 
-struct Manager {
+typedef struct Manager {
         /* Note that the set of units we know of is allowed to be
          * inconsistent. However the subset of it that is loaded may
          * not, and the list of jobs may neither. */
@@ -244,6 +212,9 @@ struct Manager {
 
         /* Units that have resources open, and where it might be good to check if they can be released now */
         LIST_HEAD(Unit, release_resources_queue);
+
+        /* Units that perform certain actions after some other unit deactivates */
+        LIST_HEAD(Unit, stop_notify_queue);
 
         sd_event *event;
 
@@ -392,6 +363,7 @@ struct Manager {
 
         /* Flags */
         bool dispatching_load_queue;
+        int may_dispatch_stop_notify_queue; /* tristate */
 
         /* Have we already sent out the READY=1 notification? */
         bool ready_sent;
@@ -472,9 +444,6 @@ struct Manager {
         RateLimit ctrl_alt_del_ratelimit;
         EmergencyAction cad_burst_action;
 
-        const char *unit_log_field;
-        const char *invocation_log_field;
-
         int first_boot; /* tri-state */
 
         /* Prefixes of e.g. RuntimeDirectory= */
@@ -516,7 +485,7 @@ struct Manager {
 
         /* Original ambient capabilities when we were initialized */
         uint64_t saved_ambient_set;
-};
+} Manager;
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
         assert(m);
@@ -537,9 +506,7 @@ static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
 
 #define MANAGER_IS_TEST_RUN(m) ((m)->test_run_flags != 0)
 
-static inline usec_t manager_default_timeout(RuntimeScope scope) {
-        return scope == RUNTIME_SCOPE_SYSTEM ? DEFAULT_TIMEOUT_USEC : DEFAULT_USER_TIMEOUT_USEC;
-}
+usec_t manager_default_timeout(RuntimeScope scope);
 
 int manager_new(RuntimeScope scope, ManagerTestRunFlags test_run_flags, Manager **m);
 Manager* manager_free(Manager *m);
@@ -567,15 +534,14 @@ int manager_add_job_full(
                 Set *affected_jobs,
                 sd_bus_error *error,
                 Job **ret);
-static inline int manager_add_job(
+int manager_add_job(
                 Manager *m,
                 JobType type,
                 Unit *unit,
                 JobMode mode,
                 sd_bus_error *error,
-                Job **ret) {
-        return manager_add_job_full(m, type, unit, mode, 0, NULL, error, ret);
-}
+                Job **ret);
+
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret);
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret);
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e);
@@ -673,9 +639,6 @@ LogTarget manager_get_executor_log_target(Manager *m);
 
 int manager_allocate_idle_pipe(Manager *m);
 
-const char* oom_policy_to_string(OOMPolicy i) _const_;
-OOMPolicy oom_policy_from_string(const char *s) _pure_;
-
 void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope);
 void unit_defaults_done(UnitDefaults *defaults);
 
@@ -696,8 +659,7 @@ enum {
         EVENT_PRIORITY_TIME_CHANGE       = SD_EVENT_PRIORITY_NORMAL-1,
         EVENT_PRIORITY_TIME_ZONE         = SD_EVENT_PRIORITY_NORMAL-1,
         EVENT_PRIORITY_IPC               = SD_EVENT_PRIORITY_NORMAL,
-        EVENT_PRIORITY_REWATCH_PIDS      = SD_EVENT_PRIORITY_IDLE,
-        EVENT_PRIORITY_SERVICE_WATCHDOG  = SD_EVENT_PRIORITY_IDLE+1,
-        EVENT_PRIORITY_RUN_QUEUE         = SD_EVENT_PRIORITY_IDLE+2,
+        EVENT_PRIORITY_SERVICE_WATCHDOG  = SD_EVENT_PRIORITY_IDLE,
+        EVENT_PRIORITY_RUN_QUEUE         = SD_EVENT_PRIORITY_IDLE+1,
         /* … to least important */
 };

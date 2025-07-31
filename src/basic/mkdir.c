@@ -1,20 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdbool.h>
-#include <string.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "btrfs.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "macro.h"
+#include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "stat-util.h"
-#include "stdio-util.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "user-util.h"
 
 int mkdirat_safe_internal(
@@ -149,7 +149,7 @@ int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, ui
         assert(_mkdirat != mkdirat);
 
         if (prefix) {
-                p = path_startswith_full(path, prefix, /* accept_dot_dot= */ false);
+                p = path_startswith_full(path, prefix, PATH_STARTSWITH_REFUSE_DOT_DOT);
                 if (!p)
                         return -EINVAL;
 

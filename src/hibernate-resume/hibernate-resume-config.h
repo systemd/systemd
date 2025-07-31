@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "sd-id128.h"
 
-#include "macro.h"
+#include "forward.h"
 
 typedef struct KernelHibernateLocation KernelHibernateLocation;
 
@@ -14,6 +12,10 @@ typedef struct EFIHibernateLocation {
 
         sd_id128_t uuid;
         uint64_t offset;
+
+        /* Whether the device we hibernated into is the "auto" one, i.e. will show up as
+         * /dev/disk/by-designator/swap(-luks). */
+        bool auto_swap;
 
         char *kernel_version;
         char *id;

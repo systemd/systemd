@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -15,13 +13,12 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
-#include "parse-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
 #include "syslog-util.h"
-#include "terminal-util.h"
 
 static const char *arg_identifier = NULL;
 static const char *arg_namespace = NULL;

@@ -1,16 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <elf.h>
+#include <fcntl.h>
 #include <link.h>
+#include <stdlib.h>
 #include <sys/auxv.h>
 
+#include "alloc-util.h"
 #include "build-path.h"
-#include "errno-list.h"
-#include "errno-util.h"
-#include "fd-util.h"
-#include "macro.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "string-util.h"
 #include "unistd.h"
 
 static int get_runpath_from_dynamic(const ElfW(Dyn) *d, ElfW(Addr) bias, const char **ret) {

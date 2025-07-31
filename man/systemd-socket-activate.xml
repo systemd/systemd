@@ -25,8 +25,9 @@
     <cmdsynopsis>
       <command>systemd-socket-activate</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="plain"><replaceable>daemon</replaceable></arg>
-      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain"><replaceable>COMMAND</replaceable>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+      </arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -72,7 +73,7 @@
         <term><option>--accept</option></term>
 
         <listitem><para>Launch an instance of the service program for each connection and pass the connection
-        socket.</para>
+        socket. May not be combined with <option>--now</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
@@ -133,6 +134,16 @@
         </para>
 
         <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--now</option></term>
+
+        <listitem><para>Start the service program instantly, instead of waiting for a connection on the
+        socket(s). May not be combined with <option>--accept</option>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />

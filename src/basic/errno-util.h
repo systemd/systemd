@@ -1,21 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdlib.h>
 #include <string.h>
 
-#include "macro.h"
+#include "forward.h"
 
 /* strerror(3) says that glibc uses a maximum length of 1024 bytes. */
-#define ERRNO_BUF_LEN 1024
+#define ERRNO_BUF_LEN           1024
 
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and
  * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks
  *
  * Note that we use the GNU variant of strerror_r() here. */
-#define STRERROR(errnum) strerror_r(abs(errnum), (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
+#define STRERROR(errnum) strerror_r(ABS(errnum), (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
 
 /* A helper to print an error message or message for functions that return 0 on EOF.
  * Note that we can't use ({ … }) to define a temporary variable, so errnum is
@@ -40,7 +38,13 @@ static inline void _reset_errno_(int *saved_errno) {
 
 #define LOCAL_ERRNO(value)                      \
         PROTECT_ERRNO;                          \
-        errno = abs(value)
+        errno = ABS(value)
+
+#define return_with_errno(r, err)                     \
+        do {                                          \
+                errno = ABS(err);                     \
+                return r;                             \
+        } while (false)
 
 static inline int negative_errno(void) {
         /* This helper should be used to shut up gcc if you know 'errno' is
@@ -92,7 +96,7 @@ static inline int errno_or_else(int fallback) {
         if (errno > 0)
                 return -errno;
 
-        return -abs(fallback);
+        return -ABS(fallback);
 }
 
 /* abs(3) says: Trying to take the absolute value of the most negative integer is not defined. */
@@ -100,10 +104,8 @@ static inline int errno_or_else(int fallback) {
         static inline bool ERRNO_IS_##name(intmax_t r) {  \
                 if (r == INTMAX_MIN)                      \
                         return false;                     \
-                return ERRNO_IS_NEG_##name(-imaxabs(r));  \
+                return ERRNO_IS_NEG_##name(-ABS(r));      \
         }
-
-assert_cc(INT_MAX <= INTMAX_MAX);
 
 /* For send()/recv() or read()/write(). */
 static inline bool ERRNO_IS_NEG_TRANSIENT(intmax_t r) {
@@ -187,6 +189,12 @@ static inline bool ERRNO_IS_NEG_PRIVILEGE(intmax_t r) {
 }
 _DEFINE_ABS_WRAPPER(PRIVILEGE);
 
+/* Three different errors for writing on a filesystem */
+static inline bool ERRNO_IS_NEG_FS_WRITE_REFUSED(intmax_t r) {
+        return r == -EROFS || ERRNO_IS_NEG_PRIVILEGE(r);
+}
+_DEFINE_ABS_WRAPPER(FS_WRITE_REFUSED);
+
 /* Three different errors for "not enough disk space" */
 static inline bool ERRNO_IS_NEG_DISK_SPACE(intmax_t r) {
         return IN_SET(r,
@@ -204,6 +212,13 @@ static inline bool ERRNO_IS_NEG_DEVICE_ABSENT(intmax_t r) {
                       -ENOENT);
 }
 _DEFINE_ABS_WRAPPER(DEVICE_ABSENT);
+
+/* Device is absent or "empty". We get -ENOMEDIUM from CD/DVD devices, also in VMs. */
+static inline bool ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(intmax_t r) {
+        return ERRNO_IS_NEG_DEVICE_ABSENT(r) ||
+                r == -ENOMEDIUM;
+}
+_DEFINE_ABS_WRAPPER(DEVICE_ABSENT_OR_EMPTY);
 
 /* Quite often we want to handle cases where the backing FS doesn't support extended attributes at all and
  * where it simply doesn't have the requested xattr the same way */

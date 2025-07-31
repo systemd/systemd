@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
 #include "sd-dns-resolver.h"
 
-#include "macro.h"
-#include "list.h"
+#include "forward.h"
 #include "socket-netlink.h"
 
 /* https://www.iana.org/assignments/dns-svcb/dns-svcb.xhtml#dns-svcparamkeys */
@@ -30,7 +27,7 @@ const char* format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX
 
 /* Represents a "designated resolver" */
 /* typedef struct sd_dns_resolver sd_dns_resolver; */
-struct sd_dns_resolver {
+typedef struct sd_dns_resolver {
         uint16_t priority;
         char *auth_name;
         int family;
@@ -39,7 +36,7 @@ struct sd_dns_resolver {
         sd_dns_alpn_flags transports;
         uint16_t port;
         char *dohpath;
-};
+} sd_dns_resolver;
 
 void siphash24_compress_resolver(const sd_dns_resolver *res, struct siphash *state);
 

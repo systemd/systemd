@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "in-addr-util.h"
-#include "macro.h"
-
-typedef struct Link Link;
+#include "networkd-forward.h"
 
 typedef enum NetDevLocalAddressType {
         NETDEV_LOCAL_ADDRESS_IPV4LL,
@@ -12,6 +9,7 @@ typedef enum NetDevLocalAddressType {
         NETDEV_LOCAL_ADDRESS_DHCP4,
         NETDEV_LOCAL_ADDRESS_DHCP6,
         NETDEV_LOCAL_ADDRESS_SLAAC,
+        NETDEV_LOCAL_ADDRESS_DHCP_PD,
         _NETDEV_LOCAL_ADDRESS_TYPE_MAX,
         _NETDEV_LOCAL_ADDRESS_TYPE_INVALID = -EINVAL,
 } NetDevLocalAddressType;

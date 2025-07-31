@@ -834,3 +834,135 @@ interactively requesting confirmation by the user.
 Clearing the TPM has the effect of invalidating all keys locked to the TPM,
 including full disk encryption keys. Because of that care should be taken that
 access to relevant resources is retained via other means.
+
+-- 1f4e0a44a88649939aaea34fc6da8c95
+Subject: Process @COREDUMP_PID@ (@COREDUMP_COMM@) terminated abnormally
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-coredump(8)
+
+Process @COREDUMP_PID@ (@COREDUMP_COMM@) terminated abnormally and generated a
+stack trace.
+
+This usually indicates a programming error in the crashing program and should
+be reported to its vendor as a bug. A program stack trace is available that
+indicates where the issue was encountered, which may be used to track down the
+problem.
+
+-- d989611b15e44c9dbf31e3c81256e4ed
+Subject: systemd-oomd killed one or more processes in unit @UNIT@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd-oomd.service(8)
+
+One or more processes in the @UNIT@ unit have been killed by systemd-oomd, in
+order to counter an out-of-memory situation on the system. This usually
+indicates that the system is low on memory and systemd-oomd decided to
+terminate one or more processes to reduce memory pressure.
+
+Note that the memory pressure might or might not have been caused by @UNIT@.
+
+-- 010190138f494e29a0ef6669749531aa
+Subject: No valid unit name can be generated for device @DEVICE@
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+A kernel device @DEVICE@ has been encountered whose identification cannot be
+turned into a valid systemd unit name. This typically indicates a problematic
+device hierarchy (i.e. too deep nesting of buses) or drivers.
+
+For devices like this no .device unit will be created that follows the
+underlying kernel device's state, and hence no dependencies on such a unit can
+be fulfilled.
+
+-- 7db73c8af0d94eeb822ae04323fe6ab6
+Subject: The system clock has been changed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1) man:systemd-timesyncd.service(8)
+
+The system clock has been moved @DIRECTION@, the new time is
+@REALTIME_USEC@ microseconds after the epoch.
+
+Typically, this should only happen on major misconfiguration of the system
+clock or when the system lacks a battery-buffered hardware clock (or the
+battery has expired).
+
+-- 8739789eca064325af15a8ed0ecfc556
+Subject: Sending a keep-alive to the hardware watchdog device failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+An error occurred while sending a keep-alive message to the hardware watchdog
+device @WATCHDOG_DEVICE@. This usually indicates driver or hardware problems.
+
+Failure to issue keep-alive messages regularly to the watchdog hardware might
+result in automatic reboots of the system.
+
+-- 375ac151ef9d4de39068b3efbfed0cee
+Subject: Opening of the configure watchdog device failed
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+An error occurred while opening the hardware watchdog device
+@WATCHDOG_DEVICE@. This usually indicates invalid configuration
+(i.e. configuration not matching the local system), or driver or hardware
+problems.
+
+If watchdog support is configured, but the watchdog hardware cannot be opened
+the system will not be protected by the watchdog logic.
+
+-- f27a3f94406a4783b946a9bc849e9452
+Subject: Unit ordering cycle found
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+A unit transaction was initiated that contains an ordering cycle, i.e. some
+unit that was requested to be started (either directly, or indirectly due to a
+requirement dependency such as Wants= or Requires=) is ordered before some
+other unit (via After=/Before=), but that latter unit is also ordered before
+the former by some dependency (either directly or indirectly).
+
+Ordering cycles consist of at least two units, but might involve many
+more. They generally indicate a bug in the unit definitions, as a unit
+conceptually cannot be run both before and after some other unit, it must be
+strictly ordered either before or after.
+
+The ordering cycle is shown in the log message. An attempt will be made to
+remove unit jobs from the transaction in order to make the transaction succeed
+at least partially. Note that such cycle breaking is not going to correct the
+issue, it is just an attempt to make the outcome less problematic.
+
+The correct fix is to analyze the cycle in question and then break the cycle at
+the right place by removing the right After= or Before= lines from one or more
+of the involved unit files.
+
+-- 5084367542f7472dbc6a94125d5debce
+Subject: Unit job deleted due to an ordering cycle
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+In order to address an ordering cycle between units that have been added to a
+transaction a job has been removed from the transaction.
+
+The removed job is '@DELETED_TYPE@' for unit @DELETED_UNIT@.
+
+The removal of the job is done in order to minimize the negative effect of an
+ordering cycle — it is not going to fix the underlying problem, which is a bug
+in the involved unit files. The deleted job might be fundamental for the other
+units in the transaction to operate, which hence might fail.
+
+-- b3112ddad19045538c76685ba5918a80
+Subject: Unable to break ordering cycle between units
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1)
+
+It has been attempted to break an ordering cycle between units for which jobs
+have been enqueued as part of a transaction, but this was not successful. The
+transaction will fail.

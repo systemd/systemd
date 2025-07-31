@@ -1,19 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <linux/if.h>
-#include <netinet/ether.h>
-
-#include "sd-ndisc.h"
+#include <stdio.h>
 
 #include "alloc-util.h"
 #include "dhcp-lease-internal.h"
+#include "dns-resolver-internal.h"
 #include "extract-word.h"
 #include "hexdecoct.h"
 #include "in-addr-util.h"
-#include "log.h"
 #include "network-internal.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 size_t serialize_in_addrs(FILE *f,

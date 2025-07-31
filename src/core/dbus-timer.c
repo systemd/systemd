@@ -2,8 +2,10 @@
 
 #include "alloc-util.h"
 #include "bus-get-properties.h"
+#include "calendarspec.h"
 #include "dbus-timer.h"
 #include "dbus-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "timer.h"
 #include "unit.h"
@@ -113,7 +115,8 @@ const sd_bus_vtable bus_timer_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("LastTriggerUSec", offsetof(Timer, last_trigger), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Result", "s", property_get_result, offsetof(Timer, result), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("AccuracyUSec", "t", bus_property_get_usec, offsetof(Timer, accuracy_usec), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("RandomizedDelayUSec", "t", bus_property_get_usec, offsetof(Timer, random_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RandomizedDelayUSec", "t", bus_property_get_usec, offsetof(Timer, random_delay_usec), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RandomizedOffsetUSec", "t", bus_property_get_usec, offsetof(Timer, random_offset_usec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("FixedRandomDelay", "b", bus_property_get_bool, offsetof(Timer, fixed_random_delay), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Persistent", "b", bus_property_get_bool, offsetof(Timer, persistent), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("WakeSystem", "b", bus_property_get_bool, offsetof(Timer, wake_system), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -214,7 +217,10 @@ static int bus_timer_set_transient_property(
         }
 
         if (streq(name, "RandomizedDelayUSec"))
-                return bus_set_transient_usec(u, name, &t->random_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &t->random_delay_usec, message, flags, error);
+
+        if (streq(name, "RandomizedOffsetUSec"))
+                return bus_set_transient_usec(u, name, &t->random_offset_usec, message, flags, error);
 
         if (streq(name, "FixedRandomDelay"))
                 return bus_set_transient_bool(u, name, &t->fixed_random_delay, message, flags, error);

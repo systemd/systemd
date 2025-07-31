@@ -99,6 +99,15 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The freshly allocated mount file descriptor for the mount."),
                 SD_VARLINK_DEFINE_OUTPUT(mountFileDescriptor, SD_VARLINK_INT, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                MakeDirectory,
+                SD_VARLINK_FIELD_COMMENT("File descriptor of the directory to create the new directory in. Must be a regular, i.e. non-O_PATH file descriptor."),
+                SD_VARLINK_DEFINE_INPUT(parentFileDescriptor, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Name of the directory to create."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("File descriptor referencing the newly created directory."),
+                SD_VARLINK_DEFINE_OUTPUT(directoryFileDescriptor, SD_VARLINK_INT, 0));
+
 static SD_VARLINK_DEFINE_ERROR(IncompatibleImage);
 static SD_VARLINK_DEFINE_ERROR(MultipleRootPartitionsFound);
 static SD_VARLINK_DEFINE_ERROR(RootPartitionNotFound);
@@ -120,6 +129,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_MountImage,
                 SD_VARLINK_SYMBOL_COMMENT("Takes a directory file descriptor as input, returns a mount file descriptor."),
                 &vl_method_MountDirectory,
+                SD_VARLINK_SYMBOL_COMMENT("Creates an empty directory, owned by the foreign UID/GID range's root user, returns an open file descriptor to the directory. Access mode will be set to 0700."),
+                &vl_method_MakeDirectory,
                 SD_VARLINK_SYMBOL_COMMENT("Disk image is not compatible with this service."),
                 &vl_error_IncompatibleImage,
                 SD_VARLINK_SYMBOL_COMMENT("Multiple suitable root partitions found."),

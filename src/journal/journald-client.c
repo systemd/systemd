@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
 #include "journald-client.h"
+#include "journald-context.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "pcre2-util.h"
+#include "set.h"
 #include "strv.h"
 
 /* This consumes both `allow_list` and `deny_list` arguments. Hence, those arguments are not owned by the
@@ -57,7 +61,7 @@ int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup
 
         _cleanup_free_ char *xattr = NULL;
         size_t xattr_size = 0;
-        r = cg_get_xattr_malloc(unit_cgroup, "user.journald_log_filter_patterns", &xattr, &xattr_size);
+        r = cg_get_xattr(unit_cgroup, "user.journald_log_filter_patterns", &xattr, &xattr_size);
         if (ERRNO_IS_NEG_XATTR_ABSENT(r)) {
                 client_set_filtering_patterns(c, /* allow_list= */ NULL, /* deny_list= */ NULL);
                 return 0;
@@ -80,7 +84,7 @@ int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup
         const char *deny_list_xattr = memchr(xattr, (char)0xff, xattr_size);
         if (!deny_list_xattr)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "Missing delimiter in cgroup user.journald_log_filter_patterns attribute: %m");
+                                       "Missing delimiter in cgroup user.journald_log_filter_patterns attribute.");
 
         _cleanup_set_free_ Set *allow_list = NULL;
         r = client_parse_log_filter_nulstr(xattr, deny_list_xattr - xattr, &allow_list);

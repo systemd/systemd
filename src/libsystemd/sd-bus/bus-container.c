@@ -7,6 +7,8 @@
 #include "bus-internal.h"
 #include "bus-socket.h"
 #include "fd-util.h"
+#include "format-util.h"
+#include "log.h"
 #include "namespace-util.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -83,11 +85,11 @@ int bus_container_connect_socket(sd_bus *b) {
         if (n > 0) {
                 if (n != sizeof(error_buf))
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Read error status of unexpected length %zd from (sd-buscntr): %m", n);
+                                               "Read error status of unexpected length %zd from (sd-buscntr).", n);
 
                 if (error_buf < 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Got unexpected error status from (sd-buscntr): %m");
+                                               "Got unexpected error status from (sd-buscntr).");
 
                 if (error_buf == EINPROGRESS)
                         return 1;

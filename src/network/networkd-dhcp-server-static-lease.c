@@ -1,15 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "hashmap.h"
 #include "networkd-dhcp-server-static-lease.h"
 #include "networkd-network.h"
-#include "networkd-util.h"
+#include "string-util.h"
 
-DEFINE_SECTION_CLEANUP_FUNCTIONS(DHCPStaticLease, dhcp_static_lease_free);
-
-DHCPStaticLease *dhcp_static_lease_free(DHCPStaticLease *static_lease) {
+static DHCPStaticLease* dhcp_static_lease_free(DHCPStaticLease *static_lease) {
         if (!static_lease)
                 return NULL;
 
@@ -20,6 +19,13 @@ DHCPStaticLease *dhcp_static_lease_free(DHCPStaticLease *static_lease) {
         free(static_lease->client_id);
         return mfree(static_lease);
 }
+
+DEFINE_SECTION_CLEANUP_FUNCTIONS(DHCPStaticLease, dhcp_static_lease_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                static_lease_hash_ops_by_section,
+                ConfigSection, config_section_hash_func, config_section_compare_func,
+                DHCPStaticLease, dhcp_static_lease_free);
 
 static int dhcp_static_lease_new(DHCPStaticLease **ret) {
         DHCPStaticLease *p;
@@ -60,7 +66,8 @@ static int lease_new_static(Network *network, const char *filename, unsigned sec
 
         static_lease->network = network;
         static_lease->section = TAKE_PTR(n);
-        r = hashmap_ensure_put(&network->dhcp_static_leases_by_section, &config_section_hash_ops, static_lease->section, static_lease);
+
+        r = hashmap_ensure_put(&network->dhcp_static_leases_by_section, &static_lease_hash_ops_by_section, static_lease->section, static_lease);
         if (r < 0)
                 return r;
 

@@ -7,12 +7,8 @@
 #endif
 #include <pwd.h>
 #include <shadow.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/types.h>
-#include <unistd.h>
 
-#include "string-util.h"
+#include "forward.h"
 
 /* Users managed by systemd-homed. See https://systemd.io/UIDS-GIDS for details how this range fits into the rest of the world */
 #define HOME_UID_MIN ((uid_t) 60001)
@@ -22,7 +18,7 @@
 #define MAP_UID_MIN ((uid_t) 60514)
 #define MAP_UID_MAX ((uid_t) 60577)
 
-bool uid_is_valid(uid_t uid);
+bool uid_is_valid(uid_t uid) _const_;
 
 static inline bool gid_is_valid(gid_t gid) {
         return uid_is_valid((uid_t) gid);
@@ -41,11 +37,8 @@ char* getusername_malloc(void);
 const char* default_root_shell_at(int rfd);
 const char* default_root_shell(const char *root);
 
-bool is_nologin_shell(const char *shell);
-
-static inline bool shell_is_placeholder(const char *shell) {
-        return isempty(shell) || is_nologin_shell(shell);
-}
+bool is_nologin_shell(const char *shell) _pure_;
+bool shell_is_placeholder(const char *shell) _pure_;
 
 typedef enum UserCredsFlags {
         USER_CREDS_PREFER_NSS           = 1 << 0,  /* if set, only synthesize user records if database lacks them. Normally we bypass the userdb entirely for the records we can synthesize */
@@ -105,10 +98,6 @@ int take_etc_passwd_lock(const char *root);
 
 #define PTR_TO_GID(p) ((gid_t) (((uintptr_t) (p))-1))
 #define GID_TO_PTR(u) ((void*) (((uintptr_t) (u))+1))
-
-static inline bool userns_supported(void) {
-        return access("/proc/self/uid_map", F_OK) >= 0;
-}
 
 typedef enum ValidUserFlags {
         VALID_USER_RELAX         = 1 << 0,

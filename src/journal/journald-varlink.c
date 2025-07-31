@@ -1,80 +1,87 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-event.h"
+
+#include "journald-manager.h"
+#include "journald-sync.h"
 #include "journald-varlink.h"
+#include "log.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
-static int synchronize_second_half(sd_event_source *event_source, void *userdata) {
-        sd_varlink *link = ASSERT_PTR(userdata);
-        Server *s;
+void sync_req_varlink_reply(SyncReq *req) {
         int r;
 
-        assert_se(s = sd_varlink_get_userdata(link));
+        assert(req);
 
-        /* This is the "second half" of the Synchronize() varlink method. This function is called as deferred
-         * event source at a low priority to ensure the synchronization completes after all queued log
-         * messages are processed. */
-        server_full_sync(s, /* wait = */ true);
+        /* This is the "second half" of the Synchronize() varlink method. This function is called when we
+         * determine that no messages that were enqueued to us when the request was initiated is pending
+         * anymore. */
 
-        /* Let's get rid of the event source now, by marking it as non-floating again. It then has no ref
-         * anymore and is immediately destroyed after we return from this function, i.e. from this event
-         * source handler at the end. */
-        r = sd_event_source_set_floating(event_source, false);
+        if (req->offline)
+                manager_full_sync(req->manager, /* wait = */ true);
+
+        /* Disconnect the SyncReq from the Varlink connection object, and free it */
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = TAKE_PTR(req->link);
+        sd_varlink_set_userdata(vl, req->manager); /* reinstall manager object */
+        req = sync_req_free(req);
+
+        r = sd_varlink_reply(vl, NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to mark event source as non-floating: %m");
-
-        return sd_varlink_reply(link, NULL);
-}
-
-static void synchronize_destroy(void *userdata) {
-        sd_varlink_unref(userdata);
+                log_debug_errno(r, "Failed to reply to Synchronize() client, ignoring: %m");
 }
 
 static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *event_source = NULL;
-        Server *s = ASSERT_PTR(userdata);
+        int offline = -1;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "offline", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, 0, 0},
+                {}
+        };
+
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &offline);
         if (r != 0)
                 return r;
 
-        log_info("Received client request to sync journal.");
+        if (offline > 0) {
+                /* Do not allow unprivileged clients to offline the journal files, since that's potentially slow */
+                r = varlink_check_privileged_peer(link);
+                if (r < 0)
+                        return r;
+        } else if (offline < 0) {
+                uid_t uid = 0;
 
-        /* We don't do the main work now, but instead enqueue a deferred event loop job which will do
-         * it. That job is scheduled at low priority, so that we return from this method call only after all
-         * queued but not processed log messages are written to disk, so that this method call returning can
-         * be used as nice synchronization point. */
-        r = sd_event_add_defer(s->event, &event_source, synchronize_second_half, link);
+                r = sd_varlink_get_peer_uid(link, &uid);
+                if (r < 0)
+                        return r;
+
+                offline = uid == 0; /* for compat, if not specified default to offlining, except for non-root */
+        }
+
+        log_full(offline ? LOG_INFO : LOG_DEBUG,
+                 "Received client request to sync journal (%s offlining).", offline ? "with" : "without");
+
+        _cleanup_(sync_req_freep) SyncReq *sr = NULL;
+
+        r = sync_req_new(m, link, &sr);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate defer event source: %m");
+                return r;
 
-        r = sd_event_source_set_destroy_callback(event_source, synchronize_destroy);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set event source destroy callback: %m");
+        sr->offline = offline;
+        sd_varlink_set_userdata(link, sr);
 
-        sd_varlink_ref(link); /* The varlink object is now left to the destroy callback to unref */
-
-        r = sd_event_source_set_priority(event_source, SD_EVENT_PRIORITY_NORMAL+15);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set defer event source priority: %m");
-
-        /* Give up ownership of this event source. It will now be destroyed along with event loop itself,
-         * unless it destroys itself earlier. */
-        r = sd_event_source_set_floating(event_source, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to mark event source as floating: %m");
-
-        (void) sd_event_source_set_description(event_source, "deferred-sync");
-
+        sync_req_revalidate(TAKE_PTR(sr));
         return 0;
 }
 
 static int vl_method_rotate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Server *s = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
@@ -83,14 +90,18 @@ static int vl_method_rotate(sd_varlink *link, sd_json_variant *parameters, sd_va
         if (r != 0)
                 return r;
 
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
+                return r;
+
         log_info("Received client request to rotate journal, rotating.");
-        server_full_rotate(s);
+        manager_full_rotate(m);
 
         return sd_varlink_reply(link, NULL);
 }
 
 static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Server *s = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
@@ -99,17 +110,21 @@ static int vl_method_flush_to_var(sd_varlink *link, sd_json_variant *parameters,
         if (r != 0)
                 return r;
 
-        if (s->namespace)
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
+                return r;
+
+        if (m->namespace)
                 return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
 
         log_info("Received client request to flush runtime journal.");
-        server_full_flush(s);
+        manager_full_flush(m);
 
         return sd_varlink_reply(link, NULL);
 }
 
 static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Server *s = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
@@ -118,56 +133,69 @@ static int vl_method_relinquish_var(sd_varlink *link, sd_json_variant *parameter
         if (r != 0)
                 return r;
 
-        if (s->namespace)
+        r = varlink_check_privileged_peer(link);
+        if (r < 0)
+                return r;
+
+        if (m->namespace)
                 return sd_varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
 
-        log_info("Received client request to relinquish %s access.", s->system_storage.path);
-        server_relinquish_var(s);
+        log_info("Received client request to relinquish %s access.", m->system_storage.path);
+        manager_relinquish_var(m);
 
         return sd_varlink_reply(link, NULL);
 }
 
 static int vl_connect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
-        Server *s = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(server);
         assert(link);
 
-        (void) server_start_or_stop_idle_timer(s); /* maybe we are no longer idle */
+        (void) manager_start_or_stop_idle_timer(m); /* maybe we are no longer idle */
 
         return 0;
 }
 
 static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
-        Server *s = ASSERT_PTR(userdata);
+        Manager *m = ASSERT_PTR(userdata);
 
         assert(server);
         assert(link);
 
-        (void) server_start_or_stop_idle_timer(s); /* maybe we are idle now */
+        void *u = sd_varlink_get_userdata(link);
+        if (u != m) {
+                /* If this is a Varlink connection that does not have the Server object as userdata, then it has a SyncReq object instead. Let's finish it. */
+
+                SyncReq *req = u;
+                sd_varlink_set_userdata(link, m); /* reinstall server object */
+                sync_req_free(req);
+        }
+
+        (void) manager_start_or_stop_idle_timer(m); /* maybe we are idle now */
 }
 
-int server_open_varlink(Server *s, const char *socket, int fd) {
+int manager_open_varlink(Manager *m, const char *socket, int fd) {
         int r;
 
-        assert(s);
+        assert(m);
 
         r = varlink_server_new(
-                        &s->varlink_server,
-                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_INHERIT_USERDATA,
-                        s);
+                        &m->varlink_server,
+                        SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
+                        m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         r = sd_varlink_server_add_interface_many(
-                        s->varlink_server,
+                        m->varlink_server,
                         &vl_interface_io_systemd_Journal,
                         &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Journal interface to varlink server: %m");
 
         r = sd_varlink_server_bind_method_many(
-                        s->varlink_server,
+                        m->varlink_server,
                         "io.systemd.Journal.Synchronize",    vl_method_synchronize,
                         "io.systemd.Journal.Rotate",         vl_method_rotate,
                         "io.systemd.Journal.FlushToVar",     vl_method_flush_to_var,
@@ -178,22 +206,22 @@ int server_open_varlink(Server *s, const char *socket, int fd) {
         if (r < 0)
                 return r;
 
-        r = sd_varlink_server_bind_connect(s->varlink_server, vl_connect);
+        r = sd_varlink_server_bind_connect(m->varlink_server, vl_connect);
         if (r < 0)
                 return r;
 
-        r = sd_varlink_server_bind_disconnect(s->varlink_server, vl_disconnect);
+        r = sd_varlink_server_bind_disconnect(m->varlink_server, vl_disconnect);
         if (r < 0)
                 return r;
 
         if (fd < 0)
-                r = sd_varlink_server_listen_address(s->varlink_server, socket, 0600);
+                r = sd_varlink_server_listen_address(m->varlink_server, socket, 0666);
         else
-                r = sd_varlink_server_listen_fd(s->varlink_server, fd);
+                r = sd_varlink_server_listen_fd(m->varlink_server, fd);
         if (r < 0)
                 return r;
 
-        r = sd_varlink_server_attach_event(s->varlink_server, s->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return r;
 

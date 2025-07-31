@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "tests.h"
 #include "hash-funcs.h"
 #include "set.h"
+#include "tests.h"
 
 TEST(path_hash_set) {
         /* The goal is to make sure that non-simplified path are hashed as expected,

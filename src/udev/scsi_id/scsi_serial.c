@@ -5,27 +5,22 @@
  * Author: Patrick Mansfield<patmans@us.ibm.com>
  */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
 #include <linux/bsg.h>
-#include <linux/types.h>
 #include <scsi/scsi.h>
 #include <scsi/sg.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "devnum-util.h"
-#include "memory-util.h"
+#include "log.h"
 #include "random-util.h"
 #include "scsi.h"
 #include "scsi_id.h"
 #include "string-util.h"
+#include "time-util.h"
 
 /*
  * A priority based list of id, naa, and binary/ascii for the identifier

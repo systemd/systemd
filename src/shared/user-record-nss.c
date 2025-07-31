@@ -1,9 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <gshadow.h>
+
+#include "sd-json.h"
+
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "format-util.h"
+#include "group-record.h"
 #include "libcrypt-util.h"
+#include "log.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
+#include "user-record.h"
 #include "user-record-nss.h"
 #include "user-util.h"
 #include "utf8.h"
@@ -175,9 +185,9 @@ int nss_spwd_for_passwd(const struct passwd *pwd, struct spwd *ret_spwd, char **
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
-                struct spwd spwd, *result;
+                struct spwd spwd = {}, *result = NULL;
 
-                buf = malloc(buflen);
+                buf = malloc0(buflen);
                 if (!buf)
                         return -ENOMEM;
 
@@ -347,9 +357,9 @@ int nss_sgrp_for_group(const struct group *grp, struct sgrp *ret_sgrp, char **re
 
         for (;;) {
                 _cleanup_free_ char *buf = NULL;
-                struct sgrp sgrp, *result;
+                struct sgrp sgrp = {}, *result = NULL;
 
-                buf = malloc(buflen);
+                buf = malloc0(buflen);
                 if (!buf)
                         return -ENOMEM;
 

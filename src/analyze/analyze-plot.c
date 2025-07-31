@@ -1,14 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
+#include "analyze.h"
 #include "analyze-plot.h"
 #include "analyze-time-data.h"
-#include "analyze.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
+#include "bus-util.h"
 #include "format-table.h"
 #include "os-util.h"
+#include "runtime-scope.h"
 #include "sort-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "unit-def.h"
 #include "version.h"
 

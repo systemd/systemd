@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-bus.h"
+#include "sd-bus-vtable.h"
 
 #include "alloc-util.h"
 #include "busctl-introspect.h"
+#include "log.h"
 #include "path-util.h"
 #include "string-util.h"
 #include "xml.h"

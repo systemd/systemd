@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if_arp.h>
-
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "local-addresses.h"
-#include "macro.h"
+#include "log.h"
 #include "netlink-util.h"
+#include "socket-util.h"
 #include "sort-util.h"
 
 static int address_compare(const struct local_address *a, const struct local_address *b) {
@@ -154,7 +153,7 @@ int local_addresses(
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
                 union in_addr_union a;
-                unsigned char flags, scope;
+                unsigned char scope;
                 uint16_t type;
                 int ifi, family;
 
@@ -182,7 +181,8 @@ int local_addresses(
                 if (af != AF_UNSPEC && af != family)
                         continue;
 
-                r = sd_rtnl_message_addr_get_flags(m, &flags);
+                uint32_t flags;
+                r = sd_netlink_message_read_u32(m, IFA_FLAGS, &flags);
                 if (r < 0)
                         return r;
                 if ((flags & (IFA_F_DEPRECATED|IFA_F_TENTATIVE)) != 0)
@@ -678,16 +678,16 @@ int local_outbounds(
                  * make use of the binding and return it. Hence, let's not unnecessarily fail early here: we
                  * can still easily detect if the auto-binding worked or not, by comparing the bound IP
                  * address with zero — which we do below. */
-                if (connect(fd, &sa.sa, SOCKADDR_LEN(sa)) < 0)
+                if (connect(fd, &sa.sa, sockaddr_len(&sa)) < 0)
                         log_debug_errno(errno, "Failed to connect SOCK_DGRAM socket to gateway, ignoring: %m");
 
                 /* Let's now read the socket address of the socket. A routing decision should have been
                  * made. Let's verify that and use the data. */
-                salen = SOCKADDR_LEN(sa);
+                salen = sockaddr_len(&sa);
                 if (getsockname(fd, &sa.sa, &salen) < 0)
                         return -errno;
                 assert(sa.sa.sa_family == i->family);
-                assert(salen == SOCKADDR_LEN(sa));
+                assert(salen == sockaddr_len(&sa));
 
                 switch (i->family) {
 

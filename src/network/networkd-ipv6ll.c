@@ -1,17 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <linux/if.h>
 #include <linux/if_arp.h>
 
+#include "sd-netlink.h"
+
+#include "conf-parser.h"
+#include "hashmap.h"
 #include "in-addr-util.h"
 #include "networkd-address.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
-#include "networkd-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
 
@@ -39,41 +43,26 @@ bool link_ipv6ll_enabled(Link *link) {
         return link->network->link_local & ADDRESS_FAMILY_IPV6;
 }
 
-bool link_may_have_ipv6ll(Link *link, bool check_multicast) {
+bool link_ipv6ll_enabled_harder(Link *link) {
         assert(link);
 
-        /*
-         * This is equivalent to link_ipv6ll_enabled() for non-WireGuard interfaces.
-         *
-         * For WireGuard interface, the kernel does not assign any IPv6LL addresses, but we can assign
-         * it manually. It is necessary to set an IPv6LL address manually to run NDisc or RADV on
-         * WireGuard interface. Note, also Multicast=yes must be set. See #17380.
-         *
-         * TODO: May be better to introduce GenerateIPv6LinkLocalAddress= setting, and use algorithms
-         *       used in networkd-address-generation.c
-         */
+        /* This is mostly equivalent to link_ipv6ll_enabled(), but also checks if an IPv6LL address is
+         * manually configured. */
 
         if (link_ipv6ll_enabled(link))
                 return true;
 
-        /* IPv6LL address can be manually assigned on WireGuard interface. */
-        if (streq_ptr(link->kind, "wireguard")) {
-                Address *a;
+        if (!link->network)
+                return false;
 
-                if (!link->network)
-                        return false;
-
-                if (check_multicast && !FLAGS_SET(link->flags, IFF_MULTICAST) && link->network->multicast <= 0)
-                        return false;
-
-                ORDERED_HASHMAP_FOREACH(a, link->network->addresses_by_section) {
-                        if (a->family != AF_INET6)
-                                continue;
-                        if (in6_addr_is_set(&a->in_addr_peer.in6))
-                                continue;
-                        if (in6_addr_is_link_local(&a->in_addr.in6))
-                                return true;
-                }
+        Address *a;
+        ORDERED_HASHMAP_FOREACH(a, link->network->addresses_by_section) {
+                if (a->family != AF_INET6)
+                        continue;
+                if (in6_addr_is_set(&a->in_addr_peer.in6))
+                        continue;
+                if (in6_addr_is_link_local(&a->in_addr.in6))
+                        return true;
         }
 
         return false;

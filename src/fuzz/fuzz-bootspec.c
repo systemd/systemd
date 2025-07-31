@@ -4,6 +4,7 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "bootspec.h"
 #include "env-util.h"
 #include "escape.h"

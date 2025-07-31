@@ -6,7 +6,7 @@
 #include "blockdev-list.h"
 #include "blockdev-util.h"
 #include "device-util.h"
-#include "macro.h"
+#include "strv.h"
 #include "terminal-util.h"
 
 int blockdev_list(BlockDevListFlags flags) {
@@ -36,15 +36,12 @@ int blockdev_list(BlockDevListFlags flags) {
                 }
 
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ZRAM)) {
-                        const char *dn;
-
-                        r = sd_device_get_sysname(dev, &dn);
+                        r = device_sysname_startswith(dev, "zram");
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to get device name of discovered block device '%s', ignoring: %m", node);
+                                log_warning_errno(r, "Failed to check device name of discovered block device '%s', ignoring: %m", node);
                                 continue;
                         }
-
-                        if (startswith(dn, "zram"))
+                        if (r > 0)
                                 continue;
                 }
 

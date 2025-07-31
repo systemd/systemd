@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "resolved-manager.h"
+#include "resolved-forward.h"
 
 #define MDNS_PORT 5353
 #define MDNS_ANNOUNCE_DELAY (1 * USEC_PER_SEC)

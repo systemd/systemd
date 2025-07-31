@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/oom.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
 #include <sys/utsname.h>
 #include <unistd.h>
+
 #if HAVE_VALGRIND_VALGRIND_H
 #  include <valgrind/valgrind.h>
 #endif
@@ -22,10 +23,8 @@
 #include "argv-util.h"
 #include "build.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
-#include "cgroup-util.h"
 #include "chase.h"
 #include "clock-util.h"
 #include "clock-warp.h"
@@ -33,25 +32,24 @@
 #include "confidential-virt.h"
 #include "constants.h"
 #include "copy.h"
+#include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "crash-handler.h"
-#include "dbus-manager.h"
 #include "dbus.h"
+#include "dbus-manager.h"
 #include "dev-setup.h"
 #include "efi-random.h"
-#include "efivars.h"
 #include "emergency-action.h"
 #include "env-util.h"
 #include "escape.h"
-#include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "fs-util.h"
 #include "getopt-defs.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
+#include "id128-util.h"
 #include "ima-setup.h"
 #include "import-creds.h"
 #include "initrd-util.h"
@@ -59,6 +57,7 @@
 #include "ipe-setup.h"
 #include "killall.h"
 #include "kmod-setup.h"
+#include "label-util.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -80,7 +79,6 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "psi-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
@@ -88,6 +86,7 @@
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "signal-util.h"
 #include "smack-setup.h"
 #include "special.h"
@@ -99,6 +98,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "umask-util.h"
+#include "unit-name.h"
 #include "user-util.h"
 #include "version.h"
 #include "virt.h"
@@ -245,7 +245,7 @@ static int console_setup(void) {
 
         tty_fd = open_terminal("/dev/console", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (tty_fd < 0)
-                return log_error_errno(tty_fd, "Failed to open /dev/console: %m");
+                return log_error_errno(tty_fd, "Failed to open %s: %m", "/dev/console");
 
         /* We don't want to force text mode. Plymouth may be showing pictures already from initrd. */
         reset_dev_console_fd(tty_fd, /* switch_to_text= */ false);
@@ -741,9 +741,9 @@ static int parse_config_file(void) {
                 { "Manager", "CrashAction",                  config_parse_crash_action,          0,                        &arg_crash_action                 },
                 { "Manager", "ShowStatus",                   config_parse_show_status,           0,                        &arg_show_status                  },
                 { "Manager", "StatusUnitFormat",             config_parse_status_unit_format,    0,                        &arg_status_unit_format           },
-                { "Manager", "CPUAffinity",                  config_parse_cpu_affinity2,         0,                        &arg_cpu_affinity                 },
+                { "Manager", "CPUAffinity",                  config_parse_cpu_set,               0,                        &arg_cpu_affinity                 },
                 { "Manager", "NUMAPolicy",                   config_parse_numa_policy,           0,                        &arg_numa_policy.type             },
-                { "Manager", "NUMAMask",                     config_parse_numa_mask,             0,                        &arg_numa_policy                  },
+                { "Manager", "NUMAMask",                     config_parse_numa_mask,             0,                        &arg_numa_policy.nodes            },
                 { "Manager", "JoinControllers",              config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
                 { "Manager", "RuntimeWatchdogSec",           config_parse_watchdog_sec,          0,                        &arg_runtime_watchdog             },
                 { "Manager", "RuntimeWatchdogPreSec",        config_parse_watchdog_sec,          0,                        &arg_pretimeout_watchdog          },
@@ -773,6 +773,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0,                        &arg_defaults.start_limit.interval}, /* obsolete alias */
                 { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0,                        &arg_defaults.start_limit.interval},
                 { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0,                        &arg_defaults.start_limit.burst   },
+                { "Manager", "DefaultRestrictSUIDSGID",      config_parse_bool,                  0,                        &arg_defaults.restrict_suid_sgid  },
                 { "Manager", "DefaultEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_default_environment          },
                 { "Manager", "ManagerEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_manager_environment          },
                 { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU,               arg_defaults.rlimit               },
@@ -791,10 +792,10 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultLimitNICE",             config_parse_rlimit,                RLIMIT_NICE,              arg_defaults.rlimit               },
                 { "Manager", "DefaultLimitRTPRIO",           config_parse_rlimit,                RLIMIT_RTPRIO,            arg_defaults.rlimit               },
                 { "Manager", "DefaultLimitRTTIME",           config_parse_rlimit,                RLIMIT_RTTIME,            arg_defaults.rlimit               },
-                { "Manager", "DefaultCPUAccounting",         config_parse_bool,                  0,                        &arg_defaults.cpu_accounting      },
+                { "Manager", "DefaultCPUAccounting",         config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
                 { "Manager", "DefaultIOAccounting",          config_parse_bool,                  0,                        &arg_defaults.io_accounting       },
                 { "Manager", "DefaultIPAccounting",          config_parse_bool,                  0,                        &arg_defaults.ip_accounting       },
-                { "Manager", "DefaultBlockIOAccounting",     config_parse_bool,                  0,                        &arg_defaults.blockio_accounting  },
+                { "Manager", "DefaultBlockIOAccounting",     config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
                 { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0,                        &arg_defaults.memory_accounting   },
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_defaults.tasks_accounting    },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_defaults.tasks_max           },
@@ -880,7 +881,7 @@ static void set_manager_settings(Manager *m) {
         assert(m);
 
         /* Propagates the various manager settings into the manager object, i.e. properties that
-         * effect the manager itself (as opposed to just being inherited into newly allocated
+         * affect the manager itself (as opposed to just being inherited into newly allocated
          * units, see set_manager_defaults() above). */
 
         m->confirm_spawn = arg_confirm_spawn;
@@ -1270,51 +1271,34 @@ static void bump_file_max_and_nr_open(void) {
          * different, but the operation would fail silently.) */
         r = sysctl_write("fs/file-max", LONG_MAX_STR);
         if (r < 0)
-                log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING,
-                               r, "Failed to bump fs.file-max, ignoring: %m");
+                log_full_errno(ERRNO_IS_NEG_FS_WRITE_REFUSED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                               "Failed to bump fs.file-max, ignoring: %m");
 #endif
 
 #if BUMP_PROC_SYS_FS_NR_OPEN
-        int v = INT_MAX;
+        /* The kernel enforces maximum and minimum values on the fs.nr_open, but they are not directly
+         * exposed, but hardcoded in fs/file.c. Hopefully, these values will not be changed, but not sure.
+         * Let's first try the hardcoded maximum value, and if it does not work, try the half of it. */
 
-        /* Argh! The kernel enforces maximum and minimum values on the fs.nr_open, but we don't really know
-         * what they are. The expression by which the maximum is determined is dependent on the architecture,
-         * and is something we don't really want to copy to userspace, as it is dependent on implementation
-         * details of the kernel. Since the kernel doesn't expose the maximum value to us, we can only try
-         * and hope. Hence, let's start with INT_MAX, and then keep halving the value until we find one that
-         * works. Ugly? Yes, absolutely, but kernel APIs are kernel APIs, so what do can we do... 🤯 */
-
-        for (;;) {
-                int k;
-
-                v &= ~(__SIZEOF_POINTER__ - 1); /* Round down to next multiple of the pointer size */
-                if (v < 1024) {
-                        log_warning("Can't bump fs.nr_open, value too small.");
-                        break;
-                }
-
-                k = read_nr_open();
-                if (k < 0) {
-                        log_error_errno(k, "Failed to read fs.nr_open: %m");
-                        break;
-                }
+        for (unsigned v = NR_OPEN_MAXIMUM; v >= NR_OPEN_MINIMUM; v /= 2) {
+                unsigned k = read_nr_open();
                 if (k >= v) { /* Already larger */
                         log_debug("Skipping bump, value is already larger.");
                         break;
                 }
 
-                r = sysctl_writef("fs/nr_open", "%i", v);
+                r = sysctl_writef("fs/nr_open", "%u", v);
                 if (r == -EINVAL) {
-                        log_debug("Couldn't write fs.nr_open as %i, halving it.", v);
-                        v /= 2;
+                        log_debug("Couldn't write fs.nr_open as %u, halving it.", v);
                         continue;
                 }
                 if (r < 0) {
-                        log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r, "Failed to bump fs.nr_open, ignoring: %m");
+                        log_full_errno(ERRNO_IS_NEG_FS_WRITE_REFUSED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to bump fs.nr_open, ignoring: %m");
                         break;
                 }
 
-                log_debug("Successfully bumped fs.nr_open to %i", v);
+                log_debug("Successfully bumped fs.nr_open to %u", v);
                 break;
         }
 #endif
@@ -1322,10 +1306,10 @@ static void bump_file_max_and_nr_open(void) {
 
 static int bump_rlimit_nofile(const struct rlimit *saved_rlimit) {
         struct rlimit new_rlimit;
-        int r, nr;
+        int r;
 
         /* Get the underlying absolute limit the kernel enforces */
-        nr = read_nr_open();
+        unsigned nr = read_nr_open();
 
         /* Calculate the new limits to use for us. Never lower from what we inherited. */
         new_rlimit = (struct rlimit) {
@@ -1437,7 +1421,7 @@ static int os_release_status(void) {
                 }
         }
 
-        if (support_end && os_release_support_ended(support_end, /* quiet */ false, NULL) > 0)
+        if (support_end && os_release_support_ended(support_end, /* quiet = */ false, /* ret_eol = */ NULL) > 0)
                 /* pretty_name may include the version already, so we'll print the version only if we
                  * have it and we're not using pretty_name. */
                 status_printf(ANSI_HIGHLIGHT_RED "  !!  " ANSI_NORMAL, 0,
@@ -1551,7 +1535,7 @@ static int bump_unix_max_dgram_qlen(void) {
 
         r = sysctl_write("net/unix/max_dgram_qlen", STRINGIFY(DEFAULT_UNIX_MAX_DGRAM_QLEN));
         if (r < 0)
-                return log_full_errno(IN_SET(r, -EROFS, -EPERM, -EACCES) ? LOG_DEBUG : LOG_WARNING, r,
+                return log_full_errno(ERRNO_IS_NEG_FS_WRITE_REFUSED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                       "Failed to bump AF_UNIX datagram queue length, ignoring: %m");
 
         return 1;
@@ -1594,8 +1578,10 @@ static int fixup_environment(void) {
                         return r;
         }
 
-        const char *t = term ?: default_term_for_tty("/dev/console");
-        if (setenv("TERM", t, /* overwrite= */ true) < 0)
+        if (!term)
+                (void) query_term_for_tty("/dev/console", &term);
+
+        if (setenv("TERM", term ?: FALLBACK_TERM, /* overwrite= */ true) < 0)
                 return -errno;
 
         /* The kernels sets HOME=/ for init. Let's undo this. */
@@ -1603,23 +1589,6 @@ static int fixup_environment(void) {
                 assert_se(unsetenv("HOME") == 0);
 
         return 0;
-}
-
-static void redirect_telinit(int argc, char *argv[]) {
-
-        /* This is compatibility support for SysV, where calling init as a user is identical to telinit. */
-
-#if HAVE_SYSV_COMPAT
-        if (getpid_cached() == 1)
-                return;
-
-        if (!invoked_as(argv, "init"))
-                return;
-
-        execv(SYSTEMCTL_BINARY_PATH, argv);
-        log_error_errno(errno, "Failed to exec " SYSTEMCTL_BINARY_PATH ": %m");
-        exit(EXIT_FAILURE);
-#endif
 }
 
 static int become_shutdown(int objective, int retval) {
@@ -2459,7 +2428,7 @@ static int initialize_runtime(
                         (void) machine_id_setup(/* root = */ NULL, arg_machine_id,
                                                 (first_boot ? MACHINE_ID_SETUP_FORCE_TRANSIENT : 0) |
                                                 (arg_machine_id_from_firmware ? MACHINE_ID_SETUP_FORCE_FIRMWARE : 0),
-                                                /* ret_machine_id = */ NULL);
+                                                /* ret = */ NULL);
                         (void) hostname_setup(/* really = */ true);
                         (void) loopback_setup();
 
@@ -2602,12 +2571,12 @@ static int do_queue_default_job(
                 /* Fall back to default.target, which we used to always use by default. Only do this if no
                  * explicit configuration was given. */
 
-                log_info("Falling back to " SPECIAL_DEFAULT_TARGET ".");
+                log_info("Falling back to %s.", SPECIAL_DEFAULT_TARGET);
 
                 r = manager_load_startable_unit_or_warn(m, SPECIAL_DEFAULT_TARGET, NULL, &target);
         }
         if (r < 0) {
-                log_info("Falling back to " SPECIAL_RESCUE_TARGET ".");
+                log_info("Falling back to %s.", SPECIAL_RESCUE_TARGET);
 
                 r = manager_load_startable_unit_or_warn(m, SPECIAL_RESCUE_TARGET, NULL, &target);
                 if (r < 0) {
@@ -2688,14 +2657,8 @@ static void fallback_rlimit_nofile(const struct rlimit *saved_rlimit_nofile) {
          * (and thus use poll()/epoll instead of select(), the way everybody should) can
          * explicitly opt into high fds by bumping their soft limit beyond 1024, to the hard limit
          * we pass. */
-        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                int nr;
-
-                /* Get the underlying absolute limit the kernel enforces */
-                nr = read_nr_open();
-
-                rl->rlim_max = MIN((rlim_t) nr, MAX(rl->rlim_max, (rlim_t) HIGH_RLIMIT_NOFILE));
-        }
+        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                rl->rlim_max = MIN((rlim_t) read_nr_open(), MAX(rl->rlim_max, (rlim_t) HIGH_RLIMIT_NOFILE));
 
         /* If for some reason we were invoked with a soft limit above 1024 (which should never
          * happen!, but who knows what we get passed in from pam_limit when invoked as --user
@@ -2785,7 +2748,7 @@ static void reset_arguments(void) {
         arg_machine_id = (sd_id128_t) {};
         arg_cad_burst_action = EMERGENCY_ACTION_REBOOT_FORCE;
 
-        cpu_set_reset(&arg_cpu_affinity);
+        cpu_set_done(&arg_cpu_affinity);
         numa_policy_reset(&arg_numa_policy);
 
         arg_random_seed = mfree(arg_random_seed);
@@ -3060,9 +3023,6 @@ int main(int argc, char *argv[]) {
         FDSet *fds = NULL;
 
         assert_se(argc > 0 && !isempty(argv[0]));
-
-        /* SysV compatibility: redirect init → telinit */
-        redirect_telinit(argc, argv);
 
         /* Take timestamps early on */
         dual_timestamp_from_monotonic(&kernel_timestamp, 0);

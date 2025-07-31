@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sysupdate-instance.h"
-#include "time-util.h"
+#include "sysupdate-forward.h"
 
 enum {
         PATTERN_MATCH_NO,

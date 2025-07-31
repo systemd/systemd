@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "cryptsetup-keyfile.h"
 #include "fileio.h"
+#include "iovec-util.h"
+#include "log.h"
 #include "path-util.h"
 #include "strv.h"
 

@@ -3,6 +3,8 @@
 #include <getopt.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
+
 #include "build.h"
 #include "chase.h"
 #include "conf-files.h"
@@ -13,7 +15,8 @@
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"
-#include "json-util.h"
+#include "image-policy.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "os-util.h"
@@ -30,10 +33,10 @@
 #include "strv.h"
 #include "sysupdate.h"
 #include "sysupdate-feature.h"
+#include "sysupdate-instance.h"
 #include "sysupdate-transfer.h"
 #include "sysupdate-update-set.h"
 #include "sysupdate-util.h"
-#include "terminal-util.h"
 #include "utf8.h"
 #include "verbs.h"
 
@@ -968,7 +971,7 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
         assert(overall <= 100);
 
         log_debug("Transfer %zu/%zu is %u%% complete (%u%% overall).", i+1, n, percentage, overall);
-        return sd_notifyf(/* unset= */ false, "X_SYSUPDATE_PROGRESS=%u\n"
+        return sd_notifyf(/* unset_environment=*/ false, "X_SYSUPDATE_PROGRESS=%u\n"
                                               "X_SYSUPDATE_TRANSFERS_LEFT=%zu\n"
                                               "X_SYSUPDATE_TRANSFERS_DONE=%zu\n"
                                               "STATUS=Updating to '%s' (%u%% complete).",
@@ -1025,7 +1028,7 @@ static int context_apply(
 
         log_info("Selected update '%s' for install.", us->version);
 
-        (void) sd_notifyf(/* unset= */ false,
+        (void) sd_notifyf(/* unset_environment=*/ false,
                           "READY=1\n"
                           "X_SYSUPDATE_VERSION=%s\n"
                           "STATUS=Making room for '%s'.", us->version, us->version);
@@ -1043,7 +1046,7 @@ static int context_apply(
         if (arg_sync)
                 sync();
 
-        (void) sd_notifyf(/* unset= */ false,
+        (void) sd_notifyf(/* unset_environment=*/ false,
                           "STATUS=Updating to '%s'.", us->version);
 
         /* There should now be one instance picked for each transfer, and the order is the same */
@@ -1068,7 +1071,7 @@ static int context_apply(
         if (arg_sync)
                 sync();
 
-        (void) sd_notifyf(/* unset= */ false,
+        (void) sd_notifyf(/* unset_environment=*/ false,
                           "STATUS=Installing '%s'.", us->version);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
@@ -1084,6 +1087,9 @@ static int context_apply(
         }
 
         log_info("%s Successfully installed update '%s'.", glyph(GLYPH_SPARKLES), us->version);
+
+        (void) sd_notifyf(/* unset_environment=*/ false,
+                          "STATUS=Installed '%s'.", us->version);
 
         if (ret_applied)
                 *ret_applied = us;

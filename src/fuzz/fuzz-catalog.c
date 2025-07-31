@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "catalog.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fuzz.h"
+#include "hashmap.h"
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
@@ -17,7 +19,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(fd >= 0);
         assert_se(write(fd, data, size) == (ssize_t) size);
 
-        (void) catalog_import_file(&h, name);
+        (void) catalog_import_file(&h, fd, name);
 
         return 0;
 }

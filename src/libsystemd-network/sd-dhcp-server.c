@@ -3,10 +3,8 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
-#include <net/if_arp.h>
-#include <sys/ioctl.h>
-
 #include "sd-dhcp-server.h"
+#include "sd-event.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -16,6 +14,7 @@
 #include "dhcp-server-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dns-domain.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
@@ -24,9 +23,9 @@
 #include "ordered-set.h"
 #include "path-util.h"
 #include "siphash24.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "unaligned.h"
-#include "utf8.h"
 
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
@@ -519,9 +518,9 @@ static int server_message_init(
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY,
-                              be32toh(req->message->xid), type,
+                              be32toh(req->message->xid),
                               req->message->htype, req->message->hlen, req->message->chaddr,
-                              req->max_optlen, &optoffset);
+                              type, req->max_optlen, &optoffset);
         if (r < 0)
                 return r;
 
@@ -714,7 +713,7 @@ static int server_send_forcerenew(
                 return -ENOMEM;
 
         r = dhcp_message_init(&packet->dhcp, BOOTREPLY, 0,
-                              DHCP_FORCERENEW, htype, hlen, chaddr,
+                              htype, hlen, chaddr, DHCP_FORCERENEW,
                               DHCP_MIN_OPTIONS_SIZE, &optoffset);
         if (r < 0)
                 return r;
@@ -1606,9 +1605,13 @@ int sd_dhcp_server_set_lease_file(sd_dhcp_server *server, int dir_fd, const char
         if (!path_is_safe(path))
                 return -EINVAL;
 
-        _cleanup_close_ int fd = fd_reopen(dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (fd < 0)
-                return fd;
+        _cleanup_close_ int fd = AT_FDCWD; /* Unlike our usual coding style, AT_FDCWD needs to be set,
+                                            * to pass a 'valid' fd. */
+        if (dir_fd >= 0) {
+                fd = fd_reopen(dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (fd < 0)
+                        return fd;
+        }
 
         r = free_and_strdup(&server->lease_file, path);
         if (r < 0)

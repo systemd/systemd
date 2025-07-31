@@ -2,10 +2,13 @@
 
 #include "sd-json.h"
 
-#include "cryptenroll-list.h"
+#include "alloc-util.h"
 #include "cryptenroll.h"
+#include "cryptenroll-list.h"
+#include "cryptsetup-util.h"
 #include "format-table.h"
 #include "json-util.h"
+#include "log.h"
 #include "parse-util.h"
 
 struct keyslot_metadata {

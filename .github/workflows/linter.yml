@@ -29,36 +29,51 @@ jobs:
           fetch-depth: 0
 
       - name: Lint Code Base
-        uses: super-linter/super-linter/slim@4e8a7c2bf106c4c766c816b35ec612638dc9b6b2
+        uses: super-linter/super-linter/slim@12150456a73e248bdc94d0794898f94e23127c88
         env:
           DEFAULT_BRANCH: main
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
           VALIDATE_GITHUB_ACTIONS: true
+          LINTER_RULES_PATH: .github/linters
+          GITHUB_ACTIONS_CONFIG_FILE: actionlint.yml
+
+      - uses: systemd/mkosi@cb1a3c90490922441548d09b09c7b76426e4bc20
 
       - name: Check that tabs are not used in Python code
-        run: sh -c '! git grep -P "\\t" -- src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
+        run: sh -c '! git grep -P "\\t" -- src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
 
-      - name: Install ruff and mypy
+      - name: Build tools tree
         run: |
-          python3 -m pip install --break-system-packages --upgrade setuptools wheel pip
-          python3 -m pip install --break-system-packages mypy types-Pillow ruff
+          tee mkosi/mkosi.local.conf <<EOF
+          [Build]
+          ToolsTreeDistribution=fedora
+          ToolsTreeRelease=rawhide
+          EOF
+
+          mkosi -f box -- true
 
       - name: Run mypy
         run: |
-          python3 -m mypy --version
-          python3 -m mypy src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi box -- mypy --version
+          mkosi box -- mypy src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
       - name: Run ruff check
         run: |
-          ruff --version
-          ruff check src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi box -- ruff --version
+          mkosi box -- ruff check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
       - name: Run ruff format
         run: |
-          ruff --version
-          if ! ruff format --check src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+          mkosi box -- ruff --version
+          if ! mkosi box -- ruff format --check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
           then
               echo "Please run 'ruff format' on the above files or apply the diffs below manually"
-              ruff format --check --quiet --diff  src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
+              mkosi box -- ruff format --check --quiet --diff src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
           fi
+
+      - name: Configure meson
+        run: mkosi box -- env CC=clang CXX=clang++ meson setup -Dlocalegen-path=/usr/bin/locale-gen -Dcompat-mutable-uid-boundaries=true build
+
+      - name: Run clang-tidy
+        run: mkosi box -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit

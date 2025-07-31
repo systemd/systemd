@@ -1,15 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-daemon.h"
+#include "sd-event.h"
 
+#include "dns-type.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "resolved-dns-packet.h"
+#include "resolved-dns-question.h"
 #include "resolved-manager.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
+#include "string-util.h"
+#include "time-util.h"
 
 /* Taken from resolved-dns-stub.c */
 #define ADVERTISE_DATAGRAM_SIZE_MAX (65536U-14U-20U-8U)
@@ -176,7 +182,7 @@ static int make_reply_packet(DnsPacket *packet, DnsPacket **ret) {
         assert(packet);
         assert(ret);
 
-        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_PAYLOAD_SIZE_MAX(packet));
+        r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, dns_packet_payload_size_max(packet));
         if (r < 0)
                 return r;
 

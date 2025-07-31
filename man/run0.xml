@@ -168,6 +168,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--via-shell</option></term>
+
+        <listitem><para>Invokes the target user's login shell and runs the specified command (if any) via it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-i</option></term>
+
+        <listitem><para>Shortcut for <option>--via-shell --chdir='~'</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--setenv=<replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
 
         <listitem><para>Runs the invoked session with the specified environment variable set. This parameter
@@ -249,7 +267,6 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>-a <replaceable>AREA</replaceable></option></term>
         <term><option>--area=<replaceable>AREA</replaceable></option></term>
 
         <listitem><para>Controls the "area" of the target account to log into. Areas are secondary home
@@ -290,9 +307,12 @@
 
     <para>All command line arguments after the first non-option argument become part of the command line of
     the launched process. If no command line is specified an interactive shell is invoked. The shell to
-    invoke may be controlled via <option>--setenv=SHELL=…</option> and currently defaults to the
-    <emphasis>originating user's</emphasis> shell (i.e. not the target user's!) if operating locally, or
-    <filename>/bin/sh</filename> when operating with <option>--machine=</option>.</para>
+    invoke may be controlled through <option>--via-shell</option> - when specified the target user's shell
+    is used - or <option>--setenv=SHELL=…</option>. By default, the <emphasis>originating user's</emphasis> shell
+    is executed if operating locally, or <filename>/bin/sh</filename> when operating with <option>--machine=</option>.</para>
+
+    <para>Note that unlike <command>sudo</command>, <command>run0</command> always spawns shells with login shell
+    semantics, regardless of <option>-i</option>.</para>
   </refsect1>
 
   <refsect1>

@@ -3,21 +3,22 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include <errno.h>
 #include <fcntl.h>
 #include <sys/mount.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "constants.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
 #include "libmount-util.h"
+#include "log.h"
 #include "mkdir.h"
 #include "mount-setup.h"
 #include "mount-util.h"
@@ -26,6 +27,8 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
+#include "string-util.h"
 #include "umount.h"
 #include "virt.h"
 
@@ -185,7 +188,7 @@ static void log_umount_blockers(const char *mnt) {
 
         _cleanup_closedir_ DIR *dir = opendir("/proc");
         if (!dir)
-                return (void) log_warning_errno(errno, "Failed to open /proc/: %m");
+                return (void) log_warning_errno(errno, "Failed to open %s: %m", "/proc/");
 
         FOREACH_DIRENT_ALL(de, dir, break) {
                 if (!IN_SET(de->d_type, DT_DIR, DT_UNKNOWN))

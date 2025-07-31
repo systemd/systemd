@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "time-util.h"
+#include "forward.h"
 
 const char* watchdog_get_device(void);
 usec_t watchdog_get_last_ping(clockid_t clock);
+dual_timestamp* watchdog_get_last_ping_as_dual_timestamp(dual_timestamp *ret);
 
 int watchdog_set_device(const char *path);
 int watchdog_setup(usec_t timeout);

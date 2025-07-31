@@ -1,18 +1,22 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+sleep_sources = files(
+        'sleep.c',
+)
+sleep_extract_sources = files(
+        'battery-capacity.c',
+)
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-sleep',
-                'sources' : files(
-                        'sleep.c',
-                        'battery-capacity.c',
-                ),
+                'sources' : sleep_sources + sleep_extract_sources,
+                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
+                'extract' : sleep_extract_sources,
         },
         test_template + {
-                'sources' : files(
-                        'test-battery-capacity.c',
-                        'battery-capacity.c',
-                ),
+                'sources' : files('test-battery-capacity.c'),
+                'objects' : ['systemd-sleep'],
         },
 ]
 

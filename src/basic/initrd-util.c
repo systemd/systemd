@@ -5,9 +5,7 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "initrd-util.h"
-#include "parse-util.h"
-#include "stat-util.h"
-#include "string-util.h"
+#include "log.h"
 
 static int saved_in_initrd = -1;
 

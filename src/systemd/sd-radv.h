@@ -19,18 +19,14 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <netinet/in.h>
-#include <sys/types.h>
-
 #include "_sd-common.h"
-#include "sd-event.h"
-#include "sd-ndisc-protocol.h"
-#include "sd-ndisc-router-solicit.h"
 
 _SD_BEGIN_DECLARATIONS;
 
+struct ether_addr;
+struct in6_addr;
+
+typedef struct sd_event sd_event;
 typedef struct sd_radv sd_radv;
 
 int sd_radv_new(sd_radv **ret);

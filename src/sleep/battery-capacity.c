@@ -2,17 +2,18 @@
 
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "battery-capacity.h"
 #include "battery-util.h"
-#include "device-private.h"
 #include "device-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "hexdecoct.h"
 #include "id128-util.h"
 #include "parse-util.h"
 #include "siphash24.h"
+#include "string-util.h"
+#include "time-util.h"
 
 #define DISCHARGE_RATE_FILEPATH "/var/lib/systemd/sleep/battery_discharge_percentage_rate_per_hour"
 #define BATTERY_DISCHARGE_RATE_HASH_KEY SD_ID128_MAKE(5f,9a,20,18,38,76,46,07,8d,36,58,0b,bb,c4,e0,63)
@@ -107,7 +108,7 @@ static int get_battery_discharge_rate(sd_device *dev, int *ret) {
 
         f = fopen(DISCHARGE_RATE_FILEPATH, "re");
         if (!f)
-                return log_debug_errno(errno, "Failed to read discharge rate from " DISCHARGE_RATE_FILEPATH ": %m");
+                return log_debug_errno(errno, "Failed to read discharge rate from %s: %m", DISCHARGE_RATE_FILEPATH);
 
         current_hash_id = system_battery_identifier_hash(dev);
 
@@ -118,20 +119,22 @@ static int get_battery_discharge_rate(sd_device *dev, int *ret) {
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to read discharge rate from " DISCHARGE_RATE_FILEPATH ": %m");
+                        return log_debug_errno(r, "Failed to read discharge rate from %s: %m", DISCHARGE_RATE_FILEPATH);
                 if (r == 0)
                         break;
 
                 p = line;
                 r = extract_many_words(&p, NULL, 0, &stored_hash_id, &stored_discharge_rate);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to parse hash_id and discharge_rate read from " DISCHARGE_RATE_FILEPATH ": %m");
+                        return log_debug_errno(r, "Failed to parse hash_id and discharge_rate read from %s: %m",
+                                               DISCHARGE_RATE_FILEPATH);
                 if (r != 2)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid number of items fetched from " DISCHARGE_RATE_FILEPATH);
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid number of items fetched from %s.",
+                                               DISCHARGE_RATE_FILEPATH);
 
                 r = safe_atou64(stored_hash_id, &hash_id);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to parse hash ID read from " DISCHARGE_RATE_FILEPATH " location: %m");
+                        return log_debug_errno(r, "Failed to parse hash ID read from %s: %m", DISCHARGE_RATE_FILEPATH);
 
                 if (current_hash_id != hash_id)
                         /* matching device not found, move to next line */
@@ -139,10 +142,13 @@ static int get_battery_discharge_rate(sd_device *dev, int *ret) {
 
                 r = safe_atoi(stored_discharge_rate, &discharge_rate);
                 if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to parse discharge rate read from " DISCHARGE_RATE_FILEPATH ": %m");
+                        return log_device_debug_errno(dev, r, "Failed to parse discharge rate read from %s: %m",
+                                                      DISCHARGE_RATE_FILEPATH);
 
                 if (!battery_discharge_rate_is_valid(discharge_rate))
-                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE), "Invalid battery discharge percentage rate per hour.");
+                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE),
+                                                      "Invalid battery discharge percentage rate per hour read from %s.",
+                                                      DISCHARGE_RATE_FILEPATH);
 
                 *ret = discharge_rate;
                 return 0; /* matching device found, exit iteration */

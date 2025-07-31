@@ -1,51 +1,43 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
+#include <fcntl.h>
+#include <linux/if.h>
+#include <linux/if_arp.h>
+#include <mqueue.h>
 #include <net/if.h>
-#include <arpa/inet.h>
-#include <errno.h>
-#include <limits.h>
 #include <netdb.h>
 #include <netinet/ip.h>
 #include <poll.h>
-#include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-#include <linux/if.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-ifname.h"
+#include "format-util.h"
+#include "in-addr-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "socket-util.h"
+#include "sparse-endian.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
-#include "user-util.h"
-#include "utf8.h"
 
 #if ENABLE_IDN
 #  define IDN_FLAGS NI_IDN
 #else
 #  define IDN_FLAGS 0
-#endif
-
-/* From the kernel's include/net/scm.h */
-#ifndef SCM_MAX_FD
-#  define SCM_MAX_FD 253
 #endif
 
 static const char* const socket_address_type_table[] = {
@@ -1319,6 +1311,54 @@ int flush_accept(int fd) {
         }
 }
 
+ssize_t flush_mqueue(int fd) {
+        _cleanup_free_ char *buf = NULL;
+        struct mq_attr attr;
+        ssize_t count = 0;
+        int r;
+
+        assert(fd >= 0);
+
+        /* Similar to flush_fd() but flushes all messages from a POSIX message queue. */
+
+        for (;;) {
+                ssize_t l;
+
+                r = fd_wait_for_event(fd, POLLIN, /* timeout= */ 0);
+                if (r < 0) {
+                        if (r == -EINTR)
+                                continue;
+
+                        return r;
+                }
+                if (r == 0)
+                        return count;
+
+                if (!buf) {
+                        /* Buffer must be at least as large as mq_msgsize. */
+                        if (mq_getattr(fd, &attr) < 0)
+                                return -errno;
+
+                        buf = malloc(attr.mq_msgsize);
+                        if (!buf)
+                                return -ENOMEM;
+                }
+
+                l = mq_receive(fd, buf, attr.mq_msgsize, /* msg_prio = */ NULL);
+                if (l < 0) {
+                        if (errno == EINTR)
+                                continue;
+
+                        if (errno == EAGAIN)
+                                return count;
+
+                        return -errno;
+                }
+
+                count += l;
+        }
+}
+
 struct cmsghdr* cmsg_find(struct msghdr *mh, int level, int type, socklen_t length) {
         struct cmsghdr *cmsg;
 
@@ -1349,6 +1389,53 @@ void* cmsg_find_and_copy_data(struct msghdr *mh, int level, int type, void *buf,
                 return NULL;
 
         return memcpy_safe(buf, CMSG_DATA(cmsg), buf_len);
+}
+
+size_t sockaddr_ll_len(const struct sockaddr_ll *sa) {
+        /* Certain hardware address types (e.g Infiniband) do not fit into sll_addr
+         * (8 bytes) and run over the structure. This function returns the correct size that
+         * must be passed to kernel. */
+
+        assert(sa->sll_family == AF_PACKET);
+
+        size_t mac_len = sizeof(sa->sll_addr);
+
+        if (be16toh(sa->sll_hatype) == ARPHRD_ETHER)
+                mac_len = MAX(mac_len, (size_t) ETH_ALEN);
+        if (be16toh(sa->sll_hatype) == ARPHRD_INFINIBAND)
+                mac_len = MAX(mac_len, (size_t) INFINIBAND_ALEN);
+
+        return offsetof(struct sockaddr_ll, sll_addr) + mac_len;
+}
+
+size_t sockaddr_un_len(const struct sockaddr_un *sa) {
+        /* Covers only file system and abstract AF_UNIX socket addresses, but not unnamed socket addresses. */
+
+        assert(sa->sun_family == AF_UNIX);
+
+        return offsetof(struct sockaddr_un, sun_path) +
+                (sa->sun_path[0] == 0 ?
+                        1 + strnlen(sa->sun_path+1, sizeof(sa->sun_path)-1) :
+                        strnlen(sa->sun_path, sizeof(sa->sun_path))+1);
+}
+
+size_t sockaddr_len(const union sockaddr_union *sa) {
+        switch (sa->sa.sa_family) {
+        case AF_INET:
+                return sizeof(struct sockaddr_in);
+        case AF_INET6:
+                return sizeof(struct sockaddr_in6);
+        case AF_UNIX:
+                return sockaddr_un_len(&sa->un);
+        case AF_PACKET:
+                return sockaddr_ll_len(&sa->ll);
+        case AF_NETLINK:
+                return sizeof(struct sockaddr_nl);
+        case AF_VSOCK:
+                return sizeof(struct sockaddr_vm);
+        default:
+                assert_not_reached();
+        }
 }
 
 int socket_ioctl_fd(void) {
@@ -1437,6 +1524,22 @@ int sockaddr_un_set_path(struct sockaddr_un *ret, const char *path) {
         }
 }
 
+int getsockopt_int(int fd, int level, int optname, int *ret) {
+        int v;
+        socklen_t sl = sizeof(v);
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (getsockopt(fd, level, optname, &v, &sl) < 0)
+                return negative_errno();
+        if (sl != sizeof(v))
+                return -EIO;
+
+        *ret = v;
+        return 0;
+}
+
 int socket_bind_to_ifname(int fd, const char *ifname) {
         assert(fd >= 0);
 
@@ -1464,7 +1567,6 @@ int socket_autobind(int fd, char **ret_name) {
          * "autobind" feature, but uses 64-bit random number internally. */
 
         assert(fd >= 0);
-        assert(ret_name);
 
         random = random_u64();
 
@@ -1481,7 +1583,8 @@ int socket_autobind(int fd, char **ret_name) {
         if (bind(fd, &sa.sa, r) < 0)
                 return -errno;
 
-        *ret_name = TAKE_PTR(name);
+        if (ret_name)
+                *ret_name = TAKE_PTR(name);
         return 0;
 }
 
@@ -1701,6 +1804,24 @@ int socket_address_parse_unix(SocketAddress *ret_address, const char *s) {
         return 0;
 }
 
+int socket_address_equal_unix(const char *a, const char *b) {
+        SocketAddress socket_a, socket_b;
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = socket_address_parse_unix(&socket_a, a);
+        if (r < 0)
+                return r;
+
+        r = socket_address_parse_unix(&socket_b, b);
+        if (r < 0)
+                return r;
+
+        return sockaddr_equal(&socket_a.sockaddr, &socket_b.sockaddr);
+}
+
 int vsock_parse_port(const char *s, unsigned *ret) {
         int r;
 
@@ -1804,7 +1925,7 @@ int vsock_get_local_cid(unsigned *ret) {
 
         vsock_fd = open("/dev/vsock", O_RDONLY|O_CLOEXEC);
         if (vsock_fd < 0)
-                return log_debug_errno(errno, "Failed to open /dev/vsock: %m");
+                return log_debug_errno(errno, "Failed to open %s: %m", "/dev/vsock");
 
         unsigned tmp;
         if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, ret ?: &tmp) < 0)
@@ -1818,8 +1939,6 @@ int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_
         socklen_t len = 0, old_len;
 
         assert(fd >= 0);
-
-        /* This returns ENOPROTOOPT if the kernel is older than 4.2. */
 
         if (getsockopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, NULL, &len) < 0)
                 return -errno;
@@ -1846,4 +1965,37 @@ finalize:
                 *ret_groups = TAKE_PTR(groups);
 
         return 0;
+}
+
+int socket_get_cookie(int fd, uint64_t *ret) {
+        assert(fd >= 0);
+
+        uint64_t cookie = 0;
+        socklen_t cookie_len = sizeof(cookie);
+        if (getsockopt(fd, SOL_SOCKET, SO_COOKIE, &cookie, &cookie_len) < 0)
+                return -errno;
+
+        assert(cookie_len == sizeof(cookie));
+        if (ret)
+                *ret = cookie;
+
+        return 0;
+}
+
+void cmsg_close_all(struct msghdr *mh) {
+        assert(mh);
+
+        struct cmsghdr *cmsg;
+        CMSG_FOREACH(cmsg, mh) {
+                if (cmsg->cmsg_level != SOL_SOCKET)
+                        continue;
+
+                if (cmsg->cmsg_type == SCM_RIGHTS)
+                        close_many(CMSG_TYPED_DATA(cmsg, int),
+                                   (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int));
+                else if (cmsg->cmsg_type == SCM_PIDFD) {
+                        assert(cmsg->cmsg_len == CMSG_LEN(sizeof(int)));
+                        safe_close(*CMSG_TYPED_DATA(cmsg, int));
+                }
+        }
 }

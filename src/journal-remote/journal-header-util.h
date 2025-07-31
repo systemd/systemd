@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-#include "hashmap.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
 
 bool header_value_is_valid(const char *value);
 

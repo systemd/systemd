@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
+#include "resolved-forward.h"
 
 typedef enum ResolveConfigSource {
         RESOLVE_CONFIG_SOURCE_FILE,
@@ -11,12 +11,7 @@ typedef enum ResolveConfigSource {
         _RESOLVE_CONFIG_SOURCE_INVALID = -EINVAL,
 } ResolveConfigSource;
 
-#include "resolved-dns-server.h"
-
 int manager_parse_config_file(Manager *m);
-
-int manager_parse_search_domains_and_warn(Manager *m, const char *string);
-int manager_parse_dns_server_string_and_warn(Manager *m, DnsServerType type, const char *string);
 
 const struct ConfigPerfItem* resolved_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 

@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <limits.h>
 #include <linux/ipv6.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/types.h>
+
+#include "sd-id128.h"
 
 #include "alloc-util.h"
-#include "chase.h"
 #include "calendarspec.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
@@ -27,8 +24,7 @@
 #include "in-addr-prefix-util.h"
 #include "ip-protocol-list.h"
 #include "log.h"
-#include "macro.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "nulstr-util.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
@@ -36,9 +32,9 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
-#include "sd-id128.h"
 #include "set.h"
 #include "signal-util.h"
+#include "siphash24.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -622,7 +618,7 @@ int config_parse_many(
         r = conf_files_list_dropins(&files, dropin_dirname, root, conf_file_dirs);
         if (r < 0)
                 return log_full_errno(FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG, r,
-                                      "Failed to list up drop-in configs in %s: %m", dropin_dirname);
+                                      "Failed to list drop-ins in %s: %m", dropin_dirname);
 
         r = config_parse_many_files(root, conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
         if (r < 0)
@@ -855,7 +851,7 @@ int config_section_new(const char *filename, unsigned line, ConfigSection **ret)
         return 0;
 }
 
-int _hashmap_by_section_find_unused_line(
+static int _hashmap_by_section_find_unused_line(
                 HashmapBase *entries_by_section,
                 const char *filename,
                 unsigned *ret) {
@@ -876,6 +872,22 @@ int _hashmap_by_section_find_unused_line(
 
         *ret = n + 1;
         return 0;
+}
+
+int hashmap_by_section_find_unused_line(
+        Hashmap *entries_by_section,
+        const char *filename,
+        unsigned *ret) {
+
+        return _hashmap_by_section_find_unused_line(HASHMAP_BASE(entries_by_section), filename, ret);
+}
+
+int ordered_hashmap_by_section_find_unused_line(
+        OrderedHashmap *entries_by_section,
+        const char *filename,
+        unsigned *ret) {
+
+        return _hashmap_by_section_find_unused_line(HASHMAP_BASE(entries_by_section), filename, ret);
 }
 
 #define DEFINE_PARSER(type, vartype, conv_func)                         \

@@ -1,16 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dirent.h>
-#include <fcntl.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-
-#include "macro.h"
-#include "time-util.h"
+#include "forward.h"
 
 #define LONG_LINE_MAX (1U*1024U*1024U)
 
@@ -29,6 +20,7 @@ typedef enum {
         WRITE_STRING_FILE_MODE_0444                  = 1 << 11,
         WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL = 1 << 12,
         WRITE_STRING_FILE_LABEL                      = 1 << 13,
+        WRITE_STRING_FILE_OPEN_NONBLOCKING           = 1 << 14,
 } WriteStringFileFlags;
 
 typedef enum {
@@ -98,7 +90,7 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
 
 int script_get_shebang_interpreter(const char *path, char **ret);
 
-int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field);
+int get_proc_field(const char *path, const char *key, char **ret);
 
 DIR* xopendirat(int dir_fd, const char *name, int flags);
 

@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <stdio.h>
-#include <unistd.h>
 
 #include "sd-device.h"
 
@@ -14,8 +12,8 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "main-func.h"
-#include "path-util.h"
-#include "pretty-print.h"
+#include "string-util.h"
+#include "strv.h"
 #include "udev-util.h"
 #include "verbs.h"
 

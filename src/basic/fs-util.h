@@ -1,27 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dirent.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <stdbool.h>
-#include <stdint.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-
-#include "alloc-util.h"
-#include "errno-util.h"
+#include "forward.h"
 #include "lock-util.h"
-#include "time-util.h"
-#include "user-util.h"
-
-#define MODE_INVALID ((mode_t) -1)
 
 /* The following macros add 1 when converting things, since 0 is a valid mode, while the pointer
  * NULL is special */
-#define PTR_TO_MODE(p) ((mode_t) ((uintptr_t) (p)-1))
-#define MODE_TO_PTR(u) ((void *) ((uintptr_t) (u)+1))
+static inline mode_t PTR_TO_MODE(void *p) {
+        return p ? (mode_t) ((uintptr_t) p - 1) : MODE_INVALID;
+}
+static inline void* MODE_TO_PTR(mode_t m) {
+        return m == MODE_INVALID ? NULL : (void *) ((uintptr_t) m + 1);
+}
 
 int rmdir_parents(const char *path, const char *stop);
 
@@ -51,25 +41,25 @@ int futimens_opath(int fd, const struct timespec ts[2]);
 int fd_warn_permissions(const char *path, int fd);
 int stat_warn_permissions(const char *path, const struct stat *st);
 
-#define access_nofollow(path, mode)                                             \
-        RET_NERRNO(faccessat(AT_FDCWD, (path), (mode), AT_SYMLINK_NOFOLLOW))
+int access_nofollow(const char *path, int mode);
 
 int touch_fd(int fd, usec_t stamp);
-
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode);
-
-static inline int touch(const char *path) {
-        return touch_file(path, false, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
-}
+int touch(const char *path);
 
 int symlinkat_idempotent(const char *from, int atfd, const char *to, bool make_relative);
 static inline int symlink_idempotent(const char *from, const char *to, bool make_relative) {
         return symlinkat_idempotent(from, AT_FDCWD, to, make_relative);
 }
 
-int symlinkat_atomic_full(const char *from, int atfd, const char *to, bool make_relative);
+typedef enum SymlinkFlags {
+        SYMLINK_MAKE_RELATIVE = 1 << 0,
+        SYMLINK_LABEL         = 1 << 1,
+} SymlinkFlags;
+
+int symlinkat_atomic_full(const char *from, int atfd, const char *to, SymlinkFlags flags);
 static inline int symlink_atomic(const char *from, const char *to) {
-        return symlinkat_atomic_full(from, AT_FDCWD, to, false);
+        return symlinkat_atomic_full(from, AT_FDCWD, to, 0);
 }
 
 int mknodat_atomic(int atfd, const char *path, mode_t mode, dev_t dev);
@@ -90,24 +80,10 @@ int var_tmp_dir(const char **ret);
 int unlink_or_warn(const char *filename);
 
 /* Useful for usage with _cleanup_(), removes a directory and frees the pointer */
-static inline char *rmdir_and_free(char *p) {
-        PROTECT_ERRNO;
-
-        if (!p)
-                return NULL;
-
-        (void) rmdir(p);
-        return mfree(p);
-}
+char *rmdir_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, rmdir_and_free);
 
-static inline char* unlink_and_free(char *p) {
-        if (!p)
-                return NULL;
-
-        (void) unlink(p);
-        return mfree(p);
-}
+char* unlink_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, unlink_and_free);
 
 int access_fd(int fd, int mode);

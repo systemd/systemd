@@ -45,6 +45,7 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/resolve
 RuntimeDirectoryPreserve=yes
+Sockets=systemd-resolved-varlink.socket systemd-resolved-monitor.socket
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
@@ -57,3 +58,4 @@ ImportCredential=network.search_domains
 [Install]
 WantedBy=sysinit.target
 Alias=dbus-org.freedesktop.resolve1.service
+Also=systemd-resolved-varlink.socket systemd-resolved-monitor.socket

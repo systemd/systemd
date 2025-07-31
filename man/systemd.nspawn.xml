@@ -496,6 +496,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BindUserShell=</varname></term>
+
+        <listitem><para>When used with <varname>BindUser</varname>, specifies the shell that is included in
+        the user record of users bound from the host into the container. This option is equivalent to the
+        command line switch <option>--bind-user-shell=</option>, see
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details about the specific options supported. This setting is privileged (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>TemporaryFileSystem=</varname></term>
 
         <listitem><para>Adds a <literal>tmpfs</literal> mount to the
@@ -578,8 +590,8 @@
 
         <listitem><para>Takes a boolean argument. Configures whether to create a virtual Ethernet connection
         (<literal>veth</literal>) between host and the container. This setting implies
-        <varname>Private=yes</varname>. This setting corresponds to the <option>--network-veth</option> command line
-        switch. This option is privileged (see above). This option is the default if the
+        <varname>Private=yes</varname>. This setting corresponds to the <option>--network-veth</option>
+        command line switch. This option is the default if the
         <filename>systemd-nspawn@.service</filename> template unit file is used.</para>
 
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>

@@ -1,19 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <poll.h>
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
+#include <sys/socket.h>
 
 #include "sd-login.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "errno-list.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "missing_syscall.h"
-#include "mountpoint-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -38,9 +36,7 @@ static char* format_uids(char **buf, uid_t* uids, int count) {
         return *buf;
 }
 
-static const char *e(int r) {
-        return r == 0 ? "OK" : errno_to_name(r);
-}
+#define e(r) (r == 0 ? "OK" : ERRNO_NAME(r))
 
 TEST(login) {
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;

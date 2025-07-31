@@ -1,16 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <dirent.h>
-#include <inttypes.h>
-#include <stdbool.h>
-#include <sys/stat.h>
-#include <sys/types.h>
+#include "sd-device.h" /* IWYU pragma: export */
 
-#include "sd-device.h"
-
-#include "chase.h"
-#include "macro.h"
+#include "forward.h"
 
 int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum);
 int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len);
@@ -63,7 +56,7 @@ int device_get_properties_strv(sd_device *device, char ***ret);
 
 int device_clone_with_db(sd_device *device, sd_device **ret);
 
-int device_tag_index(sd_device *dev, sd_device *dev_old, bool add);
+int device_tag_index(sd_device *device, sd_device *device_old, bool add);
 bool device_should_have_db(sd_device *device);
 int device_has_db(sd_device *device);
 int device_update_db(sd_device *device);

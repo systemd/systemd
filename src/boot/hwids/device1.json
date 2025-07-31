@@ -3,7 +3,6 @@
     "name": "Device 1",
     "compatible": "test,device-1",
     "hwids": [
-        "2bdcafa9-727c-5e8b-b13b-236f1391c25a",
-        "c87886da-8026-5149-8c95-6d2504c1b7f9"
+        "75caebc1-5b41-5d33-a262-154720304180"
     ]
 }

@@ -2,7 +2,11 @@
 
 #include <getopt.h>
 
+#include "sd-json.h"
+
+#include "alloc-util.h"
 #include "build.h"
+#include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
 #include "networkctl.h"
@@ -12,11 +16,11 @@
 #include "networkctl-lldp.h"
 #include "networkctl-misc.h"
 #include "networkctl-status-link.h"
-#include "networkctl-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "verbs.h"
 
 PagerFlags arg_pager_flags = 0;

@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "logind-forward.h"
 #include "pidref.h"
-
-typedef struct Inhibitor Inhibitor;
+#include "time-util.h"
 
 typedef enum InhibitWhat {
         INHIBIT_SHUTDOWN             = 1 << 0,
@@ -26,9 +26,7 @@ typedef enum InhibitMode {
         _INHIBIT_MODE_INVALID = -EINVAL,
 } InhibitMode;
 
-#include "logind.h"
-
-struct Inhibitor {
+typedef struct Inhibitor {
         Manager *manager;
 
         sd_event_source *event_source;
@@ -50,7 +48,7 @@ struct Inhibitor {
 
         char *fifo_path;
         int fifo_fd;
-};
+} Inhibitor;
 
 int inhibitor_new(Manager *m, const char* id, Inhibitor **ret);
 Inhibitor* inhibitor_free(Inhibitor *i);

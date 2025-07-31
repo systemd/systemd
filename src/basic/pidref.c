@@ -1,14 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "missing_syscall.h"
-#include "missing_wait.h"
+#include "format-util.h"
+#include "hash-funcs.h"
+#include "log.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
-#include "signal-util.h"
+#include "siphash24.h"
 
 int pidref_acquire_pidfd_id(PidRef *pidref) {
         int r;
@@ -110,6 +115,33 @@ int pidref_set_pid(PidRef *pidref, pid_t pid) {
                 .fd_id = pidfdid,
         };
 
+        return 0;
+}
+
+int pidref_set_pid_and_pidfd_id(
+                PidRef *pidref,
+                pid_t pid,
+                uint64_t pidfd_id) {
+
+        int r;
+
+        assert(pidref);
+
+        _cleanup_(pidref_done) PidRef n = PIDREF_NULL;
+        r = pidref_set_pid(&n, pid);
+        if (r < 0)
+                return r;
+
+        if (pidfd_id > 0) {
+                r = pidref_acquire_pidfd_id(&n);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return r;
+
+                if (n.fd_id != pidfd_id)
+                        return -ESRCH;
+        }
+
+        *pidref = TAKE_PIDREF(n);
         return 0;
 }
 

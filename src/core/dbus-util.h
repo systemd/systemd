@@ -3,7 +3,8 @@
 
 #include "sd-bus.h"
 
-#include "dissect-image.h"
+#include "core-forward.h"
+#include "string-util.h"
 #include "unit.h"
 
 int bus_property_get_triggered_unit(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *error);
@@ -243,22 +244,11 @@ int bus_set_transient_reboot_parameter(Unit *u, const char *name, char **p, sd_b
 int bus_set_transient_string(Unit *u, const char *name, char **p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_set_transient_bool(Unit *u, const char *name, bool *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_set_transient_tristate(Unit *u, const char *name, int *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
-int bus_set_transient_usec_internal(Unit *u, const char *name, usec_t *p, bool fix_0, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
-static inline int bus_set_transient_usec(Unit *u, const char *name, usec_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
-        return bus_set_transient_usec_internal(u, name, p, false, message, flags, error);
-}
-static inline int bus_set_transient_usec_fix_0(Unit *u, const char *name, usec_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error) {
-        return bus_set_transient_usec_internal(u, name, p, true, message, flags, error);
-}
-
+int bus_set_transient_usec(Unit *u, const char *name, usec_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
+int bus_set_transient_usec_fix_0(Unit *u, const char *name, usec_t *p, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
 int bus_verify_manage_units_async_impl(Manager *manager, const char *id, const char *verb, const char *polkit_message, sd_bus_message *call, sd_bus_error *error);
-static inline int bus_verify_manage_units_async_full(Unit *u, const char *verb, const char *polkit_message, sd_bus_message *call, sd_bus_error *error) {
-        assert(u);
-        return bus_verify_manage_units_async_impl(u->manager, u->id, verb, polkit_message, call, error);
-}
-static inline int bus_verify_manage_units_async(Manager *manager, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_manage_units_async_impl(manager, NULL, NULL, NULL, call, error);
-}
+int bus_verify_manage_units_async_full(Unit *u, const char *verb, const char *polkit_message, sd_bus_message *call, sd_bus_error *error);
+int bus_verify_manage_units_async(Manager *manager, sd_bus_message *call, sd_bus_error *error);
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error);
 int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_error *error);
 int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_error *error);

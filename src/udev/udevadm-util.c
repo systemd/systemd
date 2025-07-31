@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
+#include <getopt.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
@@ -9,12 +11,19 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "device-private.h"
+#include "errno-util.h"
+#include "extract-word.h"
+#include "log.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
 #include "udev-ctrl.h"
 #include "udev-rules.h"
 #include "udev-varlink.h"
 #include "udevadm-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
 #include "varlink-util.h"
 
@@ -65,6 +74,9 @@ static int find_device_from_unit(const char *unit_name, sd_device **ret) {
 int find_device(const char *id, const char *prefix, sd_device **ret) {
         assert(id);
         assert(ret);
+
+        if (sd_device_new_from_device_id(ret, id) >= 0)
+                return 0;
 
         if (sd_device_new_from_path(ret, id) >= 0)
                 return 0;
@@ -143,6 +155,29 @@ int parse_resolve_name_timing(const char *str, ResolveNameTiming *ret) {
         return 1;
 }
 
+int parse_key_value_argument(const char *str, bool require_value, char **key, char **value) {
+        _cleanup_free_ char *k = NULL, *v = NULL;
+        const char *s = str;
+        int r;
+
+        assert(s);
+        assert(key);
+        assert(value);
+
+        r = extract_many_words(&s, "=", EXTRACT_DONT_COALESCE_SEPARATORS, &k, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse key/value pair %s: %m", str);
+        if (require_value && r < 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing '=' in key/value pair %s.", str);
+
+        if (!filename_is_valid(k))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a valid key name", k);
+
+        free_and_replace(*key, k);
+        free_and_replace(*value, v);
+        return 0;
+}
+
 static int udev_ping_via_ctrl(usec_t timeout_usec, bool ignore_connection_failure) {
         _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
         int r;
@@ -186,108 +221,122 @@ int udev_ping(usec_t timeout_usec, bool ignore_connection_failure) {
         return 1; /* received reply */
 }
 
-static int search_rules_file_in_conf_dirs(const char *s, const char *root, char ***files) {
-        _cleanup_free_ char *filename = NULL;
+static int search_rules_file_in_conf_dirs(const char *s, const char *root, ConfFile ***files, size_t *n_files) {
+        _cleanup_free_ char *with_suffix = NULL;
         int r;
 
         assert(s);
+        assert(files);
+        assert(n_files);
 
-        if (!endswith(s, ".rules"))
-                filename = strjoin(s, ".rules");
-        else
-                filename = strdup(s);
-        if (!filename)
-                return log_oom();
+        if (isempty(s) || is_path(s))
+                return 0;
 
-        if (!filename_is_valid(filename))
+        if (!endswith(s, ".rules")) {
+                with_suffix = strjoin(s, ".rules");
+                if (!with_suffix)
+                        return log_oom();
+
+                s = with_suffix;
+        }
+
+        if (!filename_is_valid(s))
                 return 0;
 
         STRV_FOREACH(p, CONF_PATHS_STRV("udev/rules.d")) {
-                _cleanup_free_ char *path = NULL, *resolved = NULL;
 
-                path = path_join(*p, filename);
+                _cleanup_free_ char *path = path_join(*p, s);
                 if (!path)
                         return log_oom();
 
-                r = chase(path, root, CHASE_PREFIX_ROOT | CHASE_MUST_BE_REGULAR, &resolved, /* ret_fd = */ NULL);
+                _cleanup_(conf_file_freep) ConfFile *c = NULL;
+                r = conf_file_new(path, root, CHASE_MUST_BE_REGULAR, &c);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
                         return log_error_errno(r, "Failed to chase \"%s\": %m", path);
 
-                r = strv_consume(files, TAKE_PTR(resolved));
-                if (r < 0)
+                if (!GREEDY_REALLOC_APPEND(*files, *n_files, &c, 1))
                         return log_oom();
 
+                TAKE_PTR(c);
                 return 1; /* found */
         }
 
         return 0;
 }
 
-static int search_rules_file(const char *s, const char *root, char ***files) {
+static int search_rules_file(const char *s, const char *root, ConfFile ***files, size_t *n_files) {
         int r;
 
         assert(s);
         assert(files);
+        assert(n_files);
 
         /* If the input is a file name (e.g. 99-systemd.rules), then try to find it in udev/rules.d directories. */
-        r = search_rules_file_in_conf_dirs(s, root, files);
+        r = search_rules_file_in_conf_dirs(s, root, files, n_files);
         if (r != 0)
                 return r;
 
         /* If not found, or if it is a path, then chase it. */
-        struct stat st;
-        _cleanup_free_ char *resolved = NULL;
-        r = chase_and_stat(s, root, CHASE_PREFIX_ROOT, &resolved, &st);
-        if (r < 0)
-                return log_error_errno(r, "Failed to chase \"%s\": %m", s);
-
-        r = stat_verify_regular(&st);
-        if (r == -EISDIR) {
-                _cleanup_strv_free_ char **files_in_dir = NULL;
-
-                r = conf_files_list_strv(&files_in_dir, ".rules", root, 0, (const char* const*) STRV_MAKE_CONST(s));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to enumerate rules files in '%s': %m", resolved);
-
-                r = strv_extend_strv_consume(files, TAKE_PTR(files_in_dir), /* filter_duplicates = */ false);
-                if (r < 0)
+        _cleanup_(conf_file_freep) ConfFile *c = NULL;
+        r = conf_file_new(s, root, CHASE_MUST_BE_REGULAR, &c);
+        if (r >= 0) {
+                if (!GREEDY_REALLOC_APPEND(*files, *n_files, &c, 1))
                         return log_oom();
 
+                TAKE_PTR(c);
                 return 0;
         }
-        if (r < 0)
-                return log_error_errno(r, "'%s' is neither a regular file nor a directory: %m", resolved);
 
-        r = strv_consume(files, TAKE_PTR(resolved));
+        if (r != -EISDIR)
+                return log_error_errno(r, "Failed to chase \"%s\": %m", s);
+
+        /* If a directory is specified, then find all rules file in the directory. */
+        ConfFile **f = NULL;
+        size_t n = 0;
+
+        CLEANUP_ARRAY(f, n, conf_file_free_many);
+
+        r = conf_files_list_strv_full(".rules", root, CONF_FILES_REGULAR, (const char* const*) STRV_MAKE_CONST(s), &f, &n);
         if (r < 0)
+                return log_error_errno(r, "Failed to enumerate rules files in '%s': %m", s);
+
+        if (!GREEDY_REALLOC_APPEND(*files, *n_files, f, n))
                 return log_oom();
 
+        f = mfree(f); /* The array elements are owned by 'files'. So, conf_file_free_many() must not be called. */
+        n = 0;
         return 0;
 }
 
-int search_rules_files(char * const *a, const char *root, char ***ret) {
-        _cleanup_strv_free_ char **files = NULL;
+int search_rules_files(char * const *a, const char *root, ConfFile ***ret_files, size_t *ret_n_files) {
+        ConfFile **files = NULL;
+        size_t n_files = 0;
         int r;
 
-        assert(ret);
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        assert(ret_files);
+        assert(ret_n_files);
 
         if (strv_isempty(a)) {
-                r = conf_files_list_strv(&files, ".rules", root, 0, (const char* const*) CONF_PATHS_STRV("udev/rules.d"));
+                r = conf_files_list_strv_full(".rules", root, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
+                                              (const char* const*) CONF_PATHS_STRV("udev/rules.d"), &files, &n_files);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate rules files: %m");
 
-                if (root && strv_isempty(files))
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No rules files found in %s.", root);
+                if (root && n_files == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No rules files found in '%s'.", root);
 
         } else
                 STRV_FOREACH(s, a) {
-                        r = search_rules_file(*s, root, &files);
+                        r = search_rules_file(*s, root, &files, &n_files);
                         if (r < 0)
                                 return r;
                 }
 
-        *ret = TAKE_PTR(files);
+        *ret_files = TAKE_PTR(files);
+        *ret_n_files = n_files;
         return 0;
 }

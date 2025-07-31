@@ -1,21 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "in-addr-util.h"
-
-#include "conf-parser.h"
+#include "forward.h"
 #include "fou-tunnel.h"
-#include "netdev-util.h"
 #include "netdev.h"
 #include "networkd-link.h"
 
-typedef enum Ip6TnlMode {
-        NETDEV_IP6_TNL_MODE_IP6IP6,
-        NETDEV_IP6_TNL_MODE_IPIP6,
-        NETDEV_IP6_TNL_MODE_ANYIP6,
-        _NETDEV_IP6_TNL_MODE_MAX,
-        _NETDEV_IP6_TNL_MODE_INVALID = -EINVAL,
-} Ip6TnlMode;
+/* For IFLA_IPTUN_PROTO attribute */
+typedef enum TunnelMode {
+        TUNNEL_MODE_ANY,    /* 0, "any" */
+        TUNNEL_MODE_IPIP,   /* IPPROTO_IPIP, "ipip", for ipip and sit */
+        TUNNEL_MODE_IP6IP,  /* IPPROTO_IPV6, "ip6ip", for sit */
+        TUNNEL_MODE_IPIP6,  /* IPPROTO_IPIP, "ipip6", for ip6tnl */
+        TUNNEL_MODE_IP6IP6, /* IPPROTO_IPV6, "ip6ip6", for ip6tnl */
+        _TUNNEL_MODE_MAX,
+        _TUNNEL_MODE_INVALID = -EINVAL,
+} TunnelMode;
 
 typedef enum IPv6FlowLabel {
         NETDEV_IPV6_FLOWLABEL_INHERIT = 0xFFFFF + 1,
@@ -51,7 +51,7 @@ typedef struct Tunnel {
         union in_addr_union local;
         union in_addr_union remote;
 
-        Ip6TnlMode ip6tnl_mode;
+        TunnelMode mode;
         FooOverUDPEncapType fou_encap_type;
 
         int pmtudisc;
@@ -122,10 +122,10 @@ extern const NetDevVTable ip6gretap_vtable;
 extern const NetDevVTable ip6tnl_vtable;
 extern const NetDevVTable erspan_vtable;
 
-const char* ip6tnl_mode_to_string(Ip6TnlMode d) _const_;
-Ip6TnlMode ip6tnl_mode_from_string(const char *d) _pure_;
+const char* tunnel_mode_to_string(TunnelMode d) _const_;
+TunnelMode tunnel_mode_from_string(const char *d) _pure_;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_ip6tnl_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_local_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_tunnel_remote_address);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_flowlabel);

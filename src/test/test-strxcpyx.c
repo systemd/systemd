@@ -2,7 +2,6 @@
 
 #include <stdio.h>
 
-#include "string-util.h"
 #include "strxcpyx.h"
 #include "tests.h"
 

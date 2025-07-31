@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-bus.h"
+#include "sd-bus-protocol.h"
 
 #include "errno-util.h"
-#include "macro.h"
+#include "forward.h"
 
 bool bus_error_is_dirty(sd_bus_error *e);
 

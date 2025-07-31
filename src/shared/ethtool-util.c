@@ -1,22 +1,27 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/ethtool.h>
+#include <linux/sockios.h>
 #include <net/if.h>
 #include <sys/ioctl.h>
-#include <linux/ethtool.h>
-#include <linux/netdevice.h>
-#include <linux/sockios.h>
 
+#include "alloc-util.h"
 #include "conf-parser.h"
+#include "errno-util.h"
+#include "ether-addr-util.h"
 #include "ethtool-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "log.h"
 #include "macro-fundamental.h"
 #include "memory-util.h"
+#include "parse-util.h"
 #include "socket-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "time-util.h"
 
 static const char* const duplex_table[_DUP_MAX] = {
         [DUP_FULL] = "full",
@@ -152,7 +157,7 @@ static const char* const netdev_feature_table[_NET_DEV_FEAT_MAX] = {
 };
 
 static const char* const ethtool_link_mode_bit_table[] = {
-#  include "ethtool-link-mode.h"
+#  include "ethtool-link-mode.inc"
 };
 /* Make sure the array is large enough to fit all bits */
 assert_cc((ELEMENTSOF(ethtool_link_mode_bit_table)-1) / 32 < N_ADVERTISE);

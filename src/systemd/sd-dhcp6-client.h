@@ -19,19 +19,17 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <net/ethernet.h>
-#include <sys/types.h>
-
-#include "sd-device.h"
-#include "sd-dhcp-duid.h"
-#include "sd-dhcp6-lease.h"
-#include "sd-dhcp6-option.h"
-#include "sd-event.h"
-
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
+
+struct in6_addr;
+
+typedef struct sd_dhcp_duid sd_dhcp_duid;
+typedef struct sd_dhcp6_option sd_dhcp6_option;
+typedef struct sd_dhcp6_lease sd_dhcp6_lease;
+typedef struct sd_device sd_device;
+typedef struct sd_event sd_event;
 
 enum {
         SD_DHCP6_CLIENT_EVENT_STOP                      = 0,

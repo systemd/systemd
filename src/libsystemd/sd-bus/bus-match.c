@@ -1,14 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-match.h"
 #include "bus-message.h"
-#include "fd-util.h"
-#include "fileio.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "memstream-util.h"
 #include "sort-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -48,17 +50,17 @@
  *      ` BUS_MATCH_LEAF: E
  */
 
-static bool BUS_MATCH_IS_COMPARE(enum bus_match_node_type t) {
+static bool BUS_MATCH_IS_COMPARE(BusMatchNodeType t) {
         return t >= BUS_MATCH_SENDER && t <= BUS_MATCH_ARG_HAS_LAST;
 }
 
-static bool BUS_MATCH_CAN_HASH(enum bus_match_node_type t) {
+static bool BUS_MATCH_CAN_HASH(BusMatchNodeType t) {
         return (t >= BUS_MATCH_MESSAGE_TYPE && t <= BUS_MATCH_PATH) ||
                 (t >= BUS_MATCH_ARG && t <= BUS_MATCH_ARG_LAST) ||
                 (t >= BUS_MATCH_ARG_HAS && t <= BUS_MATCH_ARG_HAS_LAST);
 }
 
-static void bus_match_node_free(struct bus_match_node *node) {
+static void bus_match_node_free(BusMatchNode *node) {
         assert(node);
         assert(node->parent);
         assert(!node->child);
@@ -100,7 +102,7 @@ static void bus_match_node_free(struct bus_match_node *node) {
         free(node);
 }
 
-static bool bus_match_node_maybe_free(struct bus_match_node *node) {
+static bool bus_match_node_maybe_free(BusMatchNode *node) {
         assert(node);
 
         if (node->type == BUS_MATCH_ROOT)
@@ -117,8 +119,8 @@ static bool bus_match_node_maybe_free(struct bus_match_node *node) {
 }
 
 static bool value_node_test(
-                struct bus_match_node *node,
-                enum bus_match_node_type parent_type,
+                BusMatchNode *node,
+                BusMatchNodeType parent_type,
                 uint8_t value_u8,
                 const char *value_str,
                 char **value_strv,
@@ -201,8 +203,8 @@ static bool value_node_test(
 }
 
 static bool value_node_same(
-                struct bus_match_node *node,
-                enum bus_match_node_type parent_type,
+                BusMatchNode *node,
+                BusMatchNodeType parent_type,
                 uint8_t value_u8,
                 const char *value_str) {
 
@@ -237,7 +239,7 @@ static bool value_node_same(
 
 int bus_match_run(
                 sd_bus *bus,
-                struct bus_match_node *node,
+                BusMatchNode *node,
                 sd_bus_message *m) {
 
         _cleanup_strv_free_ char **test_strv = NULL;
@@ -376,7 +378,7 @@ int bus_match_run(
         }
 
         if (BUS_MATCH_CAN_HASH(node->type)) {
-                struct bus_match_node *found;
+                BusMatchNode *found;
 
                 /* Lookup via hash table, nice! So let's jump directly. */
 
@@ -405,7 +407,7 @@ int bus_match_run(
                 }
         } else
                 /* No hash table, so let's iterate manually... */
-                for (struct bus_match_node *c = node->child; c; c = c->next) {
+                for (BusMatchNode *c = node->child; c; c = c->next) {
                         if (!value_node_test(c, node->type, test_u8, test_str, test_strv, m))
                                 continue;
 
@@ -425,13 +427,13 @@ int bus_match_run(
 }
 
 static int bus_match_add_compare_value(
-                struct bus_match_node *where,
-                enum bus_match_node_type t,
+                BusMatchNode *where,
+                BusMatchNodeType t,
                 uint8_t value_u8,
                 const char *value_str,
-                struct bus_match_node **ret) {
+                BusMatchNode **ret) {
 
-        struct bus_match_node *c, *n = NULL;
+        BusMatchNode *c, *n = NULL;
         int r;
 
         assert(where);
@@ -460,7 +462,7 @@ static int bus_match_add_compare_value(
         } else {
                 /* Comparison node, doesn't exist yet? Then let's create it. */
 
-                c = new0(struct bus_match_node, 1);
+                c = new0(BusMatchNode, 1);
                 if (!c) {
                         r = -ENOMEM;
                         goto fail;
@@ -488,7 +490,7 @@ static int bus_match_add_compare_value(
                 }
         }
 
-        n = new0(struct bus_match_node, 1);
+        n = new0(BusMatchNode, 1);
         if (!n) {
                 r = -ENOMEM;
                 goto fail;
@@ -537,16 +539,16 @@ fail:
 }
 
 static int bus_match_add_leaf(
-                struct bus_match_node *where,
-                struct match_callback *callback) {
+                BusMatchNode *where,
+                BusMatchCallback *callback) {
 
-        struct bus_match_node *n;
+        BusMatchNode *n;
 
         assert(where);
         assert(IN_SET(where->type, BUS_MATCH_ROOT, BUS_MATCH_VALUE));
         assert(callback);
 
-        n = new0(struct bus_match_node, 1);
+        n = new0(BusMatchNode, 1);
         if (!n)
                 return -ENOMEM;
 
@@ -564,7 +566,7 @@ static int bus_match_add_leaf(
         return 1;
 }
 
-enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n) {
+BusMatchNodeType bus_match_node_type_from_string(const char *k, size_t n) {
         assert(k);
 
         if (n == 4 && startswith(k, "type"))
@@ -594,7 +596,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
 
         if (n == 5 && startswith(k, "arg")) {
                 int a, b;
-                enum bus_match_node_type t;
+                BusMatchNodeType t;
 
                 a = undecchar(k[3]);
                 b = undecchar(k[4]);
@@ -619,7 +621,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
         }
 
         if (n == 9 && startswith(k, "arg") && startswith(k + 5, "path")) {
-                enum bus_match_node_type t;
+                BusMatchNodeType t;
                 int a, b;
 
                 a = undecchar(k[3]);
@@ -645,7 +647,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
         }
 
         if (n == 14 && startswith(k, "arg") && startswith(k + 5, "namespace")) {
-                enum bus_match_node_type t;
+                BusMatchNodeType t;
                 int a, b;
 
                 a = undecchar(k[3]);
@@ -671,7 +673,7 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
         }
 
         if (n == 8 && startswith(k, "arg") && startswith(k + 5, "has")) {
-                enum bus_match_node_type t;
+                BusMatchNodeType t;
                 int a, b;
 
                 a = undecchar(k[3]);
@@ -689,11 +691,11 @@ enum bus_match_node_type bus_match_node_type_from_string(const char *k, size_t n
         return -EINVAL;
 }
 
-static int match_component_compare(const struct bus_match_component *a, const struct bus_match_component *b) {
+static int match_component_compare(const BusMatchComponent *a, const BusMatchComponent *b) {
         return CMP(a->type, b->type);
 }
 
-void bus_match_parse_free(struct bus_match_component *components, size_t n_components) {
+void bus_match_parse_free(BusMatchComponent *components, size_t n_components) {
         for (size_t i = 0; i < n_components; i++)
                 free(components[i].value_str);
 
@@ -702,10 +704,10 @@ void bus_match_parse_free(struct bus_match_component *components, size_t n_compo
 
 int bus_match_parse(
                 const char *match,
-                struct bus_match_component **ret_components,
+                BusMatchComponent **ret_components,
                 size_t *ret_n_components) {
 
-        struct bus_match_component *components = NULL;
+        BusMatchComponent *components = NULL;
         size_t n_components = 0;
         int r;
 
@@ -717,7 +719,7 @@ int bus_match_parse(
 
         while (*match != '\0') {
                 const char *eq, *q;
-                enum bus_match_node_type t;
+                BusMatchNodeType t;
                 size_t j = 0;
                 _cleanup_free_ char *value = NULL;
                 bool escaped = false, quoted;
@@ -794,7 +796,7 @@ int bus_match_parse(
                 if (!GREEDY_REALLOC(components, n_components + 1))
                         return -ENOMEM;
 
-                components[n_components++] = (struct bus_match_component) {
+                components[n_components++] = (BusMatchComponent) {
                         .type = t,
                         .value_str = TAKE_PTR(value),
                         .value_u8 = u,
@@ -823,7 +825,7 @@ int bus_match_parse(
         return 0;
 }
 
-char* bus_match_to_string(struct bus_match_component *components, size_t n_components) {
+char* bus_match_to_string(BusMatchComponent *components, size_t n_components) {
         _cleanup_(memstream_done) MemStream m = {};
         FILE *f;
         int r;
@@ -864,10 +866,10 @@ char* bus_match_to_string(struct bus_match_component *components, size_t n_compo
 }
 
 int bus_match_add(
-                struct bus_match_node *root,
-                struct bus_match_component *components,
+                BusMatchNode *root,
+                BusMatchComponent *components,
                 size_t n_components,
-                struct match_callback *callback) {
+                BusMatchCallback *callback) {
 
         int r;
 
@@ -888,10 +890,10 @@ int bus_match_add(
 }
 
 int bus_match_remove(
-                struct bus_match_node *root,
-                struct match_callback *callback) {
+                BusMatchNode *root,
+                BusMatchCallback *callback) {
 
-        struct bus_match_node *node, *pp;
+        BusMatchNode *node, *pp;
 
         assert(root);
         assert(callback);
@@ -920,8 +922,8 @@ int bus_match_remove(
         return 1;
 }
 
-void bus_match_free(struct bus_match_node *node) {
-        struct bus_match_node *c;
+void bus_match_free(BusMatchNode *node) {
+        BusMatchNode *c;
 
         if (!node)
                 return;
@@ -941,7 +943,7 @@ void bus_match_free(struct bus_match_node *node) {
                 bus_match_node_free(node);
 }
 
-const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[], size_t l) {
+const char* bus_match_node_type_to_string(BusMatchNodeType t, char buf[], size_t l) {
         switch (t) {
 
         case BUS_MATCH_ROOT:
@@ -991,7 +993,7 @@ const char* bus_match_node_type_to_string(enum bus_match_node_type t, char buf[]
         }
 }
 
-void bus_match_dump(FILE *out, struct bus_match_node *node, unsigned level) {
+void bus_match_dump(FILE *out, BusMatchNode *node, unsigned level) {
         char buf[32];
 
         if (!node)
@@ -1013,16 +1015,16 @@ void bus_match_dump(FILE *out, struct bus_match_node *node, unsigned level) {
                 putc('\n', out);
 
         if (BUS_MATCH_CAN_HASH(node->type)) {
-                struct bus_match_node *c;
+                BusMatchNode *c;
                 HASHMAP_FOREACH(c, node->compare.children)
                         bus_match_dump(out, c, level + 1);
         }
 
-        for (struct bus_match_node *c = node->child; c; c = c->next)
+        for (BusMatchNode *c = node->child; c; c = c->next)
                 bus_match_dump(out, c, level + 1);
 }
 
-enum bus_match_scope bus_match_get_scope(const struct bus_match_component *components, size_t n_components) {
+BusMatchScope bus_match_get_scope(const BusMatchComponent *components, size_t n_components) {
         bool found_driver = false;
 
         if (n_components <= 0)
@@ -1037,7 +1039,7 @@ enum bus_match_scope bus_match_get_scope(const struct bus_match_component *compo
          * driver. */
 
         for (size_t i = 0; i < n_components; i++) {
-                const struct bus_match_component *c = components + i;
+                const BusMatchComponent *c = components + i;
 
                 if (c->type == BUS_MATCH_SENDER) {
                         if (streq_ptr(c->value_str, "org.freedesktop.DBus.Local"))

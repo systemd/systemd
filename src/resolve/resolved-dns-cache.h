@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hashmap.h"
-#include "list.h"
-#include "prioq.h"
-#include "resolve-util.h"
-#include "resolved-dns-dnssec.h"
-#include "time-util.h"
+#include "resolved-forward.h"
 
 typedef struct DnsCache {
         Hashmap *by_key;
@@ -14,11 +9,6 @@ typedef struct DnsCache {
         unsigned n_hit;
         unsigned n_miss;
 } DnsCache;
-
-#include "resolved-dns-answer.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 
 void dns_cache_flush(DnsCache *c);
 void dns_cache_prune(DnsCache *c);

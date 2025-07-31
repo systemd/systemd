@@ -1,23 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <linux/prctl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
-#include <sys/types.h>
+#include <unistd.h>
 
 #include "sd-event.h"
 
+#include "argv-util.h"
 #include "build-path.h"
 #include "capability-util.h"
-#include "cpu-set-util.h"
 #include "copy.h"
+#include "cpu-set-util.h"
 #include "dropin.h"
 #include "errno-list.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "macro.h"
 #include "manager.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -27,11 +30,11 @@
 #include "seccomp-util.h"
 #include "service.h"
 #include "signal-util.h"
-#include "static-destruct.h"
 #include "stat-util.h"
+#include "static-destruct.h"
+#include "strv.h"
 #include "sysctl-util.h"
 #include "tests.h"
-#include "tmpfile-util.h"
 #include "unit.h"
 #include "user-util.h"
 #include "virt.h"
@@ -60,7 +63,7 @@ static int time_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         int r;
 
         log_error("Test timeout when testing %s", unit->id);
-        r = unit_kill(unit, KILL_ALL, SIGKILL, SI_USER, 0, NULL);
+        r = unit_kill(unit, KILL_ALL, /* subgroup= */ NULL, SIGKILL, SI_USER, /* value= */ 0, /* ret_error= */ NULL);
         if (r < 0)
                 log_error_errno(r, "Failed to kill %s, ignoring: %m", unit->id);
 
@@ -220,9 +223,7 @@ static void start_parent_slices(Unit *unit) {
         slice = UNIT_GET_SLICE(unit);
         if (slice) {
                 start_parent_slices(slice);
-                int r = unit_start(slice, NULL);
-                if (r != -EALREADY)
-                        ASSERT_OK(r);
+                ASSERT_OK_OR(unit_start(slice, NULL), -EALREADY);
         }
 }
 
@@ -329,7 +330,7 @@ static void test_exec_bindpaths(Manager *m) {
 }
 
 static void test_exec_cpuaffinity(Manager *m) {
-        _cleanup_(cpu_set_reset) CPUSet c = {};
+        _cleanup_(cpu_set_done) CPUSet c = {};
 
         ASSERT_OK(cpu_set_realloc(&c, 8192)); /* just allocate the maximum possible size */
         ASSERT_OK_ERRNO(sched_getaffinity(0, c.allocated, c.set));
@@ -490,6 +491,24 @@ static void test_exec_privatetmp(Manager *m) {
         if (MANAGER_IS_SYSTEM(m) || have_userns_privileges()) {
                 test(m, "exec-privatetmp-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
                 test(m, "exec-privatetmp-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+
+                (void) unlink("/tmp/test-exec_privatetmp_disconnected");
+                test(m, "exec-privatetmp-disconnected-nodefaultdeps-nor-sandboxing.service", 0, CLD_EXITED);
+                ASSERT_OK_ERRNO(access("/tmp/test-exec_privatetmp_disconnected", F_OK));
+
+                FOREACH_STRING(s,
+                               "exec-privatetmp-disconnected.service",
+                               "exec-privatetmp-disconnected-defaultdependencies-no.service",
+                               "exec-privatetmp-disconnected-requires-mounts-for-var.service",
+                               "exec-privatetmp-disconnected-wants-mounts-for-var.service",
+                               "exec-privatetmp-disconnected-after-and-requires-for-var.service",
+                               "exec-privatetmp-disconnected-after-and-wants-for-var.service") {
+                        (void) unlink("/tmp/test-exec_privatetmp_disconnected");
+                        (void) unlink("/var/tmp/test-exec_privatetmp_disconnected");
+                        test(m, s, can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
+                        ASSERT_FAIL(access("/tmp/test-exec_privatetmp_disconnected", F_OK));
+                        ASSERT_FAIL(access("/var/tmp/test-exec_privatetmp_disconnected", F_OK));
+                }
         }
 
         test(m, "exec-privatetmp-no.service", 0, CLD_EXITED);
@@ -1451,7 +1470,6 @@ static int prepare_ns(const char *process_name) {
         ASSERT_OK(r);
         if (r == 0) {
                 _cleanup_free_ char *unit_dir = NULL, *build_dir = NULL, *build_dir_mount = NULL;
-                int ret;
 
                 const char *coverage = getenv("COVERAGE_BUILD_DIR");
                 if (!coverage)
@@ -1473,9 +1491,7 @@ static int prepare_ns(const char *process_name) {
                 ASSERT_OK(copy_directory_at(AT_FDCWD, unit_dir, AT_FDCWD, PRIVATE_UNIT_DIR, COPY_MERGE_EMPTY));
 
                 /* Mount tmpfs on the following directories to make not StateDirectory= or friends disturb the host. */
-                ret = get_build_exec_dir(&build_dir);
-                if (ret != -ENOEXEC)
-                        ASSERT_OK(ret);
+                ASSERT_OK_OR(get_build_exec_dir(&build_dir), -ENOEXEC);
 
                 if (build_dir) {
                         /* Account for a build directory being in one of the soon-to-be-tmpfs directories. If we
@@ -1491,11 +1507,11 @@ static int prepare_ns(const char *process_name) {
                         ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "tmpfs", p, "tmpfs", MS_NOSUID|MS_NODEV, NULL));
 
                 if (build_dir_mount) {
-                        ret = RET_NERRNO(access(build_dir, F_OK));
-                        if (ret != -ENOENT)
-                                ASSERT_OK(ret);
+                        int k;
 
-                        if (ret == -ENOENT) {
+                        ASSERT_OK_OR(k = RET_NERRNO(access(build_dir, F_OK)), -ENOENT);
+
+                        if (k == -ENOENT) {
                                 /* The build directory got overmounted by tmpfs, so let's use the "backup" bind mount to
                                  * bring it back. */
                                 ASSERT_OK(mkdir_p(build_dir, 0755));

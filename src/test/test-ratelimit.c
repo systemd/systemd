@@ -2,7 +2,6 @@
 
 #include <unistd.h>
 
-#include "macro.h"
 #include "ratelimit.h"
 #include "tests.h"
 #include "time-util.h"

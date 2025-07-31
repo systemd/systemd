@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/if_arp.h>
 
 #include "arphrd-util.h"
-#include "string-util.h"
 #include "tests.h"
 
 TEST(arphrd) {

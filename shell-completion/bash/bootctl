@@ -25,7 +25,7 @@ __contains_word () {
 }
 
 __get_entry_ids() {
-    bootctl --no-pager list 2>/dev/null | { while read -r a b; do [[ $a == 'id:' ]] && echo " $b"; done }
+    bootctl --no-pager list 2>/dev/null | { while read -r a b; do [[ $a == 'id:' ]] && echo " $b"; done; }
 }
 
 _bootctl() {
@@ -70,8 +70,7 @@ _bootctl() {
     fi
 
     local -A VERBS=(
-        # systemd-efi-options takes an argument, but it is free-form, so we cannot complete it
-        [STANDALONE]='help status install update remove is-installed random-seed systemd-efi-options list set-timeout set-timeout-oneshot cleanup'
+        [STANDALONE]='help status install update remove is-installed random-seed list set-timeout set-timeout-oneshot cleanup'
         [BOOTENTRY]='set-default set-oneshot unlink'
         [BOOLEAN]='reboot-to-firmware'
         [FILE]='kernel-identify kernel-inspect'
@@ -94,7 +93,7 @@ _bootctl() {
             if ! __contains_word "${COMP_WORDS[i]}" ${OPTS[*]} ${VERBS[*]} &&
                     ! __contains_word "${COMP_WORDS[i-1]}" ${OPTS[ARG]}; then
                 name=${COMP_WORDS[i]}
-                break;
+                break
             fi
         done
 

@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
 #include "list.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef enum ConditionType {
         CONDITION_ARCHITECTURE,
@@ -61,12 +58,13 @@ typedef enum ConditionResult {
 } ConditionResult;
 
 typedef struct Condition {
+        /* Use bitfields for ConditionType and ConditionResult to keep the whole struct in 32 bytes. */
         ConditionType type:8;
 
-        bool trigger:1;
-        bool negate:1;
+        bool trigger;
+        bool negate;
 
-        ConditionResult result:6;
+        ConditionResult result:8;
 
         char *parameter;
 
@@ -91,9 +89,11 @@ void condition_dump_list(Condition *c, FILE *f, const char *prefix, condition_to
 
 const char* condition_type_to_string(ConditionType t) _const_;
 ConditionType condition_type_from_string(const char *s) _pure_;
+void condition_types_list(void);
 
 const char* assert_type_to_string(ConditionType t) _const_;
 ConditionType assert_type_from_string(const char *s) _pure_;
+void assert_types_list(void);
 
 const char* condition_result_to_string(ConditionResult r) _const_;
 ConditionResult condition_result_from_string(const char *s) _pure_;

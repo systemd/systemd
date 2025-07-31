@@ -1,0 +1,108 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_device_enumerator_get_device_first" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_device_enumerator_get_device_first</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_device_enumerator_get_device_first</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_device_enumerator_get_device_first</refname>
+    <refname>sd_device_enumerator_get_device_next</refname>
+    <refname>sd_device_enumerator_get_subsystem_first</refname>
+    <refname>sd_device_enumerator_get_subsystem_next</refname>
+
+    <refpurpose>Enumerates devices and get the first or next device.</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-device.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>sd_device *<function>sd_device_enumerator_get_device_first</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device *<function>sd_device_enumerator_get_device_next</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device *<function>sd_device_enumerator_get_subsystem_first</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>sd_device *<function>sd_device_enumerator_get_subsystem_next</function></funcdef>
+        <paramdef>sd_device_enumerator *<parameter>enumerator</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para>The <function>sd_device_enumerator_get_device_first()</function> function enumerates all
+    matching devices under <filename>/sys/bus/<replaceable>SUBSYSTEM</replaceable>/devices/</filename>
+    and <filename>/sys/class/<replaceable>SUBSYSTEM</replaceable>/devices/</filename>,
+    and returns a pointer to the first <type>sd_device</type> object. If no devices are found,
+    <constant>NULL</constant> is returned.</para>
+
+    <para>The <function>sd_device_enumerator_get_device_next()</function> function returns the pointer
+    to the next <type>sd_device</type> from the <parameter>enumerator</parameter>. It should
+    be called after <function>sd_device_enumerator_get_device_first()</function> or after a previous
+    call to this function. If no more devices are available, <constant>NULL</constant> is returned.</para>
+
+    <para>The <function>sd_device_enumerator_get_subsystem_first()</function> function enumerates all
+    matching subsystem devices in <filename>/sys/module/</filename>, <filename>/sys/bus/</filename>,
+    and <filename>/sys/bus/<replaceable>SUBSYSTEM</replaceable>/drivers/</filename>
+    (such as <filename>/sys/bus/pci/drivers/</filename>). It returns a pointer to the first
+    <type>sd_device</type> object. If no devices are found <constant>NULL</constant> is returned.
+    Note that this does <emphasis>not</emphasis> enumerate devices provided by
+    <function>sd_device_enumerator_get_device_first/next()</function>. Hence, e.g.
+    <filename>/sys/bus/pci/</filename>, <filename>/sys/bus/pci/drivers/ahci/</filename> and so on are
+    enumerated, but <filename>/sys/bus/pci/devices/0000:00:00.0/</filename> and so on are not.</para>
+
+    <para>The <function>sd_device_enumerator_get_subsystem_next()</function> function returns the next
+    subsystem device from the enumerator. It should be called after
+    <function>sd_device_enumerator_get_subsystem_first()</function> or after a previous call to this
+    function. If no more subsystem devices are available, <constant>NULL</constant> is returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+    <para>On success, these functions return a pointer to an <type>sd_device</type> object.
+    On failure or when no more devices are available, <constant>NULL</constant> is returned. The
+    returned pointers are owned by the enumerator and should not be freed by the caller.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_device_enumerator_get_device_first()</function>,
+    <function>sd_device_enumerator_get_device_next()</function>,
+    <function>sd_device_enumerator_get_subsystem_first()</function>, and
+    <function>sd_device_enumerator_get_subsystem_next()</function> were introduced in systemd version
+    240.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>sd_device_enumerator_new</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_enumerator_add_match_parent</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_device_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

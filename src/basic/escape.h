@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
-#include <uchar.h>
-
-#include "string-util.h"
+#include "forward.h"
 
 /* What characters are special in the shell? */
 /* must be escaped outside and inside double-quotes */
@@ -53,7 +47,7 @@ static inline ssize_t cunescape_length(const char *s, size_t length, UnescapeFla
         return cunescape_length_with_prefix(s, length, NULL, flags, ret);
 }
 static inline ssize_t cunescape(const char *s, UnescapeFlags flags, char **ret) {
-        return cunescape_length(s, strlen(s), flags, ret);
+        return cunescape_length(s, SIZE_MAX, flags, ret);
 }
 
 typedef enum XEscapeFlags {
@@ -71,4 +65,4 @@ char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFl
 
 char* shell_escape(const char *s, const char *bad);
 char* shell_maybe_quote(const char *s, ShellEscapeFlags flags);
-char* quote_command_line(char **argv, ShellEscapeFlags flags);
+char* quote_command_line(char * const *argv, ShellEscapeFlags flags);

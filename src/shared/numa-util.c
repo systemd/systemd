@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <sched.h>
 
 #include "alloc-util.h"
@@ -8,11 +7,12 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "macro.h"
-#include "missing_syscall.h"
+#include "log.h"
 #include "numa-util.h"
+#include "parse-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
+#include "string-util.h"
 
 bool numa_policy_is_valid(const NUMAPolicy *policy) {
         assert(policy);
@@ -90,17 +90,15 @@ int apply_numa_policy(const NUMAPolicy *policy) {
 }
 
 int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
+        _cleanup_(cpu_set_done) CPUSet s = {};
         int r;
-        size_t i;
-        _cleanup_(cpu_set_reset) CPUSet s = {};
 
         assert(policy);
         assert(ret);
 
-        for (i = 0; i < policy->nodes.allocated * 8; i++) {
+        for (size_t i = 0; i < policy->nodes.allocated * 8; i++) {
                 _cleanup_free_ char *l = NULL;
                 char p[STRLEN("/sys/devices/system/node/node//cpulist") + DECIMAL_STR_MAX(size_t) + 1];
-                _cleanup_(cpu_set_reset) CPUSet part = {};
 
                 if (!CPU_ISSET_S(i, policy->nodes.allocated, policy->nodes.set))
                         continue;
@@ -111,11 +109,12 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
                 if (r < 0)
                         return r;
 
+                _cleanup_(cpu_set_done) CPUSet part = {};
                 r = parse_cpu_set(l, &part);
                 if (r < 0)
                         return r;
 
-                r = cpu_set_add_all(&s, &part);
+                r = cpu_set_add_set(&s, &part);
                 if (r < 0)
                         return r;
         }

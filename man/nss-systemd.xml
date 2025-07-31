@@ -100,7 +100,7 @@ lrwxrwxrwx. 1 root root   19 May 10 4711.user-privileged -> foobar.user-privileg
     <literal><replaceable>username</replaceable>:<replaceable>groupname</replaceable>.membership</literal>
     should be created, i.e. the textual UNIX user name, followed by a colon, followed by the textual UNIX
     group name, suffixed by <literal>.membership</literal>. The contents of these files are currently not
-    read, and the files should be created empty. The mere existence of these files is enough to effect a
+    read, and the files should be created empty. The mere existence of these files is enough to affect a
     user/group membership. If a program provides user and/or group record files in the searched directories,
     it should always also create such files, both for primary and auxiliary group memberships.</para>
 
@@ -108,6 +108,12 @@ lrwxrwxrwx. 1 root root   19 May 10 4711.user-privileged -> foobar.user-privileg
     <filename>/etc/passwd</filename> or <filename>/etc/group</filename> or other account databases. In fact,
     before dropping in these files a reasonable level of care should be taken to avoid user/group name and
     UID/GID conflicts.</para>
+
+    <para>The <filename>systemd-userdb-load-credentials.service</filename> service automatically runs at boot
+    and installs these files from user records passed in via system credentials. See
+    <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    for details.</para>
   </refsect1>
 
   <refsect1>
@@ -186,6 +192,8 @@ vu-rawhide-1000  1637 pts/8    -zsh
       <member><citerefentry><refentrytitle>systemd-userdbd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>nsswitch.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>getent</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>

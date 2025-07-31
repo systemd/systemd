@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"
-#include "hwdb-util.h"
+#include "errno-util.h"
 #include "libudev-list-internal.h"
 
 /**
@@ -34,7 +32,7 @@ struct udev_hwdb {
  *
  * Returns: a hwdb context.
  **/
-_public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
+_public_ struct udev_hwdb* udev_hwdb_new(struct udev *udev) {
         _cleanup_(udev_list_freep) struct udev_list *list = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb_internal = NULL;
         struct udev_hwdb *hwdb;
@@ -61,7 +59,7 @@ _public_ struct udev_hwdb *udev_hwdb_new(struct udev *udev) {
         return hwdb;
 }
 
-static struct udev_hwdb *udev_hwdb_free(struct udev_hwdb *hwdb) {
+static struct udev_hwdb* udev_hwdb_free(struct udev_hwdb *hwdb) {
         assert(hwdb);
 
         sd_hwdb_unref(hwdb->hwdb);
@@ -102,7 +100,7 @@ DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_hwdb, udev_hwdb, udev_hwdb_free
  *
  * Returns: a udev_list_entry.
  */
-_public_ struct udev_list_entry *udev_hwdb_get_properties_list_entry(struct udev_hwdb *hwdb, const char *modalias, unsigned flags) {
+_public_ struct udev_list_entry* udev_hwdb_get_properties_list_entry(struct udev_hwdb *hwdb, const char *modalias, unsigned flags) {
         const char *key, *value;
         struct udev_list_entry *e;
 

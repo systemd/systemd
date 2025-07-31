@@ -2,11 +2,8 @@
 #pragma once
 
 #include <dirent.h>
-#include <limits.h>
 
-#include "errno-list.h"
-#include "stat-util.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef enum RecurseDirFlags {
         /* Interpreted by readdir_all() */

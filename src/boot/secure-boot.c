@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "console.h"
+#include "efi-efivars.h"
+#include "efi-log.h"
 #include "efi-string-table.h"
-#include "efivars.h"
 #include "proto/security-arch.h"
 #include "secure-boot.h"
 #include "util.h"
@@ -69,7 +70,7 @@ static EFI_STATUS set_custom_mode(bool enable) {
                                attr, sizeof(mode), &mode);
 }
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force) {
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force, secure_boot_enroll_action action) {
         assert(root_dir);
         assert(path);
 
@@ -94,8 +95,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 for (;;) {
                         printf("\rEnrolling in %2u s, press any key to abort.", timeout_sec);
 
-                        uint64_t key;
-                        err = console_key_read(&key, 1000 * 1000);
+                        err = console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 1000 * 1000);
                         if (err == EFI_NOT_READY)
                                 continue;
                         if (err == EFI_TIMEOUT) {
@@ -120,7 +120,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
 
         err = open_directory(root_dir, path, &dir);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed opening keys directory %ls: %m", path);
+                return log_error_status(err, "Failed to open keys directory %ls: %m", path);
 
         struct {
                 const char16_t *name;
@@ -140,7 +140,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         FOREACH_ELEMENT(sb_var, sb_vars) {
                 err = file_read(dir, sb_var->filename, 0, 0, &sb_var->buffer, &sb_var->size);
                 if (err != EFI_SUCCESS && sb_var->required) {
-                        log_error_status(err, "Failed reading file %ls\\%ls: %m", path, sb_var->filename);
+                        log_error_status(err, "Failed to read file %ls\\%ls: %m", path, sb_var->filename);
                         goto out_deallocate;
                 }
                 if (streq16(sb_var->name, u"PK") && sb_var->size > 20) {
@@ -161,7 +161,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         }
 
         if (need_custom_mode && !custom_mode_enabled()) {
-                err = set_custom_mode(/* enable */ true);
+                err = set_custom_mode(/* enable = */ true);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err, "Failed to enable custom mode: %m");
                         goto out_deallocate;
@@ -186,11 +186,21 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 }
         }
 
-        printf("Custom Secure Boot keys successfully enrolled, rebooting the system now!\n");
         /* The system should be in secure boot mode now and we could continue a regular boot. But at least
-         * TPM PCR7 measurements should change on next boot. Reboot now so that any OS we load does not end
-         * up relying on the old PCR state. */
-        RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+         * TPM PCR7 measurements should change on next boot. Reboot/poweroff now so that any OS we load
+         * does not end up relying on the old PCR state.
+         */
+
+        if (action == ENROLL_ACTION_SHUTDOWN) {
+                printf("Custom Secure Boot keys successfully enrolled, powering off the system now!\n");
+                console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 2 * 1000 * 1000); /* wait a bit so user can see the message */
+                RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
+        } else {
+                assert(action == ENROLL_ACTION_REBOOT);
+                printf("Custom Secure Boot keys successfully enrolled, rebooting the system now!\n");
+                console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 2 * 1000 * 1000); /* wait a bit so user can see the message */
+                RT->ResetSystem(EfiResetCold, EFI_SUCCESS, 0, NULL);
+        }
         assert_not_reached();
 
 out_deallocate:
@@ -252,6 +262,7 @@ static EFIAPI EFI_STATUS security2_hook(
  * of their spec. But there is little else we can do to circumvent secure boot short of implementing our own
  * PE loader. We could replace the firmware instances with our own instance using
  * ReinstallProtocolInterface(), but some firmware will still use the old ones. */
+// TODO: now that there is a custom PE loader, this can be dropped once shim < v16 is no longer supported.
 void install_security_override(security_validator_t validator, const void *validator_ctx) {
         EFI_STATUS err;
 
@@ -282,6 +293,14 @@ void install_security_override(security_validator_t validator, const void *valid
         }
 }
 
+bool security_override_available(void) {
+        EFI_SECURITY_ARCH_PROTOCOL *security;
+        EFI_SECURITY2_ARCH_PROTOCOL *security2;
+
+        return BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY_ARCH_PROTOCOL), NULL, (void **) &security) == EFI_SUCCESS &&
+               BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY2_ARCH_PROTOCOL), NULL, (void **) &security2) == EFI_SUCCESS;
+}
+
 void uninstall_security_override(void) {
         if (security_override.original_hook)
                 security_override.security->FileAuthenticationState = security_override.original_hook;
@@ -296,4 +315,10 @@ static const char *secure_boot_enroll_table[_SECURE_BOOT_ENROLL_MAX] = {
         [ENROLL_FORCE]   = "force"
 };
 
+static const char *secure_boot_enroll_action_table[_SECURE_BOOT_ENROLL_ACTION_MAX] = {
+        [ENROLL_ACTION_REBOOT]   = "reboot",
+        [ENROLL_ACTION_SHUTDOWN] = "shutdown"
+};
+
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll, secure_boot_enroll);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(secure_boot_enroll_action, secure_boot_enroll_action);

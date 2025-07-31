@@ -1,36 +1,31 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <sched.h>
 #include <signal.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/resource.h>
-#include <sys/types.h>
 
-#include "alloc-util.h"
+#include "fileio.h"
 #include "format-util.h"
-#include "macro.h"
-#include "pidref.h"
-#include "time-util.h"
+#include "forward.h"
+#include "string-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \
         ({                                                              \
                 pid_t _pid_ = (pid);                                    \
                 const char *_field_ = (field);                          \
                 char *_r_;                                              \
-                if (_pid_ == 0) {                                       \
-                        _r_ = newa(char, STRLEN("/proc/self/") + strlen(_field_) + 1); \
-                        strcpy(stpcpy(_r_, "/proc/self/"), _field_);    \
-                } else {                                                \
+                if (_pid_ == 0)                                         \
+                        _r_ = strjoina("/proc/self/", _field_);         \
+                else {                                                  \
+                        assert(_pid_ > 0);                              \
                         _r_ = newa(char, STRLEN("/proc/") + DECIMAL_STR_MAX(pid_t) + 1 + strlen(_field_) + 1); \
                         sprintf(_r_, "/proc/" PID_FMT "/%s", _pid_, _field_); \
                 }                                                       \
                 (const char*) _r_;                                      \
         })
+
+static inline int procfs_file_get_field(pid_t pid, const char *name, const char *key, char **ret) {
+        return get_proc_field(procfs_file_alloca(pid, name), key, ret);
+}
 
 typedef enum ProcessCmdlineFlags {
         PROCESS_CMDLINE_COMM_FALLBACK = 1 << 0,
@@ -141,17 +136,10 @@ void valgrind_summary_hack(void);
 
 int pid_compare_func(const pid_t *a, const pid_t *b);
 
-static inline bool nice_is_valid(int n) {
-        return n >= PRIO_MIN && n < PRIO_MAX;
-}
+bool nice_is_valid(int n) _const_;
 
-static inline bool sched_policy_is_valid(int i) {
-        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
-}
-
-static inline bool sched_priority_is_valid(int i) {
-        return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
-}
+bool sched_policy_is_valid(int i) _const_;
+bool sched_priority_is_valid(int i) _const_;
 
 #define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer" */
 

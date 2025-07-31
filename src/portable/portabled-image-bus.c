@@ -1,30 +1,32 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <unistd.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
-#include "bus-label.h"
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "discover-image.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
+#include "image-policy.h"
 #include "io-util.h"
 #include "os-util.h"
+#include "path-util.h"
 #include "portable.h"
-#include "portabled-bus.h"
-#include "portabled-image-bus.h"
-#include "portabled-image.h"
 #include "portabled.h"
+#include "portabled-bus.h"
+#include "portabled-image.h"
+#include "portabled-image-bus.h"
+#include "portabled-operation.h"
 #include "process-util.h"
 #include "strv.h"
-#include "user-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, image_type, ImageType);
 
@@ -248,7 +250,7 @@ int bus_image_common_get_metadata(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int bus_image_method_get_metadata(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1154,11 +1156,7 @@ int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, cha
         assert(path);
         assert(nodes);
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = manager_image_cache_discover(m, images, error);
+        r = manager_image_cache_discover(m, &images, error);
         if (r < 0)
                 return r;
 

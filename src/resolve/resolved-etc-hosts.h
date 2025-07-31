@@ -1,9 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "resolved-manager.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-answer.h"
+#include "in-addr-util.h"
+#include "resolved-forward.h"
+
+typedef struct EtcHosts {
+        Hashmap *by_address;
+        Hashmap *by_name;
+        Set *no_address;
+} EtcHosts;
 
 typedef struct EtcHostsItemByAddress {
         struct in_addr_data address;

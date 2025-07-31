@@ -7,11 +7,7 @@
   Author: Auke Kok <auke-jan.h.kok@intel.com>
 ***/
 
-#include <stdbool.h>
-#include <sys/types.h>
-
-#include "label-util.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef enum SmackAttr {
         SMACK_ATTR_ACCESS,
@@ -24,41 +20,14 @@ typedef enum SmackAttr {
         _SMACK_ATTR_INVALID = -EINVAL,
 } SmackAttr;
 
-#if ENABLE_SMACK
 bool mac_smack_use(void);
 
 int mac_smack_read_at(int fd, const char *path, SmackAttr attr, char **ret);
 int mac_smack_apply_at(int fd, const char *path, SmackAttr attr, const char *label);
 
 int mac_smack_apply_pid(pid_t pid, const char *label);
-int mac_smack_copy(const char *dest, const char *src);
 
 int mac_smack_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags);
-#else
-static inline bool mac_smack_use(void) {
-        return false;
-}
-
-static inline int mac_smack_read_at(int fd, const char *path, SmackAttr attr, char **ret) {
-        return -EOPNOTSUPP;
-}
-
-static inline int mac_smack_apply_at(int fd, const char *path, SmackAttr attr, const char *label) {
-        return 0;
-}
-
-static inline int mac_smack_apply_pid(pid_t pid, const char *label) {
-        return 0;
-}
-
-static inline int mac_smack_copy(const char *dest, const char *src) {
-        return 0;
-}
-
-static inline int mac_smack_fix_full(int atfd, const char *inode_path, const char *label_path, LabelFixFlags flags) {
-        return 0;
-}
-#endif
 
 int mac_smack_init(void);
 
@@ -76,9 +45,7 @@ static inline int mac_smack_apply_fd(int fd, SmackAttr attr, const char *label) 
         return mac_smack_apply_at(fd, NULL, attr, label);
 }
 
-static inline int mac_smack_fix(const char *path, LabelFixFlags flags) {
-        return mac_smack_fix_full(AT_FDCWD, path, path, flags);
-}
+int mac_smack_fix(const char *path, LabelFixFlags flags);
 
 int renameat_and_apply_smack_floor_label(int fdf, const char *from, int fdt, const char *to);
 static inline int rename_and_apply_smack_floor_label(const char *from, const char *to) {

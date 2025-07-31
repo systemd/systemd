@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "sd-json.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
+#include "networkd-forward.h"
 
 int addresses_append_json(Link *link, bool serializing, sd_json_variant **v);
 int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant **v);

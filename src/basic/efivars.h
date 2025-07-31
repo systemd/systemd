@@ -1,18 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#if !ENABLE_EFI
-#  include <errno.h>
-#endif
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
+#include "forward.h"
 
 #include "sd-id128.h"
 
-#include "efivars-fundamental.h"
-#include "string-util.h"
-#include "time-util.h"
+#include "efivars-fundamental.h"        /* IWYU pragma: export */
 
 #define EFI_VENDOR_LOADER       SD_ID128_MAKE(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
 #define EFI_VENDOR_LOADER_STR   SD_ID128_MAKE_UUID_STR(4a,67,b0,82,0a,4c,41,cf,b6,c7,44,0b,29,bb,8c,4f)
@@ -88,6 +81,4 @@ static inline SecureBootMode efi_get_secure_boot_mode(void) {
 }
 #endif
 
-static inline char *efi_tilt_backslashes(char *s) {
-        return string_replace_char(s, '\\', '/');
-}
+char *efi_tilt_backslashes(char *s);

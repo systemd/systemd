@@ -24,9 +24,13 @@ trap -p SIGUSR1
 
 systemctl start TEST-23-UNIT-FILE-success.service
 
-while [ "$sigusr1" -eq 0 ] ; do
+for _ in {1..120}; do
     sleep .5
+    if [[ "$sigusr1" == 1 ]]; then
+       break
+    fi
 done
+[[ "$sigusr1" == 1 ]]
 
 systemctl stop TEST-23-UNIT-FILE-uphold.service
 
@@ -46,17 +50,13 @@ rm -f /tmp/TEST-23-UNIT-FILE-retry-fail
 systemctl start TEST-23-UNIT-FILE-retry-uphold.service
 systemctl is-active TEST-23-UNIT-FILE-upheldby-install.service
 
-until systemctl is-failed TEST-23-UNIT-FILE-retry-fail.service ; do
-    sleep .5
-done
+timeout 60 bash -c 'until systemctl is-failed TEST-23-UNIT-FILE-retry-fail.service; do sleep .5; done'
 
 (! systemctl is-active TEST-23-UNIT-FILE-retry-upheld.service)
 
 touch /tmp/TEST-23-UNIT-FILE-retry-fail
 
-until systemctl is-active TEST-23-UNIT-FILE-retry-upheld.service ; do
-    sleep .5
-done
+timeout 60 bash -c 'until systemctl is-active TEST-23-UNIT-FILE-retry-upheld.service; do sleep .5; done'
 
 systemctl stop TEST-23-UNIT-FILE-retry-uphold.service TEST-23-UNIT-FILE-retry-fail.service TEST-23-UNIT-FILE-retry-upheld.service
 
@@ -74,10 +74,13 @@ trap sigusr2=1 SIGUSR2
 
 systemctl start TEST-23-UNIT-FILE-prop-stop-one.service
 
-while [ "$sigusr2" -eq 0 ] ; do
+for _ in {1..120}; do
     sleep .5
+    if [[ "$sigusr2" == 1 ]]; then
+       break
+    fi
 done
-
+[[ "$sigusr2" == 1 ]]
 
 # Idea is this:
 #    1. we start TEST-23-UNIT-FILE-binds-to.service
@@ -92,8 +95,12 @@ trap sigrtmin1=1 SIGRTMIN+1
 
 systemctl start TEST-23-UNIT-FILE-binds-to.service
 
-while [ "$sigrtmin1" -eq 0 ] ; do
+for _ in {1..120}; do
     sleep .5
+    if [[ "$sigrtmin1" == 1 ]]; then
+       break
+    fi
 done
+[[ "$sigrtmin1" == 1 ]]
 
 systemd-analyze log-level info

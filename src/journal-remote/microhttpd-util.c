@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stddef.h>
 #include <stdio.h>
 
 #if HAVE_GNUTLS
@@ -10,10 +9,11 @@
 
 #include "alloc-util.h"
 #include "log.h"
-#include "macro.h"
 #include "microhttpd-util.h"
 #include "string-util.h"
 #include "strv.h"
+
+#if HAVE_MICROHTTPD
 
 void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         char *f;
@@ -296,4 +296,6 @@ int setup_gnutls_logger(char **categories) {
                 log_notice("Ignoring specified gnutls logging categories — gnutls not available.");
         return 0;
 }
+#endif
+
 #endif

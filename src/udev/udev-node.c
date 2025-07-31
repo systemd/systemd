@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <sys/file.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-id128.h"
 
@@ -9,20 +11,23 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "label-util.h"
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "selinux-util.h"
+#include "siphash24.h"
 #include "smack-util.h"
-#include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "udev-node.h"
 #include "user-util.h"
 
@@ -65,7 +70,7 @@ static int node_create_symlink(sd_device *dev, const char *devnode, const char *
                 return log_device_debug_errno(dev, r, "Failed to create parent directory of '%s': %m", slink);
 
         /* use relative link */
-        r = symlink_atomic_full_label(devnode, slink, /* make_relative = */ true);
+        r = symlinkat_atomic_full(devnode, AT_FDCWD, slink, SYMLINK_MAKE_RELATIVE|SYMLINK_LABEL);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to create symlink '%s' to '%s': %m", slink, devnode);
 
@@ -426,7 +431,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
                 return r;
 
         r = node_get_current(slink, dirfd, &current_id, add ? &current_prio : NULL);
-        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r))
+        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(r))
                 return log_device_debug_errno(dev, r, "Failed to get the current device node priority for '%s': %m", slink);
 
         r = stack_directory_update(dev, dirfd, add);
@@ -504,7 +509,11 @@ static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
         if (r < 0)
                 return r;
 
-        return device_path_make_major_minor(device_in_subsystem(dev, "block") ? S_IFBLK : S_IFCHR, devnum, ret);
+        r = device_in_subsystem(dev, "block");
+        if (r < 0)
+                return r;
+
+        return device_path_make_major_minor(r > 0 ? S_IFBLK : S_IFCHR, devnum, ret);
 }
 
 int udev_node_update(sd_device *dev, sd_device *dev_old) {
@@ -693,7 +702,7 @@ int udev_node_apply_permissions(
 
         node_fd = sd_device_open(dev, O_PATH|O_CLOEXEC);
         if (node_fd < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(node_fd)) {
+                if (ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(node_fd)) {
                         log_device_debug_errno(dev, node_fd, "Device node %s is missing, skipping handling.", devnode);
                         return 0; /* This is necessarily racey, so ignore missing the device */
                 }
@@ -726,9 +735,11 @@ int static_node_apply_permissions(
 
         node_fd = open(devnode, O_PATH|O_CLOEXEC);
         if (node_fd < 0) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open %s: %m", devnode);
-                return 0;
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(errno);
+                log_full_errno(ignore ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to open device node '%s'%s: %m",
+                               devnode, ignore ? ", ignoring" : "");
+                return ignore ? 0 : -errno;
         }
 
         if (fstat(node_fd, &stats) < 0)

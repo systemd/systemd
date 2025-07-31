@@ -39,11 +39,11 @@
     stack trace if possible. It may also save the core dump for later processing. See the "Information about
     the crashed process" section below.</para>
 
-    <para>The behavior of a specific program upon reception of a signal is governed by a few
-    factors which are described in detail in
-    <citerefentry project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    In particular, the core dump will only be processed when the related resource limits are sufficient.
-    </para>
+    <para>The behavior of a specific program upon reception of a signal is governed by a few factors which
+    are described in detail in <citerefentry
+    project='man-pages'><refentrytitle>core</refentrytitle><manvolnum>5</manvolnum></citerefentry>.  In
+    particular, the core dump will only be processed when the related process resource limits
+    (<constant>RLIMIT_CORE</constant>) are sufficient.</para>
 
     <para>Core dumps can be written to the journal or saved as a file. In both cases, they can be retrieved
     for further processing, for example in
@@ -53,7 +53,7 @@
 
     <para>By default, <command>systemd-coredump</command> will log the core dump to the journal, including a
     backtrace if possible, and store the core dump (an image of the memory contents of the process) itself in
-    an external file in <filename>/var/lib/systemd/coredump</filename>. These core dumps are deleted after a
+    an external file in <filename>/var/lib/systemd/coredump/</filename>. These core dumps are deleted after a
     few days by default; see <filename>/usr/lib/tmpfiles.d/systemd.conf</filename> for details. Note that the
     removal of core files from the file system and the purging of journal entries are independent, and the
     core file may be present without the journal entry, and journal entries may point to since-removed core
@@ -87,6 +87,43 @@
       metadata fields the caller deems reasonable. <command>systemd-coredump</command> will append additional
       metadata fields in the same way it does for core dumps received from the kernel. In this mode, no core
       dump is stored in the journal.</para>
+    </refsect2>
+
+    <refsect2>
+      <title>Core dumps in Containers/Namespaces</title>
+
+      <para>The <filename>systemd-coredump@.service</filename> service will automatically attempt to extract
+      a stacktrace from a process as it crashes. For this stacktrace symbols will be resolved based on debug
+      information embedded in the crashing ELF image, or equivalent debug information separately available on
+      the host OS. For processes that crash inside of local containers or other mount namespace-based
+      sandboxes, this auxiliary debug information is typically not available on the host (simply because
+      containers typically run different software versions than the
+      host). <filename>systemd-coredump</filename> provides two mechanisms to address this:</para>
+
+      <orderedlist>
+        <listitem><para>For full-OS containers running systemd inside it is a good idea to enable
+        <varname>CoredumpReceive=</varname> on the unit (see
+        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>),
+        which ensures that coredumps of a container are attempted to be forwarded to
+        <filename>systemd-coredump@.service</filename> running inside the container, i.e the container gets
+        to process and store its own core dumps. Note that
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        defaults to this mode if invoked with the <option>--boot</option> switch. This mode of operation is
+        generally recommended for security reasons: the security-sensitive processing of the core dump is
+        done within the confinements of the container itself, by the container's own code, backed by the
+        container's own storage.</para></listitem>
+
+        <listitem><para>Alternatively, for more restricted containers (that do not run a proper
+        <filename>init</filename> system as PID 1) it is possible to enable processing of the core dump on
+        the host, with access to the debug information data from the container itself. This mode of operation
+        must be enabled via <varname>EnterNamespace=</varname> in
+        <citerefentry><refentrytitle>coredump.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        and defaults to off, for security reasons.</para></listitem>
+      </orderedlist>
+
+      <para>If both <varname>CoredumpReceive=</varname> is enabled on the unit of the container the core dump
+      belongs to, and <varname>EnterNamespace=</varname> is enabled in the <filename>coredump.conf</filename>
+      configuration file, the former takes precedence.</para>
     </refsect2>
   </refsect1>
 
@@ -193,6 +230,17 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
       </varlistentry>
 
       <varlistentry>
+        <term><varname>COREDUMP_BY_PIDFD=</varname></term>
+        <listitem><para>If the crashed process was analyzed using a PIDFD provided by the kernel (requires
+        kernel v6.16) then this field will be present and set to <literal>1</literal>. If this field is
+        not set, then the crashed process was analyzed via a PID, which is known to be subject to race
+        conditions.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>COREDUMP_TIMESTAMP=</varname></term>
         <listitem><para>The time of the crash as reported by the kernel (in μs since the epoch).</para>
 
@@ -289,6 +337,18 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
         container's mount namespace.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_DUMPABLE=</varname></term>
+
+        <listitem><para>The <constant>PR_GET_DUMPABLE</constant> field as reported by the kernel, see
+        <citerefentry
+        project='man-pages'><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
       </varlistentry>
 

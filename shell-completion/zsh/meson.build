@@ -6,7 +6,6 @@ if zshcompletiondir == ''
 endif
 
 custom_target(
-        '_systemctl',
         input : '_systemctl.in',
         output : '_systemctl',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

@@ -179,29 +179,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
 
     <para>Units of the types listed above can have settings for resource control configuration:</para>
 
-    <refsect2><title>CPU Accounting and Control</title>
+    <refsect2><title>CPU Control</title>
 
     <variablelist class='unit-directives'>
-
-      <varlistentry>
-        <term><varname>CPUAccounting=</varname></term>
-
-        <listitem>
-          <para>Turn on CPU usage accounting for this unit. Takes a
-          boolean argument. Note that turning on CPU accounting for
-          one unit will also implicitly turn it on for all units
-          contained in the same slice and for all its parent slices
-          and the units contained therein. The system default for this
-          setting may be controlled with
-          <varname>DefaultCPUAccounting=</varname> in
-          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
-
-          <para>Under the unified cgroup hierarchy, CPU accounting is available for all units and this
-          setting has no effect.</para>
-
-          <xi:include href="version-info.xml" xpointer="v208"/>
-        </listitem>
-      </varlistentry>
 
       <varlistentry>
         <term><varname>CPUWeight=<replaceable>weight</replaceable></varname></term>
@@ -1689,7 +1669,8 @@ DeviceAllow=/dev/loop-control
       <variablelist>
         <varlistentry>
           <term>systemd 252</term>
-          <listitem><para> Options for controlling the Legacy Control Group Hierarchy (<ulink
+
+          <listitem><para>Options for controlling the Legacy Control Group Hierarchy (<ulink
           url="https://docs.kernel.org/admin-guide/cgroup-v1/index.html">Control Groups version 1</ulink>)
           are now fully deprecated:
           <varname>CPUShares=<replaceable>weight</replaceable></varname>,
@@ -1703,9 +1684,16 @@ DeviceAllow=/dev/loop-control
           <varname>BlockIOReadBandwidth=<replaceable>device</replaceable>
           <replaceable>bytes</replaceable></varname>,
           <varname>BlockIOWriteBandwidth=<replaceable>device</replaceable> <replaceable>bytes</replaceable></varname>.
-          Please switch to the unified cgroup hierarchy.</para>
+          Please switch to the unified cgroup hierarchy.</para></listitem>
+        </varlistentry>
+      </variablelist>
 
- <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      <variablelist>
+        <varlistentry>
+          <term>systemd 258</term>
+
+          <listitem><para><varname>CPUAccounting=</varname> setting is deprecated, because it is always available
+          on the unified cgroup hierarchy and such setting has no effect.</para></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>

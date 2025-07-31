@@ -1,15 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <arpa/inet.h>
-#include <malloc.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 
+#include "argv-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "resolved-etc-hosts.h"
+#include "set.h"
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"

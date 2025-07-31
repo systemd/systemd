@@ -17,9 +17,8 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include "sd-id128.h"
-
 #include "_sd-common.h"
+#include "sd-id128.h"
 
 _SD_BEGIN_DECLARATIONS;
 
@@ -292,6 +291,15 @@ _SD_BEGIN_DECLARATIONS;
 
 #define SD_MESSAGE_SYSCTL_CHANGED                     SD_ID128_MAKE(9c,f5,6b,8b,af,95,46,cf,94,78,78,3a,8d,e4,21,13)
 #define SD_MESSAGE_SYSCTL_CHANGED_STR                 SD_ID128_MAKE_STR(9c,f5,6b,8b,af,95,46,cf,94,78,78,3a,8d,e4,21,13)
+
+#define SD_MESSAGE_UNIT_ORDERING_CYCLE                SD_ID128_MAKE(f2,7a,3f,94,40,6a,47,83,b9,46,a9,bc,84,9e,94,52)
+#define SD_MESSAGE_UNIT_ORDERING_CYCLE_STR            SD_ID128_MAKE_STR(f2,7a,3f,94,40,6a,47,83,b9,46,a9,bc,84,9e,94,52)
+
+#define SD_MESSAGE_DELETING_JOB_BECAUSE_ORDERING_CYCLE     SD_ID128_MAKE(50,84,36,75,42,f7,47,2d,bc,6a,94,12,5d,5d,eb,ce)
+#define SD_MESSAGE_DELETING_JOB_BECAUSE_ORDERING_CYCLE_STR SD_ID128_MAKE_STR(50,84,36,75,42,f7,47,2d,bc,6a,94,12,5d,5d,eb,ce)
+
+#define SD_MESSAGE_CANT_BREAK_ORDERING_CYCLE          SD_ID128_MAKE(b3,11,2d,da,d1,90,45,53,8c,76,68,5b,a5,91,8a,80)
+#define SD_MESSAGE_CANT_BREAK_ORDERING_CYCLE_STR      SD_ID128_MAKE_STR(b3,11,2d,da,d1,90,45,53,8c,76,68,5b,a5,91,8a,80)
 
 _SD_END_DECLARATIONS;
 

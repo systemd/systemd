@@ -4,12 +4,12 @@
 ***/
 
 #include <getopt.h>
-#include <inttypes.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "analyze.h"
@@ -40,56 +40,38 @@
 #include "analyze-srk.h"
 #include "analyze-syscall-filter.h"
 #include "analyze-time.h"
-#include "analyze-time-data.h"
 #include "analyze-timespan.h"
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
+#include "analyze-unit-gdb.h"
 #include "analyze-unit-paths.h"
+#include "analyze-unit-shell.h"
 #include "analyze-verify.h"
+#include "analyze-verify-util.h"
 #include "build.h"
 #include "bus-error.h"
-#include "bus-locator.h"
-#include "bus-map-properties.h"
 #include "bus-unit-util.h"
+#include "bus-util.h"
 #include "calendarspec.h"
-#include "cap-list.h"
-#include "capability-util.h"
-#include "conf-files.h"
-#include "copy.h"
-#include "constants.h"
-#include "exit-status.h"
+#include "dissect-image.h"
 #include "extract-word.h"
-#include "fd-util.h"
-#include "fileio.h"
-#include "filesystems.h"
-#include "format-table.h"
-#include "glob-util.h"
-#include "hashmap.h"
-#include "locale-util.h"
+#include "image-policy.h"
 #include "log.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
-#include "nulstr-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
-#include "rm-rf.h"
-#if HAVE_SECCOMP
-#  include "seccomp-util.h"
-#endif
-#include "sort-util.h"
-#include "special.h"
-#include "stat-util.h"
+#include "runtime-scope.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
-#include "strxcpyx.h"
-#include "terminal-util.h"
 #include "time-util.h"
-#include "tmpfile-util.h"
+#include "unit-def.h"
 #include "unit-name.h"
-#include "verb-log-control.h"
 #include "verbs.h"
 
 DotMode arg_dot = DEP_ALL;
@@ -99,6 +81,8 @@ usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
 CatFlags arg_cat_flags = 0;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
+char *arg_debugger = NULL;
+char **arg_debugger_args = NULL;
 const char *arg_host = NULL;
 RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 RecursiveErrors arg_recursive_errors = _RECURSIVE_ERRORS_INVALID;
@@ -121,12 +105,16 @@ char *arg_profile = NULL;
 bool arg_legend = true;
 bool arg_table = false;
 ImagePolicy *arg_image_policy = NULL;
+char *arg_drm_device_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_debugger, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_debugger_args, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_security_policy, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_drm_device_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_profile, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
@@ -180,6 +168,29 @@ void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timesp
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
 }
 
+static int verb_transient_settings(int argc, char *argv[], void *userdata) {
+        assert(argc >= 2);
+
+        pager_open(arg_pager_flags);
+
+        bool first = true;
+        STRV_FOREACH(arg, strv_skip(argv, 1)) {
+                UnitType t;
+
+                t = unit_type_from_string(*arg);
+                if (t < 0)
+                        return log_error_errno(t, "Invalid unit type '%s'.", *arg);
+
+                if (!first)
+                        puts("");
+
+                bus_dump_transient_settings(t);
+                first = false;
+        }
+
+        return 0;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;
@@ -221,6 +232,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  architectures [NAME...]    List known architectures\n"
                "  smbios11                   List strings passed via SMBIOS Type #11\n"
                "  chid                       List local CHIDs\n"
+               "  transient-settings TYPE... List transient settings for unit TYPE\n"
                "\n%3$sExpression Evaluation:%4$s\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  compare-versions VERSION1 [OP] VERSION2\n"
@@ -236,6 +248,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "  security [UNIT...]         Analyze security of unit\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
+               "  unit-gdb SERVICE           Attach a debugger to the given running service\n"
+               "  unit-shell SERVICE [Command]\n"
+               "                             Run command on the namespace of the service\n"
                "\n%3$sExecutable Analysis:%4$s\n"
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
                "\n%3$sTPM Operations:%4$s\n"
@@ -287,6 +302,11 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --image=PATH            Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
                "  -m --mask                  Parse parameter as numeric capability mask\n"
+               "     --drm-device=PATH       Use this DRM device sysfs path to get EDID\n"
+               "     --debugger=DEBUGGER     Use the given debugger\n"
+               "  -A --debugger-arguments=ARGS\n"
+               "                             Pass the given arguments to the debugger\n"
+
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -333,54 +353,113 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TLDR,
                 ARG_SCALE_FACTOR_SVG,
                 ARG_DETAILED_SVG,
+                ARG_DRM_DEVICE_PATH,
+                ARG_DEBUGGER,
         };
 
         static const struct option options[] = {
-                { "help",             no_argument,       NULL, 'h'                  },
-                { "version",          no_argument,       NULL, ARG_VERSION          },
-                { "quiet",            no_argument,       NULL, 'q'                  },
-                { "order",            no_argument,       NULL, ARG_ORDER            },
-                { "require",          no_argument,       NULL, ARG_REQUIRE          },
-                { "root",             required_argument, NULL, ARG_ROOT             },
-                { "image",            required_argument, NULL, ARG_IMAGE            },
-                { "image-policy",     required_argument, NULL, ARG_IMAGE_POLICY     },
-                { "recursive-errors", required_argument, NULL, ARG_RECURSIVE_ERRORS },
-                { "offline",          required_argument, NULL, ARG_OFFLINE          },
-                { "threshold",        required_argument, NULL, ARG_THRESHOLD        },
-                { "security-policy",  required_argument, NULL, ARG_SECURITY_POLICY  },
-                { "system",           no_argument,       NULL, ARG_SYSTEM           },
-                { "user",             no_argument,       NULL, ARG_USER             },
-                { "global",           no_argument,       NULL, ARG_GLOBAL           },
-                { "from-pattern",     required_argument, NULL, ARG_DOT_FROM_PATTERN },
-                { "to-pattern",       required_argument, NULL, ARG_DOT_TO_PATTERN   },
-                { "fuzz",             required_argument, NULL, ARG_FUZZ             },
-                { "no-pager",         no_argument,       NULL, ARG_NO_PAGER         },
-                { "man",              optional_argument, NULL, ARG_MAN              },
-                { "generators",       optional_argument, NULL, ARG_GENERATORS       },
-                { "instance",         required_argument, NULL, ARG_INSTANCE         },
-                { "host",             required_argument, NULL, 'H'                  },
-                { "machine",          required_argument, NULL, 'M'                  },
-                { "iterations",       required_argument, NULL, ARG_ITERATIONS       },
-                { "base-time",        required_argument, NULL, ARG_BASE_TIME        },
-                { "unit",             required_argument, NULL, 'U'                  },
-                { "json",             required_argument, NULL, ARG_JSON             },
-                { "profile",          required_argument, NULL, ARG_PROFILE          },
-                { "table",            optional_argument, NULL, ARG_TABLE            },
-                { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
-                { "tldr",             no_argument,       NULL, ARG_TLDR             },
-                { "mask",             no_argument,       NULL, 'm'                  },
-                { "scale-svg",        required_argument, NULL, ARG_SCALE_FACTOR_SVG },
-                { "detailed",         no_argument,       NULL, ARG_DETAILED_SVG     },
+                { "help",               no_argument,       NULL, 'h'                  },
+                { "version",            no_argument,       NULL, ARG_VERSION          },
+                { "quiet",              no_argument,       NULL, 'q'                  },
+                { "order",              no_argument,       NULL, ARG_ORDER            },
+                { "require",            no_argument,       NULL, ARG_REQUIRE          },
+                { "root",               required_argument, NULL, ARG_ROOT             },
+                { "image",              required_argument, NULL, ARG_IMAGE            },
+                { "image-policy",       required_argument, NULL, ARG_IMAGE_POLICY     },
+                { "recursive-errors"  , required_argument, NULL, ARG_RECURSIVE_ERRORS },
+                { "offline",            required_argument, NULL, ARG_OFFLINE          },
+                { "threshold",          required_argument, NULL, ARG_THRESHOLD        },
+                { "security-policy",    required_argument, NULL, ARG_SECURITY_POLICY  },
+                { "system",             no_argument,       NULL, ARG_SYSTEM           },
+                { "user",               no_argument,       NULL, ARG_USER             },
+                { "global",             no_argument,       NULL, ARG_GLOBAL           },
+                { "from-pattern",       required_argument, NULL, ARG_DOT_FROM_PATTERN },
+                { "to-pattern",         required_argument, NULL, ARG_DOT_TO_PATTERN   },
+                { "fuzz",               required_argument, NULL, ARG_FUZZ             },
+                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER         },
+                { "man",                optional_argument, NULL, ARG_MAN              },
+                { "generators",         optional_argument, NULL, ARG_GENERATORS       },
+                { "instance",           required_argument, NULL, ARG_INSTANCE         },
+                { "host",               required_argument, NULL, 'H'                  },
+                { "machine",            required_argument, NULL, 'M'                  },
+                { "iterations",         required_argument, NULL, ARG_ITERATIONS       },
+                { "base-time",          required_argument, NULL, ARG_BASE_TIME        },
+                { "unit",               required_argument, NULL, 'U'                  },
+                { "json",               required_argument, NULL, ARG_JSON             },
+                { "profile",            required_argument, NULL, ARG_PROFILE          },
+                { "table",              optional_argument, NULL, ARG_TABLE            },
+                { "no-legend",          optional_argument, NULL, ARG_NO_LEGEND        },
+                { "tldr",               no_argument,       NULL, ARG_TLDR             },
+                { "mask",               no_argument,       NULL, 'm'                  },
+                { "scale-svg",          required_argument, NULL, ARG_SCALE_FACTOR_SVG },
+                { "detailed",           no_argument,       NULL, ARG_DETAILED_SVG     },
+                { "drm-device",         required_argument, NULL, ARG_DRM_DEVICE_PATH  },
+                { "debugger",           required_argument, NULL, ARG_DEBUGGER         },
+                { "debugger-arguments", required_argument, NULL, 'A'                  },
                 {}
         };
 
-        int r, c;
+        bool reorder = false;
+        int r, c, unit_shell = -1;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hqH:M:U:m", options, NULL)) >= 0)
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+; at the beginning). */
+        optind = 0;
+
+        for (;;) {
+                static const char option_string[] = "-hqH:M:U:mA:";
+
+                c = getopt_long(argc, argv, option_string + reorder, options, NULL);
+                if (c < 0)
+                        break;
+
                 switch (c) {
+
+                case 1: /* getopt_long() returns 1 if "-" was the first character of the option string, and a
+                         * non-option argument was discovered. */
+
+                        assert(!reorder);
+
+                        /* We generally are fine with the fact that getopt_long() reorders the command line, and looks
+                         * for switches after the main verb. However, for "unit-shell" we really don't want that, since we
+                         * want that switches specified after the service name are passed to the program to execute,
+                         * and not processed by us. To make this possible, we'll first invoke getopt_long() with
+                         * reordering disabled (i.e. with the "-" prefix in the option string), looking for the first
+                         * non-option parameter. If it's the verb "unit-shell" we remember its position and continue
+                         * processing options. In this case, as soon as we hit the next non-option argument we found
+                         * the service name, and stop further processing. If the first non-option argument is any other
+                         * verb than "unit-shell" we switch to normal reordering mode and continue processing arguments
+                         * normally. */
+
+                        if (unit_shell >= 0) {
+                                optind--; /* don't process this argument, go one step back */
+                                goto done;
+                        }
+                        if (streq(optarg, "unit-shell"))
+                                /* Remember the position of the "unit_shell" verb, and continue processing normally. */
+                                unit_shell = optind - 1;
+                        else {
+                                int saved_optind;
+
+                                /* Ok, this is some other verb. In this case, turn on reordering again, and continue
+                                 * processing normally. */
+                                reorder = true;
+
+                                /* We changed the option string. getopt_long() only looks at it again if we invoke it
+                                 * at least once with a reset option index. Hence, let's reset the option index here,
+                                 * then invoke getopt_long() again (ignoring what it has to say, after all we most
+                                 * likely already processed it), and the bump the option index so that we read the
+                                 * intended argument again. */
+                                saved_optind = optind;
+                                optind = 0;
+                                (void) getopt_long(argc, argv, option_string + reorder, options, NULL);
+                                optind = saved_optind - 1; /* go one step back, process this argument again */
+                        }
+
+                        break;
 
                 case 'h':
                         return help(0, NULL, NULL);
@@ -470,8 +549,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_MAN:
@@ -580,12 +660,49 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_detailed_svg = true;
                         break;
 
+                case ARG_DRM_DEVICE_PATH:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_drm_device_path);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_DEBUGGER:
+                        r = free_and_strdup_warn(&arg_debugger, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case 'A': {
+                        _cleanup_strv_free_ char **l = NULL;
+                        r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
+                        strv_free_and_replace(arg_debugger_args, l);
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+        }
+
+done:
+        if (unit_shell >= 0) {
+                char *t;
+
+                /* We found the "unit-shell" verb while processing the argument list. Since we turned off reordering of the
+                 * argument list initially let's readjust it now, and move the "unit-shell" verb to the back. */
+
+                optind -= 1; /* place the option index where the "unit-shell" verb will be placed */
+
+                t = argv[unit_shell];
+                for (int i = unit_shell; i < optind; i++)
+                        argv[i] = argv[i+1];
+                argv[optind] = t;
+        }
 
         if (arg_offline && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -611,10 +728,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --security-policy= is only supported for security.");
 
-        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition", "inspect-elf")) &&
+        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition", "inspect-elf", "unit-gdb")) &&
            (!(streq_ptr(argv[optind], "security") && arg_offline)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Options --root= and --image= are only supported for cat-config, verify, condition and security when used with --offline= right now.");
+                                       "Options --root= and --image= are only supported for cat-config, verify, condition, unit-gdb, and security when used with --offline= right now.");
 
         /* Having both an image and a root is not supported by the code */
         if (arg_root && arg_image)
@@ -638,6 +755,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_capability != CAPABILITY_LITERAL && !streq_ptr(argv[optind], "capability"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --mask is only supported for capability.");
 
+        if (arg_drm_device_path && !streq_ptr(argv[optind], "chid"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --drm-device is only supported for chid right now.");
+
         return 1; /* work to do */
 }
 
@@ -646,46 +766,49 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
 
         static const Verb verbs[] = {
-                { "help",              VERB_ANY, VERB_ANY, 0,            help                   },
-                { "time",              VERB_ANY, 1,        VERB_DEFAULT, verb_time              },
-                { "blame",             VERB_ANY, 1,        0,            verb_blame             },
-                { "critical-chain",    VERB_ANY, VERB_ANY, 0,            verb_critical_chain    },
-                { "plot",              VERB_ANY, 1,        0,            verb_plot              },
-                { "dot",               VERB_ANY, VERB_ANY, 0,            verb_dot               },
+                { "help",               VERB_ANY, VERB_ANY, 0,            help                         },
+                { "time",               VERB_ANY, 1,        VERB_DEFAULT, verb_time                    },
+                { "blame",              VERB_ANY, 1,        0,            verb_blame                   },
+                { "critical-chain",     VERB_ANY, VERB_ANY, 0,            verb_critical_chain          },
+                { "plot",               VERB_ANY, 1,        0,            verb_plot                    },
+                { "dot",                VERB_ANY, VERB_ANY, 0,            verb_dot                     },
                 /* ↓ The following seven verbs are deprecated, from here … ↓ */
-                { "log-level",         VERB_ANY, 2,        0,            verb_log_control       },
-                { "log-target",        VERB_ANY, 2,        0,            verb_log_control       },
-                { "set-log-level",     2,        2,        0,            verb_log_control       },
-                { "get-log-level",     VERB_ANY, 1,        0,            verb_log_control       },
-                { "set-log-target",    2,        2,        0,            verb_log_control       },
-                { "get-log-target",    VERB_ANY, 1,        0,            verb_log_control       },
-                { "service-watchdogs", VERB_ANY, 2,        0,            verb_service_watchdogs },
+                { "log-level",          VERB_ANY, 2,        0,  verb_log_control        },
+                { "log-target",         VERB_ANY, 2,        0,  verb_log_control        },
+                { "set-log-level",      2,        2,        0,  verb_log_control        },
+                { "get-log-level",      VERB_ANY, 1,        0,  verb_log_control        },
+                { "set-log-target",     2,        2,        0,  verb_log_control        },
+                { "get-log-target",     VERB_ANY, 1,        0,  verb_log_control        },
+                { "service-watchdogs",  VERB_ANY, 2,        0,  verb_service_watchdogs  },
                 /* ↑ … until here ↑ */
-                { "dump",              VERB_ANY, VERB_ANY, 0,            verb_dump              },
-                { "cat-config",        2,        VERB_ANY, 0,            verb_cat_config        },
-                { "unit-files",        VERB_ANY, VERB_ANY, 0,            verb_unit_files        },
-                { "unit-paths",        1,        1,        0,            verb_unit_paths        },
-                { "exit-status",       VERB_ANY, VERB_ANY, 0,            verb_exit_status       },
-                { "syscall-filter",    VERB_ANY, VERB_ANY, 0,            verb_syscall_filters   },
-                { "capability",        VERB_ANY, VERB_ANY, 0,            verb_capabilities      },
-                { "filesystems",       VERB_ANY, VERB_ANY, 0,            verb_filesystems       },
-                { "condition",         VERB_ANY, VERB_ANY, 0,            verb_condition         },
-                { "compare-versions",  3,        4,        0,            verb_compare_versions  },
-                { "verify",            2,        VERB_ANY, 0,            verb_verify            },
-                { "calendar",          2,        VERB_ANY, 0,            verb_calendar          },
-                { "timestamp",         2,        VERB_ANY, 0,            verb_timestamp         },
-                { "timespan",          2,        VERB_ANY, 0,            verb_timespan          },
-                { "security",          VERB_ANY, VERB_ANY, 0,            verb_security          },
-                { "inspect-elf",       2,        VERB_ANY, 0,            verb_elf_inspection    },
-                { "malloc",            VERB_ANY, VERB_ANY, 0,            verb_malloc            },
-                { "fdstore",           2,        VERB_ANY, 0,            verb_fdstore           },
-                { "image-policy",      2,        2,        0,            verb_image_policy      },
-                { "has-tpm2",          VERB_ANY, 1,        0,            verb_has_tpm2          },
-                { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
-                { "srk",               VERB_ANY, 1,        0,            verb_srk               },
-                { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
-                { "smbios11",          VERB_ANY, 1,        0,            verb_smbios11          },
-                { "chid",              VERB_ANY, VERB_ANY, 0,            verb_chid              },
+                { "dump",               VERB_ANY, VERB_ANY, 0,  verb_dump               },
+                { "cat-config",         2,        VERB_ANY, 0,  verb_cat_config         },
+                { "unit-files",         VERB_ANY, VERB_ANY, 0,  verb_unit_files         },
+                { "unit-gdb",           2,        VERB_ANY, 0,  verb_unit_gdb           },
+                { "unit-paths",         1,        1,        0,  verb_unit_paths         },
+                { "unit-shell",         2,        VERB_ANY, 0,  verb_unit_shell         },
+                { "exit-status",        VERB_ANY, VERB_ANY, 0,  verb_exit_status        },
+                { "syscall-filter",     VERB_ANY, VERB_ANY, 0,  verb_syscall_filters    },
+                { "capability",         VERB_ANY, VERB_ANY, 0,  verb_capabilities       },
+                { "filesystems",        VERB_ANY, VERB_ANY, 0,  verb_filesystems        },
+                { "condition",          VERB_ANY, VERB_ANY, 0,  verb_condition          },
+                { "compare-versions",   3,        4,        0,  verb_compare_versions   },
+                { "verify",             2,        VERB_ANY, 0,  verb_verify             },
+                { "calendar",           2,        VERB_ANY, 0,  verb_calendar           },
+                { "timestamp",          2,        VERB_ANY, 0,  verb_timestamp          },
+                { "timespan",           2,        VERB_ANY, 0,  verb_timespan           },
+                { "security",           VERB_ANY, VERB_ANY, 0,  verb_security           },
+                { "inspect-elf",        2,        VERB_ANY, 0,  verb_elf_inspection     },
+                { "malloc",             VERB_ANY, VERB_ANY, 0,  verb_malloc             },
+                { "fdstore",            2,        VERB_ANY, 0,  verb_fdstore            },
+                { "image-policy",       2,        2,        0,  verb_image_policy       },
+                { "has-tpm2",           VERB_ANY, 1,        0,  verb_has_tpm2           },
+                { "pcrs",               VERB_ANY, VERB_ANY, 0,  verb_pcrs               },
+                { "srk",                VERB_ANY, 1,        0,  verb_srk                },
+                { "architectures",      VERB_ANY, VERB_ANY, 0,  verb_architectures      },
+                { "smbios11",           VERB_ANY, 1,        0,  verb_smbios11           },
+                { "chid",               VERB_ANY, VERB_ANY, 0,  verb_chid               },
+                { "transient-settings", 2,        VERB_ANY, 0,  verb_transient_settings },
                 {}
         };
 

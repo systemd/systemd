@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <bpf/libbpf.h>
+
 /* libbpf has been moving quickly.
  * They added new symbols in the 0.x versions and shortly after removed
  * deprecated symbols in 1.0.
@@ -24,12 +26,10 @@ struct bpf_map_create_opts;
  *  - before the compat static inline helpers that use them.
  * When removing this file move these back to bpf-dlopen.h */
 extern int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
-extern int (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
 extern struct bpf_map* (*sym_bpf_object__next_map)(const struct bpf_object *obj, const struct bpf_map *map);
 
 /* compat symbols removed in libbpf 1.0 */
 extern int (*sym_bpf_create_map)(enum bpf_map_type, int key_size, int value_size, int max_entries, __u32 map_flags);
-extern bool (*sym_bpf_probe_prog_type)(enum bpf_prog_type, __u32);
 
 /* helpers to use the available variant behind new API */
 static inline int compat_bpf_map_create(enum bpf_map_type map_type,
@@ -44,11 +44,4 @@ static inline int compat_bpf_map_create(enum bpf_map_type map_type,
 
         return sym_bpf_create_map(map_type, key_size, value_size, max_entries,
                                   0 /* opts->map_flags, but opts is always NULL for us so skip build dependency on the type */);
-}
-
-static inline int compat_libbpf_probe_bpf_prog_type(enum bpf_prog_type prog_type, const void *opts) {
-        if (sym_libbpf_probe_bpf_prog_type)
-                return sym_libbpf_probe_bpf_prog_type(prog_type, opts);
-
-        return sym_bpf_probe_prog_type(prog_type, 0);
 }

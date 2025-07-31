@@ -61,4 +61,13 @@ ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" machine/.host cat /etc/machine-i
 modprobe vsock_loopback ||:
 if test -e /dev/vsock -a -d /sys/module/vsock_loopback ; then
     ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" vsock/1 cat /etc/machine-id | cmp - /etc/machine-id
+
+    if ! command -v scp &> /dev/null ; then
+        echo "scp not found, skipping subtest" >&2
+    else
+        OUT_FILE=$(mktemp -u)
+        scp -o StrictHostKeyChecking=no -v -i "$ROOTID" vsock%1:/etc/machine-id "$OUT_FILE"
+        cmp "$OUT_FILE" /etc/machine-id
+        rm -f "$OUT_FILE"
+    fi
 fi

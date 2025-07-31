@@ -313,6 +313,7 @@ if [[ ! -v ASAN_OPTIONS ]]; then
     # check that systemd-analyze cat-config paths work in a chroot
     mkdir -p /tmp/root
     mount --bind / /tmp/root
+    mount -t proc proc /tmp/root/proc
     if mountpoint -q /usr; then
         mount --bind /usr /tmp/root/usr
     fi
@@ -1104,6 +1105,41 @@ if systemd-analyze has-tpm2 -q ; then
 else
     echo "have no tpm2"
 fi
+
+# Test "transient-settings" verb
+
+# shellcheck disable=SC2046
+systemd-analyze --no-pager transient-settings $(systemctl --no-legend --no-pager -t help)
+systemd-analyze transient-settings service | grep NoNewPrivileges
+systemd-analyze transient-settings mount | grep CPUQuotaPeriodSec
+# make sure deprecated names are not printed
+(! systemd-analyze transient-settings service | grep CPUAccounting )
+(! systemd-analyze transient-settings service | grep ConditionKernelVersion )
+(! systemd-analyze transient-settings service | grep AssertKernelVersion )
+(! systemd-analyze transient-settings service socket timer path slice scope mount automount | grep -E 'Ex$' )
+
+# check systemd-analyze unit-shell with a namespaced unit
+UNIT_NAME="test-unit-shell.service"
+UNIT_FILE="/run/systemd/system/$UNIT_NAME"
+cat >"$UNIT_FILE" <<EOF
+[Unit]
+Description=Test unit for systemd-analyze unit-shell
+[Service]
+Type=notify
+NotifyAccess=all
+ExecStart=/bin/sh -c "echo 'Hello from test unit' >/tmp/testfile; systemd-notify --ready; sleep infinity"
+PrivateTmp=disconnected
+EOF
+# Start the service
+systemctl start "$UNIT_NAME"
+# Wait for the service to be active
+systemctl is-active --quiet "$UNIT_NAME"
+# Verify the service is active and has a MainPID
+MAIN_PID=$(systemctl show -p MainPID --value "$UNIT_NAME")
+[ "$MAIN_PID" -gt 0 ]
+# Test systemd-analyze unit-shell with a command (cat /tmp/testfile)
+OUTPUT=$(systemd-analyze unit-shell "$UNIT_NAME" cat /tmp/testfile)
+assert_in "Hello from test unit" "$OUTPUT"
 
 systemd-analyze log-level info
 

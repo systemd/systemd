@@ -1,23 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
+#include "sd-event.h"
 
-#include "errno-util.h"
+#include "alloc-util.h"
 #include "event-source.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "hash-funcs.h"
 #include "log.h"
+#include "pidref.h"
 #include "string-util.h"
+#include "time-util.h"
 
 #define SI_FLAG_FORWARD  (INT32_C(1) << 30)
 #define SI_FLAG_POSITIVE (INT32_C(1) << 29)
 
-DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 event_source_hash_ops,
-                sd_event_source,
-                (void (*)(const sd_event_source*, struct siphash*)) trivial_hash_func,
-                (int (*)(const sd_event_source*, const sd_event_source*)) trivial_compare_func,
-                sd_event_source_disable_unref);
+                void, trivial_hash_func, trivial_compare_func,
+                sd_event_source, sd_event_source_disable_unref);
 
 int event_reset_time(
                 sd_event *e,

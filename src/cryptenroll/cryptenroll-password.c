@@ -1,13 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptenroll-password.h"
+#include "cryptsetup-util.h"
 #include "env-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "iovec-util.h"
-#include "memory-util.h"
+#include "log.h"
 #include "password-quality-util.h"
+#include "string-util.h"
 #include "strv.h"
 
 int load_volume_key_password(
@@ -185,7 +188,7 @@ int enroll_password(
                 }
         }
 
-        r = check_password_quality(new_password, /* old */ NULL, /* user */ NULL, &error);
+        r = check_password_quality(new_password, /* old = */ NULL, /* user = */ NULL, &error);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 log_warning("Password quality check is not supported, proceeding anyway.");
         else if (r < 0)

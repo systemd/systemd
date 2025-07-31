@@ -1,40 +1,40 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <linux/auto_dev-ioctl.h>
-#include <sys/epoll.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
-#include "async.h"
 #include "automount.h"
 #include "bus-error.h"
-#include "bus-util.h"
 #include "dbus-automount.h"
 #include "dbus-unit.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fstab-util.h"
 #include "io-util.h"
 #include "label-util.h"
+#include "manager.h"
 #include "mkdir-label.h"
-#include "mount-util.h"
 #include "mount.h"
+#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "set.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "unit-name.h"
 #include "unit.h"
+#include "unit-name.h"
 
 static const UnitActiveState state_translation_table[_AUTOMOUNT_STATE_MAX] = {
         [AUTOMOUNT_DEAD]    = UNIT_INACTIVE,
@@ -344,7 +344,7 @@ static int open_dev_autofs(Manager *m) {
 
         m->dev_autofs_fd = open("/dev/autofs", O_CLOEXEC|O_RDONLY);
         if (m->dev_autofs_fd < 0)
-                return log_error_errno(errno, "Failed to open /dev/autofs: %m");
+                return log_error_errno(errno, "Failed to open %s: %m", "/dev/autofs");
 
         init_autofs_dev_ioctl(&param);
         r = RET_NERRNO(ioctl(m->dev_autofs_fd, AUTOFS_DEV_IOCTL_VERSION, &param));
@@ -660,7 +660,7 @@ static int asynchronous_expire(int dev_autofs_fd, int ioctl_fd) {
                            (int[]) { dev_autofs_fd, ioctl_fd },
                            /* n_except_fds= */ 2,
                            FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
-                           /* pid= */ NULL);
+                           /* ret_pid= */ NULL);
         if (r != 0)
                 return r;
 

@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "forward.h"
 
-#include "execute.h"
-#include "path-lookup.h"
+typedef struct ExecCommand ExecCommand;
+typedef struct Unit Unit;
 
 typedef enum RecursiveErrors {
         RECURSIVE_ERRORS_YES,               /* Look for errors in all associated units */

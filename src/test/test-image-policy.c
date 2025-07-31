@@ -1,17 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "ansi-color.h"
 #include "image-policy.h"
-#include "pretty-print.h"
-#include "string-util.h"
 #include "tests.h"
-#include "pager.h"
 
 static void test_policy(const ImagePolicy *p, const char *name) {
         _cleanup_free_ char *as_string = NULL, *as_string_simplified = NULL;
         _cleanup_free_ ImagePolicy *parsed = NULL;
 
-        assert_se(image_policy_to_string(p, /* simplified= */ false, &as_string) >= 0);
-        assert_se(image_policy_to_string(p, /* simplified= */ true, &as_string_simplified) >= 0);
+        assert_se(image_policy_to_string(p, /* simplify= */ false, &as_string) >= 0);
+        assert_se(image_policy_to_string(p, /* simplify= */ true, &as_string_simplified) >= 0);
 
         printf("%s%s", ansi_underline(), name);
 
@@ -40,17 +38,17 @@ static void test_policy(const ImagePolicy *p, const char *name) {
                 if (f < 0) {
                         f = image_policy_get_exhaustively(p, d);
                         assert_se(f >= 0);
-                        assert_se(partition_policy_flags_to_string(f, /* simplified= */ true, &k) >= 0);
+                        assert_se(partition_policy_flags_to_string(f, /* simplify= */ true, &k) >= 0);
 
                         printf("%s\t%s → n/a (exhaustively: %s)%s\n", ansi_grey(), partition_designator_to_string(d), k, ansi_normal());
                 } else {
-                        assert_se(partition_policy_flags_to_string(f, /* simplified= */ true, &k) >= 0);
+                        assert_se(partition_policy_flags_to_string(f, /* simplify= */ true, &k) >= 0);
                         printf("\t%s → %s\n", partition_designator_to_string(d), k);
                 }
         }
 
         _cleanup_free_ char *w = NULL;
-        assert_se(partition_policy_flags_to_string(image_policy_default(p), /* simplified= */ true, &w) >= 0);
+        assert_se(partition_policy_flags_to_string(image_policy_default(p), /* simplify= */ true, &w) >= 0);
         printf("\tdefault → %s\n", w);
 }
 

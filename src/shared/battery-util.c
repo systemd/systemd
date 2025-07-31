@@ -2,10 +2,10 @@
 
 #include "sd-device.h"
 
+#include "battery-util.h"
 #include "device-private.h"
 #include "device-util.h"
 #include "string-util.h"
-#include "battery-util.h"
 
 #define BATTERY_LOW_CAPACITY_LEVEL 5
 

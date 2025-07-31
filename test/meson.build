@@ -38,10 +38,9 @@ endif
 ############################################################
 
 if want_tests != 'false' and conf.get('ENABLE_HWDB') == 1
-        hwdb_test_sh = find_program('hwdb-test.sh')
         exe = executables_by_name.get('systemd-hwdb')
         test('hwdb-test',
-             hwdb_test_sh,
+             files('hwdb-test.sh'),
              suite : 'dist',
              args : exe.full_path(),
              depends : exe,
@@ -51,11 +50,10 @@ endif
 ############################################################
 
 if want_tests != 'false'
-        test_systemctl_enable_sh = find_program('test-systemctl-enable.sh')
         systemctl = executables_by_name.get('systemctl')
         systemd_id128 = executables_by_name.get('systemd-id128')
         test('test-systemctl-enable',
-             test_systemctl_enable_sh,
+             files('test-systemctl-enable.sh'),
              # https://github.com/mesonbuild/meson/issues/2681
              args : [systemctl.full_path(),
                      systemd_id128.full_path()],
@@ -66,10 +64,9 @@ endif
 ############################################################
 
 if want_tests != 'false' and conf.get('HAVE_SYSV_COMPAT') == 1
-        sysv_generator_test_py = find_program('sysv-generator-test.py')
         exe = executables_by_name.get('systemd-sysv-generator')
         test('sysv-generator-test',
-             sysv_generator_test_py,
+             files('sysv-generator-test.py'),
              depends : exe,
              suite : 'sysv')
 endif
@@ -77,10 +74,9 @@ endif
 ############################################################
 
 if want_tests != 'false' and conf.get('HAVE_BLKID') == 1
-        test_bootctl_json_sh = find_program('test-bootctl-json.sh')
         exe = executables_by_name.get('bootctl')
         test('test-bootctl-json',
-             test_bootctl_json_sh,
+             files('test-bootctl-json.sh'),
              args : exe.full_path(),
              depends : exe,
              suite : 'boot')
@@ -89,7 +85,7 @@ endif
 ############################################################
 
 if want_tests != 'false' and conf.get('ENABLE_TMPFILES') == 1
-        test_systemd_tmpfiles_py = find_program('test-systemd-tmpfiles.py')
+        test_systemd_tmpfiles_py = files('test-systemd-tmpfiles.py')
         exe = executables_by_name.get('systemd-tmpfiles')
         test('test-systemd-tmpfiles',
              test_systemd_tmpfiles_py,
@@ -125,10 +121,9 @@ endif
 
 ############################################################
 
-rule_syntax_check_py = find_program('rule-syntax-check.py')
 if want_tests != 'false'
         test('rule-syntax-check',
-             rule_syntax_check_py,
+             files('rule-syntax-check.py'),
              suite : 'dist',
              args : all_rules)
 
@@ -153,7 +148,7 @@ endif
 
 ############################################################
 
-test_fstab_generator_sh = find_program('test-fstab-generator.sh')
+test_fstab_generator_sh = files('test-fstab-generator.sh')
 if want_tests != 'false'
         exe = executables_by_name.get('systemd-fstab-generator')
         test('test-fstab-generator',
@@ -165,14 +160,14 @@ if want_tests != 'false'
              suite : 'fstab')
 endif
 if install_tests
-        install_data('test-fstab-generator.sh',
+        install_data(test_fstab_generator_sh,
                      install_mode : 'rwxr-xr-x',
                      install_dir : unittestsdir)
 endif
 
 ############################################################
 
-test_network_generator_conversion_sh = find_program('test-network-generator-conversion.sh')
+test_network_generator_conversion_sh = files('test-network-generator-conversion.sh')
 if want_tests != 'false'
         exe = executables_by_name.get('systemd-network-generator')
         test('test-network-generator-conversion',
@@ -183,7 +178,7 @@ if want_tests != 'false'
              suite : 'network')
 endif
 if install_tests
-        install_data('test-network-generator-conversion.sh',
+        install_data(test_network_generator_conversion_sh,
                      install_mode : 'rwxr-xr-x',
                      install_dir : unittestsdir)
 endif
@@ -213,14 +208,14 @@ endif
 
 rpm = find_program('rpm', required : false)
 rpmspec = find_program('rpmspec', required : false)
-test_rpm_macros = find_program('test-rpm-macros.sh')
 
 if rpm.found() and rpmspec.found()
         if want_tests != 'false'
                 test('test-rpm-macros',
-                     test_rpm_macros,
+                     files('test-rpm-macros.sh'),
                      suite : 'dist',
-                     args : [meson.project_build_root()])
+                     args : [meson.project_build_root()],
+                     depends : rpm_depends)
         endif
 else
       message('Skipping test-rpm-macros since rpm and/or rpmspec are not available')
@@ -229,7 +224,7 @@ endif
 ############################################################
 
 if want_tests != 'false' and conf.get('HAVE_DMI') == 1
-        udev_dmi_memory_id_test = find_program('udev-dmi-memory-id-test.sh')
+        udev_dmi_memory_id_test = files('udev-dmi-memory-id-test.sh')
         exe = executables_by_name.get('dmi_memory_id')
 
         if git.found() and fs.is_dir(meson.project_source_root() / '.git')
@@ -291,12 +286,23 @@ if install_tests
         endif
 
         if meson.version().version_compare('>=1.3.0')
+                # Installing symlinks to directories is broken in install_subdir() so we exclude the
+                # standalone directory from install_subdir() and handle it manually.
+                # TODO: Remove when https://github.com/mesonbuild/meson/pull/14471 is available in all
+                # supported distributions.
                 install_subdir('integration-tests',
                                install_dir : testsdir,
+                               exclude_directories : ['standalone'],
                                follow_symlinks : false)
+                install_emptydir(testsdir / 'integration-tests/standalone')
+                install_data('integration-tests/standalone/meson.build',
+                             install_dir : testsdir / 'integration-tests/standalone')
+                install_symlink('integration-tests',
+                                pointing_to : '..',
+                                install_dir : testsdir / 'integration-tests/standalone')
         else
                 meson.add_install_script(sh, '-c',
-                                         rsync_r.format(meson.current_source_dir() / 'integration-tests', testdata_dir))
+                                         rsync_r.format(meson.current_source_dir() / 'integration-tests', testsdir))
         endif
 
         foreach integration_test : integration_tests
@@ -351,7 +357,6 @@ if install_tests
                 'integration-tests/TEST-30-ONCLOCKCHANGE/TEST-30-ONCLOCKCHANGE.units',
                 'integration-tests/TEST-52-HONORFIRSTSHUTDOWN/TEST-52-HONORFIRSTSHUTDOWN.units',
                 'integration-tests/TEST-63-PATH/TEST-63-PATH.units',
-                'integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units',
                 'integration-tests/TEST-80-NOTIFYACCESS/TEST-80-NOTIFYACCESS.units',
         ]
 

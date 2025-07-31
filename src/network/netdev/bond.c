@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
 #include <linux/if_arp.h>
+#include <netinet/in.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "bond.h"
@@ -9,10 +11,12 @@
 #include "conf-parser.h"
 #include "ether-addr-util.h"
 #include "extract-word.h"
-#include "netlink-util.h"
-#include "networkd-manager.h"
-#include "string-table.h"
-
+#include "in-addr-util.h"
+#include "networkd-link.h"
+#include "ordered-set.h"
+#include "set.h"
+#include "string-util.h"
+#include "time-util.h"
 /*
  * Number of seconds between instances where the bonding
  * driver sends learning packets to each slaves peer switch

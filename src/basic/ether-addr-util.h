@@ -2,13 +2,10 @@
 #pragma once
 
 #include <linux/if_infiniband.h>
+#include <netinet/in.h>
 #include <net/ethernet.h>
-#include <stdbool.h>
 
-#include "hash-funcs.h"
-#include "in-addr-util.h"
-#include "macro.h"
-#include "memory-util.h"
+#include "forward.h"
 
 /* This is MAX_ADDR_LEN as defined in linux/netdevice.h, but net/if_arp.h
  * defines a macro of the same name with a much lower size. */
@@ -59,10 +56,7 @@ int hw_addr_compare(const struct hw_addr_data *a, const struct hw_addr_data *b);
 static inline bool hw_addr_equal(const struct hw_addr_data *a, const struct hw_addr_data *b) {
         return hw_addr_compare(a, b) == 0;
 }
-static inline bool hw_addr_is_null(const struct hw_addr_data *addr) {
-        assert(addr);
-        return addr->length == 0 || memeqzero(addr->bytes, addr->length);
-}
+bool hw_addr_is_null(const struct hw_addr_data *addr) _pure_;
 
 extern const struct hash_ops hw_addr_hash_ops;
 extern const struct hash_ops hw_addr_hash_ops_free;
@@ -72,7 +66,6 @@ extern const struct hash_ops hw_addr_hash_ops_free;
 
 #define ETHER_ADDR_TO_STRING_MAX (3*6)
 char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR_TO_STRING_MAX]);
-int ether_addr_to_string_alloc(const struct ether_addr *addr, char **ret);
 /* Use only as function argument, never stand-alone! */
 #define ETHER_ADDR_TO_STR(addr) ether_addr_to_string((addr), (char[ETHER_ADDR_TO_STRING_MAX]){})
 
@@ -87,10 +80,7 @@ static inline bool ether_addr_is_null(const struct ether_addr *addr) {
         return ether_addr_equal(addr, &ETHER_ADDR_NULL);
 }
 
-static inline bool ether_addr_is_broadcast(const struct ether_addr *addr) {
-        assert(addr);
-        return memeqbyte(0xff, addr->ether_addr_octet, ETH_ALEN);
-}
+bool ether_addr_is_broadcast(const struct ether_addr *addr) _pure_;
 
 static inline bool ether_addr_is_multicast(const struct ether_addr *addr) {
         assert(addr);

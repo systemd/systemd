@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/stat.h>
-#include <sys/statvfs.h>
+#include <linux/magic.h>
 #include <sys/vfs.h>
 
 #include "binfmt-util.h"
@@ -9,10 +8,10 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "missing_magic.h"
+#include "log.h"
 #include "stat-util.h"
 
-int binfmt_mounted(void) {
+int binfmt_mounted_and_writable(void) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -26,7 +25,13 @@ int binfmt_mounted(void) {
         if (r <= 0)
                 return r;
 
-        return access_fd(fd, W_OK) >= 0;
+        r = access_fd(fd, W_OK);
+        if (ERRNO_IS_NEG_FS_WRITE_REFUSED(r))
+                return false;
+        if (r < 0)
+                return r;
+
+        return true;
 }
 
 int disable_binfmt(void) {
@@ -38,7 +43,7 @@ int disable_binfmt(void) {
          * We are a bit careful here, since binfmt_misc might still be an autofs which we don't want to
          * trigger. */
 
-        r = binfmt_mounted();
+        r = binfmt_mounted_and_writable();
         if (r < 0)
                 return log_warning_errno(r, "Failed to determine whether binfmt_misc is mounted: %m");
         if (r == 0) {

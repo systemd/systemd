@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
+#include "forward.h"
 #include "stat-util.h"
 
 int resize_fs(int fd, uint64_t sz, uint64_t *ret_size);

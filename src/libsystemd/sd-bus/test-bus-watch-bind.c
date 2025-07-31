@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <pthread.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
@@ -16,8 +17,9 @@
 #include "rm-rf.h"
 #include "socket-util.h"
 #include "string-util.h"
-#include "tmpfile-util.h"
 #include "tests.h"
+#include "time-util.h"
+#include "tmpfile-util.h"
 
 static int method_foobar(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Got Foobar() call.");
@@ -43,7 +45,7 @@ static const sd_bus_vtable vtable[] = {
 };
 
 static void* thread_server(void *p) {
-        _cleanup_free_ char *suffixed = NULL, *suffixed2 = NULL, *d = NULL;
+        _cleanup_free_ char *suffixed = NULL, *suffixed_basename = NULL, *suffixed2 = NULL, *d = NULL;
         _cleanup_close_ int fd = -EBADF;
         union sockaddr_union u;
         const char *path = p;
@@ -66,7 +68,8 @@ static void* thread_server(void *p) {
         assert_se(symlink(suffixed2, d) >= 0);
         usleep_safe(100 * USEC_PER_MSEC);
 
-        assert_se(symlink(basename(suffixed), suffixed2) >= 0);
+        assert_se(path_extract_filename(suffixed, &suffixed_basename) >= 0);
+        assert_se(symlink(suffixed_basename, suffixed2) >= 0);
         usleep_safe(100 * USEC_PER_MSEC);
 
         socklen_t sa_len;

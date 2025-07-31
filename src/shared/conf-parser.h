@@ -1,18 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdio.h>
 #include <syslog.h>
-#include <sys/stat.h>
 
 #include "alloc-util.h"
-#include "hashmap.h"
+#include "conf-parser-forward.h"
+#include "forward.h"
 #include "log.h"
-#include "macro.h"
-#include "time-util.h"
 
 /* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */
 
@@ -20,27 +14,6 @@ typedef enum ConfigParseFlags {
         CONFIG_PARSE_RELAXED       = 1 << 0, /* Do not warn about unknown non-extension fields */
         CONFIG_PARSE_WARN          = 1 << 1, /* Emit non-debug messages */
 } ConfigParseFlags;
-
-/* Argument list for parsers of specific configuration settings. */
-#define CONFIG_PARSER_ARGUMENTS                 \
-        const char *unit,                       \
-        const char *filename,                   \
-        unsigned line,                          \
-        const char *section,                    \
-        unsigned section_line,                  \
-        const char *lvalue,                     \
-        int ltype,                              \
-        const char *rvalue,                     \
-        void *data,                             \
-        void *userdata
-
-/* Prototype for a parser for a specific configuration setting */
-typedef int (*ConfigParserCallback)(CONFIG_PARSER_ARGUMENTS);
-
-/* A macro declaring a function prototype, following the typedef above, simply because it's so cumbersomely long
- * otherwise. (And current emacs gets irritatingly slow when editing files that contain lots of very long function
- * prototypes on the same screen…) */
-#define CONFIG_PARSER_PROTOTYPE(name) int name(CONFIG_PARSER_ARGUMENTS)
 
 /* Wraps information for parsing a specific configuration variable, to
  * be stored in a simple array */
@@ -166,12 +139,6 @@ int config_section_parse(
                 const char *rvalue,
                 void *userdata);
 
-typedef struct ConfigSection {
-        unsigned line;
-        bool invalid;
-        char filename[];
-} ConfigSection;
-
 static inline ConfigSection* config_section_free(ConfigSection *cs) {
         return mfree(cs);
 }
@@ -183,22 +150,8 @@ void config_section_hash_func(const ConfigSection *c, struct siphash *state);
 int config_section_compare_func(const ConfigSection *x, const ConfigSection *y);
 extern const struct hash_ops config_section_hash_ops;
 
-int _hashmap_by_section_find_unused_line(
-                HashmapBase *entries_by_section,
-                const char *filename,
-                unsigned *ret);
-static inline int hashmap_by_section_find_unused_line(
-                Hashmap *entries_by_section,
-                const char *filename,
-                unsigned *ret) {
-        return _hashmap_by_section_find_unused_line(HASHMAP_BASE(entries_by_section), filename, ret);
-}
-static inline int ordered_hashmap_by_section_find_unused_line(
-                OrderedHashmap *entries_by_section,
-                const char *filename,
-                unsigned *ret) {
-        return _hashmap_by_section_find_unused_line(HASHMAP_BASE(entries_by_section), filename, ret);
-}
+int hashmap_by_section_find_unused_line(Hashmap *entries_by_section, const char *filename, unsigned *ret);
+int ordered_hashmap_by_section_find_unused_line(OrderedHashmap *entries_by_section, const char *filename, unsigned *ret);
 
 static inline bool section_is_invalid(ConfigSection *section) {
         /* If this returns false, then it does _not_ mean the section is valid. */
@@ -208,19 +161,6 @@ static inline bool section_is_invalid(ConfigSection *section) {
 
         return section->invalid;
 }
-
-#define DEFINE_SECTION_CLEANUP_FUNCTIONS(type, free_func)               \
-        static inline type* free_func##_or_set_invalid(type *p) {       \
-                assert(p);                                              \
-                                                                        \
-                if (p->section)                                         \
-                        p->section->invalid = true;                     \
-                else                                                    \
-                        free_func(p);                                   \
-                return NULL;                                            \
-        }                                                               \
-        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func);                  \
-        DEFINE_TRIVIAL_CLEANUP_FUNC(type*, free_func##_or_set_invalid);
 
 #define log_section_full_errno_zerook(section, level, error, ...)       \
         ({                                                              \

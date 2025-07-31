@@ -1,17 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <errno.h>
-#include <linux/veth.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <net/ethernet.h>
 
 #include "sd-event.h"
 #include "sd-ipv4acd.h"
 #include "sd-netlink.h"
 
 #include "in-addr-util.h"
+#include "log.h"
 #include "tests.h"
 
 static void acd_handler(sd_ipv4acd *acd, int event, void *userdata) {

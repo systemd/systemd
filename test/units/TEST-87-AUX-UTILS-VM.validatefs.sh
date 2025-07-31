@@ -40,6 +40,16 @@ cat > /tmp/validatefs-test/validatefs-usr.conf <<EOF
 Type=usr
 Label=plisch
 Format=ext4
+Verity=data
+VerityMatchKey=mupf
+EOF
+
+cat > /tmp/validatefs-test/validatefs-usr-verity.conf <<EOF
+[Partition]
+Type=usr-verity
+Label=plisch-verity
+Verity=hash
+VerityMatchKey=mupf
 EOF
 
 cat > /tmp/validatefs-test/validatefs-home.conf <<EOF
@@ -64,7 +74,7 @@ MountPoint=/somewhere/else
 Format=ext4
 EOF
 
-systemd-repart --dry-run=no --empty=create --size=256M --definitions=/tmp/validatefs-test /var/tmp/validatefs-test.raw
+systemd-repart --dry-run=no --empty=create --size=410M --definitions=/tmp/validatefs-test /var/tmp/validatefs-test.raw
 
 systemd-dissect --mount --mkdir /var/tmp/validatefs-test.raw /tmp/validatefs-test.mount
 
@@ -76,8 +86,8 @@ getfattr --dump /tmp/validatefs-test.mount/ | grep -q user.validatefs.mount_poin
 (! /usr/lib/systemd/systemd-validatefs /tmp/validatefs-test.mount/ )
 
 getfattr --dump /tmp/validatefs-test.mount/usr
-getfattr --dump /tmp/validatefs-test.mount/usr | grep -q user.validatefs.gpt_type_uuid=
-getfattr --dump /tmp/validatefs-test.mount/usr | grep -q user.validatefs.gpt_label=\"plisch\"
+getfattr --dump /tmp/validatefs-test.mount/usr | grep -q user.validatefs.gpt_type_uuid='".*\\000.*"'
+getfattr --dump /tmp/validatefs-test.mount/usr | grep -q user.validatefs.gpt_label='"plisch\\000plisch-verity"'
 getfattr --dump /tmp/validatefs-test.mount/usr | grep -q user.validatefs.mount_point=\"/usr\"
 /usr/lib/systemd/systemd-validatefs --root=/tmp/validatefs-test.mount /tmp/validatefs-test.mount/usr
 (! /usr/lib/systemd/systemd-validatefs /tmp/validatefs-test.mount/usr )
@@ -98,7 +108,7 @@ getfattr --dump /tmp/validatefs-test.mount/efi
 
 # the generic one we must mount by hand
 mkdir -p /tmp/validatefs-test.mount/somewhere/else
-udevadm wait --timeout=30 /dev/disk/by-label/qnurx
+udevadm wait --settle --timeout=30 /dev/disk/by-label/qnurx
 mount /dev/disk/by-label/qnurx /tmp/validatefs-test.mount/somewhere/else
 getfattr --dump /tmp/validatefs-test.mount/somewhere/else
 

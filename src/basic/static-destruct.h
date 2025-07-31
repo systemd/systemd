@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "alloc-util.h"
-#include "macro.h"
-#include "memory-util.h"
+#include "forward.h"
+
+typedef void (*free_func_t)(void *p);
 
 /* A framework for registering static variables that shall be freed on shutdown of a process. It's a bit like gcc's
  * destructor attribute, but allows us to precisely schedule when we want to free the variables. This is supposed to
@@ -81,25 +81,10 @@ typedef struct StaticDestructor {
 extern const StaticDestructor _weak_ __start_SYSTEMD_STATIC_DESTRUCT[];
 extern const StaticDestructor _weak_ __stop_SYSTEMD_STATIC_DESTRUCT[];
 
+void static_destruct_impl(const StaticDestructor *start, const StaticDestructor *end);
+
 /* The function to destroy everything. (Note that this must be static inline, as it's key that it remains in
  * the same linking unit as the variables we want to destroy.) */
 static inline void static_destruct(void) {
-        if (!__start_SYSTEMD_STATIC_DESTRUCT)
-                return;
-
-        for (const StaticDestructor *d = ALIGN_PTR(__start_SYSTEMD_STATIC_DESTRUCT);
-             d < __stop_SYSTEMD_STATIC_DESTRUCT;
-             d = ALIGN_PTR(d + 1))
-                switch (d->type) {
-                case STATIC_DESTRUCTOR_SIMPLE:
-                        d->simple.destroy(d->simple.data);
-                        break;
-
-                case STATIC_DESTRUCTOR_ARRAY:
-                        array_cleanup(&d->array);
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
+        return static_destruct_impl(__start_SYSTEMD_STATIC_DESTRUCT, __stop_SYSTEMD_STATIC_DESTRUCT);
 }

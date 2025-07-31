@@ -12,6 +12,7 @@ shared_sources = files(
         'battery-util.c',
         'binfmt-util.c',
         'bitmap.c',
+        'blkid-util.c',
         'blockdev-list.c',
         'blockdev-util.c',
         'bond-util.c',
@@ -50,6 +51,8 @@ shared_sources = files(
         'coredump-util.c',
         'cpu-set-util.c',
         'creds-util.c',
+        'cryptsetup-fido2.c',
+        'cryptsetup-tpm2.c',
         'cryptsetup-util.c',
         'daemon-util.c',
         'data-fd-util.c',
@@ -65,7 +68,6 @@ shared_sources = files(
         'efi-loader.c',
         'elf-util.c',
         'enable-mempool.c',
-        'env-file-label.c',
         'ethtool-util.c',
         'exec-util.c',
         'exit-status.c',
@@ -76,6 +78,7 @@ shared_sources = files(
         'find-esp.c',
         'firewall-util-nft.c',
         'firewall-util.c',
+        'fork-notify.c',
         'format-table.c',
         'fstab-util.c',
         'generator.c',
@@ -94,6 +97,7 @@ shared_sources = files(
         'install-file.c',
         'install-printf.c',
         'install.c',
+        'ioprio-util.c',
         'ip-protocol-list.c',
         'ipvlan-util.c',
         'journal-file-util.c',
@@ -105,6 +109,7 @@ shared_sources = files(
         'killall.c',
         'label-util.c',
         'libarchive-util.c',
+        'libaudit-util.c',
         'libcrypt-util.c',
         'libfido2-util.c',
         'libmount-util.c',
@@ -114,10 +119,12 @@ shared_sources = files(
         'loop-util.c',
         'loopback-setup.c',
         'lsm-util.c',
+        'machine-bind-user.c',
         'machine-credential.c',
         'machine-id-setup.c',
         'machine-pool.c',
         'macvlan-util.c',
+        'main-func.c',
         'mkdir-label.c',
         'mkfs-util.c',
         'module-util.c',
@@ -156,6 +163,7 @@ shared_sources = files(
         'resize-fs.c',
         'resolve-util.c',
         'rm-rf.c',
+        'seccomp-util.c',
         'securebits-util.c',
         'selinux-util.c',
         'serialize.c',
@@ -191,6 +199,7 @@ shared_sources = files(
         'varlink-io.systemd.Machine.c',
         'varlink-io.systemd.MachineImage.c',
         'varlink-io.systemd.ManagedOOM.c',
+        'varlink-io.systemd.Manager.c',
         'varlink-io.systemd.MountFileSystem.c',
         'varlink-io.systemd.NamespaceResource.c',
         'varlink-io.systemd.Network.c',
@@ -199,6 +208,7 @@ shared_sources = files(
         'varlink-io.systemd.Resolve.c',
         'varlink-io.systemd.Resolve.Monitor.c',
         'varlink-io.systemd.Udev.c',
+        'varlink-io.systemd.Unit.c',
         'varlink-io.systemd.UserDatabase.c',
         'varlink-io.systemd.oom.c',
         'varlink-io.systemd.service.c',
@@ -221,27 +231,18 @@ if get_option('tests') != 'false'
         shared_sources += files('tests.c')
 endif
 
-generate_syscall_list = find_program('generate-syscall-list.py')
-fname = 'syscall-list.h'
-syscall_list_h = custom_target(
-        fname,
+syscall_list_inc = custom_target(
         input : syscall_list_txt,
-        output : fname,
-        command : [generate_syscall_list,
+        output : 'syscall-list.inc',
+        command : [files('generate-syscall-list.py'),
                    '@INPUT@'],
         capture : true)
 
-if conf.get('HAVE_ACL') == 1
-        shared_sources += files('devnode-acl.c')
-endif
+generated_sources += syscall_list_inc
+shared_sources += syscall_list_inc
 
 if conf.get('ENABLE_UTMP') == 1
         shared_sources += files('utmp-wtmp.c')
-endif
-
-if conf.get('HAVE_SECCOMP') == 1
-        shared_sources += files('seccomp-util.c')
-        shared_sources += syscall_list_h
 endif
 
 if conf.get('HAVE_LIBIPTC') == 1
@@ -256,34 +257,22 @@ if conf.get('HAVE_PAM') == 1
         shared_sources += files('pam-util.c')
 endif
 
-if conf.get('HAVE_LIBFIDO2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
-        shared_sources += files('cryptsetup-fido2.c')
-endif
-
-if conf.get('HAVE_TPM2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
-        shared_sources += files('cryptsetup-tpm2.c')
-endif
-
-generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
+generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
-        'ip-protocol-list.txt',
+        input : [generate_ip_protocol_list, ipproto_sources],
         output : 'ip-protocol-list.txt',
-        command : [generate_ip_protocol_list, cpp],
+        command : [env, 'bash', generate_ip_protocol_list, cpp, system_include_args],
         capture : true)
 
-fname = 'ip-protocol-from-name.gperf'
 gperf_file = custom_target(
-        fname,
         input : ip_protocol_list_txt,
-        output : fname,
-        command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@'],
+        output : 'ip-protocol-from-name.gperf',
+        command : [generate_gperfs, 'ip_protocol', 'IPPROTO_', '@INPUT@', '<netinet/in.h>'],
         capture : true)
 
-fname = 'ip-protocol-from-name.h'
 target1 = custom_target(
-        fname,
         input : gperf_file,
-        output : fname,
+        output : 'ip-protocol-from-name.inc',
         command : [gperf,
                    '-L', 'ANSI-C', '-t', '--ignore-case',
                    '-N', 'lookup_ip_protocol',
@@ -292,33 +281,31 @@ target1 = custom_target(
                    '@INPUT@'],
         capture : true)
 
-fname = 'ip-protocol-to-name.h'
 awkscript = 'ip-protocol-to-name.awk'
 target2 = custom_target(
-        fname,
         input : [awkscript, ip_protocol_list_txt],
-        output : fname,
+        output : 'ip-protocol-to-name.inc',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true)
 
-shared_generated_gperf_headers = [target1, target2]
-shared_sources += shared_generated_gperf_headers
+generated_sources += [target1, target2]
+shared_sources += [target1, target2]
 
-fname = 'ethtool-link-mode.h'
-ethtool_link_mode_h = custom_target(
-        fname,
-        input : ['ethtool-link-mode.py', '../basic/linux/ethtool.h'],
-        output : fname,
-        command : [python, '@INPUT0@', '--header', cpp, '@INPUT1@'],
+ethtool_link_mode_py = files('ethtool-link-mode.py')
+ethtool_link_mode_inc = custom_target(
+        input : [ethtool_link_mode_py, ethtool_link_mode_sources],
+        output : 'ethtool-link-mode.inc',
+        command : [python, ethtool_link_mode_py, '--header', cpp, system_include_args],
         capture : true)
-shared_sources += ethtool_link_mode_h
 
-fname = 'ethtool-link-mode.xml'
+generated_sources += ethtool_link_mode_inc
+shared_sources += ethtool_link_mode_inc
+sources += shared_sources
+
 ethtool_link_mode_xml = custom_target(
-        fname,
-        input : ['ethtool-link-mode.py', '../basic/linux/ethtool.h'],
-        output : fname,
-        command : [python, '@INPUT0@', '--xml', cpp, '@INPUT1@'],
+        input : [ethtool_link_mode_py, ethtool_link_mode_sources],
+        output : 'ethtool-link-mode.xml',
+        command : [python, ethtool_link_mode_py, '--xml', cpp, system_include_args],
         capture : true)
 man_page_depends += ethtool_link_mode_xml
 
@@ -326,6 +313,7 @@ libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
 libshared_deps = [threads,
                   libacl,
+                  libaudit,
                   libblkid,
                   libcap,
                   libcrypt,
@@ -352,6 +340,7 @@ libshared_static = static_library(
         libshared_name,
         shared_sources,
         include_directories : includes,
+        implicit_include_directories : false,
         dependencies : [libshared_deps,
                         userspace],
         c_args : ['-fvisibility=default'],
@@ -360,11 +349,13 @@ libshared_static = static_library(
 libshared = shared_library(
         libshared_name,
         include_directories : includes,
+        implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
         link_args : ['-shared',
                      '-Wl,--version-script=' + libshared_sym_path],
         link_depends : libshared_sym_path,
-        link_whole : [libshared_static,
+        link_whole : [libc_wrapper_static,
+                      libshared_static,
                       libbasic_static,
                       libsystemd_static],
         dependencies : [libshared_deps,
@@ -378,6 +369,7 @@ libshared_fdisk = static_library(
         'shared-fdisk',
         shared_fdisk_sources,
         include_directories : includes,
+        implicit_include_directories : false,
         dependencies : [libfdisk,
                         userspace],
         c_args : ['-fvisibility=default'],

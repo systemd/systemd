@@ -3,6 +3,7 @@
 #include "bpf-socket-bind.h"
 #include "load-fragment.h"
 #include "manager.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
@@ -76,14 +77,15 @@ static int test_socket_bind(
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
 
+        ASSERT_OK(unit_patch_contexts(u));
         r = unit_start(u, NULL);
         if (r < 0)
-                return log_error_errno(r, "Unit start failed %m");
+                return log_error_errno(r, "Unit start failed: %m");
 
         while (!IN_SET(SERVICE(u)->state, SERVICE_DEAD, SERVICE_FAILED)) {
                 r = sd_event_run(m->event, UINT64_MAX);
                 if (r < 0)
-                        return log_error_errno(r, "Event run failed %m");
+                        return log_error_errno(r, "Event run failed: %m");
         }
 
         cld_code = SERVICE(u)->exec_command[SERVICE_EXEC_START]->exec_status.code;
@@ -137,7 +139,7 @@ int main(int argc, char *argv[]) {
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "2000", STRV_MAKE("ipv6:2001-2002"), STRV_MAKE("any")) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("ipv4:6666", "6667"), STRV_MAKE("any")) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "6666", STRV_MAKE("6667", "6668", ""), STRV_MAKE("any")) >= 0);
-        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "7777", STRV_MAKE_EMPTY, STRV_MAKE_EMPTY) >= 0);
+        assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "7777", STRV_EMPTY, STRV_EMPTY) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "8888", STRV_MAKE("any"), STRV_MAKE("any")) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "8888", STRV_MAKE("ipv6:tcp:8888-8889"), STRV_MAKE("any")) >= 0);
         assert_se(test_socket_bind(m, "socket_bind_test.service", netcat_path, "10000", STRV_MAKE("ipv6:udp:9999-10000"), STRV_MAKE("any")) >= 0);

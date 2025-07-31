@@ -11,6 +11,8 @@ libudev_sources = files(
         'libudev.c',
 )
 
+sources += libudev_sources
+
 ############################################################
 
 libudev_includes = [includes, include_directories('.')]
@@ -27,6 +29,7 @@ libudev_basic = static_library(
         'udev-basic',
         libudev_sources,
         include_directories : includes,
+        implicit_include_directories : false,
         dependencies : userspace,
         c_args : ['-fvisibility=default'],
         build_by_default : false)
@@ -35,7 +38,6 @@ static_libudev = get_option('static-libudev')
 static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
 
 libudev_pc = custom_target(
-        'libudev.pc',
         input : 'libudev.pc.in',
         output : 'libudev.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

@@ -1,19 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
-#include "btrfs-util.h"
+#include "discover-image.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "image.h"
 #include "image-varlink.h"
 #include "io-util.h"
 #include "json-util.h"
-#include "machine.h"
 #include "machine-pool.h"
-#include "string-util.h"
+#include "machined.h"
+#include "operation.h"
+#include "process-util.h"
 
 typedef struct ImageUpdateParameters {
         const char *name;

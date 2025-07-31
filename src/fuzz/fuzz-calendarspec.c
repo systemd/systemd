@@ -2,7 +2,6 @@
 
 #include "alloc-util.h"
 #include "calendarspec.h"
-#include "fd-util.h"
 #include "fuzz.h"
 #include "string-util.h"
 #include "time-util.h"

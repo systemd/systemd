@@ -2,22 +2,23 @@
 
 #include <getopt.h>
 
+#include "sd-event.h"
+
+#include "alloc-util.h"
 #include "build.h"
 #include "bus-log-control-api.h"
 #include "bus-object.h"
 #include "cgroup-util.h"
-#include "conf-parser.h"
 #include "daemon-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "main-func.h"
 #include "oomd-conf.h"
-#include "oomd-manager-bus.h"
 #include "oomd-manager.h"
+#include "oomd-manager-bus.h"
 #include "parse-util.h"
 #include "pretty-print.h"
 #include "psi-util.h"
-#include "signal-util.h"
 
 static bool arg_dry_run = false;
 
@@ -123,7 +124,7 @@ static int run(int argc, char *argv[]) {
         int fd = n == 1 ? SD_LISTEN_FDS_START : -EBADF;
 
         /* SwapTotal is always available in /proc/meminfo and defaults to 0, even on swap-disabled kernels. */
-        r = get_proc_field("/proc/meminfo", "SwapTotal", WHITESPACE, &swap);
+        r = get_proc_field("/proc/meminfo", "SwapTotal", &swap);
         if (r < 0)
                 return log_error_errno(r, "Failed to get SwapTotal from /proc/meminfo: %m");
 
@@ -133,12 +134,6 @@ static int run(int argc, char *argv[]) {
 
         if (!is_pressure_supported())
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Pressure Stall Information (PSI) is not supported");
-
-        r = cg_all_unified();
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine whether the unified cgroups hierarchy is used: %m");
-        if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Requires the unified cgroups hierarchy");
 
         r = cg_mask_supported(&mask);
         if (r < 0)
@@ -158,7 +153,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to start up daemon: %m");
 
-        notify_msg = notify_start(NOTIFY_READY, NOTIFY_STOPPING);
+        notify_msg = notify_start(NOTIFY_READY_MESSAGE, NOTIFY_STOPPING_MESSAGE);
 
         log_debug("systemd-oomd started%s.", arg_dry_run ? " in dry run mode" : "");
 

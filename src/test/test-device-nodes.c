@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
-#include <sys/types.h>
 
 #include "alloc-util.h"
 #include "device-nodes.h"
-#include "string-util.h"
 #include "tests.h"
 
 /* helpers for test_encode_devnode_name */

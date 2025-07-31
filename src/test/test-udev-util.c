@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdlib.h>
 #include <string.h>
 
-#include "macro.h"
-#include "string-util.h"
 #include "tests.h"
 #include "udev-util.h"
 

@@ -7,8 +7,8 @@ _udevadm_info(){
         '(-)'{-h,--help}'[Print help]' \
         '(-)'{-V,--version}'[Print version of the program]' \
         '--query=[Query the database for specified type of device data. It needs the --path or --name to identify the specified device.]:type:(name symlink path property all)' \
-        '--path=[The devpath of the device to query.]:sys files:_files -P /sys/ -W /sys' \
-        '--name=[The name of the device node or a symlink to query]:device files:_files -P /dev/ -W /dev' \
+        '--path=[The devpath of the device to query.]:sys files:_files -W /sys' \
+        '--name=[The name of the device node or a symlink to query]:device files:_files -W /dev' \
         '--root[Print absolute paths in name or symlink query.]' \
         '--attribute-walk[Print all sysfs properties of the specified device that can be used in udev rules to match the specified device]' \
         '--export[Print output as key/value pairs.]' \
@@ -17,7 +17,8 @@ _udevadm_info(){
         '--export-db[Export the content of the udev database.]' \
         '--cleanup-db[Cleanup the udev database.]' \
         '--value[When showing properties, print only their values.]' \
-        '--property=[Show only properties by this name.]:NAME'
+        '--property=[Show only properties by this name.]:NAME' \
+        '*::devpath:_path_files -g "*(-/,-%)"'
 }
 
 (( $+functions[_udevadm_trigger] )) ||
@@ -42,16 +43,17 @@ _udevadm_trigger(){
         '--initialized-match[Trigger events for devices that are already initialized.]' \
         '--initialized-nomatch[Trigger events for devices that are not initialized yet.]' \
         '--uuid[Print synthetic uevent UUID.]' \
-        '--prioritized-subsystem=[Trigger events for devices which belong to a matching subsystem earlier.]:SUBSYSTEM'
+        '--prioritized-subsystem=[Trigger events for devices which belong to a matching subsystem earlier.]:SUBSYSTEM' \
+        '*::devpath:_path_files -g "*(-/,-%)"'
 }
 
 (( $+functions[_udevadm_settle] )) ||
 _udevadm_settle(){
     _arguments \
-       '(-)'{-h,--help}'[Print help]' \
-       '(-)'{-V,--version}'[Print version of the program]' \
-       '(-t --timeout)'{-t,--timeout=}'[Maximum number of seconds to wait for the event queue to become empty.]:SEC' \
-       '(-E --exit-if-exists)'{-E,--exit-if-exists=}'[Stop waiting if file exists.]:files:_files'
+        '(-)'{-h,--help}'[Print help]' \
+        '(-)'{-V,--version}'[Print version of the program]' \
+        '(-t --timeout)'{-t,--timeout=}'[Maximum number of seconds to wait for the event queue to become empty.]:SEC' \
+        '(-E --exit-if-exists)'{-E,--exit-if-exists=}'[Stop waiting if file exists.]:files:_files'
 }
 
 (( $+functions[_udevadm_control] )) ||
@@ -67,6 +69,7 @@ _udevadm_control(){
         '(-p --property)'{-p,--property=}'[Set a global property for all events.]:KEY=VALUE' \
         '(-m --children-max=)'{-m,--children-max=}'[Set the maximum number of events.]:N' \
         '--trace=[Enable/disable trace logging.]:BOOL' \
+        '--revert[Revert previously set configurations.]' \
         '(-t --timeout=)'{-t,--timeout=}'[The maximum number of seconds to wait for a reply from systemd-udevd.]:SECONDS'
 }
 
@@ -89,26 +92,26 @@ _udevadm_test(){
         '(-)'{-V,--version}'[Show package version]' \
         '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
         '(-N --resolve-names)'{-N,--resolve-names=}'[When to resolve names.]:resolve:(early late never)' \
-       '--subsystem=[The subsystem string.]' \
+        '--subsystem=[The subsystem string.]' \
         '(-D --extra-rules-dir=)'{-D,--extra-rules-dir=}'[Also load rules from the directory.]' \
         '(-v --verbose)'{-v,--verbose}'[Show verbose logs.]' \
         '--json=[Generate JSON output]:MODE:(pretty short off)' \
-        '*::devpath:_files -P /sys/ -W /sys'
+        '*::devpath:_files -W /sys'
 }
 
 (( $+functions[_udevadm_test-builtin] )) ||
 _udevadm_test-builtin(){
     if (( CURRENT == 2 )); then
-    _arguments \
-        '(- *)'{-h,--help}'[Print help]' \
-        '(- *)'{-V,--version}'[Print version of the program]' \
-        '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
-        '*::builtins:(blkid btrfs dissect_image factory_reset hwdb input_id keyboard kmod net_driver net_id net_setup_link path_id uaccess usb_id)'
+        _arguments \
+            '(- *)'{-h,--help}'[Print help]' \
+            '(- *)'{-V,--version}'[Print version of the program]' \
+            '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
+            '*::builtins:(blkid btrfs dissect_image factory_reset hwdb input_id keyboard kmod net_driver net_id net_setup_link path_id uaccess usb_id)'
     elif  (( CURRENT == 3 )); then
         _arguments \
             '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
             '(- *)--help[Print help text]' \
-            '*::syspath:_files -P /sys -W /sys'
+            '*::syspath:_files -W /sys'
     else
         _arguments \
             '--action=[The action string.]:actions:(add change remove move online offline bind unbind)' \
@@ -148,7 +151,7 @@ _udevadm_wait(){
         '--initialized=[Wait for devices being initialized by systemd-udevd.]:boolean:(yes no)' \
         '--removed[Wait for devices being removed.]' \
         '--settle[Also wait for udev queue being empty.]' \
-        '*::devpath:_files -P /dev/ -W /dev'
+        '*::devpath:_files -W /dev'
 }
 
 (( $+functions[_udevadm_lock] )) ||

@@ -1,18 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "hashmap.h"
+#include "core-forward.h"
 
 typedef enum FilesystemParseFlags {
         FILESYSTEM_PARSE_INVERT     = 1 << 0,
         FILESYSTEM_PARSE_ALLOW_LIST = 1 << 1,
         FILESYSTEM_PARSE_LOG        = 1 << 2,
 } FilesystemParseFlags;
-
-typedef struct Unit Unit;
-typedef struct Manager Manager;
-
-typedef struct restrict_fs_bpf restrict_fs_bpf;
 
 bool bpf_restrict_fs_supported(bool initialize);
 int bpf_restrict_fs_setup(Manager *m);

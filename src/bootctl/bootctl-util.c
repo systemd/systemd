@@ -1,12 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <sys/mman.h>
 
+#include "alloc-util.h"
+#include "boot-entry.h"
 #include "bootctl.h"
 #include "bootctl-util.h"
 #include "errno-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "sync-util.h"
 
 int sync_everything(void) {

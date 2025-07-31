@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Mount Mount;
-
-#include "dynamic-user.h"
+#include "cgroup.h"
+#include "core-forward.h"
+#include "execute.h"
 #include "kill.h"
 #include "pidref.h"
 #include "unit.h"
@@ -42,7 +42,7 @@ typedef enum MountProcFlags {
         MOUNT_PROC_JUST_CHANGED = 1 << 2,
 } MountProcFlags;
 
-struct Mount {
+typedef struct Mount {
         Unit meta;
 
         char *where;
@@ -88,12 +88,13 @@ struct Mount {
         sd_event_source *timer_event_source;
 
         unsigned n_retry_umount;
-};
+} Mount;
 
 extern const UnitVTable mount_vtable;
 
 void mount_fd_event(Manager *m, int events);
 
+char* mount_get_where_escaped(const Mount *m);
 char* mount_get_what_escaped(const Mount *m);
 char* mount_get_options_escaped(const Mount *m);
 const char* mount_get_fstype(const Mount *m);

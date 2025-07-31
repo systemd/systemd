@@ -1,11 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 /* Inspired by Andrew Lutomirski's 'u2f-hidraw-policy.c' */
 
-#include <errno.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-
 #include "fido_id_desc.h"
 
 #define HID_RPTDESC_FIRST_BYTE_LONG_ITEM 0xfeu

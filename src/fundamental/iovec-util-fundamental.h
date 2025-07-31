@@ -1,16 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if !SD_BOOT
+#include <sys/uio.h>
+#endif
+
+#include "assert-fundamental.h"
+#include "macro-fundamental.h"
+
 #if SD_BOOT
 /* struct iovec is a POSIX userspace construct. Let's introduce it also in EFI mode, it's just so useful */
 struct iovec {
         void *iov_base;
         size_t iov_len;
 };
-
-DISABLE_WARNING_REDUNDANT_DECLS;
-static inline void free(void *p);
-REENABLE_WARNING;
 #endif
 
 /* This accepts both const and non-const pointers */

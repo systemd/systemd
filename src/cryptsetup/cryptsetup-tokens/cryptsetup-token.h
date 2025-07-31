@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
+
 /* for more information see libcryptsetup.h crypt-tokens section */
 
 const char* cryptsetup_token_version(void);

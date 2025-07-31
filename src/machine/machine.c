@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <unistd.h>
+#include <sched.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
+#include "sd-bus.h"
+#include "sd-event.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -11,7 +13,6 @@
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-unit-util.h"
-#include "bus-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -21,19 +22,24 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "machine-dbus.h"
+#include "log.h"
 #include "machine.h"
+#include "machine-dbus.h"
+#include "machined.h"
 #include "mkdir-label.h"
 #include "namespace-util.h"
+#include "operation.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "serialize.h"
+#include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "uid-range.h"
@@ -57,6 +63,7 @@ int machine_new(MachineClass class, const char *name, Machine **ret) {
         *m = (Machine) {
                 .class = class,
                 .leader = PIDREF_NULL,
+                .supervisor = PIDREF_NULL,
                 .vsock_cid = VMADDR_CID_ANY,
         };
 
@@ -126,22 +133,32 @@ Machine* machine_free(Machine *m) {
                 pidref_done(&m->leader);
         }
 
+        m->supervisor_pidfd_event_source = sd_event_source_disable_unref(m->supervisor_pidfd_event_source);
+        pidref_done(&m->supervisor);
+
         sd_bus_message_unref(m->create_message);
 
+        m->cgroup_empty_event_source = sd_event_source_disable_unref(m->cgroup_empty_event_source);
+
         free(m->name);
-        free(m->scope_job);
+
         free(m->state_file);
         free(m->service);
         free(m->root_directory);
+
+        free(m->unit);
+        free(m->subgroup);
+        free(m->scope_job);
+        free(m->cgroup);
+
         free(m->netif);
         free(m->ssh_address);
         free(m->ssh_private_key_path);
+
         return mfree(m);
 }
 
 int machine_save(Machine *m) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(m);
@@ -152,63 +169,56 @@ int machine_save(Machine *m) {
         if (!m->started)
                 return 0;
 
+        _cleanup_(unlink_and_freep) char *sl = NULL; /* auto-unlink! */
+        if (m->unit && !m->subgroup) {
+                sl = strjoin("/run/systemd/machines/unit:", m->unit);
+                if (!sl)
+                        return log_oom();
+        }
+
         r = mkdir_safe_label("/run/systemd/machines", 0755, 0, 0, MKDIR_WARN_MODE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create /run/systemd/machines/: %m");
 
-        r = fopen_temporary(m->state_file, &f, &temp_path);
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        r = fopen_tmpfile_linkable(m->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to create state file '%s': %m", m->state_file);
 
-        (void) fchmod(fileno(f), 0644);
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to set access mode for state file '%s' to 0644: %m", m->state_file);
 
         fprintf(f,
                 "# This is private data. Do not parse.\n"
-                "NAME=%s\n",
-                m->name);
+                "NAME=%s\n"
+                "UID=" UID_FMT "\n",
+                m->name,
+                m->uid);
 
-        if (m->unit) {
-                _cleanup_free_ char *escaped = NULL;
+        /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
+        env_file_fputs_assignment(f, "SCOPE=", m->unit);
+        env_file_fputs_assignment(f, "SCOPE_JOB=", m->scope_job);
 
-                escaped = cescape(m->unit);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                fprintf(f, "SCOPE=%s\n", escaped); /* We continue to call this "SCOPE=" because it is internal only, and we want to stay compatible with old files */
-        }
-
-        if (m->scope_job)
-                fprintf(f, "SCOPE_JOB=%s\n", m->scope_job);
-
-        if (m->service) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(m->service);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-                fprintf(f, "SERVICE=%s\n", escaped);
-        }
-
-        if (m->root_directory) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = cescape(m->root_directory);
-                if (!escaped) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-                fprintf(f, "ROOT=%s\n", escaped);
-        }
+        env_file_fputs_assignment(f, "SERVICE=", m->service);
+        env_file_fputs_assignment(f, "ROOT=", m->root_directory);
 
         if (!sd_id128_is_null(m->id))
                 fprintf(f, "ID=" SD_ID128_FORMAT_STR "\n", SD_ID128_FORMAT_VAL(m->id));
 
-        if (pidref_is_set(&m->leader))
+        if (pidref_is_set(&m->leader)) {
                 fprintf(f, "LEADER="PID_FMT"\n", m->leader.pid);
+                (void) pidref_acquire_pidfd_id(&m->leader);
+                if (m->leader.fd_id != 0)
+                        fprintf(f, "LEADER_PIDFDID=%" PRIu64 "\n", m->leader.fd_id);
+        }
+
+        if (pidref_is_set(&m->supervisor)) {
+                fprintf(f, "SUPERVISOR=" PID_FMT "\n", m->supervisor.pid);
+                (void) pidref_acquire_pidfd_id(&m->supervisor);
+                if (m->supervisor.fd_id != 0)
+                        fprintf(f, "SUPERVISOR_PIDFDID=%" PRIu64 "\n", m->supervisor.fd_id);
+        }
 
         if (m->class != _MACHINE_CLASS_INVALID)
                 fprintf(f, "CLASS=%s\n", machine_class_to_string(m->class));
@@ -221,56 +231,44 @@ int machine_save(Machine *m) {
                         m->timestamp.monotonic);
 
         if (m->n_netif > 0) {
-                size_t i;
-
-                fputs("NETIF=", f);
-
-                for (i = 0; i < m->n_netif; i++) {
-                        if (i != 0)
+                fputs("NETIF=\"", f);
+                FOREACH_ARRAY(ifi, m->netif, m->n_netif) {
+                        if (*ifi != 0)
                                 fputc(' ', f);
-
-                        fprintf(f, "%i", m->netif[i]);
+                        fprintf(f, "%i", *ifi);
                 }
-
-                fputc('\n', f);
+                fputs("\"\n", f);
         }
 
-        r = fflush_and_check(f);
+        if (m->vsock_cid != 0)
+                fprintf(f, "VSOCK_CID=%u\n", m->vsock_cid);
+
+        env_file_fputs_assignment(f, "SSH_ADDRESS=", m->ssh_address);
+        env_file_fputs_assignment(f, "SSH_PRIVATE_KEY_PATH=", m->ssh_private_key_path);
+
+        r = flink_tmpfile(f, temp_path, m->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
-                goto fail;
+                return log_error_errno(r, "Failed to move '%s' into place: %m", m->state_file);
 
-        if (rename(temp_path, m->state_file) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        temp_path = mfree(temp_path); /* disarm auto-destroy: temporary file does not exist anymore */
 
-        temp_path = mfree(temp_path);
-
-        if (m->unit) {
-                char *sl;
-
-                /* Create a symlink from the unit name to the machine
-                 * name, so that we can quickly find the machine for
-                 * each given unit. Ignore error. */
-                sl = strjoina("/run/systemd/machines/unit:", m->unit);
+        if (sl) {
+                /* Create a symlink from the unit name to the machine name, so that we can quickly find the machine
+                 * for each given unit. Ignore error. */
                 (void) symlink(m->name, sl);
+
+                /* disarm auto-removal */
+                sl = mfree(sl);
         }
 
         return 0;
-
-fail:
-        (void) unlink(m->state_file);
-
-        return log_error_errno(r, "Failed to save machine data %s: %m", m->state_file);
 }
 
 static void machine_unlink(Machine *m) {
         assert(m);
 
-        if (m->unit) {
-                char *sl;
-
-                sl = strjoina("/run/systemd/machines/unit:", m->unit);
+        if (m->unit && !m->subgroup) {
+                const char *sl = strjoina("/run/systemd/machines/unit:", m->unit);
                 (void) unlink(sl);
         }
 
@@ -278,8 +276,42 @@ static void machine_unlink(Machine *m) {
                 (void) unlink(m->state_file);
 }
 
+static void parse_pid_and_pidfdid(
+                PidRef *pidref,
+                const char *pid,
+                const char *pidfdid,
+                const char *name) {
+
+        int r;
+
+        assert(pidref);
+        assert(name);
+
+        pidref_done(pidref);
+
+        if (!pid)
+                return;
+        r = pidref_set_pidstr(pidref, pid);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to set %s PID to '%s', ignoring: %m", name, pid);
+
+        if (!pidfdid)
+                return;
+        uint64_t fd_id;
+        r = safe_atou64(pidfdid, &fd_id);
+        if (r < 0)
+                return (void) log_warning_errno(r, "Failed to parse %s pidfd ID, ignoring: %s", name, pidfdid);
+        (void) pidref_acquire_pidfd_id(pidref);
+        if (fd_id != pidref->fd_id) {
+                log_debug("PID of %s got recycled, ignoring.", name);
+                pidref_done(pidref);
+        }
+}
+
 int machine_load(Machine *m) {
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL, *id = NULL, *leader = NULL, *class = NULL, *netif = NULL;
+        _cleanup_free_ char *name = NULL, *realtime = NULL, *monotonic = NULL, *id = NULL,
+                *leader = NULL, *leader_pidfdid = NULL, *supervisor = NULL, *supervisor_pidfdid = NULL,
+                *class = NULL, *netif = NULL, *vsock_cid = NULL, *uid = NULL;
         int r;
 
         assert(m);
@@ -288,35 +320,41 @@ int machine_load(Machine *m) {
                 return 0;
 
         r = parse_env_file(NULL, m->state_file,
-                           "SCOPE",     &m->unit,
-                           "SCOPE_JOB", &m->scope_job,
-                           "SERVICE",   &m->service,
-                           "ROOT",      &m->root_directory,
-                           "ID",        &id,
-                           "LEADER",    &leader,
-                           "CLASS",     &class,
-                           "REALTIME",  &realtime,
-                           "MONOTONIC", &monotonic,
-                           "NETIF",     &netif);
+                           "NAME",                 &name,
+                           "SCOPE",                &m->unit,
+                           "SUBGROUP",             &m->subgroup,
+                           "SCOPE_JOB",            &m->scope_job,
+                           "SERVICE",              &m->service,
+                           "ROOT",                 &m->root_directory,
+                           "ID",                   &id,
+                           "LEADER",               &leader,
+                           "LEADER_PIDFDID",       &leader_pidfdid,
+                           "SUPERVISOR",           &supervisor,
+                           "SUPERVISOR_PIDFDID",   &supervisor_pidfdid,
+                           "CLASS",                &class,
+                           "REALTIME",             &realtime,
+                           "MONOTONIC",            &monotonic,
+                           "NETIF",                &netif,
+                           "VSOCK_CID",            &vsock_cid,
+                           "SSH_ADDRESS",          &m->ssh_address,
+                           "SSH_PRIVATE_KEY_PATH", &m->ssh_private_key_path,
+                           "UID",                  &uid);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", m->state_file);
 
+        if (!streq_ptr(name, m->name))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "State file '%s' for machine '%s' reports a different name '%s', refusing", m->state_file, m->name, name);
+
         if (id)
                 (void) sd_id128_from_string(id, &m->id);
 
-        if (leader) {
-                pidref_done(&m->leader);
-                r = pidref_set_pidstr(&m->leader, leader);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set leader PID to '%s', ignoring: %m", leader);
-        }
+        parse_pid_and_pidfdid(&m->leader, leader, leader_pidfdid, "leader");
+        parse_pid_and_pidfdid(&m->supervisor, supervisor, supervisor_pidfdid, "supervisor");
 
         if (class) {
-                MachineClass c;
-
-                c = machine_class_from_string(class);
+                MachineClass c = machine_class_from_string(class);
                 if (c >= 0)
                         m->class = c;
         }
@@ -326,13 +364,13 @@ int machine_load(Machine *m) {
         if (monotonic)
                 (void) deserialize_usec(monotonic, &m->timestamp.monotonic);
 
+        m->netif = mfree(m->netif);
+        m->n_netif = 0;
         if (netif) {
                 _cleanup_free_ int *ni = NULL;
                 size_t nr = 0;
-                const char *p;
 
-                p = netif;
-                for (;;) {
+                for (const char *p = netif;;) {
                         _cleanup_free_ char *word = NULL;
 
                         r = extract_first_word(&p, &word, NULL, 0);
@@ -355,9 +393,20 @@ int machine_load(Machine *m) {
                         ni[nr++] = r;
                 }
 
-                free_and_replace(m->netif, ni);
+                m->netif = TAKE_PTR(ni);
                 m->n_netif = nr;
         }
+
+        m->vsock_cid = 0;
+        if (vsock_cid) {
+                r = safe_atou(vsock_cid, &m->vsock_cid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse AF_VSOCK CID, ignoring: %s", vsock_cid);
+        }
+
+        r = parse_uid(uid, &m->uid);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse owning UID, ignoring: %s", uid);
 
         return r;
 }
@@ -377,6 +426,7 @@ static int machine_start_scope(
         assert(machine);
         assert(pidref_is_set(&machine->leader));
         assert(!machine->unit);
+        assert(!machine->subgroup);
 
         escaped = unit_name_escape(machine->name);
         if (!escaped)
@@ -415,13 +465,27 @@ static int machine_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "(sv)(sv)(sv)(sv)",
-                                  "Delegate", "b", 1,
-                                  "CollectMode", "s", "inactive-or-failed",
-                                  "AddRef", "b", 1,
-                                  "TasksMax", "t", UINT64_C(16384));
+        r = sd_bus_message_append(
+                        m, "(sv)(sv)(sv)(sv)",
+                        "Delegate", "b", 1,
+                        "CollectMode", "s", "inactive-or-failed",
+                        "AddRef", "b", 1,
+                        "TasksMax", "t", UINT64_C(16384));
         if (r < 0)
                 return r;
+
+        if (machine->uid != 0) {
+                _cleanup_free_ char *u = NULL;
+
+                if (asprintf(&u, UID_FMT, machine->uid) < 0)
+                        return -ENOMEM;
+
+                r = sd_bus_message_append(
+                                m, "(sv)",
+                                "User", "s", u);
+                if (r < 0)
+                        return r;
+        }
 
         if (more_properties) {
                 r = sd_bus_message_copy(m, more_properties, true);
@@ -473,9 +537,11 @@ static int machine_ensure_scope(Machine *m, sd_bus_message *properties, sd_bus_e
 
         assert(m->unit);
 
-        r = hashmap_ensure_put(&m->manager->machines_by_unit, &string_hash_ops, m->unit, m);
-        if (r < 0)
-                return r;
+        if (!m->subgroup) {
+                r = hashmap_ensure_put(&m->manager->machines_by_unit, &string_hash_ops, m->unit, m);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -489,25 +555,72 @@ static int machine_dispatch_leader_pidfd(sd_event_source *s, int fd, unsigned re
         return 0;
 }
 
-static int machine_watch_pidfd(Machine *m) {
+static int machine_dispatch_supervisor_pidfd(sd_event_source *s, int fd, unsigned revents, void *userdata) {
+        Machine *m = ASSERT_PTR(userdata);
+
+        m->supervisor_pidfd_event_source = sd_event_source_disable_unref(m->supervisor_pidfd_event_source);
+        machine_add_to_gc_queue(m);
+
+        return 0;
+}
+
+static int machine_watch_pidfd(Machine *m, PidRef *pidref, sd_event_source **source, sd_event_io_handler_t cb) {
         int r;
 
         assert(m);
         assert(m->manager);
-        assert(pidref_is_set(&m->leader));
-        assert(!m->leader_pidfd_event_source);
+        assert(source);
+        assert(!*source);
+        assert(cb);
 
-        if (m->leader.fd < 0)
+        if (!pidref_is_set(pidref) || pidref->fd < 0)
                 return 0;
 
-        /* If we have a pidfd for the leader, let's also track it for POLLIN, and GC the machine
+        /* If we have a pidfd for the leader or supervisor, let's also track it for POLLIN, and GC the machine
          * automatically if it dies */
 
-        r = sd_event_add_io(m->manager->event, &m->leader_pidfd_event_source, m->leader.fd, EPOLLIN, machine_dispatch_leader_pidfd, m);
+        r = sd_event_add_io(m->manager->event, source, pidref->fd, EPOLLIN, cb, m);
         if (r < 0)
                 return r;
 
-        (void) sd_event_source_set_description(m->leader_pidfd_event_source, "machine-pidfd");
+        (void) sd_event_source_set_description(*source, "machine-pidfd");
+
+        return 0;
+}
+
+static int machine_dispatch_cgroup_empty(sd_event_source *s, const struct inotify_event *event, void *userdata) {
+        Machine *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(m->cgroup);
+
+        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, m->cgroup);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if cgroup '%s' is empty: %m", m->cgroup);
+
+        if (r > 0)
+                machine_add_to_gc_queue(m);
+
+        return 0;
+}
+
+static int machine_watch_cgroup(Machine *m) {
+        int r;
+
+        assert(m);
+        assert(!m->cgroup_empty_event_source);
+
+        if (!m->cgroup)
+                return 0;
+
+        _cleanup_free_ char *p = NULL;
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup, "cgroup.events", &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get cgroup path for cgroup '%s': %m", m->cgroup);
+
+        r = sd_event_add_inotify(m->manager->event, &m->cgroup_empty_event_source, p, IN_MODIFY, machine_dispatch_cgroup_empty, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch %s events: %m", p);
 
         return 0;
 }
@@ -527,7 +640,15 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
-        r = machine_watch_pidfd(m);
+        r = machine_watch_pidfd(m, &m->leader, &m->leader_pidfd_event_source, machine_dispatch_leader_pidfd);
+        if (r < 0)
+                return r;
+
+        r = machine_watch_pidfd(m, &m->supervisor, &m->supervisor_pidfd_event_source, machine_dispatch_supervisor_pidfd);
+        if (r < 0)
+                return r;
+
+        r = machine_watch_cgroup(m);
         if (r < 0)
                 return r;
 
@@ -560,19 +681,29 @@ int machine_stop(Machine *m) {
 
         assert(m);
 
+        log_debug("Stopping machine '%s'.", m->name);
+
         if (!IN_SET(m->class, MACHINE_CONTAINER, MACHINE_VM))
                 return -EOPNOTSUPP;
 
-        if (m->unit) {
+        if (m->unit && !m->subgroup) {
+                /* If the machine runs as its own unit, then we'll terminate that */
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 char *job = NULL;
 
                 r = manager_stop_unit(m->manager, m->unit, &error, &job);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to stop machine scope: %s", bus_error_message(&error, r));
+                        return log_error_errno(r, "Failed to stop machine unit: %s", bus_error_message(&error, r));
 
                 free_and_replace(m->scope_job, job);
-        }
+
+        } else if (pidref_is_set(&m->supervisor)) {
+                /* Otherwise, send a friendly SIGTERM to the supervisor */
+                r = pidref_kill(&m->supervisor, SIGTERM);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to kill supervisor process " PID_FMT " of machine '%s': %m", m->supervisor.pid, m->name);
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Don't know how to terminate machine '%s'.", m->name);
 
         m->stopping = true;
 
@@ -606,22 +737,51 @@ int machine_finalize(Machine *m) {
 }
 
 bool machine_may_gc(Machine *m, bool drop_not_started) {
+        int r;
+
         assert(m);
 
         if (m->class == MACHINE_HOST)
                 return false;
 
-        if (!pidref_is_set(&m->leader))
-                return true;
-
         if (drop_not_started && !m->started)
                 return true;
 
-        if (m->scope_job && manager_job_is_active(m->manager, m->scope_job))
+        r = pidref_is_alive(&m->leader);
+        if (r == -ESRCH)
+                return true;
+        if (r < 0)
+                log_debug_errno(r, "Unable to determine if leader PID " PID_FMT " is still alive, assuming not: %m", m->leader.pid);
+        if (r > 0)
                 return false;
 
-        if (m->unit && manager_unit_is_active(m->manager, m->unit))
-                return false;
+        if (m->scope_job) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = manager_job_is_active(m->manager, m->scope_job, &error);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether job '%s' is active, assuming it is: %s", m->scope_job, bus_error_message(&error, r));
+                if (r != 0)
+                        return false;
+        }
+
+        if (m->unit && !m->subgroup) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                r = manager_unit_is_active(m->manager, m->unit, &error);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine whether unit '%s' is active, assuming it is: %s", m->unit, bus_error_message(&error, r));
+                if (r != 0)
+                        return false;
+        }
+
+        if (m->cgroup) {
+                r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, m->cgroup);
+                if (IN_SET(r, 0, -ENOENT))
+                        return true;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine if cgroup '%s' is empty, ignoring: %m", m->cgroup);
+        }
 
         return true;
 }
@@ -656,17 +816,28 @@ MachineState machine_get_state(Machine *s) {
 int machine_kill(Machine *m, KillWhom whom, int signo) {
         assert(m);
 
+        log_debug("Killing machine '%s' (%s) with signal %s.", m->name, kill_whom_to_string(whom), signal_to_string(signo));
+
         if (!IN_SET(m->class, MACHINE_VM, MACHINE_CONTAINER))
                 return -EOPNOTSUPP;
 
-        if (!m->unit)
-                return -ESRCH;
+        switch (whom) {
 
-        if (whom == KILL_LEADER) /* If we shall simply kill the leader, do so directly */
+        case KILL_LEADER:
                 return pidref_kill(&m->leader, signo);
 
-        /* Otherwise, make PID 1 do it for us, for the entire cgroup */
-        return manager_kill_unit(m->manager, m->unit, signo, NULL);
+        case KILL_SUPERVISOR:
+                return pidref_kill(&m->supervisor, signo);
+
+        case KILL_ALL:
+                if (!m->unit)
+                        return -ESRCH;
+
+                return manager_kill_unit(m->manager, m->unit, m->subgroup, signo, /* error= */ NULL);
+
+        default:
+                assert_not_reached();
+        }
 }
 
 int machine_openpt(Machine *m, int flags, char **ret_peer) {
@@ -751,7 +922,7 @@ int machine_start_getty(Machine *m, const char *ptmx_name, sd_bus_error *error) 
         container_bus = allocated_bus ?: m->manager->bus;
         getty = strjoina("container-getty@", p, ".service");
 
-        r = bus_call_method(container_bus, bus_systemd_mgr, "StartUnit", error, /* reply = */ NULL, "ss", getty, "replace");
+        r = bus_call_method(container_bus, bus_systemd_mgr, "StartUnit", error, /* ret_reply = */ NULL, "ss", getty, "replace");
         if (r < 0)
                 return log_debug_errno(r, "Failed to StartUnit '%s' in container '%s': %m", getty, m->name);
 
@@ -1100,8 +1271,13 @@ void machine_release_unit(Machine *m) {
                 m->referenced = false;
         }
 
-        (void) hashmap_remove_value(m->manager->machines_by_unit, m->unit, m);
+        if (!m->subgroup)
+                (void) hashmap_remove_value(m->manager->machines_by_unit, m->unit, m);
+
         m->unit = mfree(m->unit);
+
+        /* Also free the subgroup, because it only makes sense in the context of the unit */
+        m->subgroup = mfree(m->subgroup);
 }
 
 int machine_get_uid_shift(Machine *m, uid_t *ret) {
@@ -1190,6 +1366,10 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         if (uid_range != (uid_t) gid_range)
                 return -ENXIO;
 
+        r = pidref_verify(&m->leader);
+        if (r < 0)
+                return r;
+
         *ret = uid_shift;
         return 0;
 }
@@ -1241,6 +1421,10 @@ static int machine_owns_uid_internal(
                 converted = (uid - uid_shift + uid_base);
                 if (!uid_is_valid(converted))
                         return -EINVAL;
+
+                r = pidref_verify(&machine->leader);
+                if (r < 0)
+                        return r;
 
                 if (ret_internal_uid)
                         *ret_internal_uid = converted;
@@ -1304,6 +1488,10 @@ static int machine_translate_uid_internal(
                 converted = uid - uid_base + uid_shift;
                 if (!uid_is_valid(converted))
                         return -EINVAL;
+
+                r = pidref_verify(&machine->leader);
+                if (r < 0)
+                        return r;
 
                 if (ret_host_uid)
                         *ret_host_uid = converted;
@@ -1417,8 +1605,8 @@ int machine_open_root_directory(Machine *machine) {
 
 static const char* const machine_class_table[_MACHINE_CLASS_MAX] = {
         [MACHINE_CONTAINER] = "container",
-        [MACHINE_VM] = "vm",
-        [MACHINE_HOST] = "host",
+        [MACHINE_VM]        = "vm",
+        [MACHINE_HOST]      = "host",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(machine_class, MachineClass);
@@ -1432,8 +1620,9 @@ static const char* const machine_state_table[_MACHINE_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(machine_state, MachineState);
 
 static const char* const kill_whom_table[_KILL_WHOM_MAX] = {
-        [KILL_LEADER] = "leader",
-        [KILL_ALL] = "all"
+        [KILL_LEADER]     = "leader",
+        [KILL_SUPERVISOR] = "supervisor",
+        [KILL_ALL]        = "all",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);

@@ -152,6 +152,17 @@
 
     <variablelist>
       <varlistentry>
+        <term><uri>/boots</uri></term>
+
+        <listitem><para>Returns json-seq (RFC 7464) response containing JSON objects, each one containing
+        boot number, its ID and the timestamps of the first and last message. Boots are returned starting
+        with the latest boot first and use the same schema as
+        <command>journalctl --list-boots --output json</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><uri>/browse</uri></term>
 
         <listitem><para>Interactive browsing.</para>
@@ -275,20 +286,23 @@
     <title>Range header</title>
 
     <para>
-      <option>Range: entries=<replaceable>cursor</replaceable>[[:<replaceable>num_skip</replaceable>]:<replaceable>num_entries</replaceable>]</option>
+      <option>Range: entries=[<replaceable>cursor</replaceable>][[:<replaceable>num_skip</replaceable>]:[<replaceable>num_entries</replaceable>]]</option>
     </para>
     <para>
       <option>Range: realtime=[<replaceable>since</replaceable>]:[<replaceable>until</replaceable>][[:<replaceable>num_skip</replaceable>]:<replaceable>num_entries</replaceable>]</option>
     </para>
 
     <para>where
-      <replaceable>cursor</replaceable> is a cursor string,
+      <replaceable>cursor</replaceable> is a cursor string, defaults to the first entry,
       <replaceable>since</replaceable> and <replaceable>until</replaceable> are timestamps (seconds since 1970-01-01 00:00:00 UTC),
       <replaceable>num_skip</replaceable> is an integer,
       <replaceable>num_entries</replaceable> is an unsigned integer.
     </para>
 
     <para>Range defaults to all available events.</para>
+
+    <para>If <replaceable>num_skip</replaceable> is negative and no <replaceable>cursor</replaceable> is
+    given, the last entry will be the reference point.</para>
   </refsect1>
 
   <refsect1>
@@ -300,9 +314,9 @@
       <varlistentry>
         <term><uri>follow</uri></term>
 
-        <listitem><para>wait for new events
-        (like <command>journalctl --follow</command>, except that
-        the number of events returned is not limited).</para>
+        <listitem><para>wait for new events (like <command>journalctl --follow</command>, the number of
+        events returned is not limited, unless <replaceable>num_entries</replaceable> is specified in the
+        <replaceable>Range</replaceable> header).</para>
 
         <xi:include href="version-info.xml" xpointer="v197"/>
         </listitem>

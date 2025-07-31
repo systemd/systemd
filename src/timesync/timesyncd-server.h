@@ -3,9 +3,7 @@
 
 #include "list.h"
 #include "socket-util.h"
-
-typedef struct ServerAddress ServerAddress;
-typedef struct ServerName ServerName;
+#include "timesyncd-forward.h"
 
 typedef enum ServerType {
         SERVER_SYSTEM,
@@ -15,8 +13,6 @@ typedef enum ServerType {
         _SERVER_TYPE_MAX,
         _SERVER_TYPE_INVALID = -EINVAL,
 } ServerType;
-
-#include "timesyncd-manager.h"
 
 struct ServerAddress {
         ServerName *name;

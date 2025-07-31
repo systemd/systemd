@@ -34,7 +34,7 @@ case "$service" in
     systemd-cgtop)
         _arguments \
             '(-)'{-h,--help}'[Show this help]' \
-	    '(-)--version[Print version and exit]' \
+            '(-)--version[Print version and exit]' \
             '(-c -m -i -t)-p[Order by path]' \
             '(-c -p -m -i)-t[Order by number of tasks]' \
             '(-m -p -i -t)-c[Order by CPU load]' \
@@ -48,7 +48,7 @@ case "$service" in
     systemd-detect-virt)
         _arguments \
             '(-)'{-h,--help}'[Show this help]' \
-	    '(-)--version[Show package version]' \
+            '(-)--version[Show package version]' \
             '(-c --container)'{-c,--container}'[Only detect whether we are run in a container]' \
             '(-v --vm)'{-v,--vm}'[Only detect whether we are run in a VM]' \
             '(-q --quiet)'{-q,--quiet}"[Don't output anything, just set return value]"
@@ -56,12 +56,12 @@ case "$service" in
     systemd-machine-id-setup)
         _arguments \
             '(-)'{-h,--help}'[Show this help]' \
-	    '(-)--version[Show package version]'
+            '(-)--version[Show package version]'
         ;;
     systemd-notify)
         _arguments \
             '(-)'{-h,--help}'[Show this help]' \
-	    '(-)--version[Show package version]' \
+            '(-)--version[Show package version]' \
             '--ready[Inform the init system about service start-up completion.]' \
             '--pid=[Inform the init system about the main PID of the daemon]:daemon main PID:_pids' \
             '--status=[Send a free-form status string for the daemon to the init systemd]:status string:' \
@@ -70,8 +70,8 @@ case "$service" in
     systemd-tty-ask-password-agent)
         _arguments \
             '(-)'{-h,--help}'[Prints a short help text and exits.]' \
-	    '(-)--version[Prints a short version string and exits.]' \
-	    '--list[Lists all currently pending system password requests.]' \
+            '(-)--version[Prints a short version string and exits.]' \
+            '--list[Lists all currently pending system password requests.]' \
             '--query[Process all currently pending system password requests by querying the user on the calling TTY.]' \
             '--watch[Continuously process password requests.]' \
             '--wall[Forward password requests to wall(1).]' \

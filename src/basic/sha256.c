@@ -2,9 +2,10 @@
 
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "hexdecoct.h"
-#include "macro.h"
 #include "sha256.h"
+#include "string-util.h"
 
 int sha256_fd(int fd, uint64_t max_size, uint8_t ret[static SHA256_DIGEST_SIZE]) {
         struct sha256_ctx ctx;
@@ -47,4 +48,8 @@ int parse_sha256(const char *s, uint8_t ret[static SHA256_DIGEST_SIZE]) {
 
         memcpy(ret, data, size);
         return 0;
+}
+
+bool sha256_is_valid(const char *s) {
+        return s && in_charset(s, HEXDIGITS) && (strlen(s) == SHA256_DIGEST_SIZE * 2);
 }

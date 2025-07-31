@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <unistd.h>
 #include <fcntl.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 
 #include "bus-locator.h"
-#include "bus-util.h"
 #include "fd-util.h"
-#include "macro.h"
 #include "tests.h"
 
 static int inhibit(sd_bus *bus, const char *what) {

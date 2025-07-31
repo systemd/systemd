@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "conf-parser.h"
-#include "unit.h"
+#include "core-forward.h"
 
 /* These functions are declared in the header to make them accessible to unit tests. */
 bool contains_instance_specifier_superset(const char *s);
@@ -81,7 +80,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_unset_environ);
 CONFIG_PARSER_PROTOTYPE(config_parse_unit_slice);
 CONFIG_PARSER_PROTOTYPE(config_parse_cg_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_cg_cpu_weight);
-CONFIG_PARSER_PROTOTYPE(config_parse_cpu_shares);
 CONFIG_PARSER_PROTOTYPE(config_parse_memory_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_tasks_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate);
@@ -95,9 +93,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_device_allow);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_device_latency);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_device_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_io_limit);
-CONFIG_PARSER_PROTOTYPE(config_parse_blockio_weight);
-CONFIG_PARSER_PROTOTYPE(config_parse_blockio_device_weight);
-CONFIG_PARSER_PROTOTYPE(config_parse_blockio_bandwidth);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_mode_isolate);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_selinux_context);
@@ -106,6 +101,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_smack_process_label);
 CONFIG_PARSER_PROTOTYPE(config_parse_address_families);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_preserve_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_directories);
+CONFIG_PARSER_PROTOTYPE(config_parse_exec_quota);
 CONFIG_PARSER_PROTOTYPE(config_parse_set_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_load_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_import_credential);
@@ -117,7 +113,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_private_users);
 CONFIG_PARSER_PROTOTYPE(config_parse_private_pids);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_control_groups);
 CONFIG_PARSER_PROTOTYPE(config_parse_cpu_quota);
-CONFIG_PARSER_PROTOTYPE(config_parse_allowed_cpuset);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_cpu_set);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_home);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_hostname);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_system);
@@ -133,6 +129,11 @@ CONFIG_PARSER_PROTOTYPE(config_parse_bind_paths);
 CONFIG_PARSER_PROTOTYPE(config_parse_exec_keyring_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_protect_proc);
 CONFIG_PARSER_PROTOTYPE(config_parse_proc_subset);
+CONFIG_PARSER_PROTOTYPE(config_parse_private_bpf);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_delegate_commands);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_delegate_maps);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_delegate_programs);
+CONFIG_PARSER_PROTOTYPE(config_parse_bpf_delegate_attachments);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_job_running_timeout_sec);
 CONFIG_PARSER_PROTOTYPE(config_parse_log_extra_fields);
@@ -145,7 +146,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_oom_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_numa_mask);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_filter_bpf_progs);
-CONFIG_PARSER_PROTOTYPE(config_parse_cpu_affinity2);
 CONFIG_PARSER_PROTOTYPE(config_parse_show_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_status_unit_format);
 CONFIG_PARSER_PROTOTYPE(config_parse_output_restricted);
@@ -154,6 +154,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_timeout_abort);
 CONFIG_PARSER_PROTOTYPE(config_parse_swap_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_mount_images);
 CONFIG_PARSER_PROTOTYPE(config_parse_socket_timestamping);
+CONFIG_PARSER_PROTOTYPE(config_parse_socket_defer_trigger);
 CONFIG_PARSER_PROTOTYPE(config_parse_extension_images);
 CONFIG_PARSER_PROTOTYPE(config_parse_bpf_foreign_program);
 CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_socket_bind);
@@ -165,6 +166,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_open_file);
 CONFIG_PARSER_PROTOTYPE(config_parse_memory_pressure_watch);
 CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_nft_set);
 CONFIG_PARSER_PROTOTYPE(config_parse_mount_node);
+CONFIG_PARSER_PROTOTYPE(config_parse_concurrency_max);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

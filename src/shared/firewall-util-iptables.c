@@ -1,24 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-#include <arpa/inet.h>
 #include <endian.h>
-#include <errno.h>
-#include <stddef.h>
-#include <string.h>
-#include <linux/if.h>
-#include <linux/netfilter_ipv4/ip_tables.h>
+#include <libiptc/libiptc.h>
 #include <linux/netfilter/nf_nat.h>
 #include <linux/netfilter/xt_addrtype.h>
-#include <libiptc/libiptc.h>
+#include <linux/netfilter_ipv4/ip_tables.h>
+#include <string.h>
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
-#include "firewall-util.h"
 #include "firewall-util-private.h"
 #include "in-addr-util.h"
-#include "macro.h"
+#include "log.h"
 #include "socket-util.h"
 
 static DLSYM_PROTOTYPE(iptc_check_entry) = NULL;

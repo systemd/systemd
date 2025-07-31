@@ -2,8 +2,12 @@
 
 #include "analyze.h"
 #include "analyze-timestamp.h"
+#include "ansi-color.h"
+#include "errno-util.h"
 #include "format-table.h"
-#include "terminal-util.h"
+#include "log.h"
+#include "strv.h"
+#include "time-util.h"
 
 static int test_timestamp_one(const char *p) {
         _cleanup_(table_unrefp) Table *table = NULL;

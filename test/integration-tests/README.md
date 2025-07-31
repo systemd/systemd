@@ -17,7 +17,7 @@ $ mkosi genkey
 Next, we can build the integration test image with meson:
 
 ```shell
-$ mkosi -f sandbox -- meson compile -C build mkosi
+$ mkosi -f box -- meson compile -C build mkosi
 ```
 
 By default, the `mkosi` meson target which builds the integration test image depends on
@@ -38,24 +38,24 @@ directory (`OutputDirectory=`) to point to the other directory using `mkosi/mkos
 After the image has been built, the integration tests can be run with:
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build --suite integration-tests --num-processes "$(($(nproc) / 4))"
+$ mkosi -f box -- meson test -C build --setup=integration --suite integration-tests --num-processes "$(($(nproc) / 4))"
 ```
 
 As usual, specific tests can be run in meson by appending the name of the test
 which is usually the name of the directory e.g.
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build -v TEST-01-BASIC
+$ mkosi -f box -- meson test -C build --setup=integration -v TEST-01-BASIC
 ```
 
-See `mkosi -f sandbox -- meson introspect build --tests` for a list of tests.
+See `mkosi -f box -- meson introspect build --tests` for a list of tests.
 
 To interactively debug a failing integration test, the `--interactive` option
 (`-i`) for `meson test` can be used. Note that this requires meson v1.5.0 or
 newer:
 
 ```shell
-$ env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build -i TEST-01-BASIC
+$ mkosi -f box -- meson test -C build --setup=integration -i TEST-01-BASIC
 ```
 
 Due to limitations in meson, the integration tests do not yet depend on the
@@ -64,7 +64,7 @@ running the integration tests. To rebuild the image and rerun a test, the
 following command can be used:
 
 ```shell
-$ mkosi -f sandbox -- meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 mkosi -f sandbox -- meson test -C build -v TEST-01-BASIC
+$ mkosi -f box -- meson compile -C build mkosi && mkosi -f box -- meson test -C build --setup=integration -v TEST-01-BASIC
 ```
 
 The integration tests use the same mkosi configuration that's used when you run
@@ -78,7 +78,7 @@ To iterate on an integration test, let's first get a shell in the integration te
 the following:
 
 ```shell
-$ mkosi -f sandbox -- meson compile -C build mkosi && env SYSTEMD_INTEGRATION_TESTS=1 TEST_SHELL=1 mkosi -f sandbox -- meson test -C build -i TEST-01-BASIC
+$ mkosi -f box -- meson compile -C build mkosi && mkosi -f box -- meson test -C build --setup=shell -i TEST-01-BASIC
 ```
 
 This will get us a shell in the integration test environment after booting the machine without running the
@@ -107,7 +107,7 @@ re-running the test will first install the new packages we just built, make a ne
 the test again. You can keep running the loop of `mkosi -R`, `systemctl soft-reboot` and
 `systemctl start ...` until the changes to the integration test are working.
 
-If you're debugging a failing integration test (running `meson test --interactive` without `TEST_SHELL`),
+If you're debugging a failing integration test (running `meson test --interactive`),
 there's no need to run `systemctl start ...`, running `systemctl soft-reboot` on its own is sufficient to
 rerun the test.
 
@@ -119,10 +119,6 @@ rerun the test.
 
 `TEST_NO_KVM=1`: Disable qemu KVM auto-detection (may be necessary when you're
 trying to run the *vanilla* qemu and have both qemu and qemu-kvm installed)
-
-`TEST_SHELL=1`: Configure the machine to be more *user-friendly* for
-interactive debugging (e.g. by setting a usable default terminal, suppressing
-the shutdown after the test, etc.).
 
 `TEST_MATCH_SUBTEST=subtest`:  If the test makes use of `run_subtests` use this
 variable to provide a POSIX extended regex to run only subtests matching the
@@ -136,6 +132,10 @@ that make use of `run_testcases`.
 `TEST_SKIP_SUBTEST=subtest`: takes a space separated list of subtests to skip.
 
 `TEST_SKIP_TESTCASE=testcase`: takes a space separated list of testcases to skip.
+
+`TEST_SAVE_JOURNAL=0|1|fail`: When `0`, journal file will be removed on exit.
+When `1`, journal file will be saved at `$BUILD_DIR/test/journal`. When `fail`,
+journal file will be saved only when the test is failed. Defaults to `fail`.
 
 `TEST_JOURNAL_USE_TMP=1`: Write test journal to `/tmp` while the test is in
 progress and only move the journal to its final location in the build directory
@@ -177,9 +177,9 @@ Finally, we'll make use of the standalone mode of running the integration tests
 to avoid having to install any build dependencies.
 
 ```sh
-$ mkosi -f sandbox -- meson setup testsuite test/integration-tests/standalone
+$ mkosi -f box -- meson setup testsuite test/integration-tests/standalone
 $ mkosi -f
-$ mkosi sandbox -- meson test -C testsuite --num-processes "$(($(nproc) / 4))"
+$ mkosi box -- meson test -C testsuite --num-processes "$(($(nproc) / 4))"
 ```
 
 ### SELinux AVCs
@@ -273,8 +273,9 @@ $ ./mark-suite-dirty -A ppa:upstream-systemd-ci/ubuntu/systemd-ci -s noble
 
 will create an empty 'noble' repository that can be used for 'noble' CI jobs.
 
-For infrastructure help, reaching out to 'qa-help' via the #ubuntu-quality
-channel on libera.chat is an effective way to receive support in general.
+For infrastructure help (e.g.: Github token refresh) a bug can be filed at:
+https://launchpad.net/auto-package-testing or an email can be sent to the
+ubuntu-quality mailing list: https://lists.ubuntu.com/mailman/listinfo/ubuntu-quality
 
 Given access to the shared secret, tests can be re-run using the generic
 retry-github-test tool:
@@ -501,8 +502,7 @@ fuzz targets. The dictionary should be named `src/fuzz/fuzz-foo.dict` and the
 seed corpus should be built and exported as `$OUT/fuzz-foo_seed_corpus.zip` in
 `tools/oss-fuzz.sh`.
 
-The fuzzers can be built locally if you have libFuzzer installed by running
-`tools/oss-fuzz.sh`, or by running:
+The fuzzers can be built locally by running `tools/oss-fuzz.sh`, or by running:
 
 ```sh
 CC=clang CXX=clang++ \

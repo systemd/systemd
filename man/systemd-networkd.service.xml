@@ -33,12 +33,16 @@
     manages networks. It detects and configures network devices as
     they appear, as well as creating virtual network devices.</para>
 
-    <para>To configure low-level link settings independently of
-    networks, see
-    <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <para>Certain low-level settings of physical network devices (e.g. device
+    names and altnames) as well as the creation of SR-IOV virtual functions on
+    physical network interfaces may be managed by
+    <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    according to the contents of
+    <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    files.</para>
 
-    <para><command>systemd-networkd</command> will create network devices based
-    on the configuration in
+    <para><command>systemd-networkd</command> will create "virtual" network
+    devices (e.g. bridges and tunnels) based on the configuration in
     <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     files, respecting the [Match] sections in those files.</para>
 
@@ -47,10 +51,10 @@
     with an appropriate [Match] section, see
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     For those links, it will flush existing network addresses and routes when
-    bringing up the device. Any links not matched by one of the
-    <filename>.network</filename> files will be ignored. It is also possible to
-    explicitly tell <filename>systemd-networkd</filename> to ignore a link by
-    using <varname>Unmanaged=yes</varname> option, see
+    bringing up the device (except when directed not to). Any links not matched
+    by one of the <filename>.network</filename> files will be ignored. It is
+    also possible to explicitly tell <filename>systemd-networkd</filename> to
+    ignore a link by using the <varname>Unmanaged=yes</varname> option, see
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
 

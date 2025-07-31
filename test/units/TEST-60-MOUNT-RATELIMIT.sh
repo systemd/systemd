@@ -8,154 +8,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-teardown_test_dependencies() (
-    set +eux
-
-    if mountpoint /tmp/deptest; then
-        umount /tmp/deptest
-    fi
-
-    if [[ -n "${LOOP}" ]]; then
-        losetup -d "${LOOP}" || :
-    fi
-    if [[ -n "${LOOP_0}" ]]; then
-        losetup -d "${LOOP_0}" || :
-    fi
-    if [[ -n "${LOOP_1}" ]]; then
-        losetup -d "${LOOP_1}" || :
-    fi
-
-    rm -f /tmp/TEST-60-MOUNT-RATELIMIT-dependencies-0.img
-    rm -f /tmp/TEST-60-MOUNT-RATELIMIT-dependencies-1.img
-
-    rm -f /run/systemd/system/tmp-deptest.mount
-    systemctl daemon-reload
-
-    return 0
-)
-
-setup_loop() {
-    truncate -s 30m "/tmp/TEST-60-MOUNT-RATELIMIT-dependencies-${1?}.img"
-    sfdisk --wipe=always "/tmp/TEST-60-MOUNT-RATELIMIT-dependencies-${1?}.img" <<EOF
-label:gpt
-
-name="loop${1?}-part1"
-EOF
-    LOOP=$(losetup -P --show -f "/tmp/TEST-60-MOUNT-RATELIMIT-dependencies-${1?}.img")
-    udevadm wait --settle --timeout=30 "${LOOP}"
-    udevadm lock --timeout=30 --device="${LOOP}" mkfs.ext4 -L "partname${1?}-1" "${LOOP}p1"
-}
-
-check_dependencies() {
-    local escaped_0 escaped_1 after
-
-    escaped_0=$(systemd-escape -p "${LOOP_0}p1")
-    escaped_1=$(systemd-escape -p "${LOOP_1}p1")
-
-    if [[ -f /run/systemd/system/tmp-deptest.mount ]]; then
-        after=$(systemctl show --property=After --value tmp-deptest.mount)
-        assert_not_in "local-fs-pre.target" "$after"
-        assert_in "remote-fs-pre.target" "$after"
-        assert_in "network.target" "$after"
-    fi
-
-    # mount LOOP_0
-    mount -t ext4 "${LOOP_0}p1" /tmp/deptest
-    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
-    after=$(systemctl show --property=After --value tmp-deptest.mount)
-    assert_in "local-fs-pre.target" "$after"
-    assert_not_in "remote-fs-pre.target" "$after"
-    assert_not_in "network.target" "$after"
-    assert_in "${escaped_0}.device" "$after"
-    assert_in "blockdev@${escaped_0}.target" "$after"
-    assert_not_in "${escaped_1}.device" "$after"
-    assert_not_in "blockdev@${escaped_1}.target" "$after"
-    systemctl stop tmp-deptest.mount
-
-    if [[ -f /run/systemd/system/tmp-deptest.mount ]]; then
-        after=$(systemctl show --property=After --value tmp-deptest.mount)
-        assert_not_in "local-fs-pre.target" "$after"
-        assert_in "remote-fs-pre.target" "$after"
-        assert_in "network.target" "$after"
-    fi
-
-    # mount LOOP_1 (using fake _netdev option)
-    mount -t ext4 -o _netdev "${LOOP_1}p1" /tmp/deptest
-    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
-    after=$(systemctl show --property=After --value tmp-deptest.mount)
-    assert_not_in "local-fs-pre.target" "$after"
-    assert_in "remote-fs-pre.target" "$after"
-    assert_in "network.target" "$after"
-    assert_not_in "${escaped_0}.device" "$after"
-    assert_not_in "blockdev@${escaped_0}.target" "$after"
-    assert_in "${escaped_1}.device" "$after"
-    assert_in "blockdev@${escaped_1}.target" "$after"
-    systemctl stop tmp-deptest.mount
-
-    if [[ -f /run/systemd/system/tmp-deptest.mount ]]; then
-        after=$(systemctl show --property=After --value tmp-deptest.mount)
-        assert_not_in "local-fs-pre.target" "$after"
-        assert_in "remote-fs-pre.target" "$after"
-        assert_in "network.target" "$after"
-    fi
-
-    # mount tmpfs
-    mount -t tmpfs tmpfs /tmp/deptest
-    timeout 10 bash -c 'until systemctl -q is-active tmp-deptest.mount; do sleep .1; done'
-    after=$(systemctl show --property=After --value tmp-deptest.mount)
-    assert_in "local-fs-pre.target" "$after"
-    assert_not_in "remote-fs-pre.target" "$after"
-    assert_not_in "network.target" "$after"
-    assert_not_in "${escaped_0}.device" "$after"
-    assert_not_in "blockdev@${escaped_0}.target" "$after"
-    assert_not_in "${escaped_1}.device" "$after"
-    assert_not_in "blockdev@${escaped_1}.target" "$after"
-    systemctl stop tmp-deptest.mount
-
-    if [[ -f /run/systemd/system/tmp-deptest.mount ]]; then
-        after=$(systemctl show --property=After --value tmp-deptest.mount)
-        assert_not_in "local-fs-pre.target" "$after"
-        assert_in "remote-fs-pre.target" "$after"
-        assert_in "network.target" "$after"
-    fi
-}
-
-testcase_dependencies() {
-    # test for issue #19983 and #23552.
-
-    if systemd-detect-virt --quiet --container; then
-        echo "Skipping test_dependencies in container"
-        return
-    fi
-
-    trap teardown_test_dependencies RETURN
-
-    setup_loop 0
-    LOOP_0="${LOOP}"
-    LOOP=
-    setup_loop 1
-    LOOP_1="${LOOP}"
-    LOOP=
-
-    mkdir -p /tmp/deptest
-
-    # without .mount file
-    check_dependencies
-
-    # create .mount file
-    mkdir -p /run/systemd/system
-    cat >/run/systemd/system/tmp-deptest.mount <<EOF
-[Mount]
-Where=/tmp/deptest
-What=192.168.0.1:/tmp/mnt
-Type=nfs
-EOF
-    systemctl daemon-reload
-
-    # with .mount file
-    check_dependencies
-}
-
 testcase_issue_20329() {
     # test that handling of mount start jobs is delayed when /proc/self/mouninfo monitor is rate limited
 
@@ -243,9 +95,9 @@ EOF
 
         sleep 1
 
-        if [[ "$(systemctl is-failed tmp-hoge.mount)" == "failed" ]] || \
+        if [[ "$(systemctl is-failed tmp-hoge.mount)" == "failed" ]] ||
            journalctl --since="$since" -u tmp-hoge.mount -q --grep "but there is no mount"; then
-                exit 1
+            exit 1
         fi
 
         systemctl stop tmp-hoge.mount
@@ -305,13 +157,11 @@ testcase_mount_ratelimit() {
 
     # Figure out if we have entered the rate limit state.
     # If the infra is slow we might not enter the rate limit state; in that case skip the exit check.
-    set +o pipefail
     journalctl --sync
     if timeout 2m journalctl -u init.scope --since="$ts" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) entered rate limit'; then
         journalctl --sync
         timeout 2m journalctl -u init.scope --since="$ts" -n all --follow | grep -m 1 -q -F '(mount-monitor-dispatch) left rate limit'
     fi
-    set -o pipefail
 
     # Verify that the mount units are always cleaned up at the end.
     # Give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units.
@@ -326,7 +176,7 @@ cat >/run/systemd/journald.conf.d/99-ratelimit.conf <<EOF
 [Journal]
 RateLimitBurst=0
 EOF
-systemctl restart systemd-journald.service
+systemctl reload systemd-journald.service
 
 run_testcases
 

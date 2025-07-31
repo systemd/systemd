@@ -8,7 +8,25 @@
 #  include <string.h>
 #endif
 
+#include "assert-fundamental.h"
 #include "macro-fundamental.h"
+
+/* What is interpreted as whitespace? */
+#define WHITESPACE          " \t\n\r"
+#define NEWLINE             "\n\r"
+#define QUOTES              "\"\'"
+#define COMMENTS            "#;"
+#define GLOB_CHARS          "*?["
+#define DIGITS              "0123456789"
+#define LOWERCASE_LETTERS   "abcdefghijklmnopqrstuvwxyz"
+#define UPPERCASE_LETTERS   "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+#define LETTERS             LOWERCASE_LETTERS UPPERCASE_LETTERS
+#define ALPHANUMERICAL      LETTERS DIGITS
+#define HEXDIGITS           DIGITS "abcdefABCDEF"
+#define LOWERCASE_HEXDIGITS DIGITS "abcdef"
+#define URI_RESERVED        ":/?#[]@!$&'()*+;="         /* [RFC3986] */
+#define URI_UNRESERVED      ALPHANUMERICAL "-._~"       /* [RFC3986] */
+#define URI_VALID           URI_RESERVED URI_UNRESERVED /* [RFC3986] */
 
 #if SD_BOOT
 #  define strlen strlen16
@@ -101,12 +119,6 @@ static inline void *memory_startswith(const void *p, size_t sz, const sd_char *t
 
         return (uint8_t*) p + n;
 }
-
-#define _STRV_FOREACH(s, l, i)                                          \
-        for (typeof(*(l)) *s, *i = (l); (s = i) && *i; i++)
-
-#define STRV_FOREACH(s, l)                      \
-        _STRV_FOREACH(s, l, UNIQ_T(i, UNIQ))
 
 static inline bool ascii_isdigit(sd_char a) {
         /* A pure ASCII, locale independent version of isdigit() */

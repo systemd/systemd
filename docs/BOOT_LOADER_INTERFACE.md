@@ -52,11 +52,23 @@ variables. All EFI variables use the vendor UUID
   be used to let the OS know which boot menu entries were discovered by the
   boot loader. A boot loader entry identifier should be a short, non-empty
   alphanumeric string (possibly containing `-`, too). The list should be in the
-  order the entries are shown on screen during boot. See below regarding a
+  order the entries are shown on screen during boot. See below regarding the
   recommended vocabulary for boot loader entry identifiers.
 
 * The EFI variable `LoaderEntryDefault` contains the default boot loader entry
   to use. It contains a NUL-terminated boot loader entry identifier.
+
+* The EFI variable `LoaderEntrySysFail` specifies the boot loader entry to be
+  used in case of a system failure. System failure (SysFail) boot entries can
+  optionally modify the automatic selection order in the event of a failure,
+  such as a boot firmware update failure with the failure status recorded in
+  the EFI system table. If a system failure occurs and `LoaderEntrySysFail` is
+  set, systemd-boot will use this boot entry, and store the actual SysFail
+  reason in the `LoaderSysFailReason` EFI variable.
+
+* The EFI variable `LoaderSysFailReason` contains the system failure reason.
+  This variable is used in cooperation with `LoaderEntrySysFail` boot entry.
+  If system failure doesn't occur, `LoaderSysFailReason` is not set.
 
 * Similarly, the EFI variable `LoaderEntryOneShot` contains the default boot
   loader entry to use for a single following boot. It is set by the OS in order
@@ -99,6 +111,11 @@ variables. All EFI variables use the vendor UUID
 
 * The EFI variable `LoaderDeviceURL` contains the URL the boot loader was
   downloaded from, in UTF-16 format. Only set in case of network boots.
+
+* The EFI variable `LoaderTpm2ActivePcrBanks` contains a hexadecimal string
+  representation of a bitmask with values defined by the TCG EFI Protocol
+  Specification for TPM 2.0 as EFI_TCG2_BOOT_HASH_ALG_*. If no TPM2 support or
+  no active banks were detected, will be set to `0`.
 
 If `LoaderTimeInitUSec` and `LoaderTimeExecUSec` are set, `systemd-analyze`
 will include them in its boot-time analysis.  If `LoaderDevicePartUUID` is set,

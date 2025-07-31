@@ -1,16 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include <errno.h>
 #include <getopt.h>
-#include <stddef.h>
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "argv-util.h"
+#include "label-util.h"
 #include "main-func.h"
 #include "pretty-print.h"
-#include "process-util.h"
-#include "selinux-util.h"
-#include "string-util.h"
 #include "udev-util.h"
 #include "udevadm.h"
 #include "udevd.h"
@@ -86,6 +83,12 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         return 1; /* work to do */
+}
+
+int print_version(void) {
+        /* Dracut relies on the version being a single integer */
+        puts(PROJECT_VERSION_STR);
+        return 0;
 }
 
 static int version_main(int argc, char *argv[], void *userdata) {

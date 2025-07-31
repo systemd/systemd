@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdlib.h>
-
 #include "coredump-vacuum.h"
 #include "tests.h"
 
