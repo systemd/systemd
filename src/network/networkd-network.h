@@ -16,6 +16,7 @@
 #include "networkd-dhcp6.h"
 #include "networkd-dns.h"
 #include "networkd-forward.h"
+#include "networkd-hwts.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-lldp-rx.h"
 #include "networkd-ndisc.h"
@@ -411,6 +412,10 @@ typedef struct Network {
 
         /* NTP */
         char **ntp;
+
+        /* Hardware timestamping */
+        HwTsTxMode hwts_tx_mode;
+        HwTsRxMode hwts_rx_mode;
 } Network;
 
 Network *network_ref(Network *network);
