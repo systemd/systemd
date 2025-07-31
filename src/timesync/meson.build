@@ -12,6 +12,10 @@ timesyncd_extract_sources = files(
         'timesyncd-conf.c',
         'timesyncd-manager.c',
         'timesyncd-server.c',
+        'nts_tls.c',
+        'nts_crypto_gcrypt.c',
+        'tcp_connect.c',
+        'nts_packet.c',
 )
 
 timesyncd_gperf_c = custom_target(
@@ -39,18 +43,33 @@ executables += [
                 'dependencies' : [
                         libm,
                         threads,
+                        libopenssl,
+                        libgcrypt,
+                        libgnutls,
                 ],
         },
         libexec_template + {
                 'name' : 'systemd-time-wait-sync',
                 'sources' : files('wait-sync.c'),
                 'objects' : ['systemd-timesyncd'],
-                'dependencies' : libm,
+                'dependencies' : [
+                        libm,
+                        threads,
+                        libopenssl,
+                        libgcrypt,
+                        libgnutls,
+                ],
         },
         test_template + {
                 'sources' : files('test-timesync.c'),
                 'objects' : ['systemd-timesyncd'],
-                'dependencies' : libm,
+                'dependencies' : [
+                        libm,
+                        threads,
+                        libopenssl,
+                        libgcrypt,
+                        libgnutls,
+                ],
         },
 ]
 

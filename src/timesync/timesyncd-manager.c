@@ -37,6 +37,8 @@
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
 
+#include "nts.h"
+
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
 #endif
@@ -67,6 +69,8 @@ static int manager_clock_watch_setup(Manager *m);
 static int manager_listen_setup(Manager *m);
 static void manager_listen_stop(Manager *m);
 static int manager_save_time_and_rearm(Manager *m, usec_t t);
+static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, Manager *m);
+static int manager_nts_obtain_agreement(Manager *m);
 
 static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
         return be16toh(ts->sec) + (be16toh(ts->frac) / 65536.0);
@@ -113,6 +117,12 @@ static int manager_send_request(Manager *m) {
         assert(m->current_server_address);
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
+
+        /* If we are using NTS, we must first make an TLS connection to perform
+         * key extractions and obtain cookies
+         */
+        if (m->nts_cookies_exhausted)
+                return manager_nts_obtain_agreement(m);
 
         r = manager_listen_setup(m);
         if (r < 0) {
@@ -881,13 +891,22 @@ int manager_connect(Manager *m) {
 
                 log_debug("Resolving %s...", m->current_server_name->string);
 
+                bool nts = m->current_server_name->type == SERVER_NTSKE;
+
                 struct addrinfo hints = {
                         .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
-                        .ai_socktype = SOCK_DGRAM,
+                        .ai_socktype = nts? SOCK_STREAM : SOCK_DGRAM,
                         .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
                 };
 
-                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
+                /* For NTS, we first connect to the NTSKE */
+                const char *port = nts? "4460" : "123";
+
+                m->nts_cookies_exhausted = nts;
+                m->nts_handshake = NULL;
+
+                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, port, &hints, manager_resolve_handler, NULL, m);
+
                 if (r < 0)
                         return log_error_errno(r, "Failed to create resolver: %m");
 
@@ -1298,6 +1317,78 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
                 return log_error_errno(r, "Failed to allocate ntp server event source: %m");
 
         (void) sd_event_source_set_description(m->deferred_ntp_server_event_source, "deferred-ntp-server");
+
+        return 1;
+}
+
+static int manager_nts_obtain_agreement(Manager *m) {
+        int r;
+        int socket = NTS_attach_socket(m->current_server_name->string, 4460, SOCK_STREAM);
+
+        log_debug("Performing key exchange with %s\n", m->current_server_name->string);
+
+        m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, socket);
+        assert_return(m->nts_handshake, -ENOMEM);
+
+        while ((r = NTS_TLS_handshake(m->nts_handshake)) > 0);
+        //TODO
+        assert(r == 0);
+
+        uint8_t buffer[1280], *p = buffer;
+        int size = NTS_encode_request(buffer, sizeof(buffer), NULL);
+
+        do {
+                r = NTS_TLS_write(m->nts_handshake, p, size);
+                if (r < 0)
+                        // TODO
+                        abort();
+                p += r, size -= r;
+        } while (size > 0);
+
+        do {
+                r = NTS_TLS_read(m->nts_handshake, buffer, sizeof(buffer));
+                if (r < 0)
+                        // TODO
+                        abort();
+        } while(r == 0);
+
+        NTS_Agreement NTS;
+        const NTS_AEADParam *param;
+
+        assert(NTS_decode_response(buffer, r, &NTS) >= 0);
+        assert(NTS.error == -1);
+        assert(param = NTS_get_param(NTS.aead_id));
+
+        const char *hostname = NTS.ntp_server? NTS.ntp_server : m->current_server_name->string;
+        char port[sizeof("65535")];
+        xsprintf(port, "%u", NTS.ntp_port? NTS.ntp_port : 123U);
+
+        int count_cookies = 0;
+        for (int i=0; i < 8; i++) {
+                count_cookies += NTS.cookie[i].data != NULL;
+        }
+        log_debug("Secured NTP server: %s:%s, %s, %d cookies\n", hostname, port, param->cipher_name, count_cookies);
+
+        static uint8_t c2s[64], s2c[64];
+        assert(NTS_TLS_extract_keys(m->nts_handshake, NTS.aead_id, c2s, s2c, 64) == 0);
+
+        NTS_TLS_close(m->nts_handshake);
+        m->nts_handshake = NULL;
+
+        struct addrinfo hints = {
+                .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
+                .ai_socktype = SOCK_DGRAM,
+                .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
+        };
+
+        /* Clear the current NTSKE server */
+        server_name_flush_addresses(m->current_server_name);
+
+        r = resolve_getaddrinfo(m->resolve, &m->resolve_query, hostname, port, &hints, manager_resolve_handler, NULL, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create resolver: %m");
+
+        m->nts_cookies_exhausted = false;
 
         return 1;
 }
