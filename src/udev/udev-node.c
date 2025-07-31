@@ -448,13 +448,68 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         if (r < 0)
                 return r;
 
-        r = node_get_current(slink, dirfd, &current_id, add ? &current_prio : NULL);
-        if (r < 0 && !ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(r))
-                return log_device_debug_errno(dev, r, "Failed to get the current device node priority for '%s': %m", slink);
+        if (add) {
+                r = node_get_current(slink, dirfd, &current_id, &current_prio);
+                if (r < 0 && !ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(r))
+                        return log_device_debug_errno(dev, r, "Failed to get the current device node priority for '%s': %m", slink);
+        }
 
         r = stack_directory_update(dev, dirfd, add);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to update stack directory for '%s': %m", slink);
+
+        if (!add) {
+                _cleanup_free_ char *target = NULL;
+
+                /* Especially on 'remove' event, the device ID obtained by node_get_current() may not be
+                 * reliable, as the device node and/or device number may be reused. Hence, let's read the
+                 * devlink here and if it points to our device node, then we need to update the devlink. If
+                 * it points to another device node, then it is already owned by another device, hence we
+                 * should not touch it and keep it as is. */
+
+                r = readlink_malloc(slink, &target);
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_device_debug_errno(dev, r, "Failed to read symbolic link '%s', ignoring: %m", slink);
+
+                        /* The devlink does not exist. Let's find the most suitable owner, and create the
+                         * devlink. This is typically not necessary and does nothing, but for safety in the
+                         * case that the devlink is removed manually. */
+                        return link_search_and_update(dev, slink, dirfd, add);
+                }
+
+                const char *node;
+                r = sd_device_get_devname(dev, &node);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get device node: %m");
+
+                if (streq(node, target)) /* owned by us, needs to update. */
+                        return link_search_and_update(dev, slink, dirfd, add);
+
+                /* The devlink does not point to our device node. For extra safety, let's validate the
+                 * current devlink, in case that the devlink is manually modified by user. */
+
+                if (!path_startswith(target, "/dev/")) {
+                        log_device_debug(dev, "Symbolic link '%s' points to '%s' which is outside of '/dev/', updating it.", slink, target);
+                        return link_search_and_update(dev, slink, dirfd, add);
+                }
+
+                struct stat st;
+                if (lstat(target, &st) < 0) {
+                        if (errno != ENOENT)
+                                log_device_debug_errno(dev, errno, "Failed to stat '%s', ignoring: %m", target);
+
+                        /* The current target device is also already removed? Let's update. */
+                        return link_search_and_update(dev, slink, dirfd, add);
+                }
+
+                if (!IN_SET(st.st_mode & S_IFMT, S_IFBLK, S_IFCHR)) {
+                        log_device_debug(dev, "Symbolic link '%s' points to '%s' which is not a device node, updating it.", slink, target);
+                        return link_search_and_update(dev, slink, dirfd, add);
+                }
+
+                return 0; /* the devlink is owned by another device, and we should keep it as is. */
+        }
 
         if (!current_id)
                 /* The requested devlink does not exist, or the target device does not exist and the devlink
@@ -466,17 +521,6 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
         r = sd_device_get_device_id(dev, &id);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device id: %m");
-
-        if (!add) {
-                if (!streq(current_id, id))
-                        /* The devlink already exists and is owned by another device. Hence, it is
-                         * not necessary to recreate it. */
-                        return 0;
-
-                /* The current devlink is ours, and the target device will be removed. Hence, we need
-                 * to search the device that has the highest priority. and update the devlink. */
-                return link_search_and_update(dev, slink, dirfd, add);
-        }
 
         int prio;
         r = device_get_devlink_priority(dev, &prio);
