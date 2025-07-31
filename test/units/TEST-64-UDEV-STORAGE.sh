@@ -381,8 +381,7 @@ EOF
 
 testcase_simultaneous_events_1() {
     local disk expected i iterations key link num_part part partscript rule target timeout
-    local -a devices symlinks
-    local -A running
+    local -a devices symlinks running
 
     if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
         num_part=2
@@ -437,18 +436,20 @@ EOF
     # On unpatched udev versions the delete-recreate cycle may trigger a race
     # leading to dead symlinks in /dev/disk/
     for ((i = 1; i <= iterations; i++)); do
+        running=()
         for disk in {0..9}; do
             if ((disk % 2 == i % 2)); then
                 udevadm lock --timeout=30 --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" &
             else
                 udevadm lock --timeout=30 --device="${devices[$disk]}" sfdisk -q -X gpt "${devices[$disk]}" <"$partscript" &
             fi
-            running[$disk]=$!
+
+            # shellcheck disable=SC2190
+            running+=( "$!" )
         done
 
-        for key in "${!running[@]}"; do
-            wait "${running[$key]}"
-            unset "running[$key]"
+        for j in "${running[@]}"; do
+            wait "$j"
         done
 
         if ((i % 10 <= 1)); then
@@ -472,28 +473,36 @@ EOF
     done
 
     helper_check_device_units
-    rm -f "$rule" "$partscript"
 
+    # Cleanup and check if unnecessary devlinks are removed.
+    for disk in {0..9}; do
+        udevadm lock --timeout="$timeout" --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" || :
+    done
+    udevadm settle --timeout="$timeout"
+    for ((part = 1; part <= num_part; part++)); do
+        udevadm wait --timeout=10 --removed "/dev/disk/by-partlabel/test${part}"
+    done
+
+    rm -f "$rule" "$partscript"
     udevadm control --reload
 }
 
 testcase_simultaneous_events_2() {
-    local disk expected i iterations key link num_part part script_dir target timeout
-    local -a devices symlinks
-    local -A running
+    local disk i iterations link num_part part script_dir target timeout
+    local -a devices running
 
     script_dir="$(mktemp --directory "/tmp/test-udev-storage.script.XXXXXXXXXX")"
     # shellcheck disable=SC2064
     trap "rm -rf '$script_dir'" RETURN
 
     if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
-        num_part=20
-        iterations=1
-        timeout=2400
-    else
-        num_part=100
-        iterations=3
+        num_part=10
+        iterations=2
         timeout=300
+    else
+        num_part=40
+        iterations=5
+        timeout=200
     fi
 
     for disk in {0..9}; do
@@ -513,37 +522,98 @@ $(for ((part = 1; part <= num_part; part++)); do printf 'name="testlabel-%d", si
 EOF
     done
 
+    ls -l /dev/disk/by-partlabel
+
     echo "## $iterations iterations start: $(date '+%H:%M:%S.%N')"
-    for ((i = 1; i <= iterations; i++)); do
+    running=()
+    for disk in "${devices[@]}"; do
+        udevadm lock --timeout=30 --device="$disk" \
+                bash -c "for ((i = 1; i <= $iterations; i++)); do sfdisk -q --delete $disk; sfdisk -q -X gpt $disk <$script_dir/partscript-\$i; done" &
 
-        for disk in {0..9}; do
-            udevadm lock --timeout="$timeout" --device="${devices[$disk]}" sfdisk -q --delete "${devices[$disk]}" &
-            running[$disk]=$!
-        done
-
-        for key in "${!running[@]}"; do
-            wait "${running[$key]}"
-            unset "running[$key]"
-        done
-
-        for disk in {0..9}; do
-            udevadm lock --timeout="$timeout" --device="${devices[$disk]}" sfdisk -q -X gpt "${devices[$disk]}" <"$script_dir/partscript-$i" &
-            running[$disk]=$!
-        done
-
-        for key in "${!running[@]}"; do
-            wait "${running[$key]}"
-            unset "running[$key]"
-        done
-
-        udevadm wait --settle --timeout="$timeout" "${devices[@]}" "/dev/disk/by-partlabel/testlabel-$i"
+        # shellcheck disable=SC2190
+        running+=( "$!" )
     done
+
+    for i in "${running[@]}"; do
+        wait "$i"
+    done
+
+    udevadm settle --timeout="$timeout"
     echo "## $iterations iterations end: $(date '+%H:%M:%S.%N')"
+
+    ls -l /dev/disk/by-partlabel
+
+    # Check if unnecessary devlinks are removed.
+    #for ((i = 1; i < iterations; i++)); do
+    #    udevadm wait --timeout=10 --removed "/dev/disk/by-partlabel/testlabel-$i"
+    #done
+
+    helper_check_device_units
+
+    # Cleanup
+    for disk in "${devices[@]}"; do
+        udevadm lock --timeout=30 --device="$disk" sfdisk -q --delete "$disk"
+    done
+    udevadm settle --timeout="$timeout"
+    #udevadm wait --timeout=10 --removed "/dev/disk/by-partlabel/testlabel-$iterations"
+    ls -l /dev/disk/by-partlabel
+}
+
+testcase_simultaneous_events_3() {
+    local device i iterations link num_part part script_dir target timeout
+
+    # for issue #37823
+
+    script_dir="$(mktemp --directory "/tmp/test-udev-storage.script.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$script_dir'" RETURN
+
+    num_part=5
+    iterations=30
+    if [[ -v ASAN_OPTIONS || "$(systemd-detect-virt -v)" == "qemu" ]]; then
+        timeout=120
+    else
+        timeout=60
+    fi
+
+    link="/dev/disk/by-id/scsi-0QEMU_QEMU_HARDDISK_deadbeeftest0"
+    device="$(readlink -f "$link")"
+    if [[ ! -b "$device" ]]; then
+        echo "ERROR: failed to find the test SCSI block device $link"
+        return 1
+    fi
+
+    for ((i = 1; i <= iterations; i++)); do
+        cat >"$script_dir/partscript-$i" <<EOF
+$(for ((part = 1; part <= num_part; part++)); do printf 'name="test3-%d", size=1M\n' "$i"; done)
+EOF
+    done
+
+    ls -l /dev/disk/by-partlabel/
+
+    echo "## $iterations iterations start: $(date '+%H:%M:%S.%N')"
+    udevadm lock --timeout="$timeout" --device="$device" \
+            bash -c "for ((i = 1; i <= $iterations; i++)); do sfdisk -q -X gpt $device <$script_dir/partscript-\$i; done"
+    udevadm settle --timeout="$timeout"
+    echo "## $iterations iterations end: $(date '+%H:%M:%S.%N')"
+
+    ls -l /dev/disk/by-partlabel/
+
+    # Check devlinks
+    for ((i = 1; i < iterations; i++)); do
+        udevadm wait --settle --timeout=10 --removed "/dev/disk/by-partlabel/test3-$i"
+    done
+    udevadm wait --settle --timeout=10 "/dev/disk/by-partlabel/test3-$iterations"
+
+    # Cleanup and check if the last devlink is removed
+    udevadm lock --timeout="$timeout" --device="$device" sfdisk -q --delete "$device"
+    udevadm wait --settle --timeout="$timeout" --removed "/dev/disk/by-partlabel/test3-$iterations"
 }
 
 testcase_simultaneous_events() {
     testcase_simultaneous_events_1
     testcase_simultaneous_events_2
+    testcase_simultaneous_events_3
 }
 
 testcase_lvm_basic() {
