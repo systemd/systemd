@@ -155,8 +155,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAspireA317-33:*
 # Acer Aspire One AO532h
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAO532h:*
  KEYBOARD_KEY_84=bluetooth
- KEYBOARD_KEY_ce=unknown  # Brightness Up, also emitted by acpi-video, ignore
- KEYBOARD_KEY_ef=unknown  # Brightness Down, also emitted by acpi-video, ignore
+ KEYBOARD_KEY_ce=unknown                                # Brightness Up, also emitted by acpi-video, ignore
+ KEYBOARD_KEY_ef=unknown                                # Brightness Down, also emitted by acpi-video, ignore
 
 # Acer Aspire One AOD270 (Atom N2600) and its Packard Bell Dot SC rebrand
 evdev:name:Acer WMI hotkeys:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOD270*:*
@@ -165,8 +165,8 @@ evdev:name:Acer WMI hotkeys:dmi:*:svnPackardBell:pndots:*:rvnPackardBell:rnSJE01
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnAOD270*:*
 evdev:atkbd:dmi:*:svnPackardBell:pndots:*:rvnPackardBell:rnSJE01_CT:*
- KEYBOARD_KEY_ce=unknown  # Brightness Up, also emitted by acpi-video, ignore
- KEYBOARD_KEY_ef=unknown  # Brightness Down, also emitted by acpi-video, ignore
+ KEYBOARD_KEY_ce=unknown                                # Brightness Up, also emitted by acpi-video, ignore
+ KEYBOARD_KEY_ef=unknown                                # Brightness Down, also emitted by acpi-video, ignore
 
 # Predator PT314-52s
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredator*PT314-52s:pvr*
@@ -243,7 +243,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*AN*515-58:pvr*
 # Nitro ANV15-51
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-51:pvr*
  KEYBOARD_KEY_66=micmute                                # Microphone mute button
- KEYBOARD_KEY_f5=prog1					# NitroSense button
+ KEYBOARD_KEY_f5=prog1                                  # NitroSense button
 
 ###########################################################
 # Alienware
@@ -304,10 +304,10 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:100003:dmi:*:svnASUSTeKCOMPUTERINC
 # All four of these buttons generate a multi-scancode sequence
 # consisting of Left_Meta, Right_Ctrl and another scancode.
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAYANEO:pnKUN:pvr*
- KEYBOARD_KEY_18=f15                              # LC (next to the left shoulder button)
- KEYBOARD_KEY_20=f16                              # RC (next to the right shoulder button)
- KEYBOARD_KEY_28=f17                              # Ayaneo (lower-right corner of screen)
- KEYBOARD_KEY_30=f18                              # Touchpad Mode (top-right corner of screen)
+ KEYBOARD_KEY_18=f15                                    # LC (next to the left shoulder button)
+ KEYBOARD_KEY_20=f16                                    # RC (next to the right shoulder button)
+ KEYBOARD_KEY_28=f17                                    # Ayaneo (lower-right corner of screen)
+ KEYBOARD_KEY_30=f18                                    # Touchpad Mode (top-right corner of screen)
 
 # Most AYANEO devices expose an AT Translated Set 2 Keyboard
 # for either three or four additional buttons not available
@@ -316,10 +316,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAYANEO:pnKUN:pvr*
 # depend on the model, but the final scancode is always the
 # same.
 evdev:name:AT Translated Set 2 keyboard:dmi:*:svnAYANEO:*
- KEYBOARD_KEY_66=f15                            # LC (All models)
- KEYBOARD_KEY_67=f16                            # RC (All models)
- KEYBOARD_KEY_68=f17                            # Ayaneo (All models)
- KEYBOARD_KEY_69=f18                            # Touchpad Mode (Kun only)
+ KEYBOARD_KEY_66=f15                                    # LC (All models)
+ KEYBOARD_KEY_67=f16                                    # RC (All models)
+ KEYBOARD_KEY_68=f17                                    # Ayaneo (All models)
+ KEYBOARD_KEY_69=f18                                    # Touchpad Mode (Kun only)
 
 ###########################################################
 # BenQ
@@ -433,10 +433,10 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1210:*
 
 # Dell Inspiron 11 3168
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron11-3168:pvr*
- KEYBOARD_KEY_c7=!home                                 # Fn-LeftArrow
- KEYBOARD_KEY_cf=!end                                  # Fn-RightArrow
- KEYBOARD_KEY_c9=!pageup                               # Fn-UpArrow
- KEYBOARD_KEY_d1=!pagedown                             # Fn-DownArrow
+ KEYBOARD_KEY_c7=!home                                  # Fn-LeftArrow
+ KEYBOARD_KEY_cf=!end                                   # Fn-RightArrow
+ KEYBOARD_KEY_c9=!pageup                                # Fn-UpArrow
+ KEYBOARD_KEY_d1=!pagedown                              # Fn-DownArrow
 
 # Dell Inspiron 1520 and Latitude 2110
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1520:*
@@ -505,7 +505,7 @@ evdev:name:Dell Privacy Driver:dmi:bvn*:bvr*:bd*:svnDell*:pnPrecision*:*
 
 # Dell Professional Sound Bar AE515
 evdev:input:b0003v413CpA506*
- KEYBOARD_KEY_b002f=micmute                            # Mic mute toggle
+ KEYBOARD_KEY_b002f=micmute                             # Mic mute toggle
 
 ###########################################################
 # Everex
@@ -704,10 +704,10 @@ evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx3602-in-1*:*
 
 # HP Elite x2 1013 G3
 evdev:atkbd:dmi:bvn*:bvr*:svnHP*:pnHPElitex21013G3:*
- KEYBOARD_KEY_f8=unknown                               # rfkill is also reported by HP Wireless hotkeys
+ KEYBOARD_KEY_f8=unknown                                # rfkill is also reported by HP Wireless hotkeys
  KEYBOARD_KEY_64=calendar
- KEYBOARD_KEY_81=micmute                               # Microphone mute button
- KEYBOARD_KEY_ee=switchvideomode                       # Switch display outputs
+ KEYBOARD_KEY_81=micmute                                # Microphone mute button
+ KEYBOARD_KEY_ee=switchvideomode                        # Switch display outputs
  KEYBOARD_KEY_92=brightnessdown
  KEYBOARD_KEY_97=brightnessup
 
@@ -742,14 +742,14 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2570p*:*
 evdev:atkbd:dmi:bvncoreboot:bvr*:bd*:svnHewlett-Packard*:pn*EliteBook2170p:*
 evdev:atkbd:dmi:bvncoreboot:bvr*:bd*:svnHP*:pn*EliteBook2170p:*
  KEYBOARD_KEY_66=backspace
- KEYBOARD_KEY_be=battery		# Fn+F2
- KEYBOARD_KEY_d7=switchvideomode	# Fn+F4
- KEYBOARD_KEY_a3=mute			# Fn+F5
- KEYBOARD_KEY_a1=volumedown		# Fn+F6
- KEYBOARD_KEY_a2=volumeup		# Fn+F7
- KEYBOARD_KEY_a4=brightnessdown		# Fn+F9
- KEYBOARD_KEY_c3=brightnessup		# Fn+F10
- KEYBOARD_KEY_e3=wlan			# Fn+F12
+ KEYBOARD_KEY_be=battery                                # Fn+F2
+ KEYBOARD_KEY_d7=switchvideomode                        # Fn+F4
+ KEYBOARD_KEY_a3=mute                                   # Fn+F5
+ KEYBOARD_KEY_a1=volumedown                             # Fn+F6
+ KEYBOARD_KEY_a2=volumeup                               # Fn+F7
+ KEYBOARD_KEY_a4=brightnessdown                         # Fn+F9
+ KEYBOARD_KEY_c3=brightnessup                           # Fn+F10
+ KEYBOARD_KEY_e3=wlan                                   # Fn+F12
 
 # Elitebook 2760p
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHewlett-Packard*:pn*2760p*:*
@@ -1127,8 +1127,8 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn21KH*:pvrThinkBook16G6IRL:*
  KEYBOARD_KEY_b0=!volumeup
 
 evdev:atkbd:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
- KEYBOARD_KEY_62=unknown  # Touchpad on, also emitted by "Ideapad extra buttons", ignore
- KEYBOARD_KEY_63=unknown  # Touchpad off, also emitted by "Ideapad extra buttons", ignore
+ KEYBOARD_KEY_62=unknown                                # Touchpad on, also emitted by "Ideapad extra buttons", ignore
+ KEYBOARD_KEY_63=unknown                                # Touchpad off, also emitted by "Ideapad extra buttons", ignore
 
 # Lenovo Y50-70
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO*:pn*20378*:pvr*
@@ -1274,10 +1274,10 @@ evdev:input:b0003v046Dp0056*
 evdev:input:b0003v046Dp0057*
  KEYBOARD_KEY_c1041=battery                             # Battery icon (Fn + F1)
 
-#KEYBOARD_KEY_c101d=scrolldown   # Button below scrollwheel (see note above)
-#KEYBOARD_KEY_c101e=scrollup     # Button above scrollwheel (see note above)
-#KEYBOARD_KEY_c1022=scrollleft   # Left click on scroll-wheel (see note above)
-#KEYBOARD_KEY_c1024=scrollright  # Right click on scroll-wheel (see note above)
+#KEYBOARD_KEY_c101d=scrolldown                          # Button below scrollwheel (see note above)
+#KEYBOARD_KEY_c101e=scrollup                            # Button above scrollwheel (see note above)
+#KEYBOARD_KEY_c1022=scrollleft                          # Left click on scroll-wheel (see note above)
+#KEYBOARD_KEY_c1024=scrollright                         # Right click on scroll-wheel (see note above)
 
 # MX3200 keyboard (27 MHz, modelnumber Y-RAV80)
 evdev:input:b0003v046Dp005C*
@@ -1802,7 +1802,7 @@ evdev:input:b0003v258Ap001E*
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*:pn*:pvr*:rvnQuanta:rn30B7:rvr65.2B:*
- KEYBOARD_KEY_88=media                                  # "quick play
+ KEYBOARD_KEY_88=media                                  # quick play
 
 ###########################################################
 # Redmi
@@ -1842,17 +1842,17 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*200E[45]*:*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*356V[45]*:pvr*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*355V[45]*:pvr*
- KEYBOARD_KEY_ce=!prog1                  # Fn+F1  launch control setting
- KEYBOARD_KEY_89=!brightnessdown         # Fn+F2  brightness down
- KEYBOARD_KEY_88=!brightnessup           # Fn+F3  brightness up
- KEYBOARD_KEY_82=!switchvideomode        # Fn+F4  display toggle
- KEYBOARD_KEY_f7=!touchpad_on            # Fn+F5  touchpad on
- KEYBOARD_KEY_f9=!touchpad_off           # Fn+F5  touchpad off
- KEYBOARD_KEY_a0=!mute                   # Fn+F6  mute
- KEYBOARD_KEY_ae=!volumedown             # Fn+F7  volume down
- KEYBOARD_KEY_b0=!volumeup               # Fn+F8  volume up
- KEYBOARD_KEY_b3=!prog2                  # Fn+F11 toggle fan/cool mode
- KEYBOARD_KEY_d5=!wlan                   # Fn+F12 toggle wifi
+ KEYBOARD_KEY_ce=!prog1                                 # Fn+F1  launch control setting
+ KEYBOARD_KEY_89=!brightnessdown                        # Fn+F2  brightness down
+ KEYBOARD_KEY_88=!brightnessup                          # Fn+F3  brightness up
+ KEYBOARD_KEY_82=!switchvideomode                       # Fn+F4  display toggle
+ KEYBOARD_KEY_f7=!touchpad_on                           # Fn+F5  touchpad on
+ KEYBOARD_KEY_f9=!touchpad_off                          # Fn+F5  touchpad off
+ KEYBOARD_KEY_a0=!mute                                  # Fn+F6  mute
+ KEYBOARD_KEY_ae=!volumedown                            # Fn+F7  volume down
+ KEYBOARD_KEY_b0=!volumeup                              # Fn+F8  volume up
+ KEYBOARD_KEY_b3=!prog2                                 # Fn+F11 toggle fan/cool mode
+ KEYBOARD_KEY_d5=!wlan                                  # Fn+F12 toggle wifi
 
 # Series 5
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svn[sS][aA][mM][sS][uU][nN][gG]*:pn*530U*:*
@@ -2290,8 +2290,8 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn
 
 # Positivo (K116J)
 evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:svnPositivo*:pn*:pvr*:rvnPositivo*:rnK116J*
- KEYBOARD_KEY_69=www                                    
- KEYBOARD_KEY_6e=search                                 
+ KEYBOARD_KEY_69=www
+ KEYBOARD_KEY_6e=search
 
 ###########################################################
 # Multilaser
@@ -2332,7 +2332,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDIXONSP:pnDIXON*:*
 # The layout must be an xkb compatible layout (defined with XKB_FIXED_LAYOUT),
 # with an accompanying variant (defined with XKB_FIXED_VARIANT) if necessary.
 
-# Yubico Yubico Yubikey II"
+# Yubico Yubico Yubikey II
 evdev:input:b0003v1050p0010*
 # Yubico Yubikey NEO OTP+CCID
 evdev:input:b0003v1050p0111*
