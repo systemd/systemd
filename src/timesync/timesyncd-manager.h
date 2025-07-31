@@ -51,6 +51,10 @@ typedef struct Manager {
         sd_event_source *event_timeout;
         bool talking;
 
+        /* nts ke */
+        bool nts_cookies_exhausted;
+        void *nts_handshake;
+
         /* PolicyKit */
         Hashmap *polkit_registry;
 
