@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+# This effectively backports the following commit:
+# https://github.com/lvmteam/lvm2/commit/eb4f744820832aff3d6da1bba14f12e91a5b3535
+
+SUBSYSTEM=="block", KERNEL=="dm-[0-9]*", ACTION!="remove", OPTIONS+="db_persist"
