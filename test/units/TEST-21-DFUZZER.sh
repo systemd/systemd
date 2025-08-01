@@ -32,16 +32,14 @@ at_exit() {
     fi
 }
 
+trap at_exit EXIT
+
 add_suppression() {
     local interface="${1:?}"
     local suppression="${2:?}"
 
     sed -i "\%\[$interface\]%a$suppression" /etc/dfuzzer.conf
 }
-
-trap at_exit EXIT
-
-systemctl log-level info
 
 # Skip calling start and stop methods on unit objects, as doing that is not only time consuming, but it also
 # starts/stops units that interfere with the machine state. The actual code paths should be covered (to some
@@ -181,7 +179,10 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     PAYLOAD_MAX=10000 # 10K
 fi
 
-# Disable debugging logs from systemd-homed, systemd-nsresourced, and systemd-userdbd.
+# Suppress logging from PID1
+systemctl log-level info
+
+# Also disable debugging logs from systemd-homed, systemd-nsresourced, and systemd-userdbd.
 # Otherwise, journal is filled with the debugging logs by them.
 systemctl service-log-level systemd-homed.service info
 for service in systemd-nsresourced.service systemd-userdbd.service; do
