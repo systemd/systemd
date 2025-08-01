@@ -2,6 +2,7 @@
 
 #include "bpf-dlopen.h"
 #include "dlfcn-util.h"
+#include "initrd-util.h"
 #include "log.h"
 
 #if HAVE_LIBBPF
@@ -92,7 +93,7 @@ int dlopen_bpf_full(int log_level) {
                  * list for both files, and when we assume 1.0+ is present we can remove this dlopen */
                 dl = dlopen("libbpf.so.0", RTLD_NOW|RTLD_NODELETE);
                 if (!dl)
-                        return cached = log_full_errno(log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
+                        return cached = log_full_errno(in_initrd() ? LOG_DEBUG : log_level, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                        "Neither libbpf.so.1 nor libbpf.so.0 are installed, cgroup BPF features disabled: %s",
                                                        dlerror());
 
