@@ -5271,7 +5271,6 @@ _public_ int sd_event_source_set_memory_pressure_type(sd_event_source *s, const 
 
         free_and_replace(s->memory_pressure.write_buffer, w);
         s->memory_pressure.write_buffer_size = nl;
-        s->memory_pressure.locked = false;
 
         return 1;
 }
@@ -5318,7 +5317,6 @@ _public_ int sd_event_source_set_memory_pressure_period(sd_event_source *s, uint
 
         free_and_replace(s->memory_pressure.write_buffer, w);
         s->memory_pressure.write_buffer_size = l;
-        s->memory_pressure.locked = false;
 
         return 1;
 }
