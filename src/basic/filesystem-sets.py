@@ -282,6 +282,11 @@ def generate_fs_type_to_string():
 #include <linux/magic.h>
 #include "filesystems.h"
 
+/* PROJECT_FILE, which is used by log_xyz() thus also used by assert_not_reached(), cannot be used in
+ * generated files, as the build directory may be outside of the source directory. */
+#undef PROJECT_FILE
+#define PROJECT_FILE __FILE__
+
 const char* fs_type_to_string(statfs_f_type_t magic) {
         switch (magic) {""")
 
