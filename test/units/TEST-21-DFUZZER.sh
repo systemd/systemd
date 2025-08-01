@@ -205,18 +205,9 @@ test_systemd() {
     systemctl "$@" daemon-reexec
 }
 
-# Let's first test the session bus before the system one, as it may be in a
-# spurious state after fuzzing the system bus or login bus.
-echo "Bus: org.freedesktop.systemd1 (session)"
-test_systemd --machine 'testuser@.host' --user
+test_service() {
+    local service bus name="${1:?}"
 
-# Overmount /var/lib/machines with a size-limited tmpfs, as fuzzing
-# the org.freedesktop.machine1 stuff makes quite a mess
-mount -t tmpfs -o size=50M tmpfs /var/lib/machines
-
-# Next, test the system service buses, as the services may be in a spurious
-# state after fuzzing the system service manager bus.
-for name in "${NAME_LIST[@]}"; do
     bus="org.freedesktop.${name}1"
     service="systemd-${name}d.service"
 
@@ -234,6 +225,21 @@ for name in "${NAME_LIST[@]}"; do
 
     # disable debugging logs
     systemctl service-log-level "$service" info || :
+}
+
+# Let's first test the session bus before the system one, as it may be in a
+# spurious state after fuzzing the system bus or login bus.
+echo "Bus: org.freedesktop.systemd1 (session)"
+test_systemd --machine 'testuser@.host' --user
+
+# Overmount /var/lib/machines with a size-limited tmpfs, as fuzzing
+# the org.freedesktop.machine1 stuff makes quite a mess
+mount -t tmpfs -o size=50M tmpfs /var/lib/machines
+
+# Next, test the system service buses, as the services may be in a spurious
+# state after fuzzing the system service manager bus.
+for name in "${NAME_LIST[@]}"; do
+    test_service "$name"
 done
 
 umount /var/lib/machines
