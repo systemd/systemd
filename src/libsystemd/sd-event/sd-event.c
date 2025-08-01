@@ -1968,27 +1968,19 @@ _public_ int sd_event_add_memory_pressure(
 
                 /* By default we want to watch memory pressure on the local cgroup, but we'll fall back on
                  * the system wide pressure if for some reason we cannot (which could be: memory controller
-                 * not delegated to us, or PSI simply not available in the kernel). On legacy cgroupv1 we'll
-                 * only use the system-wide logic. */
-                r = cg_all_unified();
+                 * not delegated to us, or PSI simply not available in the kernel). */
+
+                _cleanup_free_ char *cg = NULL;
+                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cg);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        watch = "/proc/pressure/memory";
-                else {
-                        _cleanup_free_ char *cg = NULL;
 
-                        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cg);
-                        if (r < 0)
-                                return r;
+                w = path_join("/sys/fs/cgroup", cg, "memory.pressure");
+                if (!w)
+                        return -ENOMEM;
 
-                        w = path_join("/sys/fs/cgroup", cg, "memory.pressure");
-                        if (!w)
-                                return -ENOMEM;
-
-                        watch = w;
-                        watch_fallback = "/proc/pressure/memory";
-                }
+                watch = w;
+                watch_fallback = "/proc/pressure/memory";
 
                 /* Android uses three levels in its userspace low memory killer logic:
                  *     some  70000 1000000
