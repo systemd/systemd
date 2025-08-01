@@ -22,5 +22,6 @@ integration_tests += [
                 ],
                 'vm' : true,
                 'firmware' : 'linux',
+                'timeout' : 90,
         },
 ]

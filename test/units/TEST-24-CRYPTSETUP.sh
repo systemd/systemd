@@ -17,6 +17,10 @@ if [[ -s /failed ]]; then
     exit 1
 fi
 
+ls -lR /dev/disk
+
+exit 1
+
 at_exit() {
     set +e
 
