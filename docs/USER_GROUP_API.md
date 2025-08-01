@@ -175,6 +175,7 @@ method GetUserRecord(
         dispositionMask: ?[]string,
         uidMin: ?int,
         uidMax: ?int,
+        uuid: ?string,
         service : string
 ) -> (
         record : object,
@@ -188,6 +189,7 @@ method GetGroupRecord(
         dispositionMask: ?[]string,
         gidMin: ?int,
         gidMax: ?int,
+        uuid: ?string,
         service : string
 ) -> (
         record : object,
@@ -222,7 +224,7 @@ If neither of the two parameters are set the whole user database is enumerated.
 In this case the method call needs to be made with `more` set, so that multiple method call replies may be generated as
 effect, each carrying one user record.
 
-The `fuzzyNames`, `dispositionMask`, `uidMin`, `uidMax` fields permit
+The `fuzzyNames`, `dispositionMask`, `uidMin`, `uidMax` and `uuid` fields permit
 *additional* filtering of the returned set of user records. The `fuzzyNames`
 parameter shall be one or more strings that shall be searched for in "fuzzy"
 way. What specifically this means is left for the backend to decide, but
@@ -232,19 +234,20 @@ carry identifying information for the user. The `dispositionMask` field shall
 be one of more user record `disposition` strings. If specified only user
 records matching one of the specified dispositions should be enumerated. The
 `uidMin` and `uidMax` fields specify a minimum and maximum value for the UID of
-returned records. Inline searching for `uid` and `userName` support for
+returned records. The `uuid` field specifies to search for the user record associated
+with the specified UUID. Inline searching for `uid` and `userName` support for
 filtering with these four additional parameters is optional, and clients are
 expected to be able to do client-side filtering in case the parameters are not
 supported by a service. The service should return the usual `InvalidParameter`
 error for the relevant parameter if one is passed and it does not support
 it. If a request is made specifying `uid` or `userName` and a suitable record
 is found, but the specified filter via `fuzzyNames`, `dispositionMask`,
-`uidMin`, or `uidMax` does not match, a `NonMatchingRecordFound` error should
+`uidMin`, `uidMax` or `uuid` does not match, a `NonMatchingRecordFound` error should
 be returned.
 
 Or to say this differently: the *primary search keys* are
 `userName`/`groupName` and `uid`/`gid` and the *secondary search filters* are
-`fuzzyNames`, `dispositionMask`, `uidMin`, `uidMax`. If no entry matching
+`fuzzyNames`, `dispositionMask`, `uidMin`, `uidMax`, `uuid`. If no entry matching
 either of the primary search keys are found `NoRecordFound()` is returned. If
 one is found that matches one but not the other primary search key
 `ConflictingRecordFound()` is returned. If an entry is found that matches the
