@@ -7,7 +7,7 @@
 #include "string-util.h"
 #include "vmspawn-mount.h"
 
-static void runtime_mount_done(RuntimeMount *mount) {
+void runtime_mount_done(RuntimeMount *mount) {
         assert(mount);
 
         mount->source = mfree(mount->source);
@@ -24,7 +24,11 @@ void runtime_mount_context_done(RuntimeMountContext *ctx) {
 }
 
 int runtime_mount_parse(RuntimeMountContext *ctx, const char *s, bool read_only) {
-        _cleanup_(runtime_mount_done) RuntimeMount mount = { .read_only = read_only };
+        _cleanup_(runtime_mount_done) RuntimeMount mount = {
+                .read_only = read_only,
+                .source_uid = UID_INVALID,
+                .target_uid = UID_INVALID,
+        };
         _cleanup_free_ char *source_rel = NULL;
         int r;
 
