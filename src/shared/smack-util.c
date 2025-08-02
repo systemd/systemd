@@ -90,6 +90,7 @@ int mac_smack_apply_at(int fd, const char *path, SmackAttr attr, const char *lab
 int mac_smack_apply_pid(pid_t pid, const char *label) {
 #if ENABLE_SMACK
         const char *p;
+        int r;
 
         assert(pid >= 0);
         assert(label);
@@ -97,8 +98,13 @@ int mac_smack_apply_pid(pid_t pid, const char *label) {
         if (!mac_smack_use())
                 return 0;
 
-        p = procfs_file_alloca(pid, "attr/current");
-        return write_string_file(p, label, WRITE_STRING_FILE_DISABLE_BUFFER);
+        p = procfs_file_alloca(pid, "attr/smack/current");
+        r = write_string_file(p, label, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0) {
+                p = procfs_file_alloca(pid, "attr/current");
+                r = write_string_file(p, label, WRITE_STRING_FILE_DISABLE_BUFFER);
+        }
+        return r;
 #else
         return 0;
 #endif
