@@ -19,6 +19,7 @@
 #include "memory-util.h"
 #include "pager.h"
 #include "parse-argument.h"
+#include "path-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "runtime-scope.h"
@@ -290,6 +291,14 @@ static int set_x11_keymap(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static const char* xkb_directory(void) {
+        static const char *cached = NULL;
+
+        if (!cached)
+                cached = secure_getenv("SYSTEMD_XKB_DIRECTORY") ?: "/usr/share/X11/xkb";
+        return cached;
+}
+
 static int list_x11_keymaps(int argc, char **argv, void *userdata) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **list = NULL;
@@ -302,9 +311,15 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
         } state = NONE, look_for;
         int r;
 
-        f = fopen("/usr/share/X11/xkb/rules/base.lst", "re");
+        _cleanup_free_ char *xkb_base = path_join(xkb_directory(), "rules/base.lst");
+        if (!xkb_base)
+                return -ENOMEM;
+
+        f = fopen(xkb_base, "re");
         if (!f)
-                return log_error_errno(errno, "Failed to open keyboard mapping list: %m");
+                return log_error_errno(errno,
+                                       "Failed to open keyboard mapping list %s: %m",
+                                       xkb_base);
 
         if (streq(argv[0], "list-x11-keymap-models"))
                 look_for = MODELS;
@@ -323,7 +338,9 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
 
                 r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read keyboard mapping list: %m");
+                        return log_error_errno(r,
+                                               "Failed to read keyboard mapping list %s: %m",
+                                               xkb_base);
                 if (r == 0)
                         break;
 
@@ -377,7 +394,8 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
 
         if (strv_isempty(list))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "Couldn't find any entries.");
+                                       "Couldn't find any entries in keyboard mapping list %s.",
+                                       xkb_base);
 
         strv_sort_uniq(list);
 
