@@ -527,6 +527,32 @@ run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
 run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
 run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
 
+# For issue #37939
+cat /proc/1/mountinfo
+cat /proc/1/mountinfo >/tmp/before
+free
+
+dd if=/dev/urandom of=/tmp/brummbaer.data bs=1024 count=1023
+run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
+run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
+run0 -u testuser -- \
+     systemd-run \
+     --user \
+     -p ProtectSystem=full \
+     -p 'ImportCredential=brummbaer' \
+     -p 'Restart=always' \
+     -p 'RestartSec=0' \
+     -p 'StartLimitIntervalSec=10000' \
+     -p 'StartLimitBurst=10' \
+     --unit=test-54-restart-loop.service \
+     --wait \
+     false || :
+
+cat /proc/1/mountinfo
+diff /tmp/before /proc/1/mountinfo || :
+free
+
 systemd-analyze log-level info
 
-touch /testok
+#touch /testok
+exit 1
