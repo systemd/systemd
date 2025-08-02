@@ -1940,7 +1940,7 @@ static void manager_preset_all(Manager *m) {
 
         log_info("Applying preset policy.");
         r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags = */ 0,
-                                 /* root_dir = */ NULL, mode, &changes, &n_changes);
+                                 /* root_dir = */ NULL, mode, /* dry_run = */ false, &changes, &n_changes);
         install_changes_dump(r, "preset", changes, n_changes, /* quiet = */ false);
         if (r < 0)
                 log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
