@@ -32,16 +32,14 @@ at_exit() {
     fi
 }
 
+trap at_exit EXIT
+
 add_suppression() {
     local interface="${1:?}"
     local suppression="${2:?}"
 
     sed -i "\%\[$interface\]%a$suppression" /etc/dfuzzer.conf
 }
-
-trap at_exit EXIT
-
-systemctl log-level info
 
 # Skip calling start and stop methods on unit objects, as doing that is not only time consuming, but it also
 # starts/stops units that interfere with the machine state. The actual code paths should be covered (to some
@@ -181,7 +179,10 @@ if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
     PAYLOAD_MAX=10000 # 10K
 fi
 
-# Disable debugging logs from systemd-homed, systemd-nsresourced, and systemd-userdbd.
+# Suppress logging from PID1
+systemctl log-level info
+
+# Also disable debugging logs from systemd-homed, systemd-nsresourced, and systemd-userdbd.
 # Otherwise, journal is filled with the debugging logs by them.
 systemctl service-log-level systemd-homed.service info
 for service in systemd-nsresourced.service systemd-userdbd.service; do
@@ -194,6 +195,85 @@ EOF
     systemctl restart "$service"
 done
 
+check_sanitizer_report() (
+    set +x
+
+    if [[ ! -v ASAN_OPTIONS && ! -v UBSAN_OPTIONS ]]; then
+        return 0
+    fi
+
+    # This tests produces too many journal entries hence earlier journal entries are easily lost.
+    # Let's check the journal after each test case is finished.
+
+    journalctl --sync
+    journalctl --output short-monotonic --no-hostname --quiet --priority info --cursor-file=/tmp/cursor-file | \
+        awk '
+    BEGIN {
+        # Counters
+        asan_cnt = 0;
+        ubsan_cnt = 0;
+        msan_cnt = 0;
+        total_cnt = 0;
+    }
+
+    # Extractors
+    # Internal errors (==119906==LeakSanitizer has encountered a fatal error.)
+    /==[0-9]+==.+?\w+Sanitizer has encountered a fatal error/,/==[0-9]+==HINT: \w+Sanitizer/ {
+        print $0;
+        next;
+    }
+
+    # "Standard" errors
+    /([0-9]+: runtime error|==[0-9]+==.+?\w+Sanitizer)/,/SUMMARY:\s+(\w+)Sanitizer/ {
+        print $0;
+    }
+
+    # Counters
+    match($0, /SUMMARY:\s+(\w+)Sanitizer/, m) {
+        total_cnt++;
+
+        switch (m[1]) {
+        case "Address":
+            asan_cnt++;
+            break;
+        case "UndefinedBehavior":
+            ubsan_cnt++;
+            break;
+        case "Memory":
+            msan_cnt++;
+            break;
+        }
+
+        # Print a newline after every SUMMARY line (i.e. end of the sanitizer error
+        # block), to improve readability
+        print "\n";
+    }
+
+    END {
+        if (total_cnt != 0) {
+            printf " ____________________________________________\n" \
+                   "/ Found %3d sanitizer errors (%3d ASan, %3d  \\\n" \
+                   "| UBSan, %3d MSan). Looks like you need to   |\n" \
+                   "\\ look at the log                            /\n" \
+                   " --------------------------------------------\n" \
+                   " \\\n" \
+                   "  \\\n" \
+                   "     __\n" \
+                   "    /  \\\n" \
+                   "    |  |\n" \
+                   "    @  @\n" \
+                   "    |  |\n" \
+                   "    || |/\n" \
+                   "    || ||\n" \
+                   "    |\\_/|\n" \
+                   "    \\___/\n", \
+                    total_cnt, asan_cnt, ubsan_cnt, msan_cnt;
+            exit 1
+        }
+    }
+    '
+)
+
 test_systemd() {
     systemd-run "$@" --pipe --wait \
                 -- dfuzzer -b "$PAYLOAD_MAX" -n org.freedesktop.systemd1
@@ -202,6 +282,9 @@ test_systemd() {
     systemctl "$@" daemon-reload
     # FIXME: explicitly trigger reexecute until systemd/systemd#27204 is resolved
     systemctl "$@" daemon-reexec
+
+    # check sanitizer report
+    check_sanitizer_report
 }
 
 # Let's first test the session bus before the system one, as it may be in a
@@ -233,6 +316,9 @@ for name in "${NAME_LIST[@]}"; do
 
     # disable debugging logs
     systemctl service-log-level "$service" info || :
+
+    # check sanitizer report
+    check_sanitizer_report
 done
 
 umount /var/lib/machines
