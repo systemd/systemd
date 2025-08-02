@@ -522,7 +522,7 @@ TEST(message_strv) {
         ASSERT_TRUE(strv_equal(names_in, names_out));
 
         ASSERT_OK(sd_netlink_message_enter_container(m, IFLA_PROP_LIST));
-        ASSERT_OK(sd_netlink_message_read_string(m, IFLA_ALT_IFNAME, &p));
+        ASSERT_OK(sd_netlink_message_read_string_indexed(m, IFLA_ALT_IFNAME, &p, 9));
         ASSERT_STREQ(p, "hoge1009");
         ASSERT_OK(sd_netlink_message_exit_container(m));
 }
