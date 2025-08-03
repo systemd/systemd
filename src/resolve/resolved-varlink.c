@@ -38,7 +38,7 @@ typedef struct LookupParameters {
         uint64_t flags;
         int family;
         struct iovec address;
-        char *name;
+        const char *name;
         uint16_t class;
         uint16_t type;
 } LookupParameters;
@@ -63,7 +63,6 @@ static void lookup_parameters_destroy(LookupParameters *p) {
         assert(p);
 
         iovec_done(&p->address);
-        free(p->name);
 }
 
 static int dns_query_new_for_varlink(
@@ -342,10 +341,10 @@ static int parse_as_address(sd_varlink *link, LookupParameters *p) {
 
 static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
-                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
-                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, family),  0                 },
-                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
+                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParameters, family),  0                 },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParameters, flags),   0                 },
                 {}
         };
 
@@ -1105,11 +1104,11 @@ finish:
 
 static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
-                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
-                { "class",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(LookupParameters, class),   0                 },
-                { "type",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(LookupParameters, type),    SD_JSON_MANDATORY },
-                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
+                { "class",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(LookupParameters, class),   0                 },
+                { "type",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(LookupParameters, type),    SD_JSON_MANDATORY },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParameters, flags),   0                 },
                 {}
         };
 
