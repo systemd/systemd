@@ -252,6 +252,21 @@ typedef struct {
 } EFI_TABLE_HEADER;
 
 typedef struct {
+        EFI_GUID CapsuleGuid;
+        uint32_t HeaderSize;
+        uint32_t Flags;
+        uint32_t CapsuleImageSize;
+} EFI_CAPSULE_HEADER;
+
+typedef struct {
+        uint64_t Length;
+        union {
+                EFI_PHYSICAL_ADDRESS DataBlock;
+                EFI_PHYSICAL_ADDRESS ContinuationPointer;
+        };
+} EFI_CAPSULE_BLOCK_DESCRIPTOR;
+
+typedef struct {
         EFI_TABLE_HEADER Hdr;
         void *RaiseTPL;
         void *RestoreTPL;
@@ -406,7 +421,10 @@ typedef struct {
                         uint32_t *Attributes,
                         size_t *DataSize,
                         void *Data);
-        void *GetNextVariableName;
+        EFI_STATUS (EFIAPI *GetNextVariableName)(
+                        size_t *VariableNameSize,
+                        char16_t *VariableName,
+                        EFI_GUID *VendorGuid);
         EFI_STATUS (EFIAPI *SetVariable)(
                         char16_t *VariableName,
                         EFI_GUID *VendorGuid,
@@ -419,8 +437,15 @@ typedef struct {
                         EFI_STATUS ResetStatus,
                         size_t DataSize,
                         void *ResetData);
-        void *UpdateCapsule;
-        void *QueryCapsuleCapabilities;
+        EFI_STATUS (EFIAPI *UpdateCapsule)(
+                        EFI_CAPSULE_HEADER **CapsuleHeaderArray,
+                        size_t CapsuleCount,
+                        EFI_PHYSICAL_ADDRESS ScatterGatherList);
+        EFI_STATUS (EFIAPI *QueryCapsuleCapabilities)(
+                        EFI_CAPSULE_HEADER **CapsuleHeaderArray,
+                        size_t CapsuleCount,
+                        uint64_t *MaximumCapsuleSize,
+                        EFI_RESET_TYPE *ResetType);
         void *QueryVariableInfo;
 } EFI_RUNTIME_SERVICES;
 
