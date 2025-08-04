@@ -4,6 +4,7 @@
 
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -35,6 +36,7 @@ typedef struct Spawn {
 
 static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         Spawn *spawn = ASSERT_PTR(userdata);
+        bool read_to_result;
         char buf[4096], *p;
         size_t size;
         ssize_t l;
@@ -43,35 +45,54 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
         assert(fd == spawn->fd_stdout || fd == spawn->fd_stderr);
         assert(!spawn->result || spawn->result_len < spawn->result_size);
 
-        if (fd == spawn->fd_stdout && spawn->result) {
+        if (fd == spawn->fd_stdout && spawn->result && !spawn->truncated) {
+                /* When reading to the result buffer, use the maximum available size, to detect truncation. */
+                read_to_result = true;
                 p = spawn->result + spawn->result_len;
                 size = spawn->result_size - spawn->result_len;
+                assert(size > 0);
         } else {
+                /* When reading to the local buffer, keep the space for the trailing NUL. */
+                read_to_result = false;
                 p = buf;
-                size = sizeof(buf);
+                size = sizeof(buf) - 1;
         }
 
-        l = read(fd, p, size - (p == buf));
+        l = read(fd, p, size);
         if (l < 0) {
-                if (errno == EAGAIN)
-                        goto reenable;
-
-                log_device_error_errno(spawn->device, errno,
-                                       "Failed to read stdout of '%s': %m", spawn->cmd);
-
+                log_device_full_errno(spawn->device,
+                                      ERRNO_IS_TRANSIENT(errno) ? LOG_DEBUG : LOG_WARNING,
+                                      errno,
+                                      "Failed to read %s of '%s', ignoring: %m",
+                                      fd == spawn->fd_stdout ? "stdout" : "stderr",
+                                      spawn->cmd);
+                return 0;
+        }
+        if (l == 0) { /* EOF */
+                r = sd_event_source_set_enabled(s, SD_EVENT_OFF);
+                if (r < 0) {
+                        log_device_warning_errno(spawn->device, r,
+                                                 "Failed to disable %s event source of '%s': %m",
+                                                 fd == spawn->fd_stdout ? "stdout" : "stderr",
+                                                 spawn->cmd);
+                        (void) sd_event_exit(sd_event_source_get_event(s), r); /* propagate negative errno */
+                        return r;
+                }
                 return 0;
         }
 
-        if ((size_t) l == size) {
-                log_device_warning(spawn->device, "Truncating stdout of '%s' up to %zu byte.",
-                                   spawn->cmd, spawn->result_size);
-                l--;
-                spawn->truncated = true;
+        if (read_to_result) {
+                if ((size_t) l == size) {
+                        log_device_warning(spawn->device, "Truncating stdout of '%s' up to %zu byte.",
+                                           spawn->cmd, spawn->result_size - 1);
+                        l--;
+                        spawn->truncated = true;
+                }
+
+                spawn->result_len += l;
         }
 
         p[l] = '\0';
-        if (fd == spawn->fd_stdout && spawn->result)
-                spawn->result_len += l;
 
         /* Log output only if we watch stderr. */
         if (l > 0 && spawn->fd_stderr >= 0) {
@@ -88,16 +109,6 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
                                          fd == spawn->fd_stdout ? "out" : "err", *q);
         }
 
-        if (l == 0 || spawn->truncated)
-                return 0;
-
-reenable:
-        /* Re-enable the event source if we did not encounter EOF */
-
-        r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
-        if (r < 0)
-                log_device_error_errno(spawn->device, r,
-                                       "Failed to reactivate IO source of '%s'", spawn->cmd);
         return 0;
 }
 
@@ -184,18 +195,12 @@ static int spawn_wait(Spawn *spawn) {
                 r = sd_event_add_io(e, &stdout_source, spawn->fd_stdout, EPOLLIN, on_spawn_io, spawn);
                 if (r < 0)
                         return log_device_debug_errno(spawn->device, r, "Failed to create stdio event source: %m");
-                r = sd_event_source_set_enabled(stdout_source, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        return log_device_debug_errno(spawn->device, r, "Failed to enable stdio event source: %m");
         }
 
         if (spawn->fd_stderr >= 0) {
                 r = sd_event_add_io(e, &stderr_source, spawn->fd_stderr, EPOLLIN, on_spawn_io, spawn);
                 if (r < 0)
                         return log_device_debug_errno(spawn->device, r, "Failed to create stderr event source: %m");
-                r = sd_event_source_set_enabled(stderr_source, SD_EVENT_ONESHOT);
-                if (r < 0)
-                        return log_device_debug_errno(spawn->device, r, "Failed to enable stderr event source: %m");
         }
 
         r = sd_event_add_child(e, &sigchld_source, spawn->pid, WEXITED, on_spawn_sigchld, spawn);
