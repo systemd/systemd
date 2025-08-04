@@ -259,6 +259,8 @@ usb:v06CBp0104*
 usb:v06CBp0106*
 usb:v06CBp0107*
 usb:v06CBp0108*
+usb:v06CBp0109*
+usb:v06CBp010A*
 usb:v06CBp0123*
 usb:v06CBp0124*
 usb:v06CBp0126*
@@ -269,6 +271,7 @@ usb:v06CBp016C*
 usb:v06CBp0173*
 usb:v06CBp0174*
 usb:v06CBp019D*
+usb:v06CBp019F*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
