@@ -1635,8 +1635,6 @@ foreach term : ['analyze',
                 'mountfsd',
                 'networkd',
                 'nsresourced',
-                'nss-myhostname',
-                'nss-systemd',
                 'oomd',
                 'portabled',
                 'pstore',
@@ -1672,12 +1670,27 @@ conf.set10('ENABLE_IDN', have)
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
-        if want.allowed()
-                have = get_option(tuple[1])
-                if want.enabled() and not have
-                        error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
+        if want.enabled()
+                if get_option('libc') == 'musl'
+                        error('@0@ is requested but it is not supported when building with musl.'.format(tuple[0]))
                 endif
+                if not get_option(tuple[1])
+                        error('@0@ is requested but @1@ is disabled.'.format(tuple[0], tuple[1]))
+                endif
+                have = true
+        elif want.allowed()
+                have = get_option(tuple[1]) and get_option('libc') != 'musl'
         else
+                have = false
+        endif
+        name = 'ENABLE_' + tuple[0].underscorify().to_upper()
+        conf.set10(name, have)
+endforeach
+foreach tuple : [['nss-myhostname'],
+                 ['nss-systemd']]
+        have = get_option(tuple[0])
+        if have and get_option('libc') == 'musl'
+                warning('@0@ is requested but it is not supported when building with musl, disabling it.'.format(tuple[0]))
                 have = false
         endif
         name = 'ENABLE_' + tuple[0].underscorify().to_upper()
