@@ -692,6 +692,9 @@ CHANGES WITH 258 in spe:
           information, and show the cryptographic algorithms by name instead of
           number.
 
+        * The search domains hard cap has been bumped from 256 to 1024, in order
+          to accomodate complex network setups.
+
         systemd-hostnamed:
 
         * The system hardware's serial number may now be read from DeviceTree
@@ -747,6 +750,9 @@ CHANGES WITH 258 in spe:
           --variables=yes/no. By setting --variables=yes modification of EFI
           variables can be forced now in environments where we'd previously
           automatically turn this off (e.g. in choot() contexts).
+
+        * bootctl's --graceful is now implicitly enabled when running in a
+          chroot, to ease integration in packaging scriptlets.
 
         * systemd-stub gained support for a couple of "extension" CHIDs, that
           are not part of the Microsoft's original spec, and which include EDID
