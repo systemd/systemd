@@ -1259,7 +1259,8 @@ EOF
 
     # Clear superblocks to make the MD device will not be restarted even if the VM is restarted.
     # This is a workaround for issue #38240.
-    mdadm -v --zero-superblock --force "${devices[@]}"
+    udevadm settle --timeout=30
+    mdadm -v --zero-superblock --force $(readlink -f "${devices[@]}")
     udevadm settle --timeout=30
 
     # Check if all expected symlinks were removed after the cleanup
@@ -1322,7 +1323,8 @@ testcase_mdadm_lvm() {
 
     # Clear superblocks to make the MD device will not be restarted even if the VM is restarted.
     # This is a workaround for issue #38240.
-    mdadm -v --zero-superblock --force "${devices[@]}"
+    udevadm settle --timeout=30
+    mdadm -v --zero-superblock --force $(readlink -f "${devices[@]}")
     udevadm settle --timeout=30
 
     # Check if all expected symlinks were removed after the cleanup
