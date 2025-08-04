@@ -288,16 +288,17 @@ jobs:
             TEST_NO_QEMU=${{ matrix.no_qemu }} \
             TEST_NO_KVM=${{ matrix.no_kvm }} \
             TEST_RUNNER=${{ matrix.runner }} \
+            TEST_MATCH_SUBTEST=dissect \
             meson test \
             -C build \
-            --timeout-multiplier="${timeout_multiplier:-1}" \
+            --timeout-multiplier=20 \
             --no-rebuild \
             --setup=integration \
             --suite=integration-tests \
             --print-errorlogs \
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \
-            "${MAX_LINES[@]}"
+            "${MAX_LINES[@]}" TEST-50-DISSECT
 
       - name: Archive failed test journals
         uses: actions/upload-artifact@v4

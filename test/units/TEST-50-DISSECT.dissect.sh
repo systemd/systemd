@@ -653,7 +653,7 @@ NotifyAccess=all
 ExecStart=bash -x -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
-        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -v -d -d -d -d -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
         (ls /etc | grep marker) >/tmp/markers/50i; \
         (cat /usr/lib/os-release) >>/tmp/markers/50i; \
         echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -688,7 +688,7 @@ NotifyAccess=all
 ExecStart=bash -x -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
-        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -v -d -d -d -d -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
         (ls /etc | grep marker) >/tmp/markers/50j; \
         (cat /usr/lib/os-release) >>/tmp/markers/50j; \
         echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -718,7 +718,7 @@ NotifyAccess=all
 ExecStart=bash -x -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
-        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -v -d -d -d -d -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
         (ls /etc | grep marker) >/tmp/markers/50k; \
         (cat /usr/lib/os-release) >>/tmp/markers/50k; \
         echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -731,7 +731,8 @@ systemctl start testservice-50k.service
 systemctl is-active testservice-50k.service
 # First reload should pick up the v1 marker
 mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw"
-systemctl reload testservice-50k.service
+while systemctl reload testservice-50k.service; do true; done
+exit 1
 grep -q -F "${VBASE}_1.marker" /tmp/markers/50k
 # Second reload should pick up the v2 marker
 mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw"
