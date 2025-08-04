@@ -873,8 +873,8 @@ static void generate_sidecar_initrds(
 
         if (pack_cpio(loaded_image,
                       u"\\loader\\extensions",
-                      u".sysext.raw",
-                      /* exclude_suffix= */ NULL,
+                      u".raw", /* as above */
+                      u".confext.raw",
                       ".extra/global_sysext",
                       /* dir_mode= */ 0555,
                       /* access_mode= */ 0444,
