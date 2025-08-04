@@ -7907,11 +7907,29 @@ F00000-F00FFF     (base 16)		Aplex Technology Inc.
 				Zhonghe District  New Taipei City 235   -
 				TW
 
-8C-1F-64   (hex)		MARKT Co., Ltd
-798000-798FFF     (base 16)		MARKT Co., Ltd
-				320, 8, Seongnam-daero 331beon-gil, Bundang-gu
-				Seongnam-si  Gyeonggi-do  13558
-				KR
+8C-1F-64   (hex)		Viewpixel Pvt. Ltd.
+8B1000-8B1FFF     (base 16)		Viewpixel Pvt. Ltd.
+				Plot-22 & 23 ,G/F KH, NO-27/24, MOHIT NAGAR Kakrola,New Delhi, South West Dehli,
+				NEW DEHLI  Dehli  110078
+				IN
+
+8C-1F-64   (hex)		MITSUBISHI ELECTRIC INDIA PVT. LTD.
+37B000-37BFFF     (base 16)		MITSUBISHI ELECTRIC INDIA PVT. LTD.
+				Plot No B-3, Talegaon Industrial Area,Phase-II, Badhalwadi MIDC, Talegoan,,
+				Pune  Maharashtra  410507
+				IN
+
+8C-1F-64   (hex)		Tiptop Platform P. Ltd
+CCF000-CCFFFF     (base 16)		Tiptop Platform P. Ltd
+				A-3 Sardar Patel Marg
+				Jaipur  Rajasthan  302001
+				IN
+
+8C-1F-64   (hex)		SHENZHEN sunforest Co.LTD
+6E9000-6E9FFF     (base 16)		SHENZHEN sunforest Co.LTD
+				Room 1717, Building 2, Jiaxin Huihuang Times Building, Zhongkang Road, Meidu Community, Meilin Street, Futian District, Shenzhen
+				深圳  GUANGDONG  518000
+				CN
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -15818,6 +15836,18 @@ D90000-D90FFF     (base 16)		Aplex Technology Inc.
 				Zhonghe District  New Taipei City 235   -
 				TW
 
+8C-1F-64   (hex)		Wuhan YiValley Opto-electric technology Co.,Ltd
+271000-271FFF     (base 16)		Wuhan YiValley Opto-electric technology Co.,Ltd
+				A104,1st stage Juxian Building, Hongshan internatinoal enterprise center
+				Wuhan  Hubei  430073
+				CN
+
+8C-1F-64   (hex)		Mobileye Vision Technologies LTD
+B6A000-B6AFFF     (base 16)		Mobileye Vision Technologies LTD
+				7-9 Hacharutzim St.
+				Petach Tiqwa  Israel  4929909
+				IL
+
 8C-1F-64   (hex)		Kitagawa Corporation
 C58000-C58FFF     (base 16)		Kitagawa Corporation
 				77-1 Motomachi
@@ -15829,6 +15859,21 @@ C58000-C58FFF     (base 16)		Kitagawa Corporation
 				Firtree Lane, Groby, Leicester
 				Le6 0FH  England  
 				GB
+
+8C-1F-64   (hex)		Discover Energy Systems Corp.
+E9B000-E9BFFF     (base 16)		Discover Energy Systems Corp.
+				320-13711 International Place
+				Richmond  BC  V6V 2Z8
+				CA
+
+8C-1F-64   (hex)		elysia GmbH
+BBA000-BBAFFF     (base 16)		elysia GmbH
+				Am Panneschopp 18
+				Nettetal    41334
+				DE
+
+8C-1F-64   (hex)		Private
+CE5000-CE5FFF     (base 16)		Private
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -23768,11 +23813,47 @@ ED0000-ED0FFF     (base 16)		Shanghai Jupper Technology Co.Ltd
 				Erie    16510
 				US
 
+8C-1F-64   (hex)		Racelogic Ltd
+FB6000-FB6FFF     (base 16)		Racelogic Ltd
+				Unit 10-11 Osier Way,Swan Business Centre
+				Buckingham    MK18 1TB
+				GB
+
 8C-1F-64   (hex)		Vinfast Trading and Production JSC
 C99000-C99FFF     (base 16)		Vinfast Trading and Production JSC
 				Dinh Vu - Cat Hai Economic Zone, Cai Hai Island, Cat Hai Sepcial Administrative Zone
 				Hai Phong  Hai Phong  180000
 				VN
+
+8C-1F-64   (hex)		GreenTally LLC
+459000-459FFF     (base 16)		GreenTally LLC
+				15 Beaver Drive
+				Saint Louis  MO  63141
+				US
+
+8C-1F-64   (hex)		Newin Tech
+0B9000-0B9FFF     (base 16)		Newin Tech
+				Room 405, 56 Songdo-gwahak-ro, Yeonsu-gu
+				Incheon    21984
+				KR
+
+8C-1F-64   (hex)		Beijing Fuzheng Transportation Technology Co., Ltd
+BA9000-BA9FFF     (base 16)		Beijing Fuzheng Transportation Technology Co., Ltd
+				03, Building 3, Courtyard 10, Jingsheng South 2nd Street
+				Beijing  Beijing Economic-Technological Development Area  101111
+				CN
+
+8C-1F-64   (hex)		Sicon srl
+269000-269FFF     (base 16)		Sicon srl
+				Via Sila 1/3
+				Isola Vicentina  Vicenza  36033
+				IT
+
+8C-1F-64   (hex)		Computech International
+D71000-D71FFF     (base 16)		Computech International
+				110 Crossways Park Drive
+				Woodbury  NY  11797
+				US
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -31712,6 +31793,30 @@ A45000-A45FFF     (base 16)		U -MEI-DAH INT'L ENTERPRISE CO.,LTD.
 				New Taipei City    221011
 				TW
 
+8C-1F-64   (hex)		Ambarella Inc.
+C31000-C31FFF     (base 16)		Ambarella Inc.
+				Santa Clara office3101 Jay Street
+				Santa Clara  CA  95054
+				US
+
+8C-1F-64   (hex)		Aegex Technologies LLC Magyarországi Fióktelepe
+A9D000-A9DFFF     (base 16)		Aegex Technologies LLC Magyarországi Fióktelepe
+				Tildy Zoltán utca
+				Pécs  Baranya  7632
+				HU
+
+8C-1F-64   (hex)		Q (Cue), Inc.
+6A6000-6A6FFF     (base 16)		Q (Cue), Inc.
+				Abba Hillel Silver Rd 21
+				Ramat Gan    5252213
+				IL
+
+8C-1F-64   (hex)		Beijing Diwei Shuangxing Communication Technology Co., Ltd.
+1D5000-1D5FFF     (base 16)		Beijing Diwei Shuangxing Communication Technology Co., Ltd.
+				3rd Floor, Building 19, Guanghua Pioneer Park, No. 18, Anningzhuang East Road,
+				Beijing  Haidian District  100085
+				CN
+
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
 				13 Hartom st.
@@ -34474,12 +34579,6 @@ F48000-F48FFF     (base 16)		HEITEC AG
 				Dr.-Otto-Leich-Str. 16
 				Eckental  Bavaria  90542
 				DE
-
-70-B3-D5   (hex)		Technological Application and Production One Member Liability Company (Tecapro company)
-456000-456FFF     (base 16)		Technological Application and Production One Member Liability Company (Tecapro company)
-				18A Cong Hoa street
-				Ho Chi Minh city  Ho Chi Minh city  700000
-				VN
 
 70-B3-D5   (hex)		KRONOTECH SRL
 D56000-D56FFF     (base 16)		KRONOTECH SRL
@@ -39530,14 +39629,14 @@ FF3000-FF3FFF     (base 16)		Aplex Technology Inc.
 				Zhonghe District  New Taipei City 235   -
 				TW
 
-8C-1F-64   (hex)		Tardis Technology
-688000-688FFF     (base 16)		Tardis Technology
-				2-30, Maenser Space, 145 Shindae-ro
-				Jejusi  Jejudo  63134
-				KR
-
 8C-1F-64   (hex)		SPX Flow Technology BV
 CDA000-CDAFFF     (base 16)		SPX Flow Technology BV
 				Munnikenheiweg 41
 				Etten-Leur  Noord-Braband  4879NE
 				NL
+
+70-B3-D5   (hex)		Technological Application And Production One Member Liability Company (Tecapro Company)
+456000-456FFF     (base 16)		Technological Application And Production One Member Liability Company (Tecapro Company)
+				18A Cong Hoa street
+				Ho Chi Minh city  Ho Chi Minh city  700000
+				VN

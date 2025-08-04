@@ -7271,6 +7271,30 @@ A00000-AFFFFF     (base 16)		Bethlabs(Tianjin)Technology Co.,Ltd.
 				Tianjin  Tianjin  300380
 				CN
 
+34-B5-F3   (hex)		ADDSOFT TECHNOLOGIES LIMITED
+000000-0FFFFF     (base 16)		ADDSOFT TECHNOLOGIES LIMITED
+				647/2219, NUAPATNA, TELENGAPENTHA
+				CUTTACK  ODISHA  754001
+				IN
+
+00-6A-5E   (hex)		Jiangsu Alstom NUG Propulsion System Co., Ltd
+700000-7FFFFF     (base 16)		Jiangsu Alstom NUG Propulsion System Co., Ltd
+				No.199 South Fenglin Rd.,WujinNational Hi-tech Development Zone
+				CHANGZHOU  JIANGSU  213166
+				CN
+
+00-6A-5E   (hex)		Hilti Corporation
+800000-8FFFFF     (base 16)		Hilti Corporation
+				Feldkircherstrasse 100
+				Schaan    9494
+				LI
+
+00-6A-5E   (hex)		Oppermann Regelgeräte GmbH
+E00000-EFFFFF     (base 16)		Oppermann Regelgeräte GmbH
+				Im Spitzhau 1
+				Leinfelden-Echterdingen    70771
+				DE
+
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
 				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Nanshan District, Shenzhen, China 
@@ -14005,6 +14029,30 @@ FC-E4-98   (hex)		NTCSOFT
 				5-9-3 Nishitenma Kita-ku 
 				Osaka-shi  Osaka  530-0047
 				JP
+
+00-6A-5E   (hex)		Shenzhen Lightx Technology Co., Ltd
+600000-6FFFFF     (base 16)		Shenzhen Lightx Technology Co., Ltd
+				RM 1006, 10/F PO YIP BLDG, 23 HING YIP ST, Kwun Tong, Kowloon, Hong Kong
+				Hong Kong    000
+				HK
+
+00-6A-5E   (hex)		CYBERTEL BRIDGE
+C00000-CFFFFF     (base 16)		CYBERTEL BRIDGE
+				9th floor, Hansin IT Tower, 272, Digital-ro,Guro-gu
+				Seoul    08389
+				KR
+
+00-6A-5E   (hex)		Annapurna labs
+A00000-AFFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
+
+00-6A-5E   (hex)		Beijing Lingji Innovations technology Co,LTD.
+D00000-DFFFFF     (base 16)		Beijing Lingji Innovations technology Co,LTD.
+				Room 106, 1st Floor, A-1 Building, Zhongguancun Dongsheng Science and Technology Park, No. 66 Xixiaokou Road, Haidian District, Beijing
+				Beijing  Beijing  100190
+				CN
 
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
@@ -21143,12 +21191,6 @@ C00000-CFFFFF     (base 16)		Rexon Technology
 				Taichung City     412037
 				TW
 
-04-58-5D   (hex)		HDS Otomasyon Güvenlik ve Yazılım Teknolojiler Sanayi Ticaret Limited Şirketi
-D00000-DFFFFF     (base 16)		HDS Otomasyon Güvenlik ve Yazılım Teknolojiler Sanayi Ticaret Limited Şirketi
-				Merkez Mahallesi Sadabad Cad. Kapı No:20
-				İstanbul  Kağıthane  34406
-				TR
-
 04-58-5D   (hex)		Research Laboratory of Design Automation, Ltd.
 100000-1FFFFF     (base 16)		Research Laboratory of Design Automation, Ltd.
 				8 Birzhevoy Spusk
@@ -21245,10 +21287,10 @@ FC-E4-98   (hex)		SM Instruments
 				Shanghai    201306
 				CN
 
-34-B5-F3   (hex)		Digicom
-D00000-DFFFFF     (base 16)		Digicom
-				The 4th floor, Building No.4, Xiangshan South Road 105#, Shijingshan, Beijing, China
-				BEIJING    100144
+00-6A-5E   (hex)		Rayneo (wuxi) ltd
+500000-5FFFFF     (base 16)		Rayneo (wuxi) ltd
+				No. 6 Huaqing Innovation Park, Huishan District, Wuxi City
+				WUXI  JiangSu  214100
 				CN
 
 34-B5-F3   (hex)		Shenzhen Mifasuolla Smart Co.,Ltd
@@ -21256,6 +21298,48 @@ C00000-CFFFFF     (base 16)		Shenzhen Mifasuolla Smart Co.,Ltd
 				 No. 15 Hongbu Road, Majialong Community, Nantou Subdistrict, Nanshan District
 				Shenzhen  Guangdong  518052
 				CN
+
+34-B5-F3   (hex)		Digicom
+D00000-DFFFFF     (base 16)		Digicom
+				The 4th floor, Building No.4, Xiangshan South Road 105#, Shijingshan, Beijing, China
+				BEIJING    100144
+				CN
+
+34-B5-F3   (hex)		Viettel Manufacturing Corporation One Member Limited Liability Company
+E00000-EFFFFF     (base 16)		Viettel Manufacturing Corporation One Member Limited Liability Company
+				An Binh Hamlet, An Khanh Commune
+				Ha Noi  Ha Noi  100000
+				VN
+
+00-6A-5E   (hex)		Creative Communication
+200000-2FFFFF     (base 16)		Creative Communication
+				113/1, Parahupur, Mughalsarai,
+				Mughalsarai  Uttar Pradesh(UP)  232101
+				IN
+
+00-6A-5E   (hex)		Shenzhen yeahmoo Technology Co., Ltd.
+300000-3FFFFF     (base 16)		Shenzhen yeahmoo Technology Co., Ltd.
+				Room 103, 1st Floor, Building 4, Yunli Intelligent Park, No. 3 Changfa Middle Road,Yangmei Community, Bantian Street, Longgang District,
+				Shenzhen  Guangdong Province  518100
+				CN
+
+04-58-5D   (hex)		HDS Otomasyon Güvenlik ve Yazılım Teknolojileri Sanayi Ticaret Limited Şirketi
+D00000-DFFFFF     (base 16)		HDS Otomasyon Güvenlik ve Yazılım Teknolojileri Sanayi Ticaret Limited Şirketi
+				Merkez Mahallesi Sadabad Cad. Kapı No:20
+				İstanbul  Kağıthane  34406
+				TR
+
+00-6A-5E   (hex)		Continental Brasil Indústria Automotiva Ltda.
+B00000-BFFFFF     (base 16)		Continental Brasil Indústria Automotiva Ltda.
+				Av. Senador Adolf Schindling, 131
+				Guarulhos  São Paulo  07042-020
+				BR
+
+F4-97-9D   (hex)		LUXSHARE - ICT(NGHE AN) LIMITED
+700000-7FFFFF     (base 16)		LUXSHARE - ICT(NGHE AN) LIMITED
+				No. 18, Road No. 03, VSIP Nghe An Industrial Park, Hung Nguyen Commune, Nghe An Province, Vietnam
+				Nghe An  Nghe An  460000 
+				VN
 
 D0-14-11   (hex)		P.B. Elettronica srl
 100000-1FFFFF     (base 16)		P.B. Elettronica srl
@@ -28249,6 +28333,12 @@ B00000-BFFFFF     (base 16)		Aeterlink Corp.
 				Room 310, 3rd Floor, Zhenhua Times Square, No. 21 Heping Road, Qinghua Community, Longhua Street, Longhua District
 				Shenzhen  Guangdong  518000
 				CN
+
+00-6A-5E   (hex)		Evercomm (Pty) Ltd
+400000-4FFFFF     (base 16)		Evercomm (Pty) Ltd
+				363 Rivonia Boulevard, 1st Floor, Euro Centre Building, Edenburg
+				Johannesburg  Gauteng  2128
+				ZA
 
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
@@ -35386,6 +35476,24 @@ FC-E4-98   (hex)		E Haute Intelligent Technology Co., Ltd
 				Room 01-05, 40/F, Building C, Longhua Digital Innovation Center, Longhua District
 				Shenzhen  Guangdong  518000
 				CN
+
+00-6A-5E   (hex)		TRULY ELECTRONICS MFG.,LTD
+000000-0FFFFF     (base 16)		TRULY ELECTRONICS MFG.,LTD
+				Truly industry city，shanwei guangdong，P.R.C
+				shanwei  guangdong  516600
+				CN
+
+00-6A-5E   (hex)		BroadMaster Biotech Corp
+100000-1FFFFF     (base 16)		BroadMaster Biotech Corp
+				No. 91 Xiyuan RD. Zhongli City
+				Taoyuan  Select State  32057
+				TW
+
+00-6A-5E   (hex)		Annapurna labs
+900000-9FFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
 
 34-B5-F3   (hex)		LAUMAS Elettronica s.r.l.
 400000-4FFFFF     (base 16)		LAUMAS Elettronica s.r.l.
