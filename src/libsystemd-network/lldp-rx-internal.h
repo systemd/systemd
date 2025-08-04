@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-#include "sd-json.h"
-#include "sd-lldp-rx.h"
+#include <net/ethernet.h>
 
-#include "hashmap.h"
+#include "sd-lldp-rx.h" /* IWYU pragma: export */
+
 #include "network-common.h"
-#include "prioq.h"
+#include "forward.h"
 
 struct sd_lldp_rx {
         unsigned n_ref;

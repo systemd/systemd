@@ -1,22 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/xattr.h>
-#include <unistd.h>
-
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "log.h"
 #include "memstream-util.h"
 #include "oomd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "procfs-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "sort-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
-#include "user-util.h"
+#include "string-util.h"
+#include "time-util.h"
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 oomd_cgroup_ctx_hash_ops,
@@ -40,7 +41,7 @@ static int increment_oomd_xattr(const char *path, const char *xattr, uint64_t nu
         assert(path);
         assert(xattr);
 
-        r = cg_get_xattr_malloc(path, xattr, &value, /* ret_size= */ NULL);
+        r = cg_get_xattr(path, xattr, &value, /* ret_size= */ NULL);
         if (r < 0 && !ERRNO_IS_XATTR_ABSENT(r))
                 return r;
 
@@ -526,13 +527,13 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
 
         if (mem_available > ctx.mem_total)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "MemAvailable (%" PRIu64 ") cannot be greater than MemTotal (%" PRIu64 ") %m",
+                                       "MemAvailable (%" PRIu64 ") cannot be greater than MemTotal (%" PRIu64 ")",
                                        mem_available,
                                        ctx.mem_total);
 
         if (swap_free > ctx.swap_total)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "SwapFree (%" PRIu64 ") cannot be greater than SwapTotal (%" PRIu64 ") %m",
+                                       "SwapFree (%" PRIu64 ") cannot be greater than SwapTotal (%" PRIu64 ")",
                                        swap_free,
                                        ctx.swap_total);
 

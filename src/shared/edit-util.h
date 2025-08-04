@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "forward.h"
 
 #define DROPIN_MARKER_START "### Anything between here and the comment below will become the contents of the drop-in file"
 #define DROPIN_MARKER_END "### Edits below this comment will be discarded"

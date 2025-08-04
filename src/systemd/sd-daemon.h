@@ -17,8 +17,6 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 
 #include "_sd-common.h"
@@ -191,9 +189,9 @@ int sd_is_mq(int fd, const char *path);
                   that describes the daemon state. This is free-form
                   and can be used for various purposes: general state
                   feedback, fsck-like programs could pass completion
-                  percentages and failing programs could pass a human
-                  readable error message. Example: "STATUS=Completed
-                  66% of file system check..."
+                  percentages and failing programs could pass a
+                  human-readable error message. Example:
+                  "STATUS=Completed 66% of file system check..."
 
      NOTIFYACCESS=...
                   Reset the access to the service status notification socket.
@@ -312,6 +310,8 @@ int sd_notify_barrier(int unset_environment, uint64_t timeout);
   Just like sd_notify_barrier() but also takes a PID to send the barrier message from.
 */
 int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout);
+
+int sd_pidfd_get_inode_id(int pidfd, uint64_t *ret);
 
 /*
   Returns > 0 if the system was booted with systemd. Returns < 0 on

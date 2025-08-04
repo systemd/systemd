@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/rtnetlink.h>
+
+#include "alloc-util.h"
 #include "bitfield.h"
-#include "condition.h"
 #include "conf-parser.h"
 #include "escape.h"
 #include "logarithm.h"
@@ -232,18 +234,4 @@ int config_parse_mud_url(
         }
 
         return free_and_replace(*url, unescaped);
-}
-
-int log_link_message_full_errno(Link *link, sd_netlink_message *m, int level, int err, const char *msg) {
-        const char *err_msg = NULL;
-
-        /* link may be NULL. */
-
-        (void) sd_netlink_message_read_string(m, NLMSGERR_ATTR_MSG, &err_msg);
-        return log_link_full_errno(link, level, err,
-                                   "%s: %s%s%s%m",
-                                   msg,
-                                   strempty(err_msg),
-                                   err_msg && !endswith(err_msg, ".") ? "." : "",
-                                   err_msg ? " " : "");
 }

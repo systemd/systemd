@@ -452,11 +452,15 @@
       <varlistentry>
         <term><option>--raw</option><optional>=payload|packet</optional></term>
 
-        <listitem><para>Dump the answer as binary data. If there is no argument or if the argument is
-        <literal>payload</literal>, the payload of the packet is exported. If the argument is
-        <literal>packet</literal>, the whole packet is dumped in wire format, prefixed by
-        length specified as a little-endian 64-bit number. This format allows multiple packets
-        to be dumped and unambiguously parsed.</para>
+        <listitem><para>Dump the answer records as binary data. If there is no argument or if the argument is
+        <literal>payload</literal>, the payload of the resource record data is exported, i.e. not the whole
+        "RDATA", but just primary contents. If the argument is <literal>packet</literal>,
+        the whole resource record is dumped in wire format, prefixed by length specified as a little-endian
+        64-bit integer. This format allows multiple record to be dumped and unambiguously parsed.</para>
+
+        <para>Note that <literal>payload</literal> is only supported for a small subset of resource record
+        types: SSHFP, TLSA, OPENPGPKEY where this dumps the key material only; and A, AAAA where
+        this dumps the address data.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>

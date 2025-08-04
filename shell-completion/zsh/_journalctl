@@ -29,7 +29,7 @@ _journalctl_none() {
     _commands=( ${(f)"$(_call_program commands "$service $_sys_service_mgr -F _EXE" 2>/dev/null)"} )
     _jrnl_none='yes'
     _alternative : \
-        'files:/dev files:_files -W /dev -P /dev/' \
+        'files:/dev files:_files -W /dev ' \
         'commands:commands:compadd -a _commands' \
         'fields:fields:_journalctl_fields'
 }
@@ -48,26 +48,26 @@ _journalctl_field_values() {
 
 (( $+functions[_journalctl_boots] )) ||
 _journalctl_boots() {
-  local -a _bootid _previousboots
-  _bootid=( ${(f)"$(_call_program bootid "$service -F _BOOT_ID")"}  )
-  _previousboots=( -{1..${#_bootid}} )
-  _alternative : \
-    "offsets:boot offsets:compadd -a '_previousboots[1,-2]'" \
-    "bootid:boot ids:compadd -a _bootid"
+    local -a _bootid _previousboots
+    _bootid=( ${(f)"$(_call_program bootid "$service -F _BOOT_ID")"}  )
+    _previousboots=( -{1..${#_bootid}} )
+    _alternative : \
+        "offsets:boot offsets:compadd -a '_previousboots[1,-2]'" \
+        "bootid:boot ids:compadd -a _bootid"
 }
 
 (( $+functions[_journalctl_facilities] )) ||
 _journalctl_facilities() {
-  local -a _journalctl_facilities
-  _journalctl_facilities=(help kern user mail daemon auth syslog lpr news uucp cron authpriv ftp local0 local1 local2 local3 local4 local5 local6 local7)
-  _describe 'possible values' _journalctl_facilities
+    local -a _journalctl_facilities
+    _journalctl_facilities=(help kern user mail daemon auth syslog lpr news uucp cron authpriv ftp local0 local1 local2 local3 local4 local5 local6 local7)
+    _describe 'possible values' _journalctl_facilities
 }
 
 (( $+functions[_journalctl_namespaces] )) ||
 _journalctl_namespaces() {
-  local -a _journalctl_namespaces
-  _journalctl_namespaces=( ${(f)"$(_call_program namespaces "$service --list-namespaces --output=cat" 2>/dev/null)"} )
-  _describe 'possible values' _journalctl_namespaces
+    local -a _journalctl_namespaces
+    _journalctl_namespaces=( ${(f)"$(_call_program namespaces "$service --list-namespaces --output=cat" 2>/dev/null)"} )
+    _describe 'possible values' _journalctl_namespaces
 }
 
 # Build arguments for "journalctl" to be used in completion.

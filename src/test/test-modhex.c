@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "recovery-key.h"
 #include "alloc-util.h"
+#include "recovery-key.h"
 #include "string-util.h"
 #include "tests.h"
 

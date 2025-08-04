@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "sd-path.h"
 
 #include "alloc-util.h"
@@ -298,6 +300,10 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
 
         case SD_PATH_SYSTEMD_USER_PRESET:
                 *ret = PREFIX_NOSLASH "/lib/systemd/user-preset";
+                return 0;
+
+        case SD_PATH_SYSTEMD_INITRD_PRESET:
+                *ret = PREFIX_NOSLASH "/lib/systemd/initrd-preset";
                 return 0;
 
         case SD_PATH_SYSTEMD_SYSTEM_CONF:

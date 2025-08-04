@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <endian.h>
+#include <grp.h>
 #include <poll.h>
 #include <stdlib.h>
+#include <sys/inotify.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -12,21 +14,21 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "bus-socket.h"
+#include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "format-util.h"
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
 #include "iovec-util.h"
-#include "macro.h"
+#include "log.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
-#include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "utf8.h"
 
@@ -62,7 +64,7 @@ static int append_iovec(sd_bus_message *m, const void *p, size_t sz) {
 }
 
 static int bus_message_setup_iovec(sd_bus_message *m) {
-        struct bus_body_part *part;
+        BusMessageBodyPart *part;
         unsigned n, i;
         int r;
 
@@ -1283,8 +1285,8 @@ static int bus_socket_read_message_need(sd_bus *bus, size_t *need) {
         assert(need);
         assert(IN_SET(bus->state, BUS_RUNNING, BUS_HELLO));
 
-        if (bus->rbuffer_size < sizeof(struct bus_header)) {
-                *need = sizeof(struct bus_header) + 8;
+        if (bus->rbuffer_size < sizeof(BusMessageHeader)) {
+                *need = sizeof(BusMessageHeader) + 8;
 
                 /* Minimum message size:
                  *
@@ -1318,7 +1320,7 @@ static int bus_socket_read_message_need(sd_bus *bus, size_t *need) {
         } else
                 return -EBADMSG;
 
-        sum = (uint64_t) sizeof(struct bus_header) + (uint64_t) ALIGN8(b) + (uint64_t) a;
+        sum = (uint64_t) sizeof(BusMessageHeader) + (uint64_t) ALIGN8(b) + (uint64_t) a;
         if (sum >= BUS_MESSAGE_SIZE_MAX)
                 return -ENOBUFS;
 

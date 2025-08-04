@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "alloc-util.h"
 #include "escape.h"
 #include "hexdecoct.h"
-#include "macro.h"
+#include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
 
@@ -299,6 +298,9 @@ ssize_t cunescape_length_with_prefix(const char *s, size_t length, const char *p
         assert(ret);
 
         /* Undoes C style string escaping, and optionally prefixes it. */
+
+        if (length == SIZE_MAX)
+                length = strlen(s);
 
         pl = strlen_ptr(prefix);
 
@@ -596,7 +598,7 @@ char* shell_maybe_quote(const char *s, ShellEscapeFlags flags) {
         return str_realloc(buf);
 }
 
-char* quote_command_line(char **argv, ShellEscapeFlags flags) {
+char* quote_command_line(char * const *argv, ShellEscapeFlags flags) {
         _cleanup_free_ char *result = NULL;
 
         assert(argv);

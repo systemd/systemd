@@ -675,16 +675,20 @@ node /org/freedesktop/login1 {
 #define SD_LOGIND_SKIP_INHIBITORS                (UINT64_C(1) &lt;&lt; 4)
 </programlisting>
       <para>When the <varname>flags</varname> is 0 then these methods behave just like the versions without
-      flags. Since systemd version 257 active inhibitors are honoured by default for privileged users too.
-      <constant>SD_LOGIND_ROOT_CHECK_INHIBITORS</constant> (0x01) now only applies to weak inhibitors, to
-      request that they honoured for privileged users too, since they ignore them by default. A new flag
-      <constant>SD_LOGIND_SKIP_INHIBITORS</constant> (0x04) can be specified to bypass all types of
-      inhibitors. When <constant>SD_LOGIND_KEXEC_REBOOT</constant> (0x02) is set, then
-      <function>RebootWithFlags()</function> performs a kexec reboot if kexec kernel is loaded. When
-      <constant>SD_LOGIND_SOFT_REBOOT</constant> (0x04) is set, or
-      <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> (0x08) is set and a new root file system
-      has been set up on <literal>/run/nextroot/</literal>, then <function>RebootWithFlags()</function>
-      performs a userspace reboot only. <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> and
+      flags. Since systemd version 257 inhibitors of type <literal>block</literal> are enforced on operations
+      requested by both privileged and unprivileged users. Previously they were honoured only by unprivileged
+      users, excluding the user owning the inhibitor. The latter behaviour is now available through the
+      <literal>block-weak</literal> inhibitor lock type. <constant>SD_LOGIND_ROOT_CHECK_INHIBITORS</constant>
+      (0x01) makes <literal>block-weak</literal> locks behave like regular <literal>block</literal> locks,
+      i.e. ensures they are honoured for any user. A flag <constant>SD_LOGIND_SKIP_INHIBITORS</constant>
+      (0x10) can be specified to bypass both <literal>block</literal> and <literal>block-weak</literal>
+      inhibitors (it has no effect on <literal>delay</literal> inhibitors). When
+      <constant>SD_LOGIND_KEXEC_REBOOT</constant> (0x02) is set, then <function>RebootWithFlags()</function>
+      performs a kexec reboot if kexec kernel is loaded. When <constant>SD_LOGIND_SOFT_REBOOT</constant>
+      (0x04) is set, or <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> (0x08) is set and a new
+      root file system has been set up on <literal>/run/nextroot/</literal>, then
+      <function>RebootWithFlags()</function> performs a userspace reboot
+      only. <constant>SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP</constant> and
       <constant>SD_LOGIND_KEXEC_REBOOT</constant> can be combined, with soft-reboot having precedence.
       </para>
 
@@ -739,8 +743,8 @@ node /org/freedesktop/login1 {
       <literal>handle-suspend-key</literal>, <literal>handle-hibernate-key</literal>,
       <literal>handle-lid-switch</literal>, separated by colons, for inhibiting poweroff/reboot,
       suspend/hibernate, the automatic idle logic, or hardware key handling. <varname>who</varname> should be
-      a short human readable string identifying the application taking the lock. <varname>why</varname>
-      should be a short human readable string identifying the reason why the lock is taken. Finally,
+      a short human-readable string identifying the application taking the lock. <varname>why</varname>
+      should be a short human-readable string identifying the reason why the lock is taken. Finally,
       <varname>mode</varname> is either <literal>block</literal> or <literal>delay</literal> which encodes
       whether the inhibit shall be consider mandatory or whether it should just delay the operation to a
       certain maximum time, while the <literal>block-weak</literal> and variants will create an inhibitor
@@ -1251,6 +1255,8 @@ node /org/freedesktop/login1/session/1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u Leader = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t LeaderPIDFDId = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u Audit = ...;
       readonly s Type = '...';
       readonly s Class = '...';
@@ -1350,6 +1356,8 @@ node /org/freedesktop/login1/session/1 {
     <variablelist class="dbus-property" generated="True" extra-ref="Scope"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Leader"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LeaderPIDFDId"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Audit"/>
 
@@ -1539,6 +1547,9 @@ node /org/freedesktop/login1/session/1 {
 
       <para><varname>Leader</varname> encodes the PID of the process that registered the session.</para>
 
+      <para><varname>LeaderPIDFDId</varname> encodes the Linux pidfd inode ID of the process that registered
+      the session.</para>
+
       <para><varname>Audit</varname> encodes the Kernel Audit session ID of the session if auditing is
       available.</para>
 
@@ -1660,6 +1671,7 @@ node /org/freedesktop/login1/session/1 {
       <para><function>SetDisplay()</function> was added in version 252.</para>
       <para><function>SetTTY()</function> was added in version 254.</para>
       <para><function>SetClass()</function> was added in version 256.</para>
+      <para><varname>LeaderPIDFDId</varname> was added in version 258.</para>
     </refsect2>
   </refsect1>
 

@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "conf-parser.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
+#include "networkd-forward.h"
 
 typedef enum IPv6PrivacyExtensions {
         /* These values map to the kernel's /proc/sys/net/ipv6/conf/xxx/use_tempaddr values. Do not reorder! */

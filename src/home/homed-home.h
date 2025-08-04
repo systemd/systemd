@@ -1,16 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct Home Home;
-
-#include "hashmap.h"
-#include "homed-manager.h"
-#include "homed-operation.h"
-#include "list.h"
-#include "ordered-set.h"
+#include "forward.h"
+#include "homed-forward.h"
 #include "pidref.h"
 #include "stat-util.h"
-#include "user-record.h"
 
 typedef enum HomeState {
         HOME_UNFIXATED,               /* home exists, but local record does not */
@@ -108,7 +102,7 @@ static inline bool HOME_STATE_MAY_RETRY_DEACTIVATE(HomeState state) {
                       HOME_AUTHENTICATING_FOR_ACQUIRE);
 }
 
-struct Home {
+typedef struct Home {
         Manager *manager;
 
         /* The fields this record can be looked up by. This is kinda redundant, as the same information is
@@ -180,7 +174,7 @@ struct Home {
 
         /* Whether a rebalance operation is pending */
         bool rebalance_pending;
-};
+} Home;
 
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret);
 Home *home_free(Home *h);

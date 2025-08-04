@@ -5,10 +5,9 @@
   Copyright © 2010 Maarten Lankhorst
 ***/
 
-#include "sd-bus.h"
 #include "sd-bus-vtable.h"
 
-#include "unit.h"
+#include "core-forward.h"
 
 extern const sd_bus_vtable bus_swap_vtable[];
 

@@ -8,11 +8,13 @@
 #include "format-table.h"
 #include "gpt.h"
 #include "id128-print.h"
+#include "id128-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "strv.h"
-#include "terminal-util.h"
 #include "verbs.h"
 
 static Id128PrettyPrintMode arg_mode = ID128_PRINT_ID128;

@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "nulstr-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 

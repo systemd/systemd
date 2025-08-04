@@ -17,6 +17,7 @@ ConditionDirectoryNotEmpty=|/var/lib/confexts
 ConditionDirectoryNotEmpty=|/usr/local/lib/confexts
 ConditionDirectoryNotEmpty=|/usr/lib/confexts
 ConditionDirectoryNotEmpty=|/.extra/confext
+ConditionDirectoryNotEmpty=|/.extra/global_confext
 ConditionPathExists=/etc/initrd-release
 
 DefaultDependencies=no

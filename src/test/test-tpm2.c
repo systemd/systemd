@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "architecture.h"
 #include "hexdecoct.h"
-#include "macro.h"
 #include "tests.h"
 #include "tpm2-util.h"
 #include "virt.h"
@@ -560,7 +560,7 @@ static void check_parse_pcr_argument(
                 size_t n_arg_pcr_values = 0;
                 assert_se(tpm2_parse_pcr_argument(arg, &arg_pcr_values, &n_arg_pcr_values) >= 0);
                 uint32_t mask2 = UINT32_MAX;
-                assert_se(tpm2_pcr_values_to_mask(arg_pcr_values, n_arg_pcr_values, /* algorithm= */ 0, &mask2) >= 0);
+                assert_se(tpm2_pcr_values_to_mask(arg_pcr_values, n_arg_pcr_values, /* hash= */ 0, &mask2) >= 0);
 
                 assert_se((mask == UINT32_MAX ? mask2 : (mask|mask2)) == expected_mask);
         }
@@ -876,6 +876,13 @@ static void check_tpm2b_public_from_rsa_pem(const char *pem, const char *hexn, u
 }
 
 TEST(tpm2b_public_from_openssl_pkey) {
+        // TODO: this test fails on s390x but only on Github Actions, re-enable once
+        // https://github.com/systemd/systemd/issues/38229 is fixed
+        if (strstr_ptr(ci_environment(), "github-actions") && uname_architecture() == ARCHITECTURE_S390X) {
+                log_notice("%s: skipping test on GH Actions because of systemd/systemd#38229", __func__);
+                return;
+        }
+
         /* standard ECC key */
         check_tpm2b_public_from_ecc_pem("2d2d2d2d2d424547494e205055424c4943204b45592d2d2d2d2d0a4d466b77457759484b6f5a497a6a3043415159494b6f5a497a6a30444151634451674145726a6e4575424c73496c3972687068777976584e50686a346a426e500a44586e794a304b395579724e6764365335413532542b6f5376746b436a365a726c34685847337741515558706f426c532b7448717452714c35513d3d0a2d2d2d2d2d454e44205055424c4943204b45592d2d2d2d2d0a",
                                         "ae39c4b812ec225f6b869870caf5cd3e18f88c19cf0d79f22742bd532acd81de",
@@ -1259,8 +1266,8 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
                         /* primary_alg= */ 0,
                         blobs,
                         n_blobs,
-                        /* policy_hash= */ NULL,
-                        /* n_policy_hash= */ 0,
+                        /* known_policy_hash= */ NULL,
+                        /* n_known_policy_hash= */ 0,
                         &srk,
                         &unsealed_secret) >= 0);
 

@@ -298,7 +298,7 @@ teardown_session() (
 
     rm -f /run/udev/rules.d/70-logindtest-scsi_debug-user.rules
     udevadm control --reload
-    rmmod scsi_debug
+    rmmod scsi_debug || true
 
     return 0
 )
@@ -446,7 +446,11 @@ EOF
 
     # coldplug: logind started with existing device
     systemctl stop systemd-logind.service
-    modprobe scsi_debug
+    if ! modprobe scsi_debug; then
+        echo "scsi_debug module not available, skipping test ${FUNCNAME[0]}."
+        systemctl start systemd-logind.service
+        return
+    fi
     timeout 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
     dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null)
     if [[ ! -b "$dev" ]]; then
@@ -524,9 +528,7 @@ EOF
     # become idle again. 'Lock' signal is sent out for each session, we have at
     # least one session, so minimum of 2 "Lock" signals must have been sent.
     journalctl --sync
-    set +o pipefail
     timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m 1 -q 'Sent message type=signal .* member=Lock'
-    set -o pipefail
 
     # We need to know that a new message was sent after waking up,
     # so we must track how many happened before sleeping to check we have extra.
@@ -537,10 +539,8 @@ EOF
 
     # Wait again
     journalctl --sync
-    set +o pipefail
     timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m "$((locks + 1))" -q 'Sent message type=signal .* member=Lock'
     timeout -v 35 journalctl -b -u systemd-logind.service --since="$ts" -n all --follow | grep -m 2 -q -F 'System idle. Will be locked now.'
-    set -o pipefail
 }
 
 testcase_session_properties() {

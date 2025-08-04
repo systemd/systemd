@@ -2,7 +2,8 @@
 
 #include "fd-util.h"
 #include "inotify-util.h"
-#include "stat-util.h"
+#include "log.h"
+#include "memory-util.h"
 
 bool inotify_event_next(
                 union inotify_event_buffer *buffer,

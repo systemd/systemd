@@ -2,6 +2,7 @@
 
 #include "factory-reset.h"
 #include "generator.h"
+#include "log.h"
 #include "special.h"
 
 /* This generator pulls factory-reset-now.target into the initial transaction the kernel command line's
@@ -15,7 +16,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return log_error_errno(f, "Failed to determine factory reset mode: %m");
         if (f != FACTORY_RESET_ON) {
                 log_debug("Not in factory reset mode, skipping.");
-                return EXIT_SUCCESS;
+                return 0;
         }
 
         log_debug("Detected factory reset mode, pulling in factory-reset-now.target.");

@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -10,13 +9,13 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "io-util.h"
-#include "macro.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
-#include "virt.h"
+#include "time-util.h"
 
 static void prepare_loopback(sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;

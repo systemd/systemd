@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "bitfield.h"
@@ -11,7 +11,6 @@
 #include "hashmap.h"
 #include "list.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "mmap-cache.h"
 #include "sigbus.h"

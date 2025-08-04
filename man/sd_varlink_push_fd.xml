@@ -1,0 +1,134 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_push_fd" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_push_fd</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_push_fd</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_push_fd</refname>
+    <refname>sd_varlink_push_dup_fd</refname>
+
+    <refpurpose>Submit a file descriptor to send along with the next outgoing Varlink message</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_push_fd</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_push_dup_fd</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>int <parameter>fd</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_varlink_push_fd()</function> submits a file descriptor to send along with the next
+    outgoing Varlink message. Takes a Varlink connection object and a file descriptor as parameter. The file
+    descriptor is not duplicated, and hence ownership of the file descriptor is passed to the Varlink
+    connection object (only on success; on failure the caller retains ownership). Once the file descriptor
+    has been written to the underlying transport socket it is automatically closed. The calling application
+    code should not touch the file descriptor or close it on its own, otherwise it will interfere with the
+    Varlink protocol implementation. This call is only supported if the backing transport supports file
+    descriptor passing (effectively this means the functionality is supported on local
+    <constant>AF_UNIX</constant> only), and the concept is not part of the Varlink protocol, but simply a
+    feature of the underlying transport.</para>
+
+    <para><function>sd_varlink_push_dup_fd()</function> is identical to
+    <function>sd_varlink_push_fd()</function>, except that the file descriptor is duplicated automatically,
+    and the calling application code hence retains ownership of the provided file descriptor, and must close
+    it on its own.</para>
+
+    <para>Note that file descriptor passing is only permitted after a call to
+    <function>sd_varlink_set_allow_fd_passing_output()</function> that enables it, otherwise these calls will
+    fail with <constant>-EPERM</constant>.</para>
+
+    <para>Note that on Linux a maximum of 253 file descriptors may be enqueued on
+    <constant>AF_UNIX</constant> sockets at once. Attempting to enqueue more on a single Varlink message will
+    fail with <constant>-ENOBUFS</constant>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_varlink_push_fd()</function> and
+    <function>sd_varlink_push_dup_fd()</function> return a non-negative integer. On failure, they return a
+    negative errno-style error code. </para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EBADF</constant></term>
+
+          <listitem><para>The provided file descriptor is not valid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-EPERM</constant></term>
+
+          <listitem><para>File descriptor passing has not been enabled via
+          <function>sd_varlink_set_allow_fd_passing_output()</function>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOBUFS</constant></term>
+
+          <listitem><para>The maximum of 253 file descriptors have already been submitted for the next
+          outgoing Varlink message, no further descriptors may be enqueued for this message.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_varlink_push_fd()</function> and <function>sd_varlink_push_dup_fd()</function> were added in version 257.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

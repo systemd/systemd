@@ -36,6 +36,8 @@
       <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.confext.raw</filename></member>
       <member><filename><replaceable>ESP</replaceable>/loader/addons/*.addon.efi</filename></member>
       <member><filename><replaceable>ESP</replaceable>/loader/credentials/*.cred</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/loader/extensions/*.sysext.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/loader/extensions/*.confext.raw</filename></member>
     </simplelist></para>
   </refsynopsisdiv>
 
@@ -140,11 +142,12 @@
     command line PE section in the kernel image file. If a command line is accepted via EFI invocation
     parameters to the EFI binary it is measured into TPM PCR 12 (if a TPM is present).</para> <para>If a
     DeviceTree is embedded in the <literal>.dtb</literal> section, it replaces an existing DeviceTree in the
-    corresponding EFI configuration table. systemd-stub will ask the firmware via the
-    <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para> <para>The
-    contents of 11 of these 12 sections are measured into TPM PCR 11. It is otherwise not used and thus the
-    result can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section is not
-    included in this PCR measurement, since it is supposed to contain signatures for the output of the
+    corresponding EFI configuration table. <command>systemd-stub</command> will ask the firmware via the
+    <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para>
+
+    <para>The contents of 11 of these 12 sections are measured into TPM PCR 11. It is otherwise not used and
+    thus the result can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section is
+    not included in this PCR measurement, since it is supposed to contain signatures for the output of the
     measurement operation, and thus cannot also be input to it. If an UKI contains multiple profiles, only
     the PE sections of the selected profile (and those of the base profile, except if overridden) are
     measured.</para>
@@ -201,8 +204,8 @@
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.sysext.raw</filename> are packed up in a
       <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename> directory in the
-      initrd file hierarchy. This is supposed to be used to pass additional system extension images to the
-      initrd. See
+      initrd file hierarchy. This is supposed to be used to pass additional UKI-specific system extension
+      images to the initrd. See
       <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
       details on system extension images. The generated <command>cpio</command> archive containing these
       system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
@@ -211,11 +214,27 @@
            compatibility reasons with old versions. But we want people to name their system extensions
            properly, hence we document the *.sysext.raw suffix only. -->
 
+      <listitem><para>Similarly, files <filename>/loader/extensions/*.sysext.raw</filename>
+      are packed up in a <command>cpio</command> archive and placed in the <filename>/.extra/global_sysext/</filename>
+      directory in the initrd file hierarchy. This is supposed to be used to pass additional global system
+      extension images to the initrd. See
+      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+      details on system extension images. The generated <command>cpio</command> archive containing these
+      system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
+
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.confext.raw</filename> are packed up in a
       <command>cpio</command> archive and placed in the <filename>/.extra/confext/</filename> directory in
-      the initrd file hierarchy. This is supposed to be used to pass additional configuration extension
-      images to the initrd. See
+      the initrd file hierarchy. This is supposed to be used to pass additional UKI-specific configuration
+      extension images to the initrd. See
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+      details on configuration extension images. The generated <command>cpio</command> archive containing
+      these configuration extension images is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
+
+      <listitem><para>Similarly, files <filename>/loader/extensions/*.confext.raw</filename>
+      are packed up in a <command>cpio</command> archive and placed in the <filename>/.extra/global_confext/</filename>
+      directory in the initrd file hierarchy. This is supposed to be used to pass additional global configuration
+      extension images to the initrd. See
       <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
       details on configuration extension images. The generated <command>cpio</command> archive containing
       these configuration extension images is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
@@ -287,19 +306,20 @@
     <literal>rd.systemd.unit=storagetm.target</literal>.</para>
 
     <para>A single UKI may support multiple profiles by means of the special <literal>.profile</literal> PE
-    section. This section acts as separator between the PE sections of the individual
-    profiles. <literal>.profile</literal> PE sections hence may appear multiple times in a single UKI, and
-    the other PE sections listed above may appear multiple times too, if <literal>.profile</literal> are
-    used, but only once before the first <literal>.profile</literal> section, once between each subsequent
-    pair, and once after the last appearance of <literal>.profile</literal>. The sections listed before the
-    first <literal>.profile</literal> are considered the "base" profile of the UKI. Each
-    <literal>.profile</literal> section then introduces a new profile, which are numbered starting from
-    zero. The PE sections following each <literal>.profile</literal> are specific to that profile. When
-    booting into a specific profile the base section's profiles are used in combination with the specific
-    profile's sections: if the same section is defined in both, the per-profile section overrides the base
-    profile's version, otherwise the per-profile sections is used together with the base profile
-    sections.</para> <para>A UKI that contains no <literal>.profile</literal> is consider equivalent to one
-    that just contains a single <literal>.profile</literal>, as having only a single profile @0.</para>
+    section. This section acts as separator between the PE sections of the individual profiles.
+    <literal>.profile</literal> PE sections hence may appear multiple times in a single UKI, and the other PE
+    sections listed above may appear multiple times too, if <literal>.profile</literal> are used, but only
+    once before the first <literal>.profile</literal> section, once between each subsequent pair, and once
+    after the last appearance of <literal>.profile</literal>. The sections listed before the first
+    <literal>.profile</literal> are considered the "base" profile of the UKI. Each
+    <literal>.profile</literal> section then introduces a new profile, which are numbered starting from zero.
+    The PE sections following each <literal>.profile</literal> are specific to that profile. When booting
+    into a specific profile, the base section's profiles are used in combination with the specific profile's
+    sections: if the same section is defined in both, the per-profile section overrides the base profile's
+    version, otherwise the base profile sections are used.</para>
+
+    <para>A UKI that contains no <literal>.profile</literal> is consider equivalent to one that just contains
+    a single <literal>.profile</literal>, as having only a single profile <literal>@0</literal>.</para>
 
     <para>Here's a simple example for a multi-profile UKI's sections, inspired by the setup suggested above:</para>
 
@@ -372,7 +392,7 @@
     similar format as <literal>.osrel</literal> (i.e. an environment-variable-assignment-block-like list of
     newline separated strings). Currently two fields are defined: <literal>ID=</literal> is supposed to carry
     a short identifying string that identifies the profile
-    (e.g. <literal>ID=factory-reset</literal>). <literal>TITLE=</literal> should contain a human readable
+    (e.g. <literal>ID=factory-reset</literal>). <literal>TITLE=</literal> should contain a human-readable
     string that may appear in the boot menu entry for this profile (e.g. <literal>TITLE='Factory Reset this
     Device'</literal>).</para>
   </refsect1>
@@ -525,6 +545,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderTpm2ActivePcrBanks</varname></term>
+
+        <listitem><para>Hexadecimal string representation of a bitmask with values defined by the TCG EFI
+        Protocol Specification for TPM 2.0 as EFI_TCG2_BOOT_HASH_ALG_*. If no TPM2 support or no active
+        banks were detected, will be set to <constant>0</constant>. Set by the boot loader. Use
+        <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        to view this data.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>LoaderImageIdentifier</varname></term>
 
         <listitem><para>The file system path to the EFI executable of the boot loader for the current boot,
@@ -543,7 +575,7 @@
         <term><varname>StubImageIdentifier</varname></term>
 
         <listitem><para>Similar to <varname>LoaderDevicePartUUID</varname> and
-        <varname>StubImageIdentifier</varname>, but indicates the location of the unified kernel image EFI
+        <varname>LoaderImageIdentifier</varname>, but indicates the location of the unified kernel image EFI
         binary rather than the location of the boot loader binary, regardless of whether booted via a boot loader
         or not.</para>
 
@@ -675,12 +707,32 @@
       </varlistentry>
 
       <varlistentry>
+        <term><filename>/.extra/global_sysext/*.sysext.raw</filename></term>
+        <listitem><para>Similarly, system extension image files (suffix <literal>.sysext.raw</literal>) that
+        are placed in the <filename>/loader/extensions/</filename> directory in the file system the unified
+        kernel image is placed in are copied into the <filename>/.extra/global_sysext/</filename>
+        directory in the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><filename>/.extra/confext/*.confext.raw</filename></term>
         <listitem><para>Configuration extension image files (suffix <literal>.confext.raw</literal>) that are
         placed next to the unified kernel image (as described above) are copied into the
         <filename>/.extra/confext/</filename> directory in the initrd execution environment.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/global_confext/*.confext.raw</filename></term>
+        <listitem><para>Similarly, configuration extension image files (suffix <literal>.confext.raw</literal>)
+        that are placed in the <filename>/loader/extensions/</filename> directory in the file system the unified
+        kernel image is placed in are copied into the <filename>/.extra/global_confext/</filename>
+        directory in the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>

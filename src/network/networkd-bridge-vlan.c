@@ -3,18 +3,17 @@
   Copyright © 2016 BISDN GmbH. All rights reserved.
 ***/
 
-#include <netinet/in.h>
 #include <linux/if_bridge.h>
-#include <stdbool.h>
+
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "conf-parser.h"
 #include "netlink-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-link.h"
-#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "parse-util.h"
+#include "string-util.h"
 #include "vlan-util.h"
 
 static bool is_bit_set(unsigned nr, const uint32_t *addr) {
@@ -246,8 +245,9 @@ int bridge_vlan_set_message(Link *link, sd_netlink_message *m, bool is_set) {
         if (r < 0)
                 return r;
 
-        if (link->master_ifindex <= 0) {
-                /* master needs BRIDGE_FLAGS_SELF flag */
+        if (link->master_ifindex <= 0 || streq(link->kind, "bridge")) {
+                /* If the setting is requested in a .network file for a bridge master (or a physical master)
+                 * interface, then BRIDGE_FLAGS_SELF flag needs to be set. */
                 r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_FLAGS, BRIDGE_FLAGS_SELF);
                 if (r < 0)
                         return r;

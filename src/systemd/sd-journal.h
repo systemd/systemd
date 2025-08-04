@@ -17,15 +17,11 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-#include <stdarg.h>
-#include <sys/types.h>
 #include <sys/uio.h>
 #include <syslog.h>
 
-#include "sd-id128.h"
-
 #include "_sd-common.h"
+#include "sd-id128.h"
 
 /* Journal APIs. See sd-journal(3) for more information. */
 
@@ -102,7 +98,7 @@ int sd_journal_previous_skip(sd_journal *j, uint64_t skip);
 int sd_journal_next_skip(sd_journal *j, uint64_t skip);
 
 int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret);
-int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret, sd_id128_t *ret_boot_id);
+int sd_journal_get_monotonic_usec(sd_journal *j, uint64_t *ret_monotonic, sd_id128_t *ret_boot_id);
 int sd_journal_get_seqnum(sd_journal *j, uint64_t *ret_seqnum, sd_id128_t *ret_seqnum_id);
 
 int sd_journal_set_data_threshold(sd_journal *j, size_t sz);

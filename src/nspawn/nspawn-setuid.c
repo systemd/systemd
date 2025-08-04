@@ -1,18 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "constants.h"
 #include "errno.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "mkdir.h"
 #include "nspawn-setuid.h"
 #include "process-util.h"
-#include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"

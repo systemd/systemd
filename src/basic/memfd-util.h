@@ -1,12 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
+#include <sys/mman.h>           /* IWYU pragma: export */
 
-#include "macro.h"
+#include "forward.h"
 
 int memfd_create_wrapper(const char *name, unsigned mode);
 

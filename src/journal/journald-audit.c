@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <malloc.h>
+#include <linux/audit.h>
+
+#include "sd-event.h"
 
 #include "alloc-util.h"
 #include "audit-type.h"
@@ -10,8 +12,12 @@
 #include "iovec-util.h"
 #include "journal-internal.h"
 #include "journald-audit.h"
-#include "missing_audit.h"
+#include "journald-manager.h"
+#include "log.h"
+#include "log-ratelimit.h"
+#include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 
 typedef struct MapField {
         const char *audit_field;
@@ -331,17 +337,17 @@ static int map_all_fields(
         }
 }
 
-void process_audit_string(Server *s, int type, const char *data, size_t size) {
+void process_audit_string(Manager *m, int type, const char *data, size_t size) {
         size_t n = 0, z;
         uint64_t seconds, msec, id;
         const char *p, *type_name;
         char id_field[STRLEN("_AUDIT_ID=") + DECIMAL_STR_MAX(uint64_t)],
                 type_field[STRLEN("_AUDIT_TYPE=") + DECIMAL_STR_MAX(int)];
         struct iovec iovec[N_IOVEC_META_FIELDS + 7 + N_IOVEC_AUDIT_FIELDS];
-        char *m, *type_field_name;
+        char *mm, *type_field_name;
         int k;
 
-        assert(s);
+        assert(m);
 
         if (size <= 0)
                 return;
@@ -389,16 +395,16 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
         type_field_name = strjoina("_AUDIT_TYPE_NAME=", type_name);
         iovec[n++] = IOVEC_MAKE_STRING(type_field_name);
 
-        m = strjoina("MESSAGE=", type_name, " ", p);
-        iovec[n++] = IOVEC_MAKE_STRING(m);
+        mm = strjoina("MESSAGE=", type_name, " ", p);
+        iovec[n++] = IOVEC_MAKE_STRING(mm);
 
         z = n;
 
         map_all_fields(p, map_fields_kernel, "_AUDIT_FIELD_", true, iovec, &n, n + N_IOVEC_AUDIT_FIELDS);
 
-        server_dispatch_message(s, iovec, n, ELEMENTSOF(iovec), NULL,
-                                TIMEVAL_STORE((usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC),
-                                LOG_NOTICE, 0);
+        manager_dispatch_message(m, iovec, n, ELEMENTSOF(iovec), NULL,
+                                 TIMEVAL_STORE((usec_t) seconds * USEC_PER_SEC + (usec_t) msec * USEC_PER_MSEC),
+                                 LOG_NOTICE, 0);
 
         /* free() all entries that map_all_fields() added. All others
          * are allocated on the stack or are constant. */
@@ -407,8 +413,8 @@ void process_audit_string(Server *s, int type, const char *data, size_t size) {
                 free(iovec[z].iov_base);
 }
 
-void server_process_audit_message(
-                Server *s,
+void manager_process_audit_message(
+                Manager *m,
                 const void *buffer,
                 size_t buffer_size,
                 const struct ucred *ucred,
@@ -417,7 +423,7 @@ void server_process_audit_message(
 
         const struct nlmsghdr *nl = buffer;
 
-        assert(s);
+        assert(m);
 
         if (buffer_size < ALIGN(sizeof(struct nlmsghdr)))
                 return;
@@ -451,10 +457,18 @@ void server_process_audit_message(
         if (nl->nlmsg_type < AUDIT_FIRST_USER_MSG && nl->nlmsg_type != AUDIT_USER)
                 return;
 
-        process_audit_string(s, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)));
+        process_audit_string(m, nl->nlmsg_type, NLMSG_DATA(nl), nl->nlmsg_len - ALIGN(sizeof(struct nlmsghdr)));
 }
 
-static int enable_audit(int fd, bool b) {
+static int manager_set_kernel_audit(Manager *m) {
+        int r;
+
+        assert(m);
+        assert(m->audit_fd >= 0);
+
+        if (m->config.set_audit < 0)
+                return 0;
+
         struct {
                 union {
                         struct nlmsghdr header;
@@ -468,7 +482,7 @@ static int enable_audit(int fd, bool b) {
                 .header.nlmsg_seq = 1,
                 .header.nlmsg_pid = 0,
                 .body.mask = AUDIT_STATUS_ENABLED,
-                .body.enabled = b,
+                .body.enabled = m->config.set_audit,
         };
         union sockaddr_union sa = {
                 .nl.nl_family = AF_NETLINK,
@@ -485,32 +499,33 @@ static int enable_audit(int fd, bool b) {
                 .msg_namelen = sizeof(sa.nl),
         };
 
-        ssize_t n;
-
-        n = sendmsg(fd, &mh, MSG_NOSIGNAL);
+        r = 0;
+        ssize_t n = sendmsg(m->audit_fd, &mh, MSG_NOSIGNAL);
         if (n < 0)
-                return -errno;
+                r = -errno;
         if (n != NLMSG_LENGTH(sizeof(struct audit_status)))
-                return -EIO;
+                r = SYNTHETIC_ERRNO(EIO);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to %s kernel auditing: %m", enable_disable(m->config.set_audit));
 
-        /* We don't wait for the result here, we can't do anything
-         * about it anyway */
+        /* We don't wait for the result here, we can't do anything about it anyway. */
 
+        log_debug("Auditing in kernel is %s.", enabled_disabled(m->config.set_audit));
         return 0;
 }
 
-int server_open_audit(Server *s) {
+int manager_open_audit(Manager *m) {
         int r;
 
-        if (s->audit_fd < 0) {
+        if (m->audit_fd < 0) {
                 static const union sockaddr_union sa = {
                         .nl.nl_family = AF_NETLINK,
                         .nl.nl_pid    = 0,
                         .nl.nl_groups = AUDIT_NLGRP_READLOG,
                 };
 
-                s->audit_fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
-                if (s->audit_fd < 0) {
+                m->audit_fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
+                if (m->audit_fd < 0) {
                         if (ERRNO_IS_NOT_SUPPORTED(errno))
                                 log_debug("Audit not supported in the kernel.");
                         else
@@ -519,35 +534,37 @@ int server_open_audit(Server *s) {
                         return 0;
                 }
 
-                if (bind(s->audit_fd, &sa.sa, sizeof(sa.nl)) < 0) {
+                if (bind(m->audit_fd, &sa.sa, sizeof(sa.nl)) < 0) {
                         log_warning_errno(errno,
                                           "Failed to join audit multicast group. "
                                           "The kernel is probably too old or multicast reading is not supported. "
                                           "Ignoring: %m");
-                        s->audit_fd = safe_close(s->audit_fd);
+                        m->audit_fd = safe_close(m->audit_fd);
                         return 0;
                 }
         } else
-                (void) fd_nonblock(s->audit_fd, true);
+                (void) fd_nonblock(m->audit_fd, true);
 
-        r = setsockopt_int(s->audit_fd, SOL_SOCKET, SO_PASSCRED, true);
+        r = setsockopt_int(m->audit_fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to set SO_PASSCRED on audit socket: %m");
 
-        r = sd_event_add_io(s->event, &s->audit_event_source, s->audit_fd, EPOLLIN, server_process_datagram, s);
+        r = sd_event_add_io(m->event, &m->audit_event_source, m->audit_fd, EPOLLIN, manager_process_datagram, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add audit fd to event loop: %m");
 
-        if (s->set_audit >= 0) {
-                /* We are listening now, try to enable audit if configured so */
-                r = enable_audit(s->audit_fd, s->set_audit);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to issue audit enable call: %m");
-                else if (s->set_audit > 0)
-                        log_debug("Auditing in kernel turned on.");
-                else
-                        log_debug("Auditing in kernel turned off.");
-        }
-
+        (void) manager_set_kernel_audit(m);
         return 0;
+}
+
+void manager_reset_kernel_audit(Manager *m, int old_set_audit) {
+        assert(m);
+
+        if (m->audit_fd < 0)
+                return;
+
+        if (m->config.set_audit == old_set_audit)
+                return;
+
+        (void) manager_set_kernel_audit(m);
 }

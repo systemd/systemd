@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
 #include <stdlib.h>
-#include <unistd.h>
 
 #include "af-list.h"
 #include "alloc-util.h"
@@ -11,7 +9,6 @@
 #include "errno-list.h"
 #include "format-ifname.h"
 #include "hexdecoct.h"
-#include "hostname-util.h"
 #include "hostname-setup.h"
 #include "in-addr-util.h"
 #include "local-addresses.h"
@@ -22,7 +19,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -119,7 +115,7 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                          fname, name,
                          nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
                          pat ? (uintptr_t) pat - (uintptr_t) buffer : 0,
-                         errno1, errno_to_name(errno1) ?: "---",
+                         errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                          errno2, hstrerror(errno2),
                          ttl);
                 n = print_gaih_addrtuples(pat);
@@ -128,7 +124,7 @@ static void test_gethostbyname4_r(void *handle, const char *module, const char *
                          fname, name,
                          nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
                          pat,
-                         errno1, errno_to_name(errno1) ?: "---",
+                         errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                          errno2, hstrerror(errno2));
                 n = 0;
         }
@@ -179,7 +175,7 @@ static void test_gethostbyname3_r(void *handle, const char *module, const char *
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
                  fname, name, af_to_string(af, family_name, sizeof family_name),
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2),
                  ttl);
         if (status == NSS_STATUS_SUCCESS)
@@ -208,7 +204,7 @@ static void test_gethostbyname2_r(void *handle, const char *module, const char *
         log_info("%s(\"%s\", %s) → status=%s%-20serrno=%d/%s h_errno=%d/%s",
                  fname, name, af_to_string(af, family_name, sizeof family_name),
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, NULL);
@@ -235,7 +231,7 @@ static void test_gethostbyname_r(void *handle, const char *module, const char *n
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s",
                  fname, name,
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, NULL);
@@ -272,7 +268,7 @@ static void test_gethostbyaddr2_r(void *handle,
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s ttl=%"PRIi32,
                  fname, addr_pretty,
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2),
                  ttl);
         if (status == NSS_STATUS_SUCCESS)
@@ -309,7 +305,7 @@ static void test_gethostbyaddr_r(void *handle,
         log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s h_errno=%d/%s",
                  fname, addr_pretty,
                  nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
-                 errno1, errno_to_name(errno1) ?: "---",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---",
                  errno2, hstrerror(errno2));
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_hostent(&host, NULL);

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <endian.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
 #include <security/_pam_macros.h>
@@ -10,32 +9,28 @@
 #include <security/pam_modules.h>
 #include <security/pam_modutil.h>
 #include <sys/file.h>
-#if HAVE_PIDFD_OPEN
-#include <sys/pidfd.h>
-#endif
+#include "time-util.h"
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "audit-util.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-locator.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
 #include "chase.h"
 #include "creds-util.h"
 #include "devnum-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "hostname-util.h"
@@ -43,17 +38,18 @@
 #include "json-util.h"
 #include "locale-util.h"
 #include "login-util.h"
-#include "macro.h"
-#include "missing_syscall.h"
 #include "osc-context.h"
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -372,48 +368,6 @@ static int get_seat_from_display(const char *display, const char **seat, uint32_
         *vtnr = (uint32_t) v;
 
         return 0;
-}
-
-static int export_legacy_dbus_address(
-                pam_handle_t *handle,
-                const char *runtime) {
-
-        int r;
-
-        assert(handle);
-
-        /* We need to export $DBUS_SESSION_BUS_ADDRESS because various applications will not connect
-         * correctly to the bus without it. This setting matches what dbus.socket does for the user session
-         * using 'systemctl --user set-environment'. We want to have the same configuration in processes
-         * started from the PAM session.
-         *
-         * The setting of the address is guarded by the access() check because it is also possible to compile
-         * dbus without --enable-user-session, in which case this socket is not used, and
-         * $DBUS_SESSION_BUS_ADDRESS should not be set. An alternative approach would to not do the access()
-         * check here, and let applications try on their own, by using "unix:path=%s/bus;autolaunch:". But we
-         * expect the socket to be present by the time we do this check, so we can just as well check once
-         * here. */
-
-        if (!runtime)
-                return PAM_SUCCESS;
-
-        const char *s = strjoina(runtime, "/bus");
-        if (access(s, F_OK) < 0)  {
-                if (errno != ENOENT)
-                        pam_syslog_errno(handle, LOG_WARNING, errno, "Failed to check if %s/bus exists, ignoring: %m", runtime);
-
-                return PAM_SUCCESS;
-        }
-
-        _cleanup_free_ char *t = NULL;
-        if (asprintf(&t, DEFAULT_USER_BUS_ADDRESS_FMT, runtime) < 0)
-                return pam_log_oom(handle);
-
-        r = pam_misc_setenv(handle, "DBUS_SESSION_BUS_ADDRESS", t, /* readonly= */ false);
-        if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set bus variable: @PAMERR@");
-
-        return PAM_SUCCESS;
 }
 
 static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, const char *limit) {
@@ -1153,7 +1107,7 @@ static int register_session(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL; /* the following variables point into this message, hence pin it for longer */
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL; /* similar */
         const char *id = NULL, *object_path = NULL, *runtime_path = NULL, *real_seat = NULL;
-        int session_fd = -EBADF, existing = false;
+        int existing = false;
         uint32_t original_uid = UID_INVALID, real_vtnr = 0;
 
         bool done = false;
@@ -1163,10 +1117,6 @@ static int register_session(
                 if (r < 0)
                         log_debug_errno(r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
                 else {
-                        r = sd_varlink_set_allow_fd_passing_input(vl, true);
-                        if (r < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to enable input fd passing on Varlink socket: %m");
-
                         r = sd_varlink_set_allow_fd_passing_output(vl, true);
                         if (r < 0)
                                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to enable output fd passing on Varlink socket: %m");
@@ -1216,20 +1166,17 @@ static int register_session(
                         struct {
                                 const char *id;
                                 const char *runtime_path;
-                                unsigned session_fd_idx;
                                 uid_t uid;
                                 const char *seat;
                                 unsigned vtnr;
                                 bool existing;
                         } p = {
-                                .session_fd_idx = UINT_MAX,
                                 .uid = UID_INVALID,
                         };
 
                         static const sd_json_dispatch_field dispatch_table[] = {
                                 { "Id",                    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, id),             SD_JSON_MANDATORY },
                                 { "RuntimePath",           SD_JSON_VARIANT_STRING,        json_dispatch_const_path,      voffsetof(p, runtime_path),   SD_JSON_MANDATORY },
-                                { "SessionFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       voffsetof(p, session_fd_idx), SD_JSON_MANDATORY },
                                 { "UID",                   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      voffsetof(p, uid),            SD_JSON_MANDATORY },
                                 { "Seat",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, seat),           0                 },
                                 { "VTNr",                  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         voffsetof(p, vtnr),           0                 },
@@ -1239,10 +1186,6 @@ static int register_session(
                         r = sd_json_dispatch(vreply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
                         if (r < 0)
                                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to parse CreateSession() reply: %m");
-
-                        session_fd = sd_varlink_peek_fd(vl, p.session_fd_idx);
-                        if (session_fd < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, session_fd, "Failed to extract session fd from CreateSession() reply: %m");
 
                         id = p.id;
                         runtime_path = p.runtime_path;
@@ -1318,7 +1261,7 @@ static int register_session(
                                 &id,
                                 &object_path,
                                 &runtime_path,
-                                &session_fd,
+                                /* session_fd = */ NULL,
                                 &original_uid,
                                 &real_seat,
                                 &real_vtnr,
@@ -1329,8 +1272,8 @@ static int register_session(
 
         pam_debug_syslog(handle, debug,
                          "Reply from logind: "
-                         "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u original_uid=%u",
-                         id, strna(object_path), runtime_path, session_fd, real_seat, real_vtnr, original_uid);
+                         "id=%s object_path=%s runtime_path=%s seat=%s vtnr=%u original_uid=%u",
+                         id, strna(object_path), runtime_path, real_seat, real_vtnr, original_uid);
 
         /* Please update manager_default_environment() in core/manager.c accordingly if more session envvars
          * shall be added. */
@@ -1375,17 +1318,6 @@ static int register_session(
         r = pam_set_data(handle, "systemd.existing", INT_TO_PTR(!!existing), NULL);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to install existing flag: @PAMERR@");
-
-        if (session_fd >= 0) {
-                _cleanup_close_ int fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
-                if (fd < 0)
-                        return pam_syslog_errno(handle, LOG_ERR, errno, "Failed to dup session fd: %m");
-
-                r = pam_set_data(handle, "systemd.session-fd", FD_TO_PTR(fd), NULL);
-                if (r != PAM_SUCCESS)
-                        return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to install session fd: @PAMERR@");
-                TAKE_FD(fd);
-        }
 
         /* Don't set $XDG_RUNTIME_DIR if the user we now authenticated for does not match the
          * original user of the session. We do this in order not to result in privileged apps
@@ -1523,6 +1455,80 @@ static int make_area_runtime_directory(
         return 0;
 }
 
+static int export_legacy_dbus_address(
+                pam_handle_t *handle,
+                const char *runtime) {
+
+        assert(handle);
+        assert(runtime);
+
+        /* We need to export $DBUS_SESSION_BUS_ADDRESS because various applications will not connect
+         * correctly to the bus without it. This setting matches what dbus.socket does for the user session
+         * using 'systemctl --user set-environment'. We want to have the same configuration in processes
+         * started from the PAM session.
+         *
+         * The setting of the address is guarded by the access() check because it is also possible to compile
+         * dbus without --enable-user-session, in which case this socket is not used, and
+         * $DBUS_SESSION_BUS_ADDRESS should not be set. An alternative approach would to not do the access()
+         * check here, and let applications try on their own, by using "unix:path=%s/bus;autolaunch:". But we
+         * expect the socket to be present by the time we do this check, so we can just as well check once
+         * here. */
+
+        const char *s = strjoina(runtime, "/bus");
+        if (access(s, F_OK) < 0) {
+                if (errno != ENOENT)
+                        pam_syslog_errno(handle, LOG_WARNING, errno, "Failed to check if %s/bus exists, ignoring: %m", runtime);
+
+                return PAM_SUCCESS;
+        }
+
+        _cleanup_free_ char *t = NULL;
+        if (asprintf(&t, DEFAULT_USER_BUS_ADDRESS_FMT, runtime) < 0)
+                return pam_log_oom(handle);
+
+        return update_environment(handle, "DBUS_SESSION_BUS_ADDRESS", t);
+}
+
+static int setup_runtime_directory(
+                pam_handle_t *handle,
+                UserRecord *ur,
+                const char *runtime_directory,
+                const char *area) {
+
+        int r;
+
+        assert(handle);
+        assert(ur);
+
+        if (!runtime_directory) {
+                /* If this is an area switch request, always reset $XDG_RUNTIME_DIR if we got nothing
+                 * to ensure the main runtime dir won't be clobbered. */
+                if (area)
+                        return update_environment(handle, "XDG_RUNTIME_DIR", NULL);
+
+                return PAM_SUCCESS;
+        }
+
+        /* Also create a per-area subdirectory for $XDG_RUNTIME_DIR, so that each area has their own
+         * set of runtime services. We follow the same directory structure as for $HOME. Note that we
+         * do not define any form of automatic clean-up for the per-area subdirs beyond the regular
+         * clean-up of the whole $XDG_RUNTIME_DIR hierarchy when the user finally logs out. */
+        _cleanup_free_ char *per_area_runtime_directory = NULL;
+        if (area) {
+                r = make_area_runtime_directory(handle, ur, runtime_directory, area, &per_area_runtime_directory);
+                if (r != PAM_SUCCESS)
+                        return r;
+
+                runtime_directory = per_area_runtime_directory;
+        }
+
+        r = update_environment(handle, "XDG_RUNTIME_DIR", runtime_directory);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        return export_legacy_dbus_address(handle, runtime_directory);
+}
+
 static int setup_environment(
                 pam_handle_t *handle,
                 UserRecord *ur,
@@ -1590,25 +1596,7 @@ static int setup_environment(
         if (r != PAM_SUCCESS)
                 return r;
 
-        _cleanup_free_ char *per_area_runtime_directory = NULL;
-        if (runtime_directory && area) {
-                /* Also create a per-area subdirectory for $XDG_RUNTIME_DIR, so that each area has their own
-                 * set of runtime services. We follow the same directory structure as for $HOME. Note that we
-                 * do not define any form of automatic clean-up for the per-aera subdirs beyond the regular
-                 * clean-up of the whole $XDG_RUNTIME_DIRECTORY hierarchy when the user finally logs out. */
-
-                r = make_area_runtime_directory(handle, ur, runtime_directory, area, &per_area_runtime_directory);
-                if (r != PAM_SUCCESS)
-                        return r;
-
-                runtime_directory = per_area_runtime_directory;
-        }
-
-        r = update_environment(handle, "XDG_RUNTIME_DIR", runtime_directory);
-        if (r != PAM_SUCCESS)
-                return r;
-
-        return export_legacy_dbus_address(handle, runtime_directory);
+        return setup_runtime_directory(handle, ur, runtime_directory, area);
 }
 
 static int open_osc_context(pam_handle_t *handle, const char *session_type, UserRecord *ur) {
@@ -1838,7 +1826,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                        /* desktop= */ NULL,
                        /* area= */ NULL,
                        &debug,
-                       /* default_capability_bounding_set */ NULL,
+                       /* default_capability_bounding_set= */ NULL,
                        /* default_capability_ambient_set= */ NULL) < 0)
                 return PAM_SESSION_ERR;
 
@@ -1897,10 +1885,6 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                                                             "Failed to release session: %s", bus_error_message(&error, r));
                 }
         }
-
-        /* Note that we are knowingly leaking the FIFO fd here. This way, logind can watch us die. If we
-         * closed it here it would not have any clue when that is completed. Given that one cannot really
-         * have multiple PAM sessions open from the same process this means we will leak one FD at max. */
 
         return PAM_SUCCESS;
 }

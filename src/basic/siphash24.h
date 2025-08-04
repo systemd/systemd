@@ -2,13 +2,7 @@
 
 #pragma once
 
-#include <inttypes.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
-
-#include "string-util.h"
-#include "time-util.h"
+#include "forward.h"
 
 struct siphash {
         uint64_t v0;
@@ -41,14 +35,10 @@ static inline void siphash24_compress_safe(const void *in, size_t inlen, struct 
         siphash24_compress(in, inlen, state);
 }
 
-static inline void siphash24_compress_string(const char *in, struct siphash *state) {
-        siphash24_compress_safe(in, strlen_ptr(in), state);
-}
+void siphash24_compress_string(const char *in, struct siphash *state);
 
 uint64_t siphash24_finalize(struct siphash *state);
 
 uint64_t siphash24(const void *in, size_t inlen, const uint8_t k[static 16]);
 
-static inline uint64_t siphash24_string(const char *s, const uint8_t k[static 16]) {
-        return siphash24(s, strlen(s) + 1, k);
-}
+uint64_t siphash24_string(const char *s, const uint8_t k[static 16]);

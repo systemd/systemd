@@ -1,14 +1,24 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <resolv.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
+
+#include "sd-event.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "fd-util.h"
+#include "log.h"
+#include "resolved-dns-answer.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-question.h"
+#include "resolved-dns-rr.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-transaction.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-mdns.h"
 #include "sort-util.h"
+#include "time-util.h"
 
 #define CLEAR_CACHE_FLUSH(x) (~MDNS_RR_CACHE_FLUSH_OR_QU & (x))
 
@@ -372,17 +382,21 @@ static int mdns_goodbye_callback(sd_event_source *s, uint64_t usec, void *userda
 
         dns_cache_prune(&scope->cache);
 
+        r = mdns_notify_browsers_goodbye(scope);
+        if (r < 0)
+                log_warning_errno(r, "mDNS: Failed to notify service subscribers of goodbyes, ignoring: %m");
+
         if (dns_cache_expiry_in_one_second(&scope->cache, usec)) {
                 r = sd_event_add_time_relative(
-                        scope->manager->event,
-                        &scope->mdns_goodbye_event_source,
-                        CLOCK_BOOTTIME,
-                        USEC_PER_SEC,
-                        0,
-                        mdns_goodbye_callback,
-                        scope);
+                                scope->manager->event,
+                                &scope->mdns_goodbye_event_source,
+                                CLOCK_BOOTTIME,
+                                USEC_PER_SEC,
+                                /* accuracy= */ 0,
+                                mdns_goodbye_callback,
+                                scope);
                 if (r < 0)
-                        return log_error_errno(r, "mDNS: Failed to re-schedule goodbye callback: %m");
+                        return log_warning_errno(r, "mDNS: Failed to re-schedule goodbye callback, ignoring: %m");
         }
 
         return 0;
@@ -393,6 +407,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         Manager *m = userdata;
         DnsScope *scope;
         int r;
+        bool unsolicited_packet = true;
 
         r = manager_recv(m, fd, DNS_PROTOCOL_MDNS, &p);
         if (r <= 0)
@@ -401,8 +416,10 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         /* Refuse traffic from the local host, to avoid query loops. However, allow legacy mDNS
          * unicast queries through anyway (we never send those ourselves, hence no risk).
          * i.e. check for the source port nr. */
-        if (p->sender_port == MDNS_PORT && manager_packet_from_local_address(m, p))
+        if (p->sender_port == MDNS_PORT && manager_packet_from_local_address(m, p)) {
+                log_debug("Got mDNS UDP packet from local host, ignoring.");
                 return 0;
+        }
 
         scope = manager_find_scope(m, p);
         if (!scope) {
@@ -412,6 +429,15 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
 
         if (dns_packet_validate_reply(p) > 0) {
                 DnsResourceRecord *rr;
+
+                /* RFC 6762 section 6:
+                 * The source UDP port in all Multicast DNS responses MUST be 5353 (the well-known port
+                 * assigned to mDNS). Multicast DNS implementations MUST silently ignore any Multicast DNS
+                 * responses they receive where the source UDP port is not 5353. */
+                if (p->sender_port != MDNS_PORT) {
+                        log_debug("Got mDNS reply from non-mDNS port %u (not %i), ignoring.", p->sender_port, MDNS_PORT);
+                        return 0;
+                }
 
                 log_debug("Got mDNS reply packet");
 
@@ -459,7 +485,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                                         &scope->mdns_goodbye_event_source,
                                                         CLOCK_BOOTTIME,
                                                         USEC_PER_SEC,
-                                                        0,
+                                                        /* accuracy= */ 0,
                                                         mdns_goodbye_callback,
                                                         scope);
                                         if (r < 0)
@@ -467,6 +493,21 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 }
                         }
                 }
+
+                dns_cache_put(
+                                &scope->cache,
+                                scope->manager->enable_cache,
+                                DNS_PROTOCOL_MDNS,
+                                /* key= */ NULL,
+                                dns_packet_rcode(p),
+                                p->answer,
+                                /* full_packet= */ NULL,
+                                /* query_flags= */ false,
+                                _DNSSEC_RESULT_INVALID,
+                                /* nsec_ttl= */ UINT32_MAX,
+                                p->family,
+                                &p->sender,
+                                scope->manager->stale_retention_usec);
 
                 for (bool match = true; match;) {
                         match = false;
@@ -481,6 +522,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                         continue;
                                 }
 
+                                unsolicited_packet = false;
                                 /* This packet matches the transaction, let's pass it on as reply */
                                 dns_transaction_process_reply(t, p, false);
 
@@ -491,22 +533,9 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 break;
                         }
                 }
-
-                dns_cache_put(
-                        &scope->cache,
-                        scope->manager->enable_cache,
-                        DNS_PROTOCOL_MDNS,
-                        NULL,
-                        DNS_PACKET_RCODE(p),
-                        p->answer,
-                        NULL,
-                        false,
-                        _DNSSEC_RESULT_INVALID,
-                        UINT32_MAX,
-                        p->family,
-                        &p->sender,
-                        scope->manager->stale_retention_usec);
-
+                /* Check if incoming packet key matches with active browse clients. If yes, update the same */
+                if (unsolicited_packet)
+                        mdns_notify_browsers_unsolicited_updates(m, p->answer, p->family);
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
 

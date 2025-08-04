@@ -1,22 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/if_bridge.h>
 
-#include "netlink-util.h"
+#include "sd-netlink.h"
+
+#include "conf-parser.h"
+#include "hashmap.h"
 #include "networkd-bridge-mdb.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-queue.h"
+#include "networkd-util.h"
 #include "string-util.h"
 #include "vlan-util.h"
 
 #define STATIC_BRIDGE_MDB_ENTRIES_PER_NETWORK_MAX 1024U
 
-/* remove MDB entry. */
-BridgeMDB *bridge_mdb_free(BridgeMDB *mdb) {
+static BridgeMDB* bridge_mdb_free(BridgeMDB *mdb) {
         if (!mdb)
                 return NULL;
 
@@ -32,7 +33,11 @@ BridgeMDB *bridge_mdb_free(BridgeMDB *mdb) {
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(BridgeMDB, bridge_mdb_free);
 
-/* create a new MDB entry or get an existing one. */
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                bridge_mdb_hash_ops_by_section,
+                ConfigSection, config_section_hash_func, config_section_compare_func,
+                BridgeMDB, bridge_mdb_free);
+
 static int bridge_mdb_new_static(
                 Network *network,
                 const char *filename,
@@ -74,7 +79,7 @@ static int bridge_mdb_new_static(
                 .type = _BRIDGE_MDB_ENTRY_TYPE_INVALID,
         };
 
-        r = hashmap_ensure_put(&network->bridge_mdb_entries_by_section, &config_section_hash_ops, mdb->section, mdb);
+        r = hashmap_ensure_put(&network->bridge_mdb_entries_by_section, &bridge_mdb_hash_ops_by_section, mdb->section, mdb);
         if (r < 0)
                 return r;
 

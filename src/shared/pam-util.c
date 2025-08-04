@@ -2,14 +2,15 @@
 
 #include <security/pam_ext.h>
 #include <syslog.h>
-#include <stdlib.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "macro.h"
+#include "log.h"
 #include "pam-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
@@ -198,23 +199,6 @@ success:
                 *ret_pam_bus_data = d;
 
         TAKE_PTR(d); /* don't auto-destroy anymore, it's installed now */
-
-        return PAM_SUCCESS;
-}
-
-int pam_release_bus_connection(pam_handle_t *handle, const char *module_name) {
-        _cleanup_free_ char *cache_id = NULL;
-        int r;
-
-        assert(module_name);
-
-        cache_id = pam_make_bus_cache_id(module_name);
-        if (!cache_id)
-                return pam_log_oom(handle);
-
-        r = pam_set_data(handle, cache_id, NULL, NULL);
-        if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to release PAM user record data: @PAMERR@");
 
         return PAM_SUCCESS;
 }

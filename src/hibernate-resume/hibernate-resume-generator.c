@@ -2,12 +2,13 @@
 
 #include "alloc-util.h"
 #include "dropin.h"
+#include "efi-loader.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "generator.h"
 #include "hibernate-resume-config.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "main-func.h"
-#include "parse-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "static-destruct.h"
@@ -15,6 +16,7 @@
 #include "unit-name.h"
 
 static const char *arg_dest = NULL;
+static const char *arg_dest_late = NULL;
 static char *arg_resume_options = NULL;
 static char *arg_root_options = NULL;
 static bool arg_noresume = false;
@@ -54,6 +56,58 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         return 0;
 }
 
+#define DISSECTED_SWAP_LUKS_DEVICE      "/dev/disk/by-designator/swap-luks"
+#define DISSECTED_SWAP_LUKS_DEVICE_UNIT "dev-disk-by\\x2ddesignator-swap\\x2dluks.device"
+
+static int add_dissected_swap_cryptsetup(void) {
+
+#if HAVE_LIBCRYPTSETUP
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        /* Write out cryptsetup unit for the "auto" swap device (/dev/disk/by-designator/swap-luks), so that
+         * resume from hibernation can be automatically initiated there. This mostly follows what gpt-auto does,
+         * but operates in initrd. */
+
+        r = generator_open_unit_file(arg_dest_late, /* source = */ NULL, "systemd-cryptsetup@swap.service", &f);
+        if (r < 0)
+                return r;
+
+        r = generator_write_cryptsetup_unit_section(f, /* source = */ NULL);
+        if (r < 0)
+                return r;
+
+        fputs("Before=umount.target cryptsetup.target\n"
+              "Conflicts=umount.target\n"
+              "BindsTo="DISSECTED_SWAP_LUKS_DEVICE_UNIT"\n"
+              "After="DISSECTED_SWAP_LUKS_DEVICE_UNIT"\n",
+              f);
+
+        r = generator_write_cryptsetup_service_section(
+                        f, "swap", DISSECTED_SWAP_LUKS_DEVICE,
+                        /* key_file = */ NULL,
+                        efi_measured_uki(LOG_DEBUG) > 0 ? "tpm2-device=auto" : NULL);
+        if (r < 0)
+                return r;
+
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write cryptsetup unit for " DISSECTED_SWAP_LUKS_DEVICE ": %m");
+
+        r = generator_write_device_timeout(arg_dest_late,
+                                           DISSECTED_SWAP_LUKS_DEVICE,
+                                           arg_resume_options ?: arg_root_options, /* filtered = */ NULL);
+        if (r < 0)
+                return r;
+
+        return generator_add_symlink(arg_dest_late, DISSECTED_SWAP_LUKS_DEVICE_UNIT, "wants", "systemd-cryptsetup@swap.service");
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "systemd-hibernate-resume-generator was compiled without libcryptsetup support, "
+                               "not generating cryptsetup unit for " DISSECTED_SWAP_LUKS_DEVICE ".");
+#endif
+}
+
 static int process_resume(const HibernateInfo *info) {
         _cleanup_free_ char *device_unit = NULL;
         int r;
@@ -89,6 +143,12 @@ static int process_resume(const HibernateInfo *info) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write device dependency drop-in: %m");
 
+        /* Generate cryptsetup unit for /dev/disk/by-designator/swap-luks if we hibernated into it, but only
+         * if resume= is not specified, on the assumption that the user would have everything configured
+         * manually otherwise. */
+        if (!info->cmdline && info->efi->auto_swap)
+                (void) add_dissected_swap_cryptsetup();
+
         return generator_add_symlink(arg_dest, SPECIAL_SYSINIT_TARGET, "wants", SPECIAL_HIBERNATE_RESUME_SERVICE);
 }
 
@@ -97,6 +157,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         int r;
 
         arg_dest = ASSERT_PTR(dest);
+        arg_dest_late = ASSERT_PTR(dest_late);
 
         /* Don't even consider resuming outside of initrd. */
         if (!in_initrd()) {

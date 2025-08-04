@@ -1,12 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-unit-util.h"
+#include "bus-util.h"
+#include "install.h"
+#include "log.h"
 #include "proc-cmdline.h"
+#include "string-util.h"
+#include "systemctl.h"
 #include "systemctl-daemon-reload.h"
 #include "systemctl-set-default.h"
 #include "systemctl-util.h"
-#include "systemctl.h"
+#include "unit-file.h"
+#include "unit-name.h"
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         char **ret = data;

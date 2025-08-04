@@ -422,7 +422,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           was created, so changing [VLAN] <varname>Id=</varname> will not take effect if the matching VLAN
           interface already exists. To apply such settings, the interfaces need to be removed manually before
           reload. Also note that even if a <filename>.netdev</filename> file is removed,
-          <command>systemd-networkd</command> does not remove the existing netdev corresponding to the file.
+          <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          does not remove the existing netdev corresponding to the file.
           </para>
 
           <para>If a new, modified, or removed <filename>.network</filename> file is found, then all
@@ -449,9 +450,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
         <para>If <option>--drop-in=</option> is specified, edit the drop-in file instead of
         the main configuration file. Unless <option>--no-reload</option> is specified,
-        <command>systemd-networkd</command> will be reloaded after the edit of the
-        <filename>.network</filename> or <filename>.netdev</filename> files finishes.
-        The same applies for <filename>.link</filename> files and
+        <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        will be reloaded after the edit of the <filename>.network</filename> or <filename>.netdev</filename>
+        files finishes. The same applies for <filename>.link</filename> files and
         <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         Note that the changed link settings are not automatically applied after reloading.
         To achieve that, trigger uevents for the corresponding interface. Refer to
@@ -520,8 +521,9 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
           <replaceable>BOOL</replaceable>
         </term>
         <listitem>
-          <para>Notify <filename>systemd-networkd.service</filename> that the persistent storage for the
-          service is ready. This is called by
+          <para>Notify
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          that the persistent storage for the service is ready. This is called by
           <filename>systemd-networkd-persistent-storage.service</filename>. Usually, this command should not
           be called manually by users or administrators.</para>
 

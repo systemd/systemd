@@ -2,10 +2,17 @@
 
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <resolv.h>
+
+#include "sd-event.h"
 
 #include "errno-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
+#include "log.h"
+#include "resolved-dns-packet.h"
+#include "resolved-dns-scope.h"
+#include "resolved-dns-transaction.h"
+#include "resolved-link.h"
 #include "resolved-llmnr.h"
 #include "resolved-manager.h"
 

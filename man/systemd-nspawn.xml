@@ -651,13 +651,15 @@
         <term><option>--notify-ready=</option></term>
 
         <listitem><para>Configures support for notifications from the container's init process.
-        <option>--notify-ready=</option> takes a boolean (<option>no</option> and  <option>yes</option>).
-        With option <option>no</option> systemd-nspawn notifies systemd
-        with a <literal>READY=1</literal> message when the init process is created.
-        With option <option>yes</option> systemd-nspawn waits for the
-        <literal>READY=1</literal> message from the init process in the container
-        before sending its own to systemd. For more details about notifications
-        see <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+        <option>--notify-ready=</option> takes a boolean. If false <command>systemd-vmpawn</command>
+        notifies the calling service manager with a <literal>READY=1</literal> message when the init process is
+        created. If true it waits for a <literal>READY=1</literal> message from the init process in the VM
+        before sending its own to the service manager. For more details about notifications see
+        <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
+
+        <para>Defaults to false. (Note that this is unlike the option of the same name to
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        that defaults to true.)</para>
 
         <xi:include href="version-info.xml" xpointer="v231"/></listitem>
       </varlistentry>
@@ -888,7 +890,7 @@
         correction of the numeric UID/GID values, according to the UID/GID shift applied.</para>
 
         <para>Note that for fully unprivileged operation in <literal>managed</literal> mode, any directory
-        image should be ownd by the foreign UID range.</para>
+        image should be owned by the foreign UID range.</para>
 
         <xi:include href="version-info.xml" xpointer="v220"/></listitem>
       </varlistentry>
@@ -1603,10 +1605,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <orderedlist>
           <listitem><para>The user's home directory is bind mounted from the host into
-          <filename>/run/host/home/</filename>.</para></listitem>
-
-          <listitem><para>An additional UID/GID mapping is added that maps the host user's UID/GID to a
-          container UID/GID, allocated from the 60514…60577 range.</para></listitem>
+          <filename>/run/host/home/</filename>, using an idmapped mount to map the host user's UID/GID to its
+          assigned UID/GID in the container.</para></listitem>
 
           <listitem><para>A JSON user and group record is generated in <filename>/run/userdb/</filename> that
           describes the mapped user. It contains a minimized representation of the host's user record,
@@ -1642,10 +1642,29 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         the container's <filename>/etc/passwd</filename> and <filename>/etc/group</filename>, and thus might
         not detect existing accounts in other databases.</para>
 
-        <para>This operation is only supported in combination with
-        <option>--private-users=</option>/<option>-U</option>.</para>
-
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bind-user-shell=</option></term>
+
+        <listitem><para>When used with <option>--bind-user=</option>, includes the specified shell in the
+        user records of users bound into the container. Takes either a boolean or an absolute path.</para>
+
+        <itemizedlist>
+          <listitem><para>If false (the default), no shell is passed in the user records for users bound into
+          the container. This causes bound users to the use the container's default shell.</para></listitem>
+
+          <listitem><para>If true, the shells specified by the host user records are included in the user records of all users bound into the container.</para></listitem>
+
+          <listitem><para>If passed an absolute path, sets that path as the shell for user records of all users bound into the container.</para></listitem>
+        </itemizedlist>
+
+        <para>Note: This will not check whether the specified shells exist in the container.</para>
+
+        <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1857,6 +1876,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="no-ask-password" />
     </variablelist>
    </refsect2>
   </refsect1>
@@ -1901,12 +1921,14 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <title>Build and boot a minimal Fedora distribution in a container</title>
 
       <programlisting># dnf -y --releasever=&fedora_latest_version; --installroot=/var/lib/machines/f&fedora_latest_version; \
-      --repo=fedora --repo=updates --setopt=install_weak_deps=False install \
-      passwd dnf fedora-release vim-minimal util-linux systemd systemd-networkd
+      --use-host-config --setopt=install_weak_deps=0 \
+      --repo=fedora --repo=updates install \
+      passwd dnf fedora-release nano util-linux systemd systemd-networkd
 # systemd-nspawn -bD /var/lib/machines/f&fedora_latest_version;</programlisting>
 
-      <para>This installs a minimal Fedora distribution into the
-      directory <filename index="false">/var/lib/machines/f&fedora_latest_version;</filename>
+      <para>(Omit <parameter>--use-host-config</parameter> when using <command>dnf</command> &lt;= 4.)
+      This installs a minimal Fedora distribution into the directory
+      <filename index="false">/var/lib/machines/f&fedora_latest_version;</filename>
       and then boots that OS in a namespace container. Because the installation
       is located underneath the standard <filename>/var/lib/machines/</filename>
       directory, it is also possible to start the machine using

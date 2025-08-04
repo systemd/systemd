@@ -3,7 +3,6 @@
 #include "ansi-color.h"
 #include "glyph-util.h"
 #include "sysupdate-update-set-flags.h"
-#include "terminal-util.h"
 
 const char* update_set_flags_to_color(UpdateSetFlags flags) {
 

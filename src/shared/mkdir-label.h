@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <fcntl.h>
-#include <sys/types.h>
-
+#include "forward.h"
 #include "mkdir.h"
 
 int mkdirat_label(int dirfd, const char *path, mode_t mode);

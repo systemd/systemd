@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-
+#include "resolved-forward.h"
 #include "time-util.h"
 
 /* Input + Output: The various protocols we can use */
@@ -76,6 +75,10 @@
 /* Input: Allow single-label lookups to Internet DNS servers */
 #define SD_RESOLVED_RELAX_SINGLE_LABEL          \
                                     (UINT64_C(1) << 25)
+
+/* Input: To differentiate between a probe and a continuous query. */
+#define SD_RESOLVED_QUERY_CONTINUOUS            \
+                                    (UINT64_C(1) << 26)
 
 #define SD_RESOLVED_LLMNR           (SD_RESOLVED_LLMNR_IPV4|SD_RESOLVED_LLMNR_IPV6)
 #define SD_RESOLVED_MDNS            (SD_RESOLVED_MDNS_IPV4|SD_RESOLVED_MDNS_IPV6)

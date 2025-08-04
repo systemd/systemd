@@ -1,20 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdbool.h>
 #include <sys/stat.h>
-#include <sys/types.h>
 
 #include "acl-util.h"
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 
 #if HAVE_ACL
 
-int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *ret_entry) {
+static int acl_find_uid(acl_t acl, uid_t uid, acl_entry_t *ret_entry) {
         acl_entry_t i;
         int r;
 

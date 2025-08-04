@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "nulstr-util.h"
+#include "forward.h"
 #include "stat-util.h"
-#include "string-util.h"
 
 #define FILESYSTEM_MAGIC_MAX 10
 

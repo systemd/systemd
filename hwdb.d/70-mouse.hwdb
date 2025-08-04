@@ -329,6 +329,10 @@ mouse:usb:v093ap2510:name:PIXART USB OPTICAL MOUSE:*
 mouse:usb:v03f0p0641:name:PixArt HP X1200 USB Optical Mouse:*
  MOUSE_DPI=1100@125
 
+# HP 150 Wired Mouse
+mouse:usb:v03f0p6a41:name:PixArt HP USB Optical Mouse:
+ MOUSE_DPI=1700@132
+
 ##########################################
 # IBM
 ##########################################

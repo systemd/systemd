@@ -3,13 +3,9 @@
 
 #include <dirent.h>
 #include <fcntl.h>
-#include <stdbool.h>
 #include <stdio.h>
-#include <sys/socket.h>
 
-#include "macro.h"
-#include "missing_fcntl.h"
-#include "stdio-util.h"
+#include "forward.h"
 
 /* maximum length of fdname */
 #define FDNAME_MAX 255
@@ -22,6 +18,45 @@
 #define EBADF_PAIR { -EBADF, -EBADF }
 #define EBADF_TRIPLET { -EBADF, -EBADF, -EBADF }
 
+/* So O_LARGEFILE is generally implied by glibc, and defined to zero hence, because we only build in LFS
+ * mode. However, when invoking fcntl(F_GETFL) the flag is ORed into the result anyway — glibc does not mask
+ * it away. Which sucks. Let's define the actual value here, so that we can mask it ourselves.
+ *
+ * The precise definition is arch specific, so we use the values defined in the kernel (note that some
+ * are hexa and others are octal; duplicated as-is from the kernel definitions):
+ * - alpha, arm, arm64, m68k, mips, parisc, powerpc, sparc: each has a specific value;
+ * - others: they use the "generic" value (defined in include/uapi/asm-generic/fcntl.h) */
+#if O_LARGEFILE != 0
+#  define RAW_O_LARGEFILE O_LARGEFILE
+#else
+#  if defined(__alpha__) || defined(__arm__) || defined(__aarch64__) || defined(__m68k__)
+#    define RAW_O_LARGEFILE 0400000
+#  elif defined(__mips__)
+#    define RAW_O_LARGEFILE 0x2000
+#  elif defined(__parisc__) || defined(__hppa__)
+#    define RAW_O_LARGEFILE 000004000
+#  elif defined(__powerpc__)
+#    define RAW_O_LARGEFILE 0200000
+#  elif defined(__sparc__)
+#    define RAW_O_LARGEFILE 0x40000
+#  else
+#    define RAW_O_LARGEFILE 00100000
+#  endif
+#endif
+
+/* On musl, O_ACCMODE is defined as (03|O_SEARCH), unlike glibc which defines it as
+ * (O_RDONLY|O_WRONLY|O_RDWR). Additionally, O_SEARCH is simply defined as O_PATH. This changes the behaviour
+ * of O_ACCMODE in certain situations, which we don't want. This definition is copied from glibc and works
+ * around the problems with musl's definition. */
+#define O_ACCMODE_STRICT (O_RDONLY|O_WRONLY|O_RDWR)
+
+/* The default, minimum, and maximum values of /proc/sys/fs/nr_open. See kernel's fs/file.c.
+ * These values have been unchanged since kernel-2.6.26:
+ * https://github.com/torvalds/linux/commit/eceea0b3df05ed262ae32e0c6340cc7a3626632d */
+#define NR_OPEN_DEFAULT ((unsigned) (1024 * 1024))
+#define NR_OPEN_MINIMUM ((unsigned) (sizeof(long) * 8))
+#define NR_OPEN_MAXIMUM ((unsigned) (CONST_MIN((size_t) INT_MAX, SIZE_MAX / __SIZEOF_POINTER__) & ~(sizeof(long) * 8 - 1)))
+
 int close_nointr(int fd);
 int safe_close(int fd);
 void safe_close_pair(int p[static 2]);
@@ -31,6 +66,11 @@ static inline int safe_close_above_stdio(int fd) {
                 return -EBADF;
 
         return safe_close(fd);
+}
+
+static inline void* close_fd_ptr(void *p) {
+        safe_close(PTR_TO_FD(p));
+        return NULL;
 }
 
 void close_many(const int fds[], size_t n_fds);
@@ -51,11 +91,6 @@ static inline void close_pairp(int (*p)[2]) {
 
 static inline void fclosep(FILE **f) {
         safe_fclose(*f);
-}
-
-static inline void* close_fd_ptr(void *p) {
-        safe_close(PTR_TO_FD(p));
-        return NULL;
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, pclose, NULL);
@@ -82,8 +117,6 @@ int pack_fds(int fds[], size_t n);
 
 int fd_validate(int fd);
 int same_fd(int a, int b);
-
-void cmsg_close_all(struct msghdr *mh);
 
 bool fdname_is_valid(const char *s);
 
@@ -122,7 +155,7 @@ static inline int fd_verify_safe_flags(int fd) {
         return fd_verify_safe_flags_full(fd, 0);
 }
 
-int read_nr_open(void);
+unsigned read_nr_open(void);
 int fd_get_diskseq(int fd, uint64_t *ret);
 
 int path_is_root_at(int dir_fd, const char *path);
@@ -142,12 +175,7 @@ int fds_are_same_mount(int fd1, int fd2);
 #define PROC_FD_PATH_MAX \
         (STRLEN("/proc/self/fd/") + DECIMAL_STR_MAX(int))
 
-static inline char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
-        assert(buf);
-        assert(fd >= 0);
-        assert_se(snprintf_ok(buf, PROC_FD_PATH_MAX, "/proc/self/fd/%i", fd));
-        return buf;
-}
+char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd);
 
 #define FORMAT_PROC_FD_PATH(fd) \
         format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))

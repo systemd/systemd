@@ -22,3 +22,5 @@ unsigned              NS   ns1.unsigned
 
 svcb                  SVCB  1   .   alpn=dot ipv4hint=10.0.0.1 ipv6hint=fd00:dead:beef:cafe::1
 https                 HTTPS 1   .   alpn="h2,h3"
+
+delegation.excercise A 1.2.3.4

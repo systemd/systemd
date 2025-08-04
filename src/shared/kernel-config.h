@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "forward.h"
+
 int load_kernel_install_conf(
                 const char *root,
                 const char *conf_root,

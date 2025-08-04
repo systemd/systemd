@@ -2,7 +2,6 @@
 
 #include "hexdecoct.h"
 #include "hmac.h"
-#include "string-util.h"
 #include "tests.h"
 
 static void hmac_sha256_by_string(const char *key, const char *value, uint8_t res[static SHA256_DIGEST_SIZE]) {

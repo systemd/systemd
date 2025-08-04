@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
+#include <linux/input.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
-#include <linux/input.h>
 
 #include "device-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
 #include "stdio-util.h"
@@ -15,7 +15,7 @@
 #include "udev-builtin.h"
 
 static const struct key_name *keyboard_lookup_key(const char *str, GPERF_LEN_TYPE len);
-#include "keyboard-keys-from-name.h"
+#include "keyboard-keys-from-name.inc"
 
 static int install_force_release(sd_device *dev, const unsigned *release, unsigned release_count) {
         sd_device *atkbd;
@@ -200,8 +200,13 @@ static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
 
                         if (fd < 0) {
                                 fd = sd_device_open(dev, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-                                if (fd < 0)
-                                        return log_device_error_errno(dev, fd, "Failed to open device '%s': %m", node);
+                                if (fd < 0) {
+                                        bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
+                                        log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
+                                                              "Failed to open device '%s'%s: %m",
+                                                              node, ignore ? ", ignoring" : "");
+                                        return ignore ? 0 : fd;
+                                }
                         }
 
                         (void) map_keycode(dev, fd, scancode, keycode);
@@ -217,8 +222,13 @@ static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
 
                         if (fd < 0) {
                                 fd = sd_device_open(dev, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-                                if (fd < 0)
-                                        return log_device_error_errno(dev, fd, "Failed to open device '%s': %m", node);
+                                if (fd < 0) {
+                                        bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
+                                        log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
+                                                              "Failed to open device '%s'%s: %m",
+                                                              node, ignore ? ", ignoring" : "");
+                                        return ignore ? 0 : fd;
+                                }
                         }
 
                         if (has_abs == -1) {

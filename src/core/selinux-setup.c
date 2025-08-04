@@ -1,30 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stdio.h>
 #include <unistd.h>
-
-#if HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
 
 #include "sd-messages.h"
 
 #include "errno-util.h"
 #include "initrd-util.h"
 #include "log.h"
-#include "macro.h"
 #include "selinux-setup.h"
 #include "selinux-util.h"
 #include "string-util.h"
 #include "time-util.h"
-
-#if HAVE_SELINUX
-_printf_(2,3)
-static int null_log(int type, const char *fmt, ...) {
-        return 0;
-}
-#endif
 
 int mac_selinux_setup(bool *loaded_policy) {
         assert(loaded_policy);
@@ -32,8 +18,7 @@ int mac_selinux_setup(bool *loaded_policy) {
 #if HAVE_SELINUX
         int r;
 
-        /* Turn off all of SELinux' own logging, we want to do that ourselves */
-        selinux_set_callback(SELINUX_CB_LOG, (const union selinux_callback) { .func_log = null_log });
+        mac_selinux_disable_logging();
 
         /* Don't load policy in the initrd if we don't appear to have it.  For the real root, we check below
          * if we've already loaded policy, and return gracefully. */
@@ -94,7 +79,7 @@ int mac_selinux_setup(bool *loaded_policy) {
                 if (enforce > 0) {
                         if (!initialized)
                                 return log_struct_errno(LOG_EMERG, SYNTHETIC_ERRNO(EIO),
-                                                        LOG_MESSAGE("Failed to load SELinux policy :%m"),
+                                                        LOG_MESSAGE("Failed to load SELinux policy."),
                                                         LOG_MESSAGE_ID(SD_MESSAGE_SELINUX_FAILED_STR));
 
                         log_notice("Failed to load new SELinux policy. Continuing with old policy.");

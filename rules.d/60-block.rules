@@ -11,3 +11,6 @@ ACTION=="change", SUBSYSTEM=="scsi", ENV{DEVTYPE}=="scsi_device", TEST=="block",
 ACTION!="remove", SUBSYSTEM=="block", \
   KERNEL=="loop*|mmcblk*[0-9]|msblk*[0-9]|mspblk*[0-9]|nvme*|sd*|vd*|xvd*|bcache*|cciss*|dasd*|ubd*|ubi*|scm*|pmem*|nbd*|zd*|rbd*|zram*|ublkb*", \
   OPTIONS+="watch"
+
+# Reset access rights to each loopback device once it gets detached.
+SUBSYSTEM=="block", ACTION=="change", ENV{DISK_MEDIA_CHANGE}=="1", TEST!="loop/backing_file", GROUP="disk", MODE="660"

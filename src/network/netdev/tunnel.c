@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <netinet/in.h>
-#include <linux/fou.h>
 #include <linux/if_arp.h>
 #include <linux/if_tunnel.h>
-#include <linux/ip.h>
 #include <linux/ip6_tunnel.h>
+#include <netinet/in.h>
 
-#include "af-list.h"
+#include "sd-netlink.h"
+
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "hexdecoct.h"
-#include "missing_network.h"
+#include "missing-network.h"
+#include "netdev-util.h"
 #include "netlink-util.h"
 #include "networkd-manager.h"
 #include "parse-util.h"
@@ -23,16 +24,26 @@
 #define IP6_FLOWINFO_FLOWLABEL  htobe32(0x000FFFFF)
 #define IP6_TNL_F_ALLOW_LOCAL_REMOTE 0x40
 
-static const char* const ip6tnl_mode_table[_NETDEV_IP6_TNL_MODE_MAX] = {
-        [NETDEV_IP6_TNL_MODE_IP6IP6] = "ip6ip6",
-        [NETDEV_IP6_TNL_MODE_IPIP6]  = "ipip6",
-        [NETDEV_IP6_TNL_MODE_ANYIP6] = "any",
+#define HASH_KEY SD_ID128_MAKE(74,c4,de,12,f3,d9,41,34,bb,3d,c1,a4,42,93,50,87)
+
+static const uint8_t tunnel_mode_to_proto[_TUNNEL_MODE_MAX] = {
+        [TUNNEL_MODE_ANY]    = 0,
+        [TUNNEL_MODE_IPIP]   = IPPROTO_IPIP,
+        [TUNNEL_MODE_IP6IP]  = IPPROTO_IPV6,
+        [TUNNEL_MODE_IPIP6]  = IPPROTO_IPIP,
+        [TUNNEL_MODE_IP6IP6] = IPPROTO_IPV6,
 };
 
-DEFINE_STRING_TABLE_LOOKUP(ip6tnl_mode, Ip6TnlMode);
-DEFINE_CONFIG_PARSE_ENUM(config_parse_ip6tnl_mode, ip6tnl_mode, Ip6TnlMode);
+static const char* const tunnel_mode_table[_TUNNEL_MODE_MAX] = {
+        [TUNNEL_MODE_ANY]    = "any",
+        [TUNNEL_MODE_IPIP]   = "ipip",
+        [TUNNEL_MODE_IP6IP]  = "ip6ip",
+        [TUNNEL_MODE_IPIP6]  = "ipip6",
+        [TUNNEL_MODE_IP6IP6] = "ip6ip6",
+};
 
-#define HASH_KEY SD_ID128_MAKE(74,c4,de,12,f3,d9,41,34,bb,3d,c1,a4,42,93,50,87)
+DEFINE_STRING_TABLE_LOOKUP(tunnel_mode, TunnelMode);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_tunnel_mode, tunnel_mode, TunnelMode);
 
 static int dhcp4_pd_create_6rd_tunnel_name(Link *link) {
         _cleanup_free_ char *ifname_alloc = NULL;
@@ -194,6 +205,12 @@ static int netdev_ipip_sit_fill_message_create(NetDev *netdev, Link *link, sd_ne
         union in_addr_union local;
         Tunnel *t = ASSERT_PTR(netdev)->kind == NETDEV_KIND_IPIP ? IPIP(netdev) : SIT(netdev);
         int r;
+
+        if (t->mode >= 0) {
+                r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, tunnel_mode_to_proto[t->mode]);
+                if (r < 0)
+                        return r;
+        }
 
         if (t->external) {
                 r = sd_netlink_message_append_flag(m, IFLA_IPTUN_COLLECT_METADATA);
@@ -560,25 +577,14 @@ static int netdev_ip6tnl_fill_message_create(NetDev *netdev, Link *link, sd_netl
         assert(m);
 
         union in_addr_union local;
-        uint8_t proto;
         Tunnel *t = IP6TNL(netdev);
         int r;
 
-        switch (t->ip6tnl_mode) {
-        case NETDEV_IP6_TNL_MODE_IP6IP6:
-                proto = IPPROTO_IPV6;
-                break;
-        case NETDEV_IP6_TNL_MODE_IPIP6:
-                proto = IPPROTO_IPIP;
-                break;
-        case NETDEV_IP6_TNL_MODE_ANYIP6:
-        default:
-                proto = 0;
+        if (t->mode >= 0) {
+                r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, tunnel_mode_to_proto[t->mode]);
+                if (r < 0)
+                        return r;
         }
-
-        r = sd_netlink_message_append_u8(m, IFLA_IPTUN_PROTO, proto);
-        if (r < 0)
-                return r;
 
         if (t->external) {
                 r = sd_netlink_message_append_flag(m, IFLA_IPTUN_COLLECT_METADATA);
@@ -653,11 +659,6 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
 
         Tunnel *t = ASSERT_PTR(TUNNEL(netdev));
 
-        if (netdev->kind == NETDEV_KIND_IP6TNL &&
-            t->ip6tnl_mode == _NETDEV_IP6_TNL_MODE_INVALID)
-                return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "ip6tnl without mode configured in %s. Ignoring", filename);
-
         if (t->external) {
                 if (IN_SET(netdev->kind, NETDEV_KIND_VTI, NETDEV_KIND_VTI6))
                         log_netdev_debug(netdev, "vti/vti6 tunnel do not support external mode, ignoring.");
@@ -704,6 +705,34 @@ static int netdev_tunnel_verify(NetDev *netdev, const char *filename) {
                                               "IgnoreDontFragment= cannot be enabled when DiscoverPathMTU= is enabled");
         if (t->pmtudisc < 0)
                 t->pmtudisc = !t->ignore_df;
+
+        if (t->mode >= 0)
+                switch (netdev->kind) {
+                case NETDEV_KIND_IPIP:
+                        if (!IN_SET(t->mode, TUNNEL_MODE_ANY, TUNNEL_MODE_IPIP))
+                                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                                "Specified unsupported tunnel mode %s, ignoring.",
+                                                                tunnel_mode_to_string(t->mode));
+                        break;
+                case NETDEV_KIND_SIT:
+                        if (!IN_SET(t->mode, TUNNEL_MODE_ANY, TUNNEL_MODE_IPIP, TUNNEL_MODE_IP6IP))
+                                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                                "Specified unsupported tunnel mode %s, ignoring.",
+                                                                tunnel_mode_to_string(t->mode));
+                        break;
+                case NETDEV_KIND_IP6TNL:
+                        if (!IN_SET(t->mode, TUNNEL_MODE_ANY, TUNNEL_MODE_IPIP6, TUNNEL_MODE_IP6IP6))
+                                return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                                "Specified unsupported tunnel mode %s, ignoring.",
+                                                                tunnel_mode_to_string(t->mode));
+                        break;
+                default:
+                        return log_netdev_warning_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
+                                                        "%s tunnel does not support Mode= setting, ignoring: %s",
+                                                        netdev_kind_to_string(netdev->kind),
+                                                        tunnel_mode_to_string(t->mode));
+                }
+
         return 0;
 }
 
@@ -756,7 +785,7 @@ int config_parse_tunnel_local_address(
         type = netdev_local_address_type_from_string(rvalue);
         if (IN_SET(type, NETDEV_LOCAL_ADDRESS_IPV4LL, NETDEV_LOCAL_ADDRESS_DHCP4))
                 f = AF_INET;
-        else if (IN_SET(type, NETDEV_LOCAL_ADDRESS_IPV6LL, NETDEV_LOCAL_ADDRESS_DHCP6, NETDEV_LOCAL_ADDRESS_SLAAC))
+        else if (IN_SET(type, NETDEV_LOCAL_ADDRESS_IPV6LL, NETDEV_LOCAL_ADDRESS_DHCP6, NETDEV_LOCAL_ADDRESS_SLAAC, NETDEV_LOCAL_ADDRESS_DHCP_PD))
                 f = AF_INET6;
         else {
                 type = _NETDEV_LOCAL_ADDRESS_TYPE_INVALID;
@@ -876,7 +905,7 @@ int config_parse_tunnel_key(
 }
 
 int config_parse_ipv6_flowlabel(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -913,7 +942,7 @@ int config_parse_ipv6_flowlabel(
 }
 
 int config_parse_encap_limit(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -948,7 +977,7 @@ int config_parse_encap_limit(
 }
 
 int config_parse_6rd_prefix(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -985,7 +1014,7 @@ int config_parse_6rd_prefix(
 }
 
 int config_parse_erspan_version(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1014,7 +1043,7 @@ int config_parse_erspan_version(
 }
 
 int config_parse_erspan_index(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1043,7 +1072,7 @@ int config_parse_erspan_index(
 }
 
 int config_parse_erspan_direction(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1072,7 +1101,7 @@ int config_parse_erspan_direction(
 }
 
 int config_parse_erspan_hwid(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -1109,7 +1138,7 @@ static void netdev_tunnel_init(NetDev *netdev) {
         t->isatap = -1;
         t->gre_erspan_sequence = -1;
         t->encap_limit = IPV6_DEFAULT_TNL_ENCAP_LIMIT;
-        t->ip6tnl_mode = _NETDEV_IP6_TNL_MODE_INVALID;
+        t->mode = _TUNNEL_MODE_INVALID;
         t->ipv6_flowlabel = _NETDEV_IPV6_FLOWLABEL_INVALID;
         t->allow_localremote = -1;
         t->erspan_version = 1;

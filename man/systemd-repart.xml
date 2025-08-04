@@ -19,7 +19,7 @@
   <refnamediv>
     <refname>systemd-repart</refname>
     <refname>systemd-repart.service</refname>
-    <refpurpose>Automatically grow and add partitions, and generate disk images (DDIs).</refpurpose>
+    <refpurpose>Automatically grow and add partitions, and generate disk images (DDIs)</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -551,16 +551,16 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--copy-from=<replaceable>IMAGE</replaceable></option></term>
+        <term><option>--copy-from=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>Instructs <command>systemd-repart</command> to synthesize partition definitions from
-        the partition table in the given image. This option can be specified multiple times to synthesize
-        definitions from each of the given images. The generated definitions will copy the partitions into
-        the destination partition table. The copied partitions will have the same size, metadata and contents
-        but might have a different partition number and might be located at a different offset in the
-        destination partition table. These definitions can be combined with partition definitions read from
-        regular partition definition files. The synthesized definitions take precedence over the definitions
-        read from partition definition files.</para>
+        the partition table in the given image or device. This option can be specified multiple times to
+        synthesize definitions from each of the given images or devices. The generated definitions will copy
+        the partitions into the destination partition table. The copied partitions will have the same size,
+        metadata and contents but might have a different partition number and might be located at a different
+        offset in the destination partition table. These definitions can be combined with partition
+        definitions read from regular partition definition files. The synthesized definitions take precedence
+        over the definitions read from partition definition files.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -617,6 +617,30 @@
         respectively.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--append-fstab=</option></term>
+
+        <listitem><para>Takes one of <literal>no</literal>, <literal>auto</literal> or
+        <literal>replace</literal>. Controls how the generated
+        <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        file by <option>--generate-fstab=</option> will behave in case that there is a previously
+        existing file.</para>
+
+        <para>If <literal>no</literal> <command>systemd-repart</command> will complain and abort in
+        case that there is a file. This is the default behaviour. If <literal>replace</literal>
+        the file will be silently replaced with the new generated one.</para>
+
+        <para>If <literal>auto</literal> <command>systemd-repart</command> will search in the pre-existing file
+        the section that belong to the automatically generated content and will replace it with the newer
+        generated content, and keep the user provided section if there is one. The generated section is
+        identified looking for the automatic content surrounded by
+        <literal># Start section ↓ of automatically generated fstab by systemd-repart</literal> and
+        <literal># End section ↑ of automatically generated fstab by systemd-repart</literal>. The content
+        that is before and after those comments are considered user provided, and kept in the new file.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>

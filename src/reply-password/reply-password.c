@@ -1,16 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <stddef.h>
-#include <sys/un.h>
-
-#include "alloc-util.h"
-#include "main-func.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "macro.h"
-#include "memory-util.h"
+#include "main-func.h"
 #include "socket-util.h"
 #include "string-util.h"
 

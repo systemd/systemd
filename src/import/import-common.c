@@ -1,24 +1,22 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <sys/prctl.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+
 #include "alloc-util.h"
-#include "btrfs-util.h"
 #include "capability-util.h"
-#include "chattr-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "hostname-util.h"
 #include "import-common.h"
+#include "log.h"
 #include "os-util.h"
 #include "process-util.h"
 #include "selinux-util.h"
-#include "signal-util.h"
 #include "stat-util.h"
 #include "tmpfile-util.h"
 

@@ -1,14 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
+#include <net/ethernet.h>
 
-#include "conf-parser.h"
 #include "in-addr-util.h"
-#include "networkd-util.h"
-
-typedef struct Link Link;
-typedef struct Network Network;
+#include "networkd-forward.h"
 
 typedef enum BridgeMDBEntryType {
         BRIDGE_MDB_ENTRY_TYPE_L2,
@@ -29,8 +25,6 @@ typedef struct BridgeMDB {
         union in_addr_union group_addr;
         uint16_t vlan_id;
 } BridgeMDB;
-
-BridgeMDB *bridge_mdb_free(BridgeMDB *mdb);
 
 void network_drop_invalid_bridge_mdb_entries(Network *network);
 

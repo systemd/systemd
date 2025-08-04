@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "escape.h"
 #include "hexdecoct.h"
+#include "log.h"
 #include "string-util.h"
 
 bool object_path_is_valid(const char *p) {
@@ -311,12 +315,12 @@ char* bus_address_escape(const char *v) {
         return r;
 }
 
-int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error) {
+int bus_maybe_reply_error(sd_bus_message *m, int r, const sd_bus_error *e) {
         assert(m);
 
-        if (sd_bus_error_is_set(error) || r < 0) {
+        if (sd_bus_error_is_set(e) || r < 0) {
                 if (m->header->type == SD_BUS_MESSAGE_METHOD_CALL)
-                        sd_bus_reply_method_errno(m, r, error);
+                        sd_bus_reply_method_errno(m, r, e);
         } else
                 return r;
 
@@ -332,7 +336,7 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, sd_bus_error *error) {
                   strna(m->root_container.signature),
                   strna(m->error.name),
                   strna(m->error.message),
-                  bus_error_message(error, r));
+                  bus_error_message(e, r));
 
         return 1;
 }

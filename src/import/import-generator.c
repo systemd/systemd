@@ -2,9 +2,12 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "creds-util.h"
 #include "discover-image.h"
 #include "efivars.h"
+#include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
@@ -12,9 +15,10 @@
 #include "initrd-util.h"
 #include "json-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "proc-cmdline.h"
-#include "special.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "unit-name.h"
 #include "web-util.h"
 
@@ -59,14 +63,14 @@ static int parse_pull_expression(const char *v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to extract option string from pull expression '%s': %m", v);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No option string in pull expression '%s': %m", v);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No option string in pull expression '%s'.", v);
 
         _cleanup_free_ char *local = NULL;
         r = extract_first_word(&p, &local, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract local name from pull expression '%s': %m", v);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No local string in pull expression '%s': %m", v);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No local string in pull expression '%s'.", v);
 
         _cleanup_free_ char *remote = strdup(p);
         if (!remote)

@@ -2,16 +2,12 @@
 
 #pragma once
 
-typedef struct Wireguard Wireguard;
-
-#include <netinet/in.h>
 #include <linux/wireguard.h>
 
-#include "sd-event.h"
-#include "sd-resolve.h"
-
 #include "in-addr-util.h"
+#include "list.h"
 #include "netdev.h"
+#include "networkd-forward.h"
 #include "socket-util.h"
 
 typedef struct WireguardIPmask {
@@ -50,7 +46,7 @@ typedef struct WireguardPeer {
         LIST_FIELDS(struct WireguardPeer, peers);
 } WireguardPeer;
 
-struct Wireguard {
+typedef struct Wireguard {
         NetDev meta;
         unsigned last_peer_section;
 
@@ -66,7 +62,7 @@ struct Wireguard {
         Set *routes;
         uint32_t route_table;
         uint32_t route_priority;
-};
+} Wireguard;
 
 DEFINE_NETDEV_CAST(WIREGUARD, Wireguard);
 extern const NetDevVTable wireguard_vtable;

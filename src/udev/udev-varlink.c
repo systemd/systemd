@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "fd-util.h"
 #include "json-util.h"
+#include "log.h"
+#include "string-util.h"
 #include "strv.h"
 #include "udev-manager.h"
 #include "udev-varlink.h"
@@ -103,6 +106,21 @@ static int vl_method_set_environment(sd_varlink *link, sd_json_variant *paramete
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_revert(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
+
+        log_debug("Received io.systemd.Udev.Revert()");
+        manager_revert(manager);
+        return sd_varlink_reply(link, NULL);
+}
+
 static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         const char *method;
@@ -120,6 +138,14 @@ static int vl_method_start_stop_exec_queue(sd_varlink *link, sd_json_variant *pa
 
         log_debug("Received %s()", method);
         manager->stop_exec_queue = streq(method, "io.systemd.Udev.StopExecQueue");
+
+        /* In case that processing queued events will be stopped for a while, regardless if there exist
+         * queued events, enable the kill workers timer here unless it is already enabled. Note, it is not
+         * necessary to disable the timer when processing is restarted, as it will be anyway disabled in
+         * on_post() -> event_queue_start(). */
+        if (manager->stop_exec_queue)
+                (void) manager_reset_kill_workers_timer(manager);
+
         return sd_varlink_reply(link, NULL);
 }
 
@@ -140,8 +166,9 @@ static int vl_method_exit(sd_varlink *link, sd_json_variant *parameters, sd_varl
         return sd_varlink_reply(link, NULL);
 }
 
-int manager_start_varlink_server(Manager *manager) {
+int manager_start_varlink_server(Manager *manager, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *v = NULL;
+        _cleanup_close_ int fd_close = fd;
         int r;
 
         assert(manager);
@@ -154,18 +181,18 @@ int manager_start_varlink_server(Manager *manager) {
         /* This needs to be after the inotify and uevent handling, to make sure that the ping is send back
          * after fully processing the pending uevents (including the synthetic ones we may create due to
          * inotify events). */
-        r = sd_varlink_server_attach_event(v, manager->event, SD_EVENT_PRIORITY_IDLE);
+        r = sd_varlink_server_attach_event(v, manager->event, EVENT_PRIORITY_VARLINK);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach Varlink connection to event loop: %m");
 
-        r = sd_varlink_server_listen_auto(v);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind to passed Varlink socket: %m");
-        if (r == 0) {
+        if (fd < 0)
                 r = sd_varlink_server_listen_address(v, UDEV_VARLINK_ADDRESS, 0600);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind to Varlink socket: %m");
-        }
+        else
+                r = sd_varlink_server_listen_fd(v, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to Varlink socket: %m");
+
+        TAKE_FD(fd_close);
 
         r = sd_varlink_server_add_interface_many(
                         v,
@@ -183,6 +210,7 @@ int manager_start_varlink_server(Manager *manager) {
                         "io.systemd.Udev.SetTrace",          vl_method_set_trace,
                         "io.systemd.Udev.SetChildrenMax",    vl_method_set_children_max,
                         "io.systemd.Udev.SetEnvironment",    vl_method_set_environment,
+                        "io.systemd.Udev.Revert",            vl_method_revert,
                         "io.systemd.Udev.StartExecQueue",    vl_method_start_stop_exec_queue,
                         "io.systemd.Udev.StopExecQueue",     vl_method_start_stop_exec_queue,
                         "io.systemd.Udev.Exit",              vl_method_exit);

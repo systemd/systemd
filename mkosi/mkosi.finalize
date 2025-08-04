@@ -3,3 +3,13 @@
 set -e
 
 touch -r "$BUILDROOT/usr" "$BUILDROOT/etc/.updated" "$BUILDROOT/var/.updated"
+
+if [ -n "$EFI_ARCHITECTURE" ]; then
+    mkdir -p "$BUILDROOT/boot/loader/addons"
+    ukify build \
+        --stub "$BUILDROOT/usr/lib/systemd/boot/efi/addon${EFI_ARCHITECTURE}.efi.stub" \
+        --cmdline="addonfoobar" \
+        --output "$BUILDROOT/boot/loader/addons/test.addon.efi" \
+        --secureboot-certificate "$SRCDIR/mkosi/mkosi.crt" \
+        --secureboot-private-key "$SRCDIR/mkosi/mkosi.key"
+fi

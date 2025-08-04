@@ -277,7 +277,7 @@
         and use the smaller of the two values.</para>
 
         <para>The first pair defaults to 10% and the second to 15% of
-        the size of the respective file system, but each value is
+        the size of the respective file system, but each of the calculated default values is
         capped to 4G. If the file system is nearly full and either
         <varname>SystemKeepFree=</varname> or
         <varname>RuntimeKeepFree=</varname> are violated when
@@ -482,7 +482,7 @@
         kernel auditing on start-up. If disabled it will turn it off. If unset it will neither enable nor
         disable it, leaving the previous state unchanged.  This means if another tool turns on auditing even
         if <command>systemd-journald</command> left it off, it will still collect the generated
-        messages. Defaults to on.</para>
+        messages. Defaults to on in the default journal namespace, and unset otherwise.</para>
 
         <para>Note that this option does not control whether <command>systemd-journald</command> collects
         generated audit records, it just controls whether it tells the kernel to generate them. If you need

@@ -1,22 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-#include <unistd.h>
+#include <stdio.h>
 
 #include "sd-messages.h"
 
 #include "alloc-util.h"
-#include "audit-util.h"
-#include "bus-common-errors.h"
-#include "bus-error.h"
-#include "bus-util.h"
 #include "event-util.h"
-#include "format-util.h"
+#include "log.h"
 #include "logind.h"
 #include "path-util.h"
-#include "special.h"
-#include "strv.h"
-#include "unit-name.h"
+#include "string-util.h"
 #include "user-util.h"
 #include "wall.h"
 
@@ -88,7 +81,7 @@ static int warn_wall(Manager *m, usec_t n) {
                    LOG_MESSAGE_ID(SD_MESSAGE_SHUTDOWN_SCHEDULED_STR),
                    username ? "OPERATOR=%s" : NULL, username);
 
-        if (m->enable_wall_messages)
+        if (m->wall_messages)
                 (void) wall(l, username, m->scheduled_shutdown_tty, logind_wall_tty_filter, m);
 
         return 1;
@@ -114,11 +107,11 @@ static int wall_message_timeout_handler(
         if (next > 0) {
                 r = sd_event_source_set_time(s, n + next);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_time() failed. %m");
+                        return log_error_errno(r, "sd_event_source_set_time() failed: %m");
 
                 r = sd_event_source_set_enabled(s, SD_EVENT_ONESHOT);
                 if (r < 0)
-                        return log_error_errno(r, "sd_event_source_set_enabled() failed. %m");
+                        return log_error_errno(r, "sd_event_source_set_enabled() failed: %m");
         }
 
         return 0;

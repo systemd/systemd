@@ -1,11 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct DnsQuestion DnsQuestion;
-typedef struct DnsQuestionItem DnsQuestionItem;
-
-#include "macro.h"
-#include "resolved-dns-rr.h"
+#include "resolved-forward.h"
 
 /* A simple array of resource keys */
 
@@ -13,16 +9,16 @@ typedef enum DnsQuestionFlags {
         DNS_QUESTION_WANTS_UNICAST_REPLY = 1 << 0, /* For mDNS: sender is willing to accept unicast replies */
 } DnsQuestionFlags;
 
-struct DnsQuestionItem {
+typedef struct DnsQuestionItem {
         DnsResourceKey *key;
         DnsQuestionFlags flags;
-};
+} DnsQuestionItem;
 
-struct DnsQuestion {
+typedef struct DnsQuestion {
         unsigned n_ref;
         size_t n_keys, n_allocated;
         DnsQuestionItem items[];
-};
+} DnsQuestion;
 
 DnsQuestion *dns_question_new(size_t n);
 DnsQuestion *dns_question_ref(DnsQuestion *q);
@@ -31,6 +27,7 @@ DnsQuestion *dns_question_unref(DnsQuestion *q);
 int dns_question_new_address(DnsQuestion **ret, int family, const char *name, bool convert_idna);
 int dns_question_new_reverse(DnsQuestion **ret, int family, const union in_addr_union *a);
 int dns_question_new_service(DnsQuestion **ret, const char *service, const char *type, const char *domain, bool with_txt, bool convert_idna);
+int dns_question_new_service_pointer(DnsQuestion **ret, const char *type, const char *domain, bool convert_idna);
 
 int dns_question_add_raw(DnsQuestion *q, DnsResourceKey *key, DnsQuestionFlags flags);
 int dns_question_add(DnsQuestion *q, DnsResourceKey *key, DnsQuestionFlags flags);

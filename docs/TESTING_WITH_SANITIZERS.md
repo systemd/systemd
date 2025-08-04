@@ -18,7 +18,7 @@ compiler you want to use and which part of the test suite you want to run.
 To build with sanitizers in mkosi, create a file `mkosi/mkosi.local.conf` and add the following contents:
 
 ```
-[Content]
+[Build]
 Environment=SANITIZERS=address,undefined
 ```
 

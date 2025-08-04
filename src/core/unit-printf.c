@@ -1,17 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "alloc-util.h"
-#include "cgroup-util.h"
-#include "format-util.h"
-#include "macro.h"
 #include "sd-path.h"
+
+#include "alloc-util.h"
+#include "creds-util.h"
+#include "env-util.h"
+#include "fd-util.h"
+#include "fileio.h"
+#include "manager.h"
 #include "specifier.h"
 #include "string-util.h"
-#include "strv.h"
+#include "unit.h"
 #include "unit-name.h"
 #include "unit-printf.h"
-#include "unit.h"
-#include "user-util.h"
 
 static int specifier_prefix_and_instance(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
@@ -87,14 +88,10 @@ static void bad_specifier(const Unit *u, char specifier) {
 
 static int specifier_cgroup(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
 
         bad_specifier(u, specifier);
 
-        if (crt && crt->cgroup_path)
-                return strdup_to(ret, crt->cgroup_path);
-
-        return unit_default_cgroup_path(u, ret);
+        return unit_get_cgroup_path_with_fallback(u, ret);
 }
 
 static int specifier_cgroup_root(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
@@ -111,14 +108,8 @@ static int specifier_cgroup_slice(char specifier, const void *data, const char *
         bad_specifier(u, specifier);
 
         slice = UNIT_GET_SLICE(u);
-        if (slice) {
-                CGroupRuntime *crt = unit_get_cgroup_runtime(slice);
-
-                if (crt && crt->cgroup_path)
-                        return strdup_to(ret, crt->cgroup_path);
-
-                return unit_default_cgroup_path(slice, ret);
-        }
+        if (slice)
+                return unit_get_cgroup_path_with_fallback(slice, ret);
 
         return strdup_to(ret, u->manager->cgroup_root);
 }
@@ -251,4 +242,24 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
         };
 
         return specifier_printf(format, max_length, table, NULL, u, ret);
+}
+
+int unit_full_printf(const Unit *u, const char *text, char **ret) {
+        return unit_full_printf_full(u, text, LONG_LINE_MAX, ret);
+}
+
+int unit_path_printf(const Unit *u, const char *text, char **ret) {
+        return unit_full_printf_full(u, text, PATH_MAX-1, ret);
+}
+
+int unit_fd_printf(const Unit *u, const char *text, char **ret) {
+        return unit_full_printf_full(u, text, FDNAME_MAX, ret);
+}
+
+int unit_cred_printf(const Unit *u, const char *text, char **ret) {
+        return unit_full_printf_full(u, text, CREDENTIAL_NAME_MAX, ret);
+}
+
+int unit_env_printf(const Unit *u, const char *text, char **ret) {
+        return unit_full_printf_full(u, text, sc_arg_max(), ret);
 }

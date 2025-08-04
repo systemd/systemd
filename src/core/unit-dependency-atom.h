@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <errno.h>
-
-#include "unit-def.h"
+#include "forward.h"
 
 /* Flags that identify the various "atomic" behaviours a specific dependency type implies. Each dependency is
  * a combination of one or more of these flags that define what they actually entail. */

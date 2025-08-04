@@ -1,18 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "build.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
+#include "log.h"
 #include "main-func.h"
 #include "memstream-util.h"
 #include "openssl-util.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
+#include "string-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -24,6 +26,7 @@ static char *arg_certificate_source = NULL;
 static CertificateSourceType arg_certificate_source_type = OPENSSL_CERTIFICATE_SOURCE_FILE;
 static char *arg_signature = NULL;
 static char *arg_content = NULL;
+static char *arg_hash_algorithm = NULL;
 static char *arg_output = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
@@ -64,6 +67,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "                         from an OpenSSL provider\n"
                "     --content=PATH      Raw data content to embed in PKCS#7 signature\n"
                "     --signature=PATH    PKCS#1 signature to embed in PKCS#7 signature\n"
+               "     --hash-algorithm=ALGORITHM\n"
+               "                         Hash algorithm used to create the PKCS#1 signature\n"
                "     --output=PATH       Where to write the PKCS#7 signature\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -85,6 +90,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CERTIFICATE_SOURCE,
                 ARG_SIGNATURE,
                 ARG_CONTENT,
+                ARG_HASH_ALGORITHM,
                 ARG_OUTPUT,
         };
 
@@ -97,6 +103,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "certificate-source", required_argument, NULL, ARG_CERTIFICATE_SOURCE },
                 { "signature",          required_argument, NULL, ARG_SIGNATURE          },
                 { "content",            required_argument, NULL, ARG_CONTENT            },
+                { "hash-algorithm",     required_argument, NULL, ARG_HASH_ALGORITHM     },
                 { "output",             required_argument, NULL, ARG_OUTPUT             },
                 {}
         };
@@ -160,6 +167,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        break;
+
+                case ARG_HASH_ALGORITHM:
+                        arg_hash_algorithm = optarg;
                         break;
 
                 case ARG_OUTPUT:
@@ -353,7 +364,7 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
 
         _cleanup_(PKCS7_freep) PKCS7 *pkcs7 = NULL;
         PKCS7_SIGNER_INFO *signer_info;
-        r = pkcs7_new(certificate, /* private_key= */ NULL, &pkcs7, &signer_info);
+        r = pkcs7_new(certificate, /* private_key= */ NULL, arg_hash_algorithm, &pkcs7, &signer_info);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate PKCS#7 context: %m");
 
@@ -381,7 +392,7 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
         ASN1_STRING_set0(signer_info->enc_digest, TAKE_PTR(pkcs1), pkcs1_len);
 
         _cleanup_fclose_ FILE *output = NULL;
-        _cleanup_free_ char *tmp = NULL;
+        _cleanup_(unlink_and_freep) char *tmp = NULL;
         r = fopen_tmpfile_linkable(arg_output, O_WRONLY|O_CLOEXEC, &tmp, &output);
         if (r < 0)
                 return log_error_errno(r, "Failed to open temporary file: %m");
@@ -393,6 +404,8 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
         r = flink_tmpfile(output, tmp, arg_output, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)
                 return log_error_errno(r, "Failed to link temporary file to %s: %m", arg_output);
+
+        tmp = mfree(tmp);
 
         return 0;
 }

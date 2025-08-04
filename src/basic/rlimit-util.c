@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
-#include "macro.h"
+#include "log.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "string-table.h"
@@ -132,11 +131,6 @@ static int rlimit_parse_sec(const char *val, rlim_t *ret) {
         assert(val);
         assert(ret);
 
-        if (streq(val, "infinity")) {
-                *ret = RLIM_INFINITY;
-                return 0;
-        }
-
         r = parse_sec(val, &t);
         if (r < 0)
                 return r;
@@ -159,11 +153,6 @@ static int rlimit_parse_usec(const char *val, rlim_t *ret) {
 
         assert(val);
         assert(ret);
-
-        if (streq(val, "infinity")) {
-                *ret = RLIM_INFINITY;
-                return 0;
-        }
 
         r = parse_time(val, &t, 1);
         if (r < 0)
@@ -228,22 +217,22 @@ static int rlimit_parse_nice(const char *val, rlim_t *ret) {
 }
 
 static int (*const rlimit_parse_table[_RLIMIT_MAX])(const char *val, rlim_t *ret) = {
-        [RLIMIT_CPU] = rlimit_parse_sec,
-        [RLIMIT_FSIZE] = rlimit_parse_size,
-        [RLIMIT_DATA] = rlimit_parse_size,
-        [RLIMIT_STACK] = rlimit_parse_size,
-        [RLIMIT_CORE] = rlimit_parse_size,
-        [RLIMIT_RSS] = rlimit_parse_size,
-        [RLIMIT_NOFILE] = rlimit_parse_u64,
-        [RLIMIT_AS] = rlimit_parse_size,
-        [RLIMIT_NPROC] = rlimit_parse_u64,
-        [RLIMIT_MEMLOCK] = rlimit_parse_size,
-        [RLIMIT_LOCKS] = rlimit_parse_u64,
+        [RLIMIT_CPU]        = rlimit_parse_sec,
+        [RLIMIT_FSIZE]      = rlimit_parse_size,
+        [RLIMIT_DATA]       = rlimit_parse_size,
+        [RLIMIT_STACK]      = rlimit_parse_size,
+        [RLIMIT_CORE]       = rlimit_parse_size,
+        [RLIMIT_RSS]        = rlimit_parse_size,
+        [RLIMIT_NOFILE]     = rlimit_parse_u64,
+        [RLIMIT_AS]         = rlimit_parse_size,
+        [RLIMIT_NPROC]      = rlimit_parse_u64,
+        [RLIMIT_MEMLOCK]    = rlimit_parse_size,
+        [RLIMIT_LOCKS]      = rlimit_parse_u64,
         [RLIMIT_SIGPENDING] = rlimit_parse_u64,
-        [RLIMIT_MSGQUEUE] = rlimit_parse_size,
-        [RLIMIT_NICE] = rlimit_parse_nice,
-        [RLIMIT_RTPRIO] = rlimit_parse_u64,
-        [RLIMIT_RTTIME] = rlimit_parse_usec,
+        [RLIMIT_MSGQUEUE]   = rlimit_parse_size,
+        [RLIMIT_NICE]       = rlimit_parse_nice,
+        [RLIMIT_RTPRIO]     = rlimit_parse_u64,
+        [RLIMIT_RTTIME]     = rlimit_parse_usec,
 };
 
 int rlimit_parse_one(int resource, const char *val, rlim_t *ret) {
@@ -343,6 +332,11 @@ static const char* const rlimit_table[_RLIMIT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(rlimit, int);
+
+void rlimits_list(const char *prefix) {
+        FOREACH_ELEMENT(field, rlimit_table)
+                printf("%s%s\n", strempty(prefix), *field);
+}
 
 int rlimit_from_string_harder(const char *s) {
         const char *suffix;
@@ -470,12 +464,12 @@ int pid_getrlimit(pid_t pid, int resource, struct rlimit *ret) {
         const char *p = procfs_file_alloca(pid, "limits");
         _cleanup_free_ char *limits = NULL;
 
-        r = read_full_virtual_file(p, &limits, NULL);
+        r = read_full_file(p, &limits, /* ret_size = */ NULL);
         if (r < 0)
                 return -EPERM; /* propagate original permission error if we can't access the limits file */
 
         _cleanup_strv_free_ char **l = NULL;
-        l = strv_split(limits, "\n");
+        l = strv_split_newlines(limits);
         if (!l)
                 return -ENOMEM;
 

@@ -1,8 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "bus-label.h"
+#include "glyph-util.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
 
@@ -66,14 +70,6 @@ const char* unit_dbus_interface_from_name(const char *name) {
                 return NULL;
 
         return unit_dbus_interface_from_type(t);
-}
-
-const char* unit_type_to_capitalized_string(UnitType t) {
-        const char *di = unit_dbus_interface_from_type(t);
-        if (!di)
-                return NULL;
-
-        return ASSERT_PTR(startswith(di, "org.freedesktop.systemd1."));
 }
 
 static const char* const unit_type_table[_UNIT_TYPE_MAX] = {
@@ -221,6 +217,7 @@ static const char* const service_state_table[_SERVICE_STATE_MAX] = {
         [SERVICE_RELOAD]                     = "reload",
         [SERVICE_RELOAD_SIGNAL]              = "reload-signal",
         [SERVICE_RELOAD_NOTIFY]              = "reload-notify",
+        [SERVICE_REFRESH_EXTENSIONS]         = "refresh-extensions",
         [SERVICE_STOP]                       = "stop",
         [SERVICE_STOP_WATCHDOG]              = "stop-watchdog",
         [SERVICE_STOP_SIGTERM]               = "stop-sigterm",
@@ -255,6 +252,7 @@ static const char* const socket_state_table[_SOCKET_STATE_MAX] = {
         [SOCKET_START_CHOWN]      = "start-chown",
         [SOCKET_START_POST]       = "start-post",
         [SOCKET_LISTENING]        = "listening",
+        [SOCKET_DEFERRED]         = "deferred",
         [SOCKET_RUNNING]          = "running",
         [SOCKET_STOP_PRE]         = "stop-pre",
         [SOCKET_STOP_PRE_SIGTERM] = "stop-pre-sigterm",
@@ -335,6 +333,10 @@ static const char* const unit_dependency_table[_UNIT_DEPENDENCY_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
 
+void unit_types_list(void) {
+        DUMP_STRING_TABLE(unit_dependency, UnitDependency, _UNIT_DEPENDENCY_MAX);
+}
+
 static const char* const notify_access_table[_NOTIFY_ACCESS_MAX] = {
         [NOTIFY_NONE] = "none",
         [NOTIFY_MAIN] = "main",
@@ -346,6 +348,7 @@ DEFINE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
 
 static const char* const job_mode_table[_JOB_MODE_MAX] = {
         [JOB_FAIL]                 = "fail",
+        [JOB_LENIENT]              = "lenient",
         [JOB_REPLACE]              = "replace",
         [JOB_REPLACE_IRREVERSIBLY] = "replace-irreversibly",
         [JOB_ISOLATE]              = "isolate",
@@ -357,6 +360,17 @@ static const char* const job_mode_table[_JOB_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_mode, JobMode);
+
+/* This table maps ExecDirectoryType to the setting it is configured with in the unit */
+static const char* const exec_directory_type_table[_EXEC_DIRECTORY_TYPE_MAX] = {
+        [EXEC_DIRECTORY_RUNTIME]       = "RuntimeDirectory",
+        [EXEC_DIRECTORY_STATE]         = "StateDirectory",
+        [EXEC_DIRECTORY_CACHE]         = "CacheDirectory",
+        [EXEC_DIRECTORY_LOGS]          = "LogsDirectory",
+        [EXEC_DIRECTORY_CONFIGURATION] = "ConfigurationDirectory",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
 
 Glyph unit_active_state_to_glyph(UnitActiveState state) {
         static const Glyph map[_UNIT_ACTIVE_STATE_MAX] = {

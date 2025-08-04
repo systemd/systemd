@@ -1,14 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
-#include "bus-print-properties.h"
-#include "bus-util.h"
-#include "image-policy.h"
-#include "install.h"
-#include "output-mode.h"
-#include "pager.h"
+#include "forward.h"
 
 enum action {
         ACTION_SYSTEMCTL,
@@ -23,16 +16,11 @@ enum action {
         ACTION_HIBERNATE,
         ACTION_HYBRID_SLEEP,
         ACTION_SUSPEND_THEN_HIBERNATE,
-        ACTION_RUNLEVEL2,
-        ACTION_RUNLEVEL3,
-        ACTION_RUNLEVEL4,
-        ACTION_RUNLEVEL5,
         ACTION_RESCUE,
         ACTION_EMERGENCY,
         ACTION_DEFAULT,
         ACTION_RELOAD,
         ACTION_REEXEC,
-        ACTION_RUNLEVEL,
         ACTION_CANCEL_SHUTDOWN,
         ACTION_SHOW_SHUTDOWN,
         ACTION_SYSTEMCTL_SHOW_SHUTDOWN,
@@ -68,6 +56,7 @@ extern bool arg_show_types;
 extern int arg_check_inhibitors;
 extern bool arg_dry_run;
 extern bool arg_quiet;
+extern bool arg_verbose;
 extern bool arg_no_warn;
 extern bool arg_full;
 extern bool arg_recursive;
@@ -83,6 +72,7 @@ extern int arg_signal;
 extern int arg_kill_value;
 extern bool arg_kill_value_set;
 extern char *arg_root;
+extern char *arg_image;
 extern usec_t arg_when;
 extern bool arg_stdin;
 extern const char *arg_reboot_argument;
@@ -105,6 +95,7 @@ extern bool arg_mkdir;
 extern bool arg_marked;
 extern const char *arg_drop_in;
 extern ImagePolicy *arg_image_policy;
+extern char *arg_kill_subgroup;
 
 static inline const char* arg_job_mode(void) {
         return _arg_job_mode ?: "replace";

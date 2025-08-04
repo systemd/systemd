@@ -5,14 +5,14 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
+#include "sd-dhcp-lease.h"
 #include "sd-dhcp-server.h"
-#include "sd-event.h"
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-option.h"
+#include "forward.h"
 #include "network-common.h"
-#include "ordered-set.h"
-#include "time-util.h"
+#include "sparse-endian.h"
 
 typedef enum DHCPRawOption {
         DHCP_RAW_OPTION_DATA_UINT8,
@@ -25,7 +25,7 @@ typedef enum DHCPRawOption {
         _DHCP_RAW_OPTION_DATA_INVALID,
 } DHCPRawOption;
 
-struct sd_dhcp_server {
+typedef struct sd_dhcp_server {
         unsigned n_ref;
 
         sd_event *event;
@@ -78,7 +78,7 @@ struct sd_dhcp_server {
 
         int lease_dir_fd;
         char *lease_file;
-};
+} sd_dhcp_server;
 
 typedef struct DHCPRequest {
         /* received message */

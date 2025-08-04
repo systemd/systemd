@@ -1,17 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
 #include <linux/fib_rules.h>
-#include <stdbool.h>
 
-#include "conf-parser.h"
 #include "in-addr-prefix-util.h"
+#include "networkd-forward.h"
 #include "networkd-util.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
-typedef struct Network Network;
 
 typedef struct RoutingPolicyRule {
         Manager *manager;

@@ -1,0 +1,140 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <sys/stat.h>
+#include <unistd.h>
+
+#include "sd-id128.h"
+
+#include "tests.h"
+
+TEST(ASSERT) {
+        char *null = NULL;
+
+        ASSERT_OK(0);
+        ASSERT_OK(255);
+        ASSERT_OK(printf("Hello world\n"));
+        ASSERT_SIGNAL(ASSERT_OK(-1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK(-ENOANO), SIGABRT);
+
+        ASSERT_OK_POSITIVE(1);
+        ASSERT_OK_POSITIVE(255);
+        ASSERT_SIGNAL(ASSERT_OK_POSITIVE(0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_POSITIVE(-1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_POSITIVE(-ENOANO), SIGABRT);
+
+        ASSERT_OK_ZERO(0);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO(1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO(255), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO(-1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO(-ENOANO), SIGABRT);
+
+        ASSERT_OK_EQ(0, 0);
+        ASSERT_SIGNAL(ASSERT_OK_EQ(1, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_EQ(255, 5), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_EQ(-1, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_EQ(-ENOANO, 0), SIGABRT);
+
+        ASSERT_OK_ERRNO(0 >= 0);
+        ASSERT_OK_ERRNO(255 >= 0);
+        ASSERT_OK_ERRNO(printf("Hello world\n"));
+        ASSERT_SIGNAL(ASSERT_OK_ERRNO(-1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ERRNO(-ENOANO), SIGABRT);
+
+        ASSERT_OK_ZERO_ERRNO(0);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO_ERRNO(1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO_ERRNO(255), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO_ERRNO(-1), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_ZERO_ERRNO(-ENOANO), SIGABRT);
+
+        ASSERT_OK_EQ_ERRNO(0, 0);
+        ASSERT_SIGNAL(ASSERT_OK_EQ_ERRNO(1, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_EQ_ERRNO(255, 5), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_EQ_ERRNO(-1, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_OK_EQ_ERRNO(-ENOANO, 0), SIGABRT);
+
+        ASSERT_FAIL(-ENOENT);
+        ASSERT_FAIL(-EPERM);
+        ASSERT_SIGNAL(ASSERT_FAIL(0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_FAIL(255), SIGABRT);
+
+        ASSERT_ERROR(-ENOENT, ENOENT);
+        ASSERT_ERROR(RET_NERRNO(mkdir("/i/will/fail/with/enoent", 666)), ENOENT);
+        ASSERT_SIGNAL(ASSERT_ERROR(0, ENOENT), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_ERROR(RET_NERRNO(mkdir("/i/will/fail/with/enoent", 666)), ENOANO), SIGABRT);
+
+        errno = ENOENT;
+        ASSERT_ERROR_ERRNO(-1, ENOENT);
+        errno = 0;
+        ASSERT_ERROR_ERRNO(mkdir("/i/will/fail/with/enoent", 666), ENOENT);
+        ASSERT_SIGNAL(ASSERT_ERROR_ERRNO(0, ENOENT), SIGABRT);
+        errno = 0;
+        ASSERT_SIGNAL(ASSERT_ERROR_ERRNO(mkdir("/i/will/fail/with/enoent", 666), ENOANO), SIGABRT);
+
+        ASSERT_TRUE(true);
+        ASSERT_TRUE(255);
+        ASSERT_TRUE(getpid());
+        ASSERT_SIGNAL(ASSERT_TRUE(1 == 0), SIGABRT);
+
+        ASSERT_FALSE(false);
+        ASSERT_FALSE(1 == 0);
+        ASSERT_SIGNAL(ASSERT_FALSE(1 > 0), SIGABRT);
+
+        ASSERT_NULL(NULL);
+        ASSERT_SIGNAL(ASSERT_NULL(signal_to_string(SIGINT)), SIGABRT);
+
+        ASSERT_NOT_NULL(signal_to_string(SIGTERM));
+        ASSERT_SIGNAL(ASSERT_NOT_NULL(NULL), SIGABRT);
+
+        ASSERT_STREQ(NULL, null);
+        ASSERT_STREQ("foo", "foo");
+        ASSERT_SIGNAL(ASSERT_STREQ(null, "bar"), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_STREQ("foo", "bar"), SIGABRT);
+
+        ASSERT_EQ(0, 0);
+        ASSERT_EQ(-1, -1);
+        ASSERT_SIGNAL(ASSERT_EQ(255, -1), SIGABRT);
+
+        ASSERT_GE(0, 0);
+        ASSERT_GE(1, -1);
+        ASSERT_SIGNAL(ASSERT_GE(-1, 1), SIGABRT);
+
+        ASSERT_LE(0, 0);
+        ASSERT_LE(-1, 1);
+        ASSERT_SIGNAL(ASSERT_LE(1, -1), SIGABRT);
+
+        ASSERT_NE(0, (int64_t) UINT_MAX);
+        ASSERT_NE(-1, 1);
+        ASSERT_SIGNAL(ASSERT_NE(0, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_NE(-1, -1), SIGABRT);
+
+        ASSERT_GT(1, 0);
+        ASSERT_GT(1, -1);
+        ASSERT_SIGNAL(ASSERT_GT(0, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_GT(-1, 1), SIGABRT);
+
+        ASSERT_LT(0, 1);
+        ASSERT_LT(-1, 1);
+        ASSERT_SIGNAL(ASSERT_LT(0, 0), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_LT(1, -1), SIGABRT);
+
+        ASSERT_EQ_ID128(SD_ID128_NULL, SD_ID128_NULL);
+        ASSERT_NE_ID128(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8),
+                        SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e));
+        ASSERT_SIGNAL(
+                ASSERT_EQ_ID128(SD_ID128_MAKE(51,df,0b,4b,c3,b0,4c,97,80,e2,99,b9,8c,a3,73,b8),
+                                SD_ID128_MAKE(f0,3d,aa,eb,1c,33,4b,43,a7,32,17,29,44,bf,77,2e)),
+                SIGABRT);
+        ASSERT_SIGNAL(ASSERT_NE_ID128(SD_ID128_NULL, SD_ID128_NULL), SIGABRT);
+}
+
+TEST(ASSERT_OK_OR) {
+        ASSERT_OK_OR(0, -EINVAL, -EUCLEAN);
+        ASSERT_OK_OR(99, -EINVAL, -EUCLEAN);
+        ASSERT_OK_OR(-EINVAL, -EINVAL, -EUCLEAN);
+        ASSERT_OK_OR(-EUCLEAN, -EUCLEAN);
+        ASSERT_OK_OR(-1, -EPERM);
+
+        ASSERT_SIGNAL(ASSERT_OK_OR(-1, -2), SIGABRT);
+}
+
+DEFINE_TEST_MAIN(LOG_INFO);

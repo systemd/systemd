@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/statvfs.h>
 #include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include <sys/statvfs.h>
 
 #include "alloc-util.h"
 #include "coredump-vacuum.h"
@@ -11,7 +9,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "macro.h"
+#include "log.h"
 #include "memory-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -38,11 +36,10 @@ static VacuumCandidate* vacuum_candidate_free(VacuumCandidate *c) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(VacuumCandidate*, vacuum_candidate_free);
 
-static Hashmap* vacuum_candidate_hashmap_free(Hashmap *h) {
-        return hashmap_free_with_destructor(h, vacuum_candidate_free);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, vacuum_candidate_hashmap_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                vacuum_candidate_hash_ops,
+                void, trivial_hash_func, trivial_compare_func,
+                VacuumCandidate, vacuum_candidate_free);
 
 static int uid_from_file_name(const char *filename, uid_t *uid) {
         const char *p, *e, *u;
@@ -141,7 +138,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
         }
 
         for (;;) {
-                _cleanup_(vacuum_candidate_hashmap_freep) Hashmap *h = NULL;
+                _cleanup_hashmap_free_ Hashmap *h = NULL;
                 VacuumCandidate *worst = NULL;
                 uint64_t sum = 0;
 
@@ -171,10 +168,6 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                         if (exclude_fd >= 0 && stat_inode_same(&exclude_st, &st))
                                 continue;
 
-                        r = hashmap_ensure_allocated(&h, NULL);
-                        if (r < 0)
-                                return log_oom();
-
                         t = timespec_load(&st.st_mtim);
 
                         c = hashmap_get(h, UID_TO_PTR(uid));
@@ -197,7 +190,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                                         return r;
                                 n->oldest_mtime = t;
 
-                                r = hashmap_put(h, UID_TO_PTR(uid), n);
+                                r = hashmap_ensure_put(&h, &vacuum_candidate_hash_ops, UID_TO_PTR(uid), n);
                                 if (r < 0)
                                         return log_oom();
 

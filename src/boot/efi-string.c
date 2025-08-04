@@ -7,6 +7,7 @@
 #  include "util.h"
 #else
 #  include <stdlib.h>
+
 #  include "alloc-util.h"
 #  define xnew(t, n) ASSERT_SE_PTR(new(t, n))
 #  define xmalloc(n) ASSERT_SE_PTR(malloc(n))
@@ -752,7 +753,7 @@ static bool handle_format_specifier(FormatContext *ctx, SpecifierContext *sp) {
          * otherwise warn about fetching smaller types. */
         assert_cc(sizeof(int) == 4);
         assert_cc(sizeof(wchar_t) <= sizeof(int));
-        assert_cc(sizeof(intmax_t) <= sizeof(long long));
+        assert_cc(sizeof(long long) == sizeof(intmax_t));
 
         assert(ctx);
         assert(sp);

@@ -66,6 +66,20 @@ if [[ -x /usr/lib/systemd/systemd-pcrextend ]]; then
     varlinkctl introspect /usr/lib/systemd/systemd-pcrextend
 fi
 
+# Test various varlink socket units to make sure that we can still connect to the varlink sockets even if the
+# services are currently stopped (or restarting).
+systemctl stop \
+    systemd-networkd.service \
+    systemd-hostnamed.service \
+    systemd-machined.service \
+    systemd-udevd.service
+varlinkctl introspect /run/systemd/netif/io.systemd.Network
+varlinkctl introspect /run/systemd/io.systemd.Hostname
+varlinkctl introspect /run/systemd/machine/io.systemd.Machine
+if ! systemd-detect-virt -qc; then
+    varlinkctl introspect /run/udev/io.systemd.Udev
+fi
+
 # SSH transport
 SSHBINDIR="$(mktemp -d)"
 
@@ -166,3 +180,31 @@ varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{
 varlinkctl --exec call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' -- jq > /tmp/describe2.json
 cmp /tmp/describe1.json /tmp/describe2.json
 rm /tmp/describe1.json /tmp/describe2.json
+
+# test io.systemd.Manager
+varlinkctl info /run/systemd/io.systemd.Manager
+varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Manager
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
+
+# test io.systemd.Unit
+varlinkctl info /run/systemd/io.systemd.Manager
+varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Unit
+varlinkctl --more call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "multi-user.target"}'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"pid": 0}}'
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": ""}')
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "non-existent.service"}')
+(! varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"pid": -1}}' )
+
+# test io.systemd.Manager in user manager
+testuser_uid=$(id -u testuser)
+systemd-run --wait --pipe --user --machine testuser@ \
+        varlinkctl info "/run/user/$testuser_uid/systemd/io.systemd.Manager"
+systemd-run --wait --pipe --user --machine testuser@ \
+        varlinkctl introspect "/run/user/$testuser_uid/systemd/io.systemd.Manager"
+systemd-run --wait --pipe --user --machine testuser@ \
+        varlinkctl call "/run/user/$testuser_uid/systemd/io.systemd.Manager" io.systemd.Manager.Describe '{}'
+
+# test io.systemd.Unit in user manager
+systemd-run --wait --pipe --user --machine testuser@ \
+        varlinkctl --more call "/run/user/$testuser_uid/systemd/io.systemd.Manager" io.systemd.Unit.List '{}'

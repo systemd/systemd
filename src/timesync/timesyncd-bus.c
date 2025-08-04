@@ -1,24 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/capability.h>
-
 #include "sd-bus.h"
 
-#include "alloc-util.h"
 #include "bus-get-properties.h"
-#include "bus-internal.h"
 #include "bus-log-control-api.h"
+#include "bus-object.h"
 #include "bus-polkit.h"
-#include "bus-protocol.h"
 #include "bus-util.h"
 #include "dns-domain.h"
 #include "in-addr-util.h"
 #include "log.h"
-#include "macro.h"
 #include "strv.h"
 #include "time-util.h"
 #include "timesyncd-bus.h"
-#include "user-util.h"
+#include "timesyncd-manager.h"
+#include "timesyncd-server.h"
 
 static int property_get_servers(
                 sd_bus *bus,

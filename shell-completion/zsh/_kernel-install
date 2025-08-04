@@ -12,7 +12,7 @@ _kernel-install_images(){
 
 (( $+functions[_kernel-install_kernels] )) ||
 _kernel-install_kernels(){
-    read _MACHINE_ID < /etc/machine-id
+    read -r _MACHINE_ID < /etc/machine-id
     _kernel=( /lib/modules/[0-9]* )
     if [[ "$cmd" == "remove" && -n "$_MACHINE_ID" ]]; then
         _kernel=( "/boot/$_MACHINE_ID"/[0-9]* )

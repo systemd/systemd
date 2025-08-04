@@ -9,7 +9,7 @@ Host .host machine/.host
 # Make sure unix/* and vsock/* can be used to connect to AF_UNIX and AF_VSOCK paths.
 # Make sure machine/* can be used to connect to local machines registered in machined.
 #
-Host unix/* vsock/* vsock-mux/* machine/*
+Host unix/* unix%* vsock/* vsock%* vsock-mux/* vsock-mux%* machine/* machine%*
         ProxyCommand {{LIBEXECDIR}}/systemd-ssh-proxy %h %p
         ProxyUseFdpass yes
         CheckHostIP no

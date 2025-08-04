@@ -2,8 +2,6 @@
 
 #include "alloc-util.h"
 #include "journald-syslog.h"
-#include "macro.h"
-#include "string-util.h"
 #include "syslog-util.h"
 #include "tests.h"
 

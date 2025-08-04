@@ -16,8 +16,11 @@
 
 #include "chid.h"
 #include "chid-fundamental.h"
-#include "efi.h"
-#include "sha1-fundamental.h"
+#include "edid.h"
+#if SD_BOOT
+#include "efi-log.h"
+#endif
+#include "efi-string.h"
 #include "smbios.h"
 #include "util.h"
 
@@ -72,6 +75,8 @@ static void smbios_info_populate(SmbiosInfo *ret_info) {
         ret_info->smbios_fields[CHID_SMBIOS_FAMILY] = smbios_to_hashable_string(raw.family);
         ret_info->smbios_fields[CHID_SMBIOS_BASEBOARD_PRODUCT] = smbios_to_hashable_string(raw.baseboard_product);
         ret_info->smbios_fields[CHID_SMBIOS_BASEBOARD_MANUFACTURER] = smbios_to_hashable_string(raw.baseboard_manufacturer);
+
+        edid_get_discovered_panel_id(&ret_info->smbios_fields[CHID_EDID_PANEL]);
 }
 
 static void smbios_info_done(SmbiosInfo *info) {
@@ -100,7 +105,7 @@ EFI_STATUS chid_match(const void *hwid_buffer, size_t hwid_length, uint32_t matc
         const Device *devices = ASSERT_PTR(hwid_buffer);
 
         EFI_GUID chids[CHID_TYPES_MAX] = {};
-        static const size_t priority[] = { 3, 6, 8, 10, 4, 5, 7, 9, 11 }; /* From most to least specific. */
+        static const size_t priority[] = { 17, 16, 15, 3, 6, 8, 10, 4, 5, 7, 9, 11 }; /* From most to least specific. */
 
         status = populate_board_chids(chids);
         if (EFI_STATUS_IS_ERROR(status))

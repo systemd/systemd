@@ -7,7 +7,10 @@
 
 #include "alloc-util.h"
 #include "detach-swap.h"
+#include "errno-util.h"
 #include "libmount-util.h"
+#include "list.h"
+#include "log.h"
 
 static void swap_device_free(SwapDevice **head, SwapDevice *m) {
         assert(head);
@@ -74,20 +77,23 @@ int swap_list_get(const char *swaps, SwapDevice **head) {
 }
 
 static int swap_points_list_off(SwapDevice **head, bool *changed) {
-        int n_failed = 0;
+        int n_failed = 0, r;
 
         assert(head);
         assert(changed);
 
         LIST_FOREACH(swap_device, m, *head) {
                 log_info("Deactivating swap %s.", m->path);
-                if (swapoff(m->path) < 0) {
-                        log_warning_errno(errno, "Could not deactivate swap %s: %m", m->path);
+                r = RET_NERRNO(swapoff(m->path));
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        log_debug_errno(r, "Tried to deactivate swap '%s', but swap disappeared by now, ignoring: %m", m->path);
+                else if (r < 0) {
+                        log_warning_errno(r, "Could not deactivate swap %s: %m", m->path);
                         n_failed++;
                         continue;
-                }
+                } else
+                        *changed = true;
 
-                *changed = true;
                 swap_device_free(head, m);
         }
 

@@ -1,17 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "chase.h"
 #include "devnum-util.h"
 #include "escape.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "volatile-util.h"
 

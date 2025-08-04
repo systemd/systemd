@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/socket.h>
-#include <sys/un.h>
-
+#include "forward.h"
 #include "group-record.h"
 #include "user-record.h"
 
@@ -32,6 +30,7 @@ typedef enum UserDBFlags {
         USERDB_DROPIN_ONLY = USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_VARLINK|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN,
 
         USERDB_PARSE_NUMERIC             = 1 << 8,  /* if a numeric UID is specified as name, parse it and look up by UID/GID */
+        USERDB_SYNTHESIZE_NUMERIC        = 1 << 9,  /* synthesize system UID/GID even if it does not exist */
 } UserDBFlags;
 
 /* Well-known errors we'll return here:

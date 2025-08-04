@@ -2,19 +2,24 @@
 
 #include "sd-id128.h"
 
+#include "alloc-util.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
 #include "initrd-util.h"
-#include "macro.h"
+#include "log.h"
 #include "path-lookup.h"
 #include "set.h"
+#include "siphash24.h"
 #include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "unit-file.h"
+#include "unit-name.h"
 
 int unit_symlink_name_compatible(const char *symlink, const char *target, bool instance_propagation) {
         _cleanup_free_ char *template = NULL;
@@ -376,7 +381,7 @@ int unit_file_build_name_map(
          */
 
         _cleanup_hashmap_free_ Hashmap *ids = NULL, *names = NULL;
-        _cleanup_set_free_free_ Set *paths = NULL;
+        _cleanup_set_free_ Set *paths = NULL;
         _cleanup_strv_free_ char **expanded_search_path = NULL;
         uint64_t timestamp_hash;
         int r;
@@ -567,17 +572,21 @@ int unit_file_build_name_map(
         /* Let's also put the names in the reverse db. */
         const char *dummy, *src;
         HASHMAP_FOREACH_KEY(dummy, src, ids) {
-                _cleanup_free_ char *inst = NULL, *dst_inst = NULL;
-                const char *dst;
+                _cleanup_free_ char *inst = NULL, *dst = NULL;
+                const char *dst_path;
 
-                r = unit_ids_map_get(ids, src, &dst);
+                r = unit_ids_map_get(ids, src, &dst_path);
                 if (r < 0)
                         continue;
 
-                if (null_or_empty_path(dst) != 0)
+                if (null_or_empty_path(dst_path) != 0)
                         continue;
 
-                dst = basename(dst);
+                r = path_extract_filename(dst_path, &dst);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to extract file name from %s, ignoring: %m", dst_path);
+                        continue;
+                }
 
                 /* If we have an symlink from an instance name to a template name, it is an alias just for
                  * this specific instance, foo@id.service ↔ template@id.service. */
@@ -586,6 +595,8 @@ int unit_file_build_name_map(
                         if (t < 0)
                                 return log_error_errno(t, "Failed to extract instance part from %s: %m", src);
                         if (t == UNIT_NAME_INSTANCE) {
+                                _cleanup_free_ char *dst_inst = NULL;
+
                                 r = unit_name_replace_instance(dst, inst, &dst_inst);
                                 if (r < 0) {
                                         /* This might happen e.g. if the combined length is too large.
@@ -595,7 +606,7 @@ int unit_file_build_name_map(
                                         continue;
                                 }
 
-                                dst = dst_inst;
+                                free_and_replace(dst, dst_inst);
                         }
                 }
 
@@ -837,13 +848,14 @@ const char* runlevel_to_target(const char *word) {
                 word = startswith(word, "rd.");
                 if (!word)
                         return NULL;
-        }
 
-        rlmap_ptr = in_initrd() ? rlmap_initrd : rlmap;
+                rlmap_ptr = rlmap_initrd;
+        } else
+                rlmap_ptr = rlmap;
 
-        for (size_t i = 0; rlmap_ptr[i]; i += 2)
-                if (streq(word, rlmap_ptr[i]))
-                        return rlmap_ptr[i+1];
+        STRV_FOREACH_PAIR(rl, target, rlmap_ptr)
+                if (streq(word, *rl))
+                        return *target;
 
         return NULL;
 }

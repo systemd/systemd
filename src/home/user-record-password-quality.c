@@ -1,13 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "errno-util.h"
-#include "home-util.h"
 #include "libcrypt-util.h"
+#include "log.h"
 #include "password-quality-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "user-record.h"
 #include "user-record-password-quality.h"
-#include "user-record-util.h"
 
 #if HAVE_PASSWDQC || HAVE_PWQUALITY
 
@@ -59,7 +63,7 @@ int user_record_check_password_quality(
                         continue;
 
                 /* If there are no old passwords, let's call check_password_quality() without any. */
-                r = check_password_quality(*pp, /* old */ NULL, hr->user_name, &auxerror);
+                r = check_password_quality(*pp, /* old = */ NULL, hr->user_name, &auxerror);
                 if (r <= 0)
                         goto error;
         }

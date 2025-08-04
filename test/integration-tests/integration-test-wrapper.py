@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 """Test wrapper command for driving integration tests."""
@@ -12,11 +12,14 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
 import textwrap
 from pathlib import Path
+from types import FrameType
+from typing import Optional
 
 EMERGENCY_EXIT_DROPIN = """\
 [Unit]
@@ -359,9 +362,25 @@ def statfs(path: Path) -> str:
     ).stdout.strip()
 
 
+INTERRUPTED = False
+
+
+def onsignal(signal: int, frame: Optional[FrameType]) -> None:
+    global INTERRUPTED
+    if INTERRUPTED:
+        return
+
+    INTERRUPTED = True
+    raise KeyboardInterrupt()
+
+
 def main() -> None:
+    signal.signal(signal.SIGINT, onsignal)
+    signal.signal(signal.SIGTERM, onsignal)
+    signal.signal(signal.SIGHUP, onsignal)
+
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--mkosi', required=True)
+    parser.add_argument('--mkosi', default=None)
     parser.add_argument('--meson-source-dir', required=True, type=Path)
     parser.add_argument('--meson-build-dir', required=True, type=Path)
     parser.add_argument('--name', required=True)
@@ -374,9 +393,16 @@ def main() -> None:
     parser.add_argument('--coredump-exclude-regex', required=True)
     parser.add_argument('--sanitizer-exclude-regex', required=True)
     parser.add_argument('--rtc', action=argparse.BooleanOptionalAction)
+    parser.add_argument('--tpm', action=argparse.BooleanOptionalAction)
     parser.add_argument('--skip', action=argparse.BooleanOptionalAction)
     parser.add_argument('mkosi_args', nargs='*')
     args = parser.parse_args()
+
+    if not args.mkosi:
+        args.mkosi = shutil.which('mkosi')
+        if not args.mkosi:
+            print('Could not find mkosi which is required to run the integration tests', file=sys.stderr)
+            sys.exit(1)
 
     # The meson source directory can either be the top-level repository directory or the
     # test/integration-tests/standalone subdirectory in the repository directory. The mkosi configuration
@@ -393,13 +419,6 @@ def main() -> None:
             file=sys.stderr,
         )
         exit(1)
-
-    if not bool(int(os.getenv('SYSTEMD_INTEGRATION_TESTS', '0'))):
-        print(
-            f'SYSTEMD_INTEGRATION_TESTS=1 not found in environment, skipping {args.name}',
-            file=sys.stderr,
-        )
-        exit(77)
 
     if args.slow and not bool(int(os.getenv('SYSTEMD_SLOW_TESTS', '0'))):
         print(
@@ -471,6 +490,14 @@ def main() -> None:
             """
         )
 
+    if os.getenv('TEST_RUN_DFUZZER'):
+        dropin += textwrap.dedent(
+            f"""
+            [Service]
+            Environment=TEST_RUN_DFUZZER={os.environ['TEST_RUN_DFUZZER']}
+            """
+        )
+
     if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
         if statfs(Path('/tmp')) != 'tmpfs' and statfs(Path('/dev/shm')) == 'tmpfs':
             tmp = Path('/dev/shm')
@@ -529,21 +556,17 @@ def main() -> None:
     else:
         rtc = None
 
-    # mkosi will use the UEFI secure boot firmware by default on UEFI platforms. However, this breaks on
-    # Github Actions in combination with KVM because of a HyperV bug so make sure we use the non secure
-    # boot firmware on Github Actions.
-    # TODO: Drop after the HyperV bug that breaks secure boot KVM guests is solved
-    if args.firmware == 'auto' and os.getenv('GITHUB_ACTIONS'):
-        firmware = 'uefi'
     # Whenever possible, boot without an initrd. This requires the target distribution kernel to have the
     # necessary modules (virtio-blk, ext4) builtin.
-    elif args.firmware == 'linux-noinitrd' and (summary.distribution, summary.release) not in (
+    if args.firmware == 'linux-noinitrd' and (summary.distribution, summary.release) not in (
         ('fedora', 'rawhide'),
         ('arch', 'rolling'),
     ):
         firmware = 'linux'
     else:
         firmware = args.firmware
+
+    vm = args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1'
 
     cmd = [
         args.mkosi,
@@ -566,6 +589,7 @@ def main() -> None:
         *args.mkosi_args,
         '--firmware', firmware,
         *(['--kvm', 'no'] if int(os.getenv('TEST_NO_KVM', '0')) else []),
+        '--tpm', 'yes' if args.tpm else 'no',
         '--kernel-command-line-extra',
         ' '.join(
             [
@@ -588,22 +612,26 @@ def main() -> None:
         ),
         '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
-        'vm' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
+        'vm' if vm else 'boot',
+        *(['--', '--capability=CAP_BPF'] if not vm else []),
     ]  # fmt: skip
 
-    result = subprocess.run(cmd)
-
-    # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
-    if args.vm and result.returncode == 247 and args.exit_code != 247:
-        if journal_file:
-            journal_file.unlink(missing_ok=True)
+    try:
         result = subprocess.run(cmd)
+
+        # On Debian/Ubuntu we get a lot of random QEMU crashes. Retry once, and then skip if it fails again.
         if args.vm and result.returncode == 247 and args.exit_code != 247:
-            print(
-                f'Test {args.name} failed due to QEMU crash (error 247), ignoring',
-                file=sys.stderr,
-            )
-            exit(77)
+            if journal_file:
+                journal_file.unlink(missing_ok=True)
+            result = subprocess.run(cmd)
+            if args.vm and result.returncode == 247 and args.exit_code != 247:
+                print(
+                    f'Test {args.name} failed due to QEMU crash (error 247), ignoring',
+                    file=sys.stderr,
+                )
+                exit(77)
+    except KeyboardInterrupt:
+        result = subprocess.CompletedProcess(args=cmd, returncode=-signal.SIGINT)
 
     coredumps = process_coredumps(args, journal_file)
 
@@ -629,10 +657,15 @@ def main() -> None:
     elif os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1' and journal_file.exists():
         dst = args.meson_build_dir / f'test/journal/{name}.journal'
         dst.parent.mkdir(parents=True, exist_ok=True)
-        journal_file = shutil.move(journal_file, dst)
+        journal_file = Path(shutil.move(journal_file, dst))
 
     if shell or (result.returncode in (args.exit_code, 77) and not coredumps and not sanitizer):
-        exit(0 if shell or result.returncode == args.exit_code else 77)
+        exit_code = 0 if shell or result.returncode == args.exit_code else 77
+        exit_str = 'succeeded' if exit_code == 0 else 'skipped'
+    else:
+        # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
+        exit_code = result.returncode or 1
+        exit_str = 'failed'
 
     if journal_file.exists():
         ops = []
@@ -641,16 +674,20 @@ def main() -> None:
             id = os.environ['GITHUB_RUN_ID']
             wf = os.environ['GITHUB_WORKFLOW']
             iter = os.environ['GITHUB_RUN_ATTEMPT']
-            artifact = f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-failed-test-journals'
+            runner = os.environ['TEST_RUNNER']
+            artifact = (
+                f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-{runner}-failed-test-journals'  # noqa: E501
+            )
             ops += [f'gh run download {id} --name {artifact} -D ci/{artifact}']
             journal_file = Path(f'ci/{artifact}/test/journal/{name}.journal')
 
         ops += [f'journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info']
 
-        print(f'Test failed, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr)
+        print(
+            f'Test {exit_str}, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr
+        )
 
-    # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
-    exit(result.returncode or 1)
+    exit(exit_code)
 
 
 if __name__ == '__main__':

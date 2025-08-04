@@ -294,6 +294,9 @@ All tools:
   first existing unit listed in the environment variable, and
   `timedatectl set-ntp off` disables and stops all listed units.
 
+* `$SYSTEMD_ETC_ADJTIME` - override the path to the hardware clock settings
+  file. The default is `/etc/adjtime`.
+
 `systemd-sulogin-shell`:
 
 * `$SYSTEMD_SULOGIN_FORCE=1` — This skips asking for the root password if the
@@ -350,12 +353,13 @@ All tools:
   default is not appropriate for a given system. Defaults to `5`, accepts
   positive integers.
 
-* `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC` — can be set to override the mount
-  units interval rate limit for parsing `/proc/self/mountinfo`. Similar to
-  `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST`, the interval limit maybe adjusted when
-  the default is not appropriate for a given system. The default value is 1 and the
-  default application time unit is second, and the time unit can beoverriden as usual
-  by specifying it explicitly, see the systemd.time(7) man page.
+* `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL_SEC` — can be set to override the
+  mount units interval rate limit for parsing `/proc/self/mountinfo`. Similar
+  to `$SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST`, the interval limit maybe
+  adjusted when the default is not appropriate for a given system. The default
+  value is 1, the default application time unit is second, and the time unit
+  can be overridden as usual by specifying it explicitly, see the
+  systemd.time(7) man page.
 
 `systemd-remount-fs`:
 
@@ -688,6 +692,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   work, ProtectSystem=strict in systemd-networkd.service needs to be downgraded
   or disabled.
 
+* `$SYSTEMD_LLDP_SEND_MACHINE_ID` - takes a boolean, If true, systemd-networkd
+  sends machine ID as chassis ID through LLDP protocol.
+
 `systemd-storagetm`:
 
 * `$SYSTEMD_NVME_MODEL`, `$SYSTEMD_NVME_FIRMWARE`, `$SYSTEMD_NVME_SERIAL`,
@@ -784,3 +791,25 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   `systemd.factory_reset=` kernel command line option: if set to false,
   requesting a TPM clearing is skipped, and the command immediately exits
   successfully.
+
+`systemd-timedated`, `systemd-firstboot`, `systemd`:
+
+* `$SYSTEMD_ETC_LOCALTIME` - override the path to the timezone symlink. The
+  default is `/etc/localtime`. The directory of the path should exist and not
+  be removed.
+
+`systemd-hostnamed`, `systemd-firstboot`:
+
+* `$SYSTEMD_ETC_HOSTNAME` - override the path to local system name
+  configuration file. The default is `/etc/hostname`.
+
+* `$SYSTEMD_ETC_MACHINE_INFO` - override the path to the machine metadata file. The
+  default is `/etc/machine-info`.
+
+`systemd-localed`, `systemd-firstboot`:
+
+* `$SYSTEMD_ETC_LOCALE_CONF` - override the path to the system-wide locale
+  configuration file. The default is `/etc/locale.conf`.
+
+* `$SYSTEMD_ETC_VCONSOLE_CONF` - override the path to the virtual console
+  configuration file. The default is `/etc/vconsole.conf`.

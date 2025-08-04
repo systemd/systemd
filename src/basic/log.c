@@ -1,16 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <limits.h>
-#include <stdarg.h>
-#include <stddef.h>
 #include <sys/signalfd.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <sys/uio.h>
-#include <sys/un.h>
 #include <threads.h>
 #include <unistd.h>
 
@@ -21,12 +14,13 @@
 #include "argv-util.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"
+#include "list.h"
 #include "log.h"
-#include "macro.h"
-#include "missing_syscall.h"
+#include "log-context.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -76,27 +70,6 @@ static bool upgrade_syslog_to_journal = false;
 static bool always_reopen_console = false;
 static bool open_when_needed = false;
 static bool prohibit_ipc = false;
-static bool assert_return_is_critical = BUILD_MODE_DEVELOPER;
-
-/* Akin to glibc's __abort_msg; which is private and we hence cannot
- * use here. */
-static char *log_abort_msg = NULL;
-
-typedef struct LogContext {
-        unsigned n_ref;
-        /* Depending on which destructor is used (log_context_free() or log_context_detach()) the memory
-         * referenced by this is freed or not */
-        char **fields;
-        struct iovec *input_iovec;
-        size_t n_input_iovec;
-        char *key;
-        char *value;
-        bool owned;
-        LIST_FIELDS(struct LogContext, ll);
-} LogContext;
-
-static thread_local LIST_HEAD(LogContext, _log_context) = NULL;
-static thread_local size_t _log_context_num_fields = 0;
 
 static thread_local const char *log_prefix = NULL;
 
@@ -697,7 +670,7 @@ static void log_do_context(struct iovec *iovec, size_t iovec_len, size_t *n) {
         assert(iovec);
         assert(n);
 
-        LIST_FOREACH(ll, c, _log_context) {
+        LIST_FOREACH(ll, c, log_context_head()) {
                 STRV_FOREACH(s, c->fields) {
                         if (*n + 2 >= iovec_len)
                                 return;
@@ -747,7 +720,7 @@ static int write_to_journal(
         if (LOG_PRI(level) > log_target_max_level[LOG_TARGET_JOURNAL])
                 return 0;
 
-        iovec_len = MIN(6 + _log_context_num_fields * 3, IOVEC_MAX);
+        iovec_len = MIN(6 + log_context_num_fields() * 3, IOVEC_MAX);
         iovec = newa(struct iovec, iovec_len);
 
         log_do_header(header, sizeof(header), level, error, file, line, func, object_field, object, extra_field, extra);
@@ -964,61 +937,6 @@ int log_object_internal(
         return r;
 }
 
-static void log_assert(
-                int level,
-                const char *text,
-                const char *file,
-                int line,
-                const char *func,
-                const char *format) {
-
-        static char buffer[LINE_MAX];
-
-        if (_likely_(LOG_PRI(level) > log_max_level))
-                return;
-
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        (void) snprintf(buffer, sizeof buffer, format, text, file, line, func);
-        REENABLE_WARNING;
-
-        log_abort_msg = buffer;
-
-        log_dispatch_internal(level, 0, file, line, func, NULL, NULL, NULL, NULL, buffer);
-}
-
-_noreturn_ void log_assert_failed(
-                const char *text,
-                const char *file,
-                int line,
-                const char *func) {
-        log_assert(LOG_CRIT, text, file, line, func,
-                   "Assertion '%s' failed at %s:%u, function %s(). Aborting.");
-        abort();
-}
-
-_noreturn_ void log_assert_failed_unreachable(
-                const char *file,
-                int line,
-                const char *func) {
-        log_assert(LOG_CRIT, "Code should not be reached", file, line, func,
-                   "%s at %s:%u, function %s(). Aborting. 💥");
-        abort();
-}
-
-void log_assert_failed_return(
-                const char *text,
-                const char *file,
-                int line,
-                const char *func) {
-
-        if (assert_return_is_critical)
-                log_assert_failed(text, file, line, func);
-
-        PROTECT_ERRNO;
-        log_assert(LOG_DEBUG, text, file, line, func,
-                   "Assertion '%s' failed at %s:%u, function %s(), ignoring.");
-}
-
 int log_oom_internal(int level, const char *file, int line, const char *func) {
         return log_internal(level, ENOMEM, file, line, func, "Out of memory.");
 }
@@ -1099,7 +1017,7 @@ int log_struct_internal(
                         int r;
                         bool fallback = false;
 
-                        iovec_len = MIN(17 + _log_context_num_fields * 3, IOVEC_MAX);
+                        iovec_len = MIN(17 + log_context_num_fields() * 3, IOVEC_MAX);
                         iovec = newa(struct iovec, iovec_len);
 
                         /* If the journal is available do structured logging.
@@ -1200,7 +1118,7 @@ int log_struct_iovec_internal(
                 struct iovec *iovec;
                 size_t n = 0, iovec_len;
 
-                iovec_len = MIN(1 + n_input_iovec * 2 + _log_context_num_fields * 3, IOVEC_MAX);
+                iovec_len = MIN(1 + n_input_iovec * 2 + log_context_num_fields() * 3, IOVEC_MAX);
                 iovec = newa(struct iovec, iovec_len);
 
                 log_do_header(header, sizeof(header), level, error, file, line, func, NULL, NULL, NULL, NULL);
@@ -1330,14 +1248,6 @@ static int log_set_ratelimit_kmsg_from_string(const char *e) {
 
         ratelimit_kmsg = r;
         return 0;
-}
-
-void log_set_assert_return_is_critical(bool b) {
-        assert_return_is_critical = b;
-}
-
-bool log_get_assert_return_is_critical(void) {
-        return assert_return_is_critical;
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -1490,6 +1400,12 @@ int log_get_max_level(void) {
         return log_max_level;
 }
 
+int log_get_target_max_level(LogTarget target) {
+        assert(target >= 0);
+        assert(target < _LOG_TARGET_SINGLE_MAX);
+        return log_target_max_level[target];
+}
+
 void log_show_color(bool b) {
         show_color = b;
 }
@@ -1591,7 +1507,7 @@ DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
 void log_received_signal(int level, const struct signalfd_siginfo *si) {
         assert(si);
 
-        if (pid_is_valid(si->ssi_pid)) {
+        if (si_code_from_process(si->ssi_code) && pid_is_valid(si->ssi_pid)) {
                 _cleanup_free_ char *p = NULL;
 
                 (void) pid_get_comm(si->ssi_pid, &p);
@@ -1810,163 +1726,4 @@ const char* _log_set_prefix(const char *prefix, bool force) {
                 log_prefix = prefix;
 
         return old;
-}
-
-static int saved_log_context_enabled = -1;
-
-bool log_context_enabled(void) {
-        int r;
-
-        if (log_get_max_level() == LOG_DEBUG)
-                return true;
-
-        if (saved_log_context_enabled >= 0)
-                return saved_log_context_enabled;
-
-        r = secure_getenv_bool("SYSTEMD_ENABLE_LOG_CONTEXT");
-        if (r < 0 && r != -ENXIO)
-                log_debug_errno(r, "Failed to parse $SYSTEMD_ENABLE_LOG_CONTEXT, ignoring: %m");
-
-        saved_log_context_enabled = r > 0;
-
-        return saved_log_context_enabled;
-}
-
-static LogContext* log_context_attach(LogContext *c) {
-        assert(c);
-
-        _log_context_num_fields += strv_length(c->fields);
-        _log_context_num_fields += c->n_input_iovec;
-        _log_context_num_fields += !!c->key;
-
-        return LIST_PREPEND(ll, _log_context, c);
-}
-
-static LogContext* log_context_detach(LogContext *c) {
-        if (!c)
-                return NULL;
-
-        assert(_log_context_num_fields >= strv_length(c->fields) + c->n_input_iovec +!!c->key);
-        _log_context_num_fields -= strv_length(c->fields);
-        _log_context_num_fields -= c->n_input_iovec;
-        _log_context_num_fields -= !!c->key;
-
-        LIST_REMOVE(ll, _log_context, c);
-        return NULL;
-}
-
-LogContext* log_context_new(const char *key, const char *value) {
-        assert(key);
-        assert(endswith(key, "="));
-        assert(value);
-
-        LIST_FOREACH(ll, i, _log_context)
-                if (i->key == key && i->value == value)
-                        return log_context_ref(i);
-
-        LogContext *c = new(LogContext, 1);
-        if (!c)
-                return NULL;
-
-        *c = (LogContext) {
-                .n_ref = 1,
-                .key = (char *) key,
-                .value = (char *) value,
-        };
-
-        return log_context_attach(c);
-}
-
-LogContext* log_context_new_strv(char **fields, bool owned) {
-        if (!fields)
-                return NULL;
-
-        LIST_FOREACH(ll, i, _log_context)
-                if (i->fields == fields) {
-                        assert(!owned);
-                        return log_context_ref(i);
-                }
-
-        LogContext *c = new(LogContext, 1);
-        if (!c)
-                return NULL;
-
-        *c = (LogContext) {
-                .n_ref = 1,
-                .fields = fields,
-                .owned = owned,
-        };
-
-        return log_context_attach(c);
-}
-
-LogContext* log_context_new_iov(struct iovec *input_iovec, size_t n_input_iovec, bool owned) {
-        if (!input_iovec || n_input_iovec == 0)
-                return NULL;
-
-        LIST_FOREACH(ll, i, _log_context)
-                if (i->input_iovec == input_iovec && i->n_input_iovec == n_input_iovec) {
-                        assert(!owned);
-                        return log_context_ref(i);
-                }
-
-        LogContext *c = new(LogContext, 1);
-        if (!c)
-                return NULL;
-
-        *c = (LogContext) {
-                .n_ref = 1,
-                .input_iovec = input_iovec,
-                .n_input_iovec = n_input_iovec,
-                .owned = owned,
-        };
-
-        return log_context_attach(c);
-}
-
-static LogContext* log_context_free(LogContext *c) {
-        if (!c)
-                return NULL;
-
-        log_context_detach(c);
-
-        if (c->owned) {
-                strv_free(c->fields);
-                iovec_array_free(c->input_iovec, c->n_input_iovec);
-                free(c->key);
-                free(c->value);
-        }
-
-        return mfree(c);
-}
-
-DEFINE_TRIVIAL_REF_UNREF_FUNC(LogContext, log_context, log_context_free);
-
-LogContext* log_context_new_strv_consume(char **fields) {
-        LogContext *c = log_context_new_strv(fields, /*owned=*/ true);
-        if (!c)
-                strv_free(fields);
-
-        return c;
-}
-
-LogContext* log_context_new_iov_consume(struct iovec *input_iovec, size_t n_input_iovec) {
-        LogContext *c = log_context_new_iov(input_iovec, n_input_iovec, /*owned=*/ true);
-        if (!c)
-                iovec_array_free(input_iovec, n_input_iovec);
-
-        return c;
-}
-
-size_t log_context_num_contexts(void) {
-        size_t n = 0;
-
-        LIST_FOREACH(ll, c, _log_context)
-                n++;
-
-        return n;
-}
-
-size_t log_context_num_fields(void) {
-        return _log_context_num_fields;
 }

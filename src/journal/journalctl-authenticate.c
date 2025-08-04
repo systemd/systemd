@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "chattr-util.h"
 #include "errno-util.h"
@@ -11,17 +14,21 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "io-util.h"
-#include "journal-authenticate.h"
+#include "journal-def.h"
 #include "journalctl.h"
 #include "journalctl-authenticate.h"
+#include "log.h"
 #include "memstream-util.h"
 #include "path-util.h"
 #include "qrcode-util.h"
 #include "random-util.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 
+#if HAVE_GCRYPT
 static int format_key(
                 const void *seed,
                 size_t seed_size,
@@ -50,8 +57,10 @@ static int format_key(
 
         return memstream_finalize(&m, ret, NULL);
 }
+#endif
 
 int action_setup_keys(void) {
+#if HAVE_GCRYPT
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *path = NULL;
@@ -128,7 +137,7 @@ int action_setup_keys(void) {
 
         r = chattr_secret(fd, CHATTR_WARN_UNSUPPORTED_FLAGS);
         if (r < 0)
-                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || arg_quiet ? LOG_DEBUG : LOG_WARNING,
+                log_full_errno(ERRNO_IS_IOCTL_NOT_SUPPORTED(r) || arg_quiet ? LOG_DEBUG : LOG_WARNING,
                                r, "Failed to set file attributes on a temporary file for '%s', ignoring: %m", path);
 
         struct FSSHeader h = {
@@ -235,4 +244,7 @@ int action_setup_keys(void) {
 #endif
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Forward-secure sealing not available.");
+#endif
 }

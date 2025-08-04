@@ -2,6 +2,8 @@
 
 #include "device-path-util.h"
 #include "drivers.h"
+#include "efi-log.h"
+#include "string-util-fundamental.h"
 #include "util.h"
 
 static EFI_STATUS load_one_driver(

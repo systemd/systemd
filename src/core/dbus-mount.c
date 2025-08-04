@@ -10,7 +10,27 @@
 #include "mount.h"
 #include "string-util.h"
 #include "unit.h"
-#include "utf8.h"
+
+static int property_get_where(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Mount *m = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        _cleanup_free_ char *escaped = mount_get_where_escaped(m);
+        if (!escaped)
+                return -ENOMEM;
+
+        return sd_bus_message_append_basic(reply, 's', escaped);
+}
 
 static int property_get_what(
                 sd_bus *bus,
@@ -61,7 +81,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, mount_result, MountResu
 
 const sd_bus_vtable bus_mount_vtable[] = {
         SD_BUS_VTABLE_START(0),
-        SD_BUS_PROPERTY("Where", "s", NULL, offsetof(Mount, where), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("Where", "s", property_get_where, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("What", "s", property_get_what, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Options", "s", property_get_options, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Type", "s", property_get_type, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),

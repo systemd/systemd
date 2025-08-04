@@ -5,15 +5,12 @@
   Copyright © 2014 Intel Corporation. All rights reserved.
 ***/
 
-#include <inttypes.h>
 #include <linux/neighbour.h>
+#include <net/ethernet.h>
 
-#include "conf-parser.h"
-#include "ether-addr-util.h"
+#include "forward.h"
 #include "in-addr-util.h"
-
-typedef struct Link Link;
-typedef struct Network Network;
+#include "networkd-forward.h"
 
 typedef enum NeighborCacheEntryFlags {
         NEIGHBOR_CACHE_ENTRY_FLAGS_USE = NTF_USE,
@@ -39,8 +36,6 @@ typedef struct BridgeFDB {
         char *outgoing_ifname;
         int outgoing_ifindex;
 } BridgeFDB;
-
-BridgeFDB *bridge_fdb_free(BridgeFDB *fdb);
 
 void network_drop_invalid_bridge_fdb_entries(Network *network);
 

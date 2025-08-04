@@ -6,4 +6,3 @@ Description=Daughter Service
 Slice=parent.slice
 Type=oneshot
 ExecStart=true
-CPUAccounting=true

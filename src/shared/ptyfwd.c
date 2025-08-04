@@ -1,16 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <signal.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/epoll.h>
 #include <sys/ioctl.h>
-#include <sys/time.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -22,11 +15,13 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "glyph-util.h"
+#include "hostname-setup.h"
 #include "io-util.h"
 #include "log.h"
-#include "macro.h"
 #include "ptyfwd.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
@@ -65,6 +60,7 @@ struct PTYForward {
         sd_event_source *master_event_source;
         sd_event_source *sigwinch_event_source;
         sd_event_source *exit_event_source;
+        sd_event_source *defer_event_source;
 
         struct termios saved_stdin_attr;
         struct termios saved_stdout_attr;
@@ -127,6 +123,7 @@ static void pty_forward_disconnect(PTYForward *f) {
         f->master_event_source = sd_event_source_unref(f->master_event_source);
         f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
         f->exit_event_source = sd_event_source_unref(f->exit_event_source);
+        f->defer_event_source = sd_event_source_unref(f->defer_event_source);
         f->event = sd_event_unref(f->event);
 
         if (f->output_fd >= 0) {
@@ -252,18 +249,6 @@ static RequestOperation look_for_escape(PTYForward *f, const char *buffer, size_
         }
 
         return REQUEST_NOP;
-}
-
-static bool ignore_vhangup(PTYForward *f) {
-        assert(f);
-
-        if (f->flags & PTY_FORWARD_IGNORE_VHANGUP)
-                return true;
-
-        if ((f->flags & PTY_FORWARD_IGNORE_INITIAL_VHANGUP) && !f->read_from_master)
-                return true;
-
-        return false;
 }
 
 static bool drained(PTYForward *f) {
@@ -725,9 +710,9 @@ static int do_shovel(PTYForward *f) {
 
                                 /* Note that EIO on the master device might be caused by vhangup() or
                                  * temporary closing of everything on the other side, we treat it like EAGAIN
-                                 * here and try again, unless ignore_vhangup is off. */
+                                 * here and try again, unless vhangup() is honored. */
 
-                                if (errno == EAGAIN || (errno == EIO && ignore_vhangup(f)))
+                                if (errno == EAGAIN || (errno == EIO && !pty_forward_vhangup_honored(f)))
                                         f->master_readable = false;
                                 else if (IN_SET(errno, EPIPE, ECONNRESET, EIO)) {
                                         f->master_readable = f->master_writable = false;
@@ -791,6 +776,18 @@ static int do_shovel(PTYForward *f) {
                         break;
         }
 
+        return 0;
+}
+
+static int shovel(PTYForward *f) {
+        int r;
+
+        assert(f);
+
+        r = do_shovel(f);
+        if (r < 0)
+                return pty_forward_done(f, r);
+
         if (f->stdin_hangup || f->stdout_hangup || f->master_hangup) {
                 /* Exit the loop if any side hung up and if there's
                  * nothing more to write or nothing we could write. */
@@ -808,16 +805,17 @@ static int do_shovel(PTYForward *f) {
         return 0;
 }
 
-static int shovel(PTYForward *f) {
-        int r;
-
+static int shovel_force(PTYForward *f) {
         assert(f);
 
-        r = do_shovel(f);
-        if (r < 0)
-                return pty_forward_done(f, r);
+        if (!f->master_hangup)
+                f->master_writable = f->master_readable = true;
+        if (!f->stdin_hangup)
+                f->stdin_readable = true;
+        if (!f->stdout_hangup)
+                f->stdout_writable = true;
 
-        return r;
+        return shovel(f);
 }
 
 static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
@@ -888,20 +886,29 @@ static int on_exit_event(sd_event_source *e, void *userdata) {
 
         if (!pty_forward_drain(f)) {
                 /* If not drained, try to drain the buffer. */
-
-                if (!f->master_hangup)
-                        f->master_writable = f->master_readable = true;
-                if (!f->stdin_hangup)
-                        f->stdin_readable = true;
-                if (!f->stdout_hangup)
-                        f->stdout_writable = true;
-
-                r = shovel(f);
+                r = shovel_force(f);
                 if (r < 0)
                         return r;
         }
 
         return pty_forward_done(f, 0);
+}
+
+static int on_defer_event(sd_event_source *s, void *userdata) {
+        PTYForward *f = ASSERT_PTR(userdata);
+        return shovel_force(f);
+}
+
+static int pty_forward_add_defer(PTYForward *f) {
+        assert(f);
+
+        if (f->done)
+                return 0;
+
+        if (f->defer_event_source)
+                return sd_event_source_set_enabled(f->defer_event_source, SD_EVENT_ONESHOT);
+
+        return sd_event_add_defer(f->event, &f->defer_event_source, on_defer_event, f);
 }
 
 int pty_forward_new(
@@ -1087,33 +1094,31 @@ PTYForward* pty_forward_free(PTYForward *f) {
         return mfree(f);
 }
 
-int pty_forward_set_ignore_vhangup(PTYForward *f, bool b) {
-        int r;
-
+int pty_forward_honor_vhangup(PTYForward *f) {
         assert(f);
 
-        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP) == b)
+        if ((f->flags & (PTY_FORWARD_IGNORE_VHANGUP | PTY_FORWARD_IGNORE_INITIAL_VHANGUP)) == 0)
+                return 0; /* nothing changed. */
+
+        f->flags &= ~(PTY_FORWARD_IGNORE_VHANGUP | PTY_FORWARD_IGNORE_INITIAL_VHANGUP);
+
+        if (f->master_hangup)
                 return 0;
 
-        SET_FLAG(f->flags, PTY_FORWARD_IGNORE_VHANGUP, b);
-
-        if (!ignore_vhangup(f)) {
-
-                /* We shall now react to vhangup()s? Let's check immediately if we might be in one. */
-
-                f->master_readable = true;
-                r = shovel(f);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
+        /* We shall now react to vhangup()s? Let's check if we might be in one. */
+        return pty_forward_add_defer(f);
 }
 
-bool pty_forward_get_ignore_vhangup(PTYForward *f) {
+bool pty_forward_vhangup_honored(const PTYForward *f) {
         assert(f);
 
-        return FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP);
+        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_VHANGUP))
+                return false;
+
+        if (FLAGS_SET(f->flags, PTY_FORWARD_IGNORE_INITIAL_VHANGUP) && !f->read_from_master)
+                return false;
+
+        return true;
 }
 
 void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler cb, void *userdata) {
@@ -1130,18 +1135,14 @@ void pty_forward_set_hotkey_handler(PTYForward *f, PTYForwardHotkeyHandler cb, v
         f->hotkey_userdata = userdata;
 }
 
-bool pty_forward_drain(PTYForward *f) {
+int pty_forward_drain(PTYForward *f) {
         assert(f);
 
-        /* Starts draining the forwarder. Specifically:
-         *
-         * - Returns true if there are no unprocessed bytes from the pty, false otherwise
-         *
-         * - Makes sure the handler function is called the next time the number of unprocessed bytes hits zero
-         */
+        /* Starts draining the forwarder. This makes sure the handler function is called the next time the
+         * number of unprocessed bytes hits zero. */
 
         f->drain = true;
-        return drained(f);
+        return pty_forward_add_defer(f);
 }
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority) {
@@ -1260,4 +1261,46 @@ int pty_forward_set_title_prefix(PTYForward *f, const char *title_prefix) {
         assert(f);
 
         return free_and_strdup(&f->title_prefix, title_prefix);
+}
+
+int pty_forward_set_window_title(
+                PTYForward *f,
+                Glyph circle,           /* e.g. GLYPH_GREEN_CIRCLE */
+                const char *hostname,   /* Can be NULL, and obtained by gethostname_strict() in that case. */
+                char * const *msg) {
+
+        _cleanup_free_ char *hn = NULL, *dot = NULL, *joined = NULL;
+        int r;
+
+        assert(f);
+
+        if (!shall_set_terminal_title())
+                return 0;
+
+        if (!hostname) {
+                (void) gethostname_strict(&hn);
+                hostname = hn;
+        }
+
+        if (circle >= 0 && emoji_enabled()) {
+                dot = strjoin(glyph(circle), " ");
+                if (!dot)
+                        return -ENOMEM;
+        }
+
+        joined = strv_join(msg, " ");
+        if (!joined)
+                return -ENOMEM;
+
+        r = pty_forward_set_titlef(f, "%s%s%s%s", strempty(dot), joined, hostname ? " on " : "", strempty(hostname));
+        if (r < 0)
+                return r;
+
+        if (dot) {
+                r = pty_forward_set_title_prefix(f, dot);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }

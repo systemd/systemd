@@ -1,15 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
-
+#include "sd-bus.h"
+#include "sd-device.h"
+#include "sd-dhcp-client-id.h"
+#include "sd-dhcp-lease.h"
+#include "sd-hwdb.h"
+#include "sd-netlink.h"
 #include "sd-network.h"
+#include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "bond-util.h"
 #include "bridge-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "geneve-util.h"
 #include "glyph-util.h"
@@ -26,7 +34,10 @@
 #include "networkctl-status-link.h"
 #include "networkctl-status-system.h"
 #include "networkctl-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "udev-util.h"
 
 static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const LinkInfo *link) {

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-
+#include "alloc-util.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -77,8 +76,9 @@ int open_file_validate(const OpenFile *of) {
         if (!fdname_is_valid(of->fdname))
                 return -EINVAL;
 
-        if ((FLAGS_SET(of->flags, OPENFILE_READ_ONLY) + FLAGS_SET(of->flags, OPENFILE_APPEND) +
-             FLAGS_SET(of->flags, OPENFILE_TRUNCATE)) > 1)
+        if (FLAGS_SET(of->flags, OPENFILE_READ_ONLY) +
+            FLAGS_SET(of->flags, OPENFILE_APPEND) +
+            FLAGS_SET(of->flags, OPENFILE_TRUNCATE) > 1)
                 return -EINVAL;
 
         if ((of->flags & ~_OPENFILE_MASK_PUBLIC) != 0)

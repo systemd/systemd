@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "homework-forward.h"
 
 int home_mount_node(const char *node, const char *fstype, bool discard, unsigned long flags, const char *extra_mount_options);
 int home_unshare_and_mkdir(void);

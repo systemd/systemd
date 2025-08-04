@@ -1,15 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-#include <sys/quota.h>
 
-#include "blockdev-util.h"
+#include <linux/magic.h>
+
 #include "btrfs-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "homework-quota.h"
-#include "missing_magic.h"
+#include "log.h"
+#include "memory-util.h"
 #include "quota-util.h"
 #include "stat-util.h"
+#include "user-record.h"
 #include "user-util.h"
 
 int home_update_quota_btrfs(UserRecord *h, int fd, const char *path) {

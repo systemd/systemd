@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <limits.h>
 #include <mqueue.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
@@ -13,15 +10,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "clean-ipc.h"
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "log.h"
-#include "macro.h"
-#include "string-util.h"
-#include "strv.h"
+#include "path-util.h"
 #include "user-util.h"
 
 static bool match_uid_gid(uid_t subject_uid, gid_t subject_gid, uid_t delete_uid, gid_t delete_gid) {
@@ -45,7 +41,7 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to open /proc/sysvipc/shm: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/proc/sysvipc/shm");
         }
 
         for (;;) {
@@ -109,7 +105,7 @@ static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to open /proc/sysvipc/sem: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/proc/sysvipc/sem");
         }
 
         for (;;) {
@@ -168,7 +164,7 @@ static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid, bool rm) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to open /proc/sysvipc/msg: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/proc/sysvipc/msg");
         }
 
         for (;;) {
@@ -306,7 +302,7 @@ static int clean_posix_shm(uid_t uid, gid_t gid, bool rm) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to open /dev/shm: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/dev/shm");
         }
 
         return clean_posix_shm_internal("/dev/shm", dir, uid, gid, rm);
@@ -321,7 +317,7 @@ static int clean_posix_mq(uid_t uid, gid_t gid, bool rm) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_warning_errno(errno, "Failed to open /dev/mqueue: %m");
+                return log_warning_errno(errno, "Failed to open %s: %m", "/dev/mqueue");
         }
 
         FOREACH_DIRENT_ALL(de, dir, goto fail) {

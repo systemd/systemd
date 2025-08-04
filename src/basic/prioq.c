@@ -10,11 +10,7 @@
  * The underlying algorithm used in this implementation is a Heap.
  */
 
-#include <errno.h>
-#include <stdlib.h>
-
 #include "alloc-util.h"
-#include "hashmap.h"
 #include "prioq.h"
 
 struct prioq_item {
@@ -28,7 +24,7 @@ struct Prioq {
         struct prioq_item *items;
 };
 
-Prioq *prioq_new(compare_func_t compare_func) {
+Prioq* prioq_new(compare_func_t compare_func) {
         Prioq *q;
 
         q = new(Prioq, 1);
@@ -58,8 +54,10 @@ Prioq* prioq_free(Prioq *q) {
 int prioq_ensure_allocated(Prioq **q, compare_func_t compare_func) {
         assert(q);
 
-        if (*q)
+        if (*q) {
+                assert((*q)->compare_func == compare_func);
                 return 0;
+        }
 
         *q = prioq_new(compare_func);
         if (!*q)
@@ -167,7 +165,7 @@ int prioq_put(Prioq *q, void *data, unsigned *idx) {
         return 0;
 }
 
-int prioq_ensure_put(Prioq **q, compare_func_t compare_func, void *data, unsigned *idx) {
+int _prioq_ensure_put(Prioq **q, compare_func_t compare_func, void *data, unsigned *idx) {
         int r;
 
         r = prioq_ensure_allocated(q, compare_func);
@@ -269,7 +267,7 @@ void prioq_reshuffle(Prioq *q, void *data, unsigned *idx) {
         shuffle_up(q, k);
 }
 
-void *prioq_peek_by_index(Prioq *q, unsigned idx) {
+void* prioq_peek_by_index(Prioq *q, unsigned idx) {
         if (!q)
                 return NULL;
 
@@ -279,7 +277,7 @@ void *prioq_peek_by_index(Prioq *q, unsigned idx) {
         return q->items[idx].data;
 }
 
-void *prioq_pop(Prioq *q) {
+void* prioq_pop(Prioq *q) {
         void *data;
 
         if (!q)

@@ -1,13 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
-
 #include "errno-util.h"
 #include "format-util.h"
 #include "log.h"
-#include "procfs-util.h"
 #include "process-util.h"
+#include "procfs-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 int main(int argc, char *argv[]) {
         nsec_t nsec;
@@ -52,7 +51,7 @@ int main(int argc, char *argv[]) {
                 log_info("Reducing limit by one to %"PRIu64"…", limit-1);
 
                 r = procfs_tasks_set_limit(limit-1);
-                if (IN_SET(r, -ENOENT, -EROFS) || ERRNO_IS_PRIVILEGE(r))
+                if (r == -ENOENT || ERRNO_IS_NEG_FS_WRITE_REFUSED(r))
                         return log_tests_skipped_errno(r, "can't set tasks limit");
                 assert_se(r >= 0);
 

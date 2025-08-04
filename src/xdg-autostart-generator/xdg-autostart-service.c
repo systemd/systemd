@@ -1,18 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <stdio.h>
-#include <unistd.h>
 
-#include "xdg-autostart-service.h"
-
+#include "alloc-util.h"
 #include "conf-parser.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "generator.h"
+#include "glyph-util.h"
 #include "log.h"
-#include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "specifier.h"
@@ -20,6 +18,7 @@
 #include "strv.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "xdg-autostart-service.h"
 
 XdgAutostartService* xdg_autostart_service_free(XdgAutostartService *s) {
         if (!s)

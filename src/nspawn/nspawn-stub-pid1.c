@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/ioctl.h>
+#include <sys/prctl.h>
 #include <sys/reboot.h>
 #include <sys/wait.h>
-#include <sys/prctl.h>
 #include <unistd.h>
 
 #include "argv-util.h"

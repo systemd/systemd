@@ -1,13 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct MacVlan MacVlan;
-
 #include "macvlan-util.h"
 #include "netdev.h"
-#include "set.h"
 
-struct MacVlan {
+typedef struct MacVlan {
         NetDev meta;
 
         MacVlanMode mode;
@@ -15,7 +12,7 @@ struct MacVlan {
 
         uint32_t bc_queue_length;
         int32_t bc_queue_threshold;
-};
+} MacVlan;
 
 DEFINE_NETDEV_CAST(MACVLAN, MacVlan);
 DEFINE_NETDEV_CAST(MACVTAP, MacVlan);

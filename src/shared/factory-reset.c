@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "efivars.h"
 #include "env-util.h"
 #include "factory-reset.h"
+#include "log.h"
 #include "os-util.h"
 #include "proc-cmdline.h"
 #include "string-table.h"
@@ -39,7 +43,7 @@ static FactoryResetMode factory_reset_mode_efi_variable(void) {
                 return log_debug_errno(r, "Failed to get EFI variable FactoryResetRequest: %m");
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        r = sd_json_parse(req_str, /* flags= */ 0, &v, /* ret_line= */ NULL, /* ret_column= */ NULL);
+        r = sd_json_parse(req_str, /* flags= */ 0, &v, /* reterr_line= */ NULL, /* ret_column= */ NULL);
         if (r < 0) {
                 log_debug_errno(r, "EFI variable FactoryResetRequest set to invalid JSON, ignoring: %m");
                 return FACTORY_RESET_UNSPECIFIED;

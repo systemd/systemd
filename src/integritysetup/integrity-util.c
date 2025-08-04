@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-#include "integrity-util.h"
 
+#include "alloc-util.h"
+#include "cryptsetup-util.h"
 #include "extract-word.h"
-#include "fileio.h"
-#include "path-util.h"
+#include "integrity-util.h"
+#include "log.h"
 #include "percent-util.h"
+#include "string-util.h"
+#include "strv.h"
+#include "time-util.h"
 
 static int supported_integrity_algorithm(char *user_supplied) {
         if (!STR_IN_SET(user_supplied, "crc32", "crc32c", "xxhash64", "sha1", "sha256", "hmac-sha256"))

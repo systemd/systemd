@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <unistd.h>
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "authenticode.h"
 #include "build.h"
@@ -10,6 +12,7 @@
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -18,6 +21,8 @@
 #include "pe-binary.h"
 #include "pretty-print.h"
 #include "stat-util.h"
+#include "string-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -316,6 +321,7 @@ static int asn1_timestamp(ASN1_TIME **ret) {
 static int pkcs7_new_with_attributes(
                 X509 *certificate,
                 EVP_PKEY *private_key,
+                const char *hash_algorithm,
                 STACK_OF(X509_ATTRIBUTE) *signed_attributes,
                 PKCS7 **ret_p7,
                 PKCS7_SIGNER_INFO **ret_si) {
@@ -331,7 +337,7 @@ static int pkcs7_new_with_attributes(
 
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
-        r = pkcs7_new(certificate, private_key, &p7, &si);
+        r = pkcs7_new(certificate, private_key, hash_algorithm, &p7, &si);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate PKCS# context: %m");
 
@@ -557,7 +563,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
-        r = pkcs7_new_with_attributes(certificate, private_key, signed_attributes, &p7, &si);
+        r = pkcs7_new_with_attributes(certificate, private_key, /* hash_algorithm= */ NULL, signed_attributes, &p7, &si);
         if (r < 0)
                 return r;
 

@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdbool.h>
-
 #include "alloc-util.h"
 #include "string-util.h"
-#include "vmspawn-util.h"
 #include "tests.h"
+#include "vmspawn-util.h"
 
 #define _ESCAPE_QEMU_VALUE_CHECK(str, correct, varname) \
         do {                                            \

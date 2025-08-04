@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <sys/types.h>
-
-#include "sd-device.h"
-
-#include "hashmap.h"
+#include "forward.h"
 
 int udev_node_apply_permissions(
                 sd_device *dev,

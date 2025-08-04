@@ -1,18 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <malloc.h>
-#include <netinet/in.h>
-#include <stdbool.h>
-#include <unistd.h>
-
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
-#include "fd-util.h"
-#include "format-util.h"
+#include "errno-util.h"
+#include "hashmap.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
+#include "ordered-set.h"
 #include "socket-util.h"
 
 static int broadcast_groups_get(sd_netlink *nl) {
@@ -24,10 +21,6 @@ static int broadcast_groups_get(sd_netlink *nl) {
         assert(nl->fd >= 0);
 
         r = netlink_socket_get_multicast_groups(nl->fd, &len, &groups);
-        if (r == -ENOPROTOOPT) {
-                nl->broadcast_group_dont_leave = true;
-                return 0;
-        }
         if (r < 0)
                 return r;
 
@@ -106,18 +99,6 @@ int socket_broadcast_group_ref(sd_netlink *nl, unsigned group) {
         return broadcast_group_join(nl, group);
 }
 
-static int broadcast_group_leave(sd_netlink *nl, unsigned group) {
-        assert(nl);
-        assert(nl->fd >= 0);
-        assert(group > 0);
-
-        if (nl->broadcast_group_dont_leave)
-                return 0;
-
-        /* group is "unsigned", but netlink(7) says the argument for NETLINK_DROP_MEMBERSHIP is "int" */
-        return setsockopt_int(nl->fd, SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group);
-}
-
 int socket_broadcast_group_unref(sd_netlink *nl, unsigned group) {
         unsigned n_ref;
         int r;
@@ -138,7 +119,8 @@ int socket_broadcast_group_unref(sd_netlink *nl, unsigned group) {
                 /* still refs left */
                 return 0;
 
-        return broadcast_group_leave(nl, group);
+        /* group is "unsigned", but netlink(7) says the argument for NETLINK_DROP_MEMBERSHIP is "int" */
+        return setsockopt_int(nl->fd, SOL_NETLINK, NETLINK_DROP_MEMBERSHIP, group);
 }
 
 /* returns the number of bytes sent, or a negative error code */
@@ -176,12 +158,13 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         assert(fd >= 0);
         assert(peek || (buf && buf_size > 0));
 
+        /* Note: this might return successfully, but with a zero size under some transient conditions, such
+         * as the reception of a non-kernel message. In such a case the passed buffer might or might not be
+         * modified. Caller must treat a zero return as "no message, but also not an error". */
+
         n = recvmsg_safe(fd, &msg, peek ? (MSG_PEEK|MSG_TRUNC) : 0);
-        if (ERRNO_IS_NEG_TRANSIENT(n)) {
-                if (ret_mcast_group)
-                        *ret_mcast_group = 0;
-                return 0;
-        }
+        if (ERRNO_IS_NEG_TRANSIENT(n))
+                goto transient;
         if (n == -ENOBUFS)
                 return log_debug_errno(n, "sd-netlink: kernel receive buffer overrun");
         if (n == -ECHRNG)
@@ -196,15 +179,16 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
                 log_debug("sd-netlink: ignoring message from PID %"PRIu32, sender.nl.nl_pid);
 
                 if (peek) {
-                        /* drop the message */
+                        /* Drop the message. Note that we ignore ECHRNG/EXFULL errors here, which
+                         * recvmsg_safe() returns in case the payload or cdata is truncated. Given we just
+                         * want to drop the message we also don't care if its payload or cdata was
+                         * truncated. */
                         n = recvmsg_safe(fd, &msg, 0);
-                        if (n < 0)
+                        if (n < 0 && !IN_SET(n, -ECHRNG, -EXFULL))
                                 return (int) n;
                 }
 
-                if (ret_mcast_group)
-                        *ret_mcast_group = 0;
-                return 0;
+                goto transient;
         }
 
         if (ret_mcast_group) {
@@ -218,6 +202,12 @@ static int socket_recv_message(int fd, void *buf, size_t buf_size, uint32_t *ret
         }
 
         return (int) n;
+
+transient:
+        if (ret_mcast_group)
+                *ret_mcast_group = 0;
+
+        return 0;
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
@@ -313,7 +303,7 @@ static int parse_message_one(sd_netlink *nl, uint32_t group, const struct nlmsgh
                 goto finalize;
 
         /* check that we support this message type */
-        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, NULL, &size);
+        r = netlink_get_policy_set_and_header_size(nl, hdr->nlmsg_type, hdr->nlmsg_flags, NULL, &size);
         if (r == -EOPNOTSUPP) {
                 log_debug("sd-netlink: ignored message with unknown type: %i", hdr->nlmsg_type);
                 goto finalize;

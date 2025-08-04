@@ -4,6 +4,8 @@
 #include <getopt.h>
 #include <locale.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -18,19 +20,22 @@
 #include "bus-util.h"
 #include "chase.h"
 #include "compress.h"
-#include "constants.h"
 #include "dissect-image.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "image-policy.h"
 #include "journal-internal.h"
 #include "journal-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "logs-show.h"
-#include "macro.h"
+#include "loop-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "pager.h"
@@ -39,11 +44,11 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "rlimit-util.h"
 #include "signal-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "verbs.h"
@@ -1159,19 +1164,9 @@ static int dump_core(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static void sigterm_handler(int signal, siginfo_t *info, void *ucontext) {
-        assert(signal == SIGTERM);
-        assert(info);
-
-        /* If the sender is not us, propagate the signal to all processes in
-         * the same process group */
-        if (pid_is_valid(info->si_pid) && info->si_pid != getpid_cached())
-                (void) kill(0, signal);
-}
-
 static int run_debug(int argc, char **argv, void *userdata) {
         static const struct sigaction sa = {
-                .sa_sigaction = sigterm_handler,
+                .sa_sigaction = sigterm_process_group_handler,
                 .sa_flags = SA_SIGINFO,
         };
 

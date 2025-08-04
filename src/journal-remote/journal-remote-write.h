@@ -2,7 +2,6 @@
 #pragma once
 
 #include "journal-file.h"
-#include "journal-importer.h"
 
 typedef struct RemoteServer RemoteServer;
 

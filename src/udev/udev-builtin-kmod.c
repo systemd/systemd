@@ -5,11 +5,6 @@
  * Copyright © 2011 ProFUSION embedded systems
  */
 
-#include <errno.h>
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "device-util.h"
 #include "module-util.h"
 #include "string-util.h"

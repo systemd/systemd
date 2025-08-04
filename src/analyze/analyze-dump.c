@@ -2,12 +2,16 @@
 
 #include "sd-bus.h"
 
-#include "analyze-dump.h"
 #include "analyze.h"
+#include "analyze-dump.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-message-util.h"
 #include "bus-util.h"
+#include "pager.h"
+#include "runtime-scope.h"
+#include "strv.h"
+#include "unit-name.h"
 
 static int dump_string(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;

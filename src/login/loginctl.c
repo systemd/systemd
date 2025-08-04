@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <getopt.h>
 #include <locale.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-journal.h"
 
 #include "alloc-util.h"
 #include "build.h"
@@ -14,27 +14,27 @@
 #include "bus-map-properties.h"
 #include "bus-print-properties.h"
 #include "bus-unit-procs.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cgroup-util.h"
 #include "format-table.h"
+#include "format-util.h"
 #include "log.h"
 #include "logs-show.h"
-#include "macro.h"
 #include "main-func.h"
-#include "memory-util.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
-#include "rlimit-util.h"
-#include "signal-util.h"
+#include "runtime-scope.h"
 #include "string-table.h"
+#include "string-util.h"
 #include "strv.h"
 #include "sysfs-show.h"
 #include "terminal-util.h"
-#include "unit-name.h"
+#include "time-util.h"
 #include "user-util.h"
 #include "verbs.h"
 
@@ -47,7 +47,7 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static const char *arg_kill_whom = NULL;
 static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_ask_password = true;
 static unsigned arg_lines = 10;
 static OutputMode arg_output = OUTPUT_SHORT;
@@ -436,7 +436,6 @@ static int show_unit_cgroup(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cgroup = NULL;
-        unsigned c;
         int r;
 
         assert(bus);
@@ -450,10 +449,7 @@ static int show_unit_cgroup(
         if (isempty(cgroup))
                 return 0;
 
-        c = columns();
-        if (c > 18)
-                c -= 18;
-
+        unsigned c = MAX(LESS_BY(columns(), 18U), 10U);
         r = unit_show_processes(bus, unit, cgroup, prefix, c, get_output_flags(), &error);
         if (r == -EBADR) {
                 if (arg_transport == BUS_TRANSPORT_REMOTE)
@@ -461,7 +457,7 @@ static int show_unit_cgroup(
 
                 /* Fallback for older systemd versions where the GetUnitProcesses() call is not yet available */
 
-                if (cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
+                if (cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, cgroup) != 0 && leader <= 0)
                         return 0;
 
                 show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, cgroup, prefix, c, &leader, leader > 0, get_output_flags());
@@ -905,10 +901,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
                 return table_log_print_error(r);
 
         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                unsigned c = columns();
-                if (c > 21)
-                        c -= 21;
-
+                unsigned c = MAX(LESS_BY(columns(), 21U), 10U);
                 show_sysfs(i.id, strrepa(" ", STRLEN("Sessions:")), c, get_output_flags());
         }
 
@@ -1661,8 +1654,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':

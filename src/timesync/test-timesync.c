@@ -2,10 +2,10 @@
 
 /* Some unit tests for the helper functions in timesyncd. */
 
-#include "log.h"
-#include "macro.h"
-#include "timesyncd-conf.h"
 #include "tests.h"
+#include "timesyncd-conf.h"
+#include "timesyncd-manager.h"
+#include "timesyncd-server.h"
 
 TEST(manager_parse_string) {
         /* Make sure that NTP_SERVERS is configured to something

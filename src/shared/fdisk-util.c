@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "bitfield.h"
 #include "dissect-image.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
+#include "log.h"
 #include "parse-util.h"
+#include "string-util.h"
 
 #if HAVE_LIBFDISK
 

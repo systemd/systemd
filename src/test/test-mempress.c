@@ -2,7 +2,9 @@
 
 #include <fcntl.h>
 #include <pthread.h>
+#include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -11,6 +13,8 @@
 #include "bus-locator.h"
 #include "bus-wait-for-jobs.h"
 #include "fd-util.h"
+#include "format-util.h"
+#include "hashmap.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -18,6 +22,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "tests.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "unit-def.h"
 
@@ -86,7 +91,7 @@ TEST(fake_pressure) {
         socket_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         assert_se(socket_fd >= 0);
         assert_se(sockaddr_un_set_path(&sa.un, k) >= 0);
-        assert_se(bind(socket_fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) >= 0);
+        assert_se(bind(socket_fd, &sa.sa, sockaddr_un_len(&sa.un)) >= 0);
         assert_se(listen(socket_fd, 1) >= 0);
 
         /* Ideally we'd just allocate this on the stack, but AddressSanitizer doesn't like it if threads
@@ -196,10 +201,8 @@ TEST(real_pressure) {
         pid_t pid;
 
         r = sd_bus_open_system(&bus);
-        if (r < 0) {
-                log_notice_errno(r, "Can't connect to system bus, skipping test: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "can't connect to system bus");
 
         assert_se(bus_wait_for_jobs_new(bus, &w) >= 0);
 
@@ -213,10 +216,8 @@ TEST(real_pressure) {
         assert_se(sd_bus_message_append(m, "a(sa(sv))", 0) >= 0);
 
         r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0) {
-                log_notice_errno(r, "Can't issue transient unit call, skipping test: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "can't issue transient unit call");
 
         assert_se(sd_bus_message_read(reply, "o", &object) >= 0);
 
@@ -245,10 +246,8 @@ TEST(real_pressure) {
         };
 
         r = sd_event_add_memory_pressure(e, &es, real_pressure_callback, &context);
-        if (r < 0) {
-                log_notice_errno(r, "Can't allocate memory pressure fd, skipping test: %m");
-                return;
-        }
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "can't allocate memory pressure fd");
 
         assert_se(sd_event_source_set_description(es, "real pressure event source") >= 0);
         assert_se(sd_event_source_set_memory_pressure_type(es, "some") == 0);
@@ -267,10 +266,8 @@ TEST(real_pressure) {
         assert_se(sd_bus_get_property_trivial(bus, "org.freedesktop.systemd1", uo, "org.freedesktop.systemd1.Scope", "MemoryCurrent", &error, 't', &mcurrent) >= 0);
 
         printf("current: %" PRIu64 "\n", mcurrent);
-        if (mcurrent == UINT64_MAX) {
-                log_notice_errno(r, "Memory accounting not available, skipping test: %m");
-                return;
-        }
+        if (mcurrent == UINT64_MAX)
+                return (void) log_tests_skipped_errno(r, "memory accounting not available");
 
         m = sd_bus_message_unref(m);
 

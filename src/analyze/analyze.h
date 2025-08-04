@@ -1,16 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
+#include "forward.h"
 
-#include "sd-json.h"
-
-#include "analyze-verify-util.h"
-#include "bus-util.h"
-#include "pager.h"
-#include "pretty-print.h"
-#include "time-util.h"
-#include "unit-file.h"
+typedef enum RecursiveErrors RecursiveErrors;
 
 typedef enum DotMode {
         DEP_ALL,
@@ -31,6 +24,8 @@ extern PagerFlags arg_pager_flags;
 extern CatFlags arg_cat_flags;
 extern BusTransport arg_transport;
 extern const char *arg_host;
+extern char *arg_debugger;
+extern char **arg_debugger_args;
 extern RuntimeScope arg_runtime_scope;
 extern RecursiveErrors arg_recursive_errors;
 extern bool arg_man;
@@ -51,6 +46,7 @@ extern char *arg_profile;
 extern bool arg_legend;
 extern bool arg_table;
 extern ImagePolicy *arg_image_policy;
+extern char *arg_drm_device_path;
 
 int acquire_bus(sd_bus **bus, bool *use_full_bus);
 

@@ -1,21 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <sys/socket.h>
-#include <sys/types.h>
+#include <syslog.h>
 
 #include "sd-id128.h"
 
 #include "capability-util.h"
-#include "set.h"
-#include "time-util.h"
+#include "journald-forward.h"
 
-typedef struct ClientContext ClientContext;
-
-#include "journald-server.h"
-
-struct ClientContext {
+typedef struct ClientContext {
         unsigned n_ref;
         unsigned lru_index;
         usec_t timestamp;
@@ -57,13 +50,15 @@ struct ClientContext {
 
         usec_t log_ratelimit_interval;
         unsigned log_ratelimit_burst;
+        bool log_ratelimit_interval_from_unit;
+        bool log_ratelimit_burst_from_unit;
 
         Set *log_filter_allowed_patterns;
         Set *log_filter_denied_patterns;
-};
+} ClientContext;
 
 int client_context_get(
-                Server *s,
+                Manager *m,
                 pid_t pid,
                 const struct ucred *ucred,
                 const char *label, size_t label_len,
@@ -71,26 +66,27 @@ int client_context_get(
                 ClientContext **ret);
 
 int client_context_acquire(
-                Server *s,
+                Manager *m,
                 pid_t pid,
                 const struct ucred *ucred,
                 const char *label, size_t label_len,
                 const char *unit_id,
                 ClientContext **ret);
 
-ClientContext* client_context_release(Server *s, ClientContext *c);
+ClientContext* client_context_release(Manager *m, ClientContext *c);
 
 void client_context_maybe_refresh(
-                Server *s,
+                Manager *m,
                 ClientContext *c,
                 const struct ucred *ucred,
                 const char *label, size_t label_size,
                 const char *unit_id,
                 usec_t tstamp);
 
-void client_context_acquire_default(Server *s);
-void client_context_flush_all(Server *s);
-void client_context_flush_regular(Server *s);
+void manager_refresh_client_contexts_on_reload(Manager *m, usec_t old_interval, unsigned old_burst);
+void client_context_acquire_default(Manager *m);
+void client_context_flush_all(Manager *m);
+void client_context_flush_regular(Manager *m);
 
 static inline size_t client_context_extra_fields_n_iovec(const ClientContext *c) {
         return c ? c->extra_fields_n_iovec : 0;

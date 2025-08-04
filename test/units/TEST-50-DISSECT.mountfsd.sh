@@ -6,12 +6,12 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-if [[ ! -f /usr/lib/systemd/system/systemd-mountfsd.socket ]] || \
-   [[ ! -f /usr/lib/systemd/system/systemd-nsresourced.socket ]] || \
-   ! command -v mksquashfs || \
+if [[ ! -f /usr/lib/systemd/system/systemd-mountfsd.socket ]] ||
+   [[ ! -f /usr/lib/systemd/system/systemd-nsresourced.socket ]] ||
+   ! command -v mksquashfs ||
    ! grep -q bpf /sys/kernel/security/lsm ||
-   ! find /usr/lib* -name libbpf.so.1 2>/dev/null | grep . || \
-   systemd-analyze compare-versions "$(uname -r)" lt 6.5 || \
+   ! find /usr/lib* -name libbpf.so.1 2>/dev/null | grep . ||
+   systemd-analyze compare-versions "$(uname -r)" lt 6.5 ||
    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" lt 124; then
     echo "Skipping mountfsd/nsresourced tests"
     exit 0
@@ -90,3 +90,8 @@ fi
 
 systemd-run -M testuser@ --user --pipe -p RootImage=/var/tmp/unpriv.raw -p PrivateUsers=1 --wait echo thisisatest >/tmp/unpriv.out3
 echo thisisatest | cmp /tmp/unpriv.out3 -
+
+# make sure MakeDirectory() works correctly
+assert_eq "$(run0 -u testuser varlinkctl --exec call  /run/systemd/io.systemd.MountFileSystem io.systemd.MountFileSystem.MakeDirectory --push-fd=./ '{ "parentFileDescriptor" : 0, "name" : "foreignuidowned" }' -- stat -Lc "%u" /proc/self/fd/3)" 2147352576
+assert_eq "$(stat -c "%u" ~testuser/foreignuidowned)" 2147352576
+rmdir ~testuser/foreignuidowned

@@ -138,7 +138,7 @@
         <literal>short</literal> or <literal>off</literal>. If <literal>pretty</literal> human-friendly
         whitespace and newlines are inserted in the output to make the JSON data more readable. If
         <literal>short</literal> all superfluous whitespace is suppressed. If <literal>off</literal> (the
-        default) the user information is not shown in JSON format but in a friendly human readable formatting
+        default) the user information is not shown in JSON format but in a friendly human-readable formatting
         instead. The <option>-j</option> option picks <literal>pretty</literal> when run interactively and
         <literal>short</literal> otherwise.</para>
 
@@ -971,7 +971,7 @@
 
         <listitem><para>Takes a string containing additional mount options to use when mounting the LUKS
         volume. If specified, this string will be appended to the default, built-in mount
-        options.</para>
+        options. Defaults to "compress=zstd:1,noacl,user_subvol_rm_allowed".</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>

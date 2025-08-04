@@ -4,6 +4,9 @@
 #include "log.h"
 #include "oomd-conf.h"
 #include "oomd-manager.h"
+#include "parse-util.h"
+#include "string-util.h"
+#include "time-util.h"
 
 static int config_parse_duration(
                 const char *unit,

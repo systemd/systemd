@@ -1,10 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <dirent.h>
-#include <errno.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
+
+#include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -16,18 +15,18 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "glyph-util.h"
 #include "hostname-util.h"
-#include "locale-util.h"
-#include "macro.h"
+#include "log.h"
 #include "nulstr-util.h"
 #include "output-mode.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
-#include "unit-name.h"
+#include "unit-def.h"
 #include "xattr-util.h"
 
 static void show_pid_array(
@@ -108,9 +107,12 @@ static int show_cgroup_one_by_path(
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
                  * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads,
                  * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
-                 * the subtree and is not readable in the subtree proper. */
+                 * the subtree and is not readable in the subtree proper.
+                 *
+                 * ENODEV is generated when we enumerate processes from a cgroup and the cgroup is removed
+                 * concurrently. */
                 r = cg_read_pid(f, &pid, /* flags = */ 0);
-                if (IN_SET(r, 0, -EOPNOTSUPP))
+                if (IN_SET(r, 0, -EOPNOTSUPP, -ENODEV))
                         break;
                 if (r < 0)
                         return r;
@@ -252,7 +254,7 @@ int show_cgroup_by_path(
                 if (!k)
                         return -ENOMEM;
 
-                if (!(flags & OUTPUT_SHOW_ALL) && cg_is_empty_recursive(NULL, k) > 0)
+                if (!(flags & OUTPUT_SHOW_ALL) && cg_is_empty(NULL, k) > 0)
                         continue;
 
                 if (!shown_pids) {

@@ -109,10 +109,10 @@ systemctl start silent-success
 # Test syslog identifiers exclusion
 systemctl start verbose-success.service
 [[ -n "$(journalctl -b -q -u verbose-success.service -t systemd)" ]]
-[[ -n "$(journalctl -b -q -u verbose-success.service -t echo)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -t bash)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -T systemd)" ]]
-[[ -n "$(journalctl -b -q -u verbose-success.service -T echo)" ]]
-[[ -z "$(journalctl -b -q -u verbose-success.service -T echo -T '(echo)' -T sleep -T '(sleep)' -T systemd -T '(systemd)' -T systemd-executor)" ]]
+[[ -n "$(journalctl -b -q -u verbose-success.service -T bash)" ]]
+[[ -z "$(journalctl -b -q -u verbose-success.service -T bash -T '(bash)' -T systemd -T '(systemd)')" ]]
 
 # Exercise the matching machinery
 SYSTEMD_LOG_LEVEL=debug journalctl -b -n 1 /dev/null /dev/zero /dev/null /dev/null /dev/null
@@ -210,12 +210,10 @@ sleep 3
 [[ ! -f "/tmp/i-lose-my-logs" ]]
 systemctl stop forever-print-hola
 
-set +o pipefail
 # https://github.com/systemd/systemd/issues/15528
 journalctl --follow --file=/var/log/journal/*/* | head -n1 | grep .
 # https://github.com/systemd/systemd/issues/24565
 journalctl --follow --merge | head -n1 | grep .
-set -o pipefail
 
 # https://github.com/systemd/systemd/issues/26746
 rm -f /tmp/issue-26746-log /tmp/issue-26746-cursor

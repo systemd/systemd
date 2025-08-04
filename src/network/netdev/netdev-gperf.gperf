@@ -9,6 +9,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "batadv.h"
 #include "bond.h"
 #include "bridge.h"
+#include "condition.h"
 #include "conf-parser.h"
 #include "fou-tunnel.h"
 #include "geneve.h"
@@ -83,7 +84,7 @@ Tunnel.InputKey,                          config_parse_tunnel_key,              
 Tunnel.OutputKey,                         config_parse_tunnel_key,                   0,                             offsetof(Tunnel, okey)
 Tunnel.DiscoverPathMTU,                   config_parse_tristate,                     0,                             offsetof(Tunnel, pmtudisc)
 Tunnel.IgnoreDontFragment,                config_parse_bool,                         0,                             offsetof(Tunnel, ignore_df)
-Tunnel.Mode,                              config_parse_ip6tnl_mode,                  0,                             offsetof(Tunnel, ip6tnl_mode)
+Tunnel.Mode,                              config_parse_tunnel_mode,                  0,                             offsetof(Tunnel, mode)
 Tunnel.IPv6FlowLabel,                     config_parse_ipv6_flowlabel,               0,                             0
 Tunnel.CopyDSCP,                          config_parse_bool,                         0,                             offsetof(Tunnel, copy_dscp)
 Tunnel.EncapsulationLimit,                config_parse_encap_limit,                  0,                             0
@@ -244,7 +245,7 @@ Bridge.MulticastSnooping,                 config_parse_tristate,                
 Bridge.VLANFiltering,                     config_parse_tristate,                     0,                             offsetof(Bridge, vlan_filtering)
 Bridge.VLANProtocol,                      config_parse_vlanprotocol,                 0,                             offsetof(Bridge, vlan_protocol)
 Bridge.STP,                               config_parse_tristate,                     0,                             offsetof(Bridge, stp)
-Bridge.MulticastIGMPVersion,              config_parse_uint8,                        0,                             offsetof(Bridge, igmp_version)
+Bridge.MulticastIGMPVersion,              config_parse_bridge_igmp_version,          0,                             offsetof(Bridge, igmp_version)
 Bridge.FDBMaxLearned,                     config_parse_bridge_fdb_max_learned,       0,                             offsetof(Bridge, fdb_max_learned)
 Bridge.LinkLocalLearning,                 config_parse_tristate,                     0,                             offsetof(Bridge, linklocal_learn)
 VRF.TableId,                              config_parse_uint32,                       0,                             offsetof(Vrf, table) /* deprecated */

@@ -1,18 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
-#include <linux/sockios.h>
-#include <sys/ioctl.h>
-
 #include "sd-event.h"
 #include "sd-id128.h"
 #include "sd-lldp-tx.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
+#include "json-util.h"
 #include "network-common.h"
 #include "random-util.h"
 #include "socket-util.h"
@@ -20,6 +18,8 @@
 #include "time-util.h"
 #include "unaligned.h"
 #include "web-util.h"
+
+#define LLDP_APP_ID SD_ID128_MAKE(07,3a,43,bf,54,de,40,8d,8e,c4,96,ed,fd,94,72,dc)
 
 /* The LLDP spec calls this "txFastInit", see 9.2.5.19 */
 #define LLDP_FAST_TX_INIT 4U
@@ -65,6 +65,7 @@ struct sd_lldp_tx {
         char *mud_url;
         uint16_t supported_capabilities;
         uint16_t enabled_capabilities;
+        uint16_t vlan_id;
 };
 
 #define log_lldp_tx_errno(lldp_tx, error, fmt, ...)     \
@@ -222,6 +223,13 @@ int sd_lldp_tx_set_mud_url(sd_lldp_tx *lldp_tx, const char *mud_url) {
         return free_and_strdup(&lldp_tx->mud_url, empty_to_null(mud_url));
 }
 
+int sd_lldp_tx_set_vlan_id(sd_lldp_tx *lldp_tx, uint16_t vlan_id) {
+        assert_return(lldp_tx, -EINVAL);
+
+        lldp_tx->vlan_id = vlan_id;
+        return 0;
+}
+
 static size_t lldp_tx_calculate_maximum_packet_size(sd_lldp_tx *lldp_tx, const char *hostname, const char *pretty_hostname) {
         assert(lldp_tx);
         assert(lldp_tx->ifindex > 0);
@@ -239,10 +247,12 @@ static size_t lldp_tx_calculate_maximum_packet_size(sd_lldp_tx *lldp_tx, const c
                 2 + strlen_ptr(hostname) +
                 /* System description */
                 2 + strlen_ptr(pretty_hostname) +
-                /* MUD URL */
-                2 + sizeof(SD_LLDP_OUI_IANA_MUD) + strlen_ptr(lldp_tx->mud_url) +
                 /* System Capabilities */
                 2 + 4 +
+                /* MUD URL */
+                2 + sizeof(SD_LLDP_OUI_IANA_MUD) + strlen_ptr(lldp_tx->mud_url) +
+                /* VLAN ID */
+                2 + sizeof(SD_LLDP_OUI_802_1_VLAN_ID) + sizeof(uint16_t) +
                 /* End */
                 2;
 }
@@ -329,6 +339,22 @@ static int packet_append_string(
         return packet_append_prefixed_string(packet, packet_size, offset, type, 0, NULL, str);
 }
 
+static int lldp_tx_get_machine_id(sd_id128_t *ret) {
+        int r;
+
+        assert(ret);
+
+        /* Unfortunately we previously exposed machine ID. If the environment variable is set, then
+         * use the machine ID as is. Otherwise, use application specific one. */
+        r = secure_getenv_bool("SYSTEMD_LLDP_SEND_MACHINE_ID");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_LLDP_SEND_MACHINE_ID, ignoring: %m");
+        if (r > 0)
+                return sd_id128_get_machine(ret);
+
+        return sd_id128_get_machine_app_specific(LLDP_APP_ID, ret);
+}
+
 static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, uint8_t **ret_packet) {
         _cleanup_free_ char *hostname = NULL, *pretty_hostname = NULL;
         _cleanup_free_ uint8_t *packet = NULL;
@@ -343,11 +369,11 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
         assert(ret_packet);
 
         /* If ifname is not set yet, set ifname from ifindex. */
-        r = sd_lldp_tx_get_ifname(lldp_tx, NULL);
+        r = sd_lldp_tx_get_ifname(lldp_tx, /* ret = */ NULL);
         if (r < 0)
                 return r;
 
-        r = sd_id128_get_machine(&machine_id);
+        r = lldp_tx_get_machine_id(&machine_id);
         if (r < 0)
                 return r;
 
@@ -365,7 +391,7 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
                 return -ENOMEM;
 
         header = (struct ether_header*) packet;
-        header->ether_type = htobe16(ETHERTYPE_LLDP);
+        header->ether_type = htobe16(ETH_P_LLDP);
         memcpy(header->ether_dhost, lldp_multicast_addr + lldp_tx->mode, ETH_ALEN);
         memcpy(header->ether_shost, &lldp_tx->hwaddr, ETH_ALEN);
 
@@ -413,6 +439,15 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
         if (r < 0)
                 return r;
 
+        r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_SYSTEM_CAPABILITIES, 4);
+        if (r < 0)
+                return r;
+
+        unaligned_write_be16(packet + offset, lldp_tx->supported_capabilities);
+        offset += 2;
+        unaligned_write_be16(packet + offset, lldp_tx->enabled_capabilities);
+        offset += 2;
+
         /* See section 12 of RFC 8520.
          * +--------+--------+----------+---------+--------------
          * |TLV Type|  len   |   OUI    |subtype  | MUDString
@@ -433,14 +468,18 @@ static int lldp_tx_create_packet(sd_lldp_tx *lldp_tx, size_t *ret_packet_size, u
         if (r < 0)
                 return r;
 
-        r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_SYSTEM_CAPABILITIES, 4);
-        if (r < 0)
-                return r;
+        /* VLAN ID */
+        if (lldp_tx->vlan_id > 0) {
+                r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_PRIVATE,
+                                             sizeof(SD_LLDP_OUI_802_1_VLAN_ID) + sizeof(uint16_t));
+                if (r < 0)
+                        return r;
 
-        unaligned_write_be16(packet + offset, lldp_tx->supported_capabilities);
-        offset += 2;
-        unaligned_write_be16(packet + offset, lldp_tx->enabled_capabilities);
-        offset += 2;
+                memcpy_safe(packet + offset, SD_LLDP_OUI_802_1_VLAN_ID, sizeof(SD_LLDP_OUI_802_1_VLAN_ID));
+                offset += sizeof(SD_LLDP_OUI_802_1_VLAN_ID);
+                unaligned_write_be16(packet + offset, lldp_tx->vlan_id);
+                offset += 2;
+        }
 
         r = packet_append_tlv_header(packet, packet_size, &offset, SD_LLDP_TYPE_END, 0);
         if (r < 0)
@@ -463,7 +502,7 @@ static int lldp_tx_send_packet(sd_lldp_tx *lldp_tx, size_t packet_size, const ui
 
         sa = (union sockaddr_union) {
                 .ll.sll_family = AF_PACKET,
-                .ll.sll_protocol = htobe16(ETHERTYPE_LLDP),
+                .ll.sll_protocol = htobe16(ETH_P_LLDP),
                 .ll.sll_ifindex = lldp_tx->ifindex,
                 .ll.sll_halen = ETH_ALEN,
         };
@@ -627,4 +666,61 @@ int sd_lldp_tx_start(sd_lldp_tx *lldp_tx) {
         (void) sd_event_source_set_priority(lldp_tx->timer_event_source, lldp_tx->event_priority);
 
         return 0;
+}
+
+int sd_lldp_tx_describe(sd_lldp_tx *lldp_tx, sd_json_variant **ret) {
+        int r;
+
+        assert(lldp_tx);
+        assert(ret);
+
+        /* If ifname is not set yet, set ifname from ifindex. */
+        const char *ifname;
+        r = sd_lldp_tx_get_ifname(lldp_tx, &ifname);
+        if (r < 0)
+                return r;
+
+        size_t port_id_len = strlen(ifname) + 1; /* +1 for subtype */
+        _cleanup_free_ uint8_t *port_id = new(uint8_t, port_id_len + 1); /* +1 for unused zero suffix for safety */
+        if (!port_id)
+                return -ENOMEM;
+
+        port_id[0] = SD_LLDP_PORT_SUBTYPE_INTERFACE_NAME;
+        memcpy(port_id + 1, ifname, port_id_len); /* also copy the final NUL for safety */
+        assert(port_id[port_id_len] == 0);
+
+        sd_id128_t machine_id;
+        r = lldp_tx_get_machine_id(&machine_id);
+        if (r < 0)
+                return r;
+
+        size_t chassis_id_len = (SD_ID128_STRING_MAX - 1) + 1;
+        _cleanup_free_ uint8_t *chassis_id = new(uint8_t, chassis_id_len + 1);
+        if (!chassis_id)
+                return -ENOMEM;
+
+        chassis_id[0] = SD_LLDP_CHASSIS_SUBTYPE_LOCALLY_ASSIGNED;
+        memcpy(chassis_id + 1, SD_ID128_TO_STRING(machine_id), chassis_id_len);
+        assert(chassis_id[chassis_id_len] == 0);
+
+        _cleanup_free_ char *hostname = NULL;
+        if (!lldp_tx->hostname)
+                (void) gethostname_strict(&hostname);
+
+        _cleanup_free_ char *pretty_hostname = NULL;
+        if (!lldp_tx->pretty_hostname)
+                (void) get_pretty_hostname(&pretty_hostname);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("ChassisID", SD_ID128_TO_STRING(machine_id)),
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawChassisID", chassis_id, chassis_id_len),
+                        SD_JSON_BUILD_PAIR_STRING("PortID", lldp_tx->ifname),
+                        SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawPortID", port_id, port_id_len),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("PortDescription", lldp_tx->port_description),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemName", lldp_tx->hostname ?: hostname),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("SystemDescription", lldp_tx->pretty_hostname ?: pretty_hostname),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("EnabledCapabilities", lldp_tx->enabled_capabilities),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("MUDURL", lldp_tx->mud_url),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("VlanID", lldp_tx->vlan_id));
 }

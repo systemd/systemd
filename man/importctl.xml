@@ -125,8 +125,8 @@
         <option>--verify=signature</option>, the sha checksum file is first verified with the detached GPG
         signature of <filename>.sha256</filename> or <filename>SHA256SUMS</filename>.  The public key for
         this verification step needs to be available in
-        <filename>/usr/lib/systemd/import-pubring.gpg</filename> or
-        <filename>/etc/systemd/import-pubring.gpg</filename>.</para>
+        <filename>/usr/lib/systemd/import-pubring.pgp</filename> or
+        <filename>/etc/systemd/import-pubring.pgp</filename>.</para>
 
         <para>If <option>-keep-download=yes</option> is specified the image will be downloaded and stored in
         a read-only subvolume/directory in the image directory that is named after the specified URL and its
@@ -182,11 +182,12 @@
         archive, possibly compressed with
         <citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         <citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry project='die-net'><refentrytitle>zstd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         or
         <citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         It will then be unpacked into its own
         subvolume/directory. When <command>import-raw</command> is used, the file should be a qcow2 or raw
-        disk image, possibly compressed with xz, gzip or bzip2. If the second argument (the resulting image
+        disk image, possibly compressed with xz, gzip, zstd or bzip2. If the second argument (the resulting image
         name) is not specified, it is automatically derived from the file name. If the filename is passed as
         <literal>-</literal>, the image is read from standard input, in which case the second argument is
         mandatory.</para>
@@ -222,6 +223,8 @@
         <citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         if it ends in <literal>.xz</literal>, with
         <citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        if it ends in <literal>.zst</literal>, with
+        <citerefentry project='die-net'><refentrytitle>zstd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
         and if it ends in <literal>.bz2</literal>, with
         <citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry>.
         If the path ends in neither, the file is left uncompressed. If the second argument is missing, the image
@@ -315,8 +318,8 @@
         <listitem><para>When used with the <option>export-tar</option> or <option>export-raw</option>
         commands, specifies the compression format to use for the resulting file. Takes one of
         <literal>uncompressed</literal>, <literal>xz</literal>, <literal>gzip</literal>,
-        <literal>bzip2</literal>. By default, the format is determined automatically from the output image
-        file name passed.</para>
+        <literal>zst</literal>, <literal>bzip2</literal>. By default, the format is determined
+        automatically from the output image file name passed.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -450,6 +453,7 @@
       <member><citerefentry project='die-net'><refentrytitle>tar</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>zstd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>

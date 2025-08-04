@@ -13,7 +13,6 @@ Documentation=man:systemd-oomd.service(8)
 DefaultDependencies=no
 Before=sockets.target shutdown.target
 Conflicts=shutdown.target
-ConditionControlGroupController=v2
 ConditionControlGroupController=memory
 ConditionPathExists=/proc/pressure/cpu
 ConditionPathExists=/proc/pressure/io
@@ -22,6 +21,7 @@ ConditionPathExists=/proc/pressure/memory
 [Socket]
 ListenStream=/run/systemd/oom/io.systemd.ManagedOOM
 SocketMode=0666
+RemoveOnStop=yes
 
 [Install]
 WantedBy=sockets.target

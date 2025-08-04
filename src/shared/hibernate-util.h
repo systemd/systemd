@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <linux/fiemap.h>
-#include <sys/types.h>
+#include "forward.h"
 
 /* represents values for /sys/power/resume & /sys/power/resume_offset and the corresponding path */
 typedef struct HibernationDevice {

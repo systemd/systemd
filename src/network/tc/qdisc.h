@@ -2,12 +2,8 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include "conf-parser.h"
+#include "networkd-forward.h"
 #include "networkd-util.h"
-
-typedef struct Link Link;
-typedef struct Manager Manager;
-typedef struct Network Network;
 
 typedef enum QDiscKind {
         QDISC_KIND_BFIFO,
@@ -97,24 +93,3 @@ DEFINE_SECTION_CLEANUP_FUNCTIONS(QDisc, qdisc_unref);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_parent);
 CONFIG_PARSER_PROTOTYPE(config_parse_qdisc_handle);
-
-#include "cake.h"
-#include "codel.h"
-#include "ets.h"
-#include "fifo.h"
-#include "fq-codel.h"
-#include "fq-pie.h"
-#include "fq.h"
-#include "gred.h"
-#include "hhf.h"
-#include "htb.h"
-#include "mq.h"
-#include "multiq.h"
-#include "pie.h"
-#include "qfq.h"
-#include "netem.h"
-#include "drr.h"
-#include "sfb.h"
-#include "sfq.h"
-#include "tbf.h"
-#include "teql.h"

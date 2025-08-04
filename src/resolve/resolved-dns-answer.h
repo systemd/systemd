@@ -1,12 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-typedef struct DnsAnswer DnsAnswer;
-typedef struct DnsAnswerItem DnsAnswerItem;
-
-#include "macro.h"
 #include "ordered-set.h"
-#include "resolved-dns-rr.h"
+#include "resolved-forward.h"
 
 /* A simple array of resource records. We keep track of the originating ifindex for each RR where that makes
  * sense, so that we can qualify A and AAAA RRs referring to a local link with the right ifindex.
@@ -29,18 +25,19 @@ typedef enum DnsAnswerFlags {
                                         DNS_ANSWER_SECTION_ADDITIONAL,
 } DnsAnswerFlags;
 
-struct DnsAnswerItem {
+typedef struct DnsAnswerItem {
         unsigned n_ref;
         DnsResourceRecord *rr;
         DnsResourceRecord *rrsig; /* Optionally, also store RRSIG RR that successfully validates this item */
         int ifindex;
         DnsAnswerFlags flags;
-};
+        usec_t until;
+} DnsAnswerItem;
 
-struct DnsAnswer {
+typedef struct DnsAnswer {
         unsigned n_ref;
         OrderedSet *items;
-};
+} DnsAnswer;
 
 DnsAnswer *dns_answer_new(size_t n);
 DnsAnswer *dns_answer_ref(DnsAnswer *a);
@@ -54,8 +51,8 @@ DnsAnswer *dns_answer_unref(DnsAnswer *a);
                 *_a = _b;                       \
         } while(0)
 
-int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig);
-int dns_answer_add_extend(DnsAnswer **a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig);
+int dns_answer_add_full(DnsAnswer *a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig, usec_t until);
+int dns_answer_add_extend_full(DnsAnswer **a, DnsResourceRecord *rr, int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig, usec_t until);
 int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl, int ifindex);
 
 int dns_answer_match_key(DnsAnswer *a, const DnsResourceKey *key, DnsAnswerFlags *ret_flags);
@@ -82,6 +79,16 @@ int dns_answer_copy_by_key(DnsAnswer **a, DnsAnswer *source, const DnsResourceKe
 int dns_answer_move_by_key(DnsAnswer **to, DnsAnswer **from, const DnsResourceKey *key, DnsAnswerFlags or_flags, DnsResourceRecord *rrsig);
 
 int dns_answer_has_dname_for_cname(DnsAnswer *a, DnsResourceRecord *cname);
+
+static inline int dns_answer_add_extend(DnsAnswer **a, DnsResourceRecord *rr,
+                                        int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig) {
+        return dns_answer_add_extend_full(a, rr, ifindex, flags, rrsig, /* until= */ USEC_INFINITY);
+}
+
+static inline int dns_answer_add(DnsAnswer *a, DnsResourceRecord *rr,
+                                 int ifindex, DnsAnswerFlags flags, DnsResourceRecord *rrsig) {
+        return dns_answer_add_full(a, rr, ifindex, flags, rrsig, /* until= */ USEC_INFINITY);
+}
 
 static inline size_t dns_answer_size(DnsAnswer *a) {
         return a ? ordered_set_size(a->items) : 0;

@@ -3,6 +3,7 @@
 #include <threads.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "memory-util.h"
 
 size_t page_size(void) {
@@ -54,4 +55,15 @@ void* memdup_reverse(const void *mem, size_t size) {
                 p_dst[i] = p_src[k-1];
 
         return p;
+}
+
+void* erase_and_free(void *p) {
+        size_t l;
+
+        if (!p)
+                return NULL;
+
+        l = MALLOC_SIZEOF_SAFE(p);
+        explicit_bzero_safe(p, l);
+        return mfree(p);
 }

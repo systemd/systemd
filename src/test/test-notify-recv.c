@@ -1,18 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
 
 #include "event-util.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "notify-recv.h"
-#include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
-#include "rm-rf.h"
-#include "socket-util.h"
+#include "strv.h"
 #include "tests.h"
-#include "tmpfile-util.h"
 
 typedef struct Context {
         unsigned data;
@@ -88,7 +88,7 @@ TEST(notify_socket_prepare) {
                 .pidref = PIDREF_NULL,
         };
         _cleanup_free_ char *path = NULL;
-        ASSERT_OK(notify_socket_prepare(e, SD_EVENT_PRIORITY_NORMAL - 10, on_recv, &c, &path));
+        ASSERT_OK(notify_socket_prepare_full(e, SD_EVENT_PRIORITY_NORMAL - 10, on_recv, &c, true, &path, NULL));
 
         ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
 

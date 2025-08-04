@@ -1,9 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <stdio.h>
+#include <string.h>
+
 #include "ansi-color.h"
+#include "fileio.h"
+#include "forward.h"
 #include "glyph-util.h"
-#include "terminal-util.h"
 
 #define CYLON_BUFFER_EXTRA (2*STRLEN(ANSI_RED) + STRLEN(ANSI_HIGHLIGHT_RED) + 2*STRLEN(ANSI_NORMAL))
 
@@ -26,6 +30,7 @@ typedef enum CatFlags {
         CAT_TLDR                = 1 << 2,  /* Only print comments and relevant section headers */
 } CatFlags;
 
+int cat_files_full(const ConfFile *file, ConfFile * const *dropins, size_t n_dropins, CatFlags flags);
 int cat_files(const char *file, char **dropins, CatFlags flags);
 int conf_files_cat(const char *root, const char *name, CatFlags flags);
 

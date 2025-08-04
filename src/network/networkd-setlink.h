@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-typedef struct Link Link;
+#include "networkd-forward.h"
 
 int link_request_to_set_addrgen_mode(Link *link);
 int link_request_to_set_bond(Link *link);

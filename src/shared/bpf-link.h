@@ -1,12 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
-
 #pragma once
 
-#include <bpf/libbpf.h>
-#include <stdio.h>
+#if HAVE_LIBBPF
 
-#include "fdset.h"
-#include "macro.h"
+#include <bpf/libbpf.h>
+
+#include "forward.h"
 
 bool bpf_can_link_program(struct bpf_program *prog);
 
@@ -17,3 +16,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(struct bpf_link *, bpf_link_free);
 
 struct ring_buffer* bpf_ring_buffer_free(struct ring_buffer *rb);
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct ring_buffer *, bpf_ring_buffer_free);
+
+#endif

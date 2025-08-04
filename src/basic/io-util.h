@@ -1,14 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <poll.h>
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/types.h>
-
-#include "macro.h"
-#include "time-util.h"
+#include "forward.h"
 
 int flush_fd(int fd);
 
@@ -22,9 +15,9 @@ static inline int loop_write(int fd, const void *buf, size_t nbytes) {
 
 int pipe_eof(int fd);
 
-int ppoll_usec_full(struct pollfd *fds, size_t nfds, usec_t timeout, const sigset_t *ss) _nonnull_if_nonzero_(1, 2);
-_nonnull_if_nonzero_(1, 2) static inline int ppoll_usec(struct pollfd *fds, size_t nfds, usec_t timeout) {
-        return ppoll_usec_full(fds, nfds, timeout, NULL);
+int ppoll_usec_full(struct pollfd *fds, size_t n_fds, usec_t timeout, const sigset_t *ss) _nonnull_if_nonzero_(1, 2);
+_nonnull_if_nonzero_(1, 2) static inline int ppoll_usec(struct pollfd *fds, size_t n_fds, usec_t timeout) {
+        return ppoll_usec_full(fds, n_fds, timeout, NULL);
 }
 
 int fd_wait_for_event(int fd, int event, usec_t timeout);

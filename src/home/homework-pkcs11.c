@@ -1,9 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if HAVE_P11KIT
+
+#include "alloc-util.h"
 #include "hexdecoct.h"
 #include "homework-pkcs11.h"
+#include "log.h"
 #include "pkcs11-util.h"
 #include "strv.h"
+#include "user-record.h"
+
+void pkcs11_callback_data_release(struct pkcs11_callback_data *data) {
+        erase_and_free(data->decrypted_password);
+}
 
 int pkcs11_callback(
                 CK_FUNCTION_LIST *m,
@@ -100,3 +109,5 @@ decrypt:
 
         return 1;
 }
+
+#endif

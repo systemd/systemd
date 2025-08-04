@@ -2,18 +2,16 @@
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
-#include <sys/socket.h>
-
-#if HAVE_GCRYPT
-#  include <gcrypt.h>
-#endif
 
 #include "alloc-util.h"
+#include "bitmap.h"
 #include "hexdecoct.h"
+#include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-rr.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(dnssec_verify_dns_key) {
         static const uint8_t ds1_fprint[] = {
@@ -173,11 +171,7 @@ TEST(dnssec_verify_rfc8080_ed25519_example1) {
 
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
                                       rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
-#if PREFER_OPENSSL || GCRYPT_VERSION_NUMBER >= 0x010600
         assert_se(result == DNSSEC_VALIDATED);
-#else
-        assert_se(result == DNSSEC_UNSUPPORTED_ALGORITHM);
-#endif
 }
 
 TEST(dnssec_verify_rfc8080_ed25519_example2) {
@@ -265,11 +259,7 @@ TEST(dnssec_verify_rfc8080_ed25519_example2) {
 
         assert_se(dnssec_verify_rrset(answer, mx->key, rrsig, dnskey,
                                       rrsig->rrsig.inception * USEC_PER_SEC, &result) >= 0);
-#if PREFER_OPENSSL || GCRYPT_VERSION_NUMBER >= 0x010600
         assert_se(result == DNSSEC_VALIDATED);
-#else
-        assert_se(result == DNSSEC_UNSUPPORTED_ALGORITHM);
-#endif
 }
 
 TEST(dnssec_verify_rfc6605_example1) {

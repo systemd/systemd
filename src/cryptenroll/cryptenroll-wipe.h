@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "cryptenroll.h"
-#include "cryptsetup-util.h"
+#include "forward.h"
+
+typedef enum WipeScope WipeScope;
 
 int wipe_slots(struct crypt_device *cd,
                const int explicit_slots[],

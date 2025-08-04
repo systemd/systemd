@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stdio.h>
-
-#include "macro.h"
+#include "forward.h"
 #include "strv.h"
 
 char* get_default_hostname_raw(void);
@@ -40,4 +37,10 @@ static inline bool is_dns_proxy_stub_hostname(const char *hostname) {
         return STRCASE_IN_SET(hostname, "_localdnsproxy", "_localdnsproxy.");
 }
 
+const char* etc_hostname(void);
+const char* etc_machine_info(void);
+
 int get_pretty_hostname(char **ret);
+
+int machine_spec_valid(const char *s);
+int split_user_at_host(const char *s, char **ret_user, char **ret_host);

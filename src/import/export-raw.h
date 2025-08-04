@@ -1,10 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
+#include "forward.h"
 #include "import-compress.h"
-#include "macro.h"
 
 typedef struct RawExport RawExport;
 

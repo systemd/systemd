@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "libfido2-util.h"
+#include "log.h"
 
 #if HAVE_LIBFIDO2
 #include "alloc-util.h"
@@ -9,8 +10,9 @@
 #include "dlfcn-util.h"
 #include "format-table.h"
 #include "glyph-util.h"
-#include "log.h"
-#include "memory-util.h"
+#include "iovec-util.h"
+#include "plymouth-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unistd.h"
 
@@ -362,6 +364,26 @@ static int fido2_is_cred_in_specific_token(
         }
 }
 
+static void plymouth_start_interaction(const char *text, bool *ret_displayed) {
+        assert(ret_displayed);
+
+        if (plymouth_send_msg(text, /* pause_spinner= */ true) < 0)
+                return;
+
+        *ret_displayed = true;
+}
+
+static void plymouth_end_interaction(bool *displayed) {
+        assert(displayed);
+
+        if (!*displayed)
+                return;
+
+        /* In theory 'm' should hide a message, but it doesn't work (long standing issue).
+         * As a workaround, sending a single NUL byte hides the previous messages. */
+        (void) plymouth_send_msg("", /* pause_spinner= */ false);
+}
+
 static int fido2_use_hmac_hash_specific_token(
                 const char *path,
                 const char *rp_id,
@@ -374,6 +396,7 @@ static int fido2_use_hmac_hash_specific_token(
                 void **ret_hmac,
                 size_t *ret_hmac_size) {
 
+        _cleanup_(plymouth_end_interaction) bool plymouth_displayed = false;
         _cleanup_(fido_assert_free_wrapper) fido_assert_t *a = NULL;
         _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
         _cleanup_(erase_and_freep) void *hmac_copy = NULL;
@@ -445,10 +468,12 @@ static int fido2_use_hmac_hash_specific_token(
                                                enable_disable(FLAGS_SET(required, FIDO2ENROLL_UP)),
                                                sym_fido_strerr(r));
 
-                if (FLAGS_SET(required, FIDO2ENROLL_UP))
+                if (FLAGS_SET(required, FIDO2ENROLL_UP)) {
                         log_notice("%s%sPlease confirm presence on security token to unlock.",
                                    emoji_enabled() ? glyph(GLYPH_TOUCH) : "",
                                    emoji_enabled() ? " " : "");
+                        plymouth_start_interaction("Please confirm presence on security token to unlock.", &plymouth_displayed);
+                }
         }
 
         if (has_uv && !FLAGS_SET(required, FIDO2ENROLL_UV_OMIT)) {
@@ -459,10 +484,12 @@ static int fido2_use_hmac_hash_specific_token(
                                                enable_disable(FLAGS_SET(required, FIDO2ENROLL_UV)),
                                                sym_fido_strerr(r));
 
-                if (FLAGS_SET(required, FIDO2ENROLL_UV))
+                if (FLAGS_SET(required, FIDO2ENROLL_UV)) {
                         log_notice("%s%sPlease verify user on security token to unlock.",
                                    emoji_enabled() ? glyph(GLYPH_TOUCH) : "",
                                    emoji_enabled() ? " " : "");
+                        plymouth_start_interaction("Please verify user on security token to unlock.", &plymouth_displayed);
+                }
         }
 
         for (;;) {
@@ -502,6 +529,7 @@ static int fido2_use_hmac_hash_specific_token(
                                 log_notice("%s%sPlease confirm presence on security to unlock.",
                                            emoji_enabled() ? glyph(GLYPH_TOUCH) : "",
                                            emoji_enabled() ? " " : "");
+                                plymouth_start_interaction("Please confirm presence on security token to unlock.", &plymouth_displayed);
                                 retry_with_up = true;
                         }
 

@@ -1,19 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-#include "sd-event.h"
-
-#include "bus-object.h"
-#include "hashmap.h"
 #include "list.h"
+#include "portabled-forward.h"
 #include "runtime-scope.h"
 
-typedef struct Manager Manager;
-
-#include "portabled-operation.h"
-
-struct Manager {
+typedef struct Manager {
         sd_event *event;
         sd_bus *bus;
 
@@ -26,6 +18,6 @@ struct Manager {
         unsigned n_operations;
 
         RuntimeScope runtime_scope; /* for now always RUNTIME_SCOPE_SYSTEM */
-};
+} Manager;
 
 extern const BusObjectImplementation manager_object;

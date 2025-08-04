@@ -275,7 +275,7 @@
         <listitem>
           <para>Parameter understood by the file quota checker
           service. For details, see
-          <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+          <citerefentry><refentrytitle>systemd-quotacheck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
           <xi:include href="version-info.xml" xpointer="v186"/>
         </listitem>
@@ -802,11 +802,10 @@
       <variablelist>
         <varlistentry>
           <term>systemd 252</term>
+
           <listitem><para>Kernel command-line arguments <varname>systemd.unified_cgroup_hierarchy</varname>
           and <varname>systemd.legacy_systemd_cgroup_controller</varname> were deprecated. Please switch to
-          the unified cgroup hierarchy.</para>
-
-          <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+          the unified cgroup hierarchy.</para></listitem>
         </varlistentry>
       </variablelist>
   </refsect1>
@@ -821,7 +820,7 @@
         <member><citerefentry><refentrytitle>smbios-type-11</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
-        <member><citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-quotacheck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
         <member><citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>

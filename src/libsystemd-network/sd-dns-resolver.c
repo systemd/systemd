@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
 #include "dns-resolver-internal.h"
-#include "macro.h"
-#include "unaligned.h"
+#include "errno-util.h"
+#include "siphash24.h"
 #include "socket-netlink.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unaligned.h"
 
 void sd_dns_resolver_done(sd_dns_resolver *res) {
         assert(res);

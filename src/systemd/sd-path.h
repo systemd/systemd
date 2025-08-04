@@ -17,8 +17,6 @@
   along with systemd; If not, see <https://www.gnu.org/licenses/>.
 ***/
 
-#include <inttypes.h>
-
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -90,6 +88,7 @@ enum {
         SD_PATH_SYSTEMD_USER_UNIT,
         SD_PATH_SYSTEMD_USER_PRESET,
         SD_PATH_SYSTEMD_USER_CONF,
+        SD_PATH_SYSTEMD_INITRD_PRESET,
 
         SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT,
         SD_PATH_SYSTEMD_SEARCH_USER_UNIT,

@@ -1,16 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "conf-files.h"
 #include "conf-parser.h"
 #include "constants.h"
+#include "dns-domain.h"
+#include "extract-word.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "path-util.h"
 #include "resolved-conf.h"
 #include "resolved-dns-rr.h"
+#include "resolved-dns-zone.h"
 #include "resolved-dnssd.h"
 #include "resolved-manager.h"
 #include "specifier.h"
+#include "string-util.h"
 #include "strv.h"
+#include "utf8.h"
 
 #define DNSSD_SERVICE_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/dnssd"))
 
@@ -37,12 +46,12 @@ DnssdTxtData *dnssd_txtdata_free_all(DnssdTxtData *txt_data) {
         return dnssd_txtdata_free_all(next);
 }
 
-DnssdService *dnssd_service_free(DnssdService *service) {
+DnssdRegisteredService *dnssd_registered_service_free(DnssdRegisteredService *service) {
         if (!service)
                 return NULL;
 
         if (service->manager)
-                hashmap_remove(service->manager->dnssd_services, service->id);
+                hashmap_remove(service->manager->dnssd_registered_services, service->id);
 
         dns_resource_record_unref(service->ptr_rr);
         dns_resource_record_unref(service->sub_ptr_rr);
@@ -59,13 +68,13 @@ DnssdService *dnssd_service_free(DnssdService *service) {
         return mfree(service);
 }
 
-void dnssd_service_clear_on_reload(Hashmap *services) {
-        DnssdService *service;
+void dnssd_registered_service_clear_on_reload(Hashmap *services) {
+        DnssdRegisteredService *service;
 
         HASHMAP_FOREACH(service, services)
                 if (service->config_source == RESOLVE_CONFIG_SOURCE_FILE) {
                         hashmap_remove(services, service->id);
-                        dnssd_service_free(service);
+                        dnssd_registered_service_free(service);
                 }
 }
 
@@ -90,8 +99,8 @@ static int dnssd_id_from_path(const char *path, char **ret_id) {
         return 0;
 }
 
-static int dnssd_service_load(Manager *manager, const char *path) {
-        _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
+static int dnssd_registered_service_load(Manager *manager, const char *path) {
+        _cleanup_(dnssd_registered_service_freep) DnssdRegisteredService *service = NULL;
         _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
         _cleanup_free_ char *dropin_dirname = NULL;
         int r;
@@ -99,7 +108,7 @@ static int dnssd_service_load(Manager *manager, const char *path) {
         assert(manager);
         assert(path);
 
-        service = new0(DnssdService, 1);
+        service = new0(DnssdRegisteredService, 1);
         if (!service)
                 return log_oom();
 
@@ -149,7 +158,7 @@ static int dnssd_service_load(Manager *manager, const char *path) {
                 TAKE_PTR(txt_data);
         }
 
-        r = hashmap_ensure_put(&manager->dnssd_services, &string_hash_ops, service->id, service);
+        r = hashmap_ensure_put(&manager->dnssd_registered_services, &string_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 
@@ -172,7 +181,7 @@ static int specifier_dnssd_hostname(char specifier, const void *data, const char
         return strdup_to(ret, m->llmnr_hostname);
 }
 
-int dnssd_render_instance_name(Manager *m, DnssdService *s, char **ret) {
+int dnssd_render_instance_name(Manager *m, DnssdRegisteredService *s, char **ret) {
         static const Specifier specifier_table[] = {
                 { 'a', specifier_architecture,   NULL },
                 { 'b', specifier_boot_id,        NULL },
@@ -221,7 +230,7 @@ int dnssd_load(Manager *manager) {
                 return log_error_errno(r, "Failed to enumerate .dnssd files: %m");
 
         STRV_FOREACH_BACKWARDS(f, files) {
-                r = dnssd_service_load(manager, *f);
+                r = dnssd_registered_service_load(manager, *f);
                 if (r < 0)
                         log_warning_errno(r, "Failed to load '%s': %m", *f);
         }
@@ -229,7 +238,7 @@ int dnssd_load(Manager *manager) {
         return 0;
 }
 
-int dnssd_update_rrs(DnssdService *s) {
+int dnssd_update_rrs(DnssdRegisteredService *s) {
         _cleanup_free_ char *n = NULL, *service_name = NULL, *full_name = NULL, *sub_name = NULL, *selective_name = NULL;
         int r;
 
@@ -370,13 +379,13 @@ int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t
 }
 
 int dnssd_signal_conflict(Manager *manager, const char *name) {
-        DnssdService *s;
+        DnssdRegisteredService *s;
         int r;
 
         if (sd_bus_is_ready(manager->bus) <= 0)
                 return 0;
 
-        HASHMAP_FOREACH(s, manager->dnssd_services) {
+        HASHMAP_FOREACH(s, manager->dnssd_registered_services) {
                 if (s->withdrawn)
                         continue;
 
@@ -404,7 +413,7 @@ int dnssd_signal_conflict(Manager *manager, const char *name) {
         return 0;
 }
 
-int config_parse_dnssd_service_name(
+int config_parse_dnssd_registered_service_name(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -428,7 +437,7 @@ int config_parse_dnssd_service_name(
                 { 'W', specifier_os_variant_id,   NULL },
                 {}
         };
-        DnssdService *s = ASSERT_PTR(userdata);
+        DnssdRegisteredService *s = ASSERT_PTR(userdata);
         _cleanup_free_ char *name = NULL;
         int r;
 
@@ -458,7 +467,7 @@ int config_parse_dnssd_service_name(
         return free_and_strdup_warn(&s->name_template, rvalue);
 }
 
-int config_parse_dnssd_service_type(
+int config_parse_dnssd_registered_service_type(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -470,7 +479,7 @@ int config_parse_dnssd_service_type(
                 void *data,
                 void *userdata) {
 
-        DnssdService *s = ASSERT_PTR(userdata);
+        DnssdRegisteredService *s = ASSERT_PTR(userdata);
         int r;
 
         assert(filename);
@@ -494,7 +503,7 @@ int config_parse_dnssd_service_type(
         return 0;
 }
 
-int config_parse_dnssd_service_subtype(
+int config_parse_dnssd_registered_service_subtype(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -506,7 +515,7 @@ int config_parse_dnssd_service_subtype(
                 void *data,
                 void *userdata) {
 
-        DnssdService *s = ASSERT_PTR(userdata);
+        DnssdRegisteredService *s = ASSERT_PTR(userdata);
 
         assert(filename);
         assert(lvalue);
@@ -538,7 +547,7 @@ int config_parse_dnssd_txt(
                 void *userdata) {
 
         _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
-        DnssdService *s = ASSERT_PTR(userdata);
+        DnssdRegisteredService *s = ASSERT_PTR(userdata);
         DnsTxtItem *last = NULL;
 
         assert(filename);

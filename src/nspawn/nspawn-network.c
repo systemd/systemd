@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-/* Make sure the net/if.h header is included before any linux/ one */
-#include <net/if.h>
 #include <linux/if.h>
 #include <linux/nl80211.h>
 #include <linux/veth.h>
+#include <net/if.h>
 #include <sys/file.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 #include "sd-id128.h"
@@ -16,21 +16,17 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
-#include "hexdecoct.h"
 #include "lock-util.h"
-#include "missing_network.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "namespace-util.h"
-#include "netif-naming-scheme.h"
 #include "netif-util.h"
 #include "netlink-util.h"
 #include "nspawn-network.h"
-#include "parse-util.h"
+#include "pidref.h"
 #include "process-util.h"
-#include "siphash24.h"
-#include "socket-netlink.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -92,7 +88,7 @@ static int set_alternative_ifname(sd_netlink *rtnl, const char *ifname, const ch
 
 static int add_veth(
                 sd_netlink *rtnl,
-                pid_t pid,
+                const PidRef *pid,
                 const char *ifname_host,
                 const char *altifname_host,
                 const struct ether_addr *mac_host,
@@ -103,6 +99,7 @@ static int add_veth(
         int r;
 
         assert(rtnl);
+        assert(pidref_is_set(pid));
         assert(ifname_host);
         assert(mac_host);
         assert(ifname_container);
@@ -140,7 +137,7 @@ static int add_veth(
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
-        r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
+        r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to add netlink namespace field: %m");
 
@@ -166,7 +163,7 @@ static int add_veth(
 }
 
 int setup_veth(const char *machine_name,
-               pid_t pid,
+               const PidRef *pid,
                char iface_name[IFNAMSIZ],
                bool bridge,
                const struct ether_addr *provided_mac) {
@@ -178,7 +175,7 @@ int setup_veth(const char *machine_name,
         int r;
 
         assert(machine_name);
-        assert(pid > 0);
+        assert(pidref_is_set(pid));
         assert(iface_name);
 
         /* Use two different interface name prefixes depending whether
@@ -218,7 +215,7 @@ int setup_veth(const char *machine_name,
 
 int setup_veth_extra(
                 const char *machine_name,
-                pid_t pid,
+                const PidRef *pid,
                 char **pairs) {
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
@@ -226,7 +223,7 @@ int setup_veth_extra(
         int r;
 
         assert(machine_name);
-        assert(pid > 0);
+        assert(pidref_is_set(pid));
 
         if (strv_isempty(pairs))
                 return 0;
@@ -497,7 +494,7 @@ static int netns_child_begin(int netns_fd, int *ret_original_netns_fd) {
 
         /* Populate new sysfs instance associated with the client netns, to make sd_device usable. */
         r = mount_nofollow_verbose(LOG_ERR, "sysfs", "/sys/", "sysfs",
-                                   MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, /* opts = */ NULL);
+                                   MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, /* options = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to mount sysfs on /sys/: %m");
 
@@ -733,10 +730,12 @@ int move_back_network_interfaces(int child_netns_fd, char **interface_pairs) {
         return 0;
 }
 
-int setup_macvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
+int setup_macvlan(const char *machine_name, const PidRef *pid, char **iface_pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         unsigned idx = 0;
         int r;
+
+        assert(pidref_is_set(pid));
 
         if (strv_isempty(iface_pairs))
                 return 0;
@@ -781,7 +780,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink MAC address: %m");
 
-                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid->pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink namespace field: %m");
 
@@ -866,9 +865,11 @@ int remove_macvlan(int child_netns_fd, char **interface_pairs) {
         return 0;
 }
 
-int setup_ipvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
+int setup_ipvlan(const char *machine_name, const PidRef *pid, char **iface_pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
+
+        assert(pidref_is_set(pid));
 
         if (strv_isempty(iface_pairs))
                 return 0;
@@ -904,7 +905,7 @@ int setup_ipvlan(const char *machine_name, pid_t pid, char **iface_pairs) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink interface name: %m");
 
-                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid);
+                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_PID, pid->pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add netlink namespace field: %m");
 
@@ -1010,7 +1011,7 @@ static int network_iface_pair_parse(const char* iftype, char ***l, const char *p
                         return log_error_errno(r, "Failed to extract first word in %s parameter: %m", iftype);
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Short read while reading %s parameter: %m", iftype);
+                                               "Short read while reading %s parameter.", iftype);
                 if (!ifname_valid(a))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "%s, interface name not valid: %s", iftype, a);

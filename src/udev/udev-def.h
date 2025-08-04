@@ -1,9 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include <errno.h>
-
 #include "env-util.h"
+#include "udev-forward.h"
 
 #define UDEV_NAME_SIZE   512
 #define UDEV_PATH_SIZE  1024

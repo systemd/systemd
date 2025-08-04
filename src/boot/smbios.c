@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "efi-string.h"
-#include "efivars.h"
-#include "proto/device-path.h"
 #include "smbios.h"
-#include "string-util-fundamental.h"
 #include "util.h"
 
 #define SMBIOS_TABLE_GUID \
@@ -174,7 +171,7 @@ not_found:
 
 bool smbios_in_hypervisor(void) {
         /* Look up BIOS Information (Type 0). */
-        const SmbiosTableType0 *type0 = (const SmbiosTableType0 *) get_smbios_table(0, sizeof(SmbiosTableType0), /* left= */ NULL);
+        const SmbiosTableType0 *type0 = (const SmbiosTableType0 *) get_smbios_table(0, sizeof(SmbiosTableType0), /* ret_size_left= */ NULL);
         if (!type0)
                 return false;
 

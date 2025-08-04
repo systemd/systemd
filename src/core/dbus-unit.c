@@ -1,35 +1,39 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-bus.h"
 
 #include "alloc-util.h"
 #include "bitfield.h"
-#include "bpf-firewall.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
-#include "bus-polkit.h"
 #include "bus-util.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "dbus.h"
 #include "dbus-job.h"
 #include "dbus-manager.h"
 #include "dbus-unit.h"
 #include "dbus-util.h"
-#include "dbus.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "install.h"
 #include "locale-util.h"
 #include "log.h"
+#include "manager.h"
+#include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "selinux-access.h"
 #include "service.h"
+#include "set.h"
 #include "signal-util.h"
 #include "special.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-#include "user-util.h"
+#include "transaction.h"
+#include "unit-name.h"
 #include "web-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
@@ -568,7 +572,60 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_kill(u, whom, signo, code, value, error);
+        r = unit_kill(u, whom, /* subgroup= */ NULL, signo, code, value, error);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+int bus_unit_method_kill_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Unit *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = mac_selinux_unit_access_check(u, message, "stop", error);
+        if (r < 0)
+                return r;
+
+        const char *swhom, *subgroup;
+        int32_t signo;
+        r = sd_bus_message_read(message, "ssi", &swhom, &subgroup, &signo);
+        if (r < 0)
+                return r;
+
+        KillWhom whom;
+        if (isempty(swhom))
+                whom = KILL_CGROUP;
+        else {
+                whom = kill_whom_from_string(swhom);
+                if (whom < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid whom argument: %s", swhom);
+        }
+
+        if (isempty(subgroup))
+                subgroup = NULL;
+        else if (!path_is_normalized(subgroup))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified cgroup sub-path is not valid.");
+        else if (!IN_SET(whom, KILL_CGROUP, KILL_CGROUP_FAIL))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Subgroup can only be specified in combination with 'cgroup' or 'cgroup-fail'.");
+
+        if (!SIGNAL_VALID(signo))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
+
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "kill-subgroup",
+                        N_("Authentication is required to send a UNIX signal to the processes of subgroup of '$(unit)'."),
+                        message,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = unit_kill(u, whom, subgroup, signo, SI_USER, /* value= */ 0, error);
         if (r < 0)
                 return r;
 
@@ -982,6 +1039,11 @@ const sd_bus_vtable bus_unit_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 bus_unit_method_kill,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("KillSubgroup",
+                                SD_BUS_ARGS("s", subgroup, "i", signal),
+                                SD_BUS_NO_RESULT,
+                                bus_unit_method_kill_subgroup,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("QueueSignal",
                                 SD_BUS_ARGS("s", whom, "i", signal, "i", value),
                                 SD_BUS_NO_RESULT,
@@ -1152,7 +1214,7 @@ static int property_get_cpuset_cpus(
                 sd_bus_error *error) {
 
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_reset) CPUSet cpus = {};
+        _cleanup_(cpu_set_done) CPUSet cpus = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -1174,7 +1236,7 @@ static int property_get_cpuset_mems(
                 sd_bus_error *error) {
 
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_reset) CPUSet mems = {};
+        _cleanup_(cpu_set_done) CPUSet mems = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -1289,10 +1351,13 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
                  * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads, “cgroup.procs” in a
                  * threaded domain cgroup contains the PIDs of all processes in the subtree and is not
-                 * readable in the subtree proper. */
+                 * readable in the subtree proper.
+                 *
+                 * We'll see ENODEV when trying to enumerate processes and the cgroup is removed at the same
+                 * time. Handle this gracefully. */
 
                 r = cg_read_pidref(f, &pidref, /* flags = */ 0);
-                if (IN_SET(r, 0, -EOPNOTSUPP))
+                if (IN_SET(r, 0, -EOPNOTSUPP, -ENODEV))
                         break;
                 if (r < 0)
                         return r;
@@ -1387,7 +1452,7 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int property_get_ip_counter(
@@ -1615,7 +1680,7 @@ int bus_unit_method_remove_subgroup(sd_bus_message *message, void *userdata, sd_
 
         /* Allow this only if the client is privileged, is us, or is the user of the unit itself. */
         if (sender_uid != 0 && sender_uid != getuid() && sender_uid != u->ref_uid)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Client is not permitted to alter cgroup.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Client is not permitted to alter cgroup.");
 
         r = unit_remove_subcgroup(u, path);
         if (r < 0)
@@ -1771,7 +1836,7 @@ void bus_unit_send_pending_change_signal(Unit *u, bool including_new) {
         bus_unit_send_change_signal(u);
 }
 
-int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled) {
+int bus_unit_send_pending_freezer_message(Unit *u, bool canceled) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
@@ -1780,7 +1845,7 @@ int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled) {
         if (!u->pending_freezer_invocation)
                 return 0;
 
-        if (cancelled)
+        if (canceled)
                 r = sd_bus_message_new_method_error(
                                 u->pending_freezer_invocation,
                                 &reply,
@@ -1791,7 +1856,7 @@ int bus_unit_send_pending_freezer_message(Unit *u, bool cancelled) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_message_send(reply);
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued message, ignoring: %m");
 
@@ -1996,7 +2061,7 @@ int bus_unit_queue_job(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int bus_unit_set_live_property(
@@ -2351,8 +2416,9 @@ static int bus_unit_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (streq(name, "Slice")) {
+        if (streq(name, "Slice")) {
                 Unit *slice;
                 const char *s;
 
@@ -2389,8 +2455,9 @@ static int bus_unit_set_transient_property(
                 }
 
                 return 1;
+        }
 
-        } else if (STR_IN_SET(name, "RequiresMountsFor", "WantsMountsFor")) {
+        if (STR_IN_SET(name, "RequiresMountsFor", "WantsMountsFor")) {
                 _cleanup_strv_free_ char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
@@ -2421,13 +2488,35 @@ static int bus_unit_set_transient_property(
                 return 1;
         }
 
+        if (streq(name, "AddRef")) {
+                int b;
+
+                /* Why is this called "AddRef" rather than just "Ref", or "Reference"? There's already a "Ref()" method
+                 * on the Unit interface, and it's probably not a good idea to expose a property and a method on the
+                 * same interface (well, strictly speaking AddRef isn't exposed as full property, we just read it for
+                 * transient units, but still). And "References" and "ReferencedBy" is already used as unit reference
+                 * dependency type, hence let's not confuse things with that.
+                 *
+                 * Note that we don't actually add the reference to the bus track. We do that only after the setup of
+                 * the transient unit is complete, so that setting this property multiple times in the same transient
+                 * unit creation call doesn't count as individual references. */
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags))
+                        u->bus_track_add = b;
+
+                return 1;
+        }
+
         if (streq(name, "RequiresOverridable"))
                 d = UNIT_REQUIRES; /* redirect for obsolete unit dependency type */
         else if (streq(name, "RequisiteOverridable"))
                 d = UNIT_REQUISITE; /* same here */
         else
                 d = unit_dependency_from_string(name);
-
         if (d >= 0) {
                 const char *other;
 
@@ -2479,29 +2568,6 @@ static int bus_unit_set_transient_property(
                 r = sd_bus_message_exit_container(message);
                 if (r < 0)
                         return r;
-
-                return 1;
-
-        } else if (streq(name, "AddRef")) {
-
-                int b;
-
-                /* Why is this called "AddRef" rather than just "Ref", or "Reference"? There's already a "Ref()" method
-                 * on the Unit interface, and it's probably not a good idea to expose a property and a method on the
-                 * same interface (well, strictly speaking AddRef isn't exposed as full property, we just read it for
-                 * transient units, but still). And "References" and "ReferencedBy" is already used as unit reference
-                 * dependency type, hence let's not confuse things with that.
-                 *
-                 * Note that we don't actually add the reference to the bus track. We do that only after the setup of
-                 * the transient unit is complete, so that setting this property multiple times in the same transient
-                 * unit creation call doesn't count as individual references. */
-
-                r = sd_bus_message_read(message, "b", &b);
-                if (r < 0)
-                        return r;
-
-                if (!UNIT_WRITE_FLAGS_NOOP(flags))
-                        u->bus_track_add = b;
 
                 return 1;
         }
@@ -2644,11 +2710,7 @@ static int bus_unit_track_handler(sd_bus_track *t, void *userdata) {
 
         u->bus_track = sd_bus_track_unref(u->bus_track); /* make sure we aren't called again */
 
-        /* If the client that tracks us disappeared, then there's reason to believe that the cgroup is empty now too,
-         * let's see */
-        unit_add_to_cgroup_empty_queue(u);
-
-        /* Also add the unit to the GC queue, after all if the client left it might be time to GC this unit */
+        /* Add the unit to the GC queue, after all if the client left it might be time to GC this unit */
         unit_add_to_gc_queue(u);
 
         return 0;

@@ -1,8 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
+#include "alloc-util.h"
 #include "fido2-util.h"
 #include "fileio.h"
+#include "iovec-util.h"
 #include "libfido2-util.h"
+#include "log.h"
 #include "random-util.h"
 
 int fido2_generate_salt(struct iovec *ret_salt) {

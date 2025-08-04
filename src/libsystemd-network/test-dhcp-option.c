@@ -1,16 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <net/if_arp.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "alloc-util.h"
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
-#include "ether-addr-util.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "tests.h"
 
@@ -91,7 +87,7 @@ static void test_message_init(void) {
         message = malloc0(len);
 
         assert_se(dhcp_message_init(message, BOOTREQUEST, 0x12345678,
-                                    DHCP_DISCOVER, ARPHRD_ETHER, ETH_ALEN, (uint8_t[16]){},
+                                    ARPHRD_ETHER, ETH_ALEN, (uint8_t[16]){}, DHCP_DISCOVER,
                                     optlen, &optoffset) >= 0);
 
         assert_se(message->xid == htobe32(0x12345678));

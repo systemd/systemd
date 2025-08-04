@@ -1,11 +1,16 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
 #include "alloc-util.h"
 #include "bus-internal.h"
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "log.h"
 #include "set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unit-def.h"
 
@@ -40,7 +45,7 @@ BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
         return mfree(d);
 }
 
-static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         assert(m);
 
         log_warning("D-Bus connection terminated while waiting for jobs.");
@@ -49,7 +54,7 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
         return 0;
 }
 
-static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         BusWaitForJobs *d = ASSERT_PTR(userdata);
         _cleanup_free_ char *job_found = NULL;
         const char *path, *unit, *result;
@@ -251,6 +256,8 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                         log_error("Unit %s was started already once and can't be started again.", d->name);
                 else if (streq(d->result, "frozen"))
                         log_error("Cannot perform operation on frozen unit %s.", d->name);
+                else if (streq(d->result, "concurrency"))
+                        log_error("Concurrency limit of a slice unit %s is contained in has been reached.", d->name);
                 else if (endswith(d->name, ".service")) {
                         /* Job result is unknown. For services, let's also try Result property. */
                         _cleanup_free_ char *result = NULL;
@@ -281,6 +288,8 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                 return -ESTALE;
         else if (streq(d->result, "frozen"))
                 return -EDEADLK;
+        else if (streq(d->result, "concurrency"))
+                return -ETOOMANYREFS;
 
         return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                "Unexpected job result '%s' for unit '%s', assuming server side newer than us.",

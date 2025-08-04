@@ -9,5 +9,6 @@ integration_tests += [
                 },
                 'vm' : true,
                 'firmware' : 'auto',
+                'tpm' : true,
         },
 ]

@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-json.h"
-#include "macro.h"
+#include "forward.h"
 
 typedef enum OutputMode {
         OUTPUT_SHORT,
@@ -49,6 +48,7 @@ typedef enum OutputFlags {
         OUTPUT_KERNEL_THREADS    = 1 << 9,
         OUTPUT_CGROUP_XATTRS     = 1 << 10,
         OUTPUT_CGROUP_ID         = 1 << 11,
+        OUTPUT_HIDE_EXTRA        = 1 << 12,
 } OutputFlags;
 
 sd_json_format_flags_t output_mode_to_json_format_flags(OutputMode m);

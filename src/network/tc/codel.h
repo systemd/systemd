@@ -2,9 +2,7 @@
  * Copyright © 2019 VMware, Inc. */
 #pragma once
 
-#include "conf-parser.h"
 #include "qdisc.h"
-#include "time-util.h"
 
 typedef struct ControlledDelay {
         QDisc meta;

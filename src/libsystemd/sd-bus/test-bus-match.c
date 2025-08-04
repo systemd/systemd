@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
+
+#include "bus-internal.h"
 #include "bus-match.h"
 #include "bus-message.h"
-#include "bus-slot.h"
 #include "log.h"
-#include "macro.h"
 #include "memory-util.h"
 #include "tests.h"
 
@@ -36,8 +37,8 @@ static bool mask_contains(unsigned a[], unsigned n) {
         return true;
 }
 
-static int match_add(sd_bus_slot *slots, struct bus_match_node *root, const char *match, int value) {
-        struct bus_match_component *components;
+static int match_add(sd_bus_slot *slots, BusMatchNode *root, const char *match, int value) {
+        BusMatchComponent *components;
         size_t n_components;
         sd_bus_slot *s;
         int r;
@@ -56,8 +57,8 @@ static int match_add(sd_bus_slot *slots, struct bus_match_node *root, const char
         return bus_match_add(root, components, n_components, &s->match_callback);
 }
 
-static void test_match_scope(const char *match, enum bus_match_scope scope) {
-        struct bus_match_component *components = NULL;
+static void test_match_scope(const char *match, BusMatchScope scope) {
+        BusMatchComponent *components = NULL;
         size_t n_components = 0;
 
         CLEANUP_ARRAY(components, n_components, bus_match_parse_free);
@@ -67,7 +68,7 @@ static void test_match_scope(const char *match, enum bus_match_scope scope) {
 }
 
 int main(int argc, char *argv[]) {
-        struct bus_match_node root = {
+        BusMatchNode root = {
                 .type = BUS_MATCH_ROOT,
         };
 
@@ -122,7 +123,7 @@ int main(int argc, char *argv[]) {
         assert_se(bus_match_run(NULL, &root, m) == 0);
         assert_se(mask_contains((unsigned[]) { 9, 5, 10, 12, 14, 7, 15, 16, 17 }, 9));
 
-        for (enum bus_match_node_type i = 0; i < _BUS_MATCH_NODE_TYPE_MAX; i++) {
+        for (BusMatchNodeType i = 0; i < _BUS_MATCH_NODE_TYPE_MAX; i++) {
                 char buf[32];
                 const char *x;
 

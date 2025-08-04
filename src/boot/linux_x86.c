@@ -10,7 +10,7 @@
  * see https://docs.kernel.org/arch/x86/boot.html
  */
 
-#include "initrd.h"
+#include "efi-log.h"
 #include "linux.h"
 #include "macro-fundamental.h"
 #include "memory-util-fundamental.h"

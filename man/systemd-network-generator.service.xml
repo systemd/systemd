@@ -143,15 +143,17 @@
         <filename>50-foobar.link</filename>.</para>
 
         <para>Note that the resulting files are created world-readable, it is hence recommended to not include
-        secrets in these credentials, but supply them via separate credentials directly to
-        <filename>systemd-networkd.service</filename>.</para>
+        secrets in these credentials, but to supply them via separate credentials directly to
+        <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        </para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
     </variablelist>
 
-    <para>Note that by default the <filename>systemd-network-generator.service</filename> unit file is set up
-    to inherit the these credentials from the service manager.</para>
+    <para>Note that by default the
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    service is set up to inherit the these credentials from the service manager.</para>
   </refsect1>
 
   <refsect1>

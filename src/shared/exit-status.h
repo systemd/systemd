@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-
 #include "bitmap.h"
-#include "hashmap.h"
-#include "macro.h"
+#include "forward.h"
 
 /* This defines pretty names for the LSB 'start' verb exit codes. Note that they shouldn't be confused with
  * the LSB 'status' verb exit codes which are defined very differently. For details see:
@@ -106,8 +103,8 @@ typedef enum ExitClean {
         EXIT_CLEAN_COMMAND,
 } ExitClean;
 
-bool is_clean_exit(int code, int status, ExitClean clean, const ExitStatusSet *success_status);
+bool is_clean_exit(int code, int status, ExitClean clean, const ExitStatusSet *success_status) _pure_;
 
 void exit_status_set_free(ExitStatusSet *x);
-bool exit_status_set_is_empty(const ExitStatusSet *x);
-bool exit_status_set_test(const ExitStatusSet *x, int code, int status);
+bool exit_status_set_is_empty(const ExitStatusSet *x) _pure_;
+bool exit_status_set_test(const ExitStatusSet *x, int code, int status) _pure_;

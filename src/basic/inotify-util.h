@@ -1,12 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <limits.h>
-#include <stddef.h>
-#include <sys/inotify.h>
+#include <sys/inotify.h>        /* IWYU pragma: export */
+#include <syslog.h>
 
-#include "log.h"
+#include "forward.h"
 
 #define INOTIFY_EVENT_MAX (offsetof(struct inotify_event, name) + NAME_MAX + 1)
 

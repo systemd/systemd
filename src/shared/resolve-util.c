@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "conf-parser.h"
+#include "in-addr-util.h"
 #include "resolve-util.h"
 #include "string-table.h"
 

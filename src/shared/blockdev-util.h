@@ -1,18 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
+#include <sys/sysmacros.h>
 
-#include "sd-device.h"
-
-#include "macro.h"
+#include "forward.h"
 #include "stdio-util.h"
-#include "string-util.h"
 
 #define SYS_BLOCK_PATH_MAX(suffix)                                      \
-        (STRLEN("/sys/dev/block/") + DECIMAL_STR_MAX(dev_t) + 1 + DECIMAL_STR_MAX(dev_t) + strlen_ptr(suffix))
+        (STRLEN("/sys/dev/block/") + DECIMAL_STR_MAX(dev_t) + 1 + DECIMAL_STR_MAX(dev_t) + STRLEN(suffix))
 #define xsprintf_sys_block_path(buf, suffix, devno)                     \
-        xsprintf(buf, "/sys/dev/block/%u:%u%s", major(devno), minor(devno), strempty(suffix))
+        xsprintf(buf, "/sys/dev/block/%u:%u%s", major(devno), minor(devno), suffix ?: "")
 
 typedef enum BlockDeviceLookupFlag {
         BLOCK_DEVICE_LOOKUP_WHOLE_DISK  = 1 << 0, /* whole block device, e.g. sda, nvme0n1, or loop0. */
@@ -54,7 +51,6 @@ int block_device_remove_partition(int fd, const char *name, int nr);
 int block_device_resize_partition(int fd, int nr, uint64_t start, uint64_t size);
 int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret);
 int block_device_remove_all_partitions(sd_device *dev, int fd);
-int block_device_has_partitions(sd_device *dev);
 int blockdev_reread_partition_table(sd_device *dev);
 
 int blockdev_get_sector_size(int fd, uint32_t *ret);

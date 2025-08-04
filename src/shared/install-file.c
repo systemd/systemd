@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "btrfs-util.h"
 #include "chattr-util.h"
@@ -8,7 +10,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "install-file.h"
-#include "missing_syscall.h"
+#include "log.h"
 #include "rm-rf.h"
 #include "sync-util.h"
 

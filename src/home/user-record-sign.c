@@ -1,13 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <openssl/pem.h>
-
-#include "fd-util.h"
-#include "fileio.h"
+#include "alloc-util.h"
 #include "json-util.h"
-#include "memstream-util.h"
+#include "log.h"
 #include "openssl-util.h"
 #include "user-record-sign.h"
+#include "user-record.h"
 
 static int user_record_signable_json(UserRecord *ur, char **ret) {
         _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;

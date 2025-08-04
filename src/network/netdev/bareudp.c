@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later
  * Copyright © 2020 VMware, Inc. */
 
-#include <netinet/in.h>
 #include <linux/if_arp.h>
 
+#include "sd-netlink.h"
+
 #include "bareudp.h"
-#include "netlink-util.h"
-#include "networkd-manager.h"
+#include "conf-parser.h"
 #include "string-table.h"
 
 static const char* const bare_udp_protocol_table[_BARE_UDP_PROTOCOL_MAX] = {

@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "format-util.h"
-#include "macro.h"
-#include "string-util.h"
 #include "tests.h"
 #include "uchar.h"
 

@@ -1,33 +1,26 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <fcntl.h>
-#include <inttypes.h>
-#include <linux/loop.h>
+#include <linux/btrfs.h>
+#include <linux/btrfs_tree.h>
 #include <linux/magic.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "chase.h"
 #include "chattr-util.h"
 #include "copy.h"
+#include "errno-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
-#include "io-util.h"
-#include "macro.h"
-#include "missing_fs.h"
+#include "log.h"
 #include "path-util.h"
 #include "rm-rf.h"
-#include "smack-util.h"
 #include "sparse-endian.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -306,23 +299,6 @@ static int btrfs_iterate(BtrfsForeachIterator *i) {
              btrfs_iterate(&iterator) > 0; )
 
 int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
-        struct btrfs_ioctl_search_args args = {
-                /* Tree of tree roots */
-                .key.tree_id = BTRFS_ROOT_TREE_OBJECTID,
-
-                /* Look precisely for the subvolume items */
-                .key.min_type = BTRFS_ROOT_ITEM_KEY,
-                .key.max_type = BTRFS_ROOT_ITEM_KEY,
-
-                .key.min_offset = 0,
-                .key.max_offset = UINT64_MAX,
-
-                /* No restrictions on the other components */
-                .key.min_transid = 0,
-                .key.max_transid = UINT64_MAX,
-        };
-
-        bool found = false;
         int r;
 
         assert(fd >= 0);
@@ -334,66 +310,30 @@ int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
         if (fd < 0)
                 return fd;
 
-        if (subvol_id == 0) {
-                r = btrfs_subvol_get_id_fd(fd, &subvol_id);
-                if (r < 0)
-                        return r;
-        } else {
-                r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -ENOTTY;
-        }
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTTY;
 
-        args.key.min_objectid = args.key.max_objectid = subvol_id;
+        struct btrfs_ioctl_get_subvol_info_args info;
+        if (ioctl(fd, BTRFS_IOC_GET_SUBVOL_INFO, &info) < 0)
+                return -errno;
 
-        while (btrfs_ioctl_search_args_compare(&args) <= 0) {
-                struct btrfs_ioctl_search_header sh;
-                const void *body;
+        *ret = (BtrfsSubvolInfo) {
+                .subvol_id = info.treeid,
+                .otime = info.otime.sec * USEC_PER_SEC + (info.otime.nsec / NSEC_PER_USEC),
+                .ctime = info.ctime.sec * USEC_PER_SEC + (info.ctime.nsec / NSEC_PER_USEC),
+                .read_only = FLAGS_SET(info.flags, BTRFS_SUBVOL_RDONLY),
+        };
 
-                args.key.nr_items = 256;
-                if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
-                        return -errno;
+        assert_cc(sizeof(info.uuid) == sizeof(sd_id128_t));
+        memcpy(&ret->uuid, info.uuid, sizeof(sd_id128_t));
 
-                if (args.key.nr_items <= 0)
-                        break;
+        assert_cc(sizeof(info.parent_uuid) == sizeof(sd_id128_t));
+        memcpy(&ret->parent_uuid, info.parent_uuid, sizeof(sd_id128_t));
 
-                FOREACH_BTRFS_IOCTL_SEARCH_HEADER(sh, body, args) {
-                        /* Make sure we start the next search at least from this entry */
-                        btrfs_ioctl_search_args_set(&args, &sh);
-
-                        if (sh.objectid != subvol_id)
-                                continue;
-                        if (sh.type != BTRFS_ROOT_ITEM_KEY)
-                                continue;
-
-                        /* Older versions of the struct lacked the otime setting */
-                        if (sh.len < offsetof(struct btrfs_root_item, otime) + sizeof(struct btrfs_timespec))
-                                continue;
-
-                        const struct btrfs_root_item *ri = body;
-                        ret->otime = (usec_t) le64toh(ri->otime.sec) * USEC_PER_SEC +
-                                (usec_t) le32toh(ri->otime.nsec) / NSEC_PER_USEC;
-
-                        ret->subvol_id = subvol_id;
-                        ret->read_only = le64toh(ri->flags) & BTRFS_ROOT_SUBVOL_RDONLY;
-
-                        assert_cc(sizeof(ri->uuid) == sizeof(ret->uuid));
-                        memcpy(&ret->uuid, ri->uuid, sizeof(ret->uuid));
-                        memcpy(&ret->parent_uuid, ri->parent_uuid, sizeof(ret->parent_uuid));
-
-                        found = true;
-                        goto finish;
-                }
-
-                /* Increase search key by one, to read the next item, if we can. */
-                if (!btrfs_ioctl_search_args_inc(&args))
-                        break;
-        }
-
-finish:
-        return found ? 0 : -ENODATA;
+        return 0;
 }
 
 int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *ret) {
@@ -508,6 +448,12 @@ finish:
         }
 
         return 0;
+}
+
+int btrfs_log_dev_root(int level, int ret, const char *p) {
+        return log_full_errno(level, ret,
+                              "File system behind %s is reported by btrfs to be backed by pseudo-device /dev/root, which is not a valid userspace accessible device node. "
+                              "Cannot determine correct backing block device.", p);
 }
 
 int btrfs_qgroup_get_quota(const char *path, uint64_t qgroupid, BtrfsQuotaInfo *ret) {
@@ -1892,6 +1838,16 @@ int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
         }
 
         return -ENXIO;
+}
+
+bool btrfs_might_be_subvol(const struct stat *st) {
+        if (!st)
+                return false;
+
+        /* Returns true if this 'struct stat' looks like it could refer to a btrfs subvolume. To make a final
+         * decision, needs to be combined with an fstatfs() check to see if this is actually btrfs. */
+
+        return S_ISDIR(st->st_mode) && st->st_ino == 256;
 }
 
 int btrfs_forget_device(const char *path) {

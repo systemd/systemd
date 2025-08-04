@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mount.h>
-#include <sys/wait.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 
@@ -14,7 +14,9 @@
 #include "env-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "fs-util.h"
+#include "log.h"
 #include "mkdir.h"
 #include "nsresourced-manager.h"
 #include "parse-util.h"
@@ -23,9 +25,10 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stat-util.h"
 #include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "umask-util.h"
 #include "unaligned.h"
 #include "user-util.h"
@@ -111,7 +114,7 @@ int manager_new(Manager **ret) {
 
         r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         r = sd_event_set_watchdog(m->event, true);
         if (r < 0)
@@ -227,7 +230,7 @@ static int start_one_worker(Manager *m) {
                 }
 
                 r = invoke_callout_binary(SYSTEMD_NSRESOURCEWORK_PATH, STRV_MAKE("systemd-nsresourcework", "xxxxxxxxxxxxxxxx")); /* With some extra space rename_process() can make use of */
-                log_error_errno(r, "Failed start worker process: %m");
+                log_error_errno(r, "Failed to start worker process: %m");
                 _exit(EXIT_FAILURE);
         }
 
@@ -277,7 +280,7 @@ static int start_workers(Manager *m, bool explicit_request) {
                                                 &m->deferred_start_worker_event_source,
                                                 CLOCK_MONOTONIC,
                                                 ratelimit_end(&m->worker_ratelimit),
-                                                /* accuracy_usec= */ 0,
+                                                /* accuracy= */ 0,
                                                 on_deferred_start_worker,
                                                 m);
                                 if (r < 0)
@@ -444,7 +447,7 @@ static int manager_make_listen_socket(Manager *m) {
         (void) sockaddr_un_unlink(&sockaddr.un);
 
         WITH_UMASK(0000)
-                if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
+                if (bind(m->listen_fd, &sockaddr.sa, sockaddr_un_len(&sockaddr.un)) < 0)
                         return log_error_errno(errno, "Failed to bind socket: %m");
 
         r = mkdir_p("/run/systemd/userdb", 0755);

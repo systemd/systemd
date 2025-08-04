@@ -2,44 +2,53 @@
 
 #include <sys/mount.h>
 
+#include "sd-bus.h"
+#include "sd-journal.h"
+
 #include "af-list.h"
 #include "bus-error.h"
-#include "bus-locator.h"
 #include "bus-map-properties.h"
 #include "bus-print-properties.h"
 #include "bus-unit-procs.h"
+#include "bus-unit-util.h"
+#include "bus-util.h"
 #include "cgroup-show.h"
 #include "cpu-set-util.h"
 #include "errno-util.h"
 #include "exec-util.h"
 #include "exit-status.h"
-#include "fd-util.h"
+#include "extract-word.h"
 #include "format-util.h"
 #include "hexdecoct.h"
-#include "hostname-util.h"
 #include "hostname-setup.h"
 #include "in-addr-util.h"
+#include "install.h"
 #include "ip-protocol-list.h"
 #include "journal-file.h"
 #include "list.h"
-#include "locale-util.h"
+#include "logs-show.h"
 #include "memory-util.h"
 #include "numa-util.h"
 #include "open-file.h"
+#include "output-mode.h"
+#include "pager.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "percent-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "sort-util.h"
 #include "special.h"
-#include "string-table.h"
-#include "systemctl-list-machines.h"
 #include "systemctl-list-units.h"
-#include "systemctl-show.h"
-#include "systemctl-sysv-compat.h"
-#include "systemctl-util.h"
+#include "string-table.h"
+#include "string-util.h"
+#include "strv.h"
 #include "systemctl.h"
+#include "systemctl-list-machines.h"
+#include "systemctl-show.h"
+#include "systemctl-util.h"
 #include "terminal-util.h"
 #include "utf8.h"
 
@@ -153,6 +162,13 @@ typedef struct UnitCondition {
         LIST_FIELDS(struct UnitCondition, conditions);
 } UnitCondition;
 
+typedef struct QuotaInfo {
+        bool quota_enforce;
+        bool quota_accounting;
+        uint64_t quota_usage;
+        uint64_t quota_limit;
+} QuotaInfo;
+
 static UnitCondition* unit_condition_free(UnitCondition *c) {
         if (!c)
                 return NULL;
@@ -255,6 +271,11 @@ typedef struct UnitStatusInfo {
         /* Swap */
         const char *what;
 
+        /* Slice */
+        unsigned concurrency_hard_max;
+        unsigned concurrency_soft_max;
+        unsigned n_currently_active;
+
         /* CGroup */
         uint64_t memory_current;
         uint64_t memory_peak;
@@ -285,6 +306,9 @@ typedef struct UnitStatusInfo {
         uint64_t default_memory_min;
         uint64_t default_memory_low;
         uint64_t default_startup_memory_low;
+
+        /* Exec Quotas */
+        QuotaInfo exec_directories_quota[_EXEC_DIRECTORY_TYPE_MAX];
 
         LIST_HEAD(ExecStatusInfo, exec_status_info_list);
 } UnitStatusInfo;
@@ -323,6 +347,22 @@ static void format_enable_state(const char *enable_state, const char **enable_on
                 *enable_off = ansi_normal();
         } else
                 *enable_on = *enable_off = "";
+}
+
+static void print_exec_directory_quota(UnitStatusInfo *i, ExecDirectoryType dt) {
+        assert(i);
+
+        if (!IN_SET(dt, EXEC_DIRECTORY_STATE, EXEC_DIRECTORY_CACHE, EXEC_DIRECTORY_LOGS))
+                return;
+
+        if (i->exec_directories_quota[dt].quota_accounting) {
+                printf("        %s: %s", exec_directory_type_to_string(dt), FORMAT_BYTES(i->exec_directories_quota[dt].quota_usage));
+
+                if (i->exec_directories_quota[dt].quota_enforce)
+                        printf(" (max: %s)", FORMAT_BYTES(i->exec_directories_quota[dt].quota_limit));
+
+                printf("\n");
+        }
 }
 
 static void print_status_info(
@@ -397,7 +437,7 @@ static void print_status_info(
                 bool last = false;
 
                 STRV_FOREACH(dropin, i->dropin_paths) {
-                        _cleanup_free_ char *dropin_formatted = NULL;
+                        _cleanup_free_ char *dropin_formatted = NULL, *dropin_basename = NULL;
                         const char *df;
 
                         if (!dir || last) {
@@ -419,7 +459,13 @@ static void print_status_info(
 
                         last = ! (*(dropin + 1) && startswith(*(dropin + 1), dir));
 
-                        if (terminal_urlify_path(*dropin, basename(*dropin), &dropin_formatted) >= 0)
+                        r = path_extract_filename(*dropin, &dropin_basename);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to extract file name of '%s': %m", *dropin);
+                                break;
+                        }
+
+                        if (terminal_urlify_path(*dropin, dropin_basename, &dropin_formatted) >= 0)
                                 df = dropin_formatted;
                         else
                                 df = *dropin;
@@ -711,6 +757,26 @@ static void print_status_info(
                 putchar('\n');
         }
 
+        if (endswith(i->id, ".slice")) {
+                printf(" Act. Units: %u", i->n_currently_active);
+
+                if (i->concurrency_soft_max != UINT_MAX || i->concurrency_hard_max != UINT_MAX) {
+                        fputs(" (", stdout);
+
+                        if (i->concurrency_soft_max != UINT_MAX && i->concurrency_soft_max < i->concurrency_hard_max) {
+                                printf("soft limit: %u", i->concurrency_soft_max);
+                                if (i->concurrency_hard_max != UINT_MAX)
+                                        fputs("; ", stdout);
+                        }
+                        if (i->concurrency_hard_max != UINT_MAX)
+                                printf("hard limit: %u", i->concurrency_hard_max);
+
+                        putchar(')');
+                }
+
+                putchar('\n');
+        }
+
         if (i->ip_ingress_bytes != UINT64_MAX && i->ip_egress_bytes != UINT64_MAX)
                 printf("         IP: %s in, %s out\n",
                        FORMAT_BYTES(i->ip_ingress_bytes),
@@ -837,6 +903,9 @@ static void print_status_info(
 
         if (i->cpu_usage_nsec != UINT64_MAX)
                 printf("        CPU: %s\n", FORMAT_TIMESPAN(i->cpu_usage_nsec / NSEC_PER_USEC, USEC_PER_MSEC));
+
+        for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++)
+                print_exec_directory_quota(i, dt);
 
         if (i->control_group) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1083,6 +1152,25 @@ static int map_exec(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_e
         return 0;
 }
 
+static int map_quota(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+        int r;
+        QuotaInfo *qi = ASSERT_PTR(userdata);
+        uint64_t quota_usage, quota_limit;
+
+        r = sd_bus_message_read(m, "(tt)", &quota_usage, &quota_limit);
+        if (r < 0)
+                return r;
+
+        *qi = (QuotaInfo) {
+                .quota_enforce = quota_limit != UINT64_MAX,
+                .quota_accounting = quota_usage != UINT64_MAX,
+                .quota_usage = quota_usage,
+                .quota_limit = quota_limit
+        };
+
+        return 0;
+}
+
 static int print_property(const char *name, const char *expected_value, sd_bus_message *m, BusPrintPropertyFlags flags) {
         char bus_type;
         const char *contents;
@@ -1299,6 +1387,27 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 fputc('\n', stdout);
                         }
                         return 1;
+                } else if (STR_IN_SET(name, "StateDirectoryQuota", "CacheDirectoryQuota", "LogsDirectoryQuota")) {
+                        uint64_t quota_absolute;
+                        uint32_t quota_scale;
+                        const char *quota_enforce;
+
+                        r = sd_bus_message_read(m, "(tus)", &quota_absolute, &quota_scale, &quota_enforce);
+                        if (r < 0)
+                                return r;
+
+                        r = parse_boolean(quota_enforce);
+                        if (r < 0)
+                                return r;
+
+                        if (!r)
+                                bus_print_property_value(name, expected_value, flags, "[not set]");
+                        else if (quota_absolute != UINT64_MAX)
+                                bus_print_property_valuef(name, expected_value, flags, "%" PRIu64, quota_absolute);
+                        else
+                                bus_print_property_valuef(name, expected_value, flags, "%d%%", UINT32_SCALE_TO_PERCENT(quota_scale));
+
+                        return 1;
                 }
 
                 break;
@@ -1480,8 +1589,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         return 1;
 
-                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
-                           STR_IN_SET(name, "IODeviceWeight", "BlockIODeviceWeight")) {
+                } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN && streq(name, "IODeviceWeight")) {
                         const char *path;
                         uint64_t weight;
 
@@ -1501,8 +1609,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
 
                 } else if (contents[0] == SD_BUS_TYPE_STRUCT_BEGIN &&
-                           (cgroup_io_limit_type_from_string(name) >= 0 ||
-                            STR_IN_SET(name, "BlockIOReadBandwidth", "BlockIOWriteBandwidth"))) {
+                           cgroup_io_limit_type_from_string(name) >= 0) {
                         const char *path;
                         uint64_t bandwidth;
 
@@ -1738,7 +1845,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                       "EffectiveCPUs", "EffectiveMemoryNodes")) {
 
                         _cleanup_free_ char *affinity = NULL;
-                        _cleanup_(cpu_set_reset) CPUSet set = {};
+                        _cleanup_(cpu_set_done) CPUSet set = {};
                         const void *a;
                         size_t n;
 
@@ -2133,6 +2240,9 @@ static int show_one(
                 { "SysFSPath",                      "s",               NULL,           offsetof(UnitStatusInfo, sysfs_path)                        },
                 { "Where",                          "s",               NULL,           offsetof(UnitStatusInfo, where)                             },
                 { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
+                { "ConcurrencyHardMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_hard_max)              },
+                { "ConcurrencySoftMax",             "u",               NULL,           offsetof(UnitStatusInfo, concurrency_soft_max)              },
+                { "NCurrentlyActive",               "u",               NULL,           offsetof(UnitStatusInfo, n_currently_active)                },
                 { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
                 { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },
                 { "MemorySwapCurrent",              "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_current)               },
@@ -2161,6 +2271,9 @@ static int show_one(
                 { "IPEgressBytes",                  "t",               NULL,           offsetof(UnitStatusInfo, ip_egress_bytes)                   },
                 { "IOReadBytes",                    "t",               NULL,           offsetof(UnitStatusInfo, io_read_bytes)                     },
                 { "IOWriteBytes",                   "t",               NULL,           offsetof(UnitStatusInfo, io_write_bytes)                    },
+                { "StateDirectoryQuotaUsage",       "(tt)",            map_quota,      offsetof(UnitStatusInfo, exec_directories_quota[EXEC_DIRECTORY_STATE])   },
+                { "CacheDirectoryQuotaUsage",       "(tt)",            map_quota,      offsetof(UnitStatusInfo, exec_directories_quota[EXEC_DIRECTORY_CACHE])   },
+                { "LogsDirectoryQuotaUsage",        "(tt)",            map_quota,      offsetof(UnitStatusInfo, exec_directories_quota[EXEC_DIRECTORY_LOGS])    },
                 { "ExecCondition",                  "a(sasbttttuii)",  map_exec,       0                                                           },
                 { "ExecConditionEx",                "a(sasasttttuii)", map_exec,       0                                                           },
                 { "ExecStartPre",                   "a(sasbttttuii)",  map_exec,       0                                                           },

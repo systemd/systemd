@@ -46,9 +46,9 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     concurrency:
-      group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ matrix.distro }}-${{ matrix.release }}-${{ github.ref }}-${{ matrix.runner }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
@@ -56,71 +56,107 @@ jobs:
         include:
           - distro: arch
             release: rolling
+            runner: ubuntu-24.04
             sanitizers: ""
             llvm: 0
             cflags: "-O2 -D_FORTIFY_SOURCE=3"
             relabel: no
             vm: 1
-            skip: TEST-21-DFUZZER
+            no_qemu: 0
+            no_kvm: 0
+            shim: 0
           - distro: debian
             release: testing
+            runner: ubuntu-24.04
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: no
             vm: 0
-            skip: TEST-21-DFUZZER
+            no_qemu: 0
+            no_kvm: 0
+            shim: 1
+          - distro: debian
+            release: testing
+            runner: ubuntu-24.04-arm
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: no
+            vm: 0
+            no_qemu: 1
+            no_kvm: 1
+            shim: 0
           - distro: ubuntu
             release: noble
+            runner: ubuntu-24.04
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: no
             vm: 0
-            skip: TEST-21-DFUZZER
+            no_qemu: 0
+            no_kvm: 0
+            shim: 0
           - distro: fedora
             release: "42"
+            runner: ubuntu-24.04
             sanitizers: address,undefined
             llvm: 1
             cflags: "-Og"
             relabel: yes
             vm: 0
+            no_qemu: 0
+            no_kvm: 0
+            shim: 0
           - distro: fedora
             release: rawhide
+            runner: ubuntu-24.04
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: yes
             vm: 0
-            skip: TEST-21-DFUZZER
+            no_qemu: 0
+            no_kvm: 0
+            shim: 0
           - distro: opensuse
             release: tumbleweed
+            runner: ubuntu-24.04
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: no
             vm: 0
-            skip: TEST-21-DFUZZER
+            no_qemu: 0
+            no_kvm: 0
+            shim: 0
           - distro: centos
             release: "9"
+            runner: ubuntu-24.04
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: yes
             vm: 0
-            skip: TEST-21-DFUZZER
+            no_qemu: 0
+            no_kvm: 0
+            shim: 0
           - distro: centos
             release: "10"
+            runner: ubuntu-24.04
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
             relabel: yes
             vm: 0
-            skip: TEST-21-DFUZZER
+            no_qemu: 0
+            no_kvm: 0
+            shim: 0
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: systemd/mkosi@7e4ec15aee6b98300b2ee14265bc647a716a9f8a
+      - uses: systemd/mkosi@655baf24474a6f0732ec1b82a71c2f6fe4eeeb49
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
@@ -135,14 +171,14 @@ jobs:
         run: |
           truncate --size=100G btrfs.raw
           mkfs.btrfs btrfs.raw
-          sudo mkdir /mnt/mkosi
+          sudo mkdir -p /mnt/mkosi
           LOOP="$(sudo losetup --find --show --direct-io=on btrfs.raw)"
-          rm btrfs.raw
+          rm -f btrfs.raw
           sudo mount "$LOOP" /mnt/mkosi --options compress=zstd:1,user_subvol_rm_allowed,noatime,discard=async,space_cache=v2
           sudo chown "$(id -u):$(id -g)" /mnt/mkosi
-          mkdir /mnt/mkosi/tmp
+          mkdir -p /mnt/mkosi/tmp
           echo "TMPDIR=/mnt/mkosi/tmp" >>"$GITHUB_ENV"
-          ln -s /mnt/mkosi/build build
+          ln -sf /mnt/mkosi/build build
 
       - name: Configure
         run: |
@@ -187,22 +223,38 @@ jobs:
         run: mkosi summary
 
       - name: Build tools tree
-        run: sudo mkosi -f sandbox -- true
+        run: sudo mkosi -f box -- true
 
       - name: Configure meson
         run: |
           # /usr/sbin/bpftool is completely broken inside containers on Ubuntu which makes meson blow up so
           # disable the bpf-framework stuff to avoid the issue.
           # TODO: Drop when we move off Ubuntu Noble as this will be fixed in the next Ubuntu LTS release.
-          sudo mkosi sandbox -- \
+          sudo mkosi box -- \
             meson setup \
             --buildtype=debugoptimized \
-            -Dintegration-tests=true \
             -Dbpf-framework=disabled \
             build
 
+      - name: Prepare shim integration
+        run: |
+          if [ ${{ matrix.shim }} = 1 ]; then
+            { printf '[Content]\nPackages=shim-signed\nShimBootloader=signed\n'; \
+              printf '[Runtime]\nFirmware=uefi-secure-boot\nFirmwareVariables=%%O/ovmf_vars_shim.fd\n'; } \
+              >>mkosi/mkosi.local.conf
+
+            sudo mkdir -p build/mkosi.output/
+            sudo mkosi -f box -- \
+              virt-fw-vars \
+              --secure-boot \
+              --enroll-cert mkosi/mkosi.crt \
+              --add-mok 605dab50-e046-4300-abb6-3dd810dd8b23 mkosi/mkosi.crt \
+              --input /usr/share/OVMF/OVMF_VARS_4M.fd \
+              --output build/mkosi.output/ovmf_vars_shim.fd
+          fi
+
       - name: Build image
-        run: sudo mkosi sandbox -- meson compile -C build mkosi
+        run: sudo mkosi box -- meson compile -C build mkosi
 
       - name: Make sure sources weren't polluted by package build scripts
         run: |
@@ -217,23 +269,31 @@ jobs:
 
       - name: Run integration tests
         run: |
-          if [[ "$(sudo mkosi sandbox -- meson test --help)" == *"--max-lines"* ]]; then
+          if [[ "$(sudo mkosi box -- meson test --help)" == *"--max-lines"* ]]; then
               MAX_LINES=(--max-lines 300)
           else
               MAX_LINES=()
           fi
 
+          if [ "${{ matrix.no_kvm }}" = 1 ] && [ "${{ matrix.no_qemu }}" = 0 ]; then
+              timeout_multiplier=4
+          fi
+
           # --preserve-env makes sure all the github actions environment variables are propagated which are
           # used in integration-test-wrapper.py to construct the `gh` command line to download the journals
           # of failed tests.
-          sudo --preserve-env mkosi sandbox -- \
+          sudo --preserve-env mkosi box -- \
             env \
             TEST_PREFER_QEMU=${{ matrix.vm }} \
-            TEST_SKIP=${{ matrix.skip }} \
+            TEST_NO_QEMU=${{ matrix.no_qemu }} \
+            TEST_NO_KVM=${{ matrix.no_kvm }} \
+            TEST_RUNNER=${{ matrix.runner }} \
             meson test \
             -C build \
+            --timeout-multiplier="${timeout_multiplier:-1}" \
             --no-rebuild \
-            --suite integration-tests \
+            --setup=integration \
+            --suite=integration-tests \
             --print-errorlogs \
             --no-stdsplit \
             --num-processes "$(($(nproc) - 1))" \
@@ -243,7 +303,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
         with:
-          name: ci-mkosi-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.distro }}-${{ matrix.release }}-failed-test-journals
+          name: ci-mkosi-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.distro }}-${{ matrix.release }}-${{ matrix.runner }}-failed-test-journals
           path: |
             build/test/journal/*.journal
             build/meson-logs/*

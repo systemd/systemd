@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "architecture.h"
+#include "forward.h"
 
 typedef enum PickFlags {
         PICK_ARCHITECTURE = 1 << 0,   /* Look for an architecture suffix */
@@ -54,7 +55,9 @@ int path_pick_update_warn(
                 char **path,
                 const PickFilter *filter,
                 PickFlags flags,
-                PickResult *ret);
+                PickResult *ret_result);
+
+int path_uses_vpick(const char *path);
 
 extern const PickFilter pick_filter_image_raw;
 extern const PickFilter pick_filter_image_dir;

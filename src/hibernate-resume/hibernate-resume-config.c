@@ -4,13 +4,14 @@
 
 #include "alloc-util.h"
 #include "device-nodes.h"
+#include "efivars.h"
 #include "fstab-util.h"
 #include "hibernate-resume-config.h"
+#include "log.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "proc-cmdline.h"
-#include "efivars.h"
 
 typedef struct KernelHibernateLocation {
         char *device;
@@ -143,13 +144,14 @@ static bool validate_efi_hibernate_location(EFIHibernateLocation *e) {
 int get_efi_hibernate_location(EFIHibernateLocation **ret) {
 #if ENABLE_EFI
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "uuid",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),           SD_JSON_MANDATORY                },
-                { "offset",                _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(EFIHibernateLocation, offset),         SD_JSON_MANDATORY                },
-                { "kernelVersion",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, kernel_version), SD_JSON_PERMISSIVE               },
-                { "osReleaseId",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, id),             SD_JSON_PERMISSIVE               },
-                { "osReleaseImageId",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, image_id),       SD_JSON_PERMISSIVE               },
-                { "osReleaseVersionId",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, version_id),     SD_JSON_PERMISSIVE|SD_JSON_DEBUG },
-                { "osReleaseImageVersion", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(EFIHibernateLocation, image_version),  SD_JSON_PERMISSIVE|SD_JSON_DEBUG },
+                { "uuid",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(EFIHibernateLocation, uuid),           SD_JSON_MANDATORY                },
+                { "offset",                _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,  offsetof(EFIHibernateLocation, offset),         SD_JSON_MANDATORY                },
+                { "autoSwap",              SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(EFIHibernateLocation, auto_swap),      0                                },
+                { "kernelVersion",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(EFIHibernateLocation, kernel_version), SD_JSON_PERMISSIVE               },
+                { "osReleaseId",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(EFIHibernateLocation, id),             SD_JSON_PERMISSIVE               },
+                { "osReleaseImageId",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(EFIHibernateLocation, image_id),       SD_JSON_PERMISSIVE               },
+                { "osReleaseVersionId",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(EFIHibernateLocation, version_id),     SD_JSON_PERMISSIVE|SD_JSON_DEBUG },
+                { "osReleaseImageVersion", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(EFIHibernateLocation, image_version),  SD_JSON_PERMISSIVE|SD_JSON_DEBUG },
                 {},
         };
 

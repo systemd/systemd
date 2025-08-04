@@ -24,12 +24,17 @@ $(document).ready(function() {
 
         var items = [];
         $.each( data, function(_, version) {
-            if (version == dirname) {
-                items.push( "<option selected value='" + version + "'>" + "systemd " + version + "</option>");
-            } else if (dirname == "latest" && version == data[0]) {
-                items.push( "<option selected value='" + version + "'>" + "systemd " + version + "</option>");
+            if (version == data[1]) {
+                latest = " (latest stable)";
             } else {
-                items.push( "<option value='" + version + "'>" + "systemd " + version + "</option>");
+                latest = "";
+            }
+            if (version == dirname) {
+                items.push( "<option selected value='" + version + "'>" + "systemd " + version + latest + "</option>");
+            } else if (dirname == "latest" && version == data[1]) {
+                items.push( "<option selected value='" + version + "'>" + "systemd " + version + latest + "</option>");
+            } else {
+                items.push( "<option value='" + version + "'>" + "systemd " + version + latest + "</option>");
             }
         });
 
@@ -85,7 +90,7 @@ def get_latest_version():
     tags = subprocess.check_output(["git", "tag", "-l", "v*"], text=True).split()
     versions = []
     for tag in tags:
-        m = re.match("v?(\d+).*", tag)
+        m = re.match(r"v?(\d+).*", tag)
         if m:
             versions.append(int(m.group(1)))
     return max(versions)

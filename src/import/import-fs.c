@@ -2,27 +2,30 @@
 
 #include <getopt.h>
 #include <locale.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
-#include "build.h"
 #include "btrfs-util.h"
+#include "build.h"
+#include "copy.h"
 #include "discover-image.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "fs-util.h"
-#include "hostname-util.h"
 #include "import-common.h"
 #include "import-util.h"
 #include "install-file.h"
+#include "log.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "parse-argument.h"
+#include "path-util.h"
 #include "ratelimit.h"
 #include "rm-rf.h"
+#include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "verbs.h"
 
@@ -246,7 +249,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                          (arg_read_only ? INSTALL_READ_ONLY : 0) |
                          (arg_sync ? INSTALL_SYNCFS : 0));
         if (r < 0)
-                return log_error_errno(r, "Failed install directory as '%s': %m", final_path);
+                return log_error_errno(r, "Failed to install directory as '%s': %m", final_path);
 
         temp_path = mfree(temp_path);
 

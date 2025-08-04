@@ -11,20 +11,22 @@
 Description=Namespace Resource Manager
 Documentation=man:systemd-nsresourced.service(8)
 Requires=systemd-nsresourced.socket
-After=systemd-nsresourced.socket
 Conflicts=shutdown.target
 Before=sysinit.target shutdown.target
+Wants=modprobe@tun.service
+After=modprobe@tun.service
 DefaultDependencies=no
 
 [Service]
-CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE CAP_BPF CAP_PERFMON CAP_SETGID CAP_SETUID CAP_SYS_ADMIN CAP_CHOWN CAP_FOWNER
+CapabilityBoundingSet=CAP_DAC_READ_SEARCH CAP_SYS_RESOURCE CAP_BPF CAP_PERFMON CAP_SETGID CAP_SETUID CAP_SYS_ADMIN CAP_CHOWN CAP_FOWNER CAP_NET_ADMIN
 ExecStart={{LIBEXECDIR}}/systemd-nsresourced
 IPAddressDeny=any
 LimitNOFILE={{HIGH_RLIMIT_NOFILE}}
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
-PrivateDevices=yes
+DevicePolicy=closed
+DeviceAllow=/dev/net/tun rwm
 ProtectProc=invisible
 ProtectControlGroups=yes
 ProtectHome=yes

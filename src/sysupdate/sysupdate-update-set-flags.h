@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
+
 typedef enum UpdateSetFlags {
         UPDATE_NEWEST     = 1 << 0,
         UPDATE_AVAILABLE  = 1 << 1,

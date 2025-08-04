@@ -1,10 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <errno.h>
 #include <poll.h>
-#include <stddef.h>
-#include <stdlib.h>
-#include <string.h>
 #include <sys/un.h>
 #include <unistd.h>
 
@@ -15,6 +11,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"
+#include "log.h"
 #include "socket-util.h"
 #include "strxcpyx.h"
 #include "udev-ctrl.h"
@@ -47,6 +44,7 @@ struct UdevCtrl {
 int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
         _cleanup_close_ int sock = -EBADF;
         UdevCtrl *uctrl;
+        int r;
 
         assert(ret);
 
@@ -55,6 +53,15 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
                 if (sock < 0)
                         return log_error_errno(errno, "Failed to create socket: %m");
         }
+
+        /* enable receiving of the sender credentials in the messages */
+        r = setsockopt_int(fd >= 0 ? fd : sock, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set SO_PASSCRED, ignoring: %m");
+
+        r = setsockopt_int(fd >= 0 ? fd : sock, SOL_SOCKET, SO_PASSRIGHTS, false);
+        if (r < 0)
+                log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
 
         uctrl = new(UdevCtrl, 1);
         if (!uctrl)
@@ -72,7 +79,7 @@ int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
                 .sun_path = "/run/udev/control",
         };
 
-        uctrl->addrlen = SOCKADDR_UN_LEN(uctrl->saddr.un);
+        uctrl->addrlen = sockaddr_un_len(&uctrl->saddr.un);
 
         *ret = TAKE_PTR(uctrl);
         return 0;
@@ -243,11 +250,6 @@ static int udev_ctrl_event_handler(sd_event_source *s, int fd, uint32_t revents,
                 return 0;
         }
 
-        /* enable receiving of the sender credentials in the messages */
-        r = setsockopt_int(sock, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set SO_PASSCRED, ignoring: %m");
-
         r = sd_event_add_io(uctrl->event, &uctrl->event_source_connect, sock, EPOLLIN, udev_ctrl_connection_event_handler, uctrl);
         if (r < 0) {
                 log_error_errno(r, "Failed to create event source for udev control connection: %m");
@@ -292,7 +294,7 @@ int udev_ctrl_start(UdevCtrl *uctrl, udev_ctrl_handler_t callback, void *userdat
 
 int udev_ctrl_send(UdevCtrl *uctrl, UdevCtrlMessageType type, const void *data) {
         UdevCtrlMessageWire ctrl_msg_wire = {
-                .version = "udev-" STRINGIFY(PROJECT_VERSION),
+                .version = "udev-" PROJECT_VERSION_STR,
                 .magic = UDEV_CTRL_MAGIC,
                 .type = type,
         };

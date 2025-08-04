@@ -1,24 +1,25 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mount.h>
 #include <linux/magic.h>
+#include <sys/mount.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "errno-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "label-util.h"
+#include "log.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nspawn-mount.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
-#include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -41,7 +42,8 @@ CustomMount* custom_mount_add(CustomMount **l, size_t *n, CustomMountType t) {
         (*n)++;
 
         *ret = (CustomMount) {
-                .type = t
+                .type = t,
+                .destination_uid = UID_INVALID,
         };
 
         return ret;
@@ -509,12 +511,14 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         if (rmdir(full) < 0)
                 return log_error_errno(errno, "Failed to remove %s: %m", full);
 
-        /* Create mountpoint for cgroups. Otherwise we are not allowed since we remount /sys/ read-only. */
-        _cleanup_free_ char *x = path_join(top, "/fs/cgroup");
-        if (!x)
-                return log_oom();
+        /* Create mountpoints. Otherwise we are not allowed since we remount /sys/ read-only. */
+        FOREACH_STRING(p, "/fs/cgroup", "/fs/bpf") {
+                _cleanup_free_ char *x = path_join(top, p);
+                if (!x)
+                        return log_oom();
 
-        (void) mkdir_p(x, 0755);
+                (void) mkdir_p(x, 0755);
+        }
 
         return mount_nofollow_verbose(LOG_ERR, NULL, top, NULL,
                                       MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT|extra_flags, NULL);
@@ -681,7 +685,7 @@ int mount_all(const char *dest,
 
                                 log_debug_errno(r, "Failed to create directory %s: %m", where);
 
-                                /* If we failed mkdir() or chown() due to the root directory being read only,
+                                /* If mkdir() or chown() failed due to the root directory being read only,
                                  * attempt to mount this fs anyway and let mount_verbose log any errors */
                                 if (r != -EROFS)
                                         continue;
@@ -815,7 +819,28 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         if (m->rm_rf_tmpdir && chown(m->source, uid_shift, uid_shift) < 0)
                 return log_error_errno(errno, "Failed to chown %s: %m", m->source);
 
-        if (stat(m->source, &source_st) < 0)
+        /* UID/GIDs of idmapped mounts are always resolved in the caller's user namespace. In other
+         * words, they're not nested. If we're doing an idmapped mount from a bind mount that's
+         * already idmapped itself, the old idmap is replaced with the new one. This means that the
+         * source uid which we put in the idmap userns has to be the uid of mount source in the
+         * caller's userns *without* any mount idmapping in place. To get that uid, we clone the
+         * mount source tree and clear any existing idmapping and temporarily mount that tree over
+         * the mount source before we stat the mount source to figure out the source uid. */
+        _cleanup_close_ int fd_clone = open_tree_attr_with_fallback(
+                        AT_FDCWD,
+                        m->source,
+                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC,
+                        &(struct mount_attr) {
+                                .attr_clr = idmapping != REMOUNT_IDMAPPING_NONE ? MOUNT_ATTR_IDMAP : 0,
+                        });
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(fd_clone))
+                /* We can only clear idmapped mounts with open_tree_attr(), but there might not be one in
+                 * the first place, so we keep going if we get a not supported error. */
+                fd_clone = open_tree(AT_FDCWD, m->source, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC);
+        if (fd_clone < 0)
+                return log_error_errno(errno, "Failed to clone %s: %m", m->source);
+
+        if (fstat(fd_clone, &source_st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", m->source);
 
         r = chase(m->destination, dest, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &where, NULL);
@@ -826,7 +851,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                 if (stat(where, &dest_st) < 0)
                         return log_error_errno(errno, "Failed to stat %s: %m", where);
 
-                dest_uid = dest_st.st_uid;
+                dest_uid = uid_is_valid(m->destination_uid) ? uid_shift + m->destination_uid : dest_st.st_uid;
 
                 if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -857,12 +882,13 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                 if (chown(where, uid_shift, uid_shift) < 0)
                         return log_error_errno(errno, "Failed to chown %s: %m", where);
 
-                dest_uid = uid_shift;
+                dest_uid = uid_shift + (uid_is_valid(m->destination_uid) ? m->destination_uid : 0);
         }
 
-        r = mount_nofollow_verbose(LOG_ERR, m->source, where, NULL, mount_flags, mount_opts);
-        if (r < 0)
-                return r;
+        if (move_mount(fd_clone, "", AT_FDCWD, where, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                return log_error_errno(errno, "Failed to mount %s to %s: %m", m->source, where);
+
+        fd_clone = safe_close(fd_clone);
 
         if (m->read_only) {
                 r = bind_remount_recursive(where, MS_RDONLY, MS_RDONLY, NULL);
@@ -1090,19 +1116,21 @@ static int setup_volatile_state(const char *directory) {
 
 static int setup_volatile_state_after_remount_idmap(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
         _cleanup_free_ char *buf = NULL;
-        const char *p, *options;
         int r;
 
         assert(directory);
 
         /* Then, after remount_idmap(), overmount /var/ with a tmpfs. */
 
-        p = prefix_roota(directory, "/var");
+        _cleanup_free_ char *p = path_join(directory, "/var");
+        if (!p)
+                return log_oom();
+
         r = mkdir(p, 0755);
         if (r < 0 && errno != EEXIST)
                 return log_error_errno(errno, "Failed to create %s: %m", directory);
 
-        options = "mode=0755" TMPFS_LIMITS_VOLATILE_STATE;
+        const char *options = "mode=0755" TMPFS_LIMITS_VOLATILE_STATE;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 return log_oom();
@@ -1115,8 +1143,7 @@ static int setup_volatile_state_after_remount_idmap(const char *directory, uid_t
 static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char *selinux_apifs_context) {
         bool tmpfs_mounted = false, bind_mounted = false;
         _cleanup_(rmdir_and_freep) char *template = NULL;
-        _cleanup_free_ char *buf = NULL, *bindir = NULL;
-        const char *f, *t, *options;
+        _cleanup_free_ char *buf = NULL, *bindir = NULL, *f = NULL, *t = NULL;
         struct stat st;
         int r;
 
@@ -1147,7 +1174,7 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
 
-        options = "mode=0755" TMPFS_LIMITS_ROOTFS;
+        const char *options = "mode=0755" TMPFS_LIMITS_ROOTFS;
         r = tmpfs_patch_options(options, uid_shift == 0 ? UID_INVALID : uid_shift, selinux_apifs_context, &buf);
         if (r < 0)
                 goto fail;
@@ -1160,8 +1187,17 @@ static int setup_volatile_yes(const char *directory, uid_t uid_shift, const char
 
         tmpfs_mounted = true;
 
-        f = prefix_roota(directory, "/usr");
-        t = prefix_roota(template, "/usr");
+        f = path_join(directory, "/usr");
+        if (!f) {
+                r = log_oom();
+                goto fail;
+        }
+
+        t = path_join(template, "/usr");
+        if (!t) {
+                r = log_oom();
+                goto fail;
+        }
 
         r = mkdir(t, 0755);
         if (r < 0 && errno != EEXIST) {

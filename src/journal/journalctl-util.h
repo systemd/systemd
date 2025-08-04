@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-journal.h"
-
+#include "forward.h"
 #include "logs-show.h"
-#include "set.h"
-#include "time-util.h"
 
 /* The lists below are supposed to return the superset of unit names possibly matched by rules added with
  * add_matches_for_unit() and add_matches_for_user_unit(). */

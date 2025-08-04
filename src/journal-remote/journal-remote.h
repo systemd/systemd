@@ -1,31 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
-
-#include "hashmap.h"
+#include "forward.h"
 #include "journal-remote-parse.h"
 #include "journal-remote-write.h"
-#include "journal-vacuum.h"
 
-#if HAVE_MICROHTTPD
-#include "microhttpd-util.h"
-
-typedef struct MHDDaemonWrapper MHDDaemonWrapper;
-
-struct MHDDaemonWrapper {
-        uint64_t fd;
-        struct MHD_Daemon *daemon;
-
-        sd_event_source *io_event;
-        sd_event_source *timer_event;
-};
-
-MHDDaemonWrapper* MHDDaemonWrapper_free(MHDDaemonWrapper *d);
-DEFINE_TRIVIAL_CLEANUP_FUNC(MHDDaemonWrapper*, MHDDaemonWrapper_free);
-#endif
-
-struct RemoteServer {
+typedef struct RemoteServer {
         RemoteSource **sources;
         size_t active;
 
@@ -36,16 +16,14 @@ struct RemoteServer {
         Writer *_single_writer;
         uint64_t event_count;
 
-#if HAVE_MICROHTTPD
         Hashmap *daemons;
-#endif
         const char *output;                    /* either the output file or directory */
 
         JournalWriteSplitMode split_mode;
         JournalFileFlags file_flags;
         bool check_trust;
         JournalMetrics metrics;
-};
+} RemoteServer;
 extern RemoteServer *journal_remote_server_global;
 
 /* Used for MHD_OPTION_CONNECTION_MEMORY_LIMIT and header parsing cap */

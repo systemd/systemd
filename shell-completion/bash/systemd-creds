@@ -26,15 +26,15 @@ __contains_word() {
 
 __get_tpm2_devices() {
     local a b c
-    systemd-creds --no-legend --quiet --tpm2-device=list 2>/dev/null | \
-        { while read -r a b c; do echo " $a"; done }
+    systemd-creds --no-legend --quiet --tpm2-device=list 2>/dev/null |
+        { while read -r a b c; do echo " $a"; done; }
 }
 
 __get_creds() {
     local a b c
     local mode=$1; shift 1
-    systemd-creds list $mode --no-legend --no-pager $1 2>/dev/null | \
-        { while read -r a b c; do echo " $a"; done }
+    systemd-creds list $mode --no-legend --no-pager $1 2>/dev/null |
+        { while read -r a b c; do echo " $a"; done; }
 }
 
 _systemd_creds() {

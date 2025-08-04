@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
 #include "sd-dhcp6-client.h"
 
 int dhcp6_client_set_state_callback(

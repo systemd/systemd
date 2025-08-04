@@ -55,10 +55,10 @@
     <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    for more information about the functions implemented. In addition
-    to these functions, a couple of logging prefixes are defined as
-    macros:</para>
+    <citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+    and <citerefentry><refentrytitle>sd_pidfd_get_inode_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    for more information about the functions implemented. In addition to these functions, a couple of
+    logging prefixes are defined as macros:</para>
 
     <programlisting>#define SD_EMERG   "&lt;0&gt;"  /* system is unusable */
 #define SD_ALERT   "&lt;1&gt;"  /* action must be taken immediately */
@@ -104,6 +104,7 @@
       <member><citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd_is_fifo</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>sd_watchdog_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_pidfd_get_inode_id</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>daemon</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>

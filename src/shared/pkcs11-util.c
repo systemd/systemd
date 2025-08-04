@@ -1,18 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <fcntl.h>
-
+#include "alloc-util.h"
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
 #include "env-util.h"
 #include "escape.h"
-#include "fd-util.h"
 #include "format-table.h"
-#include "io-util.h"
+#include "log.h"
 #include "memory-util.h"
-#if HAVE_OPENSSL
 #include "openssl-util.h"
-#endif
 #include "pkcs11-util.h"
 #include "random-util.h"
 #include "string-util.h"
@@ -59,33 +55,6 @@ DLSYM_PROTOTYPE(p11_kit_uri_match_token_info) = NULL;
 DLSYM_PROTOTYPE(p11_kit_uri_message) = NULL;
 DLSYM_PROTOTYPE(p11_kit_uri_new) = NULL;
 DLSYM_PROTOTYPE(p11_kit_uri_parse) = NULL;
-
-int dlopen_p11kit(void) {
-        ELF_NOTE_DLOPEN("p11-kit",
-                        "Support for PKCS11 hardware tokens",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libp11-kit.so.0");
-
-        return dlopen_many_sym_or_warn(
-                        &p11kit_dl,
-                        "libp11-kit.so.0", LOG_DEBUG,
-                        DLSYM_ARG(p11_kit_module_get_name),
-                        DLSYM_ARG(p11_kit_modules_finalize_and_release),
-                        DLSYM_ARG(p11_kit_modules_load_and_initialize),
-                        DLSYM_ARG(p11_kit_strerror),
-                        DLSYM_ARG(p11_kit_uri_format),
-                        DLSYM_ARG(p11_kit_uri_free),
-                        DLSYM_ARG(p11_kit_uri_get_attributes),
-                        DLSYM_ARG(p11_kit_uri_get_attribute),
-                        DLSYM_ARG(p11_kit_uri_set_attribute),
-                        DLSYM_ARG(p11_kit_uri_get_module_info),
-                        DLSYM_ARG(p11_kit_uri_get_slot_info),
-                        DLSYM_ARG(p11_kit_uri_get_token_info),
-                        DLSYM_ARG(p11_kit_uri_match_token_info),
-                        DLSYM_ARG(p11_kit_uri_message),
-                        DLSYM_ARG(p11_kit_uri_new),
-                        DLSYM_ARG(p11_kit_uri_parse));
-}
 
 int uri_from_string(const char *p, P11KitUri **ret) {
         _cleanup_(sym_p11_kit_uri_freep) P11KitUri *uri = NULL;
@@ -423,122 +392,6 @@ int pkcs11_token_login(
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Too many attempts to log into token '%s'.", token_label);
-}
-
-int pkcs11_token_find_x509_certificate(
-                CK_FUNCTION_LIST *m,
-                CK_SESSION_HANDLE session,
-                P11KitUri *search_uri,
-                CK_OBJECT_HANDLE *ret_object) {
-
-        bool found_class = false, found_certificate_type = false;
-        _cleanup_free_ CK_ATTRIBUTE *attributes_buffer = NULL;
-        CK_ULONG n_attributes, a, n_objects;
-        CK_ATTRIBUTE *attributes = NULL;
-        CK_OBJECT_HANDLE objects[2];
-        CK_RV rv, rv2;
-        int r;
-
-        assert(m);
-        assert(search_uri);
-        assert(ret_object);
-
-        r = dlopen_p11kit();
-        if (r < 0)
-                return r;
-
-        attributes = sym_p11_kit_uri_get_attributes(search_uri, &n_attributes);
-        for (a = 0; a < n_attributes; a++) {
-
-                /* We use the URI's included match attributes, but make them more strict. This allows users
-                 * to specify a token URL instead of an object URL and the right thing should happen if
-                 * there's only one suitable key on the token. */
-
-                switch (attributes[a].type) {
-
-                case CKA_CLASS: {
-                        CK_OBJECT_CLASS c;
-
-                        if (attributes[a].ulValueLen != sizeof(c))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PKCS#11 CKA_CLASS attribute size.");
-
-                        memcpy(&c, attributes[a].pValue, sizeof(c));
-                        if (c != CKO_CERTIFICATE)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected PKCS#11 object is not an X.509 certificate, refusing.");
-
-                        found_class = true;
-                        break;
-                }
-
-                case CKA_CERTIFICATE_TYPE: {
-                        CK_CERTIFICATE_TYPE t;
-
-                        if (attributes[a].ulValueLen != sizeof(t))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid PKCS#11 CKA_CERTIFICATE_TYPE attribute size.");
-
-                        memcpy(&t, attributes[a].pValue, sizeof(t));
-                        if (t != CKC_X_509)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selected PKCS#11 object is not an X.509 certificate, refusing.");
-
-                        found_certificate_type = true;
-                        break;
-                }}
-        }
-
-        if (!found_class || !found_certificate_type) {
-                /* Hmm, let's slightly extend the attribute list we search for */
-
-                attributes_buffer = new(CK_ATTRIBUTE, n_attributes + !found_class + !found_certificate_type);
-                if (!attributes_buffer)
-                        return log_oom();
-
-                memcpy(attributes_buffer, attributes, sizeof(CK_ATTRIBUTE) * n_attributes);
-
-                if (!found_class) {
-                        static const CK_OBJECT_CLASS class = CKO_CERTIFICATE;
-
-                        attributes_buffer[n_attributes++] = (CK_ATTRIBUTE) {
-                                .type = CKA_CLASS,
-                                .pValue = (CK_OBJECT_CLASS*) &class,
-                                .ulValueLen = sizeof(class),
-                        };
-                }
-
-                if (!found_certificate_type) {
-                        static const CK_CERTIFICATE_TYPE type = CKC_X_509;
-
-                        attributes_buffer[n_attributes++] = (CK_ATTRIBUTE) {
-                                .type = CKA_CERTIFICATE_TYPE,
-                                .pValue = (CK_CERTIFICATE_TYPE*) &type,
-                                .ulValueLen = sizeof(type),
-                        };
-                }
-
-                attributes = attributes_buffer;
-        }
-
-        rv = m->C_FindObjectsInit(session, attributes, n_attributes);
-        if (rv != CKR_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to initialize object find call: %s", sym_p11_kit_strerror(rv));
-
-        rv = m->C_FindObjects(session, objects, ELEMENTSOF(objects), &n_objects);
-        rv2 = m->C_FindObjectsFinal(session);
-        if (rv != CKR_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to find objects: %s", sym_p11_kit_strerror(rv));
-        if (rv2 != CKR_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to finalize object find call: %s", sym_p11_kit_strerror(rv2));
-        if (n_objects == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "Failed to find selected X509 certificate on token.");
-        if (n_objects > 1)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
-                                       "Configured URI matches multiple certificates, refusing.");
-
-        *ret_object = objects[0];
-        return 0;
 }
 
 #if HAVE_OPENSSL
@@ -1936,6 +1789,37 @@ static int list_callback(
         return -EAGAIN; /* keep scanning */
 }
 #endif
+
+int dlopen_p11kit(void) {
+#if HAVE_P11KIT
+        ELF_NOTE_DLOPEN("p11-kit",
+                        "Support for PKCS11 hardware tokens",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libp11-kit.so.0");
+
+        return dlopen_many_sym_or_warn(
+                        &p11kit_dl,
+                        "libp11-kit.so.0", LOG_DEBUG,
+                        DLSYM_ARG(p11_kit_module_get_name),
+                        DLSYM_ARG(p11_kit_modules_finalize_and_release),
+                        DLSYM_ARG(p11_kit_modules_load_and_initialize),
+                        DLSYM_ARG(p11_kit_strerror),
+                        DLSYM_ARG(p11_kit_uri_format),
+                        DLSYM_ARG(p11_kit_uri_free),
+                        DLSYM_ARG(p11_kit_uri_get_attributes),
+                        DLSYM_ARG(p11_kit_uri_get_attribute),
+                        DLSYM_ARG(p11_kit_uri_set_attribute),
+                        DLSYM_ARG(p11_kit_uri_get_module_info),
+                        DLSYM_ARG(p11_kit_uri_get_slot_info),
+                        DLSYM_ARG(p11_kit_uri_get_token_info),
+                        DLSYM_ARG(p11_kit_uri_match_token_info),
+                        DLSYM_ARG(p11_kit_uri_message),
+                        DLSYM_ARG(p11_kit_uri_new),
+                        DLSYM_ARG(p11_kit_uri_parse));
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "p11kit support is not compiled in.");
+#endif
+}
 
 int pkcs11_list_tokens(void) {
 #if HAVE_P11KIT

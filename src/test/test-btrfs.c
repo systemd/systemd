@@ -2,15 +2,17 @@
 
 #include <fcntl.h>
 #include <sys/file.h>
+#include <sys/stat.h>
 
 #include "btrfs-util.h"
 #include "fd-util.h"
-#include "fs-util.h"
 #include "fileio.h"
 #include "format-util.h"
+#include "fs-util.h"
 #include "log.h"
 #include "string-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 int main(int argc, char *argv[]) {
         BtrfsQuotaInfo quota;
@@ -190,11 +192,11 @@ int main(int argc, char *argv[]) {
 
         r = btrfs_subvol_remove("/xxxquotatest", BTRFS_REMOVE_QUOTA|BTRFS_REMOVE_RECURSIVE);
         if (r < 0)
-                log_error_errno(r, "Failed remove subvolume: %m");
+                log_error_errno(r, "Failed to remove subvolume: %m");
 
         r = btrfs_subvol_remove("/xxxquotatest2", BTRFS_REMOVE_QUOTA|BTRFS_REMOVE_RECURSIVE);
         if (r < 0)
-                log_error_errno(r, "Failed remove subvolume: %m");
+                log_error_errno(r, "Failed to remove subvolume: %m");
 
         return 0;
 }

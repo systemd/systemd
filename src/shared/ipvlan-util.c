@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <net/if.h>
-
 #include "ipvlan-util.h"
 #include "string-table.h"
 

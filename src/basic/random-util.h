@@ -1,12 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <sys/uio.h>
-
-#include "macro.h"
+#include "forward.h"
 
 void random_bytes(void *p, size_t n) _nonnull_if_nonzero_(1, 2); /* Returns random bytes suitable for most uses, but may be insecure sometimes. */
 int crypto_random_bytes(void *p, size_t n) _nonnull_if_nonzero_(1, 2); /* Returns secure random bytes after waiting for the RNG to initialize. */

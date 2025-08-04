@@ -1,13 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-id128.h"
-#include "sd-json.h"
-
-#include "boot-entry.h"
-#include "image-policy.h"
-#include "openssl-util.h"
-#include "pager.h"
+#include "forward.h"
 
 typedef enum InstallSource {
         ARG_INSTALL_SOURCE_IMAGE,
@@ -20,7 +14,7 @@ extern char *arg_xbootldr_path;
 extern bool arg_print_esp_path;
 extern bool arg_print_dollar_boot_path;
 extern unsigned arg_print_root_device;
-extern bool arg_touch_variables;
+extern int arg_touch_variables;
 extern bool arg_install_random_seed;
 extern PagerFlags arg_pager_flags;
 extern bool arg_graceful;
@@ -54,3 +48,5 @@ static inline const char* arg_dollar_boot_path(void) {
 
 int acquire_esp(int unprivileged_mode, bool graceful, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
 int acquire_xbootldr(int unprivileged_mode, sd_id128_t *ret_uuid, dev_t *ret_devid);
+
+bool touch_variables(void);

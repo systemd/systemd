@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "af-list.h"
+#include "alloc-util.h"
 #include "daemon-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "hashmap.h"
 #include "iovec-util.h"
 #include "json-util.h"
 #include "memfd-util.h"
@@ -14,6 +17,7 @@
 #include "networkd-nexthop.h"
 #include "networkd-route.h"
 #include "networkd-serialize.h"
+#include "string-util.h"
 
 int manager_serialize(Manager *manager) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *array = NULL;

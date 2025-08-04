@@ -2,15 +2,8 @@
 #pragma once
 
 #include <mntent.h>
-#include <stdio.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
-#include "alloc-util.h"
-#include "dissect-image.h"
-#include "errno-util.h"
-#include "macro.h"
-#include "pidref.h"
+#include "forward.h"
 
 typedef struct SubMount {
         char *path;
@@ -20,11 +13,13 @@ typedef struct SubMount {
 void sub_mount_array_free(SubMount *s, size_t n);
 
 int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts);
+int bind_mount_submounts(
+                const char *source,
+                const char *target);
 
 int repeat_unmount(const char *path, int flags);
 
 int umount_recursive_full(const char *target, int flags, char **keep);
-
 static inline int umount_recursive(const char *target, int flags) {
         return umount_recursive_full(target, flags, NULL);
 }
@@ -49,7 +44,7 @@ int mount_verbose_full(
                 int error_log_level,
                 const char *what,
                 const char *where,
-                const char *type,
+                const char *fstype,
                 unsigned long flags,
                 const char *options,
                 bool follow_symlink);
@@ -58,20 +53,20 @@ static inline int mount_follow_verbose(
                 int error_log_level,
                 const char *what,
                 const char *where,
-                const char *type,
+                const char *fstype,
                 unsigned long flags,
                 const char *options) {
-        return mount_verbose_full(error_log_level, what, where, type, flags, options, true);
+        return mount_verbose_full(error_log_level, what, where, fstype, flags, options, true);
 }
 
 static inline int mount_nofollow_verbose(
                 int error_log_level,
                 const char *what,
                 const char *where,
-                const char *type,
+                const char *fstype,
                 unsigned long flags,
                 const char *options) {
-        return mount_verbose_full(error_log_level, what, where, type, flags, options, false);
+        return mount_verbose_full(error_log_level, what, where, fstype, flags, options, false);
 }
 
 int umount_verbose(
@@ -94,25 +89,10 @@ int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest)
 int mount_flags_to_string(unsigned long flags, char **ret);
 
 /* Useful for usage with _cleanup_(), unmounts, removes a directory and frees the pointer */
-static inline char* umount_and_rmdir_and_free(char *p) {
-        if (!p)
-                return NULL;
-
-        PROTECT_ERRNO;
-        (void) umount_recursive(p, 0);
-        (void) rmdir(p);
-        return mfree(p);
-}
+char* umount_and_rmdir_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_rmdir_and_free);
 
-static inline char* umount_and_free(char *p) {
-        if (!p)
-                return NULL;
-
-        PROTECT_ERRNO;
-        (void) umount_recursive(p, 0);
-        return mfree(p);
-}
+char* umount_and_free(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_free);
 
 char* umount_and_unlink_and_free(char *p);
@@ -170,13 +150,11 @@ typedef enum RemountIdmapping {
         _REMOUNT_IDMAPPING_INVALID = -EINVAL,
 } RemountIdmapping;
 
+int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned int flags, struct mount_attr *attr);
+
 int make_userns(uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
 int remount_idmap_fd(char **p, int userns_fd, uint64_t extra_mount_attr_set);
 int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
-
-int bind_mount_submounts(
-                const char *source,
-                const char *target);
 
 /* Creates a mount point (without any parents) based on the source path or mode - i.e., a file or a directory */
 int make_mount_point_inode_from_mode(int dir_fd, const char *dest, mode_t source_mode, mode_t target_mode);
@@ -188,6 +166,11 @@ unsigned long credentials_fs_mount_flags(bool ro);
 int mount_credentials_fs(const char *path, size_t size, bool ro);
 
 int make_fsmount(int error_log_level, const char *what, const char *type, unsigned long flags, const char *options, int userns_fd);
+
+int path_get_mount_info_at(int dir_fd, const char *path, char **ret_fstype, char **ret_options, char **ret_source);
+static inline int path_get_mount_info(const char *path, char **ret_fstype, char **ret_options, char **ret_source) {
+        return path_get_mount_info_at(AT_FDCWD, path, ret_fstype, ret_options, ret_source);
+}
 
 int path_is_network_fs_harder_at(int dir_fd, const char *path);
 static inline int path_is_network_fs_harder(const char *path) {

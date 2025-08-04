@@ -1,13 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-bus.h"
-
-#include "dissect-image.h"
-#include "hashmap.h"
-#include "macro.h"
+#include "forward.h"
 #include "runtime-scope.h"
-#include "set.h"
 #include "string-util.h"
 
 typedef struct PortableMetadata {

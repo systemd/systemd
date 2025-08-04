@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <stdio.h>
 
 #include "hwdb-util.h"
+#include "log.h"
 #include "udevadm.h"
 
 static const char *arg_test = NULL;

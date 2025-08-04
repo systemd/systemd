@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "in-addr-prefix-util.h"
+#include "set.h"
 #include "tests.h"
 
 static void test_in_addr_prefix_to_string_one(int f, const char *addr, unsigned prefixlen) {

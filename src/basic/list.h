@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
+
 /* The head of the linked list. Use this in the structure that shall
  * contain the head of the linked list */
 #define LIST_HEAD(t,name)                                               \
@@ -203,7 +205,3 @@
                         free_func(elem);                \
                 head;                                   \
         })
-
-/* Now include "macro.h", because we want our definition of assert() which the macros above use. We include
- * it down here instead of up top, since macro.h pulls in log.h which in turn needs our own definitions. */
-#include "macro.h"

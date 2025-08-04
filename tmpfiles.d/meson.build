@@ -45,7 +45,6 @@ in_files = [
 foreach f : in_files
         if f.length() == 1 or conf.get(f[1]) == 1
                 custom_target(
-                        f[0],
                         input : f[0] + '.in',
                         output: f[0],
                         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

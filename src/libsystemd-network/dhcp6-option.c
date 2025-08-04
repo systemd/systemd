@@ -3,19 +3,22 @@
   Copyright © 2014-2015 Intel Corporation. All rights reserved.
 ***/
 
-#include <errno.h>
 #include <netinet/in.h>
 
 #include "sd-dhcp6-client.h"
+#include "sd-dhcp6-option.h"
 
 #include "alloc-util.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
+#include "dns-def.h"
 #include "dns-domain.h"
 #include "escape.h"
 #include "memory-util.h"
 #include "network-common.h"
+#include "ordered-set.h"
+#include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"
 
@@ -207,6 +210,10 @@ bool dhcp6_option_can_request(uint16_t option) {
         case SD_DHCP6_OPTION_V6_DOTS_ADDRESS:
         case SD_DHCP6_OPTION_IPV6_ADDRESS_ANDSF:
         case SD_DHCP6_OPTION_V6_DNR:
+        case SD_DHCP6_OPTION_REGISTERED_DOMAIN:
+        case SD_DHCP6_OPTION_FORWARD_DIST_MANAGER:
+        case SD_DHCP6_OPTION_REVERSE_DIST_MANAGER:
+        case SD_DHCP6_OPTION_ADDR_REG_ENABLE:
                 return true;
         default:
                 return false;

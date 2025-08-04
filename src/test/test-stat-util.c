@@ -2,7 +2,6 @@
 
 #include <fcntl.h>
 #include <linux/magic.h>
-#include <sched.h>
 #include <sys/eventfd.h>
 #include <sys/mount.h>
 #include <unistd.h>
@@ -11,13 +10,12 @@
 #include "errno-list.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "macro.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "namespace-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "stat-util.h"
+#include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
 
@@ -171,7 +169,7 @@ TEST(path_is_temporary_fs) {
                 r = path_is_temporary_fs(s);
 
                 log_info_errno(r, "path_is_temporary_fs(\"%s\"): %d, %s",
-                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+                               s, r, r < 0 ? ERRNO_NAME(r) : yes_no(r));
         }
 
         /* run might not be a mount point in build chroots */
@@ -188,7 +186,7 @@ TEST(path_is_read_only_fs) {
                 r = path_is_read_only_fs(s);
 
                 log_info_errno(r, "path_is_read_only_fs(\"%s\"): %d, %s",
-                               s, r, r < 0 ? errno_to_name(r) : yes_no(r));
+                               s, r, r < 0 ? ERRNO_NAME(r) : yes_no(r));
         }
 
         if (path_is_mount_point_full("/sys", NULL, AT_SYMLINK_FOLLOW) > 0)

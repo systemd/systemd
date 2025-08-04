@@ -5,7 +5,6 @@
 
 #include "errno-util.h"
 #include "format-util.h"
-#include "missing_syscall.h"
 #include "raw-clone.h"
 #include "tests.h"
 

@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
+#include <stdlib.h>
 #include <sys/mount.h>
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
-#include "home-util.h"
-#include "homework-mount.h"
 #include "homework.h"
-#include "missing_syscall.h"
+#include "homework-mount.h"
+#include "log.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "namespace-util.h"
@@ -36,7 +37,7 @@ static const char *mount_options_for_fstype(const char *fstype) {
         if (streq(fstype, "xfs"))
                 return "noquota";
         if (streq(fstype, "btrfs"))
-                return "noacl,compress=zstd:1";
+                return "compress=zstd:1,noacl,user_subvol_rm_allowed";
         return NULL;
 }
 
@@ -139,7 +140,9 @@ int home_move_mount(const char *mount_suffix, const char *target) {
         } else
                 d = HOME_RUNTIME_WORK_DIR;
 
-        (void) mkdir_p(target, 0700);
+        r = mkdir_p(target, 0700);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create directory '%s': %m", target);
 
         r = mount_nofollow_verbose(LOG_ERR, d, target, NULL, MS_BIND, NULL);
         if (r < 0)

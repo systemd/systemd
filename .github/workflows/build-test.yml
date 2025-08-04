@@ -1,0 +1,46 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+name: Build test
+on:
+  pull_request:
+    paths:
+      - '**/meson.build'
+      - '.github/workflows/**'
+      - 'meson_options.txt'
+      - 'src/**'
+      - 'test/fuzz/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ${{ matrix.runner }}
+    concurrency:
+      group: ${{ github.workflow }}-${{ toJSON(matrix.env) }}-${{ github.ref }}-${{ matrix.runner }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ ubuntu-24.04 ]
+        env:
+          - { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "bfd"  }
+          - { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "mold" }
+          - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "mold" }
+          - { COMPILER: "clang", COMPILER_VERSION: "16", LINKER: "bfd"  }
+          - { COMPILER: "clang", COMPILER_VERSION: "18", LINKER: "lld"  }
+        include:
+          - env: { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "bfd"  }
+            runner: [ ubuntu-24.04-ppc64le ]
+          - env: { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "mold"  }
+            runner: [ ubuntu-24.04-arm ]
+          - env: { COMPILER: "clang", COMPILER_VERSION: "18", LINKER: "lld"  }
+            runner: [ ubuntu-24.04-s390x ]
+    env: ${{ matrix.env }}
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Build check
+        run: .github/workflows/build-test.sh

@@ -4,7 +4,6 @@
 #include <locale.h>
 
 #include "sd-event.h"
-#include "sd-id128.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -13,14 +12,12 @@
 #include "export-raw.h"
 #include "export-tar.h"
 #include "fd-util.h"
-#include "fs-util.h"
-#include "hostname-util.h"
 #include "import-common.h"
-#include "import-util.h"
+#include "log.h"
 #include "main-func.h"
+#include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "terminal-util.h"
 #include "verbs.h"
 
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
@@ -43,6 +40,8 @@ static void determine_compression_from_filename(const char *p) {
                 arg_compress = IMPORT_COMPRESS_GZIP;
         else if (endswith(p, ".bz2"))
                 arg_compress = IMPORT_COMPRESS_BZIP2;
+        else if (endswith(p, ".zst"))
+                arg_compress = IMPORT_COMPRESS_ZSTD;
         else
                 arg_compress = IMPORT_COMPRESS_UNCOMPRESSED;
 }
@@ -54,7 +53,7 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int export_tar(int argc, char *argv[], void *userdata) {
@@ -127,7 +126,7 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
         if (error == 0)
                 log_info("Operation completed successfully.");
 
-        sd_event_exit(event, abs(error));
+        sd_event_exit(event, ABS(error));
 }
 
 static int export_raw(int argc, char *argv[], void *userdata) {
@@ -254,6 +253,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_compress = IMPORT_COMPRESS_GZIP;
                         else if (streq(optarg, "bzip2"))
                                 arg_compress = IMPORT_COMPRESS_BZIP2;
+                        else if (streq(optarg, "zstd"))
+                                arg_compress = IMPORT_COMPRESS_ZSTD;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);

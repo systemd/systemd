@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "analyze-image-policy.h"
+#include "alloc-util.h"
 #include "analyze.h"
+#include "analyze-image-policy.h"
+#include "ansi-color.h"
 #include "format-table.h"
-#include "terminal-util.h"
+#include "image-policy.h"
+#include "string-util.h"
 
 static int table_add_designator_line(Table *table, PartitionDesignator d, PartitionPolicyFlags f) {
         _cleanup_free_ char *q = NULL;

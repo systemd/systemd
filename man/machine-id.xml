@@ -84,9 +84,9 @@
     containers or in the cloud, <filename>/etc/machine-id</filename> should be either missing or an empty
     file in the generic file system image (the difference between the two options is described under "First
     Boot Semantics" below). An ID will be generated during boot and saved to this file if possible. Having an
-    empty file in place is useful because it allows a temporary file to be bind-mounted over the real file,
-    in case the image is used read-only. Also see <ulink url="https://systemd.io/BUILDING_IMAGES">Safely
-    Building Images</ulink>.</para>
+    empty file in place is recommended because it allows a temporary file to be bind-mounted over the real file,
+    in case the image is used read-only and when <filename>/etc</filename> is mounted read-only in the early boot.
+    Also see <ulink url="https://systemd.io/BUILDING_IMAGES">Safely Building Images</ulink>.</para>
 
     <para><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     may be used to initialize <filename>/etc/machine-id</filename> on mounted (but not

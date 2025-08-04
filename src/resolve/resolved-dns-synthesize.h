@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "resolved-dns-answer.h"
-#include "resolved-dns-question.h"
-#include "resolved-manager.h"
+#include "resolved-forward.h"
 
 int dns_synthesize_family(uint64_t flags);
 DnsProtocol dns_synthesize_protocol(uint64_t flags);

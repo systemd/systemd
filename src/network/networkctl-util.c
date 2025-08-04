@@ -3,9 +3,15 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-bus.h"
+
+#include "alloc-util.h"
 #include "ansi-color.h"
+#include "log.h"
 #include "networkctl.h"
 #include "networkctl-util.h"
+#include "stdio-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "varlink-util.h"
 

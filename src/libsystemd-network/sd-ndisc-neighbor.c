@@ -5,10 +5,12 @@
 #include "sd-ndisc.h"
 
 #include "alloc-util.h"
+#include "icmp6-packet.h"
 #include "in-addr-util.h"
 #include "ndisc-internal.h"
 #include "ndisc-neighbor-internal.h"
 #include "ndisc-option.h"
+#include "set.h"
 
 static sd_ndisc_neighbor* ndisc_neighbor_free(sd_ndisc_neighbor *na) {
         if (!na)

@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdbool.h>
-#include <stddef.h>
-
-#include "macro.h"
+#include "forward.h"
 
 size_t strnpcpy_full(char **dest, size_t size, const char *src, size_t len, bool *ret_truncated);
 static inline size_t strnpcpy(char **dest, size_t size, const char *src, size_t len) {

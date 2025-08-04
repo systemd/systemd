@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-map-properties.h"
-#include "alloc-util.h"
-#include "bus-util.h"
-#include "strv.h"
-#include "bus-message.h"
-#include "bus-message-util.h"
+#include "sd-bus.h"
 
-int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+#include "bus-map-properties.h"
+#include "bus-message-util.h"
+#include "bus-util.h"
+#include "string-util.h"
+#include "strv.h"
+
+int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *reterr_error, void *userdata) {
         sd_id128_t *p = userdata;
         int r;
 
@@ -20,7 +21,7 @@ int bus_map_id128(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_err
         return 0;
 }
 
-int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *reterr_error, void *userdata) {
         char ***p = ASSERT_PTR(userdata);
         int r;
 
@@ -34,7 +35,7 @@ int bus_map_strv_sort(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus
         return 0;
 }
 
-int bus_map_job_id(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
+int bus_map_job_id(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *reterr_error, void *userdata) {
         uint32_t *p = ASSERT_PTR(userdata);
 
         assert(m);
@@ -138,7 +139,7 @@ int bus_message_map_all_properties(
                 sd_bus_message *m,
                 const struct bus_properties_map *map,
                 unsigned flags,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 void *userdata) {
 
         int r;
@@ -178,7 +179,7 @@ int bus_message_map_all_properties(
 
                         v = (uint8_t *)userdata + prop->offset;
                         if (map[i].set)
-                                r = prop->set(sd_bus_message_get_bus(m), member, m, error, v);
+                                r = prop->set(sd_bus_message_get_bus(m), member, m, reterr_error, v);
                         else
                                 r = map_basic(m, flags, v);
                         if (r < 0)
@@ -213,18 +214,18 @@ int bus_map_all_properties(
                 const char *path,
                 const struct bus_properties_map *map,
                 unsigned flags,
-                sd_bus_error *error,
-                sd_bus_message **reply,
+                sd_bus_error *reterr_error,
+                sd_bus_message **ret_reply,
                 void *userdata) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
         assert(bus);
         assert(destination);
         assert(path);
         assert(map);
-        assert(reply || (flags & BUS_MAP_STRDUP));
+        assert(ret_reply || (flags & BUS_MAP_STRDUP));
 
         r = sd_bus_call_method(
                         bus,
@@ -232,18 +233,18 @@ int bus_map_all_properties(
                         path,
                         "org.freedesktop.DBus.Properties",
                         "GetAll",
-                        error,
-                        &m,
+                        reterr_error,
+                        &reply,
                         "s", "");
         if (r < 0)
                 return r;
 
-        r = bus_message_map_all_properties(m, map, flags, error, userdata);
+        r = bus_message_map_all_properties(reply, map, flags, reterr_error, userdata);
         if (r < 0)
                 return r;
 
-        if (reply)
-                *reply = sd_bus_message_ref(m);
+        if (ret_reply)
+                *ret_reply = TAKE_PTR(reply);
 
         return r;
 }

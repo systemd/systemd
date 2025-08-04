@@ -1,9 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/magic.h>
+#include <stdlib.h>
 #include <sys/vfs.h>
+#include <unistd.h>
 
 #include "sd-device.h"
+#include "sd-gpt.h"
 #include "sd-id128.h"
 
 #include "alloc-util.h"
@@ -16,12 +19,12 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "find-esp.h"
-#include "gpt.h"
 #include "mount-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "virt.h"
 
 typedef enum VerifyESPFlags {
@@ -100,7 +103,7 @@ static int verify_esp_blkid(
         if (r != 0)
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                      "No filesystem found on \"%s\": %m", node);
+                                      "No filesystem found on \"%s\".", node);
         if (!streq(v, "vfat"))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
@@ -628,7 +631,7 @@ static int verify_xbootldr_blkid(
         if (r != 0)
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(EIO),
-                                      "%s: Failed to probe PART_ENTRY_SCHEME: %m", node);
+                                      "%s: Failed to probe PART_ENTRY_SCHEME.", node);
         if (streq(type, "gpt")) {
 
                 errno = 0;

@@ -6,12 +6,14 @@
 #include "sd-dhcp-client.h"
 #include "sd-ipv4acd.h"
 
+#include "hashmap.h"
 #include "ipvlan.h"
 #include "networkd-address.h"
 #include "networkd-dhcp4.h"
 #include "networkd-ipv4acd.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
+#include "string-util.h"
 
 DEFINE_PRIVATE_HASH_OPS_FULL(
         ipv4acd_hash_ops,
@@ -64,6 +66,18 @@ static bool address_ipv4acd_enabled(Link *link, const Address *address) {
                 return false;
 
         return link_ipv4acd_supported(link);
+}
+
+bool link_ipv4acd_enabled(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        Address *address;
+        ORDERED_HASHMAP_FOREACH(address, link->network->addresses_by_section)
+                if (address_ipv4acd_enabled(link, address))
+                        return true;
+
+        return false;
 }
 
 bool ipv4acd_bound(Link *link, const Address *address) {
@@ -212,6 +226,7 @@ int ipv4acd_configure(Link *link, const Address *address) {
 
         assert(link);
         assert(link->manager);
+        assert(link->network);
         assert(address);
 
         if (address->family != AF_INET)
@@ -253,6 +268,10 @@ int ipv4acd_configure(Link *link, const Address *address) {
                 return r;
 
         r = sd_ipv4acd_set_address(acd, &address->in_addr.in);
+        if (r < 0)
+                return r;
+
+        r = sd_ipv4acd_set_timeout(acd, link->network->ipv4_dad_timeout_usec);
         if (r < 0)
                 return r;
 

@@ -1,11 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <stdint.h>
 #include <sys/stat.h>
 
-#include "constants.h"
-#include "hashmap.h"
+#include "forward.h"
+#include "iterator.h"
 #include "sparse-endian.h"
 
 #define HWDB_SIG { 'K', 'S', 'L', 'P', 'H', 'H', 'R', 'H' }

@@ -143,7 +143,7 @@ lennart@zeta$ cp -av /etc/skel ~/Areas/versuch1</programlisting>
     <literal>lennart%versuch1</literal> when prompted for a user name), or via
     <citerefentry><refentrytitle>run0</refentrytitle><manvolnum>1</manvolnum></citerefentry>:</para>
 
-    <programlisting>lennart@zeta$ run0 -a versuch1</programlisting>
+    <programlisting>lennart@zeta$ run0 --area=versuch1</programlisting>
   </refsect1>
 
   <refsect1>

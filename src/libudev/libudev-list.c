@@ -4,7 +4,7 @@
 #include "hashmap.h"
 #include "libudev-list-internal.h"
 #include "list.h"
-#include "sort-util.h"
+#include "string-util.h"
 
 /**
  * SECTION:libudev-list
@@ -34,7 +34,7 @@ struct udev_list {
         bool uptodate:1;
 };
 
-static struct udev_list_entry *udev_list_entry_free(struct udev_list_entry *entry) {
+static struct udev_list_entry* udev_list_entry_free(struct udev_list_entry *entry) {
         if (!entry)
                 return NULL;
 
@@ -52,9 +52,14 @@ static struct udev_list_entry *udev_list_entry_free(struct udev_list_entry *entr
         return mfree(entry);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_list_entry *, udev_list_entry_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(struct udev_list_entry*, udev_list_entry_free);
 
-struct udev_list *udev_list_new(bool unique) {
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                udev_list_entry_hash_ops,
+                char, string_hash_func, string_compare_func,
+                struct udev_list_entry, udev_list_entry_free);
+
+struct udev_list* udev_list_new(bool unique) {
         struct udev_list *list;
 
         list = new(struct udev_list, 1);
@@ -68,36 +73,26 @@ struct udev_list *udev_list_new(bool unique) {
         return list;
 }
 
-struct udev_list_entry *udev_list_entry_add(struct udev_list *list, const char *_name, const char *_value) {
+struct udev_list_entry* udev_list_entry_add(struct udev_list *list, const char *name, const char *value) {
         _cleanup_(udev_list_entry_freep) struct udev_list_entry *entry = NULL;
-        _cleanup_free_ char *name = NULL, *value = NULL;
 
         assert(list);
-        assert(_name);
+        assert(name);
 
-        name = strdup(_name);
-        if (!name)
-                return NULL;
-
-        if (_value) {
-                value = strdup(_value);
-                if (!value)
-                        return NULL;
-        }
-
-        entry = new(struct udev_list_entry, 1);
+        entry = new0(struct udev_list_entry, 1);
         if (!entry)
                 return NULL;
 
-        *entry = (struct udev_list_entry) {
-                .name = TAKE_PTR(name),
-                .value = TAKE_PTR(value),
-        };
+        if (strdup_to(&entry->name, name) < 0)
+                return NULL;
+
+        if (strdup_to(&entry->value, value) < 0)
+                return NULL;
 
         if (list->unique) {
                 udev_list_entry_free(hashmap_get(list->unique_entries, entry->name));
 
-                if (hashmap_ensure_put(&list->unique_entries, &string_hash_ops, entry->name, entry) < 0)
+                if (hashmap_ensure_put(&list->unique_entries, &udev_list_entry_hash_ops, entry->name, entry) < 0)
                         return NULL;
 
                 list->uptodate = false;
@@ -115,13 +110,13 @@ void udev_list_cleanup(struct udev_list *list) {
 
         if (list->unique) {
                 list->uptodate = false;
-                hashmap_clear_with_destructor(list->unique_entries, udev_list_entry_free);
+                hashmap_clear(list->unique_entries);
         } else
                 LIST_FOREACH(entries, i, list->entries)
                         udev_list_entry_free(i);
 }
 
-struct udev_list *udev_list_free(struct udev_list *list) {
+struct udev_list* udev_list_free(struct udev_list *list) {
         if (!list)
                 return NULL;
 
@@ -131,11 +126,7 @@ struct udev_list *udev_list_free(struct udev_list *list) {
         return mfree(list);
 }
 
-static int udev_list_entry_compare_func(struct udev_list_entry * const *a, struct udev_list_entry * const *b) {
-        return strcmp((*a)->name, (*b)->name);
-}
-
-struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
+struct udev_list_entry* udev_list_get_entry(struct udev_list *list) {
         if (!list)
                 return NULL;
 
@@ -151,17 +142,9 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
                         LIST_PREPEND(entries, list->entries, hashmap_first(list->unique_entries));
                 else {
                         _cleanup_free_ struct udev_list_entry **buf = NULL;
-                        struct udev_list_entry *entry, **p;
 
-                        buf = new(struct udev_list_entry *, n);
-                        if (!buf)
+                        if (hashmap_dump_sorted(list->unique_entries, (void***) &buf, /* ret_n = */ NULL) < 0)
                                 return NULL;
-
-                        p = buf;
-                        HASHMAP_FOREACH(entry, list->unique_entries)
-                                *p++ = entry;
-
-                        typesafe_qsort(buf, n, udev_list_entry_compare_func);
 
                         for (size_t j = n; j > 0; j--)
                                 LIST_PREPEND(entries, list->entries, buf[j-1]);
@@ -181,7 +164,7 @@ struct udev_list_entry *udev_list_get_entry(struct udev_list *list) {
  *
  * Returns: udev_list_entry, #NULL if no more entries are available.
  */
-_public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry *list_entry) {
+_public_ struct udev_list_entry* udev_list_entry_get_next(struct udev_list_entry *list_entry) {
         if (!list_entry)
                 return NULL;
         if (list_entry->list->unique && !list_entry->list->uptodate)
@@ -198,7 +181,7 @@ _public_ struct udev_list_entry *udev_list_entry_get_next(struct udev_list_entry
  *
  * Returns: udev_list_entry, #NULL if no matching entry is found.
  */
-_public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name) {
+_public_ struct udev_list_entry* udev_list_entry_get_by_name(struct udev_list_entry *list_entry, const char *name) {
         if (!list_entry)
                 return NULL;
         if (!list_entry->list->unique || !list_entry->list->uptodate)
@@ -214,7 +197,7 @@ _public_ struct udev_list_entry *udev_list_entry_get_by_name(struct udev_list_en
  *
  * Returns: the name string of this entry.
  */
-_public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry) {
+_public_ const char* udev_list_entry_get_name(struct udev_list_entry *list_entry) {
         if (!list_entry)
                 return NULL;
         return list_entry->name;
@@ -228,7 +211,7 @@ _public_ const char *udev_list_entry_get_name(struct udev_list_entry *list_entry
  *
  * Returns: the value string of this entry.
  */
-_public_ const char *udev_list_entry_get_value(struct udev_list_entry *list_entry) {
+_public_ const char* udev_list_entry_get_value(struct udev_list_entry *list_entry) {
         if (!list_entry)
                 return NULL;
         return list_entry->value;

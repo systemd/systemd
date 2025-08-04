@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "macro.h"
+#include <stdio.h>
+
+#include "alloc-util.h"
+#include "log.h"
 #include "networkd-link.h"
 #include "parse-util.h"
 #include "string-util.h"
