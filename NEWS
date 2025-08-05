@@ -693,7 +693,7 @@ CHANGES WITH 258 in spe:
           number.
 
         * The search domains hard cap has been bumped from 256 to 1024, in order
-          to accomodate complex network setups.
+          to accommodate complex network setups.
 
         systemd-hostnamed:
 
