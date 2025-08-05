@@ -280,4 +280,4 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
 fi
 
 # Tests whether intermediate disconnects corrupt us (modified testcase from https://github.com/systemd/systemd/issues/27204)
-assert_rc "37" systemd-run --unit=disconnecttest --wait --pipe --user -M testuser@.host bash -ec 'systemctl --user daemon-reexec; sleep 3; exit 37'
+assert_rc "37" timeout 300 systemd-run --unit=disconnecttest --wait --pipe --user -M testuser@.host bash -ec 'systemctl --user daemon-reexec; sleep 3; exit 37'
