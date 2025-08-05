@@ -1132,6 +1132,38 @@ int config_parse_keep_configuration(
         return 0;
 }
 
+int config_parse_dhcp_client_persist_leases(
+                        const char *unit,
+                        const char *filename,
+                        unsigned line,
+                        const char *section,
+                        unsigned section_line,
+                        const char *lvalue,
+                        int ltype,
+                        const char *rvalue,
+                        void *data,
+                        void *userdata) {
+
+                DHCPClientPersistLeases t, *k = ASSERT_PTR(data);
+                Network *network = ASSERT_PTR(userdata);
+
+        /* Not suree if the point to manager should be assigned here */
+        /*
+                if (isempty(rvalue)) {
+                *k = ASSERT_PTR(network->manager)->dhcp_client_persist_leases;
+                return 0;
+
+                }
+        */
+                t = dhcp_client_persist_leases_from_string(rvalue);
+                if (t < 0)
+                                log_syntax_parse_error(unit, filename, line, t, lvalue, rvalue);
+
+                *k = t;
+                return 0;
+}
+
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_required_family_for_online, link_required_address_family, AddressFamily);
 
 static const char* const keep_configuration_table[_KEEP_CONFIGURATION_MAX] = {
@@ -1155,3 +1187,10 @@ static const char* const activation_policy_table[_ACTIVATION_POLICY_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_activation_policy, activation_policy, ActivationPolicy);
+
+static const char* const dhcp_client_persist_leases_table[_DHCP_CLIENT_PERSIST_LEASES_MAX] = {
+        [DHCP_CLIENT_PERSIST_LEASES_NO]              = "no",
+        [DHCP_CLIENT_PERSIST_LEASES_YES]             = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dhcp_client_persist_leases, DHCPClientPersistLeases, DHCP_CLIENT_PERSIST_LEASES_YES);
