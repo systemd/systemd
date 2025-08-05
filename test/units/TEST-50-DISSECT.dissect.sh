@@ -653,7 +653,7 @@ NotifyAccess=all
 ExecStart=bash -x -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
-        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        stdbuf -o1K printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
         (ls /etc | grep marker) >/tmp/markers/50i; \
         (cat /usr/lib/os-release) >>/tmp/markers/50i; \
         echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -688,7 +688,7 @@ NotifyAccess=all
 ExecStart=bash -x -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
-        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        stdbuf -o1K printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
         (ls /etc | grep marker) >/tmp/markers/50j; \
         (cat /usr/lib/os-release) >>/tmp/markers/50j; \
         echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -718,7 +718,7 @@ NotifyAccess=all
 ExecStart=bash -x -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
-        printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
+        stdbuf -o1K printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
         (ls /etc | grep marker) >/tmp/markers/50k; \
         (cat /usr/lib/os-release) >>/tmp/markers/50k; \
         echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
