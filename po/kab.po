@@ -3,12 +3,14 @@
 # Kabyle translation of systemd.
 # Slimane Selyan Amiri <selyan.kab@gmail.com>, 2021.
 # ButterflyOfFire <butterflyoffire@protonmail.com>, 2024.
+# ButterflyOfFire <butterflyoffire@users.noreply.translate.fedoraproject.org>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2024-10-07 04:52+0000\n"
-"Last-Translator: ButterflyOfFire <butterflyoffire@protonmail.com>\n"
+"PO-Revision-Date: 2025-08-05 01:30+0000\n"
+"Last-Translator: ButterflyOfFire "
+"<butterflyoffire@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
 "main/kab/>\n"
 "Language: kab\n"
@@ -16,11 +18,11 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.7.2\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
-msgstr "Azen awal uɛeddi ɣer unagraw"
+msgstr "Azen tafyirt n uɛeddi ɣer unagraw"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
@@ -104,9 +106,8 @@ msgid "Authentication is required to update a user's home area."
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:53
-#, fuzzy
 msgid "Update your home area"
-msgstr "Rnu tmennaḍt agejdan"
+msgstr "Mucced tamnaḍt-ik·im tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
@@ -130,9 +131,8 @@ msgid ""
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Rnu tmennaḍt agejdan"
+msgstr "Rmed tamnaḍṭ-ik·im tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
@@ -193,7 +193,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
 msgid "Try again with password: "
-msgstr ""
+msgstr "Ɛreḍ tikelt nniḍen s wawal n uɛeddi: "
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
@@ -285,7 +285,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:1039
 msgid "Password change required."
-msgstr ""
+msgstr "Asnifel n wawal n uɛeddi yettwasra."
 
 #: src/home/pam_systemd_home.c:1043
 msgid "Password expired, change required."
