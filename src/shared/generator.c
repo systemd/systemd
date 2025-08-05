@@ -161,7 +161,7 @@ static int generator_add_ordering(
         assert(order);
         assert(dst);
 
-        /* Adds in an explicit ordering dependency of type <order> from <src> to <dst>. If <instance> is
+        /* Adds an explicit ordering dependency of type <order> from <src> to <dst>. If <instance> is
          * specified, it is inserted into <dst>. */
 
         if (instance) {
