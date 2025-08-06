@@ -17,22 +17,35 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
     concurrency:
-      group: ${{ github.workflow }}-${{ toJSON(matrix.env) }}-${{ github.ref }}
+      group: ${{ github.workflow }}-${{ toJSON(matrix.env) }}-${{ github.ref }}-${{ matrix.runner }}-${{ matrix.python-version }}
       cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
+        runner: [ ubuntu-24.04 ]
+        python-version: [ '' ]
         env:
           - { COMPILER: "gcc",   COMPILER_VERSION: "11", LINKER: "bfd",  CRYPTOLIB: "gcrypt"  }
           - { COMPILER: "gcc",   COMPILER_VERSION: "13", LINKER: "mold", CRYPTOLIB: "openssl" }
           - { COMPILER: "clang", COMPILER_VERSION: "14", LINKER: "mold", CRYPTOLIB: "gcrypt"  }
           - { COMPILER: "clang", COMPILER_VERSION: "16", LINKER: "bfd",  CRYPTOLIB: "openssl" }
           - { COMPILER: "clang", COMPILER_VERSION: "18", LINKER: "lld",  CRYPTOLIB: "auto"    }
+        include:
+          # Do one run with the oldest supported python version to ensure there are no regressions
+          # It is only available on Jammy, which is useful as it will also provide a build check for
+          # older glibc
+          - env: { COMPILER: "gcc",   COMPILER_VERSION: "12", LINKER: "bfd", CRYPTOLIB: "openssl", CUSTOM_PYTHON: "1"  }
+            runner: [ ubuntu-22.04 ]
+            python-version: '3.7'
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Setup python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python-version }}
       - name: Build check
         run: .github/workflows/build-test.sh
