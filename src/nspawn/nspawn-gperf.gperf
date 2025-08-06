@@ -73,6 +73,7 @@ Files.PrivateUsersOwnership,  config_parse_userns_ownership, 0,                 
 Files.BindUser,               config_parse_bind_user,      0,                        offsetof(Settings, bind_user)
 Files.BindUserShell,          config_parse_bind_user_shell, 0,                       0
 Network.Private,              config_parse_tristate,       0,                        offsetof(Settings, private_network)
+Network.NamespacePath,        config_parse_path,           0,                        offsetof(Settings, network_namespace_path)
 Network.Interface,            config_parse_network_iface_pair, 0,                    offsetof(Settings, network_interfaces)
 Network.MACVLAN,              config_parse_macvlan_iface_pair, 0,                    offsetof(Settings, network_macvlan)
 Network.IPVLAN,               config_parse_ipvlan_iface_pair, 0,                     offsetof(Settings, network_ipvlan)
