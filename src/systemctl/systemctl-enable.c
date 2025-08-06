@@ -140,7 +140,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 } else if (streq(verb, "link"))
                         r = unit_file_link(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "preset"))
-                        r = unit_file_preset(arg_runtime_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
+                        r = unit_file_preset(arg_runtime_scope, flags, arg_root, names, arg_preset_mode, arg_dry_run, &changes, &n_changes);
                 else if (streq(verb, "mask"))
                         r = unit_file_mask(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
                 else if (streq(verb, "unmask"))
@@ -199,13 +199,24 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 } else if (streq(verb, "link"))
                         method = "LinkUnitFiles";
                 else if (streq(verb, "preset")) {
+                        UnitFileFlags flags = unit_file_flags_from_args();
 
-                        if (arg_preset_mode != UNIT_FILE_PRESET_FULL) {
-                                method = "PresetUnitFilesWithMode";
+                        if (FLAGS_SET(flags, UNIT_FILE_DRY_RUN)) {
+                                method = "PresetUnitFilesWithFlags";
+                                send_runtime = false;
+                                send_force = false;
                                 send_preset_mode = true;
-                        } else
+                        } else if (arg_preset_mode != UNIT_FILE_PRESET_FULL) {
+                                method = "PresetUnitFilesWithMode";
+                                send_runtime = true;
+                                send_force = true;
+                                send_preset_mode = true;
+                        } else {
                                 method = "PresetUnitFiles";
-
+                                send_runtime = true;
+                                send_force = true;
+                                send_preset_mode = false;
+                        }
                         expect_carries_install_info = true;
                         ignore_carries_install_info = true;
                 } else if (streq(verb, "mask")) {
@@ -231,9 +242,18 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         return bus_log_create_error(r);
 
                 if (send_preset_mode) {
-                        r = sd_bus_message_append(m, "s", unit_file_preset_mode_to_string(arg_preset_mode));
-                        if (r < 0)
-                                return bus_log_create_error(r);
+                        if (streq(method, "PresetUnitFilesWithMode")) {
+                                r = sd_bus_message_append(m, "s", unit_file_preset_mode_to_string(arg_preset_mode));
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        } else if (streq(method, "PresetUnitFilesWithFlags")) {
+                                r = sd_bus_message_append(m, "s", unit_file_preset_mode_to_string(arg_preset_mode));
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                                r = sd_bus_message_append(m, "t", (uint64_t) unit_file_flags_from_args());
+                                if (r < 0)
+                                        return bus_log_create_error(r);
+                        }
                 }
 
                 if (send_runtime) {
