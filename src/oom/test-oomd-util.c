@@ -55,6 +55,8 @@ static void test_oomd_cgroup_kill(void) {
          * by the test so that pid1 doesn't delete it before we can read the xattrs. */
         cgroup = path_join(cgroup_root, "oomdkilltest");
         assert_se(cgroup);
+        /* Always start clean, in case of repeated runs and failures */
+        assert_se(cg_trim(SYSTEMD_CGROUP_CONTROLLER, cgroup, /* delete_root */ true) >= 0);
         assert_se(cg_create(SYSTEMD_CGROUP_CONTROLLER, cgroup) >= 0);
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */
@@ -88,6 +90,8 @@ static void test_oomd_cgroup_kill(void) {
                 assert_se(cg_get_xattr_malloc(cgroup, "user.oomd_kill", &v) >= 0);
                 assert_se(streq(v, i == 0 ? "2" : "4"));
         }
+
+        assert_se(cg_trim(SYSTEMD_CGROUP_CONTROLLER, cgroup, /* delete_root */ true) >= 0);
 }
 
 static void test_oomd_cgroup_context_acquire_and_insert(void) {
