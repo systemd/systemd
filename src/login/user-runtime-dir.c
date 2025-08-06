@@ -210,6 +210,11 @@ static int apply_tmpfs_quota(
         assert(uid_is_valid(uid));
 
         STRV_FOREACH(p, paths) {
+                if (limit == UINT64_MAX && scale == UINT32_MAX) {
+                        log_debug("No disk quota on '%s' is requested.", *p);
+                        continue;
+                }
+
                 _cleanup_close_ int fd = open(*p, O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0) {
                         log_warning_errno(errno, "Failed to open '%s' in order to set quota, ignoring: %m", *p);
@@ -284,7 +289,8 @@ static int apply_tmpfs_quota(
                         log_debug_errno(r, "Lacking privileges to set UID quota on %s, skipping: %m", *p);
                         continue;
                 } else if (r < 0) {
-                        log_warning_errno(r, "Failed to set disk quota limit to '%s' on %s for UID " UID_FMT ", ignoring: %m", FORMAT_BYTES(v), *p, uid);
+                        log_warning_errno(r, "Failed to set disk quota limit to %s on %s for UID " UID_FMT ", ignoring: %m",
+                                          FORMAT_BYTES(v * QIF_DQBLKSIZE), *p, uid);
                         continue;
                 }
 
