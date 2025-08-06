@@ -27,7 +27,7 @@ typedef enum IPReversePathFilter {
         _IP_REVERSE_PATH_FILTER_INVALID = -EINVAL,
 } IPReversePathFilter;
 
-#if HAVE_VMLINUX_H
+#if ENABLE_SYSCTL_BPF
 int sysctl_add_monitor(Manager *manager);
 void sysctl_remove_monitor(Manager *manager);
 int sysctl_clear_link_shadows(Link *link);
