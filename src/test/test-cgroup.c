@@ -51,10 +51,12 @@ TEST(cg_create) {
         _cleanup_free_ char *here = NULL;
         ASSERT_OK(cg_pid_get_path_shifted(0, NULL, &here));
 
-        _cleanup_free_ char *test_a = ASSERT_NOT_NULL(path_join(here, "/test-a")),
-                            *test_b = ASSERT_NOT_NULL(path_join(here, "/test-b")),
-                            *test_c = ASSERT_NOT_NULL(path_join(here, "/test-b/test-c")),
-                            *test_d = ASSERT_NOT_NULL(path_join(here, "/test-b/test-d"));
+        /* cg_* will use path_simplify(), so use it here too otherwise when running in a container at the
+         * root it asserts with "/test-b != //test-b" */
+        _cleanup_free_ char *test_a = ASSERT_NOT_NULL(path_simplify(path_join(here, "/test-a"))),
+                            *test_b = ASSERT_NOT_NULL(path_simplify(path_join(here, "/test-b"))),
+                            *test_c = ASSERT_NOT_NULL(path_simplify(path_join(here, "/test-b/test-c"))),
+                            *test_d = ASSERT_NOT_NULL(path_simplify(path_join(here, "/test-b/test-d")));
         char *path;
 
         log_info("Paths for test:\n%s\n%s", test_a, test_b);
