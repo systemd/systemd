@@ -734,12 +734,12 @@ static void address_modify_nft_set_context(Address *address, bool add, NFTSetCon
                 }
 
                 if (r < 0)
-                        log_warning_errno(r, "Failed to %s NFT set: family %s, table %s, set %s, IP address %s, ignoring: %m",
+                        log_warning_errno(r, "Failed to %s NFT set entry: family %s, table %s, set %s, IP address %s, ignoring: %m",
                                           add ? "add" : "delete",
                                           nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set,
                                           IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
                 else
-                        log_debug("%s NFT set: family %s, table %s, set %s, IP address %s",
+                        log_debug("%s NFT set entry: family %s, table %s, set %s, IP address %s",
                                   add ? "Added" : "Deleted",
                                   nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set,
                                   IN_ADDR_PREFIX_TO_STRING(address->family, &address->in_addr, address->prefixlen));
