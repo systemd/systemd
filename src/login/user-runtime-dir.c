@@ -210,6 +210,11 @@ static int apply_tmpfs_quota(
         assert(uid_is_valid(uid));
 
         STRV_FOREACH(p, paths) {
+                if (limit == UINT64_MAX && scale == UINT32_MAX) {
+                        log_debug("No disk quota on '%s' is requested.", *p);
+                        continue;
+                }
+
                 _cleanup_close_ int fd = open(*p, O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0) {
                         log_warning_errno(errno, "Failed to open '%s' in order to set quota, ignoring: %m", *p);
