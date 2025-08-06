@@ -289,7 +289,8 @@ static int apply_tmpfs_quota(
                         log_debug_errno(r, "Lacking privileges to set UID quota on %s, skipping: %m", *p);
                         continue;
                 } else if (r < 0) {
-                        log_warning_errno(r, "Failed to set disk quota limit to '%s' on %s for UID " UID_FMT ", ignoring: %m", FORMAT_BYTES(v), *p, uid);
+                        log_warning_errno(r, "Failed to set disk quota limit to %s on %s for UID " UID_FMT ", ignoring: %m",
+                                          FORMAT_BYTES(v * QIF_DQBLKSIZE), *p, uid);
                         continue;
                 }
 
