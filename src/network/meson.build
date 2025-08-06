@@ -140,7 +140,7 @@ networkctl_sources = files(
 networkd_network_gperf_gperf = files('networkd-network-gperf.gperf')
 networkd_netdev_gperf_gperf = files('netdev/netdev-gperf.gperf')
 
-if conf.get('HAVE_VMLINUX_H') == 1
+if conf.get('ENABLE_SYSCTL_BPF') == 1
         systemd_networkd_extract_sources += sysctl_monitor_skel_h
 endif
 

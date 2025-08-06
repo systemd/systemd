@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-if conf.get('HAVE_VMLINUX_H') != 1
+if conf.get('ENABLE_SYSCTL_BPF') != 1
         subdir_done()
 endif
 

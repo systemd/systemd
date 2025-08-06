@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* This needs to be included before the seccomp headers, otherwise missing syscalls will be defined in this
+ * file and pass the ifdef, but they won't be defined in the seccomp headers so things like
+ * SCMP_SYS(fchmodat2) will resolve as empty and fail the build with older glibc/libseccomp. */
+#include <sys/syscall.h>
 #include <fcntl.h>
 #include <linux/seccomp.h>
 #include <sched.h>
