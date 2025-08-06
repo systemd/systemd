@@ -1958,6 +1958,8 @@ endif
 
 conf.set10('HAVE_VMLINUX_H', use_provided_vmlinux_h or use_generated_vmlinux_h)
 
+conf.set10('ENABLE_SYSCTL_BPF', conf.get('HAVE_VMLINUX_H') == 1 and libbpf.version().version_compare('>= 0.7'))
+
 #####################################################################
 
 check_version_history_py   = files('tools/check-version-history.py')
