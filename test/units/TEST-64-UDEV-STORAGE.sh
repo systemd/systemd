@@ -1161,7 +1161,7 @@ testcase_mdadm_basic() {
         echo "Disassemble - reassemble loop, iteration #$i"
         mdadm -v --stop "$raid_dev"
         udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
-        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        strace -f mdadm --assemble "$raid_dev" --name "$raid_name" -v
         udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     done
     helper_check_device_symlinks
@@ -1191,7 +1191,7 @@ testcase_mdadm_basic() {
         echo "Disassemble - reassemble loop, iteration #$i"
         mdadm -v --stop "$raid_dev"
         udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
-        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        strace -f mdadm --assemble "$raid_dev" --name "$raid_name" -v
         udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     done
     helper_check_device_symlinks
@@ -1249,7 +1249,7 @@ EOF
         echo "Disassemble - reassemble loop, iteration #$i"
         mdadm -v --stop "$raid_dev"
         udevadm wait --settle --timeout=30 --removed "${expected_symlinks[@]}"
-        mdadm --assemble "$raid_dev" --name "$raid_name" -v
+        strace -f mdadm --assemble "$raid_dev" --name "$raid_name" -v
         udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     done
     helper_check_device_symlinks
@@ -1314,7 +1314,7 @@ testcase_mdadm_lvm() {
     helper_check_device_symlinks
     helper_check_device_units
     # Reassemble it and check if all required symlinks exist
-    mdadm --assemble "$raid_dev" --name "$raid_name" -v
+    strace -f mdadm --assemble "$raid_dev" --name "$raid_name" -v
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     helper_check_device_symlinks
     helper_check_device_units
