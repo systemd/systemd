@@ -586,6 +586,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NamespacePath=</varname></term>
+
+        <listitem><para>Takes the path to a file representing a kernel
+        network namespace that the container shall run in. The specified path
+        should refer to a (possibly bind-mounted) network namespace file, as
+        exposed by the kernel below <filename>/proc/$PID/ns/net</filename>.
+        This makes the container enter the given network namespace. One of the
+        typical use cases is to give a network namespace under
+        <filename>/run/netns</filename> created by <citerefentry
+        project='man-pages'><refentrytitle>ip-netns</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+        for example, <varname>NamespacePath=/run/netns/foo</varname>.
+        Note that this option cannot be used together with other
+        network-related options, such as <varname>Private=</varname>
+        or <varname>Interface=</varname>. This option corresponds to the
+        <option>--network-namespace-path</option> command line switch.</para>
+
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>VirtualEthernet=</varname></term>
 
         <listitem><para>Takes a boolean argument. Configures whether to create a virtual Ethernet connection
