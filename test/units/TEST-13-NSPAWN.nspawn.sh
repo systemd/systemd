@@ -245,6 +245,15 @@ EOF
                    --bind="$tmpdir:/foo" \
                    --bind="$tmpdir:/also-foo:noidmap,norbind" \
                    bash -xec 'test -e /foo/foo; touch /foo/bar; test -e /also-foo/bar'
+    # --bind= recursive
+    rm -f "$tmpdir/bar"
+    mount --bind "$tmpdir/1" "$tmpdir/2"
+    systemd-nspawn --directory="$root" \
+                   ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
+                   --bind="$tmpdir:/foo" \
+                   --bind="$tmpdir:/also-foo:noidmap,norbind" \
+                   bash -xec 'test -e /foo/2/one; ! test -e /foo/2/two; test -e /also-foo/2/two; ! test -e /also-foo/2/one; test -e /foo/foo; touch /foo/bar; test -e /also-foo/bar'
+    umount "$tmpdir/2"
     test -e "$tmpdir/bar"
     # --bind-ro=
     systemd-nspawn --directory="$root" \
