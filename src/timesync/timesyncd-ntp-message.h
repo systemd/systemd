@@ -44,3 +44,9 @@ struct ntp_msg {
         struct ntp_ts recv_time;
         struct ntp_ts trans_time;
 } _packed_;
+
+/* the maximum recommended size of a NTP packet for NTS purposes */
+union ntp_packet{
+        struct ntp_msg ntpmsg;
+        uint8_t raw_data[1280];
+} _packed_;
