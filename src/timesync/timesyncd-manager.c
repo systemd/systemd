@@ -1331,33 +1331,59 @@ static int manager_nts_obtain_agreement(Manager *m) {
         assert_return(m->nts_handshake, -ENOMEM);
 
         while ((r = NTS_TLS_handshake(m->nts_handshake)) > 0);
-        //TODO
-        assert(r == 0);
+        if (r < 0) {
+                log_error("Could not set up TLS session with server");
+                return manager_connect(m);
+        }
 
         uint8_t buffer[1280], *p = buffer;
         int size = NTS_encode_request(buffer, sizeof(buffer), NULL);
 
         do {
                 r = NTS_TLS_write(m->nts_handshake, p, size);
-                if (r < 0)
-                        // TODO
-                        abort();
+                if (r < 0) {
+                        log_error("Error sending NTS key request");
+                        NTS_TLS_close(m->nts_handshake);
+                        m->nts_handshake = NULL;
+                        return manager_connect(m);
+                }
                 p += r, size -= r;
         } while (size > 0);
 
         do {
                 r = NTS_TLS_read(m->nts_handshake, buffer, sizeof(buffer));
-                if (r < 0)
-                        // TODO
-                        abort();
+                if (r < 0) {
+                        log_error("Error receiving NTS key response");
+                        NTS_TLS_close(m->nts_handshake);
+                        m->nts_handshake = NULL;
+                        return manager_connect(m);
+                }
         } while(r == 0);
 
         NTS_Agreement NTS;
-        const NTS_AEADParam *param;
+        if (NTS_decode_response(buffer, r, &NTS) < 0) {
+                log_error("NTS Error: %s", NTS_error_string(NTS.error));
+                NTS_TLS_close(m->nts_handshake);
+                m->nts_handshake = NULL;
+                return manager_connect(m);
+        }
 
-        assert(NTS_decode_response(buffer, r, &NTS) >= 0);
-        assert(NTS.error == -1);
-        assert(param = NTS_get_param(NTS.aead_id));
+        static uint8_t c2s[64], s2c[64];
+        r = NTS_TLS_extract_keys(m->nts_handshake, NTS.aead_id, c2s, s2c, 64);
+
+        NTS_TLS_close(m->nts_handshake);
+        m->nts_handshake = NULL;
+
+        if (r != 0) {
+                log_error("Key extraction failed");
+                return manager_connect(m);
+        }
+
+        const NTS_AEADParam *param = NTS_get_param(NTS.aead_id);
+        if (!param) {
+                log_error("NTS server offered unknown AEAD %d", NTS.aead_id);
+                return manager_connect(m);
+        }
 
         const char *hostname = NTS.ntp_server? NTS.ntp_server : m->current_server_name->string;
         char port[sizeof("65535")];
@@ -1367,13 +1393,8 @@ static int manager_nts_obtain_agreement(Manager *m) {
         for (int i=0; i < 8; i++) {
                 count_cookies += NTS.cookie[i].data != NULL;
         }
+
         log_debug("Secured NTP server: %s:%s, %s, %d cookies\n", hostname, port, param->cipher_name, count_cookies);
-
-        static uint8_t c2s[64], s2c[64];
-        assert(NTS_TLS_extract_keys(m->nts_handshake, NTS.aead_id, c2s, s2c, 64) == 0);
-
-        NTS_TLS_close(m->nts_handshake);
-        m->nts_handshake = NULL;
 
         struct addrinfo hints = {
                 .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
