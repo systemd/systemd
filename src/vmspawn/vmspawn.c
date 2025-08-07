@@ -35,11 +35,13 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "gpt.h"
+#include "group-record.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
 #include "log.h"
+#include "machine-bind-user.h"
 #include "machine-credential.h"
 #include "main-func.h"
 #include "mkdir.h"
@@ -68,6 +70,8 @@
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
+#include "user-record.h"
+#include "user-util.h"
 #include "utf8.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-register.h"
@@ -136,6 +140,9 @@ static char *arg_tpm_state_path = NULL;
 static TpmStateMode arg_tpm_state_mode = TPM_STATE_AUTO;
 static bool arg_ask_password = true;
 static bool arg_notify_ready = true;
+static char **arg_bind_user = NULL;
+static char *arg_bind_user_shell = NULL;
+static bool arg_bind_user_shell_copy = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -155,6 +162,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_ssh_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_smbios11, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm_state_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -215,6 +224,7 @@ static int help(void) {
                "     --bind-ro=SOURCE[:TARGET]\n"
                "                           Mount a file or directory, but read-only\n"
                "     --extra-drive=PATH    Adds an additional disk to the virtual machine\n"
+               "     --bind-user=NAME       Bind user from host to virtual machine\n"
                "\n%3$sIntegration:%4$s\n"
                "     --forward-journal=FILE|DIR\n"
                "                           Forward the VM's journal to the host\n"
@@ -289,6 +299,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_PROPERTY,
                 ARG_NOTIFY_READY,
+                ARG_BIND_USER,
+                ARG_BIND_USER_SHELL,
         };
 
         static const struct option options[] = {
@@ -338,6 +350,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD   },
                 { "property",          required_argument, NULL, ARG_PROPERTY          },
                 { "notify-ready",      required_argument, NULL, ARG_NOTIFY_READY      },
+                { "bind-user",         required_argument, NULL, ARG_BIND_USER         },
+                { "bind-user-shell",   required_argument, NULL, ARG_BIND_USER_SHELL   },
                 {}
         };
 
@@ -675,12 +689,42 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_BIND_USER:
+                        if (!valid_user_group_name(optarg, 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid user name to bind: %s", optarg);
+
+                        if (strv_extend(&arg_bind_user, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
+                case ARG_BIND_USER_SHELL: {
+                        bool copy = false;
+                        char *sh = NULL;
+                        r = parse_user_shell(optarg, &sh, &copy);
+                        if (r == -ENOMEM)
+                                return log_oom();
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid user shell to bind: %s", optarg);
+
+                        free_and_replace(arg_bind_user_shell, sh);
+                        arg_bind_user_shell_copy = copy;
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
                 default:
                         assert_not_reached();
                 }
+
+        /* Drop duplicate --bind-user= entries */
+        strv_uniq(arg_bind_user);
+
+        if (arg_bind_user_shell && strv_isempty(arg_bind_user))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-shell= without --bind-user=");
 
         if (argc > optind) {
                 arg_kernel_cmdline_extra = strv_copy(argv + optind);
@@ -1333,7 +1377,9 @@ static int find_virtiofsd(char **ret) {
 static int start_virtiofsd(
                 const char *scope,
                 const char *directory,
-                bool uidmap,
+                uid_t source_uid,
+                uid_t target_uid,
+                uid_t uid_range,
                 const char *runtime_dir,
                 const char *sd_socket_activate,
                 char **ret_listen_address,
@@ -1371,22 +1417,23 @@ static int start_virtiofsd(
         if (!argv)
                 return log_oom();
 
-        if (uidmap && arg_uid_shift != UID_INVALID) {
-                r = strv_extend(&argv, "--uid-map");
+        if (source_uid != UID_INVALID && target_uid != UID_INVALID && uid_range != UID_INVALID) {
+                r = strv_extend(&argv, "--translate-uid");
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&argv, ":0:" UID_FMT ":" UID_FMT ":", arg_uid_shift, arg_uid_range);
+                r = strv_extendf(&argv, "map:" UID_FMT ":" UID_FMT ":" UID_FMT, target_uid, source_uid, uid_range);
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extend(&argv, "--gid-map");
+                r = strv_extend(&argv, "--translate-gid");
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&argv, ":0:" GID_FMT ":" GID_FMT ":", arg_uid_shift, arg_uid_range);
+                r = strv_extendf(&argv, "map:" GID_FMT ":" GID_FMT ":" GID_FMT, target_uid, source_uid, uid_range);
                 if (r < 0)
                         return log_oom();
+
         }
 
         r = fork_notify(argv, ret_pidref);
@@ -1395,6 +1442,65 @@ static int start_virtiofsd(
 
         if (ret_listen_address)
                 *ret_listen_address = TAKE_PTR(listen_address);
+
+        return 0;
+}
+
+static int bind_user_setup(
+                const MachineBindUserContext *context,
+                MachineCredentialContext *credentials,
+                RuntimeMountContext *mounts) {
+
+        int r;
+
+        assert(credentials);
+        assert(mounts);
+
+        if (!context)
+                return 0;
+
+        FOREACH_ARRAY(bind_user, context->data, context->n_data) {
+                _cleanup_free_ char *formatted = NULL;
+                r = sd_json_variant_format(bind_user->payload_user->json, SD_JSON_FORMAT_NEWLINE, &formatted);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format JSON user record: %m");
+
+                _cleanup_free_ char *cred = strjoin("userdb.transient.user.", bind_user->payload_user->user_name, ":", formatted);
+                if (!cred)
+                        return log_oom();
+
+                r = machine_credential_set(credentials, cred);
+                if (r < 0)
+                        return r;
+
+                free(formatted);
+                r = sd_json_variant_format(bind_user->payload_group->json, SD_JSON_FORMAT_NEWLINE, &formatted);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to format JSON group record: %m");
+
+                free(cred);
+                cred = strjoin("userdb.transient.group.", bind_user->payload_group->group_name, ":", formatted);
+                if (!cred)
+                        return log_oom();
+
+                r = machine_credential_set(credentials, cred);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(runtime_mount_done) RuntimeMount mount = {
+                        .source = strdup(user_record_home_directory(bind_user->host_user)),
+                        .source_uid = bind_user->host_user->uid,
+                        .target = strdup(user_record_home_directory(bind_user->payload_user)),
+                        .target_uid = bind_user->payload_user->uid,
+                };
+                if (!mount.source || !mount.target)
+                        return log_oom();
+
+                if (!GREEDY_REALLOC(mounts->mounts, mounts->n_mounts + 1))
+                        return log_oom();
+
+                mounts->mounts[mounts->n_mounts++] = TAKE_STRUCT(mount);
+        }
 
         return 0;
 }
@@ -1699,6 +1805,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = find_ovmf_config(arg_secure_boot, &ovmf_config);
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
+
+        _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
+        r = machine_bind_user_prepare(
+                        /* directory= */ NULL,
+                        arg_bind_user,
+                        arg_bind_user_shell,
+                        arg_bind_user_shell_copy,
+                        &bind_user_context);
+        if (r < 0)
+                return r;
+
+        r = bind_user_setup(bind_user_context, &arg_credentials, &arg_runtime_mounts);
+        if (r < 0)
+                return r;
 
         /* only warn if the user hasn't disabled secureboot */
         if (!ovmf_config->supports_sb && arg_secure_boot)
@@ -2146,7 +2266,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = start_virtiofsd(
                                 unit,
                                 arg_directory,
-                                /* uidmap= */ true,
+                                /* source_uid= */ arg_uid_shift,
+                                /* target_uid= */ 0,
+                                /* uid_range= */ arg_uid_range,
                                 runtime_dir,
                                 sd_socket_activate,
                                 &listen_address,
@@ -2233,7 +2355,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = start_virtiofsd(
                                 unit,
                                 mount->source,
-                                /* uidmap= */ false,
+                                /* source_uid= */ mount->source_uid,
+                                /* target_uid= */ mount->target_uid,
+                                /* uid_range= */ 1U,
                                 runtime_dir,
                                 sd_socket_activate,
                                 &listen_address,
