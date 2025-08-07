@@ -38,6 +38,7 @@
 #include "timesyncd-server.h"
 
 #include "nts.h"
+#include "nts_extfields.h"
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
@@ -99,17 +100,21 @@ static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata)
 
 static int manager_send_request(Manager *m) {
         _cleanup_free_ char *pretty = NULL;
-        struct ntp_msg ntpmsg = {
-                /*
-                 * "The client initializes the NTP message header, sends the request
-                 * to the server, and strips the time of day from the Transmit
-                 * Timestamp field of the reply.  For this purpose, all the NTP
-                 * header fields are set to 0, except the Mode, VN, and optional
-                 * Transmit Timestamp fields."
-                 */
-                .field = NTP_FIELD(0, 4, NTP_MODE_CLIENT),
+
+        union ntp_packet packet = {
+            .ntpmsg = (struct ntp_msg) {
+                    /*
+                     * "The client initializes the NTP message header, sends the request
+                     * to the server, and strips the time of day from the Transmit
+                     * Timestamp field of the reply.  For this purpose, all the NTP
+                     * header fields are set to 0, except the Mode, VN, and optional
+                     * Transmit Timestamp fields."
+                     */
+                    .field = NTP_FIELD(0, 4, NTP_MODE_CLIENT),
+            }
         };
-        ssize_t len;
+
+        ssize_t packet_len = sizeof(struct ntp_msg);
         int r;
 
         assert(m);
@@ -131,12 +136,34 @@ static int manager_send_request(Manager *m) {
         }
 
         /*
+         * Add NTS extension fields if NTS is supported for this NTP time source
+         */
+        if (m->nts_cookies[0].data) {
+                // TODO: don't re use the cookie
+                // TODO: store the unique identifier
+                packet_len = NTS_add_extension_fields(
+                        &packet.raw_data,
+                        &(NTS_Query) {
+                            .cookie = *m->nts_cookies,
+                            .c2s_key = m->nts_keys.c2s,
+                            .s2c_key = m->nts_keys.s2c,
+                            .cipher = m->nts_aead,
+                        },
+                        NULL);
+
+                if (packet_len <= (int)sizeof(struct ntp_msg)) {
+                        log_error("Failed to encode extension fields");
+                        return -EINVAL;
+                }
+        }
+
+        /*
          * Generate a random number as transmit timestamp, to ensure we get
          * a full 64 bits of entropy to make it hard for off-path attackers
          * to inject random time to us.
          */
         random_bytes(&m->request_nonce, sizeof(m->request_nonce));
-        ntpmsg.trans_time = m->request_nonce;
+        packet.ntpmsg.trans_time = m->request_nonce;
 
         server_address_pretty(m->current_server_address, &pretty);
 
@@ -147,8 +174,8 @@ static int manager_send_request(Manager *m) {
         assert_se(clock_gettime(CLOCK_BOOTTIME, &m->trans_time_mon) >= 0);
         assert_se(clock_gettime(CLOCK_REALTIME, &m->trans_time) >= 0);
 
-        len = sendto(m->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &m->current_server_address->sockaddr.sa, m->current_server_address->socklen);
-        if (len == sizeof(ntpmsg)) {
+        ssize_t sent = sendto(m->server_socket, &packet.ntpmsg, packet_len, MSG_DONTWAIT, &m->current_server_address->sockaddr.sa, m->current_server_address->socklen);
+        if (sent == packet_len) {
                 m->pending = true;
                 log_debug("Sent NTP request to %s (%s).", strna(pretty), m->current_server_name->string);
         } else {
@@ -401,11 +428,11 @@ static void manager_adjust_poll(Manager *m, double offset, bool spike) {
 
 static int manager_receive_response(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        struct ntp_msg ntpmsg;
+        union ntp_packet packet;
 
         struct iovec iov = {
-                .iov_base = &ntpmsg,
-                .iov_len = sizeof(ntpmsg),
+                .iov_base = &packet,
+                .iov_len = sizeof(packet),
         };
         /* This needs to be initialized with zero. See #20741.
          * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
@@ -467,6 +494,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         }
 
         m->missed_replies = 0;
+
+        struct ntp_msg ntpmsg = packet.ntpmsg;
 
         /* check the transmit request nonce was properly returned in the origin_time field */
         if (ntpmsg.origin_time.sec != m->request_nonce.sec || ntpmsg.origin_time.frac != m->request_nonce.frac) {
@@ -1337,7 +1366,7 @@ static int manager_nts_obtain_agreement(Manager *m) {
                 return manager_connect(m);
         }
 
-        uint8_t buffer[1280], *p = buffer;
+        uint8_t buffer[1024], *p = buffer;
         int size = NTS_encode_request(buffer, sizeof(buffer), NULL);
 
         do {
@@ -1389,6 +1418,7 @@ static int manager_nts_obtain_agreement(Manager *m) {
                 log_error("NTS server offered unknown AEAD %d", NTS.aead_id);
                 return manager_connect(m);
         }
+        m->nts_aead = *param;
 
         const char *hostname = NTS.ntp_server? NTS.ntp_server : m->current_server_name->string;
         char port[sizeof("65535")];
@@ -1414,7 +1444,7 @@ static int manager_nts_obtain_agreement(Manager *m) {
                 return manager_connect(m);
         }
 
-        log_debug("Secured NTP server: %s:%s, %s, %d cookies\n", hostname, port, param->cipher_name, num_cookies);
+        log_debug("Secured NTP server: %s:%s, %s, %d cookies\n", hostname, port, m->nts_aead.cipher_name, num_cookies);
 
         struct addrinfo hints = {
                 .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
