@@ -16,6 +16,7 @@ timesyncd_extract_sources = files(
         'nts_crypto_gcrypt.c',
         'tcp_connect.c',
         'nts_packet.c',
+        'nts_error.c',
 )
 
 timesyncd_gperf_c = custom_target(
