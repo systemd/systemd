@@ -903,7 +903,6 @@ int manager_connect(Manager *m) {
                 const char *port = nts? "4460" : "123";
 
                 m->nts_cookies_exhausted = nts;
-                m->nts_handshake = NULL;
 
                 r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, port, &hints, manager_resolve_handler, NULL, m);
 
@@ -1322,6 +1321,8 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
 }
 
 static int manager_nts_obtain_agreement(Manager *m) {
+        assert(m->nts_cookies_exhausted);
+
         int r;
         int socket = NTS_attach_socket(m->current_server_name->string, 4460, SOCK_STREAM);
 
@@ -1368,8 +1369,12 @@ static int manager_nts_obtain_agreement(Manager *m) {
                 return manager_connect(m);
         }
 
-        static uint8_t c2s[64], s2c[64];
-        r = NTS_TLS_extract_keys(m->nts_handshake, NTS.aead_id, c2s, s2c, 64);
+        r = NTS_TLS_extract_keys(
+                    m->nts_handshake,
+                    NTS.aead_id,
+                    m->nts_keys.c2s,
+                    m->nts_keys.s2c,
+                    MAX_NTS_AEAD_KEY_LEN);
 
         NTS_TLS_close(m->nts_handshake);
         m->nts_handshake = NULL;
@@ -1389,12 +1394,27 @@ static int manager_nts_obtain_agreement(Manager *m) {
         char port[sizeof("65535")];
         xsprintf(port, "%u", NTS.ntp_port? NTS.ntp_port : 123U);
 
-        int count_cookies = 0;
+        int num_cookies = 0;
         for (int i=0; i < 8; i++) {
-                count_cookies += NTS.cookie[i].data != NULL;
+                if (NTS.cookie[i].data) {
+                        char *copy = malloc(NTS.cookie[i].length);
+                        if (copy == NULL)
+                                return -ENOMEM;
+
+                        mfree(m->nts_cookies[num_cookies].data);
+                        m->nts_cookies[num_cookies].data = memcpy(copy, NTS.cookie[i].data, NTS.cookie[i].length);
+                        m->nts_cookies[num_cookies].length = NTS.cookie[i].length;
+                        num_cookies++;
+                }
         }
 
-        log_debug("Secured NTP server: %s:%s, %s, %d cookies\n", hostname, port, param->cipher_name, count_cookies);
+        /* An invariant for the manager: there are always > 0 cookies when NTS is enabled */
+        if (num_cookies == 0) {
+                log_error("NTS server offered no cookies");
+                return manager_connect(m);
+        }
+
+        log_debug("Secured NTP server: %s:%s, %s, %d cookies\n", hostname, port, param->cipher_name, num_cookies);
 
         struct addrinfo hints = {
                 .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
