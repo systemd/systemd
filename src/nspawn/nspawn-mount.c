@@ -755,8 +755,8 @@ int mount_all(const char *dest,
         return 0;
 }
 
-static int parse_mount_bind_options(const char *options, unsigned long *mount_flags, char **mount_opts, RemountIdmapping *idmapping) {
-        unsigned long flags = *mount_flags;
+static int parse_mount_bind_options(const char *options, unsigned long *open_tree_flags, char **mount_opts, RemountIdmapping *idmapping) {
+        unsigned long flags = *open_tree_flags;
         char *opts = NULL;
         RemountIdmapping new_idmapping = *idmapping;
         int r;
@@ -773,9 +773,9 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
                         break;
 
                 if (streq(word, "rbind"))
-                        flags |= MS_REC;
+                        flags |= AT_RECURSIVE;
                 else if (streq(word, "norbind"))
-                        flags &= ~MS_REC;
+                        flags &= ~AT_RECURSIVE;
                 else if (streq(word, "idmap"))
                         new_idmapping = REMOUNT_IDMAPPING_HOST_ROOT;
                 else if (streq(word, "noidmap"))
@@ -789,7 +789,7 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
                                                "Invalid bind mount option: %s", word);
         }
 
-        *mount_flags = flags;
+        *open_tree_flags = flags;
         *idmapping = new_idmapping;
         /* in the future mount_opts will hold string options for mount(2) */
         *mount_opts = opts;
@@ -799,7 +799,7 @@ static int parse_mount_bind_options(const char *options, unsigned long *mount_fl
 
 static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t uid_range) {
         _cleanup_free_ char *mount_opts = NULL, *where = NULL;
-        unsigned long mount_flags = MS_BIND | MS_REC;
+        unsigned long open_tree_flags = OPEN_TREE_CLONE | OPEN_TREE_CLOEXEC | AT_RECURSIVE;
         struct stat source_st, dest_st;
         uid_t dest_uid = UID_INVALID;
         int r;
@@ -809,7 +809,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         assert(m);
 
         if (m->options) {
-                r = parse_mount_bind_options(m->options, &mount_flags, &mount_opts, &idmapping);
+                r = parse_mount_bind_options(m->options, &open_tree_flags, &mount_opts, &idmapping);
                 if (r < 0)
                         return r;
         }
@@ -829,14 +829,14 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         _cleanup_close_ int fd_clone = open_tree_attr_with_fallback(
                         AT_FDCWD,
                         m->source,
-                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC,
+                        open_tree_flags,
                         &(struct mount_attr) {
                                 .attr_clr = idmapping != REMOUNT_IDMAPPING_NONE ? MOUNT_ATTR_IDMAP : 0,
                         });
         if (ERRNO_IS_NEG_NOT_SUPPORTED(fd_clone))
                 /* We can only clear idmapped mounts with open_tree_attr(), but there might not be one in
                  * the first place, so we keep going if we get a not supported error. */
-                fd_clone = open_tree(AT_FDCWD, m->source, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC);
+                fd_clone = open_tree(AT_FDCWD, m->source, open_tree_flags);
         if (fd_clone < 0)
                 return log_error_errno(errno, "Failed to clone %s: %m", m->source);
 
