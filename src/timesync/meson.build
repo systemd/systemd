@@ -17,6 +17,7 @@ timesyncd_extract_sources = files(
         'tcp_connect.c',
         'nts_packet.c',
         'nts_error.c',
+        'nts_extfields.c',
 )
 
 timesyncd_gperf_c = custom_target(
