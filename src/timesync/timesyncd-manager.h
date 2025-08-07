@@ -21,6 +21,8 @@
 
 #define DEFAULT_SAVE_TIME_INTERVAL_USEC (60 * USEC_PER_SEC)
 
+#define MAX_NTS_AEAD_KEY_LEN            64
+
 typedef struct Manager {
         sd_bus *bus;
         sd_event *event;
@@ -54,6 +56,14 @@ typedef struct Manager {
         /* nts ke */
         bool nts_cookies_exhausted;
         void *nts_handshake;
+        struct {
+                uint8_t s2c[MAX_NTS_AEAD_KEY_LEN];
+                uint8_t c2s[MAX_NTS_AEAD_KEY_LEN];
+        } nts_keys;
+        struct {
+                char *data;
+                size_t length;
+        } nts_cookies[8];
 
         /* PolicyKit */
         Hashmap *polkit_registry;
