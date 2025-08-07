@@ -7,6 +7,10 @@
 #include "timesyncd-forward.h"
 #include "timesyncd-ntp-message.h"
 
+#include "timesyncd-server.h"
+
+#include "nts.h"
+
 /*
  * "A client MUST NOT under any conditions use a poll interval less
  * than 15 seconds."
@@ -60,10 +64,8 @@ typedef struct Manager {
                 uint8_t s2c[MAX_NTS_AEAD_KEY_LEN];
                 uint8_t c2s[MAX_NTS_AEAD_KEY_LEN];
         } nts_keys;
-        struct {
-                char *data;
-                size_t length;
-        } nts_cookies[8];
+        struct NTS_Cookie nts_cookies[8];
+        struct NTS_AEADParam nts_aead;
 
         /* PolicyKit */
         Hashmap *polkit_registry;
