@@ -427,6 +427,8 @@ def save_active_units():
             'systemd-networkd.socket',
             'systemd-networkd-varlink.socket',
             'systemd-networkd.service',
+            'systemd-resolved-monitor.socket',
+            'systemd-resolved-varlink.socket',
             'systemd-resolved.service',
             'systemd-timesyncd.service',
             'firewalld.service'
@@ -436,18 +438,30 @@ def save_active_units():
             active_units.append(u)
 
 def restore_active_units():
-    has_socket = False
+    has_network_socket = False
+    has_resolve_socket = False
 
     if 'systemd-networkd.socket' in active_units:
         call('systemctl stop systemd-networkd.socket')
-        has_socket = True
+        has_network_socket = True
 
     if 'systemd-networkd-varlink.socket' in active_units:
         call('systemctl stop systemd-networkd-varlink.socket')
-        has_socket = True
+        has_network_socket = True
 
-    if has_socket:
+    if 'systemd-resolved-monitor.socket' in active_units:
+        call('systemctl stop systemd-resolved-monitor.socket')
+        has_resolve_socket = True
+
+    if 'systemd-resolved-varlink.socket' in active_units:
+        call('systemctl stop systemd-resolved-varlink.socket')
+        has_resolve_socket = True
+
+    if has_network_socket:
         call('systemctl stop systemd-networkd.service')
+
+    if has_resolve_socket:
+        call('systemctl stop systemd-resolved.service')
 
     for u in active_units:
         call(f'systemctl restart {u}')
@@ -6188,6 +6202,18 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertIn('1 PVID Egress Untagged', output)
         self.assertIn('100', output)
         self.assertIn('600', output)
+
+    def test_bridge_vlan_issue_38515(self):
+        copy_network_unit('11-dummy.netdev', '26-bridge-vlan-slave-issue-38515.network',
+                          '26-bridge-issue-38515.netdev', '26-bridge-vlan-master-issue-38515.network')
+        start_networkd()
+        self.wait_online('test1:enslaved', 'bridge99:degraded')
+
+        output = check_output('bridge vlan show dev test1')
+        print(output)
+
+        output = check_output('bridge vlan show dev bridge99')
+        print(output)
 
     def test_bridge_mdb(self):
         copy_network_unit('11-dummy.netdev', '26-bridge-mdb-slave.network',
