@@ -4480,9 +4480,18 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         if (DEBUG_LOGGING)
                 (void) sd_json_variant_dump(new_prediction_json, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, stderr, NULL);
 
-        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy old_policy = {};
+        /* v257 and older mistakenly used --pcrlock= for the path. To keep backward compatibility, let's fallback to it when
+         * --policy= is unspecified but --pcrlock is specified. */
+        if (!arg_policy_path && arg_pcrlick_path) {
+                log_notice("Specified --pcrlock= option for make-policy command. Please use --policy= instead.");
 
-        r = tpm2_pcrlock_policy_load(arg_pcrlock_path, &old_policy);
+                arg_policy_path = strdup(arg_pcrlock_path);
+                if (!arg_policy_path)
+                        return log_oom();
+        }
+
+        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy old_policy = {};
+        r = tpm2_pcrlock_policy_load(arg_policy_path, &old_policy);
         if (r < 0)
                 return r;
 
@@ -4825,12 +4834,12 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         if (r < 0)
                 return log_error_errno(r, "Failed to format new configuration to JSON: %m");
 
-        const char *path = arg_pcrlock_path ?: (in_initrd() ? "/run/systemd/pcrlock.json" : "/var/lib/systemd/pcrlock.json");
+        const char *path = arg_policy_path ?: (in_initrd() ? "/run/systemd/pcrlock.json" : "/var/lib/systemd/pcrlock.json");
         r = write_string_file(path, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to write new configuration to '%s': %m", path);
 
-        if (!arg_pcrlock_path && !in_initrd()) {
+        if (!arg_policy_path && !in_initrd()) {
                 r = remove_policy_file("/run/systemd/pcrlock.json");
                 if (r < 0)
                         return r;
