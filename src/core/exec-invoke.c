@@ -1228,6 +1228,61 @@ static int attach_to_subcgroup(
         return 0;
 }
 
+static int exec_context_get_tty_for_pam(const ExecContext *context, char **ret) {
+        _cleanup_free_ char *tty = NULL;
+        int r;
+
+        assert(context);
+        assert(ret);
+
+        /* First, let's get TTY from STDIN. We may already set STDIN in setup_output(). */
+        r = getttyname_malloc(STDIN_FILENO, &tty);
+        if (r == -ENOMEM)
+                return log_oom_debug();
+        if (r >= 0) {
+                _cleanup_free_ char *q = path_join("/dev/", tty);
+                if (!q)
+                        return log_oom_debug();
+
+                log_debug("Got TTY '%s' from STDIN.", q);
+                *ret = TAKE_PTR(q);
+                return 1;
+        }
+
+        /* Next, let's try to use the TTY specified in TTYPath=. */
+        const char *t = exec_context_tty_path(context);
+        if (!t) {
+                *ret = NULL;
+                return 0;
+        }
+
+        /* If /dev/console is specified, resolve it. */
+        if (tty_is_console(t)) {
+                r = resolve_dev_console(&tty);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+                        *ret = NULL;
+                        return 0;
+                }
+
+                log_debug("Got TTY '%s' from /dev/console.", tty);
+                *ret = TAKE_PTR(tty);
+                return 1;
+        }
+
+        /* Otherwise, use the specified TTY as is. */
+        if (path_startswith("/dev/", t))
+                tty = strdup(t);
+        else
+                tty = path_join("/dev/", t);
+        if (!tty)
+                return log_oom_debug();
+
+        log_debug("Got TTY '%s' from TTYPath= setting.", tty);
+        *ret = TAKE_PTR(tty);
+        return 1;
+}
+
 static int setup_pam(
                 const ExecContext *context,
                 const CGroupContext *cgroup_context,
@@ -1289,17 +1344,10 @@ static int setup_pam(
                 goto fail;
         }
 
-        if (getttyname_malloc(STDIN_FILENO, &tty) >= 0) {
-                _cleanup_free_ char *q = path_join("/dev", tty);
-                if (!q) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                free_and_replace(tty, q);
-        }
-
-        if (tty) {
+        r = exec_context_get_tty_for_pam(context, &tty);
+        if (r < 0)
+                goto fail;
+        if (r > 0) {
                 pam_code = pam_set_item(handle, PAM_TTY, tty);
                 if (pam_code != PAM_SUCCESS)
                         goto fail;
