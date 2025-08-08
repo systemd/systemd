@@ -9,6 +9,18 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# Requires kernel built with certain kconfigs, as listed in README:
+# https://oracle.github.io/kconfigs/?config=UTS_RELEASE&config=DM_VERITY_VERIFY_ROOTHASH_SIG&config=DM_VERITY_VERIFY_ROOTHASH_SIG_SECONDARY_KEYRING&config=DM_VERITY_VERIFY_ROOTHASH_SIG_PLATFORM_KEYRING&config=IMA_ARCH_POLICY&config=INTEGRITY_MACHINE_KEYRING
+if grep -q "$(openssl x509 -noout -subject -in /usr/share/mkosi.crt | sed 's/^.*CN=//')" /proc/keys && \
+        ( . /etc/os-release; [ "$ID" != "centos" ] || systemd-analyze compare-versions "$VERSION_ID"  ge 10 ) && \
+        ( . /etc/os-release; [ "$ID" != "debian" ] || systemd-analyze compare-versions "$VERSION_ID"  ge 13 ) && \
+        ( . /etc/os-release; [ "$ID" != "ubuntu" ] || systemd-analyze compare-versions "$VERSION_ID"  ge 24.04 ) && \
+        systemd-analyze compare-versions "$(cryptsetup --version | sed 's/^cryptsetup \([0-9]*\.[0-9]*\.[0-9]*\) .*/\1/')" ge 2.3.0; then
+    verity_sig_supported=1
+else
+    verity_sig_supported=0
+fi
+
 systemd-dissect --json=short "$MINIMAL_IMAGE.raw" | \
     grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
 systemd-dissect "$MINIMAL_IMAGE.raw" | grep -q -F "MARKER=1"
@@ -70,6 +82,10 @@ verity_count=$(find /dev/mapper/ -name "*verity*" | wc -l)
 if [[ "$verity_count" -lt 1 ]]; then
     echo "Verity device $MINIMAL_IMAGE.raw not found in /dev/mapper/"
     exit 1
+fi
+# Ensure the kernel is verifying the signature if the mkosi key is in the keyring
+if [ "$verity_sig_supported" -eq 1 ]; then
+    veritysetup status "$(cat "$MINIMAL_IMAGE.roothash")-verity" | grep -q "verified (with signature)"
 fi
 systemd-dissect --umount "$IMAGE_DIR/mount"
 systemd-dissect --umount "$IMAGE_DIR/mount2"
@@ -729,6 +745,10 @@ ExecStart=bash -x -c ' \
 EOF
 systemctl start testservice-50k.service
 systemctl is-active testservice-50k.service
+# Ensure the kernel is verifying the signature if the mkosi key is in the keyring
+if [ "$verity_sig_supported" -eq 1 ]; then
+    veritysetup status "$(cat "$MINIMAL_IMAGE.roothash")-verity" | grep -q "verified (with signature)"
+fi
 # First reload should pick up the v1 marker
 mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw"
 systemctl reload testservice-50k.service
