@@ -4794,13 +4794,13 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         }
 
         if (!iovec_is_set(&nv_blob)) {
-                r = tpm2_serialize(tc, nv_handle, &nv_blob.iov_base, &nv_blob.iov_len);
+                r = tpm2_serialize(tc, nv_handle, &nv_blob);
                 if (r < 0)
                         return log_error_errno(r, "Failed to serialize NV index TR: %m");
         }
 
         if (!iovec_is_set(&srk_blob)) {
-                r = tpm2_serialize(tc, srk_handle, &srk_blob.iov_base, &srk_blob.iov_len);
+                r = tpm2_serialize(tc, srk_handle, &srk_blob);
                 if (r < 0)
                         return log_error_errno(r, "Failed to serialize SRK index TR: %m");
         }
