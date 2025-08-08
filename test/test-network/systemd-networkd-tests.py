@@ -6203,6 +6203,18 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertIn('100', output)
         self.assertIn('600', output)
 
+    def test_bridge_vlan_issue_38515(self):
+        copy_network_unit('11-dummy.netdev', '26-bridge-vlan-slave-issue-38515.network',
+                          '26-bridge-issue-38515.netdev', '26-bridge-vlan-master-issue-38515.network')
+        start_networkd()
+        self.wait_online('test1:enslaved', 'bridge99:degraded')
+
+        output = check_output('bridge vlan show dev test1')
+        print(output)
+
+        output = check_output('bridge vlan show dev bridge99')
+        print(output)
+
     def test_bridge_mdb(self):
         copy_network_unit('11-dummy.netdev', '26-bridge-mdb-slave.network',
                           '26-bridge.netdev', '26-bridge-mdb-master.network')

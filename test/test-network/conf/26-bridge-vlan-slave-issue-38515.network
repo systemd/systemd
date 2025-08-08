@@ -1,0 +1,12 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=test1
+
+[Network]
+IPv6AcceptRA=no
+Bridge=bridge99
+
+[BridgeVLAN]
+VLAN=2
+PVID=1
+EgressUntagged=1

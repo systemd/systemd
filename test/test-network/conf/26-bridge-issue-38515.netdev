@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[NetDev]
+Name=bridge99
+Kind=bridge
+
+[Bridge]
+VLANFiltering=yes
+DefaultPVID=1
+VLANProtocol=802.1q
