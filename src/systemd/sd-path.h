@@ -29,6 +29,7 @@ enum {
         /* Vendor supplied data */
         SD_PATH_SYSTEM_BINARIES,
         SD_PATH_SYSTEM_INCLUDE,
+        SD_PATH_SYSTEM_INCLUDE_ARCH,
         SD_PATH_SYSTEM_LIBRARY_PRIVATE,
         SD_PATH_SYSTEM_LIBRARY_ARCH,
         SD_PATH_SYSTEM_SHARED,
