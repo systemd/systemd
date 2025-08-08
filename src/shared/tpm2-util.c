@@ -4579,15 +4579,13 @@ int tpm2_calculate_serialize(
 int tpm2_serialize(
                 Tpm2Context *c,
                 const Tpm2Handle *handle,
-                void **ret_serialized,
-                size_t *ret_serialized_size) {
+                struct iovec *ret) {
 
         TSS2_RC rc;
 
         assert(c);
         assert(handle);
-        assert(ret_serialized);
-        assert(ret_serialized_size);
+        assert(ret);
 
         _cleanup_(Esys_Freep) unsigned char *serialized = NULL;
         size_t size = 0;
@@ -4596,9 +4594,15 @@ int tpm2_serialize(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to serialize: %s", sym_Tss2_RC_Decode(rc));
 
-        *ret_serialized = TAKE_PTR(serialized);
-        *ret_serialized_size = size;
+        /* Make a copy since we don't want the caller to understand that ESYS allocated the pointer.
+         * It would make tracking what deallocator to use for the result in which context a PITA. */
+        struct iovec v;
+        v.iov_base = memdup(serialized, size);
+        if (!v.iov_base)
+                return log_oom_debug();
+        v.iov_len = size;
 
+        *ret = v;
         return 0;
 }
 
@@ -5466,25 +5470,9 @@ int tpm2_seal(Tpm2Context *c,
                 log_debug("Completed TPM2 key sealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
 
         if (ret_srk) {
-                _cleanup_(iovec_done) struct iovec srk = {};
-                _cleanup_(Esys_Freep) void *tmp = NULL;
-                size_t tmp_size;
-
-                r = tpm2_serialize(c, primary_handle, &tmp, &tmp_size);
+                r = tpm2_serialize(c, primary_handle, ret_srk);
                 if (r < 0)
                         return r;
-
-                /*
-                 * make a copy since we don't want the caller to understand that
-                 * ESYS allocated the pointer. It would make tracking what deallocator
-                 * to use for srk in which context a PITA.
-                 */
-                srk.iov_base = memdup(tmp, tmp_size);
-                if (!srk.iov_base)
-                        return log_oom_debug();
-                srk.iov_len = tmp_size;
-
-                *ret_srk = TAKE_STRUCT(srk);
         }
 
         *ret_secret = TAKE_STRUCT(secret);
