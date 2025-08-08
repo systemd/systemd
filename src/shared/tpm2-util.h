@@ -301,8 +301,8 @@ int tpm2_undefine_policy_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM
 int tpm2_seal_data(Tpm2Context *c, const struct iovec *data, const Tpm2Handle *primary_handle, const Tpm2Handle *encryption_session, const TPM2B_DIGEST *policy, struct iovec *ret_public, struct iovec *ret_private);
 int tpm2_unseal_data(Tpm2Context *c, const struct iovec *public, const struct iovec *private, const Tpm2Handle *primary_handle, const Tpm2Handle *policy_session, const Tpm2Handle *encryption_session, struct iovec *ret_data);
 
-int tpm2_serialize(Tpm2Context *c, const Tpm2Handle *handle, void **ret_serialized, size_t *ret_serialized_size);
-int tpm2_deserialize(Tpm2Context *c, const void *serialized, size_t serialized_size, Tpm2Handle **ret_handle);
+int tpm2_serialize(Tpm2Context *c, const Tpm2Handle *handle, struct iovec *ret);
+int tpm2_deserialize(Tpm2Context *c, const struct iovec *serialized, Tpm2Handle **ret_handle);
 
 int tpm2_load_public_key_file(const char *path, TPM2B_PUBLIC *ret);
 
