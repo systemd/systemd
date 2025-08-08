@@ -71,6 +71,10 @@ if [[ "$verity_count" -lt 1 ]]; then
     echo "Verity device $MINIMAL_IMAGE.raw not found in /dev/mapper/"
     exit 1
 fi
+# Ensure the kernel is verifying the signature if the mkosi key is in the keyring
+if grep -q "$(openssl x509 -noout -subject -in /usr/share/mkosi.crt | sed 's/^.*CN=//')" /proc/keys; then
+    veritysetup status "$(cat "$MINIMAL_IMAGE.roothash")-verity" | grep -q "verified (with signature)"
+fi
 systemd-dissect --umount "$IMAGE_DIR/mount"
 systemd-dissect --umount "$IMAGE_DIR/mount2"
 
@@ -729,6 +733,10 @@ ExecStart=bash -x -c ' \
 EOF
 systemctl start testservice-50k.service
 systemctl is-active testservice-50k.service
+# Ensure the kernel is verifying the signature if the mkosi key is in the keyring
+if grep -q "$(openssl x509 -noout -subject -in /usr/share/mkosi.crt | sed 's/^.*CN=//')" /proc/keys; then
+    veritysetup status "$(cat "$MINIMAL_IMAGE.roothash")-verity" | grep -q "verified (with signature)"
+fi
 # First reload should pick up the v1 marker
 mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw"
 systemctl reload testservice-50k.service
