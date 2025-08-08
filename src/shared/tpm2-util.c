@@ -5553,10 +5553,11 @@ int tpm2_unseal(Tpm2Context *c,
         }
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
-        r = tpm2_deserialize(c, srk, &primary_handle);
-        if (r < 0)
-                return r;
-        if (r == 0 && primary_alg != 0) {
+        if (iovec_is_set(srk)) {
+                r = tpm2_deserialize(c, srk, &primary_handle);
+                if (r < 0)
+                        return r;
+        } else {primary_alg != 0) {
                 TPM2B_PUBLIC template = {
                         .size = sizeof(TPMT_PUBLIC),
                 };
