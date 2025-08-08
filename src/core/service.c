@@ -5636,6 +5636,22 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
         return 0;
 }
 
+static int service_cgroup_freezer_action(Unit *u, FreezerAction action) {
+        Service *s = ASSERT_PTR(SERVICE(u));
+        int r;
+
+        r = unit_cgroup_freezer_action(u, action);
+        if (r <= 0)
+                return r;
+
+        if (action == FREEZER_FREEZE)
+                service_stop_watchdog(s);
+        else if (action == FREEZER_THAW)
+                service_reset_watchdog(s);
+
+        return r;
+}
+
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
         [SERVICE_RESTART_NO]          = "no",
         [SERVICE_RESTART_ON_SUCCESS]  = "on-success",
@@ -5773,7 +5789,7 @@ const UnitVTable service_vtable = {
         .live_mount = service_live_mount,
         .can_live_mount = service_can_live_mount,
 
-        .freezer_action = unit_cgroup_freezer_action,
+        .freezer_action = service_cgroup_freezer_action,
 
         .serialize = service_serialize,
         .deserialize_item = service_deserialize_item,
