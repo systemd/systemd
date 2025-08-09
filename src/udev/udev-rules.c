@@ -2607,7 +2607,7 @@ static int udev_rule_apply_token_to_event(
                 if (r < 0)
                         log_event_warning_errno(event, token, r, "Failed to finalize memory stream, ignoring: %m");
                 else
-                        log_info("%s", buf);
+                        log_device_info(dev, "%s", buf);
 
                 log_event_info(event, token, "DONE");
                 return true;
