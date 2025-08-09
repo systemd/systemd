@@ -110,17 +110,9 @@ install_extension_images
 
 OS_RELEASE="$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)"
 
-if systemctl --version | grep -q -- +OPENSSL ; then
-    # The openssl binary is installed conditionally. If we have OpenSSL support enabled and openssl is
-    # missing, fail early with a proper error message.
-    if ! command -v openssl &>/dev/null; then
-        echo "openssl binary is missing" >/failed
-        exit 1
-    fi
-
-    OPENSSL_CONFIG="$(mktemp)"
-    # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
-    cat >"${OPENSSL_CONFIG:?}" <<EOF
+OPENSSL_CONFIG="$(mktemp)"
+# Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
+cat >"${OPENSSL_CONFIG:?}" <<EOF
 [ req ]
 prompt = no
 distinguished_name = req_distinguished_name
@@ -134,7 +126,6 @@ OU = Org Unit Name
 CN = Common Name
 emailAddress = test@email.com
 EOF
-fi
 
 # Make a GPT disk on the fly, with the squashfs as partition 1 and the verity hash tree as partition 2
 #
@@ -154,25 +145,17 @@ fi
 verity_size="$((verity_size * 2))KiB"
 signature_size="$((signature_size * 2))KiB"
 
-if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
-    # Create key pair
-    openssl req -config "$OPENSSL_CONFIG" -new -x509 -newkey rsa:1024 \
-                -keyout "$MINIMAL_IMAGE.key" -out "$MINIMAL_IMAGE.crt" -days 365 -nodes
-    # Sign Verity root hash with it
-    openssl smime -sign -nocerts -noattr -binary \
-                  -in "$MINIMAL_IMAGE.roothash" \
-                  -inkey "$MINIMAL_IMAGE.key" \
-                  -signer "$MINIMAL_IMAGE.crt" \
-                  -outform der \
-                  -out "$MINIMAL_IMAGE.roothash.p7s"
-    # Generate signature partition JSON data
-    echo '{"rootHash":"'"$MINIMAL_IMAGE_ROOTHASH"'","signature":"'"$(base64 -w 0 <"$MINIMAL_IMAGE.roothash.p7s")"'"}' >"$MINIMAL_IMAGE.verity-sig"
-    # Pad it
-    truncate -s "$signature_size" "$MINIMAL_IMAGE.verity-sig"
-    # Register certificate in the (userspace) verity key ring
-    mkdir -p /run/verity.d
-    ln -s "$MINIMAL_IMAGE.crt" /run/verity.d/ok.crt
-fi
+# Sign Verity root hash with mkosi key
+openssl smime -sign -nocerts -noattr -binary \
+                -in "$MINIMAL_IMAGE.roothash" \
+                -inkey /usr/share/mkosi.key \
+                -signer /usr/share/mkosi.crt \
+                -outform der \
+                -out "$MINIMAL_IMAGE.roothash.p7s"
+# Generate signature partition JSON data
+echo '{"rootHash":"'"$MINIMAL_IMAGE_ROOTHASH"'","signature":"'"$(base64 -w 0 <"$MINIMAL_IMAGE.roothash.p7s")"'"}' >"$MINIMAL_IMAGE.verity-sig"
+# Pad it
+truncate -s "$signature_size" "$MINIMAL_IMAGE.verity-sig"
 
 # Construct a UUID from hash
 # input:  11111111222233334444555566667777
@@ -181,30 +164,23 @@ uuid="$(head -c 32 "$MINIMAL_IMAGE.roothash" | sed -r 's/(.{8})(.{4})(.{4})(.{4}
 echo -e "label: gpt\nsize=$root_size, type=$ROOT_GUID, uuid=$uuid" | sfdisk "$MINIMAL_IMAGE.gpt"
 uuid="$(tail -c 32 "$MINIMAL_IMAGE.roothash" | sed -r 's/(.{8})(.{4})(.{4})(.{4})(.+)/\1-\2-\3-\4-\5/')"
 echo -e "size=$verity_size, type=$VERITY_GUID, uuid=$uuid" | sfdisk "$MINIMAL_IMAGE.gpt" --append
-if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
-    echo -e "size=$signature_size, type=$SIGNATURE_GUID" | sfdisk "$MINIMAL_IMAGE.gpt" --append
-fi
+echo -e "size=$signature_size, type=$SIGNATURE_GUID" | sfdisk "$MINIMAL_IMAGE.gpt" --append
+
 sfdisk --part-label "$MINIMAL_IMAGE.gpt" 1 "Root Partition"
 sfdisk --part-label "$MINIMAL_IMAGE.gpt" 2 "Verity Partition"
-if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
-    sfdisk --part-label "$MINIMAL_IMAGE.gpt" 3 "Signature Partition"
-fi
+sfdisk --part-label "$MINIMAL_IMAGE.gpt" 3 "Signature Partition"
 loop="$(losetup --show -P -f "$MINIMAL_IMAGE.gpt")"
 partitions=(
     "${loop:?}p1"
     "${loop:?}p2"
+    "${loop:?}p3"
 )
-if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
-    partitions+=("${loop:?}p3")
-fi
 # The kernel sometimes(?) does not emit "add" uevent for loop block partition devices.
 # Let's not expect the devices to be initialized.
 udevadm wait --timeout=60 --settle --initialized=no "${partitions[@]}"
 udevadm lock --timeout=60 --device="${loop}p1" dd if="$MINIMAL_IMAGE.raw" of="${loop}p1"
 udevadm lock --timeout=60 --device="${loop}p2" dd if="$MINIMAL_IMAGE.verity" of="${loop}p2"
-if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
-    udevadm lock --timeout=60 --device="${loop}p3" dd if="$MINIMAL_IMAGE.verity-sig" of="${loop}p3"
-fi
+udevadm lock --timeout=60 --device="${loop}p3" dd if="$MINIMAL_IMAGE.verity-sig" of="${loop}p3"
 losetup -d "$loop"
 udevadm settle --timeout=60
 
