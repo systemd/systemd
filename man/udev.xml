@@ -729,6 +729,14 @@ SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
                     <xi:include href="version-info.xml" xpointer="v258"/>
                   </listitem>
                 </varlistentry>
+                <varlistentry>
+                  <term><option>dump-json</option></term>
+                  <listitem>
+                    <para>Similar to <option>dump</option>, but dump the status of the event in JSON format.</para>
+
+                    <xi:include href="version-info.xml" xpointer="v259"/>
+                  </listitem>
+                </varlistentry>
               </variablelist>
             </listitem>
           </varlistentry>

@@ -1011,7 +1011,9 @@ static int parse_token(
                         op = OP_ASSIGN;
 
                 if (streq(value, "dump"))
-                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_DUMP, op, NULL, NULL, /* is_case_insensitive = */ false, token_str);
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_DUMP, op, NULL, UINT_TO_PTR(SD_JSON_FORMAT_OFF), /* is_case_insensitive = */ false, token_str);
+                else if (streq(value, "dump-json"))
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_DUMP, op, NULL, UINT_TO_PTR(SD_JSON_FORMAT_NEWLINE), /* is_case_insensitive = */ false, token_str);
                 else if (streq(value, "string_escape=none"))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_STRING_ESCAPE_NONE, op, NULL, NULL, /* is_case_insensitive = */ false, token_str);
                 else if (streq(value, "string_escape=replace"))
@@ -2593,6 +2595,8 @@ static int udev_rule_apply_token_to_event(
                 return token_match_string(event, token, event->program_result, /* log_result = */ true);
 
         case TK_A_OPTIONS_DUMP: {
+                sd_json_format_flags_t flags = PTR_TO_UINT(token->data);
+
                 log_event_info(event, token, "Dumping current state:");
 
                 _cleanup_(memstream_done) MemStream m = {};
@@ -2600,7 +2604,7 @@ static int udev_rule_apply_token_to_event(
                 if (!f)
                         return log_oom();
 
-                (void) dump_event(event, SD_JSON_FORMAT_OFF, f);
+                (void) dump_event(event, flags, f);
 
                 _cleanup_free_ char *buf = NULL;
                 r = memstream_finalize(&m, &buf, NULL);
