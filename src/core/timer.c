@@ -665,6 +665,9 @@ static int timer_start(Unit *u) {
                 return r;
 
         t->last_trigger = DUAL_TIMESTAMP_NULL;
+        /* If 'inactive_exit_timestamp' contains a timestamp then it was set from the previous run and in
+         * this case the value is no more accurate. */
+        UNIT(t)->inactive_exit_timestamp = DUAL_TIMESTAMP_NULL;
 
         /* Reenable all timers that depend on unit activation time */
         LIST_FOREACH(value, v, t->values)
