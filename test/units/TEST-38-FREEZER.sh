@@ -360,6 +360,26 @@ testcase_preserve_state() {
     echo
 }
 
+testcase_watchdog() {
+    local unit="wd.service"
+
+    systemd-run --collect --unit "$unit" --property WatchdogSec=4s --property Type=notify \
+        /bin/bash -c 'systemd-notify --ready; while true; do systemd-notify WATCHDOG=1; sleep 1; done'
+
+    systemctl freeze "$unit"
+
+    check_freezer_state "$unit" "frozen"
+    sleep 6
+    check_freezer_state "$unit" "frozen"
+
+    systemctl thaw "$unit"
+    sleep 6
+    check_freezer_state "$unit" "running"
+    systemctl is-active "$unit"
+
+    systemctl stop "$unit"
+}
+
 if [[ -e /sys/fs/cgroup/system.slice/cgroup.freeze ]]; then
     start_test_service
     run_testcases
