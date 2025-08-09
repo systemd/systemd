@@ -13,3 +13,6 @@ if [ -n "$EFI_ARCHITECTURE" ]; then
         --secureboot-certificate "$SRCDIR/mkosi/mkosi.crt" \
         --secureboot-private-key "$SRCDIR/mkosi/mkosi.key"
 fi
+
+# Used to sign artifacts verified by kernel platform keyring
+cp "$SRCDIR/mkosi/mkosi.crt" "$SRCDIR/mkosi/mkosi.key" "$BUILDROOT/usr/share/"
