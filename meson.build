@@ -556,6 +556,12 @@ conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
 conf.set('_GNU_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 
+if get_option('libc') == 'musl'
+        # glibc always defines _LARGEFILE64_SOURCE when _GNU_SOURCE is set, but musl does not do that,
+        # and it is necessary for making getdents64() and struct dirent64 exist.
+        conf.set('_LARGEFILE64_SOURCE', 1)
+endif
+
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_INO_T', cc.sizeof('ino_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h>'))
@@ -571,6 +577,7 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 
 foreach ident : [
+        ['renameat2',         '''#include <stdio.h>''',         'musl'],
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
@@ -604,7 +611,11 @@ foreach ident : [
         ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
 
-        have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+        if ident.length() <= 2 or get_option('libc') == ident[2]
+                have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
+        else
+                have = true
+        endif
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
 
@@ -1009,10 +1020,14 @@ else
         libatomic = []
 endif
 
-libcrypt = dependency('libcrypt', 'libxcrypt', required : false)
-if not libcrypt.found()
-        # fallback to use find_library() if libcrypt is provided by glibc, e.g. for LibreELEC.
-        libcrypt = cc.find_library('crypt')
+if get_option('libc') == 'musl'
+        libcrypt = []
+else
+        libcrypt = dependency('libcrypt', 'libxcrypt', required : false)
+        if not libcrypt.found()
+                # fallback to use find_library() if libcrypt is provided by glibc, e.g. for LibreELEC.
+                libcrypt = cc.find_library('crypt')
+        endif
 endif
 
 foreach func : [
@@ -1602,11 +1617,9 @@ foreach term : ['analyze',
                 'efi',
                 'environment-d',
                 'firstboot',
-                'gshadow',
                 'hibernate',
                 'hostnamed',
                 'hwdb',
-                'idn',
                 'ima',
                 'ipe',
                 'initrd',
@@ -1618,8 +1631,6 @@ foreach term : ['analyze',
                 'mountfsd',
                 'networkd',
                 'nsresourced',
-                'nss-myhostname',
-                'nss-systemd',
                 'oomd',
                 'portabled',
                 'pstore',
@@ -1645,15 +1656,44 @@ endforeach
 
 enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 
+have = get_option('idn')
+if have and get_option('libc') == 'musl'
+        warning('IDN support is requested but it is not supported when building with musl, disabling it.')
+        have = false
+endif
+conf.set10('ENABLE_IDN', have)
+
+have = get_option('gshadow')
+if have and get_option('libc') == 'musl'
+        warning('support for shadow group is requested but it is not supported when building with musl, disabling it.')
+        have = false
+endif
+conf.set10('ENABLE_GSHADOW', have)
+
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
-        if want.allowed()
-                have = get_option(tuple[1])
-                if want.enabled() and not have
-                        error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
+        if want.enabled()
+                if get_option('libc') == 'musl'
+                        error('@0@ is requested but it is not supported when building with musl.'.format(tuple[0]))
                 endif
+                if not get_option(tuple[1])
+                        error('@0@ is requested but @1@ is disabled.'.format(tuple[0], tuple[1]))
+                endif
+                have = true
+        elif want.allowed()
+                have = get_option(tuple[1]) and get_option('libc') != 'musl'
         else
+                have = false
+        endif
+        name = 'ENABLE_' + tuple[0].underscorify().to_upper()
+        conf.set10(name, have)
+endforeach
+foreach tuple : [['nss-myhostname'],
+                 ['nss-systemd']]
+        have = get_option(tuple[0])
+        if have and get_option('libc') == 'musl'
+                warning('@0@ is requested but it is not supported when building with musl, disabling it.'.format(tuple[0]))
                 have = false
         endif
         name = 'ENABLE_' + tuple[0].underscorify().to_upper()
@@ -2041,7 +2081,14 @@ dbus_programs = []
 boot_stubs = []
 
 # This is similar to system_includes below, but for passing custom_target().
-system_include_args = [
+system_include_args = []
+if get_option('libc') == 'musl'
+        system_include_args += [
+                '-isystem', meson.project_build_root()  / 'src/include/musl',
+                '-isystem', meson.project_source_root() / 'src/include/musl',
+        ]
+endif
+system_include_args += [
         '-isystem', meson.project_build_root()  / 'src/include/override',
         '-isystem', meson.project_source_root() / 'src/include/override',
         '-isystem', meson.project_build_root()  / 'src/include/uapi',
@@ -2059,6 +2106,9 @@ system_includes = [
                 is_system : true,
         ),
 ]
+if get_option('libc') == 'musl'
+        system_includes += include_directories('src/include/musl', is_system : true)
+endif
 
 basic_includes = [
         include_directories(
