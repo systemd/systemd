@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-08-05 23:21+0000\n"
+"PO-Revision-Date: 2025-08-09 11:53+0000\n"
 "Last-Translator: kanitha chim <kchim@redhat.com>\n"
 "Language-Team: Khmer (Central) <https://translate.fedoraproject.org/projects/"
 "systemd/main/km/>\n"
@@ -49,103 +49,110 @@ msgstr ""
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr ""
+"កំណត់ ឬមិនកំណត់ environment variables នៃកម្មវិធីគ្រប់គ្រងសេវាកម្ម និងប្រព័ន្ធ"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យកំណត់ ឬមិនកំណត់ environment variables របស់ប្រព័ន្ធ "
+"និងអ្នកគ្រប់គ្រងសេវាកម្ម។"
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
-msgstr ""
+msgstr "ផ្ទុកស្ថានភាព systemd ឡើងវិញ"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
+msgstr "Authentication តម្រូវឱ្យដំណើរការឡើងវិញនូវស្ថានភាព systemd។"
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "បោះបង់ស្ថានភាព systemd ដោយគ្មានដែនកំណត់អត្រា"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យបោះចោលស្ថានភាព systemd ដោយគ្មានដែនកំណត់អត្រា។"
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "បង្កើត home area"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr ""
+msgstr "Authentication តម្រូវឱ្យបង្កើត home area របស់អ្នកប្រើ។"
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "ដក home area"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
+msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យលុប home area របស់អ្នកប្រើចេញ។"
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "ពិនិត្យអត្តសញ្ញាណនៃ home area"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
+"តម្រូវឱ្យមានការផ្ទៀងផ្ទាត់ authentication ដើម្បីពិនិត្យមើលព័ត៌មានសម្ងាត់ប្រឆាំងនឹង home area "
+"របស់អ្នកប្រើ។"
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "ធ្វើបច្ចុប្បន្នភាព home area"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr ""
+msgstr "Authentication តម្រូវឱ្យធ្វើបច្ចុប្បន្នភាព home area របស់អ្នកប្រើ។"
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Update your home area"
-msgstr ""
+msgstr "ធ្វើបច្ចុប្បន្នភាព home area របស់អ្នក"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr ""
+msgstr "Authentication តម្រូវឱ្យធ្វើបច្ចុប្បន្នភាព home area របស់អ្នក។"
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
-msgstr ""
+msgstr "ផ្លាស់ប្តូរទំហំ home area"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យផ្លាស់ប្តូរ home area របស់អ្នកប្រើប្រាស់។"
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
-msgstr ""
+msgstr "ផ្លាស់ប្តូរពាក្យសម្ងាត់នៃ home area"
 
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យផ្លាស់ប្តូរពាក្យសម្ងាត់នៃ home area របស់អ្នកប្រើ។"
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
-msgstr ""
+msgstr "បើកឱ្យ home area ដំណើរការ"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យធ្វើសកម្មភាព home area របស់អ្នកប្រើ។"
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "គ្រប់គ្រង​ Home Directory Signing Keys"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យគ្រប់គ្រង signing keys សម្រាប់ home directories។"
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
@@ -153,28 +160,31 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"Home របស់អ្នកប្រើប្រាស់ %s បច្ចុប្បន្នគឺអវត្តមាន សូមដោតឧបករណ៍ផ្ទុកចាំបាច់ ឬប្រព័ន្ធឯកសារបម្រុងទុក។"
 
 #: src/home/pam_systemd_home.c:341
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"ការព្យាយាមចូល​​ login ញឹកញាប់ពេកសម្រាប់អ្នកប្រើប្រាស់ %s សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។"
 
 #: src/home/pam_systemd_home.c:353
 msgid "Password: "
-msgstr ""
+msgstr "ពាក្យសម្ងាត់៖ "
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"ពាក្យសម្ងាត់មិនត្រឹមត្រូវ ឬមិនគ្រប់គ្រាន់សម្រាប់ការផ្ទៀងផ្ទាត់អ្នកប្រើប្រាស់ %s ។"
 
 #: src/home/pam_systemd_home.c:356
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "សូមអភ័យទោស សូមព្យាយាមម្តងទៀត៖ "
 
 #: src/home/pam_systemd_home.c:378
 msgid "Recovery key: "
-msgstr ""
+msgstr "Recovery key៖ "
 
 #: src/home/pam_systemd_home.c:380
 #, c-format
@@ -182,19 +192,20 @@ msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
+"លេខសំងាត់/កូនសោសង្គ្រោះមិនត្រឹមត្រូវ ឬមិនគ្រប់គ្រាន់សម្រាប់ការផ្ទៀងផ្ទាត់អ្នកប្រើប្រាស់ %s ។"
 
 #: src/home/pam_systemd_home.c:381
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "សូមអភ័យទោស សូមបញ្ចូលសោសង្គ្រោះឡើងវិញ៖ "
 
 #: src/home/pam_systemd_home.c:401
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "និមិត្តសញ្ញាសុវត្ថិភាពរបស់អ្នកប្រើ %s មិនត្រូវបានបញ្ចូលទេ។"
 
 #: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
 msgid "Try again with password: "
-msgstr ""
+msgstr "ព្យាយាមម្តងទៀតដោយប្រើពាក្យសម្ងាត់៖ "
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
@@ -202,15 +213,17 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"ពាក្យ​សម្ងាត់​មិន​ត្រឹមត្រូវ ឬ​មិន​គ្រប់គ្រាន់ ហើយ​ configured security token ​របស់​អ្នក​ប្រើ %s "
+"មិន​ត្រូវ​បាន​បញ្ចូល​ទេ។"
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN: "
-msgstr ""
+msgstr "កូដ token PIN សុវត្ថិភាព៖ "
 
 #: src/home/pam_systemd_home.c:441
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "សូមផ្ទៀងផ្ទាត់ physically on security token របស់អ្នកប្រើប្រាស់ %s ។"
 
 #: src/home/pam_systemd_home.c:452
 #, c-format
