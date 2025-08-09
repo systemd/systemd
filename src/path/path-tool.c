@@ -24,6 +24,7 @@ static const char* const path_table[_SD_PATH_MAX] = {
 
         [SD_PATH_SYSTEM_BINARIES]                             = "system-binaries",
         [SD_PATH_SYSTEM_INCLUDE]                              = "system-include",
+        [SD_PATH_SYSTEM_INCLUDE_ARCH]                         = "system-include-arch",
         [SD_PATH_SYSTEM_LIBRARY_PRIVATE]                      = "system-library-private",
         [SD_PATH_SYSTEM_LIBRARY_ARCH]                         = "system-library-arch",
         [SD_PATH_SYSTEM_SHARED]                               = "system-shared",

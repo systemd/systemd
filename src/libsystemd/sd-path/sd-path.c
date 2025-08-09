@@ -178,6 +178,10 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 *ret = "/usr/include";
                 return 0;
 
+        case SD_PATH_SYSTEM_INCLUDE_ARCH:
+                *ret = "/usr/include/" LIB_ARCH_TUPLE;
+                return 0;
+
         case SD_PATH_SYSTEM_LIBRARY_PRIVATE:
                 *ret = "/usr/lib";
                 return 0;
