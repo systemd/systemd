@@ -319,6 +319,7 @@ libefi_sources = files(
 
 systemd_boot_sources = files(
         'boot.c',
+        'fwupd.c',
         'line-edit.c',
 )
 

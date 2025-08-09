@@ -186,6 +186,23 @@ size_t device_path_size(const EFI_DEVICE_PATH *dp) {
         return (const uint8_t*) i - (const uint8_t*) dp + sizeof(EFI_DEVICE_PATH);
 }
 
+size_t device_path_size_with_limit(const EFI_DEVICE_PATH *dp, size_t limit) {
+        const EFI_DEVICE_PATH *i = ASSERT_PTR(dp);
+        size_t size = 0;
+
+        /* Never read past 'limit' bytes, useful when processing userspace vars */
+
+        for (; !device_path_is_end(i); i = device_path_next_node(i)) {
+                if (size + i->Length > limit)
+                        return size;
+                size += i->Length;
+                if (size + sizeof(EFI_DEVICE_PATH) > limit)
+                        return size;
+        }
+
+        return size + sizeof(EFI_DEVICE_PATH);
+}
+
 EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp) {
         return xmemdup(ASSERT_PTR(dp), device_path_size(dp));
 }

@@ -29,5 +29,6 @@ static inline bool device_path_is_end(const EFI_DEVICE_PATH *dp) {
         }
 
 size_t device_path_size(const EFI_DEVICE_PATH *dp);
+size_t device_path_size_with_limit(const EFI_DEVICE_PATH *dp, size_t limit);
 
 EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp);
