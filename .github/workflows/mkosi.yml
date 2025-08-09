@@ -66,6 +66,17 @@ jobs:
             no_kvm: 0
             shim: 0
           - distro: debian
+            release: stable
+            runner: ubuntu-24.04
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: no
+            vm: 0
+            no_qemu: 0
+            no_kvm: 0
+            shim: 0
+          - distro: debian
             release: testing
             runner: ubuntu-24.04
             sanitizers: ""
