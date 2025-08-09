@@ -4520,15 +4520,13 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
 
-        if (iovec_is_set(&srk_blob)) {
-                r = tpm2_deserialize(
-                                tc,
-                                srk_blob.iov_base,
-                                srk_blob.iov_len,
-                                &srk_handle);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to deserialize SRK TR: %m");
-        } else {
+        r = tpm2_deserialize(
+                        tc,
+                        &srk_blob,
+                        &srk_handle);
+        if (r < 0)
+                return log_error_errno(r, "Failed to deserialize SRK TR: %m");
+        if (r == 0) {
                 r = tpm2_get_or_create_srk(
                                 tc,
                                 /* session= */ NULL,
@@ -4597,13 +4595,11 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
         TPM2_HANDLE nv_index = 0;
 
-        if (iovec_is_set(&nv_blob)) {
-                r = tpm2_deserialize(tc, nv_blob.iov_base, nv_blob.iov_len, &nv_handle);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to deserialize NV index TR: %m");
-
+        r = tpm2_deserialize(tc, &nv_blob, &nv_handle);
+        if (r < 0)
+                return log_error_errno(r, "Failed to deserialize NV index TR: %m");
+        if (r > 0)
                 nv_index = old_policy.nv_index;
-        }
 
         TPM2B_AUTH auth = {};
         CLEANUP_ERASE(auth);
@@ -4789,13 +4785,13 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         }
 
         if (!iovec_is_set(&nv_blob)) {
-                r = tpm2_serialize(tc, nv_handle, &nv_blob.iov_base, &nv_blob.iov_len);
+                r = tpm2_serialize(tc, nv_handle, &nv_blob);
                 if (r < 0)
                         return log_error_errno(r, "Failed to serialize NV index TR: %m");
         }
 
         if (!iovec_is_set(&srk_blob)) {
-                r = tpm2_serialize(tc, srk_handle, &srk_blob.iov_base, &srk_blob.iov_len);
+                r = tpm2_serialize(tc, srk_handle, &srk_blob);
                 if (r < 0)
                         return log_error_errno(r, "Failed to serialize SRK index TR: %m");
         }
@@ -4872,20 +4868,18 @@ static int undefine_policy_nv_index(
         _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
         r = tpm2_deserialize(
                         tc,
-                        srk_blob->iov_base,
-                        srk_blob->iov_len,
+                        srk_blob,
                         &srk_handle);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to deserialize SRK TR: %m");
+        if (r < 0)
+                return log_error_errno(r, "Failed to deserialize SRK TR: %m");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
         r = tpm2_deserialize(
                         tc,
-                        nv_blob->iov_base,
-                        nv_blob->iov_len,
+                        nv_blob,
                         &nv_handle);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to deserialize NV TR: %m");
+        if (r < 0)
+                return log_error_errno(r, "Failed to deserialize NV TR: %m");
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
         r = tpm2_make_encryption_session(

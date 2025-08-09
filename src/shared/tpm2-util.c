@@ -4164,8 +4164,7 @@ static int tpm2_build_sealing_policy(
 
                 r = tpm2_deserialize(
                                 c,
-                                pcrlock_policy->nv_handle.iov_base,
-                                pcrlock_policy->nv_handle.iov_len,
+                                &pcrlock_policy->nv_handle,
                                 &nv_handle);
                 if (r < 0)
                         return r;
@@ -4580,15 +4579,13 @@ int tpm2_calculate_serialize(
 int tpm2_serialize(
                 Tpm2Context *c,
                 const Tpm2Handle *handle,
-                void **ret_serialized,
-                size_t *ret_serialized_size) {
+                struct iovec *ret) {
 
         TSS2_RC rc;
 
         assert(c);
         assert(handle);
-        assert(ret_serialized);
-        assert(ret_serialized_size);
+        assert(ret);
 
         _cleanup_(Esys_Freep) unsigned char *serialized = NULL;
         size_t size = 0;
@@ -4597,24 +4594,33 @@ int tpm2_serialize(
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to serialize: %s", sym_Tss2_RC_Decode(rc));
 
-        *ret_serialized = TAKE_PTR(serialized);
-        *ret_serialized_size = size;
+        /* Make a copy since we don't want the caller to understand that ESYS allocated the pointer.
+         * It would make tracking what deallocator to use for the result in which context a PITA. */
+        struct iovec v;
+        v.iov_base = memdup(serialized, size);
+        if (!v.iov_base)
+                return log_oom_debug();
+        v.iov_len = size;
 
+        *ret = v;
         return 0;
 }
 
 int tpm2_deserialize(
                 Tpm2Context *c,
-                const void *serialized,
-                size_t serialized_size,
+                const struct iovec *serialized,
                 Tpm2Handle **ret_handle) {
 
         TSS2_RC rc;
         int r;
 
         assert(c);
-        assert(serialized);
         assert(ret_handle);
+
+        if (!iovec_is_set(serialized)) {
+                *ret_handle = NULL;
+                return 0;
+        }
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
         r = tpm2_handle_new(c, &handle);
@@ -4624,14 +4630,13 @@ int tpm2_deserialize(
         /* Since this is an existing handle in the TPM we should not implicitly flush it. */
         handle->flush = false;
 
-        rc = sym_Esys_TR_Deserialize(c->esys_context, serialized, serialized_size, &handle->esys_handle);
+        rc = sym_Esys_TR_Deserialize(c->esys_context, serialized->iov_base, serialized->iov_len, &handle->esys_handle);
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to deserialize: %s", sym_Tss2_RC_Decode(rc));
 
         *ret_handle = TAKE_PTR(handle);
-
-        return 0;
+        return 1;
 }
 
 #if HAVE_OPENSSL
@@ -5465,25 +5470,9 @@ int tpm2_seal(Tpm2Context *c,
                 log_debug("Completed TPM2 key sealing in %s.", FORMAT_TIMESPAN(now(CLOCK_MONOTONIC) - start, 1));
 
         if (ret_srk) {
-                _cleanup_(iovec_done) struct iovec srk = {};
-                _cleanup_(Esys_Freep) void *tmp = NULL;
-                size_t tmp_size;
-
-                r = tpm2_serialize(c, primary_handle, &tmp, &tmp_size);
+                r = tpm2_serialize(c, primary_handle, ret_srk);
                 if (r < 0)
                         return r;
-
-                /*
-                 * make a copy since we don't want the caller to understand that
-                 * ESYS allocated the pointer. It would make tracking what deallocator
-                 * to use for srk in which context a PITA.
-                 */
-                srk.iov_base = memdup(tmp, tmp_size);
-                if (!srk.iov_base)
-                        return log_oom_debug();
-                srk.iov_len = tmp_size;
-
-                *ret_srk = TAKE_STRUCT(srk);
         }
 
         *ret_secret = TAKE_STRUCT(secret);
@@ -5564,11 +5553,13 @@ int tpm2_unseal(Tpm2Context *c,
         }
 
         _cleanup_(tpm2_handle_freep) Tpm2Handle *primary_handle = NULL;
-        if (iovec_is_set(srk)) {
-                r = tpm2_deserialize(c, srk->iov_base, srk->iov_len, &primary_handle);
-                if (r < 0)
-                        return r;
-        } else if (primary_alg != 0) {
+        r = tpm2_deserialize(c, srk, &primary_handle);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                if (primary_alg == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No SRK or primary algorithm provided.");
+
                 TPM2B_PUBLIC template = {
                         .size = sizeof(TPMT_PUBLIC),
                 };
@@ -5585,9 +5576,7 @@ int tpm2_unseal(Tpm2Context *c,
                                 &primary_handle);
                 if (r < 0)
                         return r;
-        } else
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No SRK or primary alg provided.");
+        }
 
         TPM2B_PUBLIC pubkey_tpm2b;
         _cleanup_(iovec_done) struct iovec fp = {};
