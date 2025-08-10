@@ -321,8 +321,8 @@
         specified output archive file name, e.g. any path suffixed with <literal>.tar.xz</literal> will
         result in an xz compressed UNIX tarball (if the path is omitted an uncompressed UNIX tarball is
         created). See
-        <citerefentry><refentrytitle>libarchive</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
-        list of supported archive formats and compression schemes.</para>
+        <citerefentry project='die-net'><refentrytitle>libarchive</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for a list of supported archive formats and compression schemes.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
