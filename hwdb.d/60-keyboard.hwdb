@@ -285,6 +285,9 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnASUS:pn*:*
  KEYBOARD_KEY_ee=volumedown
  KEYBOARD_KEY_ef=mute
 
+evdev:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*M1607KA*:*
+ KEYBOARD_KEY_7e=prog2                                  # Fn+F8, launch emoji keyboard
+
 # Asus TF103C misses the home button in its PNP0C40 GPIO resources
 # causing the volume-button mappings to be off by one, correct this
 evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:*:svnASUSTeKCOMPUTERINC.:pnTF103C*:*
