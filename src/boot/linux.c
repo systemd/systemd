@@ -15,6 +15,7 @@
 #include "pe.h"
 #include "proto/device-path.h"
 #include "proto/loaded-image.h"
+#include "proto/memory-attribute.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "util.h"
@@ -118,6 +119,70 @@ static EFI_STATUS load_via_boot_services(
         }
 
         return log_error_status(err, "Error starting kernel image with shim: %m");
+}
+
+static EFI_STATUS kernel_set_nx(Pages *loaded_kernel_pages) {
+        EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto;
+        EFI_STATUS err;
+
+        assert(loaded_kernel_pages);
+
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_MEMORY_ATTRIBUTE_PROTOCOL), NULL, (void **) &memory_proto);
+        if (err != EFI_SUCCESS)
+                return EFI_SUCCESS; /* ignore if firmware lacks support */
+
+        err = memory_proto->ClearMemoryAttributes(
+                memory_proto,
+                loaded_kernel_pages->addr,
+                loaded_kernel_pages->n_pages * EFI_PAGE_SIZE,
+                EFI_MEMORY_XP);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Cannot make kernel image executable: %m");
+
+        /* This needs kernel support before it can be enabled */
+        if (!pe_kernel_check_nx_compat(PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages->addr)))
+                return EFI_SUCCESS;
+
+        err = memory_proto->SetMemoryAttributes(
+                memory_proto,
+                loaded_kernel_pages->addr,
+                loaded_kernel_pages->n_pages * EFI_PAGE_SIZE,
+                EFI_MEMORY_RO);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Cannot make kernel image read-only: %m");
+
+        log_debug("Changed kernel image to read-only for NX_COMPAT support");
+
+        return EFI_SUCCESS;
+}
+
+static EFI_STATUS kernel_clear_nx(Pages *loaded_kernel_pages) {
+        EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto;
+        EFI_STATUS err;
+
+        assert(loaded_kernel_pages);
+
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_MEMORY_ATTRIBUTE_PROTOCOL), NULL, (void **) &memory_proto);
+        if (err != EFI_SUCCESS)
+                return EFI_SUCCESS; /* ignore if firmware lacks support */
+
+        err = memory_proto->ClearMemoryAttributes(
+                memory_proto,
+                loaded_kernel_pages->addr,
+                loaded_kernel_pages->n_pages * EFI_PAGE_SIZE,
+                EFI_MEMORY_RO);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Cannot make kernel image writable: %m");
+
+        err = memory_proto->SetMemoryAttributes(
+                memory_proto,
+                loaded_kernel_pages->addr,
+                loaded_kernel_pages->n_pages * EFI_PAGE_SIZE,
+                EFI_MEMORY_XP);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Cannot make kernel image non-executable: %m");
+
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS linux_exec(
@@ -260,6 +325,14 @@ EFI_STATUS linux_exec(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot install loaded image protocol: %m");
 
+        /* As per MSFT requirement, memory pages need to be marked W^X.
+         * Firmwares will start enforcing this at some point in the near-ish future.
+         * https://microsoft.github.io/mu/WhatAndWhy/enhancedmemoryprotection/
+         * https://www.kraxel.org/blog/2023/12/uefi-nx-linux-boot/ */
+        err = kernel_set_nx(&loaded_kernel_pages);
+        if (err != EFI_SUCCESS)
+                return err;
+
         log_wait();
 
         if (entry_point > 0) {
@@ -272,6 +345,11 @@ EFI_STATUS linux_exec(
                                 (EFI_IMAGE_ENTRY_POINT) ((const uint8_t *) loaded_image->ImageBase + compat_entry_point);
                 err = compat_entry(kernel_image, ST);
         }
+
+        /* On failure we'll free the buffers. EDK2 requires the memory buffers to be writable and
+         * non-executable, as in some configurations it will overwrite them with a fixed pattern,
+         * so if the attributes are not restored FreePages() will crash. */
+        (void) kernel_clear_nx(&loaded_kernel_pages);
 
         EFI_STATUS uninstall_err = BS->UninstallMultipleProtocolInterfaces(
                         kernel_image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), loaded_image,
