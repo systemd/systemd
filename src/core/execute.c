@@ -180,7 +180,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
         if (r < 0)
                 log_debug_errno(r, "Failed to configure TTY dimensions, ignoring: %m");
 
-        if (!sd_id128_is_null(invocation_id)) {
+        if (!sd_id128_is_null(invocation_id) && exec_context_shall_ansi_seq_reset(context)) {
                 sd_id128_t context_id;
 
                 r = osc_context_id_from_invocation_id(invocation_id, &context_id);
