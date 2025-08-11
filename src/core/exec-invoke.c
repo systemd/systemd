@@ -4904,7 +4904,7 @@ static void prepare_terminal(
 
         (void) exec_context_apply_tty_size(context, STDIN_FILENO, STDOUT_FILENO, /* tty_path= */ NULL);
 
-        if (use_ansi)
+        if (use_ansi && !getenv_terminal_is_dumb())
                 (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
 }
 
