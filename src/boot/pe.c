@@ -9,6 +9,7 @@
 
 #define DOS_FILE_MAGIC "MZ"
 #define PE_FILE_MAGIC  "PE\0\0"
+#define IMAGE_DLLCHARACTERISTICS_NX_COMPAT 0x0100
 
 #if defined(__i386__)
 #  define TARGET_MACHINE_TYPE 0x014CU
@@ -553,6 +554,18 @@ EFI_STATUS pe_kernel_check_no_relocation(const void *base) {
                 return log_error_status(EFI_LOAD_ERROR, "Inner kernel image contains base relocations, which we do not support.");
 
         return EFI_SUCCESS;
+}
+
+bool pe_kernel_check_nx_compat(const void *base) {
+        const DosFileHeader *dos = ASSERT_PTR(base);
+        if (!verify_dos(dos))
+                return false;
+
+        const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
+        if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
+                return false;
+
+        return pe->OptionalHeader.DllCharacteristics & IMAGE_DLLCHARACTERISTICS_NX_COMPAT;
 }
 
 EFI_STATUS pe_section_table_from_base(
