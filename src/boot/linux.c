@@ -15,6 +15,7 @@
 #include "pe.h"
 #include "proto/device-path.h"
 #include "proto/loaded-image.h"
+#include "proto/memory-attribute.h"
 #include "secure-boot.h"
 #include "shim.h"
 #include "util.h"
@@ -260,6 +261,32 @@ EFI_STATUS linux_exec(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot install loaded image protocol: %m");
 
+        /* As per NX requirement, executable memory needs to be read-only, and viceversa */
+        EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto = NULL;
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_MEMORY_ATTRIBUTE_PROTOCOL), NULL, (void **) &memory_proto);
+        if (err == EFI_SUCCESS) {
+                err = memory_proto->ClearMemoryAttributes(
+                        memory_proto,
+                        loaded_kernel_pages.addr,
+                        loaded_kernel_pages.n_pages * EFI_PAGE_SIZE,
+                        EFI_MEMORY_XP);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Cannot make kernel image executable: %m");
+
+                /* This needs kernel support before it can be enabled */
+                if (pe_kernel_check_nx_compat(loaded_kernel)) {
+                        err = memory_proto->SetMemoryAttributes(
+                                memory_proto,
+                                loaded_kernel_pages.addr,
+                                loaded_kernel_pages.n_pages * EFI_PAGE_SIZE,
+                                EFI_MEMORY_RO);
+                        if (err != EFI_SUCCESS)
+                                return log_error_status(err, "Cannot make kernel image read-only: %m");
+
+                        log_debug("Changed kernel image to read-only for NX_COMPAT support");
+                }
+        }
+
         log_wait();
 
         if (entry_point > 0) {
@@ -271,6 +298,29 @@ EFI_STATUS linux_exec(
                 EFI_IMAGE_ENTRY_POINT compat_entry =
                                 (EFI_IMAGE_ENTRY_POINT) ((const uint8_t *) loaded_image->ImageBase + compat_entry_point);
                 err = compat_entry(kernel_image, ST);
+        }
+
+        /* On failure we'll free the buffers. EDK2 requires the memory buffers to be writable and
+         * non-executable, as in some configurations it will overwrite them with a fixed pattern,
+         * so if the attributes are not restored FreePages() will crash. */
+        if (memory_proto) {
+                EFI_STATUS k;
+
+                k = memory_proto->ClearMemoryAttributes(
+                        memory_proto,
+                        loaded_kernel_pages.addr,
+                        loaded_kernel_pages.n_pages * EFI_PAGE_SIZE,
+                        EFI_MEMORY_RO);
+                if (k != EFI_SUCCESS)
+                        return log_error_status(k, "Cannot make kernel image writable: %m");
+
+                k = memory_proto->SetMemoryAttributes(
+                        memory_proto,
+                        loaded_kernel_pages.addr,
+                        loaded_kernel_pages.n_pages * EFI_PAGE_SIZE,
+                        EFI_MEMORY_XP);
+                if (k != EFI_SUCCESS)
+                        return log_error_status(k, "Cannot make kernel image non-executable: %m");
         }
 
         EFI_STATUS uninstall_err = BS->UninstallMultipleProtocolInterfaces(
