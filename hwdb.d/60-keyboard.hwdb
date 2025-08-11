@@ -251,7 +251,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-51:pvr*
 
 # Alienware/Dell reserves these keys; safe to apply on all their devices
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*:*
- KEYBOARD_KEY_68=!prog3                                 # Fn+f1 Performance mode toggle
+ KEYBOARD_KEY_68=!performance                           # Fn+f1 Performance mode toggle
  KEYBOARD_KEY_81=touchpad_toggle                        # Touchpad toggle
  KEYBOARD_KEY_8a=ejectcd
  KEYBOARD_KEY_92=macro1                                 # Fn+f2
@@ -396,7 +396,7 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:bvn*:bvr*:bd*:svncube:pni1-T
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*:*
- KEYBOARD_KEY_68=!prog2                                 # G-Mode (Dell-specific)
+ KEYBOARD_KEY_68=!performance                           # G-Mode (Dell-specific)
  KEYBOARD_KEY_81=playpause                              # Play/Pause
  KEYBOARD_KEY_82=stopcd                                 # Stop
  KEYBOARD_KEY_83=previoussong                           # Previous song
