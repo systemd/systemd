@@ -413,7 +413,7 @@
 
           <listitem><para>Controls user namespacing under <option>--directory=</option>.
           If enabled,
-          <citerefentry><refentrytitle>virtiofsd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          <citerefentry project='url'><refentrytitle url='https://manpages.debian.org/unstable/qemu-system-common/virtiofsd.1.en.html'>virtiofsd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           is instructed to map user and group ids (UIDs and GIDs).
           This involves mapping the private UIDs/GIDs used in the virtual machine (starting with the virtual machine's
           root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other purposes (usually in the
