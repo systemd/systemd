@@ -4858,7 +4858,7 @@ static void prepare_terminal(
         assert(p);
 
         /* We only try to reset things if we there's the chance our stdout points to a TTY */
-        if (!(is_terminal_output(context->std_output) ||
+        if (!(context->std_output == EXEC_OUTPUT_TTY ||
               (context->std_output == EXEC_OUTPUT_INHERIT && is_terminal_input(context->std_input)) ||
               context->std_output == EXEC_OUTPUT_NAMED_FD ||
               p->stdout_fd >= 0))
@@ -4899,10 +4899,7 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
                 return 0;
 
         /* Do we need $TERM at all? */
-        if (!is_terminal_input(context->std_input) &&
-            !is_terminal_output(context->std_output) &&
-            !is_terminal_output(context->std_error) &&
-            !context->tty_path)
+        if (!exec_context_has_tty(context))
                 return 0;
 
         const char *tty_path = exec_context_tty_path(context);
