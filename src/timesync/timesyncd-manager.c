@@ -1022,6 +1022,9 @@ Manager* manager_free(Manager *m) {
 
         hashmap_free(m->polkit_registry);
 
+        FOREACH_ELEMENT(cookie, m->nts_cookies)
+                mfree(cookie->data);
+
         return mfree(m);
 }
 
@@ -1358,10 +1361,10 @@ static int manager_nts_obtain_agreement(Manager *m) {
 
         log_debug("Performing key exchange with %s\n", m->current_server_name->string);
 
-        m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, socket);
-        assert_return(m->nts_handshake, -ENOMEM);
+        NTS_TLS *nts_handshake = NTS_TLS_setup(m->current_server_name->string, socket);
+        assert_return(nts_handshake, -ENOMEM);
 
-        while ((r = NTS_TLS_handshake(m->nts_handshake)) > 0)
+        while ((r = NTS_TLS_handshake(nts_handshake)) > 0)
                 usleep_safe(10 * USEC_PER_MSEC);
 
         if (r < 0) {
@@ -1371,16 +1374,16 @@ static int manager_nts_obtain_agreement(Manager *m) {
 
         uint8_t buffer[1024], *bufp = buffer;
         int size = NTS_encode_request(buffer, sizeof(buffer), NULL);
-        assert(size <= sizeof(buffer));
+        assert(size <= (int)sizeof(buffer));
 
         do {
-                r = NTS_TLS_write(m->nts_handshake, bufp, size);
+                r = NTS_TLS_write(nts_handshake, bufp, size);
                 assert(r <= size);
 
                 if (r <= 0) {
                         log_error("Error sending NTS key request");
-                        NTS_TLS_close(m->nts_handshake);
-                        m->nts_handshake = NULL;
+                        NTS_TLS_close(nts_handshake);
+                        nts_handshake = NULL;
                         return manager_connect(m);
                 } else if (r < size)
                         usleep_safe(10 * USEC_PER_MSEC);
@@ -1392,13 +1395,13 @@ static int manager_nts_obtain_agreement(Manager *m) {
         bufp = buffer;
         int tolerance = 5;
         for (;;) {
-                r = NTS_TLS_read(m->nts_handshake, bufp, sizeof(buffer) - (bufp - buffer));
-                assert(r <= sizeof(buffer) - (bufp - buffer));
+                r = NTS_TLS_read(nts_handshake, bufp, sizeof(buffer) - (bufp - buffer));
+                assert(r <= (int)sizeof(buffer) - (bufp - buffer));
 
                 if (r < 0) {
                         log_error("Error receiving NTS key response");
-                        NTS_TLS_close(m->nts_handshake);
-                        m->nts_handshake = NULL;
+                        NTS_TLS_close(nts_handshake);
+                        nts_handshake = NULL;
                         return manager_connect(m);
                 } else if (r == 0)
                         /* only accept a couple of 0-byte reads from the NTS server */
@@ -1415,22 +1418,22 @@ static int manager_nts_obtain_agreement(Manager *m) {
                                 continue;
                         }
                         log_error("NTS Error: %s", NTS_error_string(NTS.error));
-                        NTS_TLS_close(m->nts_handshake);
-                        m->nts_handshake = NULL;
+                        NTS_TLS_close(nts_handshake);
+                        nts_handshake = NULL;
                         return manager_connect(m);
                 } else
                         break;
         }
 
         r = NTS_TLS_extract_keys(
-                    m->nts_handshake,
+                    nts_handshake,
                     NTS.aead_id,
                     m->nts_keys.c2s,
                     m->nts_keys.s2c,
                     MAX_NTS_AEAD_KEY_LEN);
 
-        NTS_TLS_close(m->nts_handshake);
-        m->nts_handshake = NULL;
+        NTS_TLS_close(nts_handshake);
+        nts_handshake = NULL;
 
         if (r != 0) {
                 log_error("Key extraction failed");
