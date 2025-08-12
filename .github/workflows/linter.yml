@@ -58,11 +58,6 @@ jobs:
           mkosi box -- mypy --version
           mkosi box -- mypy src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
-      - name: Run ruff check
-        run: |
-          mkosi box -- ruff --version
-          mkosi box -- ruff check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
-
       - name: Run ruff format
         run: |
           mkosi box -- ruff --version
@@ -71,6 +66,11 @@ jobs:
               echo "Please run 'ruff format' on the above files or apply the diffs below manually"
               mkosi box -- ruff format --check --quiet --diff src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
           fi
+
+      - name: Run ruff check
+        run: |
+          mkosi box -- ruff --version
+          mkosi box -- ruff check src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
       - name: Configure meson
         run: mkosi box -- env CC=clang CXX=clang++ meson setup -Dlocalegen-path=/usr/bin/locale-gen -Dcompat-mutable-uid-boundaries=true build
