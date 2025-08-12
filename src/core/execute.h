@@ -478,6 +478,16 @@ static inline bool exec_output_is_kmsg(ExecOutput o) {
                       EXEC_OUTPUT_KMSG_AND_CONSOLE);
 }
 
+static inline bool exec_context_has_tty(const ExecContext *context) {
+        assert(context);
+
+        return
+                context->tty_path ||
+                exec_input_is_terminal(context->std_input) ||
+                context->std_output == EXEC_OUTPUT_TTY ||
+                context->std_error == EXEC_OUTPUT_TTY;
+}
+
 int exec_spawn(
                 Unit *unit,
                 ExecCommand *command,
