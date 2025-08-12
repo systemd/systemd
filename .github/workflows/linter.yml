@@ -56,11 +56,6 @@ jobs:
           mkosi sandbox -- mypy --version
           mkosi sandbox -- mypy src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
 
-      - name: Run ruff check
-        run: |
-          mkosi sandbox -- ruff --version
-          mkosi sandbox -- ruff check src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
-
       - name: Run ruff format
         run: |
           mkosi sandbox -- ruff --version
@@ -69,3 +64,8 @@ jobs:
               echo "Please run 'ruff format' on the above files or apply the diffs below manually"
               mkosi sandbox -- ruff format --check --quiet --diff src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
           fi
+
+      - name: Run ruff check
+        run: |
+          mkosi sandbox -- ruff --version
+          mkosi sandbox -- ruff check src/test/generate-sym-test.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py
