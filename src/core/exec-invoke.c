@@ -4860,8 +4860,7 @@ static void prepare_terminal(
         /* We only try to reset things if we there's the chance our stdout points to a TTY */
         if (!(context->std_output == EXEC_OUTPUT_TTY ||
               (context->std_output == EXEC_OUTPUT_INHERIT && is_terminal_input(context->std_input)) ||
-              context->std_output == EXEC_OUTPUT_NAMED_FD ||
-              p->stdout_fd >= 0))
+              isatty_safe(STDOUT_FILENO))) /* For the case EXEC_OUTPUT_NAMED_FD or p->stdout_fd >= 0 */
                 return;
 
         /* Let's explicitly determine whether to reset via ANSI sequences or not, taking our ExecContext
