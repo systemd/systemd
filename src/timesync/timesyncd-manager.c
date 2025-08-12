@@ -464,6 +464,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         len = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
         if (ERRNO_IS_NEG_TRANSIENT(len))
                 return 0;
+
         if (len < 0) {
                 log_warning_errno(len, "Error receiving message, disconnecting: %s",
                                   len == -ECHRNG ? "got truncated control data" :
@@ -498,11 +499,46 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         struct ntp_msg ntpmsg = packet.ntpmsg;
 
-        /* check the transmit request nonce was properly returned in the origin_time field */
-        if (ntpmsg.origin_time.sec != m->request_nonce.sec || ntpmsg.origin_time.frac != m->request_nonce.frac) {
-                log_debug("Invalid reply; not our transmit time. Ignoring.");
-                return 0;
-        }
+        if (m->nts_cookies[0].data) {
+                /* verify the NTS extension fields */
+                struct NTS_Receipt rcpt = { 0, };
+                r = NTS_parse_extension_fields(&packet.raw_data, iov.iov_len,
+                                               &(NTS_Query) {
+                                                     .cookie = *m->nts_cookies,
+                                                     .c2s_key = m->nts_keys.c2s,
+                                                     .s2c_key = m->nts_keys.s2c,
+                                                     .cipher = m->nts_aead,
+                                               },
+                                               &rcpt);
+                if (r <= 0) {
+                        log_warning("NTS verification for %s failed! Disconnecting.", m->current_server_name->string);
+                        return manager_connect(m);
+                }
+
+                if (!rcpt.identifier /* TODO */) {
+                        log_debug("Server returned an invalid unique identifier. Disconnecting.");
+                        return manager_connect(m);
+                }
+                if (rcpt.new_cookie->length > m->nts_cookies->length) {
+                        log_debug("Server returned a fresh cookie that was longer than the original one. Disconnecting.");
+                        return manager_connect(m);
+                }
+                if (!rcpt.new_cookie->data)
+                        log_debug("Server did not return a new cookie.");
+                else {
+                        /* re-use the existing storage */
+                        memcpy(m->nts_cookies->data, rcpt.new_cookie->data, rcpt.new_cookie->length);
+                        m->nts_cookies->length = rcpt.new_cookie->length;
+                }
+
+                log_debug("NTP packet is authentic.");
+        } else
+                /* check the transmit request nonce was properly returned in the origin_time field */
+                if (ntpmsg.origin_time.sec != m->request_nonce.sec || ntpmsg.origin_time.frac != m->request_nonce.frac) {
+                        log_debug("Invalid reply; not our transmit time. Ignoring.");
+                        return 0;
+                }
+
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
