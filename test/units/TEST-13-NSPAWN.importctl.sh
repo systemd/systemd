@@ -94,3 +94,5 @@ varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.SetLogL
 varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.SetLogLevel '{"level":"1"}'
 varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.SetLogLevel '{"level":"7"}'
 varlinkctl call --more /run/systemd/io.systemd.Import io.systemd.service.GetEnvironment '{}'
+
+exit 1
