@@ -155,15 +155,16 @@ static int manager_send_request(Manager *m) {
                         log_error("Failed to encode extension fields");
                         return -EINVAL;
                 }
+        } else {
+                /*
+                 * Generate a random number as transmit timestamp, to ensure we get
+                 * a full 64 bits of entropy to make it hard for off-path attackers
+                 * to inject random time to us.
+                 * In NTS mode, this is handled through the unique identifier.
+                 */
+                random_bytes(&m->request_nonce, sizeof(m->request_nonce));
+                packet.ntpmsg.trans_time = m->request_nonce;
         }
-
-        /*
-         * Generate a random number as transmit timestamp, to ensure we get
-         * a full 64 bits of entropy to make it hard for off-path attackers
-         * to inject random time to us.
-         */
-        random_bytes(&m->request_nonce, sizeof(m->request_nonce));
-        packet.ntpmsg.trans_time = m->request_nonce;
 
         server_address_pretty(m->current_server_address, &pretty);
 
