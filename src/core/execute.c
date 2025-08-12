@@ -65,20 +65,6 @@
 #include "utmp-wtmp.h"
 #include "vpick.h"
 
-static bool is_terminal_input(ExecInput i) {
-        return IN_SET(i,
-                      EXEC_INPUT_TTY,
-                      EXEC_INPUT_TTY_FORCE,
-                      EXEC_INPUT_TTY_FAIL);
-}
-
-static bool is_terminal_output(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
-}
-
 const char* exec_context_tty_path(const ExecContext *context) {
         assert(context);
 
@@ -151,8 +137,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
 
         if (parameters && parameters->stdout_fd >= 0 && isatty_safe(parameters->stdout_fd))
                 fd = parameters->stdout_fd;
-        else if (path && (context->tty_path || is_terminal_input(context->std_input) ||
-                        is_terminal_output(context->std_output) || is_terminal_output(context->std_error))) {
+        else if (path && exec_context_has_tty(context)) {
                 fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
                         return (void) log_debug_errno(fd, "Failed to open terminal '%s', ignoring: %m", path);
@@ -180,7 +165,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
         if (r < 0)
                 log_debug_errno(r, "Failed to configure TTY dimensions, ignoring: %m");
 
-        if (!sd_id128_is_null(invocation_id)) {
+        if (!sd_id128_is_null(invocation_id) && !getenv_terminal_is_dumb()) {
                 sd_id128_t context_id;
 
                 r = osc_context_id_from_invocation_id(invocation_id, &context_id);
@@ -1001,8 +986,8 @@ static bool exec_context_may_touch_tty(const ExecContext *ec) {
                 ec->tty_vhangup ||
                 ec->tty_vt_disallocate ||
                 is_terminal_input(ec->std_input) ||
-                is_terminal_output(ec->std_output) ||
-                is_terminal_output(ec->std_error);
+                ec->std_output == EXEC_OUTPUT_TTY ||
+                ec->std_error == EXEC_OUTPUT_TTY;
 }
 
 bool exec_context_may_touch_console(const ExecContext *ec) {
