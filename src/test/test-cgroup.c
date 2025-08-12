@@ -60,7 +60,7 @@ TEST(cg_create) {
 
         log_info("Paths for test:\n%s\n%s", test_a, test_b);
 
-        /* Possibly clean up left-overs from aboted previous runs */
+        /* Possibly clean up left-overs from aborted previous runs */
         (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_a, /* delete_root= */ true);
         (void) cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, /* delete_root= */ true);
 
@@ -120,6 +120,9 @@ TEST(cg_create) {
         ASSERT_OK_POSITIVE(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL));
         ASSERT_OK_ZERO(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL));
 
+        ASSERT_OK(cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, true));
+
+        ASSERT_OK_ZERO(cg_attach(SYSTEMD_CGROUP_CONTROLLER, here, 0));
         ASSERT_OK(cg_trim(SYSTEMD_CGROUP_CONTROLLER, test_b, true));
 }
 
