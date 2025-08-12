@@ -59,7 +59,6 @@ typedef struct Manager {
 
         /* nts ke */
         bool nts_cookies_exhausted;
-        void *nts_handshake;
         struct {
                 uint8_t s2c[MAX_NTS_AEAD_KEY_LEN];
                 uint8_t c2s[MAX_NTS_AEAD_KEY_LEN];
