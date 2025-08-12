@@ -1360,42 +1360,65 @@ static int manager_nts_obtain_agreement(Manager *m) {
         m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, socket);
         assert_return(m->nts_handshake, -ENOMEM);
 
-        while ((r = NTS_TLS_handshake(m->nts_handshake)) > 0);
+        while ((r = NTS_TLS_handshake(m->nts_handshake)) > 0)
+                usleep_safe(10 * USEC_PER_MSEC);
+
         if (r < 0) {
                 log_error("Could not set up TLS session with server");
                 return manager_connect(m);
         }
 
-        uint8_t buffer[1024], *p = buffer;
+        uint8_t buffer[1024], *bufp = buffer;
         int size = NTS_encode_request(buffer, sizeof(buffer), NULL);
+        assert(size <= sizeof(buffer));
 
         do {
-                r = NTS_TLS_write(m->nts_handshake, p, size);
-                if (r < 0) {
+                r = NTS_TLS_write(m->nts_handshake, bufp, size);
+                assert(r <= size);
+
+                if (r <= 0) {
                         log_error("Error sending NTS key request");
                         NTS_TLS_close(m->nts_handshake);
                         m->nts_handshake = NULL;
                         return manager_connect(m);
-                }
-                p += r, size -= r;
+                } else if (r < size)
+                        usleep_safe(10 * USEC_PER_MSEC);
+
+                bufp += r, size -= r;
         } while (size > 0);
 
-        do {
-                r = NTS_TLS_read(m->nts_handshake, buffer, sizeof(buffer));
+        NTS_Agreement NTS;
+        bufp = buffer;
+        int tolerance = 5;
+        for (;;) {
+                r = NTS_TLS_read(m->nts_handshake, bufp, sizeof(buffer) - (bufp - buffer));
+                assert(r <= sizeof(buffer) - (bufp - buffer));
+
                 if (r < 0) {
                         log_error("Error receiving NTS key response");
                         NTS_TLS_close(m->nts_handshake);
                         m->nts_handshake = NULL;
                         return manager_connect(m);
-                }
-        } while(r == 0);
+                } else if (r == 0)
+                        /* only accept a couple of 0-byte reads from the NTS server */
+                        --tolerance;
 
-        NTS_Agreement NTS;
-        if (NTS_decode_response(buffer, r, &NTS) < 0) {
-                log_error("NTS Error: %s", NTS_error_string(NTS.error));
-                NTS_TLS_close(m->nts_handshake);
-                m->nts_handshake = NULL;
-                return manager_connect(m);
+                bufp += r;
+
+                r = NTS_decode_response(buffer, bufp - buffer, &NTS);
+                if (r < 0) {
+                        if (NTS.error == NTS_INSUFFICIENT_DATA && tolerance >= 0) {
+                                /* the server sent a fragmented packet; this should be really rare, but try again; unless
+                                 * when we had two zero-reads in a row, in which case we give up*/
+                                usleep_safe(1 * USEC_PER_MSEC);
+                                continue;
+                        }
+                        log_error("NTS Error: %s", NTS_error_string(NTS.error));
+                        NTS_TLS_close(m->nts_handshake);
+                        m->nts_handshake = NULL;
+                        return manager_connect(m);
+                } else
+                        break;
         }
 
         r = NTS_TLS_extract_keys(
