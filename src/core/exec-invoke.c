@@ -1228,6 +1228,7 @@ static int attach_to_subcgroup(
         return 0;
 }
 
+#if HAVE_PAM
 static int exec_context_get_tty_for_pam(const ExecContext *context, char **ret) {
         _cleanup_free_ char *tty = NULL;
         int r;
@@ -1282,6 +1283,7 @@ static int exec_context_get_tty_for_pam(const ExecContext *context, char **ret) 
         *ret = TAKE_PTR(tty);
         return 1;
 }
+#endif
 
 static int setup_pam(
                 const ExecContext *context,
