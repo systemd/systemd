@@ -367,12 +367,36 @@ testcase_watchdog() {
         /bin/bash -c 'systemd-notify --ready; while true; do systemd-notify WATCHDOG=1; sleep 1; done'
 
     systemctl freeze "$unit"
-
     check_freezer_state "$unit" "frozen"
     sleep 6
     check_freezer_state "$unit" "frozen"
 
     systemctl thaw "$unit"
+    check_freezer_state "$unit" "running"
+    sleep 6
+    check_freezer_state "$unit" "running"
+    systemctl is-active "$unit"
+
+    systemctl freeze "$unit"
+    check_freezer_state "$unit" "frozen"
+    systemctl daemon-reload
+    sleep 6
+    check_freezer_state "$unit" "frozen"
+
+    systemctl thaw "$unit"
+    check_freezer_state "$unit" "running"
+    sleep 6
+    check_freezer_state "$unit" "running"
+    systemctl is-active "$unit"
+
+    systemctl freeze "$unit"
+    check_freezer_state "$unit" "frozen"
+    systemctl daemon-reexec
+    sleep 6
+    check_freezer_state "$unit" "frozen"
+
+    systemctl thaw "$unit"
+    check_freezer_state "$unit" "running"
     sleep 6
     check_freezer_state "$unit" "running"
     systemctl is-active "$unit"
