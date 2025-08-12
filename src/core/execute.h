@@ -458,6 +458,26 @@ typedef struct ExecParameters {
                 .pidref_transport_fd    = -EBADF, \
         }
 
+static inline bool exec_input_is_terminal(ExecInput i) {
+        return IN_SET(i,
+                      EXEC_INPUT_TTY,
+                      EXEC_INPUT_TTY_FORCE,
+                      EXEC_INPUT_TTY_FAIL);
+}
+
+static inline bool exec_output_is_terminal(ExecOutput o) {
+        return IN_SET(o,
+                      EXEC_OUTPUT_TTY,
+                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
+                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
+}
+
+static inline bool exec_output_is_kmsg(ExecOutput o) {
+        return IN_SET(o,
+                      EXEC_OUTPUT_KMSG,
+                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
+}
+
 int exec_spawn(
                 Unit *unit,
                 ExecCommand *command,

@@ -65,20 +65,6 @@
 #include "utmp-wtmp.h"
 #include "vpick.h"
 
-static bool is_terminal_input(ExecInput i) {
-        return IN_SET(i,
-                      EXEC_INPUT_TTY,
-                      EXEC_INPUT_TTY_FORCE,
-                      EXEC_INPUT_TTY_FAIL);
-}
-
-static bool is_terminal_output(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
-}
-
 const char* exec_context_tty_path(const ExecContext *context) {
         assert(context);
 
@@ -151,8 +137,8 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
 
         if (parameters && parameters->stdout_fd >= 0 && isatty_safe(parameters->stdout_fd))
                 fd = parameters->stdout_fd;
-        else if (path && (context->tty_path || is_terminal_input(context->std_input) ||
-                        is_terminal_output(context->std_output) || is_terminal_output(context->std_error))) {
+        else if (path && (context->tty_path || exec_input_is_terminal(context->std_input) ||
+                        exec_output_is_terminal(context->std_output) || exec_output_is_terminal(context->std_error))) {
                 fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
                         return (void) log_debug_errno(fd, "Failed to open terminal '%s', ignoring: %m", path);
@@ -1000,9 +986,9 @@ static bool exec_context_may_touch_tty(const ExecContext *ec) {
         return ec->tty_reset ||
                 ec->tty_vhangup ||
                 ec->tty_vt_disallocate ||
-                is_terminal_input(ec->std_input) ||
-                is_terminal_output(ec->std_output) ||
-                is_terminal_output(ec->std_error);
+                exec_input_is_terminal(ec->std_input) ||
+                exec_output_is_terminal(ec->std_output) ||
+                exec_output_is_terminal(ec->std_error);
 }
 
 bool exec_context_may_touch_console(const ExecContext *ec) {

@@ -128,26 +128,6 @@ static int flag_fds(
         return 0;
 }
 
-static bool is_terminal_input(ExecInput i) {
-        return IN_SET(i,
-                      EXEC_INPUT_TTY,
-                      EXEC_INPUT_TTY_FORCE,
-                      EXEC_INPUT_TTY_FAIL);
-}
-
-static bool is_terminal_output(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
-}
-
-static bool is_kmsg_output(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_KMSG,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
-}
-
 static int open_null_as(int flags, int nfd) {
         int fd;
 
@@ -252,8 +232,8 @@ static int connect_logger_as(
                 context->syslog_priority,
                 !!context->syslog_level_prefix,
                 false,
-                is_kmsg_output(output),
-                is_terminal_output(output)) < 0)
+                exec_output_is_kmsg(output),
+                exec_output_is_terminal(output)) < 0)
                 return -errno;
 
         return move_fd(TAKE_FD(fd), nfd, false);
@@ -325,7 +305,7 @@ static int fixup_input(
 
         std_input = context->std_input;
 
-        if (is_terminal_input(std_input) && !apply_tty_stdin)
+        if (exec_input_is_terminal(std_input) && !apply_tty_stdin)
                 return EXEC_INPUT_NULL;
 
         if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
@@ -531,7 +511,7 @@ static int setup_output(
                 if (e == EXEC_OUTPUT_INHERIT &&
                     o == EXEC_OUTPUT_INHERIT &&
                     i == EXEC_INPUT_NULL &&
-                    !is_terminal_input(context->std_input) &&
+                    !exec_input_is_terminal(context->std_input) &&
                     getppid() != 1)
                         return fileno;
 
@@ -543,7 +523,7 @@ static int setup_output(
 
         } else if (o == EXEC_OUTPUT_INHERIT) {
                 /* If input got downgraded, inherit the original value */
-                if (i == EXEC_INPUT_NULL && is_terminal_input(context->std_input))
+                if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
                         return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
                 /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
@@ -564,7 +544,7 @@ static int setup_output(
                 return open_null_as(O_WRONLY, fileno);
 
         case EXEC_OUTPUT_TTY:
-                if (is_terminal_input(i))
+                if (exec_input_is_terminal(i))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
@@ -4880,8 +4860,8 @@ static void prepare_terminal(
         assert(p);
 
         /* We only try to reset things if we there's the chance our stdout points to a TTY */
-        if (!(is_terminal_output(context->std_output) ||
-              (context->std_output == EXEC_OUTPUT_INHERIT && is_terminal_input(context->std_input)) ||
+        if (!(exec_output_is_terminal(context->std_output) ||
+              (context->std_output == EXEC_OUTPUT_INHERIT && exec_input_is_terminal(context->std_input)) ||
               context->std_output == EXEC_OUTPUT_NAMED_FD ||
               p->stdout_fd >= 0))
                 return;
@@ -4921,9 +4901,9 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
                 return 0;
 
         /* Do we need $TERM at all? */
-        if (!is_terminal_input(context->std_input) &&
-            !is_terminal_output(context->std_output) &&
-            !is_terminal_output(context->std_error) &&
+        if (!exec_input_is_terminal(context->std_input) &&
+            !exec_output_is_terminal(context->std_output) &&
+            !exec_output_is_terminal(context->std_error) &&
             !context->tty_path)
                 return 0;
 
