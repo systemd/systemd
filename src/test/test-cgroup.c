@@ -61,7 +61,7 @@ TEST(cg_create) {
 
         log_info("Paths for test:\n%s\n%s", test_a, test_b);
 
-        /* Possibly clean up left-overs from aboted previous runs */
+        /* Possibly clean up left-overs from aborted previous runs */
         (void) cg_trim(test_a, /* delete_root= */ true);
         (void) cg_trim(test_b, /* delete_root= */ true);
 
@@ -113,6 +113,9 @@ TEST(cg_create) {
 
         ASSERT_OK(cg_trim(test_a, true));
         ASSERT_ERROR(cg_trim(test_b, true), EBUSY);
+
+        ASSERT_OK_ZERO(cg_attach(here, 0));
+        ASSERT_OK(cg_trim(test_b, true));
 }
 
 TEST(id) {
