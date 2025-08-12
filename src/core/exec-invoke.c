@@ -4860,7 +4860,7 @@ static void prepare_terminal(
         assert(p);
 
         /* We only try to reset things if we there's the chance our stdout points to a TTY */
-        if (!(exec_output_is_terminal(context->std_output) ||
+        if (!(context->std_output == EXEC_OUTPUT_TTY ||
               (context->std_output == EXEC_OUTPUT_INHERIT && exec_input_is_terminal(context->std_input)) ||
               context->std_output == EXEC_OUTPUT_NAMED_FD ||
               p->stdout_fd >= 0))
@@ -4890,6 +4890,33 @@ static void prepare_terminal(
                 (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
 }
 
+static int propagate_term_environment(char ***env) {
+        const char *s;
+        int r;
+
+        assert(env);
+
+        s = strv_find_prefix(environ, "TERM=");
+        if (!s)
+                return 0;
+
+        r = strv_env_replace_strdup(env, s);
+        if (r < 0)
+                return r;
+
+        FOREACH_STRING(i, "COLORTERM=", "NO_COLOR=") {
+                s = strv_find_prefix(environ, i);
+                if (!s)
+                        continue;
+
+                r = strv_env_replace_strdup(env, s);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
+}
+
 static int setup_term_environment(const ExecContext *context, char ***env) {
         int r;
 
@@ -4900,12 +4927,16 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
         if (strv_env_get(*env, "TERM"))
                 return 0;
 
-        /* Do we need $TERM at all? */
-        if (!exec_input_is_terminal(context->std_input) &&
-            !exec_output_is_terminal(context->std_output) &&
-            !exec_output_is_terminal(context->std_error) &&
-            !context->tty_path)
+        if (!exec_context_has_tty(context)) {
+                if (exec_output_is_terminal(context->std_output) ||
+                    exec_output_is_terminal(context->std_error))
+                        /* If we are indirectly connected to TTY (that is, StandardOutput=journal+console and
+                         * so on), let's propagate $TERM and friends from the service manager. */
+                        return propagate_term_environment(env);
+
+                /* Otherwise, do not set anything. */
                 return 0;
+        }
 
         const char *tty_path = exec_context_tty_path(context);
         if (tty_path) {
@@ -4917,25 +4948,9 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
                  * kernel cmdline option or DCS anymore either, because pid1 also imports $TERM based on those
                  * and it should have showed up as our $TERM if there were anything. */
                 if (tty_is_console(tty_path) && getppid() == 1) {
-                        const char *term = strv_find_prefix(environ, "TERM=");
-                        if (term) {
-                                r = strv_env_replace_strdup(env, term);
-                                if (r < 0)
-                                        return r;
-
-                                FOREACH_STRING(i, "COLORTERM=", "NO_COLOR=") {
-                                        const char *s = strv_find_prefix(environ, i);
-                                        if (!s)
-                                                continue;
-
-                                        r = strv_env_replace_strdup(env, s);
-                                        if (r < 0)
-                                                return r;
-                                }
-
-                                return 1;
-                        }
-
+                        r = propagate_term_environment(env);
+                        if (r != 0)
+                                return r;
                 } else {
                         if (in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
                                 _cleanup_free_ char *key = NULL, *cmdline = NULL;

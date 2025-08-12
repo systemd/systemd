@@ -137,8 +137,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *pa
 
         if (parameters && parameters->stdout_fd >= 0 && isatty_safe(parameters->stdout_fd))
                 fd = parameters->stdout_fd;
-        else if (path && (context->tty_path || exec_input_is_terminal(context->std_input) ||
-                        exec_output_is_terminal(context->std_output) || exec_output_is_terminal(context->std_error))) {
+        else if (path && exec_context_has_tty(context)) {
                 fd = _fd = open_terminal(path, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
                         return (void) log_debug_errno(fd, "Failed to open terminal '%s', ignoring: %m", path);
@@ -987,8 +986,8 @@ static bool exec_context_may_touch_tty(const ExecContext *ec) {
                 ec->tty_vhangup ||
                 ec->tty_vt_disallocate ||
                 exec_input_is_terminal(ec->std_input) ||
-                exec_output_is_terminal(ec->std_output) ||
-                exec_output_is_terminal(ec->std_error);
+                ec->std_output == EXEC_OUTPUT_TTY ||
+                ec->std_error == EXEC_OUTPUT_TTY;
 }
 
 bool exec_context_may_touch_console(const ExecContext *ec) {
