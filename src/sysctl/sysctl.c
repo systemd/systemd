@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "creds-util.h"
@@ -220,7 +221,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
 
         assert(path);
 
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), &f, &pp);
+        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), /* flags= */ 0, &f, &pp);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;

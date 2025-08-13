@@ -257,7 +257,7 @@ int path_strv_make_absolute_cwd(char **l) {
         return 0;
 }
 
-char** path_strv_resolve(char **l, const char *root) {
+char** path_strv_resolve(char **l, const char *root, ChaseFlags flags) {
         unsigned k = 0;
         bool enomem = false;
         int r;
@@ -288,7 +288,7 @@ char** path_strv_resolve(char **l, const char *root) {
                 } else
                         t = *s;
 
-                r = chase(t, root, 0, &u, NULL);
+                r = chase(t, root, flags, &u, NULL);
                 if (r == -ENOENT) {
                         if (root) {
                                 u = TAKE_PTR(orig);
@@ -338,12 +338,12 @@ char** path_strv_resolve(char **l, const char *root) {
         return l;
 }
 
-char** path_strv_resolve_uniq(char **l, const char *root) {
+char** path_strv_resolve_uniq(char **l, const char *root, ChaseFlags flags) {
 
         if (strv_isempty(l))
                 return l;
 
-        if (!path_strv_resolve(l, root))
+        if (!path_strv_resolve(l, root, flags))
                 return NULL;
 
         return strv_uniq(l);

@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "bitfield.h"
+#include "chase.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
@@ -6921,7 +6922,7 @@ int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path)
         if (!path)
                 path = "pcrlock.json";
 
-        r = search_and_fopen_nulstr(path, ret_file ? "re" : NULL, NULL, search, ret_file, ret_path);
+        r = search_and_fopen_nulstr(path, ret_file ? "re" : NULL, NULL, search, /* flags= */ 0, ret_file, ret_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM2 pcrlock policy file '%s': %m", path);
 
@@ -8020,7 +8021,7 @@ int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret) {
                                 return log_oom_debug();
         }
 
-        r = search_and_fopen(path, "re", NULL, (const char**) search, &f, &discovered_path);
+        r = search_and_fopen(path, "re", NULL, (const char**) search, /* flags= */ 0, &f, &discovered_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM PCR signature file '%s': %m", path);
 
@@ -8042,7 +8043,7 @@ int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pu
         if (!path)
                 path = "tpm2-pcr-public-key.pem";
 
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("systemd"), &f, &discovered_path);
+        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("systemd"), /* flags= */ 0, &f, &discovered_path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM PCR public key file '%s': %m", path);
 

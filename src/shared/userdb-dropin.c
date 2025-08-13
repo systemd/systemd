@@ -3,6 +3,7 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -125,7 +126,7 @@ int dropin_user_record_by_name(const char *name, const char *path, UserDBFlags f
                 if (!filename_is_valid(j)) /* Doesn't qualify as valid filename? Then it's definitely not provided as a drop-in */
                         return -ESRCH;
 
-                r = search_and_fopen_nulstr(j, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
+                r = search_and_fopen_nulstr(j, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), /* flags= */ 0, &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
@@ -155,7 +156,7 @@ int dropin_user_record_by_uid(uid_t uid, const char *path, UserDBFlags flags, Us
                 /* Note that we don't bother to validate this as a filename, as this is generated from a decimal
                  * integer, i.e. is definitely OK as a filename */
 
-                r = search_and_fopen_nulstr(buf, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
+                r = search_and_fopen_nulstr(buf, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), /* flags= */ 0, &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
@@ -269,7 +270,7 @@ int dropin_group_record_by_name(const char *name, const char *path, UserDBFlags 
                 if (!filename_is_valid(j)) /* Doesn't qualify as valid filename? Then it's definitely not provided as a drop-in */
                         return -ESRCH;
 
-                r = search_and_fopen_nulstr(j, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
+                r = search_and_fopen_nulstr(j, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), /* flags= */ 0, &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
@@ -297,7 +298,7 @@ int dropin_group_record_by_gid(gid_t gid, const char *path, UserDBFlags flags, G
 
                 xsprintf(buf, GID_FMT ".group", gid);
 
-                r = search_and_fopen_nulstr(buf, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), &f, &found_path);
+                r = search_and_fopen_nulstr(buf, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), /* flags= */ 0, &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)

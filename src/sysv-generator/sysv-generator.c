@@ -7,6 +7,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "dirent-util.h"
 #include "exit-status.h"
 #include "extract-word.h"
@@ -699,7 +700,7 @@ static int acquire_search_path(const char *def, const char *envvar, char ***ret)
                         return log_oom();
         }
 
-        if (!path_strv_resolve_uniq(l, NULL))
+        if (!path_strv_resolve_uniq(l, NULL, /* flags= */ 0))
                 return log_oom();
 
         *ret = TAKE_PTR(l);

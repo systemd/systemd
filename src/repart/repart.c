@@ -9760,7 +9760,7 @@ static int run(int argc, char *argv[]) {
                 if (!d)
                         return log_oom();
 
-                r = search_and_access(d, F_OK, NULL, CONF_PATHS_STRV("systemd/repart/definitions"), &dp);
+                r = search_and_access(d, F_OK, NULL, CONF_PATHS_STRV("systemd/repart/definitions"), /* flags= */ 0, &dp);
                 if (r < 0)
                         return log_error_errno(r, "DDI type '%s' is not defined: %m", arg_make_ddi);
 

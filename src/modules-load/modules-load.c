@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "errno-util.h"
@@ -47,7 +48,7 @@ static int apply_file(struct kmod_ctx *ctx, const char *path, bool ignore_enoent
         assert(ctx);
         assert(path);
 
-        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, &f, &pp);
+        r = search_and_fopen_nulstr(path, "re", NULL, conf_file_dirs, /* flags= */ 0, &f, &pp);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;
