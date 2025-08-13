@@ -475,6 +475,13 @@ Virtualization detect_vm(void) {
                    VIRTUALIZATION_ORACLE,
                    VIRTUALIZATION_XEN,
                    VIRTUALIZATION_AMAZON,
+                   /* Unable to distinguish a GCE machine from a VM to bare-metal
+                    * for non-x86 architectures due to its necessity for cpuid
+                    * detection, which functions solely on x86 platforms. Report
+                    * as a VM for other architectures. */
+#if !defined(__i386__) && !defined(__x86_64__)
+                   VIRTUALIZATION_GOOGLE,
+#endif
                    VIRTUALIZATION_PARALLELS)) {
                 v = dmi;
                 goto finish;
