@@ -123,10 +123,10 @@ static int manager_send_request(Manager *m) {
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
-        /* If we are using NTS, we must first make an TLS connection to perform
-         * key extractions and obtain cookies
+        /* If we are using NTS and out of cookies, we must first make an TLS
+         * connection to perform key extractions and obtain cookies
          */
-        if (m->nts_cookies_exhausted)
+        if (m->nts_missing_cookies >= ELEMENTSOF(m->nts_cookies))
                 return manager_nts_obtain_agreement(m);
 
         r = manager_listen_setup(m);
@@ -138,12 +138,11 @@ static int manager_send_request(Manager *m) {
         /*
          * Add NTS extension fields if NTS is supported for this NTP time source
          */
-        if (m->nts_cookies[0].data) {
-                // TODO: don't re use the cookie
+        if (m->nts_cookies->data) {
                 packet_len = NTS_add_extension_fields(
                         &packet.raw_data,
                         &(NTS_Query) {
-                            .cookie = *m->nts_cookies,
+                            .cookie = m->nts_cookies[m->nts_missing_cookies],
                             .c2s_key = m->nts_keys.c2s,
                             .s2c_key = m->nts_keys.s2c,
                             .cipher = m->nts_aead,
@@ -154,6 +153,11 @@ static int manager_send_request(Manager *m) {
                         log_error("Failed to encode extension fields");
                         return -EINVAL;
                 }
+
+                /* Consume and invalidate the cookie; note that we operate the cookie jar as a
+                 * FIFO queue; the deeper we get into the cookie jar, the less fresh the cookies
+                 * are, and the less we want to eat them. */
+                m->nts_cookies[m->nts_missing_cookies++].data[0] ^= 1;
         } else {
                 /*
                  * Generate a random number as transmit timestamp, to ensure we get
@@ -498,7 +502,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         struct ntp_msg ntpmsg = packet.ntpmsg;
 
-        if (m->nts_cookies[0].data) {
+        if (m->nts_cookies->data) {
                 /* verify the NTS extension fields and unique identifier */
                 struct NTS_Receipt rcpt = { 0, };
                 r = NTS_parse_extension_fields(&packet.raw_data, iov.iov_len,
@@ -518,16 +522,20 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_debug("NTS packet had an invalid unique identifier. Ignoring.");
                         return 0;
                 }
-                if (rcpt.new_cookie->length > m->nts_cookies->length) {
-                        log_debug("Server returned a fresh cookie that was longer than the original one. Disconnecting.");
-                        return manager_connect(m);
-                }
                 if (!rcpt.new_cookie->data)
                         log_debug("Server did not return a new cookie.");
+                else if (m->nts_missing_cookies <= 0)
+                        log_error("A valid NTS packet was received but we were not missing any cookies. Please report this bug.");
                 else {
+                        m->nts_missing_cookies--;
+                        struct NTS_Cookie *cookie = &m->nts_cookies[m->nts_missing_cookies];
                         /* re-use the existing storage */
-                        memcpy(m->nts_cookies->data, rcpt.new_cookie->data, rcpt.new_cookie->length);
-                        m->nts_cookies->length = rcpt.new_cookie->length;
+                        if (rcpt.new_cookie->length > cookie->length) {
+                                log_debug("Server returned a fresh cookie that was longer than the original one. Disconnecting.");
+                                return manager_connect(m);
+                        }
+                        memcpy(cookie->data, rcpt.new_cookie->data, rcpt.new_cookie->length);
+                        cookie->length = rcpt.new_cookie->length;
                 }
 
                 log_debug("NTP packet is authentic.");
@@ -967,7 +975,7 @@ int manager_connect(Manager *m) {
                 /* For NTS, we first connect to the NTSKE */
                 const char *port = nts? "4460" : "123";
 
-                m->nts_cookies_exhausted = nts;
+                m->nts_missing_cookies = nts? ELEMENTSOF(m->nts_cookies) : 0;
 
                 r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, port, &hints, manager_resolve_handler, NULL, m);
 
@@ -1389,8 +1397,6 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
 }
 
 static int manager_nts_obtain_agreement(Manager *m) {
-        assert(m->nts_cookies_exhausted);
-
         int r;
         int socket = NTS_attach_socket(m->current_server_name->string, 4460, SOCK_STREAM);
 
@@ -1486,19 +1492,20 @@ static int manager_nts_obtain_agreement(Manager *m) {
         char port[sizeof("65535")];
         xsprintf(port, "%u", NTS.ntp_port? NTS.ntp_port : 123U);
 
+        static_assert(ELEMENTSOF(NTS.cookie) <= ELEMENTSOF(m->nts_cookies), "size mismatch in data structures");
+
         int num_cookies = 0;
-        for (int i=0; i < 8; i++) {
-                if (NTS.cookie[i].data) {
-                        char *copy = malloc(NTS.cookie[i].length);
+        FOREACH_ELEMENT(cookie, NTS.cookie)
+                if (cookie->data) {
+                        char *copy = malloc(cookie->length);
                         if (copy == NULL)
                                 return -ENOMEM;
 
                         mfree(m->nts_cookies[num_cookies].data);
-                        m->nts_cookies[num_cookies].data = memcpy(copy, NTS.cookie[i].data, NTS.cookie[i].length);
-                        m->nts_cookies[num_cookies].length = NTS.cookie[i].length;
+                        m->nts_cookies[num_cookies].data = memcpy(copy, cookie->data, cookie->length);
+                        m->nts_cookies[num_cookies].length = cookie->length;
                         num_cookies++;
                 }
-        }
 
         /* An invariant for the manager: there are always > 0 cookies when NTS is enabled */
         if (num_cookies == 0) {
@@ -1521,7 +1528,7 @@ static int manager_nts_obtain_agreement(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create resolver: %m");
 
-        m->nts_cookies_exhausted = false;
+        m->nts_missing_cookies = ELEMENTSOF(m->nts_cookies) - num_cookies;
 
         return 1;
 }
