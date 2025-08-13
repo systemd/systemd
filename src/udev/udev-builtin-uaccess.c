@@ -6,15 +6,28 @@
 #include "sd-login.h"
 
 #include "acl-util.h"
+#include "alloc-util.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "login-util.h"
+#include "string-util.h"
+#include "strv.h"
 #include "udev-builtin.h"
 
-static int devnode_acl(int fd, uid_t uid) {
-        bool changed = false, found = false;
+static bool has_uid(uid_t target, uid_t *users, size_t n) {
+        FOREACH_ARRAY(user, users, n)
+                if (*user == target)
+                        return true;
+
+        return false;
+}
+
+static int devnode_acl(int fd, uid_t *users, size_t n_users) {
+        bool changed = false;
         int r;
+        uid_t found[n_users];
+        size_t n_found = 0;
 
         assert(fd >= 0);
 
@@ -35,12 +48,12 @@ static int devnode_acl(int fd, uid_t uid) {
                 if (tag != ACL_USER)
                         continue;
 
-                if (uid > 0) {
+                if (n_users > 0) {
                         uid_t *u = acl_get_qualifier(entry);
                         if (!u)
                                 return -errno;
 
-                        if (*u == uid) {
+                        if (has_uid(*u, users, n_users)) {
                                 acl_permset_t permset;
                                 if (acl_get_permset(entry, &permset) < 0)
                                         return -errno;
@@ -60,7 +73,7 @@ static int devnode_acl(int fd, uid_t uid) {
                                         changed = true;
                                 }
 
-                                found = true;
+                                found[n_found++] = *u;
                                 continue;
                         }
                 }
@@ -73,24 +86,30 @@ static int devnode_acl(int fd, uid_t uid) {
         if (r < 0)
                 return -errno;
 
-        if (!found && uid > 0) {
-                if (acl_create_entry(&acl, &entry) < 0)
-                        return -errno;
+        if (n_found != n_users && n_users > 0) {
+                for (size_t i = 0; i < n_users; i++) {
+                        uid_t uid = users[i];
+                        if (has_uid(uid, found, n_found))
+                                continue;
 
-                if (acl_set_tag_type(entry, ACL_USER) < 0)
-                        return -errno;
+                        if (acl_create_entry(&acl, &entry) < 0)
+                                return -errno;
 
-                if (acl_set_qualifier(entry, &uid) < 0)
-                        return -errno;
+                        if (acl_set_tag_type(entry, ACL_USER) < 0)
+                                return -errno;
 
-                acl_permset_t permset;
-                if (acl_get_permset(entry, &permset) < 0)
-                        return -errno;
+                        if (acl_set_qualifier(entry, &uid) < 0)
+                                return -errno;
 
-                if (acl_add_perm(permset, ACL_READ|ACL_WRITE) < 0)
-                        return -errno;
+                        acl_permset_t permset;
+                        if (acl_get_permset(entry, &permset) < 0)
+                                return -errno;
 
-                changed = true;
+                        if (acl_add_perm(permset, ACL_READ|ACL_WRITE) < 0)
+                                return -errno;
+
+                        changed = true;
+                }
         }
 
         if (!changed)
@@ -107,6 +126,10 @@ static int devnode_acl(int fd, uid_t uid) {
 
 static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
+        _cleanup_strv_free_ char **sessions = NULL;
+        _cleanup_free_ uid_t *users = NULL;
+        size_t n = 0;
+        uid_t uid;
         int r, k;
 
         if (event->event_mode != EVENT_UDEV_WORKER) {
@@ -129,24 +152,52 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                 return ignore ? 0 : fd;
         }
 
-        const char *seat;
-        r = device_get_seat(dev, &seat);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get seat: %m");
+        if (sd_device_has_tag(dev, "uaccess")) {
+                const char *seat;
+                r = device_get_seat(dev, &seat);
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to get seat: %m");
 
-        uid_t uid;
-        r = sd_seat_get_active(seat, /* ret_session = */ NULL, &uid);
-        if (r < 0) {
-                if (IN_SET(r, -ENXIO, -ENODATA))
-                        /* No active session on this seat */
-                        r = 0;
-                else
-                        log_device_error_errno(dev, r, "Failed to determine active user on seat %s: %m", seat);
-
-                goto reset;
+                r = sd_seat_get_active(seat, /* ret_session = */ NULL, &uid);
+                if (r >= 0) {
+                        if (!GREEDY_REALLOC(users, n + 1))
+                                return log_oom();
+                        users[n++] = uid;
+                } else {
+                        if (IN_SET(r, -ENXIO, -ENODATA))
+                                /* No active session on this seat */
+                                r = 0;
+                        else
+                                log_device_error_errno(dev, r, "Failed to determine active user on seat %s: %m", seat);
+                }
         }
 
-        r = devnode_acl(fd, uid);
+        if (sd_device_has_tag(dev, "uremotegraphicalaccess") && sd_get_sessions(&sessions)) {
+                STRV_FOREACH(s, sessions) {
+                        _cleanup_free_ char *state = NULL, *type = NULL;
+                        if (sd_session_get_state(*s, &state) < 0)
+                                continue;
+                        if (streq(state, "closing"))
+                                continue;
+                        if (sd_session_get_uid(*s, &uid) < 0)
+                                continue;
+                        if (sd_session_get_type(*s, &type) < 0)
+                                continue;
+                        if (!sd_session_is_remote(*s))
+                                continue;
+                        /* equivalent to SESSION_TYPE_IS_GRAPHICAL */
+                        if (!STR_IN_SET(type, "x11", "wayland", "mir"))
+                                continue;
+                        if (!GREEDY_REALLOC(users, n + 1))
+                                return log_oom();
+                        users[n++] = uid;
+                }
+        }
+
+        if (n == 0)
+                goto reset;
+
+        r = devnode_acl(fd, users, n);
         if (r < 0) {
                 log_device_full_errno(dev, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r, "Failed to apply ACL: %m");
                 goto reset;
@@ -156,7 +207,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
 
 reset:
         /* Better be safe than sorry and reset ACL */
-        k = devnode_acl(fd, /* uid = */ 0);
+        k = devnode_acl(fd, NULL, 0);
         if (k < 0)
                 RET_GATHER(r, log_device_full_errno(dev, k == -ENOENT ? LOG_DEBUG : LOG_ERR, k, "Failed to flush ACLs: %m"));
 
