@@ -128,26 +128,6 @@ static int flag_fds(
         return 0;
 }
 
-static bool is_terminal_input(ExecInput i) {
-        return IN_SET(i,
-                      EXEC_INPUT_TTY,
-                      EXEC_INPUT_TTY_FORCE,
-                      EXEC_INPUT_TTY_FAIL);
-}
-
-static bool is_terminal_output(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
-}
-
-static bool is_kmsg_output(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_KMSG,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
-}
-
 static int open_null_as(int flags, int nfd) {
         int fd;
 
@@ -252,8 +232,8 @@ static int connect_logger_as(
                 context->syslog_priority,
                 !!context->syslog_level_prefix,
                 false,
-                is_kmsg_output(output),
-                is_terminal_output(output)) < 0)
+                exec_output_is_kmsg(output),
+                exec_output_is_terminal(output)) < 0)
                 return -errno;
 
         return move_fd(TAKE_FD(fd), nfd, false);
@@ -325,7 +305,7 @@ static int fixup_input(
 
         std_input = context->std_input;
 
-        if (is_terminal_input(std_input) && !apply_tty_stdin)
+        if (exec_input_is_terminal(std_input) && !apply_tty_stdin)
                 return EXEC_INPUT_NULL;
 
         if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
@@ -531,7 +511,7 @@ static int setup_output(
                 if (e == EXEC_OUTPUT_INHERIT &&
                     o == EXEC_OUTPUT_INHERIT &&
                     i == EXEC_INPUT_NULL &&
-                    !is_terminal_input(context->std_input) &&
+                    !exec_input_is_terminal(context->std_input) &&
                     getppid() != 1)
                         return fileno;
 
@@ -543,7 +523,7 @@ static int setup_output(
 
         } else if (o == EXEC_OUTPUT_INHERIT) {
                 /* If input got downgraded, inherit the original value */
-                if (i == EXEC_INPUT_NULL && is_terminal_input(context->std_input))
+                if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
                         return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
                 /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
@@ -564,7 +544,7 @@ static int setup_output(
                 return open_null_as(O_WRONLY, fileno);
 
         case EXEC_OUTPUT_TTY:
-                if (is_terminal_input(i))
+                if (exec_input_is_terminal(i))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
@@ -4880,8 +4860,8 @@ static void prepare_terminal(
         assert(p);
 
         /* We only try to reset things if we there's the chance our stdout points to a TTY */
-        if (!(is_terminal_output(context->std_output) ||
-              (context->std_output == EXEC_OUTPUT_INHERIT && is_terminal_input(context->std_input)) ||
+        if (!(context->std_output == EXEC_OUTPUT_TTY ||
+              (context->std_output == EXEC_OUTPUT_INHERIT && exec_input_is_terminal(context->std_input)) ||
               context->std_output == EXEC_OUTPUT_NAMED_FD ||
               p->stdout_fd >= 0))
                 return;
@@ -4910,6 +4890,33 @@ static void prepare_terminal(
                 (void) osc_context_open_service(p->unit_id, p->invocation_id, /* ret_seq= */ NULL);
 }
 
+static int propagate_term_environment(char ***env) {
+        const char *s;
+        int r;
+
+        assert(env);
+
+        s = strv_find_prefix(environ, "TERM=");
+        if (!s)
+                return 0;
+
+        r = strv_env_replace_strdup(env, s);
+        if (r < 0)
+                return r;
+
+        FOREACH_STRING(i, "COLORTERM=", "NO_COLOR=") {
+                s = strv_find_prefix(environ, i);
+                if (!s)
+                        continue;
+
+                r = strv_env_replace_strdup(env, s);
+                if (r < 0)
+                        return r;
+        }
+
+        return 1;
+}
+
 static int setup_term_environment(const ExecContext *context, char ***env) {
         int r;
 
@@ -4920,12 +4927,16 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
         if (strv_env_get(*env, "TERM"))
                 return 0;
 
-        /* Do we need $TERM at all? */
-        if (!is_terminal_input(context->std_input) &&
-            !is_terminal_output(context->std_output) &&
-            !is_terminal_output(context->std_error) &&
-            !context->tty_path)
+        if (!exec_context_has_tty(context)) {
+                if (exec_output_is_terminal(context->std_output) ||
+                    exec_output_is_terminal(context->std_error))
+                        /* If we are indirectly connected to TTY (that is, StandardOutput=journal+console and
+                         * so on), let's propagate $TERM and friends from the service manager. */
+                        return propagate_term_environment(env);
+
+                /* Otherwise, do not set anything. */
                 return 0;
+        }
 
         const char *tty_path = exec_context_tty_path(context);
         if (tty_path) {
@@ -4937,25 +4948,9 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
                  * kernel cmdline option or DCS anymore either, because pid1 also imports $TERM based on those
                  * and it should have showed up as our $TERM if there were anything. */
                 if (tty_is_console(tty_path) && getppid() == 1) {
-                        const char *term = strv_find_prefix(environ, "TERM=");
-                        if (term) {
-                                r = strv_env_replace_strdup(env, term);
-                                if (r < 0)
-                                        return r;
-
-                                FOREACH_STRING(i, "COLORTERM=", "NO_COLOR=") {
-                                        const char *s = strv_find_prefix(environ, i);
-                                        if (!s)
-                                                continue;
-
-                                        r = strv_env_replace_strdup(env, s);
-                                        if (r < 0)
-                                                return r;
-                                }
-
-                                return 1;
-                        }
-
+                        r = propagate_term_environment(env);
+                        if (r != 0)
+                                return r;
                 } else {
                         if (in_charset(skip_dev_prefix(tty_path), ALPHANUMERICAL)) {
                                 _cleanup_free_ char *key = NULL, *cmdline = NULL;
