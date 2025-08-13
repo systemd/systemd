@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "chase.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "path-util.h"
@@ -706,7 +707,7 @@ TEST(path_strv_resolve) {
         assert_se(mkdir(absolute_dirs[1], 0700) == 0);
         assert_se(symlink("dir2", absolute_dirs[2]) == 0);
 
-        path_strv_resolve(search_dirs, tmp_dir);
+        path_strv_resolve(search_dirs, tmp_dir, /* flags= */ 0);
         ASSERT_STREQ(search_dirs[0], "/dir1");
         ASSERT_STREQ(search_dirs[1], "/dir2");
         ASSERT_STREQ(search_dirs[2], "/dir2");

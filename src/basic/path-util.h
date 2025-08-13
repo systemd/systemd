@@ -89,8 +89,8 @@ char* path_startswith_strv(const char *p, char * const *strv);
 #define PATH_STARTSWITH_SET(p, ...) path_startswith_strv(p, STRV_MAKE(__VA_ARGS__))
 
 int path_strv_make_absolute_cwd(char **l);
-char** path_strv_resolve(char **l, const char *root);
-char** path_strv_resolve_uniq(char **l, const char *root);
+char** path_strv_resolve(char **l, const char *root, ChaseFlags flags);
+char** path_strv_resolve_uniq(char **l, const char *root, ChaseFlags flags);
 
 int open_and_check_executable(const char *name, const char *root, char **ret_path, int *ret_fd);
 int find_executable_full(

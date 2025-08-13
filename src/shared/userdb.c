@@ -1066,11 +1066,16 @@ int userdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret
         }
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && (qr < 0 || !iterator->dropin_covered)) {
+                ConfFilesFlags conf_flags = CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED;
+
+                if (FLAGS_SET(flags, USERDB_NO_AUTOFS))
+                        conf_flags |= CONF_FILES_NO_AUTOFS;
+
                 r = conf_files_list_nulstr(
                                 &iterator->dropins,
                                 ".user",
-                                NULL,
-                                CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                /* root= */ NULL,
+                                conf_flags,
                                 USERDB_DROPIN_DIR_NULSTR("userdb"));
                 if (r < 0)
                         log_debug_errno(r, "Failed to find user drop-ins, ignoring: %m");
@@ -1518,11 +1523,16 @@ int groupdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **re
         }
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_DROPIN) && (qr < 0 || !iterator->dropin_covered)) {
+                ConfFilesFlags conf_flags = CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED;
+
+                if (FLAGS_SET(flags, USERDB_NO_AUTOFS))
+                        conf_flags |= CONF_FILES_NO_AUTOFS;
+
                 r = conf_files_list_nulstr(
                                 &iterator->dropins,
                                 ".group",
-                                NULL,
-                                CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                /* root= */ NULL,
+                                conf_flags,
                                 USERDB_DROPIN_DIR_NULSTR("userdb"));
                 if (r < 0)
                         log_debug_errno(r, "Failed to find group drop-ins, ignoring: %m");
@@ -1663,13 +1673,17 @@ int groupdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, Gro
 }
 
 static void discover_membership_dropins(UserDBIterator *i, UserDBFlags flags) {
+        ConfFilesFlags conf_flags = CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED_BY_SYMLINK;
         int r;
+
+        if (FLAGS_SET(flags, USERDB_NO_AUTOFS))
+                conf_flags |= CONF_FILES_NO_AUTOFS;
 
         r = conf_files_list_nulstr(
                         &i->dropins,
                         ".membership",
-                        NULL,
-                        CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED_BY_SYMLINK,
+                        /* root= */ NULL,
+                        conf_flags,
                         USERDB_DROPIN_DIR_NULSTR("userdb"));
         if (r < 0)
                 log_debug_errno(r, "Failed to find membership drop-ins, ignoring: %m");
