@@ -2405,13 +2405,12 @@ static int unit_log_resources(Unit *u) {
                         return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
 
-                /* Calculate wall clock time if we have an active_enter_timestamp */
+                /* Calculate wall clock time from inactive_exit to inactive_enter (includes startup phase) */
                 usec_t wall_clock_usec = USEC_INFINITY;
-                if (dual_timestamp_is_set(&u->active_enter_timestamp)) {
-                        usec_t now_usec = now(CLOCK_MONOTONIC);
-                        if (now_usec >= u->active_enter_timestamp.monotonic)
-                                wall_clock_usec = now_usec - u->active_enter_timestamp.monotonic;
-                }
+                if (dual_timestamp_is_set(&u->inactive_exit_timestamp) &&
+                    dual_timestamp_is_set(&u->inactive_enter_timestamp))
+                        wall_clock_usec = usec_sub_unsigned(u->inactive_enter_timestamp.monotonic,
+                                                            u->inactive_exit_timestamp.monotonic);
 
                 /* Format the CPU time for inclusion in the human language message string */
                 if (wall_clock_usec != USEC_INFINITY) {
