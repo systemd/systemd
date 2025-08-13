@@ -54,7 +54,7 @@ at_exit() {
 trap at_exit EXIT
 
 update_checksums() {
-	(cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+    (cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
 }
 
 new_version() {
@@ -357,7 +357,7 @@ EOF
         updatectl check
         rm -r /run/sysupdate.test.d
     fi
-    
+
     # Create seventh version, and update through a file:// URL. This should be
     # almost as good as testing HTTP, but is simpler for us to set up. file:// is
     # abstracted in curl for us, and since our main goal is to test our own code
