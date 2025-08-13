@@ -140,7 +140,6 @@ static int manager_send_request(Manager *m) {
          */
         if (m->nts_cookies[0].data) {
                 // TODO: don't re use the cookie
-                // TODO: store the unique identifier
                 packet_len = NTS_add_extension_fields(
                         &packet.raw_data,
                         &(NTS_Query) {
@@ -149,7 +148,7 @@ static int manager_send_request(Manager *m) {
                             .s2c_key = m->nts_keys.s2c,
                             .cipher = m->nts_aead,
                         },
-                        NULL);
+                        &m->nts_identifier);
 
                 if (packet_len <= (int)sizeof(struct ntp_msg)) {
                         log_error("Failed to encode extension fields");
@@ -500,7 +499,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         struct ntp_msg ntpmsg = packet.ntpmsg;
 
         if (m->nts_cookies[0].data) {
-                /* verify the NTS extension fields */
+                /* verify the NTS extension fields and unique identifier */
                 struct NTS_Receipt rcpt = { 0, };
                 r = NTS_parse_extension_fields(&packet.raw_data, iov.iov_len,
                                                &(NTS_Query) {
@@ -511,13 +510,13 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                                                },
                                                &rcpt);
                 if (r <= 0) {
-                        log_warning("NTS verification for %s failed! Disconnecting.", m->current_server_name->string);
-                        return manager_connect(m);
+                        log_warning("NTS verification for %s failed! Ignoring.", m->current_server_name->string);
+                        return 0;
                 }
 
-                if (!rcpt.identifier /* TODO */) {
-                        log_debug("Server returned an invalid unique identifier. Disconnecting.");
-                        return manager_connect(m);
+                if (!rcpt.identifier || memcmp(m->nts_identifier, *rcpt.identifier, sizeof(m->nts_identifier)) != 0) {
+                        log_debug("NTS packet had an invalid unique identifier. Ignoring.");
+                        return 0;
                 }
                 if (rcpt.new_cookie->length > m->nts_cookies->length) {
                         log_debug("Server returned a fresh cookie that was longer than the original one. Disconnecting.");
