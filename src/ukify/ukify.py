@@ -1023,6 +1023,19 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
         if section.name == '.linux':
             # Old kernels that use EFI handover protocol will be executed inline.
             new_section.IMAGE_SCN_CNT_CODE = True
+
+            # Check if the kernel PE has the NX_COMPAT flag set, if not strip it from the UKI as they need
+            # to have the same value, otherwise when firmwares start enforcing it, booting will fail.
+            # https://microsoft.github.io/mu/WhatAndWhy/enhancedmemoryprotection/
+            # https://www.kraxel.org/blog/2023/12/uefi-nx-linux-boot/
+            try:
+                inner_pe = pefile.PE(data=data, fast_load=True)
+                nxbit = pefile.DLL_CHARACTERISTICS[ 'IMAGE_DLLCHARACTERISTICS_NX_COMPAT' ]
+                if not inner_pe.OPTIONAL_HEADER.DllCharacteristics & nxbit:
+                    pe.OPTIONAL_HEADER.DllCharacteristics &= ~nxbit
+            except pefile.PEFormatError:
+                # Unit tests build images with bogus data
+                print(f'{section.name} in {uki.executable} is not a valid PE, ignoring', file=sys.stderr)
         else:
             new_section.IMAGE_SCN_CNT_INITIALIZED_DATA = True
 
