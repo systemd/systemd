@@ -61,8 +61,11 @@ new_version() {
     local sector_size="${1:?}"
     local version="${2:?}"
 
-    # Create a pair of random partition payloads, and compress one
-    dd if=/dev/urandom of="$WORKDIR/source/part1-$version.raw" bs="$sector_size" count=2048
+    # Create a pair of random partition payloads, and compress one.
+    # To make not the initial bytes of part1-xxx.raw accidentally match one of the compression header,
+    # let's make the first sector filled by zero.
+    dd if=/dev/zero of="$WORKDIR/source/part1-$version.raw" bs="$sector_size" count=1
+    dd if=/dev/urandom of="$WORKDIR/source/part1-$version.raw" bs="$sector_size" count=2047 conv=notrunc oflag=append
     dd if=/dev/urandom of="$WORKDIR/source/part2-$version.raw" bs="$sector_size" count=2048
     gzip -k -f "$WORKDIR/source/part2-$version.raw"
 
