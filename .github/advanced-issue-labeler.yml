@@ -71,7 +71,7 @@ policy:
             keys: ['systemd-machined', 'machinectl']
 
           - name: modules-load
-            keys: ['systemd-modules-load']
+            keys: ['systemd-modules-load-generator']
 
           - name: network
             keys: ['systemd-networkd', 'networkctl', 'systemd-networkd-wait-online', 'systemd-network-generator']

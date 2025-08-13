@@ -117,7 +117,7 @@ body:
         - 'systemd-journald'
         - 'systemd-logind'
         - 'systemd-machined'
-        - 'systemd-modules-load'
+        - 'systemd-modules-load-generator'
         - 'systemd-network-generator'
         - 'systemd-networkd'
         - 'systemd-networkd-wait-online'
