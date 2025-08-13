@@ -1009,6 +1009,9 @@ bool exec_context_shall_ansi_seq_reset(const ExecContext *c) {
         if (!c->tty_reset)
                 return false;
 
+        /* FIXME:
+         * On invocation, we generate $TERM based on settings for StandardOutput= and friends and the kernel
+         * command line options, or propagate $TERM from the service manager. See setup_term_environment(). */
         return !streq_ptr(strv_env_get(c->environment, "TERM"), "dumb");
 }
 
