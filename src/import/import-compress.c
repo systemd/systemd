@@ -104,6 +104,7 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
 
         c->encoding = false;
 
+        log_debug("Detected compression type: %s", import_compress_type(c->type));
         return 1;
 }
 
