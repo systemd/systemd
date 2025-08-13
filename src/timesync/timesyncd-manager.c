@@ -146,6 +146,7 @@ static int manager_send_request(Manager *m) {
                             .c2s_key = m->nts_keys.c2s,
                             .s2c_key = m->nts_keys.s2c,
                             .cipher = m->nts_aead,
+                            .extra_cookies = m->nts_missing_cookies > 0,
                         },
                         &m->nts_identifier);
 
@@ -522,11 +523,17 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_debug("NTS packet had an invalid unique identifier. Ignoring.");
                         return 0;
                 }
+
+                assert(m->nts_missing_cookies <= ELEMENTSOF(m->nts_cookies));
+
                 if (!rcpt.new_cookie->data)
                         log_debug("Server did not return a new cookie.");
                 else if (m->nts_missing_cookies <= 0)
                         log_error("A valid NTS packet was received but we were not missing any cookies. Please report this bug.");
-                else {
+                else FOREACH_ELEMENT(new_cookie, rcpt.new_cookie) {
+                        if (m->nts_missing_cookies == 0 || new_cookie->data == NULL)
+                                break;
+
                         m->nts_missing_cookies--;
                         struct NTS_Cookie *cookie = &m->nts_cookies[m->nts_missing_cookies];
                         /* re-use the existing storage */
@@ -534,8 +541,8 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                                 log_debug("Server returned a fresh cookie that was longer than the original one. Disconnecting.");
                                 return manager_connect(m);
                         }
-                        memcpy(cookie->data, rcpt.new_cookie->data, rcpt.new_cookie->length);
-                        cookie->length = rcpt.new_cookie->length;
+                        memcpy(cookie->data, new_cookie->data, new_cookie->length);
+                        cookie->length = new_cookie->length;
                 }
 
                 log_debug("NTP packet is authentic.");
