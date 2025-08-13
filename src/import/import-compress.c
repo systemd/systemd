@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "import-compress.h"
+#include "log.h"
 #include "string-table.h"
 
 void import_compress_free(ImportCompress *c) {
@@ -79,6 +80,7 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
 
         c->encoding = false;
 
+        log_debug("Detected compression type: %s", import_compress_type_to_string(c->type));
         return 1;
 }
 
