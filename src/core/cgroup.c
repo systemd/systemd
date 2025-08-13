@@ -2088,9 +2088,6 @@ static int unit_update_cgroup(
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
 
-        if (u->freezer_state != FREEZER_RUNNING)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EBUSY), "Cannot realize cgroup for frozen unit.");
-
         r = unit_get_cgroup_path_with_fallback(u, &cgroup);
         if (r < 0)
                 return log_unit_error_errno(u, r, "Failed to get cgroup path: %m");
