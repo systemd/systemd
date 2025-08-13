@@ -24,13 +24,14 @@ typedef enum UserDBFlags {
         USERDB_AVOID_MULTIPLEXER         = 1 << 5,  /* exclude looking up via io.systemd.Multiplexer */
         USERDB_DONT_SYNTHESIZE_INTRINSIC = 1 << 6,  /* don't synthesize root/nobody */
         USERDB_DONT_SYNTHESIZE_FOREIGN   = 1 << 7,  /* don't synthesize foreign UID records */
+        USERDB_NO_AUTOFS                 = 1 << 8,  /* don't trigger automounts when looking up configuration */
 
         /* Combinations */
         USERDB_NSS_ONLY = USERDB_EXCLUDE_VARLINK|USERDB_EXCLUDE_DROPIN|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN,
         USERDB_DROPIN_ONLY = USERDB_EXCLUDE_NSS|USERDB_EXCLUDE_VARLINK|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN,
 
-        USERDB_PARSE_NUMERIC             = 1 << 8,  /* if a numeric UID is specified as name, parse it and look up by UID/GID */
-        USERDB_SYNTHESIZE_NUMERIC        = 1 << 9,  /* synthesize system UID/GID even if it does not exist */
+        USERDB_PARSE_NUMERIC             = 1 << 9,  /* if a numeric UID is specified as name, parse it and look up by UID/GID */
+        USERDB_SYNTHESIZE_NUMERIC        = 1 << 10, /* synthesize system UID/GID even if it does not exist */
 } UserDBFlags;
 
 /* Well-known errors we'll return here:

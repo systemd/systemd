@@ -120,13 +120,14 @@ int dropin_user_record_by_name(const char *name, const char *path, UserDBFlags f
                 if (!f)
                         return errno == ENOENT ? -ESRCH : -errno; /* We generally want ESRCH to indicate no such user */
         } else {
+                ChaseFlags chase_flags = FLAGS_SET(flags, USERDB_NO_AUTOFS) ? CHASE_NO_AUTOFS : 0;
                 const char *j;
 
                 j = strjoina(name, ".user");
                 if (!filename_is_valid(j)) /* Doesn't qualify as valid filename? Then it's definitely not provided as a drop-in */
                         return -ESRCH;
 
-                r = search_and_fopen_nulstr(j, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), /* flags= */ 0, &f, &found_path);
+                r = search_and_fopen_nulstr(j, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), chase_flags, &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
@@ -150,13 +151,14 @@ int dropin_user_record_by_uid(uid_t uid, const char *path, UserDBFlags flags, Us
                 if (!f)
                         return errno == ENOENT ? -ESRCH : -errno;
         } else {
+                ChaseFlags chase_flags = FLAGS_SET(flags, USERDB_NO_AUTOFS) ? CHASE_NO_AUTOFS : 0;
                 char buf[DECIMAL_STR_MAX(uid_t) + STRLEN(".user") + 1];
 
                 xsprintf(buf, UID_FMT ".user", uid);
                 /* Note that we don't bother to validate this as a filename, as this is generated from a decimal
                  * integer, i.e. is definitely OK as a filename */
 
-                r = search_and_fopen_nulstr(buf, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), /* flags= */ 0, &f, &found_path);
+                r = search_and_fopen_nulstr(buf, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), chase_flags, &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
@@ -264,13 +266,14 @@ int dropin_group_record_by_name(const char *name, const char *path, UserDBFlags 
                 if (!f)
                         return errno == ENOENT ? -ESRCH : -errno;
         } else {
+                ChaseFlags chase_flags = FLAGS_SET(flags, USERDB_NO_AUTOFS) ? CHASE_NO_AUTOFS : 0;
                 const char *j;
 
                 j = strjoina(name, ".group");
                 if (!filename_is_valid(j)) /* Doesn't qualify as valid filename? Then it's definitely not provided as a drop-in */
                         return -ESRCH;
 
-                r = search_and_fopen_nulstr(j, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), /* flags= */ 0, &f, &found_path);
+                r = search_and_fopen_nulstr(j, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), chase_flags, &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
@@ -294,11 +297,12 @@ int dropin_group_record_by_gid(gid_t gid, const char *path, UserDBFlags flags, G
                 if (!f)
                         return errno == ENOENT ? -ESRCH : -errno;
         } else {
+                ChaseFlags chase_flags = FLAGS_SET(flags, USERDB_NO_AUTOFS) ? CHASE_NO_AUTOFS : 0;
                 char buf[DECIMAL_STR_MAX(gid_t) + STRLEN(".group") + 1];
 
                 xsprintf(buf, GID_FMT ".group", gid);
 
-                r = search_and_fopen_nulstr(buf, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), /* flags= */ 0, &f, &found_path);
+                r = search_and_fopen_nulstr(buf, "re", NULL, USERDB_DROPIN_DIR_NULSTR("userdb"), chase_flags, &f, &found_path);
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0)
