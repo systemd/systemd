@@ -55,7 +55,8 @@
     <filename>kexec.target</filename>,
     <filename>local-fs-pre.target</filename>,
     <filename>local-fs.target</filename>,
-    <filename>machines.target</filename>
+    <filename>machines.target</filename>,
+    <filename>modules-load.target</filename>,
     <filename>multi-user.target</filename>,
     <filename>network-online.target</filename>,
     <filename>network-pre.target</filename>,
@@ -97,6 +98,7 @@
     <!-- slices --><filename>-.slice</filename>,
     <filename>capsule.slice</filename>,
     <filename>machine.slice</filename>,
+    <filename>modprobe.slice</filename>,
     <filename>system.slice</filename>,
     <filename>user.slice</filename>,
     <!-- the rest --><filename>-.mount</filename>,
@@ -540,6 +542,16 @@
             for an example.</para>
 
             <xi:include href="version-info.xml" xpointer="v233"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>modules-load.target</filename></term>
+          <listitem>
+            <para>A standard target unit for early static kernel module
+            loading, performed by
+            <citerefentry><refentrytitle>systemd-modules-load-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
+
+            <xi:include href="version-info.xml" xpointer="v259"/>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1410,6 +1422,16 @@ WantedBy=sleep.target</programlisting>
             <filename>systemd-logind.service</filename>.</para>
 
             <xi:include href="version-info.xml" xpointer="v206"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>modprobe.slice</filename></term>
+          <listitem>
+            <para>By default, all instances of <filename>modprobe@.service</filename> are found in
+            this slice.</para>
+
+            <xi:include href="version-info.xml" xpointer="v259"/>
           </listitem>
         </varlistentry>
 

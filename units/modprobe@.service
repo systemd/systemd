@@ -33,3 +33,4 @@ StartLimitIntervalSec=0
 [Service]
 Type=oneshot
 ExecStart=-/sbin/modprobe -abq %i
+Slice=modprobe.slice
