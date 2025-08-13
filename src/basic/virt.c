@@ -475,6 +475,9 @@ Virtualization detect_vm(void) {
                    VIRTUALIZATION_ORACLE,
                    VIRTUALIZATION_XEN,
                    VIRTUALIZATION_AMAZON,
+#if !defined(__i386__) && !defined(__x86_64__)
+                   VIRTUALIZATION_GOOGLE,
+#endif
                    VIRTUALIZATION_PARALLELS)) {
                 v = dmi;
                 goto finish;
