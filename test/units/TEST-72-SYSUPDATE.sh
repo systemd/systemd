@@ -54,7 +54,30 @@ at_exit() {
 trap at_exit EXIT
 
 update_checksums() {
-	(cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+    (cd "$WORKDIR/source" && sha256sum uki* part* dir-*.tar.gz >SHA256SUMS)
+}
+
+head_in_hex() {
+    local name="${1:?}"
+    local size="${2:?}"
+
+    hexdump -c --length "$size" "$name" | head -n 1 | sed -E 's/^0* *//; s/ *$//; s/ +/ /g;'
+}
+
+avoid_compression_headers() {
+    local name="${1:?}"
+
+    # xz (0xfd, '7', 'z', 'X', 'Z', 0x00)
+    [[ $(head_in_hex "$name" 6) != 'fd 37 7a 58 5a 00' ]]
+
+    # gzip (0x1f, 0x8b)
+    [[ $(head_in_hex "$name" 2) != '1f 8b' ]]
+
+    # bzip2 ('B', 'Z', 'h')
+    [[ $(head_in_hex "$name" 3) != '42 5a 68' ]]
+
+    # zstd (0x28, 0xb5, 0x2f, 0xfd)
+    [[ $(head_in_hex "$name" 4) != '28 b5 2f fd' ]]
 }
 
 new_version() {
@@ -62,7 +85,10 @@ new_version() {
     local version="${2:?}"
 
     # Create a pair of random partition payloads, and compress one
-    dd if=/dev/urandom of="$WORKDIR/source/part1-$version.raw" bs="$sector_size" count=2048
+    while : ; do
+        dd if=/dev/urandom of="$WORKDIR/source/part1-$version.raw" bs="$sector_size" count=2048
+        avoid_compression_headers "$WORKDIR/source/part1-$version.raw" && break
+    done
     dd if=/dev/urandom of="$WORKDIR/source/part2-$version.raw" bs="$sector_size" count=2048
     gzip -k -f "$WORKDIR/source/part2-$version.raw"
 
@@ -354,7 +380,7 @@ EOF
         updatectl check
         rm -r /run/sysupdate.test.d
     fi
-    
+
     # Create seventh version, and update through a file:// URL. This should be
     # almost as good as testing HTTP, but is simpler for us to set up. file:// is
     # abstracted in curl for us, and since our main goal is to test our own code
