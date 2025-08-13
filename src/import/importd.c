@@ -721,7 +721,7 @@ static int manager_new(Manager **ret) {
 
         r = notify_socket_prepare(
                         m->event,
-                        SD_EVENT_PRIORITY_NORMAL,
+                        SD_EVENT_PRIORITY_NORMAL - 1, /* Make this processed before SIGCHLD. */
                         manager_on_notify,
                         m,
                         &m->notify_socket_path);

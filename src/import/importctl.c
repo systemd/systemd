@@ -30,6 +30,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "terminal-util.h"
 #include "verbs.h"
 #include "web-util.h"
 
@@ -179,6 +180,10 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
 
         assert(bus);
         assert(m);
+
+        log_info("on_tty(): %s", yes_no(on_tty()));
+        log_info("getenv_terminal_is_dumb(): %s", yes_no(getenv_terminal_is_dumb()));
+        log_info("terminal_is_dumb(): %s", yes_no(terminal_is_dumb()));
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
