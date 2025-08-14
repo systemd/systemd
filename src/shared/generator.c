@@ -881,7 +881,7 @@ int generator_hook_up_quotaon(
 
 int generator_enable_remount_fs_service(const char *dir) {
         /* Pull in systemd-remount-fs.service */
-        return generator_add_symlink(dir, SPECIAL_LOCAL_FS_TARGET, "wants",
+        return generator_add_symlink(dir, SPECIAL_SYSINIT_TARGET, "wants",
                                      SYSTEM_DATA_UNIT_DIR "/" SPECIAL_REMOUNT_FS_SERVICE);
 }
 
