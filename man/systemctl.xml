@@ -2923,6 +2923,21 @@ EOF
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--sysv-install=</option></term>
+
+        <listitem>
+          <para>When used with
+          <command>enable</command>/<command>disable</command>/<command>is-enabled</command>
+          on a unit that is a SysV init.d script, use the specified path instead of
+          <filename>/usr/lib/systemd/systemd-sysv-install</filename> to call the
+          distribution's mechanism for enabling/disabling it.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
       <xi:include href="user-system-options.xml" xpointer="capsule" />

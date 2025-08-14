@@ -88,6 +88,7 @@ bool arg_marked = false;
 const char *arg_drop_in = NULL;
 ImagePolicy *arg_image_policy = NULL;
 char *arg_kill_subgroup = NULL;
+char *arg_sysv_install = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
@@ -104,6 +105,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kill_subgroup, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_sysv_install, freep);
 
 static int systemctl_help(void) {
         _cleanup_free_ char *link = NULL;
@@ -314,6 +316,7 @@ static int systemctl_help(void) {
                "     --when=TIME         Schedule halt/power-off/reboot/kexec action after\n"
                "                         a certain timestamp\n"
                "     --stdin             Read new contents of edited file from stdin\n"
+               "     --sysv-install=PATH The path to systemd-sysv-install\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -442,6 +445,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_WHEN,
                 ARG_STDIN,
                 ARG_KILL_SUBGROUP,
+                ARG_SYSV_INSTALL,
         };
 
         static const struct option options[] = {
@@ -512,6 +516,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "when",                required_argument, NULL, ARG_WHEN                },
                 { "stdin",               no_argument,       NULL, ARG_STDIN               },
                 { "kill-subgroup",       required_argument, NULL, ARG_KILL_SUBGROUP       },
+                { "sysv-install",        required_argument, NULL, ARG_SYSV_INSTALL        },
                 {}
         };
 
@@ -1042,6 +1047,12 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         free_and_replace(arg_kill_subgroup, p);
                         break;
                 }
+
+                case ARG_SYSV_INSTALL:
+                        r = parse_path_argument(optarg, false, &arg_sysv_install);
+                        if (r < 0)
+                                return r;
+                        break;
 
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
