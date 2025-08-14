@@ -2476,7 +2476,7 @@ int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **r
 
         _cleanup_free_ char *resolved = NULL;
         _cleanup_close_ int fd = -EBADF;
-        r = chase(path, /* root = */ NULL, CHASE_NO_AUTOFS | flags, &resolved, ret_fd ? &fd : NULL);
+        r = chase(path, /* root = */ NULL, flags, &resolved, ret_fd ? &fd : NULL);
         if (r < 0)
                 return r;
 

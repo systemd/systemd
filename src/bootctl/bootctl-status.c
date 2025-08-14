@@ -222,7 +222,7 @@ static int enumerate_binaries(
         assert(previous);
         assert(is_first);
 
-        r = chase_and_opendir(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
+        r = chase_and_opendir(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_AUTOFS, &p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -693,7 +693,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
                 return;
 
         if (arg_dry_run) {
-                r = chase_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, &path);
+                r = chase_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_AUTOFS, F_OK, &path);
                 if (r < 0)
                         log_info_errno(r, "Unable to determine whether \"%s\" exists, ignoring: %m", fn);
                 else
@@ -701,7 +701,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
                 return;
         }
 
-        r = chase_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, 0, &path);
+        r = chase_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_AUTOFS, 0, &path);
         if (r >= 0)
                 log_info("Removed \"%s\"", path);
         else if (r != -ENOENT)
@@ -709,7 +709,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
 
         _cleanup_free_ char *d = NULL;
         if (path_extract_directory(fn, &d) >= 0 && !path_equal(d, "/")) {
-                r = chase_and_unlink(d, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, AT_REMOVEDIR, NULL);
+                r = chase_and_unlink(d, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_AUTOFS, AT_REMOVEDIR, NULL);
                 if (r < 0 && !IN_SET(r, -ENOTEMPTY, -ENOENT))
                         log_warning_errno(r, "Failed to remove directory \"%s\", ignoring: %m", d);
         }
@@ -801,7 +801,7 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
         if (arg_dry_run)
                 log_info("Would remove \"%s\"", e->path);
         else {
-                r = chase_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS, 0, NULL);
+                r = chase_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS|CHASE_AUTOFS, 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to remove \"%s\": %m", e->path);
 
@@ -862,7 +862,7 @@ static int cleanup_orphaned_files(
         if (r < 0)
                 return log_error_errno(r, "Failed to count files in %s: %m", root);
 
-        dir_fd = chase_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS,
+        dir_fd = chase_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_AUTOFS,
                         O_DIRECTORY|O_CLOEXEC, &full);
         if (dir_fd == -ENOENT)
                 return 0;
