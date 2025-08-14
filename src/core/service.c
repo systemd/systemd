@@ -5616,7 +5616,7 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
                 return -ENODATA;
 
         _cleanup_free_ char *path = NULL;
-        r = chase(c->path, s->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
+        r = chase(c->path, s->exec_context.root_directory, CHASE_PREFIX_ROOT|CHASE_AUTOFS, &path, NULL);
         if (r < 0) {
                 log_unit_debug_errno(UNIT(s), r, "Failed to resolve service binary '%s', ignoring.", c->path);
                 return -ENODATA;
