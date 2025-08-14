@@ -515,7 +515,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                                                },
                                                &rcpt);
                 if (r <= 0) {
-                        log_warning("NTS verification for %s failed! Ignoring.", m->current_server_name->string);
+                        log_debug("NTS verification for %s failed! Ignoring.", m->current_server_name->string);
                         return 0;
                 }
 
@@ -527,7 +527,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 assert(m->nts_missing_cookies <= ELEMENTSOF(m->nts_cookies));
 
                 if (!rcpt.new_cookie->data)
-                        log_debug("Server did not return a new cookie.");
+                        log_warning("Server did not return a new cookie.");
                 else if (m->nts_missing_cookies <= 0)
                         log_error("A valid NTS packet was received but we were not missing any cookies. Please report this bug.");
                 else FOREACH_ELEMENT(new_cookie, rcpt.new_cookie) {
@@ -538,7 +538,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         struct NTS_Cookie *cookie = &m->nts_cookies[m->nts_missing_cookies];
                         /* re-use the existing storage */
                         if (rcpt.new_cookie->length > cookie->length) {
-                                log_debug("Server returned a fresh cookie that was longer than the original one. Disconnecting.");
+                                log_info("Server returned a fresh cookie that was longer than the original one. Disconnecting.");
                                 return manager_connect(m);
                         }
                         memcpy(cookie->data, new_cookie->data, new_cookie->length);
