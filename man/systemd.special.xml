@@ -55,7 +55,7 @@
     <filename>kexec.target</filename>,
     <filename>local-fs-pre.target</filename>,
     <filename>local-fs.target</filename>,
-    <filename>machines.target</filename>
+    <filename>machines.target</filename>,
     <filename>multi-user.target</filename>,
     <filename>network-online.target</filename>,
     <filename>network-pre.target</filename>,
