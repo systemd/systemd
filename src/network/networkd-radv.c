@@ -489,6 +489,15 @@ static int radv_configure(Link *link) {
         if (r < 0)
                 return r;
 
+        if (link->network->router_mtu > 0 || link->network->router_mtu_auto) {
+                r = sd_radv_set_mtu(link->radv, link->network->router_mtu_auto ? link->mtu : link->network->router_mtu);
+                if (r < 0)
+                        return r;
+
+                if (link->network->router_mtu > 0)
+                        link->have_router_mtu = true;
+        }
+
         r = sd_radv_set_preference(link->radv, link->network->router_preference);
         if (r < 0)
                 return r;
@@ -1616,4 +1625,27 @@ int config_parse_router_home_agent_lifetime(
 
         *home_agent_lifetime_usec = usec;
         return 0;
+}
+
+int config_parse_router_mtu(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        Network *network = userdata;
+
+        assert(rvalue);
+
+        if (streq(rvalue, "auto"))
+                network->router_mtu_auto = true;
+        else
+                return config_parse_mtu(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+
+        return 1;
 }
