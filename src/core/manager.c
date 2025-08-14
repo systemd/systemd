@@ -58,6 +58,7 @@
 #include "manager-dump.h"
 #include "manager-serialize.h"
 #include "manager.h"
+#include "shutdown-stats.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "notify-recv.h"
@@ -1662,6 +1663,9 @@ static void manager_clear_jobs_and_units(Manager *m) {
 Manager* manager_free(Manager *m) {
         if (!m)
                 return NULL;
+
+        /* Save shutdown statistics before clearing units */
+        (void) manager_save_shutdown_stats(m);
 
         manager_clear_jobs_and_units(m);
 
