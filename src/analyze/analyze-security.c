@@ -13,6 +13,7 @@
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "chase.h"
 #include "copy.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -2916,7 +2917,7 @@ int verb_security(int argc, char *argv[], void *userdata) {
                 _cleanup_fclose_ FILE *f = NULL;
                 _cleanup_free_ char *pp = NULL;
 
-                r = search_and_fopen_nulstr("systemd-analyze-security.policy", "re", /*root=*/ NULL, CONF_PATHS_NULSTR("systemd"), &f, &pp);
+                r = search_and_fopen_nulstr("systemd-analyze-security.policy", "re", /*root=*/ NULL, CONF_PATHS_NULSTR("systemd"), /* flags= */ 0, &f, &pp);
                 if (r < 0 && r != -ENOENT)
                         return r;
 

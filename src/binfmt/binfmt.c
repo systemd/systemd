@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "binfmt-util.h"
 #include "build.h"
+#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "errno-util.h"
@@ -70,7 +71,7 @@ static int apply_file(const char *filename, bool ignore_enoent) {
 
         assert(filename);
 
-        r = search_and_fopen(filename, "re", NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), &f, &pp);
+        r = search_and_fopen(filename, "re", NULL, (const char**) CONF_PATHS_STRV("binfmt.d"), /* flags= */ 0, &f, &pp);
         if (r < 0) {
                 if (ignore_enoent && r == -ENOENT)
                         return 0;

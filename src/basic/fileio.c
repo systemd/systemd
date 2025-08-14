@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -1136,6 +1137,7 @@ static int search_and_open_internal(
                 int mode,            /* if ret_fd is NULL this is an [FRWX]_OK mode for access(), otherwise an open mode for open() */
                 const char *root,
                 char **search,
+                ChaseFlags flags,
                 int *ret_fd,
                 char **ret_path) {
 
@@ -1168,7 +1170,7 @@ static int search_and_open_internal(
                 return 0;
         }
 
-        if (!path_strv_resolve_uniq(search, root))
+        if (!path_strv_resolve_uniq(search, root, flags))
                 return -ENOMEM;
 
         STRV_FOREACH(i, search) {
@@ -1205,6 +1207,7 @@ int search_and_open(
                 int mode,
                 const char *root,
                 char **search,
+                ChaseFlags flags,
                 int *ret_fd,
                 char **ret_path) {
 
@@ -1216,7 +1219,7 @@ int search_and_open(
         if (!copy)
                 return -ENOMEM;
 
-        return search_and_open_internal(path, mode, root, copy, ret_fd, ret_path);
+        return search_and_open_internal(path, mode, root, copy, flags, ret_fd, ret_path);
 }
 
 static int search_and_fopen_internal(
@@ -1224,6 +1227,7 @@ static int search_and_fopen_internal(
                 const char *mode,
                 const char *root,
                 char **search,
+                ChaseFlags flags,
                 FILE **ret_file,
                 char **ret_path) {
 
@@ -1239,6 +1243,7 @@ static int search_and_fopen_internal(
                         mode ? fopen_mode_to_flags(mode) : 0,
                         root,
                         search,
+                        flags,
                         ret_file ? &fd : NULL,
                         ret_path ? &found_path : NULL);
         if (r < 0)
@@ -1263,6 +1268,7 @@ int search_and_fopen(
                 const char *mode,
                 const char *root,
                 const char **search,
+                ChaseFlags flags,
                 FILE **ret_file,
                 char **ret_path) {
 
@@ -1275,7 +1281,7 @@ int search_and_fopen(
         if (!copy)
                 return -ENOMEM;
 
-        return search_and_fopen_internal(path, mode, root, copy, ret_file, ret_path);
+        return search_and_fopen_internal(path, mode, root, copy, flags, ret_file, ret_path);
 }
 
 int search_and_fopen_nulstr(
@@ -1283,6 +1289,7 @@ int search_and_fopen_nulstr(
                 const char *mode,
                 const char *root,
                 const char *search,
+                ChaseFlags flags,
                 FILE **ret_file,
                 char **ret_path) {
 
@@ -1295,7 +1302,18 @@ int search_and_fopen_nulstr(
         if (!l)
                 return -ENOMEM;
 
-        return search_and_fopen_internal(path, mode, root, l, ret_file, ret_path);
+        return search_and_fopen_internal(path, mode, root, l, flags, ret_file, ret_path);
+}
+
+int search_and_access(
+                const char *path,
+                int mode,
+                const char *root,
+                char **search,
+                ChaseFlags flags,
+                char **ret_path) {
+
+        return search_and_open(path, mode, root, search, flags, NULL, ret_path);
 }
 
 int fflush_and_check(FILE *f) {

@@ -264,6 +264,9 @@ static int files_add(
                 bool need_stat = (flags & (CONF_FILES_FILTER_MASKED | CONF_FILES_REGULAR | CONF_FILES_DIRECTORY | CONF_FILES_EXECUTABLE)) != 0;
                 ChaseFlags chase_flags = CHASE_AT_RESOLVE_IN_ROOT;
 
+                if (FLAGS_SET(flags, CONF_FILES_NO_AUTOFS))
+                        chase_flags |= CHASE_NO_AUTOFS;
+
                 if (!need_stat || FLAGS_SET(flags, CONF_FILES_FILTER_MASKED_BY_SYMLINK))
                         /* Even if no verification is requested, let's unconditionally call chaseat(),
                          * to drop unsafe symlinks. */
@@ -497,13 +500,17 @@ static int conf_files_list_impl(
         _cleanup_set_free_ Set *masked = NULL;
         _cleanup_(conf_file_freep) ConfFile *c = NULL;
         const ConfFile *inserted = NULL;
+        ChaseFlags chase_flags = 0;
         int r;
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(ret);
 
+        if (FLAGS_SET(flags, CONF_FILES_NO_AUTOFS))
+                chase_flags |= CHASE_NO_AUTOFS;
+
         if (replacement) {
-                r = conf_file_new_at(replacement, rfd, CHASE_NONEXISTENT, &c);
+                r = conf_file_new_at(replacement, rfd, chase_flags|CHASE_NONEXISTENT, &c);
                 if (r < 0)
                         return r;
         }
@@ -512,7 +519,7 @@ static int conf_files_list_impl(
                 _cleanup_closedir_ DIR *dir = NULL;
                 _cleanup_free_ char *path = NULL;
 
-                r = chase_and_opendirat(rfd, *p, CHASE_AT_RESOLVE_IN_ROOT, &path, &dir);
+                r = chase_and_opendirat(rfd, *p, chase_flags|CHASE_AT_RESOLVE_IN_ROOT, &path, &dir);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_debug_errno(r, "Failed to chase and open directory '%s/%s', ignoring: %m", strempty(root), skip_leading_slash(*p));
@@ -824,7 +831,7 @@ int conf_file_read(
                         log_debug("Reading config file \"%s\"%s", fn, glyph(GLYPH_ELLIPSIS));
 
         } else {
-                r = search_and_fopen(fn, "re", root, config_dirs, &_f, &_fn);
+                r = search_and_fopen(fn, "re", root, config_dirs, /* flags= */ 0, &_f, &_fn);
                 if (r >= 0) {
                         f = _f;
                         fn = _fn;

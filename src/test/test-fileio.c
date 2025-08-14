@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "chase.h"
 #include "env-file.h"
 #include "env-util.h"
 #include "errno-util.h"
@@ -544,47 +545,47 @@ TEST(search_and_fopen) {
         fd = safe_close(fd);
 
         ASSERT_OK(path_extract_filename(name, &bn));
-        ASSERT_OK(search_and_fopen(bn, "re", NULL, (const char**) dirs, &f, &p));
+        ASSERT_OK(search_and_fopen(bn, "re", NULL, (const char**) dirs, /* flags= */ 0, &f, &p));
         assert_se(e = path_startswith(p, "/tmp/"));
         ASSERT_STREQ(bn, e);
         f = safe_fclose(f);
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen(bn, NULL, NULL, (const char**) dirs, NULL, &p));
+        ASSERT_OK(search_and_fopen(bn, NULL, NULL, (const char**) dirs, /* flags= */ 0, NULL, &p));
         assert_se(e = path_startswith(p, "/tmp/"));
         ASSERT_STREQ(bn, e);
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen(name, "re", NULL, (const char**) dirs, &f, &p));
+        ASSERT_OK(search_and_fopen(name, "re", NULL, (const char**) dirs, /* flags= */ 0, &f, &p));
         assert_se(path_equal(name, p));
         f = safe_fclose(f);
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen(name, NULL, NULL, (const char**) dirs, NULL, &p));
+        ASSERT_OK(search_and_fopen(name, NULL, NULL, (const char**) dirs, /* flags= */ 0, NULL, &p));
         assert_se(path_equal(name, p));
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen(bn, "re", "/", (const char**) dirs, &f, &p));
+        ASSERT_OK(search_and_fopen(bn, "re", "/", (const char**) dirs, /* flags= */ 0, &f, &p));
         assert_se(e = path_startswith(p, "/tmp/"));
         ASSERT_STREQ(bn, e);
         f = safe_fclose(f);
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen(bn, NULL, "/", (const char**) dirs, NULL, &p));
+        ASSERT_OK(search_and_fopen(bn, NULL, "/", (const char**) dirs, /* flags= */ 0, NULL, &p));
         assert_se(e = path_startswith(p, "/tmp/"));
         ASSERT_STREQ(bn, e);
         p = mfree(p);
 
-        ASSERT_ERROR(search_and_fopen("/a/file/which/does/not/exist/i/guess", "re", NULL, (const char**) dirs, &f, &p), ENOENT);
-        ASSERT_ERROR(search_and_fopen("/a/file/which/does/not/exist/i/guess", NULL, NULL, (const char**) dirs, NULL, &p), ENOENT);
-        ASSERT_ERROR(search_and_fopen("afilewhichdoesnotexistiguess", "re", NULL, (const char**) dirs, &f, &p), ENOENT);
-        ASSERT_ERROR(search_and_fopen("afilewhichdoesnotexistiguess", NULL, NULL, (const char**) dirs, NULL, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("/a/file/which/does/not/exist/i/guess", "re", NULL, (const char**) dirs, /* flags= */ 0, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("/a/file/which/does/not/exist/i/guess", NULL, NULL, (const char**) dirs, /* flags= */ 0, NULL, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("afilewhichdoesnotexistiguess", "re", NULL, (const char**) dirs, /* flags= */ 0, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen("afilewhichdoesnotexistiguess", NULL, NULL, (const char**) dirs, /* flags= */ 0, NULL, &p), ENOENT);
 
         r = unlink(name);
         assert_se(r == 0);
 
-        ASSERT_ERROR(search_and_fopen(bn, "re", NULL, (const char**) dirs, &f, &p), ENOENT);
-        ASSERT_ERROR(search_and_fopen(bn, NULL, NULL, (const char**) dirs, NULL, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen(bn, "re", NULL, (const char**) dirs, /* flags= */ 0, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen(bn, NULL, NULL, (const char**) dirs, /* flags= */ 0, NULL, &p), ENOENT);
 }
 
 TEST(search_and_fopen_nulstr) {
@@ -604,24 +605,24 @@ TEST(search_and_fopen_nulstr) {
         fd = safe_close(fd);
 
         ASSERT_OK(path_extract_filename(name, &bn));
-        ASSERT_OK(search_and_fopen_nulstr(bn, "re", NULL, dirs, &f, &p));
+        ASSERT_OK(search_and_fopen_nulstr(bn, "re", NULL, dirs, /* flags= */ 0, &f, &p));
         assert_se(e = path_startswith(p, "/tmp/"));
         ASSERT_STREQ(bn, e);
         f = safe_fclose(f);
         p = mfree(p);
 
-        ASSERT_OK(search_and_fopen_nulstr(name, "re", NULL, dirs, &f, &p));
+        ASSERT_OK(search_and_fopen_nulstr(name, "re", NULL, dirs, /* flags= */ 0, &f, &p));
         assert_se(path_equal(name, p));
         f = safe_fclose(f);
         p = mfree(p);
 
-        ASSERT_ERROR(search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "re", NULL, dirs, &f, &p), ENOENT);
-        ASSERT_ERROR(search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "re", NULL, dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen_nulstr("/a/file/which/does/not/exist/i/guess", "re", NULL, dirs, /* flags= */ 0, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen_nulstr("afilewhichdoesnotexistiguess", "re", NULL, dirs, /* flags= */ 0, &f, &p), ENOENT);
 
         r = unlink(name);
         assert_se(r == 0);
 
-        ASSERT_ERROR(search_and_fopen_nulstr(bn, "re", NULL, dirs, &f, &p), ENOENT);
+        ASSERT_ERROR(search_and_fopen_nulstr(bn, "re", NULL, dirs, /* flags= */ 0, &f, &p), ENOENT);
 }
 
 TEST(writing_tmpfile) {

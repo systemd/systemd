@@ -22,6 +22,7 @@
 #include "bus-error.h"
 #include "bus-log-control-api.h"
 #include "bus-object.h"
+#include "chase.h"
 #include "clean-ipc.h"
 #include "common-signal.h"
 #include "conf-files.h"
@@ -1321,7 +1322,7 @@ static int manager_load_key_pair(Manager *m) {
                 m->private_key = NULL;
         }
 
-        r = search_and_fopen_nulstr("local.private", "re", NULL, KEY_PATHS_NULSTR, &f, NULL);
+        r = search_and_fopen_nulstr("local.private", "re", NULL, KEY_PATHS_NULSTR, /* flags= */ 0, &f, NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
