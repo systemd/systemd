@@ -60,6 +60,7 @@ wrap=(
     dmsetup
     dnsmasq
     findmnt
+    free
     getent
     getfacl
     id
