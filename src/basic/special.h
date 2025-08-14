@@ -48,6 +48,7 @@
 #define SPECIAL_TIME_SET_TARGET "time-set.target"
 #define SPECIAL_BASIC_TARGET "basic.target"
 #define SPECIAL_TPM2_TARGET "tpm2.target"
+#define SPECIAL_MODULES_LOAD_TARGET "modules-load.target"
 
 /* LSB compatibility */
 #define SPECIAL_NETWORK_TARGET "network.target"           /* LSB's $network */
