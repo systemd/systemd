@@ -15,6 +15,7 @@
 #include "analyze.h"
 #include "analyze-architectures.h"
 #include "analyze-blame.h"
+#include "analyze-shutdown-blame.h"
 #include "analyze-calendar.h"
 #include "analyze-capability.h"
 #include "analyze-cat-config.h"
@@ -212,6 +213,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  [time]                     Print time required to boot the machine\n"
                "  blame                      Print list of running units ordered by\n"
                "                             time to init\n"
+               "  shutdown-blame             Print list of units ordered by shutdown time\n"
                "  critical-chain [UNIT...]   Print a tree of the time critical chain\n"
                "                             of units\n"
                "\n%3$sDependency Analysis:%4$s\n"
@@ -766,12 +768,13 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
 
         static const Verb verbs[] = {
-                { "help",               VERB_ANY, VERB_ANY, 0,            help                         },
-                { "time",               VERB_ANY, 1,        VERB_DEFAULT, verb_time                    },
-                { "blame",              VERB_ANY, 1,        0,            verb_blame                   },
-                { "critical-chain",     VERB_ANY, VERB_ANY, 0,            verb_critical_chain          },
-                { "plot",               VERB_ANY, 1,        0,            verb_plot                    },
-                { "dot",                VERB_ANY, VERB_ANY, 0,            verb_dot                     },
+                { "help",              VERB_ANY, VERB_ANY, 0,            help                   },
+                { "time",              VERB_ANY, 1,        VERB_DEFAULT, verb_time              },
+                { "blame",             VERB_ANY, 1,        0,            verb_blame             },
+                { "shutdown-blame",    VERB_ANY, 1,        0,            verb_shutdown_blame    },
+                { "critical-chain",    VERB_ANY, VERB_ANY, 0,            verb_critical_chain    },
+                { "plot",              VERB_ANY, 1,        0,            verb_plot              },
+                { "dot",               VERB_ANY, VERB_ANY, 0,            verb_dot               },
                 /* ↓ The following seven verbs are deprecated, from here … ↓ */
                 { "log-level",          VERB_ANY, 2,        0,  verb_log_control        },
                 { "log-target",         VERB_ANY, 2,        0,  verb_log_control        },

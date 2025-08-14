@@ -35,6 +35,11 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">shutdown-blame</arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">critical-chain</arg>
       <arg choice="opt" rep="repeat"><replaceable>UNIT</replaceable></arg>
     </cmdsynopsis>
@@ -295,6 +300,30 @@ multi-user.target reached after 47.820s in userspace
             23ms sysroot.mount
             11ms initrd-udevadm-cleanup-db.service
              3ms sys-kernel-config.mount
+</programlisting>
+      </example>
+    </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze shutdown-blame</command></title>
+
+      <para>This command prints a list of all units, ordered by the time they took to stop during
+      system shutdown. This information may be used to optimize shutdown times by identifying units
+      that are taking too long to shut down. The timing information is gathered from the journal
+      based on unit stopping messages from the most recent shutdown. Note that this command requires
+      journal data from a previous shutdown to be available.</para>
+
+      <example>
+        <title><command>systemd-analyze shutdown-blame</command></title>
+
+        <programlisting>$ systemd-analyze shutdown-blame
+         2.426s networking.service
+         1.563s mysql.service
+         1.345s apache2.service
+         ...
+            45ms systemd-logind.service
+            23ms systemd-resolved.service
+            12ms systemd-journald.service
 </programlisting>
       </example>
     </refsect2>
