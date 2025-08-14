@@ -13,4 +13,4 @@ typedef struct TrivialLinkEqualizer {
 DEFINE_QDISC_CAST(TEQL, TrivialLinkEqualizer);
 extern const QDiscVTable teql_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_trivial_link_equalizer_id);
+CONFIG_PARSER_PROTOTYPE(config_parse_teql_id);

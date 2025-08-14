@@ -16,5 +16,5 @@ typedef struct GenericRandomEarlyDetection {
 DEFINE_QDISC_CAST(GRED, GenericRandomEarlyDetection);
 extern const QDiscVTable gred_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_generic_random_early_detection_u32);
-CONFIG_PARSER_PROTOTYPE(config_parse_generic_random_early_detection_bool);
+CONFIG_PARSER_PROTOTYPE(config_parse_gred_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_gred_bool);

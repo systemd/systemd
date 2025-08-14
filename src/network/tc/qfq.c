@@ -52,7 +52,7 @@ static int quick_fair_queueing_class_fill_message(Link *link, TClass *tclass, sd
         return 0;
 }
 
-int config_parse_quick_fair_queueing_weight(
+int config_parse_qfq_weight(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -112,7 +112,7 @@ int config_parse_quick_fair_queueing_weight(
         return 0;
 }
 
-int config_parse_quick_fair_queueing_max_packet(
+int config_parse_qfq_max_packet(
                 const char *unit,
                 const char *filename,
                 unsigned line,

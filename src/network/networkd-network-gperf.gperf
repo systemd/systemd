@@ -74,612 +74,612 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Match.MACAddress,                            config_parse_hw_addrs,                                    0,                             offsetof(Network, match.hw_addr)
-Match.PermanentMACAddress,                   config_parse_hw_addrs,                                    0,                             offsetof(Network, match.permanent_hw_addr)
-Match.Path,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.path)
-Match.Driver,                                config_parse_match_strv,                                  0,                             offsetof(Network, match.driver)
-Match.Type,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.iftype)
-Match.Kind,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.kind)
-Match.WLANInterfaceType,                     config_parse_match_strv,                                  0,                             offsetof(Network, match.wlan_iftype)
-Match.SSID,                                  config_parse_match_strv,                                  0,                             offsetof(Network, match.ssid)
-Match.BSSID,                                 config_parse_ether_addrs,                                 0,                             offsetof(Network, match.bssid)
-Match.Name,                                  config_parse_match_ifnames,                               IFNAME_VALID_ALTERNATIVE,      offsetof(Network, match.ifname)
-Match.Property,                              config_parse_match_property,                              0,                             offsetof(Network, match.property)
-Match.Host,                                  config_parse_net_condition,                               CONDITION_HOST,                offsetof(Network, conditions)
-Match.Virtualization,                        config_parse_net_condition,                               CONDITION_VIRTUALIZATION,      offsetof(Network, conditions)
-Match.KernelCommandLine,                     config_parse_net_condition,                               CONDITION_KERNEL_COMMAND_LINE, offsetof(Network, conditions)
-Match.KernelVersion,                         config_parse_net_condition,                               CONDITION_VERSION,             offsetof(Network, conditions)
-Match.Version,                               config_parse_net_condition,                               CONDITION_VERSION,             offsetof(Network, conditions)
-Match.Credential,                            config_parse_net_condition,                               CONDITION_CREDENTIAL,          offsetof(Network, conditions)
-Match.Architecture,                          config_parse_net_condition,                               CONDITION_ARCHITECTURE,        offsetof(Network, conditions)
-Match.Firmware,                              config_parse_net_condition,                               CONDITION_FIRMWARE,            offsetof(Network, conditions)
-Link.MACAddress,                             config_parse_hw_addr,                                     0,                             offsetof(Network, hw_addr)
-Link.MTUBytes,                               config_parse_mtu,                                         AF_UNSPEC,                     offsetof(Network, mtu)
-Link.Group,                                  config_parse_link_group,                                  0,                             0
-Link.ARP,                                    config_parse_tristate,                                    0,                             offsetof(Network, arp)
-Link.Multicast,                              config_parse_tristate,                                    0,                             offsetof(Network, multicast)
-Link.AllMulticast,                           config_parse_tristate,                                    0,                             offsetof(Network, allmulticast)
-Link.Promiscuous,                            config_parse_tristate,                                    0,                             offsetof(Network, promiscuous)
-Link.Unmanaged,                              config_parse_bool,                                        0,                             offsetof(Network, unmanaged)
-Link.ActivationPolicy,                       config_parse_activation_policy,                           0,                             offsetof(Network, activation_policy)
-Link.RequiredForOnline,                      config_parse_required_for_online,                         0,                             0
-Link.RequiredFamilyForOnline,                config_parse_required_family_for_online,                  0,                             offsetof(Network, required_family_for_online)
-SR-IOV.VirtualFunction,                      config_parse_sr_iov_uint32,                               0,                             offsetof(Network, sr_iov_by_section)
-SR-IOV.VLANId,                               config_parse_sr_iov_uint32,                               0,                             offsetof(Network, sr_iov_by_section)
-SR-IOV.QualityOfService,                     config_parse_sr_iov_uint32,                               0,                             offsetof(Network, sr_iov_by_section)
-SR-IOV.VLANProtocol,                         config_parse_sr_iov_vlan_proto,                           0,                             offsetof(Network, sr_iov_by_section)
-SR-IOV.MACSpoofCheck,                        config_parse_sr_iov_boolean,                              0,                             offsetof(Network, sr_iov_by_section)
-SR-IOV.QueryReceiveSideScaling,              config_parse_sr_iov_boolean,                              0,                             offsetof(Network, sr_iov_by_section)
-SR-IOV.Trust,                                config_parse_sr_iov_boolean,                              0,                             offsetof(Network, sr_iov_by_section)
-SR-IOV.LinkState,                            config_parse_sr_iov_link_state,                           0,                             offsetof(Network, sr_iov_by_section)
-SR-IOV.MACAddress,                           config_parse_sr_iov_mac,                                  0,                             offsetof(Network, sr_iov_by_section)
-Network.Description,                         config_parse_string,                                      0,                             offsetof(Network, description)
-Network.KeepMaster,                          config_parse_bool,                                        0,                             offsetof(Network, keep_master)
-Network.BatmanAdvanced,                      config_parse_ifname,                                      0,                             offsetof(Network, batadv_name)
-Network.Bond,                                config_parse_ifname,                                      0,                             offsetof(Network, bond_name)
-Network.Bridge,                              config_parse_ifname,                                      0,                             offsetof(Network, bridge_name)
-Network.VRF,                                 config_parse_ifname,                                      0,                             offsetof(Network, vrf_name)
-Network.IPoIB,                               config_parse_stacked_netdev,                              NETDEV_KIND_IPOIB,             offsetof(Network, stacked_netdev_names)
-Network.IPVLAN,                              config_parse_stacked_netdev,                              NETDEV_KIND_IPVLAN,            offsetof(Network, stacked_netdev_names)
-Network.IPVTAP,                              config_parse_stacked_netdev,                              NETDEV_KIND_IPVTAP,            offsetof(Network, stacked_netdev_names)
-Network.L2TP,                                config_parse_warn_compat,                                 DISABLED_LEGACY,               0
-Network.MACsec,                              config_parse_stacked_netdev,                              NETDEV_KIND_MACSEC,            offsetof(Network, stacked_netdev_names)
-Network.MACVLAN,                             config_parse_stacked_netdev,                              NETDEV_KIND_MACVLAN,           offsetof(Network, stacked_netdev_names)
-Network.MACVTAP,                             config_parse_stacked_netdev,                              NETDEV_KIND_MACVTAP,           offsetof(Network, stacked_netdev_names)
-Network.Tunnel,                              config_parse_stacked_netdev,                              _NETDEV_KIND_TUNNEL,           offsetof(Network, stacked_netdev_names)
-Network.VLAN,                                config_parse_stacked_netdev,                              NETDEV_KIND_VLAN,              offsetof(Network, stacked_netdev_names)
-Network.VXLAN,                               config_parse_stacked_netdev,                              NETDEV_KIND_VXLAN,             offsetof(Network, stacked_netdev_names)
-Network.Xfrm,                                config_parse_stacked_netdev,                              NETDEV_KIND_XFRM,              offsetof(Network, stacked_netdev_names)
-Network.DHCP,                                config_parse_dhcp,                                        0,                             offsetof(Network, dhcp)
-Network.DHCPServer,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server)
-Network.LinkLocalAddressing,                 config_parse_link_local_address_family,                   0,                             offsetof(Network, link_local)
-Network.IPv6LinkLocalAddressGenerationMode,  config_parse_ipv6_link_local_address_gen_mode,            0,                             offsetof(Network, ipv6ll_address_gen_mode)
-Network.IPv6StableSecretAddress,             config_parse_in_addr_non_null,                            AF_INET6,                      offsetof(Network, ipv6ll_stable_secret)
-Network.IPv4LLStartAddress,                  config_parse_ipv4ll_address,                              0,                             offsetof(Network, ipv4ll_start_address)
-Network.IPv4LLRoute,                         config_parse_bool,                                        0,                             offsetof(Network, ipv4ll_route)
-Network.DefaultRouteOnDevice,                config_parse_bool,                                        0,                             offsetof(Network, default_route_on_device)
-Network.LLDP,                                config_parse_lldp_mode,                                   0,                             offsetof(Network, lldp_mode)
-Network.EmitLLDP,                            config_parse_lldp_multicast_mode,                         0,                             offsetof(Network, lldp_multicast_mode)
-Network.Address,                             config_parse_address_section,                             ADDRESS_ADDRESS,               0
-Network.Gateway,                             config_parse_route_section,                               ROUTE_GATEWAY_NETWORK,         0
-Network.Domains,                             config_parse_domains,                                     0,                             0
-Network.UseDomains,                          config_parse_use_domains,                                 0,                             offsetof(Network, use_domains)
-Network.DNS,                                 config_parse_dns,                                         0,                             0
-Network.DNSDefaultRoute,                     config_parse_tristate,                                    0,                             offsetof(Network, dns_default_route)
-Network.LLMNR,                               config_parse_resolve_support,                             0,                             offsetof(Network, llmnr)
-Network.MulticastDNS,                        config_parse_resolve_support,                             0,                             offsetof(Network, mdns)
-Network.DNSOverTLS,                          config_parse_dns_over_tls_mode,                           0,                             offsetof(Network, dns_over_tls_mode)
-Network.DNSSEC,                              config_parse_dnssec_mode,                                 0,                             offsetof(Network, dnssec_mode)
-Network.DNSSECNegativeTrustAnchors,          config_parse_dnssec_negative_trust_anchors,               0,                             offsetof(Network, dnssec_negative_trust_anchors)
-Network.NTP,                                 config_parse_ntp,                                         0,                             offsetof(Network, ntp)
-Network.IPForward,                           config_parse_ip_forward_deprecated,                       0,                             0
-Network.IPv4Forwarding,                      config_parse_tristate,                                    0,                             offsetof(Network, ip_forwarding[0])
-Network.IPv6Forwarding,                      config_parse_tristate,                                    0,                             offsetof(Network, ip_forwarding[1])
-Network.IPMasquerade,                        config_parse_ip_masquerade,                               0,                             offsetof(Network, ip_masquerade)
-Network.IPv6PrivacyExtensions,               config_parse_ipv6_privacy_extensions,                     0,                             offsetof(Network, ipv6_privacy_extensions)
-Network.IPv6AcceptRA,                        config_parse_tristate,                                    0,                             offsetof(Network, ndisc)
-Network.IPv6AcceptRouterAdvertisements,      config_parse_tristate,                                    0,                             offsetof(Network, ndisc)
-Network.IPv6DuplicateAddressDetection,       config_parse_int,                                         0,                             offsetof(Network, ipv6_dad_transmits)
-Network.IPv4DuplicateAddressDetectionTimeoutSec, config_parse_sec,                                     0,                             offsetof(Network, ipv4_dad_timeout_usec)
-Network.IPv6HopLimit,                        config_parse_uint8,                                       0,                             offsetof(Network, ipv6_hop_limit)
-Network.IPv6RetransmissionTimeSec,           config_parse_sec,                                         0,                             offsetof(Network, ipv6_retransmission_time)
-Network.IPv6ProxyNDP,                        config_parse_tristate,                                    0,                             offsetof(Network, ipv6_proxy_ndp)
-Network.IPv6MTUBytes,                        config_parse_mtu,                                         AF_INET6,                      offsetof(Network, ipv6_mtu)
-Network.IPv4AcceptLocal,                     config_parse_tristate,                                    0,                             offsetof(Network, ipv4_accept_local)
-Network.IPv4RouteLocalnet,                   config_parse_tristate,                                    0,                             offsetof(Network, ipv4_route_localnet)
-Network.ActiveSlave,                         config_parse_bool,                                        0,                             offsetof(Network, active_slave)
-Network.PrimarySlave,                        config_parse_bool,                                        0,                             offsetof(Network, primary_slave)
-Network.IPv4ProxyARP,                        config_parse_tristate,                                    0,                             offsetof(Network, proxy_arp)
-Network.IPv4ProxyARPPrivateVLAN,             config_parse_tristate,                                    0,                             offsetof(Network, proxy_arp_pvlan)
-Network.ProxyARP,                            config_parse_tristate,                                    0,                             offsetof(Network, proxy_arp)
-Network.IPv6ProxyNDPAddress,                 config_parse_ipv6_proxy_ndp_address,                      0,                             0
-Network.IPv4ReversePathFilter,               config_parse_ip_reverse_path_filter,                      0,                             offsetof(Network, ipv4_rp_filter)
-Network.MulticastIGMPVersion,                config_parse_ipv4_force_igmp_version,                     0,                             offsetof(Network, ipv4_force_igmp_version)
-Network.MPLSRouting,                         config_parse_tristate,                                    0,                             offsetof(Network, mpls_input)
-Network.BindCarrier,                         config_parse_strv,                                        0,                             offsetof(Network, bind_carrier)
-Network.ConfigureWithoutCarrier,             config_parse_bool,                                        0,                             offsetof(Network, configure_without_carrier)
-Network.IgnoreCarrierLoss,                   config_parse_ignore_carrier_loss,                         0,                             0
-Network.KeepConfiguration,                   config_parse_keep_configuration,                          0,                             offsetof(Network, keep_configuration)
-Network.IPv6SendRA,                          config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
-Network.DHCPPrefixDelegation,                config_parse_tristate,                                    0,                             offsetof(Network, dhcp_pd)
-Address.Address,                             config_parse_address_section,                             ADDRESS_ADDRESS,               0
-Address.Peer,                                config_parse_address_section,                             ADDRESS_PEER,                  0
-Address.Broadcast,                           config_parse_address_section,                             ADDRESS_BROADCAST,             0
-Address.Label,                               config_parse_address_section,                             ADDRESS_LABEL,                 0
-Address.PreferredLifetime,                   config_parse_address_section,                             ADDRESS_PREFERRED_LIFETIME,    0
-Address.HomeAddress,                         config_parse_address_section,                             ADDRESS_HOME_ADDRESS,          0
-Address.ManageTemporaryAddress,              config_parse_address_section,                             ADDRESS_MANAGE_TEMPORARY_ADDRESS, 0
-Address.PrefixRoute,                         config_parse_address_section,                             ADDRESS_PREFIX_ROUTE,          0 /* deprecated */
-Address.AddPrefixRoute,                      config_parse_address_section,                             ADDRESS_ADD_PREFIX_ROUTE,      0
-Address.AutoJoin,                            config_parse_address_section,                             ADDRESS_AUTO_JOIN,             0
-Address.DuplicateAddressDetection,           config_parse_address_section,                             ADDRESS_DAD,                   0
-Address.Scope,                               config_parse_address_section,                             ADDRESS_SCOPE,                 0
-Address.RouteMetric,                         config_parse_address_section,                             ADDRESS_ROUTE_METRIC,          0
-Address.NetLabel,                            config_parse_address_section,                             ADDRESS_NET_LABEL,             0
-Address.NFTSet,                              config_parse_address_section,                             ADDRESS_NFT_SET,               0
-IPv6AddressLabel.Prefix,                     config_parse_ipv6_address_label_section,                  IPV6_ADDRESS_LABEL_PREFIX,     0
-IPv6AddressLabel.Label,                      config_parse_ipv6_address_label_section,                  IPV6_ADDRESS_LABEL,            0
-Neighbor.Address,                            config_parse_neighbor_section,                            NEIGHBOR_DESTINATION_ADDRESS,  0
-Neighbor.LinkLayerAddress,                   config_parse_neighbor_section,                            NEIGHBOR_LINK_LAYER_ADDRESS,   0
-Neighbor.MACAddress,                         config_parse_neighbor_section,                            NEIGHBOR_LINK_LAYER_ADDRESS,   0 /* deprecated */
-RoutingPolicyRule.TypeOfService,             config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TOS,       0
-RoutingPolicyRule.Priority,                  config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_PRIORITY,  0
-RoutingPolicyRule.GoTo,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_GOTO,      0
-RoutingPolicyRule.Table,                     config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TABLE,     0
-RoutingPolicyRule.FirewallMark,              config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_FWMARK,    0
-RoutingPolicyRule.From,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_FROM,      0
-RoutingPolicyRule.To,                        config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_TO,        0
-RoutingPolicyRule.IncomingInterface,         config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_IIF,       0
-RoutingPolicyRule.OutgoingInterface,         config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_OIF,       0
-RoutingPolicyRule.IPProtocol,                config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_IP_PROTOCOL, 0
-RoutingPolicyRule.SourcePort,                config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_SPORT,     0
-RoutingPolicyRule.DestinationPort,           config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_DPORT,     0
-RoutingPolicyRule.InvertRule,                config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_INVERT,    0
-RoutingPolicyRule.L3MasterDevice,            config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_L3MDEV,    0
-RoutingPolicyRule.Family,                    config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_FAMILY,    0
-RoutingPolicyRule.User,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_UID_RANGE, 0
-RoutingPolicyRule.SuppressInterfaceGroup,    config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_SUPPRESS_IFGROUP, 0
-RoutingPolicyRule.SuppressPrefixLength,      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_SUPPRESS_PREFIXLEN, 0
-RoutingPolicyRule.Type,                      config_parse_routing_policy_rule,                         ROUTING_POLICY_RULE_ACTION,    0
-Route.Gateway,                               config_parse_route_section,                               ROUTE_GATEWAY,                 0
-Route.Destination,                           config_parse_route_section,                               ROUTE_DESTINATION,             0
-Route.Source,                                config_parse_route_section,                               ROUTE_DESTINATION,             0
-Route.Metric,                                config_parse_route_section,                               ROUTE_PRIORITY,                0
-Route.Scope,                                 config_parse_route_section,                               ROUTE_SCOPE,                   0
-Route.PreferredSource,                       config_parse_route_section,                               ROUTE_PREFERRED_SOURCE,        0
-Route.Table,                                 config_parse_route_section,                               ROUTE_TABLE,                   0
-Route.GatewayOnLink,                         config_parse_route_section,                               ROUTE_GATEWAY_ONLINK,          0
-Route.GatewayOnlink,                         config_parse_route_section,                               ROUTE_GATEWAY_ONLINK,          0
-Route.IPv6Preference,                        config_parse_route_section,                               ROUTE_PREFERENCE,              0
-Route.Protocol,                              config_parse_route_section,                               ROUTE_PROTOCOL,                0
-Route.Type,                                  config_parse_route_section,                               ROUTE_TYPE,                    0
-Route.MultiPathRoute,                        config_parse_route_section,                               ROUTE_MULTIPATH,               0
-Route.NextHop,                               config_parse_route_section,                               ROUTE_NEXTHOP,                 0
-Route.MTUBytes,                              config_parse_route_section,                               ROUTE_METRIC_MTU,              0
-Route.TCPAdvertisedMaximumSegmentSize,       config_parse_route_section,                               ROUTE_METRIC_ADVMSS,           0
-Route.HopLimit,                              config_parse_route_section,                               ROUTE_METRIC_HOPLIMIT,         0
-Route.InitialCongestionWindow,               config_parse_route_section,                               ROUTE_METRIC_INITCWND,         0
-Route.TCPRetransmissionTimeoutSec,           config_parse_route_section,                               ROUTE_METRIC_RTO_MIN,          0
-Route.InitialAdvertisedReceiveWindow,        config_parse_route_section,                               ROUTE_METRIC_INITRWND,         0
-Route.QuickAck,                              config_parse_route_section,                               ROUTE_METRIC_QUICKACK,         0
-Route.TCPCongestionControlAlgorithm,         config_parse_route_section,                               ROUTE_METRIC_CC_ALGO,          0
-Route.FastOpenNoCookie,                      config_parse_route_section,                               ROUTE_METRIC_FASTOPEN_NO_COOKIE, 0
-Route.TTLPropagate,                          config_parse_warn_compat,                                 DISABLED_LEGACY,               0
-NextHop.Id,                                  config_parse_nexthop_section,                             NEXTHOP_ID,                    0
-NextHop.Gateway,                             config_parse_nexthop_section,                             NEXTHOP_GATEWAY,               0
-NextHop.Family,                              config_parse_nexthop_section,                             NEXTHOP_FAMILY,                0
-NextHop.OnLink,                              config_parse_nexthop_section,                             NEXTHOP_ONLINK,                0
-NextHop.Blackhole,                           config_parse_nexthop_section,                             NEXTHOP_BLACKHOLE,             0
-NextHop.Group,                               config_parse_nexthop_section,                             NEXTHOP_GROUP,                 0
-DHCPv4.RequestAddress,                       config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_request_address)
-DHCPv4.ClientIdentifier,                     config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)
-DHCPv4.UseDNS,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_dns)
-DHCPv4.UseDNR,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_dnr)
-DHCPv4.RoutesToDNS,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_routes_to_dns)
-DHCPv4.UseNTP,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_ntp)
-DHCPv4.RoutesToNTP,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_routes_to_ntp)
-DHCPv4.UseSIP,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_sip)
-DHCPv4.UseCaptivePortal,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_captive_portal)
-DHCPv4.UseMTU,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_mtu)
-DHCPv4.UseHostname,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_hostname)
-DHCPv4.UseDomains,                           config_parse_use_domains,                                 0,                             offsetof(Network, dhcp_use_domains)
-DHCPv4.UseRoutes,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_routes)
-DHCPv4.UseGateway,                           config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_gateway)
-DHCPv4.QuickAck,                             config_parse_bool,                                        0,                             offsetof(Network, dhcp_quickack)
-DHCPv4.RequestOptions,                       config_parse_dhcp_request_options,                        AF_INET,                       0
-DHCPv4.Anonymize,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_anonymize)
-DHCPv4.SendHostname,                         config_parse_dhcp_send_hostname,                          AF_INET,                       0
-DHCPv4.BOOTP,                                config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_bootp)
-DHCPv4.Hostname,                             config_parse_hostname,                                    0,                             offsetof(Network, dhcp_hostname)
-DHCPv4.Label,                                config_parse_dhcp_label,                                  0,                             offsetof(Network, dhcp_label)
-DHCPv4.RequestBroadcast,                     config_parse_tristate,                                    0,                             offsetof(Network, dhcp_broadcast)
-DHCPv4.VendorClassIdentifier,                config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_vendor_class_identifier)
-DHCPv4.MUDURL,                               config_parse_mud_url,                                     0,                             offsetof(Network, dhcp_mudurl)
-DHCPv4.MaxAttempts,                          config_parse_dhcp_max_attempts,                           0,                             0
-DHCPv4.UserClass,                            config_parse_dhcp_user_or_vendor_class,                   AF_INET,                       offsetof(Network, dhcp_user_class)
-DHCPv4.IAID,                                 config_parse_iaid,                                        AF_INET,                       0
-DHCPv4.DUIDType,                             config_parse_network_duid_type,                           0,                             0
-DHCPv4.DUIDRawData,                          config_parse_network_duid_rawdata,                        0,                             0
-DHCPv4.RouteMetric,                          config_parse_dhcp_route_metric,                           AF_INET,                       0
-DHCPv4.RouteTable,                           config_parse_dhcp_or_ra_route_table,                      AF_INET,                       0
-DHCPv4.UseTimezone,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_timezone)
-DHCPv4.ListenPort,                           config_parse_uint16,                                      0,                             offsetof(Network, dhcp_client_port)
-DHCPv4.ServerPort,                           config_parse_uint16,                                      0,                             offsetof(Network, dhcp_port)
-DHCPv4.SendRelease,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_release)
-DHCPv4.SendDecline,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_send_decline)
-DHCPv4.DenyList,                             config_parse_in_addr_prefixes,                            AF_INET,                       offsetof(Network, dhcp_deny_listed_ip)
-DHCPv4.AllowList,                            config_parse_in_addr_prefixes,                            AF_INET,                       offsetof(Network, dhcp_allow_listed_ip)
-DHCPv4.IPServiceType,                        config_parse_dhcp_ip_service_type,                        0,                             offsetof(Network, dhcp_ip_service_type)
-DHCPv4.SocketPriority,                       config_parse_dhcp_socket_priority,                        0,                             0
-DHCPv4.SendOption,                           config_parse_dhcp_send_option,                            AF_INET,                       offsetof(Network, dhcp_client_send_options)
-DHCPv4.SendVendorOption,                     config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_client_send_vendor_options)
-DHCPv4.RouteMTUBytes,                        config_parse_mtu,                                         AF_INET,                       offsetof(Network, dhcp_route_mtu)
-DHCPv4.InitialCongestionWindow,              config_parse_tcp_window,                                  0,                             offsetof(Network, dhcp_initial_congestion_window)
-DHCPv4.InitialAdvertisedReceiveWindow,       config_parse_tcp_window,                                  0,                             offsetof(Network, dhcp_advertised_receive_window)
-DHCPv4.FallbackLeaseLifetimeSec,             config_parse_dhcp_fallback_lease_lifetime,                0,                             0
-DHCPv4.Use6RD,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_6rd)
-DHCPv4.UnassignedSubnetPolicy,               config_parse_dhcp_pd_prefix_route_type,                   0,                             offsetof(Network, dhcp_6rd_prefix_route_type)
-DHCPv4.IPv6OnlyMode,                         config_parse_tristate,                                    0,                             offsetof(Network, dhcp_ipv6_only_mode)
-DHCPv4.NetLabel,                             config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_netlabel)
-DHCPv4.NFTSet,                               config_parse_nft_set,                                     NFT_SET_PARSE_NETWORK,         offsetof(Network, dhcp_nft_set_context)
-DHCPv4.RapidCommit,                          config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_rapid_commit)
-DHCPv6.UseAddress,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_address)
-DHCPv6.UseDelegatedPrefix,                   config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_pd_prefix)
-DHCPv6.UseDNS,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_use_dns)
-DHCPv6.UseDNR,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_use_dnr)
-DHCPv6.UseHostname,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_hostname)
-DHCPv6.UseDomains,                           config_parse_use_domains,                                 0,                             offsetof(Network, dhcp6_use_domains)
-DHCPv6.UseNTP,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_use_ntp)
-DHCPv6.UseSIP,                               config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_sip)
-DHCPv6.UseCaptivePortal,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_captive_portal)
-DHCPv6.MUDURL,                               config_parse_mud_url,                                     0,                             offsetof(Network, dhcp6_mudurl)
-DHCPv6.SendHostname,                         config_parse_dhcp_send_hostname,                          AF_INET6,                      0
-DHCPv6.Hostname,                             config_parse_hostname,                                    0,                             offsetof(Network, dhcp6_hostname)
-DHCPv6.RequestOptions,                       config_parse_dhcp_request_options,                        AF_INET6,                      0
-DHCPv6.UserClass,                            config_parse_dhcp_user_or_vendor_class,                   AF_INET6,                      offsetof(Network, dhcp6_user_class)
-DHCPv6.VendorClass,                          config_parse_dhcp_user_or_vendor_class,                   AF_INET6,                      offsetof(Network, dhcp6_vendor_class)
-DHCPv6.SendVendorOption,                     config_parse_dhcp_send_option,                            AF_INET6,                      offsetof(Network, dhcp6_client_send_vendor_options)
-DHCPv6.PrefixDelegationHint,                 config_parse_dhcp6_pd_prefix_hint,                        0,                             0
-DHCPv6.UnassignedSubnetPolicy,               config_parse_dhcp_pd_prefix_route_type,                   0,                             offsetof(Network, dhcp6_pd_prefix_route_type)
-DHCPv6.WithoutRA,                            config_parse_dhcp6_client_start_mode,                     0,                             offsetof(Network, dhcp6_client_start_mode)
-DHCPv6.SendOption,                           config_parse_dhcp_send_option,                            AF_INET6,                      offsetof(Network, dhcp6_client_send_options)
-DHCPv6.IAID,                                 config_parse_iaid,                                        AF_INET6,                      0
-DHCPv6.DUIDType,                             config_parse_duid_type,                                   0,                             offsetof(Network, dhcp6_duid)
-DHCPv6.DUIDRawData,                          config_parse_duid_rawdata,                                0,                             offsetof(Network, dhcp6_duid)
-DHCPv6.RapidCommit,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_rapid_commit)
-DHCPv6.NetLabel,                             config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp6_netlabel)
-DHCPv6.SendRelease,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_send_release)
-DHCPv6.NFTSet,                               config_parse_nft_set,                                     NFT_SET_PARSE_NETWORK,         offsetof(Network, dhcp6_nft_set_context)
-IPv6AcceptRA.UseRedirect,                    config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_redirect)
-IPv6AcceptRA.UseGateway,                     config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_gateway)
-IPv6AcceptRA.UseRoutePrefix,                 config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_route_prefix)
-IPv6AcceptRA.UseAutonomousPrefix,            config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_autonomous_prefix)
-IPv6AcceptRA.UseOnLinkPrefix,                config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_onlink_prefix)
-IPv6AcceptRA.UsePREF64,                      config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_pref64)
-IPv6AcceptRA.UseDNS,                         config_parse_tristate,                                    0,                             offsetof(Network, ndisc_use_dns)
-IPv6AcceptRA.UseDNR,                         config_parse_tristate,                                    0,                             offsetof(Network, ndisc_use_dnr)
-IPv6AcceptRA.UseDomains,                     config_parse_use_domains,                                 0,                             offsetof(Network, ndisc_use_domains)
-IPv6AcceptRA.UseMTU,                         config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_mtu)
-IPv6AcceptRA.UseHopLimit,                    config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_hop_limit)
-IPv6AcceptRA.UseReachableTime,               config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_reachable_time)
-IPv6AcceptRA.UseRetransmissionTime,          config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_retransmission_time)
-IPv6AcceptRA.DHCPv6Client,                   config_parse_ndisc_start_dhcp6_client,                    0,                             offsetof(Network, ndisc_start_dhcp6_client)
-IPv6AcceptRA.RouteTable,                     config_parse_dhcp_or_ra_route_table,                      AF_INET6,                      0
-IPv6AcceptRA.RouteMetric,                    config_parse_ndisc_route_metric,                          0,                             0
-IPv6AcceptRA.QuickAck,                       config_parse_bool,                                        0,                             offsetof(Network, ndisc_quickack)
-IPv6AcceptRA.UseCaptivePortal,               config_parse_bool,                                        0,                             offsetof(Network, ndisc_use_captive_portal)
-IPv6AcceptRA.RouterAllowList,                config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_router)
-IPv6AcceptRA.RouterDenyList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_router)
-IPv6AcceptRA.PrefixAllowList,                config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_prefix)
-IPv6AcceptRA.PrefixDenyList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
-IPv6AcceptRA.RouteAllowList,                 config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_allow_listed_route_prefix)
-IPv6AcceptRA.RouteDenyList,                  config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_route_prefix)
-IPv6AcceptRA.Token,                          config_parse_address_generation_type,                     0,                             offsetof(Network, ndisc_tokens)
-IPv6AcceptRA.NetLabel,                       config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, ndisc_netlabel)
-IPv6AcceptRA.NFTSet,                         config_parse_nft_set,                                     NFT_SET_PARSE_NETWORK,         offsetof(Network, ndisc_nft_set_context)
-DHCPServer.ServerAddress,                    config_parse_dhcp_server_address,                         0,                             0
-DHCPServer.UplinkInterface,                  config_parse_uplink,                                      0,                             0
-DHCPServer.RelayTarget,                      config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_relay_target)
-DHCPServer.RelayAgentCircuitId,              config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_circuit_id)
-DHCPServer.RelayAgentRemoteId,               config_parse_dhcp_server_relay_agent_suboption,           0,                             offsetof(Network, dhcp_server_relay_agent_remote_id)
-DHCPServer.MaxLeaseTimeSec,                  config_parse_sec,                                         0,                             offsetof(Network, dhcp_server_max_lease_time_usec)
-DHCPServer.DefaultLeaseTimeSec,              config_parse_sec,                                         0,                             offsetof(Network, dhcp_server_default_lease_time_usec)
-DHCPServer.IPv6OnlyPreferredSec,             config_parse_dhcp_server_ipv6_only_preferred,             0,                             offsetof(Network, dhcp_server_ipv6_only_preferred_usec)
-DHCPServer.EmitDNS,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_DNS].emit)
-DHCPServer.DNS,                              config_parse_dhcp_server_emit,                            0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_DNS])
-DHCPServer.EmitNTP,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_NTP].emit)
-DHCPServer.NTP,                              config_parse_dhcp_server_emit,                            0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_NTP])
-DHCPServer.EmitSIP,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_SIP].emit)
-DHCPServer.SIP,                              config_parse_dhcp_server_emit,                            0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_SIP])
-DHCPServer.EmitPOP3,                         config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_POP3].emit)
-DHCPServer.POP3,                             config_parse_dhcp_server_emit,                            0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_POP3])
-DHCPServer.EmitSMTP,                         config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_SMTP].emit)
-DHCPServer.SMTP,                             config_parse_dhcp_server_emit,                            0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_SMTP])
-DHCPServer.EmitLPR,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_LPR].emit)
-DHCPServer.LPR,                              config_parse_dhcp_server_emit,                            0,                             offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_LPR])
-DHCPServer.EmitRouter,                       config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit_router)
-DHCPServer.Router,                           config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_router)
-DHCPServer.EmitTimezone,                     config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_emit_timezone)
-DHCPServer.Timezone,                         config_parse_timezone,                                    0,                             offsetof(Network, dhcp_server_timezone)
-DHCPServer.PoolOffset,                       config_parse_uint32,                                      0,                             offsetof(Network, dhcp_server_pool_offset)
-DHCPServer.PoolSize,                         config_parse_uint32,                                      0,                             offsetof(Network, dhcp_server_pool_size)
-DHCPServer.SendVendorOption,                 config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_vendor_options)
-DHCPServer.SendOption,                       config_parse_dhcp_send_option,                            0,                             offsetof(Network, dhcp_server_send_options)
-DHCPServer.BindToInterface,                  config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_bind_to_interface)
-DHCPServer.BootServerAddress,                config_parse_in_addr_non_null,                            AF_INET,                       offsetof(Network, dhcp_server_boot_server_address)
-DHCPServer.BootServerName,                   config_parse_dns_name,                                    0,                             offsetof(Network, dhcp_server_boot_server_name)
-DHCPServer.BootFilename,                     config_parse_string,                                      CONFIG_PARSE_STRING_SAFE_AND_ASCII, offsetof(Network, dhcp_server_boot_filename)
-DHCPServer.RapidCommit,                      config_parse_bool,                                        0,                             offsetof(Network, dhcp_server_rapid_commit)
-DHCPServer.PersistLeases,                    config_parse_dhcp_server_persist_leases,                  0,                             offsetof(Network, dhcp_server_persist_leases)
-DHCPServerStaticLease.Address,               config_parse_dhcp_static_lease_address,                   0,                             0
-DHCPServerStaticLease.MACAddress,            config_parse_dhcp_static_lease_hwaddr,                    0,                             0
-Bridge.Cost,                                 config_parse_uint32,                                      0,                             offsetof(Network, cost)
-Bridge.UseBPDU,                              config_parse_tristate,                                    0,                             offsetof(Network, use_bpdu)
-Bridge.HairPin,                              config_parse_tristate,                                    0,                             offsetof(Network, hairpin)
-Bridge.Isolated,                             config_parse_tristate,                                    0,                             offsetof(Network, isolated)
-Bridge.FastLeave,                            config_parse_tristate,                                    0,                             offsetof(Network, fast_leave)
-Bridge.AllowPortToBeRoot,                    config_parse_tristate,                                    0,                             offsetof(Network, allow_port_to_be_root)
-Bridge.UnicastFlood,                         config_parse_tristate,                                    0,                             offsetof(Network, unicast_flood)
-Bridge.MulticastFlood,                       config_parse_tristate,                                    0,                             offsetof(Network, multicast_flood)
-Bridge.MulticastToUnicast,                   config_parse_tristate,                                    0,                             offsetof(Network, multicast_to_unicast)
-Bridge.NeighborSuppression,                  config_parse_tristate,                                    0,                             offsetof(Network, neighbor_suppression)
-Bridge.Learning,                             config_parse_tristate,                                    0,                             offsetof(Network, learning)
-Bridge.ProxyARP,                             config_parse_tristate,                                    0,                             offsetof(Network, bridge_proxy_arp)
-Bridge.ProxyARPWiFi,                         config_parse_tristate,                                    0,                             offsetof(Network, bridge_proxy_arp_wifi)
-Bridge.Priority,                             config_parse_bridge_port_priority,                        0,                             offsetof(Network, priority)
-Bridge.MulticastRouter,                      config_parse_multicast_router,                            0,                             offsetof(Network, multicast_router)
-Bridge.Locked,                               config_parse_tristate,                                    0,                             offsetof(Network, bridge_locked)
-Bridge.MACAuthenticationBypass,              config_parse_tristate,                                    0,                             offsetof(Network, bridge_mac_authentication_bypass)
-Bridge.VLANTunnel,                           config_parse_tristate,                                    0,                             offsetof(Network, bridge_vlan_tunnel)
-BridgeFDB.MACAddress,                        config_parse_fdb_hwaddr,                                  0,                             0
-BridgeFDB.VLANId,                            config_parse_fdb_vlan_id,                                 0,                             0
-BridgeFDB.Destination,                       config_parse_fdb_destination,                             0,                             0
-BridgeFDB.VNI,                               config_parse_fdb_vxlan_vni,                               0,                             0
-BridgeFDB.AssociatedWith,                    config_parse_fdb_ntf_flags,                               0,                             0
-BridgeFDB.OutgoingInterface,                 config_parse_fdb_interface,                               0,                             0
-BridgeMDB.MulticastGroupAddress,             config_parse_mdb_group_address,                           0,                             0
-BridgeMDB.VLANId,                            config_parse_mdb_vlan_id,                                 0,                             0
-BridgeVLAN.PVID,                             config_parse_bridge_vlan_id,                              0,                             offsetof(Network, bridge_vlan_pvid)
-BridgeVLAN.VLAN,                             config_parse_bridge_vlan_id_range,                        0,                             offsetof(Network, bridge_vlan_bitmap)
-BridgeVLAN.EgressUntagged,                   config_parse_bridge_vlan_id_range,                        0,                             offsetof(Network, bridge_vlan_untagged_bitmap)
-DHCPPrefixDelegation.UplinkInterface,        config_parse_uplink,                                      0,                             0
-DHCPPrefixDelegation.SubnetId,               config_parse_dhcp_pd_subnet_id,                           0,                             offsetof(Network, dhcp_pd_subnet_id)
-DHCPPrefixDelegation.Announce,               config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_announce)
-DHCPPrefixDelegation.Assign,                 config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_assign)
-DHCPPrefixDelegation.ManageTemporaryAddress, config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_manage_temporary_address)
-DHCPPrefixDelegation.Token,                  config_parse_address_generation_type,                     0,                             offsetof(Network, dhcp_pd_tokens)
-DHCPPrefixDelegation.RouteMetric,            config_parse_uint32,                                      0,                             offsetof(Network, dhcp_pd_route_metric)
-DHCPPrefixDelegation.NetLabel,               config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_pd_netlabel)
-DHCPPrefixDelegation.NFTSet,                 config_parse_nft_set,                                     NFT_SET_PARSE_NETWORK,         offsetof(Network, dhcp_pd_nft_set_context)
-IPv6SendRA.RouterLifetimeSec,                config_parse_router_lifetime,                             0,                             offsetof(Network, router_lifetime_usec)
-IPv6SendRA.ReachableTimeSec,                 config_parse_router_uint32_msec_usec,                     0,                             offsetof(Network, router_reachable_usec)
-IPv6SendRA.RetransmitSec,                    config_parse_router_uint32_msec_usec,                     0,                             offsetof(Network, router_retransmit_usec)
-IPv6SendRA.Managed,                          config_parse_bool,                                        0,                             offsetof(Network, router_managed)
-IPv6SendRA.OtherInformation,                 config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
-IPv6SendRA.RouterPreference,                 config_parse_router_preference,                           0,                             offsetof(Network, router_preference)
-IPv6SendRA.HopLimit,                         config_parse_uint8,                                       0,                             offsetof(Network, router_hop_limit)
-IPv6SendRA.EmitDNS,                          config_parse_bool,                                        0,                             offsetof(Network, router_emit_dns)
-IPv6SendRA.DNS,                              config_parse_radv_dns,                                    0,                             0
-IPv6SendRA.EmitDomains,                      config_parse_bool,                                        0,                             offsetof(Network, router_emit_domains)
-IPv6SendRA.Domains,                          config_parse_radv_search_domains,                         0,                             0
-IPv6SendRA.DNSLifetimeSec,                   config_parse_sec,                                         0,                             offsetof(Network, router_dns_lifetime_usec)
-IPv6SendRA.UplinkInterface,                  config_parse_uplink,                                      0,                             0
-IPv6SendRA.HomeAgent,                        config_parse_bool,                                        0,                             offsetof(Network, router_home_agent_information)
-IPv6SendRA.HomeAgentLifetimeSec,             config_parse_router_home_agent_lifetime,                  0,                             offsetof(Network, home_agent_lifetime_usec)
-IPv6SendRA.HomeAgentPreference,              config_parse_uint16,                                      0,                             offsetof(Network, router_home_agent_preference)
-IPv6Prefix.Prefix,                           config_parse_prefix,                                      0,                             0
-IPv6Prefix.OnLink,                           config_parse_prefix_boolean,                              ND_OPT_PI_FLAG_ONLINK,         0
-IPv6Prefix.AddressAutoconfiguration,         config_parse_prefix_boolean,                              ND_OPT_PI_FLAG_AUTO,           0
-IPv6Prefix.ValidLifetimeSec,                 config_parse_prefix_lifetime,                             0,                             0
-IPv6Prefix.PreferredLifetimeSec,             config_parse_prefix_lifetime,                             0,                             0
-IPv6Prefix.Assign,                           config_parse_prefix_boolean,                              0,                             0
-IPv6Prefix.RouteMetric,                      config_parse_prefix_metric,                               0,                             0
-IPv6Prefix.Token,                            config_parse_prefix_token,                                0,                             0
-IPv6RoutePrefix.Route,                       config_parse_route_prefix,                                0,                             0
-IPv6RoutePrefix.LifetimeSec,                 config_parse_route_prefix_lifetime,                       0,                             0
-IPv6RoutePrefix.Preference,                  config_parse_route_prefix_preference,                     0,                             0
-IPv6PREF64Prefix.Prefix,                     config_parse_pref64_prefix,                               0,                             0
-IPv6PREF64Prefix.LifetimeSec,                config_parse_pref64_prefix_lifetime,                      0,                             0
-LLDP.MUDURL,                                 config_parse_mud_url,                                     0,                             offsetof(Network, lldp_mudurl)
-CAN.BitRate,                                 config_parse_can_bitrate,                                 0,                             offsetof(Network, can_bitrate)
-CAN.SamplePoint,                             config_parse_permille,                                    0,                             offsetof(Network, can_sample_point)
-CAN.TimeQuantaNSec,                          config_parse_can_time_quanta,                             0,                             offsetof(Network, can_time_quanta_ns)
-CAN.PropagationSegment,                      config_parse_uint32,                                      0,                             offsetof(Network, can_propagation_segment)
-CAN.PhaseBufferSegment1,                     config_parse_uint32,                                      0,                             offsetof(Network, can_phase_buffer_segment_1)
-CAN.PhaseBufferSegment2,                     config_parse_uint32,                                      0,                             offsetof(Network, can_phase_buffer_segment_2)
-CAN.SyncJumpWidth,                           config_parse_uint32,                                      0,                             offsetof(Network, can_sync_jump_width)
-CAN.DataBitRate,                             config_parse_can_bitrate,                                 0,                             offsetof(Network, can_data_bitrate)
-CAN.DataSamplePoint,                         config_parse_permille,                                    0,                             offsetof(Network, can_data_sample_point)
-CAN.DataTimeQuantaNSec,                      config_parse_can_time_quanta,                             0,                             offsetof(Network, can_data_time_quanta_ns)
-CAN.DataPropagationSegment,                  config_parse_uint32,                                      0,                             offsetof(Network, can_data_propagation_segment)
-CAN.DataPhaseBufferSegment1,                 config_parse_uint32,                                      0,                             offsetof(Network, can_data_phase_buffer_segment_1)
-CAN.DataPhaseBufferSegment2,                 config_parse_uint32,                                      0,                             offsetof(Network, can_data_phase_buffer_segment_2)
-CAN.DataSyncJumpWidth,                       config_parse_uint32,                                      0,                             offsetof(Network, can_data_sync_jump_width)
-CAN.RestartSec,                              config_parse_can_restart_usec,                            0,                             offsetof(Network, can_restart_us)
-CAN.Loopback,                                config_parse_can_control_mode,                            CAN_CTRLMODE_LOOPBACK,         0
-CAN.ListenOnly,                              config_parse_can_control_mode,                            CAN_CTRLMODE_LISTENONLY,       0
-CAN.TripleSampling,                          config_parse_can_control_mode,                            CAN_CTRLMODE_3_SAMPLES,        0
-CAN.OneShot,                                 config_parse_can_control_mode,                            CAN_CTRLMODE_ONE_SHOT,         0
-CAN.BusErrorReporting,                       config_parse_can_control_mode,                            CAN_CTRLMODE_BERR_REPORTING,   0
-CAN.FDMode,                                  config_parse_can_control_mode,                            CAN_CTRLMODE_FD,               0
-CAN.PresumeACK,                              config_parse_can_control_mode,                            CAN_CTRLMODE_PRESUME_ACK,      0
-CAN.FDNonISO,                                config_parse_can_control_mode,                            CAN_CTRLMODE_FD_NON_ISO,       0
-CAN.ClassicDataLengthCode,                   config_parse_can_control_mode,                            CAN_CTRLMODE_CC_LEN8_DLC,      0
-CAN.Termination,                             config_parse_can_termination,                             0,                             0
-IPoIB.Mode,                                  config_parse_ipoib_mode,                                  0,                             offsetof(Network, ipoib_mode)
-IPoIB.IgnoreUserspaceMulticastGroups,        config_parse_tristate,                                    0,                             offsetof(Network, ipoib_umcast)
-QDisc.Parent,                                config_parse_qdisc_parent,                                _QDISC_KIND_INVALID,           0
-QDisc.Handle,                                config_parse_qdisc_handle,                                _QDISC_KIND_INVALID,           0
-BFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_BFIFO,              0
-BFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_BFIFO,              0
-BFIFO.LimitBytes,                            config_parse_bfifo_size,                                  QDISC_KIND_BFIFO,              0
-CAKE.Parent,                                 config_parse_qdisc_parent,                                QDISC_KIND_CAKE,               0
-CAKE.Handle,                                 config_parse_qdisc_handle,                                QDISC_KIND_CAKE,               0
-CAKE.Bandwidth,                              config_parse_cake_bandwidth,                              QDISC_KIND_CAKE,               0
-CAKE.AutoRateIngress,                        config_parse_cake_tristate,                               QDISC_KIND_CAKE,               0
-CAKE.OverheadBytes,                          config_parse_cake_overhead,                               QDISC_KIND_CAKE,               0
-CAKE.MPUBytes,                               config_parse_cake_mpu,                                    QDISC_KIND_CAKE,               0
-CAKE.CompensationMode,                       config_parse_cake_compensation_mode,                      QDISC_KIND_CAKE,               0
-CAKE.UseRawPacketSize,                       config_parse_cake_tristate,                               QDISC_KIND_CAKE,               0
-CAKE.FlowIsolationMode,                      config_parse_cake_flow_isolation_mode,                    QDISC_KIND_CAKE,               0
-CAKE.NAT,                                    config_parse_cake_tristate,                               QDISC_KIND_CAKE,               0
-CAKE.PriorityQueueingPreset,                 config_parse_cake_priority_queueing_preset,               QDISC_KIND_CAKE,               0
-CAKE.FirewallMark,                           config_parse_cake_fwmark,                                 QDISC_KIND_CAKE,               0
-CAKE.Wash,                                   config_parse_cake_tristate,                               QDISC_KIND_CAKE,               0
-CAKE.SplitGSO,                               config_parse_cake_tristate,                               QDISC_KIND_CAKE,               0
-CAKE.RTTSec,                                 config_parse_cake_rtt,                                    QDISC_KIND_CAKE,               0
-CAKE.AckFilter,                              config_parse_cake_ack_filter,                             QDISC_KIND_CAKE,               0
-ControlledDelay.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_CODEL,              0
-ControlledDelay.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_CODEL,              0
-ControlledDelay.PacketLimit,                 config_parse_controlled_delay_u32,                        QDISC_KIND_CODEL,              0
-ControlledDelay.TargetSec,                   config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
-ControlledDelay.IntervalSec,                 config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
-ControlledDelay.CEThresholdSec,              config_parse_controlled_delay_usec,                       QDISC_KIND_CODEL,              0
-ControlledDelay.ECN,                         config_parse_controlled_delay_bool,                       QDISC_KIND_CODEL,              0
-DeficitRoundRobinScheduler.Parent,           config_parse_qdisc_parent,                                QDISC_KIND_DRR,                0
-DeficitRoundRobinScheduler.Handle,           config_parse_qdisc_handle,                                QDISC_KIND_DRR,                0
-DeficitRoundRobinSchedulerClass.Parent,      config_parse_tclass_parent,                               TCLASS_KIND_DRR,               0
-DeficitRoundRobinSchedulerClass.ClassId,     config_parse_tclass_classid,                              TCLASS_KIND_DRR,               0
-DeficitRoundRobinSchedulerClass.QuantumBytes, config_parse_drr_size,                                   TCLASS_KIND_DRR,               0
-EnhancedTransmissionSelection.Parent,        config_parse_qdisc_parent,                                QDISC_KIND_ETS,                0
-EnhancedTransmissionSelection.Handle,        config_parse_qdisc_handle,                                QDISC_KIND_ETS,                0
-EnhancedTransmissionSelection.Bands,         config_parse_ets_u8,                                      QDISC_KIND_ETS,                0
-EnhancedTransmissionSelection.StrictBands,   config_parse_ets_u8,                                      QDISC_KIND_ETS,                0
-EnhancedTransmissionSelection.QuantumBytes,  config_parse_ets_quanta,                                  QDISC_KIND_ETS,                0
-EnhancedTransmissionSelection.PriorityMap,   config_parse_ets_prio,                                    QDISC_KIND_ETS,                0
-PFIFO.Parent,                                config_parse_qdisc_parent,                                QDISC_KIND_PFIFO,              0
-PFIFO.Handle,                                config_parse_qdisc_handle,                                QDISC_KIND_PFIFO,              0
-PFIFO.PacketLimit,                           config_parse_pfifo_size,                                  QDISC_KIND_PFIFO,              0
-PFIFOFast.Parent,                            config_parse_qdisc_parent,                                QDISC_KIND_PFIFO_FAST,         0
-PFIFOFast.Handle,                            config_parse_qdisc_handle,                                QDISC_KIND_PFIFO_FAST,         0
-PFIFOHeadDrop.Parent,                        config_parse_qdisc_parent,                                QDISC_KIND_PFIFO_HEAD_DROP,    0
-PFIFOHeadDrop.Handle,                        config_parse_qdisc_handle,                                QDISC_KIND_PFIFO_HEAD_DROP,    0
-PFIFOHeadDrop.PacketLimit,                   config_parse_pfifo_size,                                  QDISC_KIND_PFIFO_HEAD_DROP,    0
-QuickFairQueueing.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_QFQ,                0
-QuickFairQueueing.Handle,                    config_parse_qdisc_handle,                                QDISC_KIND_QFQ,                0
-QuickFairQueueingClass.Parent,               config_parse_tclass_parent,                               TCLASS_KIND_QFQ,               0
-QuickFairQueueingClass.ClassId,              config_parse_tclass_classid,                              TCLASS_KIND_QFQ,               0
-QuickFairQueueingClass.Weight,               config_parse_quick_fair_queueing_weight,                  TCLASS_KIND_QFQ,               0
-QuickFairQueueingClass.MaxPacketBytes,       config_parse_quick_fair_queueing_max_packet,              TCLASS_KIND_QFQ,               0
-FairQueueing.Parent,                         config_parse_qdisc_parent,                                QDISC_KIND_FQ,                 0
-FairQueueing.Handle,                         config_parse_qdisc_handle,                                QDISC_KIND_FQ,                 0
-FairQueueing.PacketLimit,                    config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0
-FairQueueing.FlowLimit,                      config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0
-FairQueueing.QuantumBytes,                   config_parse_fair_queueing_size,                          QDISC_KIND_FQ,                 0
-FairQueueing.InitialQuantumBytes,            config_parse_fair_queueing_size,                          QDISC_KIND_FQ,                 0
-FairQueueing.MaximumRate,                    config_parse_fair_queueing_max_rate,                      QDISC_KIND_FQ,                 0
-FairQueueing.Buckets,                        config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0
-FairQueueing.OrphanMask,                     config_parse_fair_queueing_u32,                           QDISC_KIND_FQ,                 0
-FairQueueing.Pacing,                         config_parse_fair_queueing_bool,                          QDISC_KIND_FQ,                 0
-FairQueueing.CEThresholdSec,                 config_parse_fair_queueing_usec,                          QDISC_KIND_FQ,                 0
-FairQueueingControlledDelay.Parent,          config_parse_qdisc_parent,                                QDISC_KIND_FQ_CODEL,           0
-FairQueueingControlledDelay.Handle,          config_parse_qdisc_handle,                                QDISC_KIND_FQ_CODEL,           0
-FairQueueingControlledDelay.PacketLimit,     config_parse_fair_queueing_controlled_delay_u32,          QDISC_KIND_FQ_CODEL,           0
-FairQueueingControlledDelay.MemoryLimitBytes, config_parse_fair_queueing_controlled_delay_size,        QDISC_KIND_FQ_CODEL,           0
-FairQueueingControlledDelay.Flows,           config_parse_fair_queueing_controlled_delay_u32,          QDISC_KIND_FQ_CODEL,           0
-FairQueueingControlledDelay.QuantumBytes,    config_parse_fair_queueing_controlled_delay_size,         QDISC_KIND_FQ_CODEL,           0
-FairQueueingControlledDelay.TargetSec,       config_parse_fair_queueing_controlled_delay_usec,         QDISC_KIND_FQ_CODEL,           0
-FairQueueingControlledDelay.IntervalSec,     config_parse_fair_queueing_controlled_delay_usec,         QDISC_KIND_FQ_CODEL,           0
-FairQueueingControlledDelay.CEThresholdSec,  config_parse_fair_queueing_controlled_delay_usec,         QDISC_KIND_FQ_CODEL,           0
-FairQueueingControlledDelay.ECN,             config_parse_fair_queueing_controlled_delay_bool,         QDISC_KIND_FQ_CODEL,           0
-FlowQueuePIE.Parent,                         config_parse_qdisc_parent,                                QDISC_KIND_FQ_PIE,             0
-FlowQueuePIE.Handle,                         config_parse_qdisc_handle,                                QDISC_KIND_FQ_PIE,             0
-FlowQueuePIE.PacketLimit,                    config_parse_fq_pie_packet_limit,                         QDISC_KIND_FQ_PIE,             0
-GenericRandomEarlyDetection.Parent,          config_parse_qdisc_parent,                                QDISC_KIND_GRED,               0
-GenericRandomEarlyDetection.Handle,          config_parse_qdisc_handle,                                QDISC_KIND_GRED,               0
-GenericRandomEarlyDetection.VirtualQueues,   config_parse_generic_random_early_detection_u32,          QDISC_KIND_GRED,               0
-GenericRandomEarlyDetection.DefaultVirtualQueue, config_parse_generic_random_early_detection_u32,      QDISC_KIND_GRED,               0
-GenericRandomEarlyDetection.GenericRIO,      config_parse_generic_random_early_detection_bool,         QDISC_KIND_GRED,               0
-HeavyHitterFilter.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_HHF,                0
-HeavyHitterFilter.Handle,                    config_parse_qdisc_handle,                                QDISC_KIND_HHF,                0
-HeavyHitterFilter.PacketLimit,               config_parse_heavy_hitter_filter_packet_limit,            QDISC_KIND_HHF,                0
-HierarchyTokenBucket.Parent,                 config_parse_qdisc_parent,                                QDISC_KIND_HTB,                0
-HierarchyTokenBucket.Handle,                 config_parse_qdisc_handle,                                QDISC_KIND_HTB,                0
-HierarchyTokenBucket.DefaultClass,           config_parse_hierarchy_token_bucket_default_class,        QDISC_KIND_HTB,                0
-HierarchyTokenBucket.RateToQuantum,          config_parse_hierarchy_token_bucket_u32,                  QDISC_KIND_HTB,                0
-HierarchyTokenBucketClass.Parent,            config_parse_tclass_parent,                               TCLASS_KIND_HTB,               0
-HierarchyTokenBucketClass.ClassId,           config_parse_tclass_classid,                              TCLASS_KIND_HTB,               0
-HierarchyTokenBucketClass.Priority,          config_parse_hierarchy_token_bucket_class_u32,            TCLASS_KIND_HTB,               0
-HierarchyTokenBucketClass.QuantumBytes,      config_parse_hierarchy_token_bucket_class_size,           TCLASS_KIND_HTB,               0
-HierarchyTokenBucketClass.MTUBytes,          config_parse_hierarchy_token_bucket_class_size,           TCLASS_KIND_HTB,               0
-HierarchyTokenBucketClass.OverheadBytes,     config_parse_hierarchy_token_bucket_class_size,           TCLASS_KIND_HTB,               0
-HierarchyTokenBucketClass.Rate,              config_parse_hierarchy_token_bucket_class_rate,           TCLASS_KIND_HTB,               0
-HierarchyTokenBucketClass.CeilRate,          config_parse_hierarchy_token_bucket_class_rate,           TCLASS_KIND_HTB,               0
-HierarchyTokenBucketClass.BufferBytes,       config_parse_hierarchy_token_bucket_class_size,           TCLASS_KIND_HTB,               0
-HierarchyTokenBucketClass.CeilBufferBytes,   config_parse_hierarchy_token_bucket_class_size,           TCLASS_KIND_HTB,               0
-ClassfulMultiQueueing.Parent,                config_parse_qdisc_parent,                                QDISC_KIND_MQ,                 0
-ClassfulMultiQueueing.Handle,                config_parse_qdisc_handle,                                QDISC_KIND_MQ,                 0
-BandMultiQueueing.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_MULTIQ,             0
-BandMultiQueueing.Handle,                    config_parse_qdisc_handle,                                QDISC_KIND_MULTIQ,             0
-NetworkEmulator.Parent,                      config_parse_qdisc_parent,                                QDISC_KIND_NETEM,              0
-NetworkEmulator.Handle,                      config_parse_qdisc_handle,                                QDISC_KIND_NETEM,              0
-NetworkEmulator.DelaySec,                    config_parse_network_emulator_delay,                      QDISC_KIND_NETEM,              0
-NetworkEmulator.DelayJitterSec,              config_parse_network_emulator_delay,                      QDISC_KIND_NETEM,              0
-NetworkEmulator.LossRate,                    config_parse_network_emulator_rate,                       QDISC_KIND_NETEM,              0
-NetworkEmulator.DuplicateRate,               config_parse_network_emulator_rate,                       QDISC_KIND_NETEM,              0
-NetworkEmulator.PacketLimit,                 config_parse_network_emulator_packet_limit,               QDISC_KIND_NETEM,              0
-PIE.Parent,                                  config_parse_qdisc_parent,                                QDISC_KIND_PIE,                0
-PIE.Handle,                                  config_parse_qdisc_handle,                                QDISC_KIND_PIE,                0
-PIE.PacketLimit,                             config_parse_pie_packet_limit,                            QDISC_KIND_PIE,                0
-StochasticFairBlue.Parent,                   config_parse_qdisc_parent,                                QDISC_KIND_SFB,                0
-StochasticFairBlue.Handle,                   config_parse_qdisc_handle,                                QDISC_KIND_SFB,                0
-StochasticFairBlue.PacketLimit,              config_parse_stochastic_fair_blue_u32,                    QDISC_KIND_SFB,                0
-StochasticFairnessQueueing.Parent,           config_parse_qdisc_parent,                                QDISC_KIND_SFQ,                0
-StochasticFairnessQueueing.Handle,           config_parse_qdisc_handle,                                QDISC_KIND_SFQ,                0
-StochasticFairnessQueueing.PerturbPeriodSec, config_parse_stochastic_fairness_queueing_perturb_period, QDISC_KIND_SFQ,                0
-TokenBucketFilter.Parent,                    config_parse_qdisc_parent,                                QDISC_KIND_TBF,                0
-TokenBucketFilter.Handle,                    config_parse_qdisc_handle,                                QDISC_KIND_TBF,                0
-TokenBucketFilter.Rate,                      config_parse_token_bucket_filter_rate,                    QDISC_KIND_TBF,                0
-TokenBucketFilter.BurstBytes,                config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
-TokenBucketFilter.LimitBytes,                config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
-TokenBucketFilter.MTUBytes,                  config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
-TokenBucketFilter.MPUBytes,                  config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
-TokenBucketFilter.PeakRate,                  config_parse_token_bucket_filter_rate,                    QDISC_KIND_TBF,                0
-TokenBucketFilter.LatencySec,                config_parse_token_bucket_filter_latency,                 QDISC_KIND_TBF,                0
-TrivialLinkEqualizer.Parent,                 config_parse_qdisc_parent,                                QDISC_KIND_TEQL,               0
-TrivialLinkEqualizer.Handle,                 config_parse_qdisc_handle,                                QDISC_KIND_TEQL,               0
-TrivialLinkEqualizer.Id,                     config_parse_trivial_link_equalizer_id,                   QDISC_KIND_TEQL,               0
+Match.MACAddress,                                config_parse_hw_addrs,                          0,                                      offsetof(Network, match.hw_addr)
+Match.PermanentMACAddress,                       config_parse_hw_addrs,                          0,                                      offsetof(Network, match.permanent_hw_addr)
+Match.Path,                                      config_parse_match_strv,                        0,                                      offsetof(Network, match.path)
+Match.Driver,                                    config_parse_match_strv,                        0,                                      offsetof(Network, match.driver)
+Match.Type,                                      config_parse_match_strv,                        0,                                      offsetof(Network, match.iftype)
+Match.Kind,                                      config_parse_match_strv,                        0,                                      offsetof(Network, match.kind)
+Match.WLANInterfaceType,                         config_parse_match_strv,                        0,                                      offsetof(Network, match.wlan_iftype)
+Match.SSID,                                      config_parse_match_strv,                        0,                                      offsetof(Network, match.ssid)
+Match.BSSID,                                     config_parse_ether_addrs,                       0,                                      offsetof(Network, match.bssid)
+Match.Name,                                      config_parse_match_ifnames,                     IFNAME_VALID_ALTERNATIVE,               offsetof(Network, match.ifname)
+Match.Property,                                  config_parse_match_property,                    0,                                      offsetof(Network, match.property)
+Match.Host,                                      config_parse_net_condition,                     CONDITION_HOST,                         offsetof(Network, conditions)
+Match.Virtualization,                            config_parse_net_condition,                     CONDITION_VIRTUALIZATION,               offsetof(Network, conditions)
+Match.KernelCommandLine,                         config_parse_net_condition,                     CONDITION_KERNEL_COMMAND_LINE,          offsetof(Network, conditions)
+Match.KernelVersion,                             config_parse_net_condition,                     CONDITION_VERSION,                      offsetof(Network, conditions)
+Match.Version,                                   config_parse_net_condition,                     CONDITION_VERSION,                      offsetof(Network, conditions)
+Match.Credential,                                config_parse_net_condition,                     CONDITION_CREDENTIAL,                   offsetof(Network, conditions)
+Match.Architecture,                              config_parse_net_condition,                     CONDITION_ARCHITECTURE,                 offsetof(Network, conditions)
+Match.Firmware,                                  config_parse_net_condition,                     CONDITION_FIRMWARE,                     offsetof(Network, conditions)
+Link.MACAddress,                                 config_parse_hw_addr,                           0,                                      offsetof(Network, hw_addr)
+Link.MTUBytes,                                   config_parse_mtu,                               AF_UNSPEC,                              offsetof(Network, mtu)
+Link.Group,                                      config_parse_link_group,                        0,                                      0
+Link.ARP,                                        config_parse_tristate,                          0,                                      offsetof(Network, arp)
+Link.Multicast,                                  config_parse_tristate,                          0,                                      offsetof(Network, multicast)
+Link.AllMulticast,                               config_parse_tristate,                          0,                                      offsetof(Network, allmulticast)
+Link.Promiscuous,                                config_parse_tristate,                          0,                                      offsetof(Network, promiscuous)
+Link.Unmanaged,                                  config_parse_bool,                              0,                                      offsetof(Network, unmanaged)
+Link.ActivationPolicy,                           config_parse_activation_policy,                 0,                                      offsetof(Network, activation_policy)
+Link.RequiredForOnline,                          config_parse_required_for_online,               0,                                      0
+Link.RequiredFamilyForOnline,                    config_parse_required_family_for_online,        0,                                      offsetof(Network, required_family_for_online)
+SR-IOV.VirtualFunction,                          config_parse_sr_iov_uint32,                     0,                                      offsetof(Network, sr_iov_by_section)
+SR-IOV.VLANId,                                   config_parse_sr_iov_uint32,                     0,                                      offsetof(Network, sr_iov_by_section)
+SR-IOV.QualityOfService,                         config_parse_sr_iov_uint32,                     0,                                      offsetof(Network, sr_iov_by_section)
+SR-IOV.VLANProtocol,                             config_parse_sr_iov_vlan_proto,                 0,                                      offsetof(Network, sr_iov_by_section)
+SR-IOV.MACSpoofCheck,                            config_parse_sr_iov_boolean,                    0,                                      offsetof(Network, sr_iov_by_section)
+SR-IOV.QueryReceiveSideScaling,                  config_parse_sr_iov_boolean,                    0,                                      offsetof(Network, sr_iov_by_section)
+SR-IOV.Trust,                                    config_parse_sr_iov_boolean,                    0,                                      offsetof(Network, sr_iov_by_section)
+SR-IOV.LinkState,                                config_parse_sr_iov_link_state,                 0,                                      offsetof(Network, sr_iov_by_section)
+SR-IOV.MACAddress,                               config_parse_sr_iov_mac,                        0,                                      offsetof(Network, sr_iov_by_section)
+Network.Description,                             config_parse_string,                            0,                                      offsetof(Network, description)
+Network.KeepMaster,                              config_parse_bool,                              0,                                      offsetof(Network, keep_master)
+Network.BatmanAdvanced,                          config_parse_ifname,                            0,                                      offsetof(Network, batadv_name)
+Network.Bond,                                    config_parse_ifname,                            0,                                      offsetof(Network, bond_name)
+Network.Bridge,                                  config_parse_ifname,                            0,                                      offsetof(Network, bridge_name)
+Network.VRF,                                     config_parse_ifname,                            0,                                      offsetof(Network, vrf_name)
+Network.IPoIB,                                   config_parse_stacked_netdev,                    NETDEV_KIND_IPOIB,                      offsetof(Network, stacked_netdev_names)
+Network.IPVLAN,                                  config_parse_stacked_netdev,                    NETDEV_KIND_IPVLAN,                     offsetof(Network, stacked_netdev_names)
+Network.IPVTAP,                                  config_parse_stacked_netdev,                    NETDEV_KIND_IPVTAP,                     offsetof(Network, stacked_netdev_names)
+Network.L2TP,                                    config_parse_warn_compat,                       DISABLED_LEGACY,                        0
+Network.MACsec,                                  config_parse_stacked_netdev,                    NETDEV_KIND_MACSEC,                     offsetof(Network, stacked_netdev_names)
+Network.MACVLAN,                                 config_parse_stacked_netdev,                    NETDEV_KIND_MACVLAN,                    offsetof(Network, stacked_netdev_names)
+Network.MACVTAP,                                 config_parse_stacked_netdev,                    NETDEV_KIND_MACVTAP,                    offsetof(Network, stacked_netdev_names)
+Network.Tunnel,                                  config_parse_stacked_netdev,                    _NETDEV_KIND_TUNNEL,                    offsetof(Network, stacked_netdev_names)
+Network.VLAN,                                    config_parse_stacked_netdev,                    NETDEV_KIND_VLAN,                       offsetof(Network, stacked_netdev_names)
+Network.VXLAN,                                   config_parse_stacked_netdev,                    NETDEV_KIND_VXLAN,                      offsetof(Network, stacked_netdev_names)
+Network.Xfrm,                                    config_parse_stacked_netdev,                    NETDEV_KIND_XFRM,                       offsetof(Network, stacked_netdev_names)
+Network.DHCP,                                    config_parse_dhcp,                              0,                                      offsetof(Network, dhcp)
+Network.DHCPServer,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_server)
+Network.LinkLocalAddressing,                     config_parse_link_local_address_family,         0,                                      offsetof(Network, link_local)
+Network.IPv6LinkLocalAddressGenerationMode,      config_parse_ipv6_link_local_address_gen_mode,  0,                                      offsetof(Network, ipv6ll_address_gen_mode)
+Network.IPv6StableSecretAddress,                 config_parse_in_addr_non_null,                  AF_INET6,                               offsetof(Network, ipv6ll_stable_secret)
+Network.IPv4LLStartAddress,                      config_parse_ipv4ll_address,                    0,                                      offsetof(Network, ipv4ll_start_address)
+Network.IPv4LLRoute,                             config_parse_bool,                              0,                                      offsetof(Network, ipv4ll_route)
+Network.DefaultRouteOnDevice,                    config_parse_bool,                              0,                                      offsetof(Network, default_route_on_device)
+Network.LLDP,                                    config_parse_lldp_mode,                         0,                                      offsetof(Network, lldp_mode)
+Network.EmitLLDP,                                config_parse_lldp_multicast_mode,               0,                                      offsetof(Network, lldp_multicast_mode)
+Network.Address,                                 config_parse_address_section,                   ADDRESS_ADDRESS,                        0
+Network.Gateway,                                 config_parse_route_section,                     ROUTE_GATEWAY_NETWORK,                  0
+Network.Domains,                                 config_parse_domains,                           0,                                      0
+Network.UseDomains,                              config_parse_use_domains,                       0,                                      offsetof(Network, use_domains)
+Network.DNS,                                     config_parse_dns,                               0,                                      0
+Network.DNSDefaultRoute,                         config_parse_tristate,                          0,                                      offsetof(Network, dns_default_route)
+Network.LLMNR,                                   config_parse_resolve_support,                   0,                                      offsetof(Network, llmnr)
+Network.MulticastDNS,                            config_parse_resolve_support,                   0,                                      offsetof(Network, mdns)
+Network.DNSOverTLS,                              config_parse_dns_over_tls_mode,                 0,                                      offsetof(Network, dns_over_tls_mode)
+Network.DNSSEC,                                  config_parse_dnssec_mode,                       0,                                      offsetof(Network, dnssec_mode)
+Network.DNSSECNegativeTrustAnchors,              config_parse_dnssec_negative_trust_anchors,     0,                                      offsetof(Network, dnssec_negative_trust_anchors)
+Network.NTP,                                     config_parse_ntp,                               0,                                      offsetof(Network, ntp)
+Network.IPForward,                               config_parse_ip_forward_deprecated,             0,                                      0
+Network.IPv4Forwarding,                          config_parse_tristate,                          0,                                      offsetof(Network, ip_forwarding[0])
+Network.IPv6Forwarding,                          config_parse_tristate,                          0,                                      offsetof(Network, ip_forwarding[1])
+Network.IPMasquerade,                            config_parse_ip_masquerade,                     0,                                      offsetof(Network, ip_masquerade)
+Network.IPv6PrivacyExtensions,                   config_parse_ipv6_privacy_extensions,           0,                                      offsetof(Network, ipv6_privacy_extensions)
+Network.IPv6AcceptRA,                            config_parse_tristate,                          0,                                      offsetof(Network, ndisc)
+Network.IPv6AcceptRouterAdvertisements,          config_parse_tristate,                          0,                                      offsetof(Network, ndisc)
+Network.IPv6DuplicateAddressDetection,           config_parse_int,                               0,                                      offsetof(Network, ipv6_dad_transmits)
+Network.IPv4DuplicateAddressDetectionTimeoutSec, config_parse_sec,                               0,                                      offsetof(Network, ipv4_dad_timeout_usec)
+Network.IPv6HopLimit,                            config_parse_uint8,                             0,                                      offsetof(Network, ipv6_hop_limit)
+Network.IPv6RetransmissionTimeSec,               config_parse_sec,                               0,                                      offsetof(Network, ipv6_retransmission_time)
+Network.IPv6ProxyNDP,                            config_parse_tristate,                          0,                                      offsetof(Network, ipv6_proxy_ndp)
+Network.IPv6MTUBytes,                            config_parse_mtu,                               AF_INET6,                               offsetof(Network, ipv6_mtu)
+Network.IPv4AcceptLocal,                         config_parse_tristate,                          0,                                      offsetof(Network, ipv4_accept_local)
+Network.IPv4RouteLocalnet,                       config_parse_tristate,                          0,                                      offsetof(Network, ipv4_route_localnet)
+Network.ActiveSlave,                             config_parse_bool,                              0,                                      offsetof(Network, active_slave)
+Network.PrimarySlave,                            config_parse_bool,                              0,                                      offsetof(Network, primary_slave)
+Network.IPv4ProxyARP,                            config_parse_tristate,                          0,                                      offsetof(Network, proxy_arp)
+Network.IPv4ProxyARPPrivateVLAN,                 config_parse_tristate,                          0,                                      offsetof(Network, proxy_arp_pvlan)
+Network.ProxyARP,                                config_parse_tristate,                          0,                                      offsetof(Network, proxy_arp)
+Network.IPv6ProxyNDPAddress,                     config_parse_ipv6_proxy_ndp_address,            0,                                      0
+Network.IPv4ReversePathFilter,                   config_parse_ip_reverse_path_filter,            0,                                      offsetof(Network, ipv4_rp_filter)
+Network.MulticastIGMPVersion,                    config_parse_ipv4_force_igmp_version,           0,                                      offsetof(Network, ipv4_force_igmp_version)
+Network.MPLSRouting,                             config_parse_tristate,                          0,                                      offsetof(Network, mpls_input)
+Network.BindCarrier,                             config_parse_strv,                              0,                                      offsetof(Network, bind_carrier)
+Network.ConfigureWithoutCarrier,                 config_parse_bool,                              0,                                      offsetof(Network, configure_without_carrier)
+Network.IgnoreCarrierLoss,                       config_parse_ignore_carrier_loss,               0,                                      0
+Network.KeepConfiguration,                       config_parse_keep_configuration,                0,                                      offsetof(Network, keep_configuration)
+Network.IPv6SendRA,                              config_parse_router_prefix_delegation,          0,                                      offsetof(Network, router_prefix_delegation)
+Network.DHCPPrefixDelegation,                    config_parse_tristate,                          0,                                      offsetof(Network, dhcp_pd)
+Address.Address,                                 config_parse_address_section,                   ADDRESS_ADDRESS,                        0
+Address.Peer,                                    config_parse_address_section,                   ADDRESS_PEER,                           0
+Address.Broadcast,                               config_parse_address_section,                   ADDRESS_BROADCAST,                      0
+Address.Label,                                   config_parse_address_section,                   ADDRESS_LABEL,                          0
+Address.PreferredLifetime,                       config_parse_address_section,                   ADDRESS_PREFERRED_LIFETIME,             0
+Address.HomeAddress,                             config_parse_address_section,                   ADDRESS_HOME_ADDRESS,                   0
+Address.ManageTemporaryAddress,                  config_parse_address_section,                   ADDRESS_MANAGE_TEMPORARY_ADDRESS,       0
+Address.PrefixRoute,                             config_parse_address_section,                   ADDRESS_PREFIX_ROUTE,                   0 /* deprecated */
+Address.AddPrefixRoute,                          config_parse_address_section,                   ADDRESS_ADD_PREFIX_ROUTE,               0
+Address.AutoJoin,                                config_parse_address_section,                   ADDRESS_AUTO_JOIN,                      0
+Address.DuplicateAddressDetection,               config_parse_address_section,                   ADDRESS_DAD,                            0
+Address.Scope,                                   config_parse_address_section,                   ADDRESS_SCOPE,                          0
+Address.RouteMetric,                             config_parse_address_section,                   ADDRESS_ROUTE_METRIC,                   0
+Address.NetLabel,                                config_parse_address_section,                   ADDRESS_NET_LABEL,                      0
+Address.NFTSet,                                  config_parse_address_section,                   ADDRESS_NFT_SET,                        0
+IPv6AddressLabel.Prefix,                         config_parse_ipv6_address_label_section,        IPV6_ADDRESS_LABEL_PREFIX,              0
+IPv6AddressLabel.Label,                          config_parse_ipv6_address_label_section,        IPV6_ADDRESS_LABEL,                     0
+Neighbor.Address,                                config_parse_neighbor_section,                  NEIGHBOR_DESTINATION_ADDRESS,           0
+Neighbor.LinkLayerAddress,                       config_parse_neighbor_section,                  NEIGHBOR_LINK_LAYER_ADDRESS,            0
+Neighbor.MACAddress,                             config_parse_neighbor_section,                  NEIGHBOR_LINK_LAYER_ADDRESS,            0 /* deprecated */
+RoutingPolicyRule.TypeOfService,                 config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_TOS,                0
+RoutingPolicyRule.Priority,                      config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_PRIORITY,           0
+RoutingPolicyRule.GoTo,                          config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_GOTO,               0
+RoutingPolicyRule.Table,                         config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_TABLE,              0
+RoutingPolicyRule.FirewallMark,                  config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_FWMARK,             0
+RoutingPolicyRule.From,                          config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_FROM,               0
+RoutingPolicyRule.To,                            config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_TO,                 0
+RoutingPolicyRule.IncomingInterface,             config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_IIF,                0
+RoutingPolicyRule.OutgoingInterface,             config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_OIF,                0
+RoutingPolicyRule.IPProtocol,                    config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_IP_PROTOCOL,        0
+RoutingPolicyRule.SourcePort,                    config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_SPORT,              0
+RoutingPolicyRule.DestinationPort,               config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_DPORT,              0
+RoutingPolicyRule.InvertRule,                    config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_INVERT,             0
+RoutingPolicyRule.L3MasterDevice,                config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_L3MDEV,             0
+RoutingPolicyRule.Family,                        config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_FAMILY,             0
+RoutingPolicyRule.User,                          config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_UID_RANGE,          0
+RoutingPolicyRule.SuppressInterfaceGroup,        config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_SUPPRESS_IFGROUP,   0
+RoutingPolicyRule.SuppressPrefixLength,          config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_SUPPRESS_PREFIXLEN, 0
+RoutingPolicyRule.Type,                          config_parse_routing_policy_rule,               ROUTING_POLICY_RULE_ACTION,             0
+Route.Gateway,                                   config_parse_route_section,                     ROUTE_GATEWAY,                          0
+Route.Destination,                               config_parse_route_section,                     ROUTE_DESTINATION,                      0
+Route.Source,                                    config_parse_route_section,                     ROUTE_DESTINATION,                      0
+Route.Metric,                                    config_parse_route_section,                     ROUTE_PRIORITY,                         0
+Route.Scope,                                     config_parse_route_section,                     ROUTE_SCOPE,                            0
+Route.PreferredSource,                           config_parse_route_section,                     ROUTE_PREFERRED_SOURCE,                 0
+Route.Table,                                     config_parse_route_section,                     ROUTE_TABLE,                            0
+Route.GatewayOnLink,                             config_parse_route_section,                     ROUTE_GATEWAY_ONLINK,                   0
+Route.GatewayOnlink,                             config_parse_route_section,                     ROUTE_GATEWAY_ONLINK,                   0
+Route.IPv6Preference,                            config_parse_route_section,                     ROUTE_PREFERENCE,                       0
+Route.Protocol,                                  config_parse_route_section,                     ROUTE_PROTOCOL,                         0
+Route.Type,                                      config_parse_route_section,                     ROUTE_TYPE,                             0
+Route.MultiPathRoute,                            config_parse_route_section,                     ROUTE_MULTIPATH,                        0
+Route.NextHop,                                   config_parse_route_section,                     ROUTE_NEXTHOP,                          0
+Route.MTUBytes,                                  config_parse_route_section,                     ROUTE_METRIC_MTU,                       0
+Route.TCPAdvertisedMaximumSegmentSize,           config_parse_route_section,                     ROUTE_METRIC_ADVMSS,                    0
+Route.HopLimit,                                  config_parse_route_section,                     ROUTE_METRIC_HOPLIMIT,                  0
+Route.InitialCongestionWindow,                   config_parse_route_section,                     ROUTE_METRIC_INITCWND,                  0
+Route.TCPRetransmissionTimeoutSec,               config_parse_route_section,                     ROUTE_METRIC_RTO_MIN,                   0
+Route.InitialAdvertisedReceiveWindow,            config_parse_route_section,                     ROUTE_METRIC_INITRWND,                  0
+Route.QuickAck,                                  config_parse_route_section,                     ROUTE_METRIC_QUICKACK,                  0
+Route.TCPCongestionControlAlgorithm,             config_parse_route_section,                     ROUTE_METRIC_CC_ALGO,                   0
+Route.FastOpenNoCookie,                          config_parse_route_section,                     ROUTE_METRIC_FASTOPEN_NO_COOKIE,        0
+Route.TTLPropagate,                              config_parse_warn_compat,                       DISABLED_LEGACY,                        0
+NextHop.Id,                                      config_parse_nexthop_section,                   NEXTHOP_ID,                             0
+NextHop.Gateway,                                 config_parse_nexthop_section,                   NEXTHOP_GATEWAY,                        0
+NextHop.Family,                                  config_parse_nexthop_section,                   NEXTHOP_FAMILY,                         0
+NextHop.OnLink,                                  config_parse_nexthop_section,                   NEXTHOP_ONLINK,                         0
+NextHop.Blackhole,                               config_parse_nexthop_section,                   NEXTHOP_BLACKHOLE,                      0
+NextHop.Group,                                   config_parse_nexthop_section,                   NEXTHOP_GROUP,                          0
+DHCPv4.RequestAddress,                           config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_request_address)
+DHCPv4.ClientIdentifier,                         config_parse_dhcp_client_identifier,            0,                                      offsetof(Network, dhcp_client_identifier)
+DHCPv4.UseDNS,                                   config_parse_tristate,                          0,                                      offsetof(Network, dhcp_use_dns)
+DHCPv4.UseDNR,                                   config_parse_tristate,                          0,                                      offsetof(Network, dhcp_use_dnr)
+DHCPv4.RoutesToDNS,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_routes_to_dns)
+DHCPv4.UseNTP,                                   config_parse_tristate,                          0,                                      offsetof(Network, dhcp_use_ntp)
+DHCPv4.RoutesToNTP,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_routes_to_ntp)
+DHCPv4.UseSIP,                                   config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_sip)
+DHCPv4.UseCaptivePortal,                         config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_captive_portal)
+DHCPv4.UseMTU,                                   config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_mtu)
+DHCPv4.UseHostname,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_hostname)
+DHCPv4.UseDomains,                               config_parse_use_domains,                       0,                                      offsetof(Network, dhcp_use_domains)
+DHCPv4.UseRoutes,                                config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_routes)
+DHCPv4.UseGateway,                               config_parse_tristate,                          0,                                      offsetof(Network, dhcp_use_gateway)
+DHCPv4.QuickAck,                                 config_parse_bool,                              0,                                      offsetof(Network, dhcp_quickack)
+DHCPv4.RequestOptions,                           config_parse_dhcp_request_options,              AF_INET,                                0
+DHCPv4.Anonymize,                                config_parse_bool,                              0,                                      offsetof(Network, dhcp_anonymize)
+DHCPv4.SendHostname,                             config_parse_dhcp_send_hostname,                AF_INET,                                0
+DHCPv4.BOOTP,                                    config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_bootp)
+DHCPv4.Hostname,                                 config_parse_hostname,                          0,                                      offsetof(Network, dhcp_hostname)
+DHCPv4.Label,                                    config_parse_dhcp_label,                        0,                                      offsetof(Network, dhcp_label)
+DHCPv4.RequestBroadcast,                         config_parse_tristate,                          0,                                      offsetof(Network, dhcp_broadcast)
+DHCPv4.VendorClassIdentifier,                    config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp_vendor_class_identifier)
+DHCPv4.MUDURL,                                   config_parse_mud_url,                           0,                                      offsetof(Network, dhcp_mudurl)
+DHCPv4.MaxAttempts,                              config_parse_dhcp_max_attempts,                 0,                                      0
+DHCPv4.UserClass,                                config_parse_dhcp_user_or_vendor_class,         AF_INET,                                offsetof(Network, dhcp_user_class)
+DHCPv4.IAID,                                     config_parse_iaid,                              AF_INET,                                0
+DHCPv4.DUIDType,                                 config_parse_network_duid_type,                 0,                                      0
+DHCPv4.DUIDRawData,                              config_parse_network_duid_rawdata,              0,                                      0
+DHCPv4.RouteMetric,                              config_parse_dhcp_route_metric,                 AF_INET,                                0
+DHCPv4.RouteTable,                               config_parse_dhcp_or_ra_route_table,            AF_INET,                                0
+DHCPv4.UseTimezone,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_timezone)
+DHCPv4.ListenPort,                               config_parse_uint16,                            0,                                      offsetof(Network, dhcp_client_port)
+DHCPv4.ServerPort,                               config_parse_uint16,                            0,                                      offsetof(Network, dhcp_port)
+DHCPv4.SendRelease,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_send_release)
+DHCPv4.SendDecline,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_send_decline)
+DHCPv4.DenyList,                                 config_parse_in_addr_prefixes,                  AF_INET,                                offsetof(Network, dhcp_deny_listed_ip)
+DHCPv4.AllowList,                                config_parse_in_addr_prefixes,                  AF_INET,                                offsetof(Network, dhcp_allow_listed_ip)
+DHCPv4.IPServiceType,                            config_parse_dhcp_ip_service_type,              0,                                      offsetof(Network, dhcp_ip_service_type)
+DHCPv4.SocketPriority,                           config_parse_dhcp_socket_priority,              0,                                      0
+DHCPv4.SendOption,                               config_parse_dhcp_send_option,                  AF_INET,                                offsetof(Network, dhcp_client_send_options)
+DHCPv4.SendVendorOption,                         config_parse_dhcp_send_option,                  0,                                      offsetof(Network, dhcp_client_send_vendor_options)
+DHCPv4.RouteMTUBytes,                            config_parse_mtu,                               AF_INET,                                offsetof(Network, dhcp_route_mtu)
+DHCPv4.InitialCongestionWindow,                  config_parse_tcp_window,                        0,                                      offsetof(Network, dhcp_initial_congestion_window)
+DHCPv4.InitialAdvertisedReceiveWindow,           config_parse_tcp_window,                        0,                                      offsetof(Network, dhcp_advertised_receive_window)
+DHCPv4.FallbackLeaseLifetimeSec,                 config_parse_dhcp_fallback_lease_lifetime,      0,                                      0
+DHCPv4.Use6RD,                                   config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_6rd)
+DHCPv4.UnassignedSubnetPolicy,                   config_parse_dhcp_pd_prefix_route_type,         0,                                      offsetof(Network, dhcp_6rd_prefix_route_type)
+DHCPv4.IPv6OnlyMode,                             config_parse_tristate,                          0,                                      offsetof(Network, dhcp_ipv6_only_mode)
+DHCPv4.NetLabel,                                 config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp_netlabel)
+DHCPv4.NFTSet,                                   config_parse_nft_set,                           NFT_SET_PARSE_NETWORK,                  offsetof(Network, dhcp_nft_set_context)
+DHCPv4.RapidCommit,                              config_parse_tristate,                          0,                                      offsetof(Network, dhcp_use_rapid_commit)
+DHCPv6.UseAddress,                               config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_address)
+DHCPv6.UseDelegatedPrefix,                       config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_pd_prefix)
+DHCPv6.UseDNS,                                   config_parse_tristate,                          0,                                      offsetof(Network, dhcp6_use_dns)
+DHCPv6.UseDNR,                                   config_parse_tristate,                          0,                                      offsetof(Network, dhcp6_use_dnr)
+DHCPv6.UseHostname,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_hostname)
+DHCPv6.UseDomains,                               config_parse_use_domains,                       0,                                      offsetof(Network, dhcp6_use_domains)
+DHCPv6.UseNTP,                                   config_parse_tristate,                          0,                                      offsetof(Network, dhcp6_use_ntp)
+DHCPv6.UseSIP,                                   config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_sip)
+DHCPv6.UseCaptivePortal,                         config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_captive_portal)
+DHCPv6.MUDURL,                                   config_parse_mud_url,                           0,                                      offsetof(Network, dhcp6_mudurl)
+DHCPv6.SendHostname,                             config_parse_dhcp_send_hostname,                AF_INET6,                               0
+DHCPv6.Hostname,                                 config_parse_hostname,                          0,                                      offsetof(Network, dhcp6_hostname)
+DHCPv6.RequestOptions,                           config_parse_dhcp_request_options,              AF_INET6,                               0
+DHCPv6.UserClass,                                config_parse_dhcp_user_or_vendor_class,         AF_INET6,                               offsetof(Network, dhcp6_user_class)
+DHCPv6.VendorClass,                              config_parse_dhcp_user_or_vendor_class,         AF_INET6,                               offsetof(Network, dhcp6_vendor_class)
+DHCPv6.SendVendorOption,                         config_parse_dhcp_send_option,                  AF_INET6,                               offsetof(Network, dhcp6_client_send_vendor_options)
+DHCPv6.PrefixDelegationHint,                     config_parse_dhcp6_pd_prefix_hint,              0,                                      0
+DHCPv6.UnassignedSubnetPolicy,                   config_parse_dhcp_pd_prefix_route_type,         0,                                      offsetof(Network, dhcp6_pd_prefix_route_type)
+DHCPv6.WithoutRA,                                config_parse_dhcp6_client_start_mode,           0,                                      offsetof(Network, dhcp6_client_start_mode)
+DHCPv6.SendOption,                               config_parse_dhcp_send_option,                  AF_INET6,                               offsetof(Network, dhcp6_client_send_options)
+DHCPv6.IAID,                                     config_parse_iaid,                              AF_INET6,                               0
+DHCPv6.DUIDType,                                 config_parse_duid_type,                         0,                                      offsetof(Network, dhcp6_duid)
+DHCPv6.DUIDRawData,                              config_parse_duid_rawdata,                      0,                                      offsetof(Network, dhcp6_duid)
+DHCPv6.RapidCommit,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_rapid_commit)
+DHCPv6.NetLabel,                                 config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp6_netlabel)
+DHCPv6.SendRelease,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp6_send_release)
+DHCPv6.NFTSet,                                   config_parse_nft_set,                           NFT_SET_PARSE_NETWORK,                  offsetof(Network, dhcp6_nft_set_context)
+IPv6AcceptRA.UseRedirect,                        config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_redirect)
+IPv6AcceptRA.UseGateway,                         config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_gateway)
+IPv6AcceptRA.UseRoutePrefix,                     config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_route_prefix)
+IPv6AcceptRA.UseAutonomousPrefix,                config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_autonomous_prefix)
+IPv6AcceptRA.UseOnLinkPrefix,                    config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_onlink_prefix)
+IPv6AcceptRA.UsePREF64,                          config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_pref64)
+IPv6AcceptRA.UseDNS,                             config_parse_tristate,                          0,                                      offsetof(Network, ndisc_use_dns)
+IPv6AcceptRA.UseDNR,                             config_parse_tristate,                          0,                                      offsetof(Network, ndisc_use_dnr)
+IPv6AcceptRA.UseDomains,                         config_parse_use_domains,                       0,                                      offsetof(Network, ndisc_use_domains)
+IPv6AcceptRA.UseMTU,                             config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_mtu)
+IPv6AcceptRA.UseHopLimit,                        config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_hop_limit)
+IPv6AcceptRA.UseReachableTime,                   config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_reachable_time)
+IPv6AcceptRA.UseRetransmissionTime,              config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_retransmission_time)
+IPv6AcceptRA.DHCPv6Client,                       config_parse_ndisc_start_dhcp6_client,          0,                                      offsetof(Network, ndisc_start_dhcp6_client)
+IPv6AcceptRA.RouteTable,                         config_parse_dhcp_or_ra_route_table,            AF_INET6,                               0
+IPv6AcceptRA.RouteMetric,                        config_parse_ndisc_route_metric,                0,                                      0
+IPv6AcceptRA.QuickAck,                           config_parse_bool,                              0,                                      offsetof(Network, ndisc_quickack)
+IPv6AcceptRA.UseCaptivePortal,                   config_parse_bool,                              0,                                      offsetof(Network, ndisc_use_captive_portal)
+IPv6AcceptRA.RouterAllowList,                    config_parse_in_addr_prefixes,                  AF_INET6,                               offsetof(Network, ndisc_allow_listed_router)
+IPv6AcceptRA.RouterDenyList,                     config_parse_in_addr_prefixes,                  AF_INET6,                               offsetof(Network, ndisc_deny_listed_router)
+IPv6AcceptRA.PrefixAllowList,                    config_parse_in_addr_prefixes,                  AF_INET6,                               offsetof(Network, ndisc_allow_listed_prefix)
+IPv6AcceptRA.PrefixDenyList,                     config_parse_in_addr_prefixes,                  AF_INET6,                               offsetof(Network, ndisc_deny_listed_prefix)
+IPv6AcceptRA.RouteAllowList,                     config_parse_in_addr_prefixes,                  AF_INET6,                               offsetof(Network, ndisc_allow_listed_route_prefix)
+IPv6AcceptRA.RouteDenyList,                      config_parse_in_addr_prefixes,                  AF_INET6,                               offsetof(Network, ndisc_deny_listed_route_prefix)
+IPv6AcceptRA.Token,                              config_parse_address_generation_type,           0,                                      offsetof(Network, ndisc_tokens)
+IPv6AcceptRA.NetLabel,                           config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, ndisc_netlabel)
+IPv6AcceptRA.NFTSet,                             config_parse_nft_set,                           NFT_SET_PARSE_NETWORK,                  offsetof(Network, ndisc_nft_set_context)
+DHCPServer.ServerAddress,                        config_parse_dhcp_server_address,               0,                                      0
+DHCPServer.UplinkInterface,                      config_parse_uplink,                            0,                                      0
+DHCPServer.RelayTarget,                          config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_server_relay_target)
+DHCPServer.RelayAgentCircuitId,                  config_parse_dhcp_server_relay_agent_suboption, 0,                                      offsetof(Network, dhcp_server_relay_agent_circuit_id)
+DHCPServer.RelayAgentRemoteId,                   config_parse_dhcp_server_relay_agent_suboption, 0,                                      offsetof(Network, dhcp_server_relay_agent_remote_id)
+DHCPServer.MaxLeaseTimeSec,                      config_parse_sec,                               0,                                      offsetof(Network, dhcp_server_max_lease_time_usec)
+DHCPServer.DefaultLeaseTimeSec,                  config_parse_sec,                               0,                                      offsetof(Network, dhcp_server_default_lease_time_usec)
+DHCPServer.IPv6OnlyPreferredSec,                 config_parse_dhcp_server_ipv6_only_preferred,   0,                                      offsetof(Network, dhcp_server_ipv6_only_preferred_usec)
+DHCPServer.EmitDNS,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_DNS].emit)
+DHCPServer.DNS,                                  config_parse_dhcp_server_emit,                  0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_DNS])
+DHCPServer.EmitNTP,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_NTP].emit)
+DHCPServer.NTP,                                  config_parse_dhcp_server_emit,                  0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_NTP])
+DHCPServer.EmitSIP,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_SIP].emit)
+DHCPServer.SIP,                                  config_parse_dhcp_server_emit,                  0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_SIP])
+DHCPServer.EmitPOP3,                             config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_POP3].emit)
+DHCPServer.POP3,                                 config_parse_dhcp_server_emit,                  0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_POP3])
+DHCPServer.EmitSMTP,                             config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_SMTP].emit)
+DHCPServer.SMTP,                                 config_parse_dhcp_server_emit,                  0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_SMTP])
+DHCPServer.EmitLPR,                              config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_LPR].emit)
+DHCPServer.LPR,                                  config_parse_dhcp_server_emit,                  0,                                      offsetof(Network, dhcp_server_emit[SD_DHCP_LEASE_LPR])
+DHCPServer.EmitRouter,                           config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_emit_router)
+DHCPServer.Router,                               config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_server_router)
+DHCPServer.EmitTimezone,                         config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_emit_timezone)
+DHCPServer.Timezone,                             config_parse_timezone,                          0,                                      offsetof(Network, dhcp_server_timezone)
+DHCPServer.PoolOffset,                           config_parse_uint32,                            0,                                      offsetof(Network, dhcp_server_pool_offset)
+DHCPServer.PoolSize,                             config_parse_uint32,                            0,                                      offsetof(Network, dhcp_server_pool_size)
+DHCPServer.SendVendorOption,                     config_parse_dhcp_send_option,                  0,                                      offsetof(Network, dhcp_server_send_vendor_options)
+DHCPServer.SendOption,                           config_parse_dhcp_send_option,                  0,                                      offsetof(Network, dhcp_server_send_options)
+DHCPServer.BindToInterface,                      config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_bind_to_interface)
+DHCPServer.BootServerAddress,                    config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_server_boot_server_address)
+DHCPServer.BootServerName,                       config_parse_dns_name,                          0,                                      offsetof(Network, dhcp_server_boot_server_name)
+DHCPServer.BootFilename,                         config_parse_string,                            CONFIG_PARSE_STRING_SAFE_AND_ASCII,     offsetof(Network, dhcp_server_boot_filename)
+DHCPServer.RapidCommit,                          config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_rapid_commit)
+DHCPServer.PersistLeases,                        config_parse_dhcp_server_persist_leases,        0,                                      offsetof(Network, dhcp_server_persist_leases)
+DHCPServerStaticLease.Address,                   config_parse_dhcp_static_lease_address,         0,                                      0
+DHCPServerStaticLease.MACAddress,                config_parse_dhcp_static_lease_hwaddr,          0,                                      0
+Bridge.Cost,                                     config_parse_uint32,                            0,                                      offsetof(Network, cost)
+Bridge.UseBPDU,                                  config_parse_tristate,                          0,                                      offsetof(Network, use_bpdu)
+Bridge.HairPin,                                  config_parse_tristate,                          0,                                      offsetof(Network, hairpin)
+Bridge.Isolated,                                 config_parse_tristate,                          0,                                      offsetof(Network, isolated)
+Bridge.FastLeave,                                config_parse_tristate,                          0,                                      offsetof(Network, fast_leave)
+Bridge.AllowPortToBeRoot,                        config_parse_tristate,                          0,                                      offsetof(Network, allow_port_to_be_root)
+Bridge.UnicastFlood,                             config_parse_tristate,                          0,                                      offsetof(Network, unicast_flood)
+Bridge.MulticastFlood,                           config_parse_tristate,                          0,                                      offsetof(Network, multicast_flood)
+Bridge.MulticastToUnicast,                       config_parse_tristate,                          0,                                      offsetof(Network, multicast_to_unicast)
+Bridge.NeighborSuppression,                      config_parse_tristate,                          0,                                      offsetof(Network, neighbor_suppression)
+Bridge.Learning,                                 config_parse_tristate,                          0,                                      offsetof(Network, learning)
+Bridge.ProxyARP,                                 config_parse_tristate,                          0,                                      offsetof(Network, bridge_proxy_arp)
+Bridge.ProxyARPWiFi,                             config_parse_tristate,                          0,                                      offsetof(Network, bridge_proxy_arp_wifi)
+Bridge.Priority,                                 config_parse_bridge_port_priority,              0,                                      offsetof(Network, priority)
+Bridge.MulticastRouter,                          config_parse_multicast_router,                  0,                                      offsetof(Network, multicast_router)
+Bridge.Locked,                                   config_parse_tristate,                          0,                                      offsetof(Network, bridge_locked)
+Bridge.MACAuthenticationBypass,                  config_parse_tristate,                          0,                                      offsetof(Network, bridge_mac_authentication_bypass)
+Bridge.VLANTunnel,                               config_parse_tristate,                          0,                                      offsetof(Network, bridge_vlan_tunnel)
+BridgeFDB.MACAddress,                            config_parse_fdb_hwaddr,                        0,                                      0
+BridgeFDB.VLANId,                                config_parse_fdb_vlan_id,                       0,                                      0
+BridgeFDB.Destination,                           config_parse_fdb_destination,                   0,                                      0
+BridgeFDB.VNI,                                   config_parse_fdb_vxlan_vni,                     0,                                      0
+BridgeFDB.AssociatedWith,                        config_parse_fdb_ntf_flags,                     0,                                      0
+BridgeFDB.OutgoingInterface,                     config_parse_fdb_interface,                     0,                                      0
+BridgeMDB.MulticastGroupAddress,                 config_parse_mdb_group_address,                 0,                                      0
+BridgeMDB.VLANId,                                config_parse_mdb_vlan_id,                       0,                                      0
+BridgeVLAN.PVID,                                 config_parse_bridge_vlan_id,                    0,                                      offsetof(Network, bridge_vlan_pvid)
+BridgeVLAN.VLAN,                                 config_parse_bridge_vlan_id_range,              0,                                      offsetof(Network, bridge_vlan_bitmap)
+BridgeVLAN.EgressUntagged,                       config_parse_bridge_vlan_id_range,              0,                                      offsetof(Network, bridge_vlan_untagged_bitmap)
+DHCPPrefixDelegation.UplinkInterface,            config_parse_uplink,                            0,                                      0
+DHCPPrefixDelegation.SubnetId,                   config_parse_dhcp_pd_subnet_id,                 0,                                      offsetof(Network, dhcp_pd_subnet_id)
+DHCPPrefixDelegation.Announce,                   config_parse_bool,                              0,                                      offsetof(Network, dhcp_pd_announce)
+DHCPPrefixDelegation.Assign,                     config_parse_bool,                              0,                                      offsetof(Network, dhcp_pd_assign)
+DHCPPrefixDelegation.ManageTemporaryAddress,     config_parse_bool,                              0,                                      offsetof(Network, dhcp_pd_manage_temporary_address)
+DHCPPrefixDelegation.Token,                      config_parse_address_generation_type,           0,                                      offsetof(Network, dhcp_pd_tokens)
+DHCPPrefixDelegation.RouteMetric,                config_parse_uint32,                            0,                                      offsetof(Network, dhcp_pd_route_metric)
+DHCPPrefixDelegation.NetLabel,                   config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp_pd_netlabel)
+DHCPPrefixDelegation.NFTSet,                     config_parse_nft_set,                           NFT_SET_PARSE_NETWORK,                  offsetof(Network, dhcp_pd_nft_set_context)
+IPv6SendRA.RouterLifetimeSec,                    config_parse_router_lifetime,                   0,                                      offsetof(Network, router_lifetime_usec)
+IPv6SendRA.ReachableTimeSec,                     config_parse_router_uint32_msec_usec,           0,                                      offsetof(Network, router_reachable_usec)
+IPv6SendRA.RetransmitSec,                        config_parse_router_uint32_msec_usec,           0,                                      offsetof(Network, router_retransmit_usec)
+IPv6SendRA.Managed,                              config_parse_bool,                              0,                                      offsetof(Network, router_managed)
+IPv6SendRA.OtherInformation,                     config_parse_bool,                              0,                                      offsetof(Network, router_other_information)
+IPv6SendRA.RouterPreference,                     config_parse_router_preference,                 0,                                      offsetof(Network, router_preference)
+IPv6SendRA.HopLimit,                             config_parse_uint8,                             0,                                      offsetof(Network, router_hop_limit)
+IPv6SendRA.EmitDNS,                              config_parse_bool,                              0,                                      offsetof(Network, router_emit_dns)
+IPv6SendRA.DNS,                                  config_parse_radv_dns,                          0,                                      0
+IPv6SendRA.EmitDomains,                          config_parse_bool,                              0,                                      offsetof(Network, router_emit_domains)
+IPv6SendRA.Domains,                              config_parse_radv_search_domains,               0,                                      0
+IPv6SendRA.DNSLifetimeSec,                       config_parse_sec,                               0,                                      offsetof(Network, router_dns_lifetime_usec)
+IPv6SendRA.UplinkInterface,                      config_parse_uplink,                            0,                                      0
+IPv6SendRA.HomeAgent,                            config_parse_bool,                              0,                                      offsetof(Network, router_home_agent_information)
+IPv6SendRA.HomeAgentLifetimeSec,                 config_parse_router_home_agent_lifetime,        0,                                      offsetof(Network, home_agent_lifetime_usec)
+IPv6SendRA.HomeAgentPreference,                  config_parse_uint16,                            0,                                      offsetof(Network, router_home_agent_preference)
+IPv6Prefix.Prefix,                               config_parse_prefix,                            0,                                      0
+IPv6Prefix.OnLink,                               config_parse_prefix_boolean,                    ND_OPT_PI_FLAG_ONLINK,                  0
+IPv6Prefix.AddressAutoconfiguration,             config_parse_prefix_boolean,                    ND_OPT_PI_FLAG_AUTO,                    0
+IPv6Prefix.ValidLifetimeSec,                     config_parse_prefix_lifetime,                   0,                                      0
+IPv6Prefix.PreferredLifetimeSec,                 config_parse_prefix_lifetime,                   0,                                      0
+IPv6Prefix.Assign,                               config_parse_prefix_boolean,                    0,                                      0
+IPv6Prefix.RouteMetric,                          config_parse_prefix_metric,                     0,                                      0
+IPv6Prefix.Token,                                config_parse_prefix_token,                      0,                                      0
+IPv6RoutePrefix.Route,                           config_parse_route_prefix,                      0,                                      0
+IPv6RoutePrefix.LifetimeSec,                     config_parse_route_prefix_lifetime,             0,                                      0
+IPv6RoutePrefix.Preference,                      config_parse_route_prefix_preference,           0,                                      0
+IPv6PREF64Prefix.Prefix,                         config_parse_pref64_prefix,                     0,                                      0
+IPv6PREF64Prefix.LifetimeSec,                    config_parse_pref64_prefix_lifetime,            0,                                      0
+LLDP.MUDURL,                                     config_parse_mud_url,                           0,                                      offsetof(Network, lldp_mudurl)
+CAN.BitRate,                                     config_parse_can_bitrate,                       0,                                      offsetof(Network, can_bitrate)
+CAN.SamplePoint,                                 config_parse_permille,                          0,                                      offsetof(Network, can_sample_point)
+CAN.TimeQuantaNSec,                              config_parse_can_time_quanta,                   0,                                      offsetof(Network, can_time_quanta_ns)
+CAN.PropagationSegment,                          config_parse_uint32,                            0,                                      offsetof(Network, can_propagation_segment)
+CAN.PhaseBufferSegment1,                         config_parse_uint32,                            0,                                      offsetof(Network, can_phase_buffer_segment_1)
+CAN.PhaseBufferSegment2,                         config_parse_uint32,                            0,                                      offsetof(Network, can_phase_buffer_segment_2)
+CAN.SyncJumpWidth,                               config_parse_uint32,                            0,                                      offsetof(Network, can_sync_jump_width)
+CAN.DataBitRate,                                 config_parse_can_bitrate,                       0,                                      offsetof(Network, can_data_bitrate)
+CAN.DataSamplePoint,                             config_parse_permille,                          0,                                      offsetof(Network, can_data_sample_point)
+CAN.DataTimeQuantaNSec,                          config_parse_can_time_quanta,                   0,                                      offsetof(Network, can_data_time_quanta_ns)
+CAN.DataPropagationSegment,                      config_parse_uint32,                            0,                                      offsetof(Network, can_data_propagation_segment)
+CAN.DataPhaseBufferSegment1,                     config_parse_uint32,                            0,                                      offsetof(Network, can_data_phase_buffer_segment_1)
+CAN.DataPhaseBufferSegment2,                     config_parse_uint32,                            0,                                      offsetof(Network, can_data_phase_buffer_segment_2)
+CAN.DataSyncJumpWidth,                           config_parse_uint32,                            0,                                      offsetof(Network, can_data_sync_jump_width)
+CAN.RestartSec,                                  config_parse_can_restart_usec,                  0,                                      offsetof(Network, can_restart_us)
+CAN.Loopback,                                    config_parse_can_control_mode,                  CAN_CTRLMODE_LOOPBACK,                  0
+CAN.ListenOnly,                                  config_parse_can_control_mode,                  CAN_CTRLMODE_LISTENONLY,                0
+CAN.TripleSampling,                              config_parse_can_control_mode,                  CAN_CTRLMODE_3_SAMPLES,                 0
+CAN.OneShot,                                     config_parse_can_control_mode,                  CAN_CTRLMODE_ONE_SHOT,                  0
+CAN.BusErrorReporting,                           config_parse_can_control_mode,                  CAN_CTRLMODE_BERR_REPORTING,            0
+CAN.FDMode,                                      config_parse_can_control_mode,                  CAN_CTRLMODE_FD,                        0
+CAN.PresumeACK,                                  config_parse_can_control_mode,                  CAN_CTRLMODE_PRESUME_ACK,               0
+CAN.FDNonISO,                                    config_parse_can_control_mode,                  CAN_CTRLMODE_FD_NON_ISO,                0
+CAN.ClassicDataLengthCode,                       config_parse_can_control_mode,                  CAN_CTRLMODE_CC_LEN8_DLC,               0
+CAN.Termination,                                 config_parse_can_termination,                   0,                                      0
+IPoIB.Mode,                                      config_parse_ipoib_mode,                        0,                                      offsetof(Network, ipoib_mode)
+IPoIB.IgnoreUserspaceMulticastGroups,            config_parse_tristate,                          0,                                      offsetof(Network, ipoib_umcast)
+QDisc.Parent,                                    config_parse_qdisc_parent,                      _QDISC_KIND_INVALID,                    0
+QDisc.Handle,                                    config_parse_qdisc_handle,                      _QDISC_KIND_INVALID,                    0
+BFIFO.Parent,                                    config_parse_qdisc_parent,                      QDISC_KIND_BFIFO,                       0
+BFIFO.Handle,                                    config_parse_qdisc_handle,                      QDISC_KIND_BFIFO,                       0
+BFIFO.LimitBytes,                                config_parse_bfifo_size,                        QDISC_KIND_BFIFO,                       0
+CAKE.Parent,                                     config_parse_qdisc_parent,                      QDISC_KIND_CAKE,                        0
+CAKE.Handle,                                     config_parse_qdisc_handle,                      QDISC_KIND_CAKE,                        0
+CAKE.Bandwidth,                                  config_parse_cake_bandwidth,                    QDISC_KIND_CAKE,                        0
+CAKE.AutoRateIngress,                            config_parse_cake_tristate,                     QDISC_KIND_CAKE,                        0
+CAKE.OverheadBytes,                              config_parse_cake_overhead,                     QDISC_KIND_CAKE,                        0
+CAKE.MPUBytes,                                   config_parse_cake_mpu,                          QDISC_KIND_CAKE,                        0
+CAKE.CompensationMode,                           config_parse_cake_compensation_mode,            QDISC_KIND_CAKE,                        0
+CAKE.UseRawPacketSize,                           config_parse_cake_tristate,                     QDISC_KIND_CAKE,                        0
+CAKE.FlowIsolationMode,                          config_parse_cake_flow_isolation_mode,          QDISC_KIND_CAKE,                        0
+CAKE.NAT,                                        config_parse_cake_tristate,                     QDISC_KIND_CAKE,                        0
+CAKE.PriorityQueueingPreset,                     config_parse_cake_priority_queueing_preset,     QDISC_KIND_CAKE,                        0
+CAKE.FirewallMark,                               config_parse_cake_fwmark,                       QDISC_KIND_CAKE,                        0
+CAKE.Wash,                                       config_parse_cake_tristate,                     QDISC_KIND_CAKE,                        0
+CAKE.SplitGSO,                                   config_parse_cake_tristate,                     QDISC_KIND_CAKE,                        0
+CAKE.RTTSec,                                     config_parse_cake_rtt,                          QDISC_KIND_CAKE,                        0
+CAKE.AckFilter,                                  config_parse_cake_ack_filter,                   QDISC_KIND_CAKE,                        0
+ControlledDelay.Parent,                          config_parse_qdisc_parent,                      QDISC_KIND_CODEL,                       0
+ControlledDelay.Handle,                          config_parse_qdisc_handle,                      QDISC_KIND_CODEL,                       0
+ControlledDelay.PacketLimit,                     config_parse_codel_u32,                         QDISC_KIND_CODEL,                       0
+ControlledDelay.TargetSec,                       config_parse_codel_usec,                        QDISC_KIND_CODEL,                       0
+ControlledDelay.IntervalSec,                     config_parse_codel_usec,                        QDISC_KIND_CODEL,                       0
+ControlledDelay.CEThresholdSec,                  config_parse_codel_usec,                        QDISC_KIND_CODEL,                       0
+ControlledDelay.ECN,                             config_parse_codel_bool,                        QDISC_KIND_CODEL,                       0
+DeficitRoundRobinScheduler.Parent,               config_parse_qdisc_parent,                      QDISC_KIND_DRR,                         0
+DeficitRoundRobinScheduler.Handle,               config_parse_qdisc_handle,                      QDISC_KIND_DRR,                         0
+DeficitRoundRobinSchedulerClass.Parent,          config_parse_tclass_parent,                     TCLASS_KIND_DRR,                        0
+DeficitRoundRobinSchedulerClass.ClassId,         config_parse_tclass_classid,                    TCLASS_KIND_DRR,                        0
+DeficitRoundRobinSchedulerClass.QuantumBytes,    config_parse_drr_size,                          TCLASS_KIND_DRR,                        0
+EnhancedTransmissionSelection.Parent,            config_parse_qdisc_parent,                      QDISC_KIND_ETS,                         0
+EnhancedTransmissionSelection.Handle,            config_parse_qdisc_handle,                      QDISC_KIND_ETS,                         0
+EnhancedTransmissionSelection.Bands,             config_parse_ets_u8,                            QDISC_KIND_ETS,                         0
+EnhancedTransmissionSelection.StrictBands,       config_parse_ets_u8,                            QDISC_KIND_ETS,                         0
+EnhancedTransmissionSelection.QuantumBytes,      config_parse_ets_quanta,                        QDISC_KIND_ETS,                         0
+EnhancedTransmissionSelection.PriorityMap,       config_parse_ets_prio,                          QDISC_KIND_ETS,                         0
+PFIFO.Parent,                                    config_parse_qdisc_parent,                      QDISC_KIND_PFIFO,                       0
+PFIFO.Handle,                                    config_parse_qdisc_handle,                      QDISC_KIND_PFIFO,                       0
+PFIFO.PacketLimit,                               config_parse_pfifo_size,                        QDISC_KIND_PFIFO,                       0
+PFIFOFast.Parent,                                config_parse_qdisc_parent,                      QDISC_KIND_PFIFO_FAST,                  0
+PFIFOFast.Handle,                                config_parse_qdisc_handle,                      QDISC_KIND_PFIFO_FAST,                  0
+PFIFOHeadDrop.Parent,                            config_parse_qdisc_parent,                      QDISC_KIND_PFIFO_HEAD_DROP,             0
+PFIFOHeadDrop.Handle,                            config_parse_qdisc_handle,                      QDISC_KIND_PFIFO_HEAD_DROP,             0
+PFIFOHeadDrop.PacketLimit,                       config_parse_pfifo_size,                        QDISC_KIND_PFIFO_HEAD_DROP,             0
+QuickFairQueueing.Parent,                        config_parse_qdisc_parent,                      QDISC_KIND_QFQ,                         0
+QuickFairQueueing.Handle,                        config_parse_qdisc_handle,                      QDISC_KIND_QFQ,                         0
+QuickFairQueueingClass.Parent,                   config_parse_tclass_parent,                     TCLASS_KIND_QFQ,                        0
+QuickFairQueueingClass.ClassId,                  config_parse_tclass_classid,                    TCLASS_KIND_QFQ,                        0
+QuickFairQueueingClass.Weight,                   config_parse_qfq_weight,                        TCLASS_KIND_QFQ,                        0
+QuickFairQueueingClass.MaxPacketBytes,           config_parse_qfq_max_packet,                    TCLASS_KIND_QFQ,                        0
+FairQueueing.Parent,                             config_parse_qdisc_parent,                      QDISC_KIND_FQ,                          0
+FairQueueing.Handle,                             config_parse_qdisc_handle,                      QDISC_KIND_FQ,                          0
+FairQueueing.PacketLimit,                        config_parse_fq_u32,                            QDISC_KIND_FQ,                          0
+FairQueueing.FlowLimit,                          config_parse_fq_u32,                            QDISC_KIND_FQ,                          0
+FairQueueing.QuantumBytes,                       config_parse_fq_size,                           QDISC_KIND_FQ,                          0
+FairQueueing.InitialQuantumBytes,                config_parse_fq_size,                           QDISC_KIND_FQ,                          0
+FairQueueing.MaximumRate,                        config_parse_fq_max_rate,                       QDISC_KIND_FQ,                          0
+FairQueueing.Buckets,                            config_parse_fq_u32,                            QDISC_KIND_FQ,                          0
+FairQueueing.OrphanMask,                         config_parse_fq_u32,                            QDISC_KIND_FQ,                          0
+FairQueueing.Pacing,                             config_parse_fq_bool,                           QDISC_KIND_FQ,                          0
+FairQueueing.CEThresholdSec,                     config_parse_fq_usec,                           QDISC_KIND_FQ,                          0
+FairQueueingControlledDelay.Parent,              config_parse_qdisc_parent,                      QDISC_KIND_FQ_CODEL,                    0
+FairQueueingControlledDelay.Handle,              config_parse_qdisc_handle,                      QDISC_KIND_FQ_CODEL,                    0
+FairQueueingControlledDelay.PacketLimit,         config_parse_fq_codel_u32,                      QDISC_KIND_FQ_CODEL,                    0
+FairQueueingControlledDelay.MemoryLimitBytes,    config_parse_fq_codel_size,                     QDISC_KIND_FQ_CODEL,                    0
+FairQueueingControlledDelay.Flows,               config_parse_fq_codel_u32,                      QDISC_KIND_FQ_CODEL,                    0
+FairQueueingControlledDelay.QuantumBytes,        config_parse_fq_codel_size,                     QDISC_KIND_FQ_CODEL,                    0
+FairQueueingControlledDelay.TargetSec,           config_parse_fq_codel_usec,                     QDISC_KIND_FQ_CODEL,                    0
+FairQueueingControlledDelay.IntervalSec,         config_parse_fq_codel_usec,                     QDISC_KIND_FQ_CODEL,                    0
+FairQueueingControlledDelay.CEThresholdSec,      config_parse_fq_codel_usec,                     QDISC_KIND_FQ_CODEL,                    0
+FairQueueingControlledDelay.ECN,                 config_parse_fq_codel_bool,                     QDISC_KIND_FQ_CODEL,                    0
+FlowQueuePIE.Parent,                             config_parse_qdisc_parent,                      QDISC_KIND_FQ_PIE,                      0
+FlowQueuePIE.Handle,                             config_parse_qdisc_handle,                      QDISC_KIND_FQ_PIE,                      0
+FlowQueuePIE.PacketLimit,                        config_parse_fq_pie_packet_limit,               QDISC_KIND_FQ_PIE,                      0
+GenericRandomEarlyDetection.Parent,              config_parse_qdisc_parent,                      QDISC_KIND_GRED,                        0
+GenericRandomEarlyDetection.Handle,              config_parse_qdisc_handle,                      QDISC_KIND_GRED,                        0
+GenericRandomEarlyDetection.VirtualQueues,       config_parse_gred_u32,                          QDISC_KIND_GRED,                        0
+GenericRandomEarlyDetection.DefaultVirtualQueue, config_parse_gred_u32,                          QDISC_KIND_GRED,                        0
+GenericRandomEarlyDetection.GenericRIO,          config_parse_gred_bool,                         QDISC_KIND_GRED,                        0
+HeavyHitterFilter.Parent,                        config_parse_qdisc_parent,                      QDISC_KIND_HHF,                         0
+HeavyHitterFilter.Handle,                        config_parse_qdisc_handle,                      QDISC_KIND_HHF,                         0
+HeavyHitterFilter.PacketLimit,                   config_parse_hhf_packet_limit,                  QDISC_KIND_HHF,                         0
+HierarchyTokenBucket.Parent,                     config_parse_qdisc_parent,                      QDISC_KIND_HTB,                         0
+HierarchyTokenBucket.Handle,                     config_parse_qdisc_handle,                      QDISC_KIND_HTB,                         0
+HierarchyTokenBucket.DefaultClass,               config_parse_htb_default_class,                 QDISC_KIND_HTB,                         0
+HierarchyTokenBucket.RateToQuantum,              config_parse_htb_u32,                           QDISC_KIND_HTB,                         0
+HierarchyTokenBucketClass.Parent,                config_parse_tclass_parent,                     TCLASS_KIND_HTB,                        0
+HierarchyTokenBucketClass.ClassId,               config_parse_tclass_classid,                    TCLASS_KIND_HTB,                        0
+HierarchyTokenBucketClass.Priority,              config_parse_htb_class_u32,                     TCLASS_KIND_HTB,                        0
+HierarchyTokenBucketClass.QuantumBytes,          config_parse_htb_class_size,                    TCLASS_KIND_HTB,                        0
+HierarchyTokenBucketClass.MTUBytes,              config_parse_htb_class_size,                    TCLASS_KIND_HTB,                        0
+HierarchyTokenBucketClass.OverheadBytes,         config_parse_htb_class_size,                    TCLASS_KIND_HTB,                        0
+HierarchyTokenBucketClass.Rate,                  config_parse_htb_class_rate,                    TCLASS_KIND_HTB,                        0
+HierarchyTokenBucketClass.CeilRate,              config_parse_htb_class_rate,                    TCLASS_KIND_HTB,                        0
+HierarchyTokenBucketClass.BufferBytes,           config_parse_htb_class_size,                    TCLASS_KIND_HTB,                        0
+HierarchyTokenBucketClass.CeilBufferBytes,       config_parse_htb_class_size,                    TCLASS_KIND_HTB,                        0
+ClassfulMultiQueueing.Parent,                    config_parse_qdisc_parent,                      QDISC_KIND_MQ,                          0
+ClassfulMultiQueueing.Handle,                    config_parse_qdisc_handle,                      QDISC_KIND_MQ,                          0
+BandMultiQueueing.Parent,                        config_parse_qdisc_parent,                      QDISC_KIND_MULTIQ,                      0
+BandMultiQueueing.Handle,                        config_parse_qdisc_handle,                      QDISC_KIND_MULTIQ,                      0
+NetworkEmulator.Parent,                          config_parse_qdisc_parent,                      QDISC_KIND_NETEM,                       0
+NetworkEmulator.Handle,                          config_parse_qdisc_handle,                      QDISC_KIND_NETEM,                       0
+NetworkEmulator.DelaySec,                        config_parse_netem_delay,                       QDISC_KIND_NETEM,                       0
+NetworkEmulator.DelayJitterSec,                  config_parse_netem_delay,                       QDISC_KIND_NETEM,                       0
+NetworkEmulator.LossRate,                        config_parse_netem_rate,                        QDISC_KIND_NETEM,                       0
+NetworkEmulator.DuplicateRate,                   config_parse_netem_rate,                        QDISC_KIND_NETEM,                       0
+NetworkEmulator.PacketLimit,                     config_parse_netem_packet_limit,                QDISC_KIND_NETEM,                       0
+PIE.Parent,                                      config_parse_qdisc_parent,                      QDISC_KIND_PIE,                         0
+PIE.Handle,                                      config_parse_qdisc_handle,                      QDISC_KIND_PIE,                         0
+PIE.PacketLimit,                                 config_parse_pie_packet_limit,                  QDISC_KIND_PIE,                         0
+StochasticFairBlue.Parent,                       config_parse_qdisc_parent,                      QDISC_KIND_SFB,                         0
+StochasticFairBlue.Handle,                       config_parse_qdisc_handle,                      QDISC_KIND_SFB,                         0
+StochasticFairBlue.PacketLimit,                  config_parse_sfb_u32,                           QDISC_KIND_SFB,                         0
+StochasticFairnessQueueing.Parent,               config_parse_qdisc_parent,                      QDISC_KIND_SFQ,                         0
+StochasticFairnessQueueing.Handle,               config_parse_qdisc_handle,                      QDISC_KIND_SFQ,                         0
+StochasticFairnessQueueing.PerturbPeriodSec,     config_parse_sfq_perturb_period,                QDISC_KIND_SFQ,                         0
+TokenBucketFilter.Parent,                        config_parse_qdisc_parent,                      QDISC_KIND_TBF,                         0
+TokenBucketFilter.Handle,                        config_parse_qdisc_handle,                      QDISC_KIND_TBF,                         0
+TokenBucketFilter.Rate,                          config_parse_tbf_rate,                          QDISC_KIND_TBF,                         0
+TokenBucketFilter.BurstBytes,                    config_parse_tbf_size,                          QDISC_KIND_TBF,                         0
+TokenBucketFilter.LimitBytes,                    config_parse_tbf_size,                          QDISC_KIND_TBF,                         0
+TokenBucketFilter.MTUBytes,                      config_parse_tbf_size,                          QDISC_KIND_TBF,                         0
+TokenBucketFilter.MPUBytes,                      config_parse_tbf_size,                          QDISC_KIND_TBF,                         0
+TokenBucketFilter.PeakRate,                      config_parse_tbf_rate,                          QDISC_KIND_TBF,                         0
+TokenBucketFilter.LatencySec,                    config_parse_tbf_latency,                       QDISC_KIND_TBF,                         0
+TrivialLinkEqualizer.Parent,                     config_parse_qdisc_parent,                      QDISC_KIND_TEQL,                        0
+TrivialLinkEqualizer.Handle,                     config_parse_qdisc_handle,                      QDISC_KIND_TEQL,                        0
+TrivialLinkEqualizer.Id,                         config_parse_teql_id,                           QDISC_KIND_TEQL,                        0
 /* backwards compatibility: do not add new entries to this section */
-Network.IPv4LL,                              config_parse_ipv4ll,                                      0,                             offsetof(Network, link_local)
-Network.IPv6Token,                           config_parse_address_generation_type,                     0,                             offsetof(Network, ndisc_tokens)
-Network.IPv6PrefixDelegation,                config_parse_router_prefix_delegation,                    0,                             offsetof(Network, router_prefix_delegation)
-Network.DHCPv6PrefixDelegation,              config_parse_tristate,                                    0,                             offsetof(Network, dhcp_pd)
-IPv6PrefixDelegation.RouterLifetimeSec,      config_parse_sec,                                         0,                             offsetof(Network, router_lifetime_usec)
-IPv6PrefixDelegation.Managed,                config_parse_bool,                                        0,                             offsetof(Network, router_managed)
-IPv6PrefixDelegation.OtherInformation,       config_parse_bool,                                        0,                             offsetof(Network, router_other_information)
-IPv6PrefixDelegation.RouterPreference,       config_parse_router_preference,                           0,                             offsetof(Network, router_preference)
-IPv6PrefixDelegation.EmitDNS,                config_parse_bool,                                        0,                             offsetof(Network, router_emit_dns)
-IPv6PrefixDelegation.DNS,                    config_parse_radv_dns,                                    0,                             0
-IPv6PrefixDelegation.EmitDomains,            config_parse_bool,                                        0,                             offsetof(Network, router_emit_domains)
-IPv6PrefixDelegation.Domains,                config_parse_radv_search_domains,                         0,                             0
-IPv6PrefixDelegation.DNSLifetimeSec,         config_parse_sec,                                         0,                             offsetof(Network, router_dns_lifetime_usec)
-DHCPv4.BlackList,                            config_parse_in_addr_prefixes,                            AF_INET,                       offsetof(Network, dhcp_deny_listed_ip)
-DHCP.ClientIdentifier,                       config_parse_dhcp_client_identifier,                      0,                             offsetof(Network, dhcp_client_identifier)
-DHCP.UseDNS,                                 config_parse_tristate,                                    0,                             offsetof(Network, compat_dhcp_use_dns)
-DHCP.UseNTP,                                 config_parse_tristate,                                    0,                             offsetof(Network, compat_dhcp_use_ntp)
-DHCP.UseMTU,                                 config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_mtu)
-DHCP.UseHostname,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_hostname)
-DHCP.UseDomains,                             config_parse_use_domains,                                 0,                             offsetof(Network, compat_dhcp_use_domains)
-DHCP.UseDomainName,                          config_parse_use_domains,                                 0,                             offsetof(Network, compat_dhcp_use_domains)
-DHCP.UseRoutes,                              config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_routes)
-DHCP.Anonymize,                              config_parse_bool,                                        0,                             offsetof(Network, dhcp_anonymize)
-DHCP.SendHostname,                           config_parse_dhcp_send_hostname,                          AF_UNSPEC,                     0
-DHCP.Hostname,                               config_parse_hostname,                                    0,                             offsetof(Network, dhcp_hostname)
-DHCP.RequestBroadcast,                       config_parse_tristate,                                    0,                             offsetof(Network, dhcp_broadcast)
-DHCP.CriticalConnection,                     config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
-DHCP.VendorClassIdentifier,                  config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_vendor_class_identifier)
-DHCP.UserClass,                              config_parse_dhcp_user_or_vendor_class,                   AF_INET,                       offsetof(Network, dhcp_user_class)
-DHCP.IAID,                                   config_parse_iaid,                                        AF_INET,                       0
-DHCP.DUIDType,                               config_parse_network_duid_type,                           0,                             0
-DHCP.DUIDRawData,                            config_parse_network_duid_rawdata,                        0,                             0
-DHCP.RouteMetric,                            config_parse_dhcp_route_metric,                           AF_UNSPEC,                     0
-DHCP.RouteTable,                             config_parse_dhcp_or_ra_route_table,                      AF_INET,                       0
-DHCP.UseTimezone,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp_use_timezone)
-DHCP.ListenPort,                             config_parse_uint16,                                      0,                             offsetof(Network, dhcp_client_port)
-DHCP.RapidCommit,                            config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_rapid_commit)
-DHCP.ForceDHCPv6PDOtherInformation,          config_parse_warn_compat,                                 DISABLED_LEGACY,               0
-DHCPv4.UseDomainName,                        config_parse_use_domains,                                 0,                             offsetof(Network, dhcp_use_domains)
-DHCPv4.CriticalConnection,                   config_parse_tristate,                                    0,                             offsetof(Network, dhcp_critical)
-DHCPv6.RouteMetric,                          config_parse_ndisc_route_metric,                          AF_INET6,                      0
-DHCPv6.ForceDHCPv6PDOtherInformation,        config_parse_warn_compat,                                 DISABLED_LEGACY,               0
-DHCPv6PrefixDelegation.SubnetId,             config_parse_dhcp_pd_subnet_id,                           0,                             offsetof(Network, dhcp_pd_subnet_id)
-DHCPv6PrefixDelegation.Announce,             config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_announce)
-DHCPv6PrefixDelegation.Assign,               config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_assign)
-DHCPv6PrefixDelegation.ManageTemporaryAddress, config_parse_bool,                                      0,                             offsetof(Network, dhcp_pd_manage_temporary_address)
-DHCPv6PrefixDelegation.Token,                config_parse_address_generation_type,                     0,                             offsetof(Network, dhcp_pd_tokens)
-DHCPv6PrefixDelegation.RouteMetric,          config_parse_uint32,                                      0,                             offsetof(Network, dhcp_pd_route_metric)
-IPv6AcceptRA.DenyList,                       config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
-IPv6AcceptRA.BlackList,                      config_parse_in_addr_prefixes,                            AF_INET6,                      offsetof(Network, ndisc_deny_listed_prefix)
-IPv6AcceptRA.UseICMP6RateLimit,              config_parse_warn_compat,                                 DISABLED_LEGACY,               0
-TrafficControlQueueingDiscipline.Parent,                        config_parse_qdisc_parent,             _QDISC_KIND_INVALID,           0
-TrafficControlQueueingDiscipline.NetworkEmulatorDelaySec,       config_parse_network_emulator_delay,   0,                             0
-TrafficControlQueueingDiscipline.NetworkEmulatorDelayJitterSec, config_parse_network_emulator_delay,   0,                             0
-TrafficControlQueueingDiscipline.NetworkEmulatorLossRate,       config_parse_network_emulator_rate,    0,                             0
-TrafficControlQueueingDiscipline.NetworkEmulatorDuplicateRate,  config_parse_network_emulator_rate,    0,                             0
-TrafficControlQueueingDiscipline.NetworkEmulatorPacketLimit,    config_parse_network_emulator_packet_limit, 0,                        0
-FairQueueing.Quantum,                        config_parse_fair_queueing_size,                          QDISC_KIND_FQ,                 0
-FairQueueing.InitialQuantum,                 config_parse_fair_queueing_size,                          QDISC_KIND_FQ,                 0
-FairQueueingControlledDelay.MemoryLimit,     config_parse_fair_queueing_controlled_delay_size,         QDISC_KIND_FQ_CODEL,           0
-FairQueueingControlledDelay.Quantum,         config_parse_fair_queueing_controlled_delay_size,         QDISC_KIND_FQ_CODEL,           0
-TokenBucketFilter.Burst,                     config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
-TokenBucketFilter.LimitSize,                 config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
+Network.IPv4LL,                                  config_parse_ipv4ll,                            0,                                      offsetof(Network, link_local)
+Network.IPv6Token,                               config_parse_address_generation_type,           0,                                      offsetof(Network, ndisc_tokens)
+Network.IPv6PrefixDelegation,                    config_parse_router_prefix_delegation,          0,                                      offsetof(Network, router_prefix_delegation)
+Network.DHCPv6PrefixDelegation,                  config_parse_tristate,                          0,                                      offsetof(Network, dhcp_pd)
+IPv6PrefixDelegation.RouterLifetimeSec,          config_parse_sec,                               0,                                      offsetof(Network, router_lifetime_usec)
+IPv6PrefixDelegation.Managed,                    config_parse_bool,                              0,                                      offsetof(Network, router_managed)
+IPv6PrefixDelegation.OtherInformation,           config_parse_bool,                              0,                                      offsetof(Network, router_other_information)
+IPv6PrefixDelegation.RouterPreference,           config_parse_router_preference,                 0,                                      offsetof(Network, router_preference)
+IPv6PrefixDelegation.EmitDNS,                    config_parse_bool,                              0,                                      offsetof(Network, router_emit_dns)
+IPv6PrefixDelegation.DNS,                        config_parse_radv_dns,                          0,                                      0
+IPv6PrefixDelegation.EmitDomains,                config_parse_bool,                              0,                                      offsetof(Network, router_emit_domains)
+IPv6PrefixDelegation.Domains,                    config_parse_radv_search_domains,               0,                                      0
+IPv6PrefixDelegation.DNSLifetimeSec,             config_parse_sec,                               0,                                      offsetof(Network, router_dns_lifetime_usec)
+DHCPv4.BlackList,                                config_parse_in_addr_prefixes,                  AF_INET,                                offsetof(Network, dhcp_deny_listed_ip)
+DHCP.ClientIdentifier,                           config_parse_dhcp_client_identifier,            0,                                      offsetof(Network, dhcp_client_identifier)
+DHCP.UseDNS,                                     config_parse_tristate,                          0,                                      offsetof(Network, compat_dhcp_use_dns)
+DHCP.UseNTP,                                     config_parse_tristate,                          0,                                      offsetof(Network, compat_dhcp_use_ntp)
+DHCP.UseMTU,                                     config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_mtu)
+DHCP.UseHostname,                                config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_hostname)
+DHCP.UseDomains,                                 config_parse_use_domains,                       0,                                      offsetof(Network, compat_dhcp_use_domains)
+DHCP.UseDomainName,                              config_parse_use_domains,                       0,                                      offsetof(Network, compat_dhcp_use_domains)
+DHCP.UseRoutes,                                  config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_routes)
+DHCP.Anonymize,                                  config_parse_bool,                              0,                                      offsetof(Network, dhcp_anonymize)
+DHCP.SendHostname,                               config_parse_dhcp_send_hostname,                AF_UNSPEC,                              0
+DHCP.Hostname,                                   config_parse_hostname,                          0,                                      offsetof(Network, dhcp_hostname)
+DHCP.RequestBroadcast,                           config_parse_tristate,                          0,                                      offsetof(Network, dhcp_broadcast)
+DHCP.CriticalConnection,                         config_parse_tristate,                          0,                                      offsetof(Network, dhcp_critical)
+DHCP.VendorClassIdentifier,                      config_parse_string,                            CONFIG_PARSE_STRING_SAFE,               offsetof(Network, dhcp_vendor_class_identifier)
+DHCP.UserClass,                                  config_parse_dhcp_user_or_vendor_class,         AF_INET,                                offsetof(Network, dhcp_user_class)
+DHCP.IAID,                                       config_parse_iaid,                              AF_INET,                                0
+DHCP.DUIDType,                                   config_parse_network_duid_type,                 0,                                      0
+DHCP.DUIDRawData,                                config_parse_network_duid_rawdata,              0,                                      0
+DHCP.RouteMetric,                                config_parse_dhcp_route_metric,                 AF_UNSPEC,                              0
+DHCP.RouteTable,                                 config_parse_dhcp_or_ra_route_table,            AF_INET,                                0
+DHCP.UseTimezone,                                config_parse_bool,                              0,                                      offsetof(Network, dhcp_use_timezone)
+DHCP.ListenPort,                                 config_parse_uint16,                            0,                                      offsetof(Network, dhcp_client_port)
+DHCP.RapidCommit,                                config_parse_bool,                              0,                                      offsetof(Network, dhcp6_use_rapid_commit)
+DHCP.ForceDHCPv6PDOtherInformation,              config_parse_warn_compat,                       DISABLED_LEGACY,                        0
+DHCPv4.UseDomainName,                            config_parse_use_domains,                       0,                                      offsetof(Network, dhcp_use_domains)
+DHCPv4.CriticalConnection,                       config_parse_tristate,                          0,                                      offsetof(Network, dhcp_critical)
+DHCPv6.RouteMetric,                              config_parse_ndisc_route_metric,                AF_INET6,                               0
+DHCPv6.ForceDHCPv6PDOtherInformation,            config_parse_warn_compat,                       DISABLED_LEGACY,                        0
+DHCPv6PrefixDelegation.SubnetId,                 config_parse_dhcp_pd_subnet_id,                 0,                                      offsetof(Network, dhcp_pd_subnet_id)
+DHCPv6PrefixDelegation.Announce,                 config_parse_bool,                              0,                                      offsetof(Network, dhcp_pd_announce)
+DHCPv6PrefixDelegation.Assign,                   config_parse_bool,                              0,                                      offsetof(Network, dhcp_pd_assign)
+DHCPv6PrefixDelegation.ManageTemporaryAddress,   config_parse_bool,                              0,                                      offsetof(Network, dhcp_pd_manage_temporary_address)
+DHCPv6PrefixDelegation.Token,                    config_parse_address_generation_type,           0,                                      offsetof(Network, dhcp_pd_tokens)
+DHCPv6PrefixDelegation.RouteMetric,              config_parse_uint32,                            0,                                      offsetof(Network, dhcp_pd_route_metric)
+IPv6AcceptRA.DenyList,                           config_parse_in_addr_prefixes,                  AF_INET6,                               offsetof(Network, ndisc_deny_listed_prefix)
+IPv6AcceptRA.BlackList,                          config_parse_in_addr_prefixes,                  AF_INET6,                               offsetof(Network, ndisc_deny_listed_prefix)
+IPv6AcceptRA.UseICMP6RateLimit,                  config_parse_warn_compat,                       DISABLED_LEGACY,                        0
+TrafficControlQueueingDiscipline.Parent,                        config_parse_qdisc_parent,       _QDISC_KIND_INVALID,                    0
+TrafficControlQueueingDiscipline.NetworkEmulatorDelaySec,       config_parse_netem_delay,        0,                                      0
+TrafficControlQueueingDiscipline.NetworkEmulatorDelayJitterSec, config_parse_netem_delay,        0,                                      0
+TrafficControlQueueingDiscipline.NetworkEmulatorLossRate,       config_parse_netem_rate,         0,                                      0
+TrafficControlQueueingDiscipline.NetworkEmulatorDuplicateRate,  config_parse_netem_rate,         0,                                      0
+TrafficControlQueueingDiscipline.NetworkEmulatorPacketLimit,    config_parse_netem_packet_limit, 0,                                      0
+FairQueueing.Quantum,                            config_parse_fq_size,                           QDISC_KIND_FQ,                          0
+FairQueueing.InitialQuantum,                     config_parse_fq_size,                           QDISC_KIND_FQ,                          0
+FairQueueingControlledDelay.MemoryLimit,         config_parse_fq_codel_size,                     QDISC_KIND_FQ_CODEL,                    0
+FairQueueingControlledDelay.Quantum,             config_parse_fq_codel_size,                     QDISC_KIND_FQ_CODEL,                    0
+TokenBucketFilter.Burst,                         config_parse_tbf_size,                          QDISC_KIND_TBF,                         0
+TokenBucketFilter.LimitSize,                     config_parse_tbf_size,                          QDISC_KIND_TBF,                         0

@@ -41,7 +41,7 @@ const QDiscVTable teql_vtable = {
         .is_ready = trivial_link_equalizer_is_ready,
 };
 
-int config_parse_trivial_link_equalizer_id(
+int config_parse_teql_id(
                 const char *unit,
                 const char *filename,
                 unsigned line,
