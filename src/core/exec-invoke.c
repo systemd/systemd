@@ -3985,7 +3985,7 @@ static int apply_working_directory(
 
                 r = chase(wd,
                           runtime->ephemeral_copy ?: context->root_directory,
-                          CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT,
+                          CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS,
                           /* ret_path= */ NULL,
                           &dfd);
                 if (r >= 0)
