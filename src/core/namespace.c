@@ -1793,7 +1793,7 @@ static int follow_symlink(
          * a time by specifying CHASE_STEP. This function returns 0 if we resolved one step, and > 0 if we reached the
          * end and already have a fully normalized name. */
 
-        r = chase(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT, &target, NULL);
+        r = chase(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT|CHASE_AUTOFS, &target, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to chase symlinks '%s': %m", mount_entry_path(m));
         if (r > 0) /* Reached the end, nothing more to resolve */
@@ -1991,7 +1991,7 @@ static int apply_one_mount(
                                 return log_error_errno(r, "Failed to set label of the source directory %s: %m", mount_entry_source(m));
                 }
 
-                r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased, NULL);
+                r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH|CHASE_AUTOFS, &chased, NULL);
                 if (r == -ENOENT && m->ignore) {
                         log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_source(m));
                         return 0;
@@ -3434,7 +3434,7 @@ static int is_extension_overlay(const char *path, int fd) {
         assert(path);
 
         if (fd < 0) {
-                r = chase(path, /* root= */ NULL, CHASE_TRAIL_SLASH|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &dfd);
+                r = chase(path, /* root= */ NULL, CHASE_TRAIL_SLASH|CHASE_MUST_BE_DIRECTORY|CHASE_AUTOFS, /* ret_path= */ NULL, &dfd);
                 if (r < 0)
                         return r;
                 fd = dfd;

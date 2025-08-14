@@ -24,7 +24,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 { "prefix-root",         no_argument,       NULL, CHASE_PREFIX_ROOT       },
                 { "nonexistent",         no_argument,       NULL, CHASE_NONEXISTENT       },
-                { "no_autofs",           no_argument,       NULL, CHASE_NO_AUTOFS         },
+                { "autofs",              no_argument,       NULL, CHASE_AUTOFS            },
                 { "safe",                no_argument,       NULL, CHASE_SAFE              },
                 { "trail-slash",         no_argument,       NULL, CHASE_TRAIL_SLASH       },
                 { "step",                no_argument,       NULL, CHASE_STEP              },
@@ -60,7 +60,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case CHASE_PREFIX_ROOT:
                 case CHASE_NONEXISTENT:
-                case CHASE_NO_AUTOFS:
+                case CHASE_AUTOFS:
                 case CHASE_SAFE:
                 case CHASE_TRAIL_SLASH:
                 case CHASE_STEP:

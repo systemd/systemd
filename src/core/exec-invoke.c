@@ -3079,7 +3079,7 @@ static int setup_exec_directory(
                                  * since they all support the private/ symlink logic at least in some
                                  * configurations, see above. */
 
-                                r = chase(target, NULL, 0, &target_resolved, NULL);
+                                r = chase(target, NULL, CHASE_AUTOFS, &target_resolved, NULL);
                                 if (r < 0)
                                         goto fail;
 
@@ -3090,7 +3090,7 @@ static int setup_exec_directory(
                                 }
 
                                 /* /var/lib or friends may be symlinks. So, let's chase them also. */
-                                r = chase(q, NULL, CHASE_NONEXISTENT, &q_resolved, NULL);
+                                r = chase(q, NULL, CHASE_NONEXISTENT|CHASE_AUTOFS, &q_resolved, NULL);
                                 if (r < 0)
                                         goto fail;
 
@@ -3985,7 +3985,7 @@ static int apply_working_directory(
 
                 r = chase(wd,
                           runtime->ephemeral_copy ?: context->root_directory,
-                          CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT,
+                          CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_AUTOFS,
                           /* ret_path= */ NULL,
                           &dfd);
                 if (r >= 0)

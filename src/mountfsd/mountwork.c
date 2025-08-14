@@ -176,7 +176,7 @@ static int verify_trusted_image_fd_by_path(int fd) {
                         struct stat stb;
                         const char *e;
 
-                        r = chase(s, NULL, CHASE_SAFE, &q, &dir_fd);
+                        r = chase(s, NULL, CHASE_SAFE|CHASE_AUTOFS, &q, &dir_fd);
                         if (r == -ENOENT)
                                 continue;
                         if (r < 0) {
@@ -194,7 +194,7 @@ static int verify_trusted_image_fd_by_path(int fd) {
                         if (!filename_is_valid(e))
                                 continue;
 
-                        r = chaseat(dir_fd, e, CHASE_SAFE, NULL, &inode_fd);
+                        r = chaseat(dir_fd, e, CHASE_SAFE|CHASE_AUTOFS, NULL, &inode_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Couldn't verify that specified image '%s' is in search path '%s': %m", p, s);
 
