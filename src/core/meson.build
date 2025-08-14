@@ -51,6 +51,7 @@ libcore_sources = files(
         'selinux-access.c',
         'service.c',
         'show-status.c',
+        'shutdown-stats.c',
         'slice.c',
         'socket.c',
         'swap.c',
