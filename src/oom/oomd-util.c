@@ -11,6 +11,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "process-util.h"
 #include "procfs-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -231,11 +232,50 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
         return (int) k;
 }
 
-int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
+static int oomd_prekill_hook(const char *path, struct PrekillHook *hook)
+{
+        assert(path);
+        assert(hook);
+
+        int ret_pid;
+        int r;
+
+        r = safe_fork("(sd-oomd-prekill-hook)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &ret_pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork pre-kill hook: %m");
+        if (r == 0) {
+                const char *args[] = {
+                        hook->path,
+                        path,
+                        NULL
+                };
+                execv(hook->path, (char**) args);
+                _exit(EXIT_FAILURE);
+        }
+        r = wait_for_terminate_with_timeout(ret_pid, hook->timeout_usec);
+        if (r == -ETIMEDOUT) {
+                log_warning("Pre-kill hook %s timed out", hook->path);
+                return r;
+        }
+        if (r < 0) {
+                log_warning_errno(r, "Pre-kill hook %s failed: %m", hook->path);
+                return r;
+        }
+
+        return 0;
+}
+
+int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run, struct PrekillHook *hook) {
         _cleanup_set_free_ Set *pids_killed = NULL;
         int r;
 
         assert(path);
+
+        if (hook && hook->path) {
+                r = oomd_prekill_hook(path, hook);
+                if (r < 0)
+                        log_warning_errno(r, "Pre-kill hook failed for %s: %m", path);
+        }
 
         if (dry_run) {
                 _cleanup_free_ char *cg_path = NULL;
@@ -317,7 +357,7 @@ static int dump_kill_candidates(
         return memstream_dump(LOG_INFO, &m);
 }
 
-int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected) {
+int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected, struct PrekillHook *hook) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         const OomdCGroupContext *killed = NULL;
         int n, r, ret = 0;
@@ -337,7 +377,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                 if (c->pgscan == 0 && c->current_memory_usage == 0)
                         continue;
 
-                r = oomd_cgroup_kill(c->path, /* recurse= */ true, /* dry_run= */ dry_run);
+                r = oomd_cgroup_kill(c->path, /* recurse= */ true, /* dry_run= */ dry_run, hook);
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
                 if (r < 0) {
@@ -358,7 +398,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
         return ret;
 }
 
-int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected) {
+int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected, struct PrekillHook *hook) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         const OomdCGroupContext *killed = NULL;
         int n, r, ret = 0;
@@ -381,7 +421,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                 if (c->swap_usage <= threshold_usage)
                         continue;
 
-                r = oomd_cgroup_kill(c->path, /* recurse= */ true, /* dry_run= */ dry_run);
+                r = oomd_cgroup_kill(c->path, /* recurse= */ true, /* dry_run= */ dry_run, hook);
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
                 if (r < 0) {
