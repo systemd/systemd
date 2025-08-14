@@ -22,8 +22,8 @@ typedef struct FairQueueing {
 DEFINE_QDISC_CAST(FQ, FairQueueing);
 extern const QDiscVTable fq_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_u32);
-CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_size);
-CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_bool);
-CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_usec);
-CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_max_rate);
+CONFIG_PARSER_PROTOTYPE(config_parse_fq_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_fq_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_fq_bool);
+CONFIG_PARSER_PROTOTYPE(config_parse_fq_usec);
+CONFIG_PARSER_PROTOTYPE(config_parse_fq_max_rate);
