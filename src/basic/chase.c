@@ -21,6 +21,7 @@
 #define CHASE_NO_SHORTCUT_MASK                          \
         (CHASE_NONEXISTENT |                            \
          CHASE_NO_AUTOFS |                              \
+         CHASE_TRIGGER_AUTOFS |                         \
          CHASE_SAFE |                                   \
          CHASE_STEP |                                   \
          CHASE_PROHIBIT_SYMLINKS |                      \
@@ -92,7 +93,7 @@ static int openat_opath_with_automount(int dir_fd, const char *path, bool automo
 
         /* Pin an inode via O_PATH semantics. Sounds pretty obvious to do this, right? You just do open()
          * with O_PATH, and there you go. But uh, it's not that easy. open() via O_PATH does not trigger
-         * automounts, but we usually want that (except if CHASE_NO_AUTOFS is used). But thankfully there's
+         * automounts, but we may want that when CHASE_TRIGGER_AUTOFS is set. But thankfully there's
          * a way out: the newer open_tree() call, when specified without OPEN_TREE_CLONE actually is fully
          * equivalent to open() with O_PATH – except for one thing: it triggers automounts.
          *
@@ -133,6 +134,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
         assert(!FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
+        assert(!FLAGS_SET(flags, CHASE_NO_AUTOFS|CHASE_TRIGGER_AUTOFS));
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         if (FLAGS_SET(flags, CHASE_STEP))
@@ -401,7 +403,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 }
 
                 /* Otherwise let's pin it by file descriptor, via O_PATH. */
-                child = r = openat_opath_with_automount(fd, first, /* automount = */ !FLAGS_SET(flags, CHASE_NO_AUTOFS));
+                child = r = openat_opath_with_automount(fd, first, /* automount = */ FLAGS_SET(flags, CHASE_TRIGGER_AUTOFS));
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;
