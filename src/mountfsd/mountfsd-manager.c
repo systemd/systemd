@@ -9,11 +9,13 @@
 #include "build-path.h"
 #include "common-signal.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
 #include "mountfsd-manager.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -163,6 +165,24 @@ static int start_one_worker(Manager *m) {
                 if (setenv("LISTEN_PID", pids, 1) < 0) {
                         log_error_errno(errno, "Failed to set $LISTEN_PID: %m");
                         _exit(EXIT_FAILURE);
+                }
+
+                uint64_t pidfdid;
+
+                r = pidfd_get_inode_id_self_cached(&pidfdid);
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to determine PIDFDID for current process: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        char pidfdids[DECIMAL_STR_MAX(uint64_t)];
+
+                        xsprintf(pidfdids, INO_FMT, pidfdid);
+                        if (setenv("LISTEN_PIDFDID", pidfdids, 1) < 0) {
+                                log_error_errno(errno, "Failed to set $LISTEN_PIDFDID: %m");
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
                 if (setenv("LISTEN_FDS", "1", 1) < 0) {
