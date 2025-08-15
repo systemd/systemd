@@ -44,6 +44,7 @@
 #include "analyze-timestamp.h"
 #include "analyze-unit-files.h"
 #include "analyze-unit-gdb.h"
+#include "analyze-unit-gdb-start.h"
 #include "analyze-unit-paths.h"
 #include "analyze-unit-shell.h"
 #include "analyze-verify.h"
@@ -249,6 +250,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
                "  unit-gdb SERVICE           Attach a debugger to the given running service\n"
+               "  unit-gdb-start SERVICE     Start the given inactive service and attach a\n"
+               "                             debugger to it\n"
                "  unit-shell SERVICE [Command]\n"
                "                             Run command on the namespace of the service\n"
                "\n%3$sExecutable Analysis:%4$s\n"
@@ -728,10 +731,11 @@ done:
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --security-policy= is only supported for security.");
 
-        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition", "inspect-elf", "unit-gdb")) &&
+        if ((arg_root || arg_image) && (!STRPTR_IN_SET(argv[optind], "cat-config", "verify", "condition", "inspect-elf", "unit-gdb", "unit-gdb-start")) &&
            (!(streq_ptr(argv[optind], "security") && arg_offline)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Options --root= and --image= are only supported for cat-config, verify, condition, unit-gdb, and security when used with --offline= right now.");
+                                       "Options --root= and --image= are only supported for cat-config, verify, condition, unit-gdb, unit-gdb-start,"
+                                       "and security when used with --offline= right now.");
 
         /* Having both an image and a root is not supported by the code */
         if (arg_root && arg_image)
@@ -785,6 +789,7 @@ static int run(int argc, char *argv[]) {
                 { "cat-config",         2,        VERB_ANY, 0,  verb_cat_config         },
                 { "unit-files",         VERB_ANY, VERB_ANY, 0,  verb_unit_files         },
                 { "unit-gdb",           2,        VERB_ANY, 0,  verb_unit_gdb           },
+                { "unit-gdb-start",     2,        VERB_ANY, 0,  verb_unit_gdb_start     },
                 { "unit-paths",         1,        1,        0,  verb_unit_paths         },
                 { "unit-shell",         2,        VERB_ANY, 0,  verb_unit_shell         },
                 { "exit-status",        VERB_ANY, VERB_ANY, 0,  verb_exit_status        },
