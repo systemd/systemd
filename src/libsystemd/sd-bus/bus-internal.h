@@ -399,7 +399,7 @@ int bus_maybe_reply_error(sd_bus_message *m, int r, const sd_bus_error *e);
 
 #define bus_assert_return(expr, r, error)                               \
         do {                                                            \
-                if (!assert_log(expr, #expr))                           \
+                if (!assert_log(expr))                                  \
                         return sd_bus_error_set_errno(error, r);        \
         } while (false)
 
