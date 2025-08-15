@@ -7,7 +7,18 @@
 #include <pwd.h>
 #include <resolv.h>
 
+#include "signal-util.h"
+
 #define NSS_SIGNALS_BLOCK SIGALRM,SIGVTALRM,SIGPIPE,SIGCHLD,SIGTSTP,SIGIO,SIGHUP,SIGUSR1,SIGUSR2,SIGPROF,SIGURG,SIGWINCH
+
+void log_setup_nss(void (*setup)(void));
+
+#define NSS_ENTRYPOINT_BEGIN_FULL(setup)        \
+        log_setup_nss(setup);                   \
+        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK)
+
+#define NSS_ENTRYPOINT_BEGIN                    \
+        NSS_ENTRYPOINT_BEGIN_FULL(NULL)
 
 #ifndef DEPRECATED_RES_USE_INET6
 #  define DEPRECATED_RES_USE_INET6 0x00002000

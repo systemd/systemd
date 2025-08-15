@@ -69,6 +69,7 @@ basic_sources = files(
         'mkdir.c',
         'mountpoint-util.c',
         'namespace-util.c',
+        'nss-util.c',
         'nulstr-util.c',
         'ordered-set.c',
         'os-util.c',

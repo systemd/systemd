@@ -316,7 +316,8 @@ int gethostname_full(GetHostnameFlags flags, char **ret) {
 
         assert(ret);
 
-        assert_se(uname(&u) >= 0);
+        if (uname(&u) < 0)
+                return -errno;
 
         s = u.nodename;
         if (isempty(s) || streq(s, "(none)") ||
