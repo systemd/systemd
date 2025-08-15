@@ -127,11 +127,12 @@ static int read_definitions(
                 const char *suffix,
                 const char *node) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        ConfFile **files = NULL;
         Transfer **transfers = NULL, **disabled = NULL;
-        size_t n_transfers = 0, n_disabled = 0;
+        size_t n_files = 0, n_transfers = 0, n_disabled = 0;
         int r;
 
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
         CLEANUP_ARRAY(transfers, n_transfers, free_transfers);
         CLEANUP_ARRAY(disabled, n_disabled, free_transfers);
 
@@ -139,19 +140,20 @@ static int read_definitions(
         assert(dirs);
         assert(suffix);
 
-        r = conf_files_list_strv(&files, suffix, arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
+        r = conf_files_list_strv_full(suffix, arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate sysupdate.d/*%s definitions: %m", suffix);
 
-        STRV_FOREACH(p, files) {
+        FOREACH_ARRAY(i, files, n_files) {
                 _cleanup_(transfer_freep) Transfer *t = NULL;
                 Transfer **appended;
+                ConfFile *e = *i;
 
                 t = transfer_new(c);
                 if (!t)
                         return log_oom();
 
-                r = transfer_read_definition(t, *p, dirs, c->features);
+                r = transfer_read_definition(t, e->result, dirs, c->features);
                 if (r < 0)
                         return r;
 
@@ -176,7 +178,7 @@ static int read_definitions(
 }
 
 static int context_read_definitions(Context *c, const char* node, bool requires_enabled_transfers) {
-        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
+        _cleanup_strv_free_ char **dirs = NULL;
         int r;
 
         assert(c);
@@ -205,22 +207,26 @@ static int context_read_definitions(Context *c, const char* node, bool requires_
         if (!dirs)
                 return log_oom();
 
-        r = conf_files_list_strv(&files,
-                                 ".feature",
-                                 arg_root,
-                                 CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
-                                 (const char**) dirs);
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        r = conf_files_list_strv_full(".feature", arg_root,
+                                      CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                                      (const char**) dirs, &files, &n_files);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate sysupdate.d/*.feature definitions: %m");
 
-        STRV_FOREACH(p, files) {
+        FOREACH_ARRAY(i, files, n_files) {
                 _cleanup_(feature_unrefp) Feature *f = NULL;
+                ConfFile *e = *i;
 
                 f = feature_new();
                 if (!f)
                         return log_oom();
 
-                r = feature_read_definition(f, *p, (const char**) dirs);
+                r = feature_read_definition(f, e->result, (const char**) dirs);
                 if (r < 0)
                         return r;
 
@@ -1542,8 +1548,6 @@ static int verb_components(int argc, char **argv, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_set_free_ Set *names = NULL;
-        _cleanup_free_ char **z = NULL; /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
-        char **l = CONF_PATHS_STRV("");
         bool has_default_component = false;
         int r;
 
@@ -1553,65 +1557,49 @@ static int verb_components(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        STRV_FOREACH(i, l) {
-                _cleanup_closedir_ DIR *d = NULL;
-                _cleanup_free_ char *p = NULL;
+        ConfFile **directories = NULL;
+        size_t n_directories = 0;
 
-                r = chase_and_opendir(*i, arg_root, CHASE_PREFIX_ROOT, &p, &d);
-                if (r == -ENOENT)
+        CLEANUP_ARRAY(directories, n_directories, conf_file_free_many);
+
+        r = conf_files_list_strv_full(".d", arg_root, CONF_FILES_DIRECTORY, (const char * const *) CONF_PATHS_STRV(""), &directories, &n_directories);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate directories: %m");
+
+        FOREACH_ARRAY(i, directories, n_directories) {
+                ConfFile *e = *i;
+
+                if (streq(e->name, "sysupdate.d")) {
+                        has_default_component = true;
                         continue;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to open directory '%s': %m", *i);
-
-                for (;;) {
-                        _cleanup_free_ char *n = NULL;
-                        struct dirent *de;
-                        const char *e, *a;
-
-                        de = readdir_ensure_type(d);
-                        if (!de) {
-                                if (errno != 0)
-                                        return log_error_errno(errno, "Failed to enumerate directory '%s': %m", p);
-
-                                break;
-                        }
-
-                        if (de->d_type != DT_DIR)
-                                continue;
-
-                        if (dot_or_dot_dot(de->d_name))
-                                continue;
-
-                        if (streq(de->d_name, "sysupdate.d")) {
-                                has_default_component = true;
-                                continue;
-                        }
-
-                        e = startswith(de->d_name, "sysupdate.");
-                        if (!e)
-                                continue;
-
-                        a = endswith(e, ".d");
-                        if (!a)
-                                continue;
-
-                        n = strndup(e, a - e);
-                        if (!n)
-                                return log_oom();
-
-                        r = component_name_valid(n);
-                        if (r < 0)
-                                return log_error_errno(r, "Unable to validate component name: %m");
-                        if (r == 0)
-                                continue;
-
-                        r = set_ensure_consume(&names, &string_hash_ops_free, TAKE_PTR(n));
-                        if (r < 0 && r != -EEXIST)
-                                return log_error_errno(r, "Failed to add component to set: %m");
                 }
+
+                const char *s = startswith(e->name, "sysupdate.");
+                if (!s)
+                        continue;
+
+                const char *a = endswith(s, ".d");
+                if (!a)
+                        continue;
+
+                _cleanup_free_ char *n = strndup(s, a - s);
+                if (!n)
+                        return log_oom();
+
+                r = component_name_valid(n);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to validate component name '%s': %m", n);
+                if (r == 0)
+                        continue;
+
+                r = set_ensure_put(&names, &string_hash_ops_free, n);
+                if (r < 0 && r != -EEXIST)
+                        return log_error_errno(r, "Failed to add component '%s' to set: %m", n);
+                TAKE_PTR(n);
         }
 
-        z = set_get_strv(names);
+        /* We use simple free() rather than strv_free() here, since set_free() will free the strings for us */
+        _cleanup_free_ char **z = set_get_strv(names);
         if (!z)
                 return log_oom();
 
