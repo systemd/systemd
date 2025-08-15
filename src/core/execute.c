@@ -1065,6 +1065,7 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 "%sWatchdogUSec: " USEC_FMT "\n"
                 "%sNotifySocket: %s\n"
                 "%sDebugInvocation: %s\n"
+                "%sDebugWait: %s\n"
                 "%sFallbackSmackProcessLabel: %s\n",
                 prefix, runtime_scope_to_string(p->runtime_scope),
                 prefix, p->flags,
@@ -1078,6 +1079,7 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 prefix, p->watchdog_usec,
                 prefix, strempty(p->notify_socket),
                 prefix, yes_no(p->debug_invocation),
+                prefix, yes_no(p->debug_wait),
                 prefix, strempty(p->fallback_smack_process_label));
 
         strv_dump(f, prefix, "FdNames", p->fd_names);
