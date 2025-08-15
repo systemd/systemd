@@ -4,10 +4,12 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "build-path.h"
 #include "dlfcn-util.h"
 #include "env-util.h"
 #include "errno-list.h"
 #include "format-ifname.h"
+#include "hashmap.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "in-addr-util.h"
@@ -17,7 +19,7 @@
 #include "nss-test-util.h"
 #include "nss-util.h"
 #include "parse-util.h"
-#include "path-util.h"
+#include "seccomp-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -478,7 +480,35 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse arguments: %m");
 
-        assert_se(path_extract_directory(argv[0], &dir) >= 0);
+        ASSERT_OK(get_build_exec_dir(&dir));
+
+        STRV_FOREACH(module, modules) {
+                r = test_one_module(dir, *module, names, addresses, n_addresses);
+                if (r < 0)
+                        return r;
+        }
+
+        if (geteuid() != 0) {
+                log_tests_skipped("Not privileged");
+                return 0;
+        }
+
+        if (!is_seccomp_available()) {
+                log_tests_skipped("Seccomp not available");
+                return 0;
+        }
+
+        /* Testing with several syscalls filtered, and check if the nss modules gracefully handle failures in
+         * masked syscalls. See issue #38582. */
+
+        _cleanup_hashmap_free_ Hashmap *filter = NULL;
+        ASSERT_NOT_NULL(filter = hashmap_new(NULL));
+        FOREACH_STRING(s, "uname", "olduname", "oldolduname", "sigprocmask", "rt_sigprocmask", "osf_sigprocmask")
+                ASSERT_OK(seccomp_filter_set_add_by_name(filter, /* add = */ true, s));
+        ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, filter, SCMP_ACT_ERRNO(ENOSYS), /* log_missing = */ true));
+
+        /* To make assert_return() and friends not call abort(), like we do when built as the release mode. */
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_ASSERT_RETURN_IS_CRITICAL", "0", /* overwrite = */ true));
 
         STRV_FOREACH(module, modules) {
                 r = test_one_module(dir, *module, names, addresses, n_addresses);

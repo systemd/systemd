@@ -22,20 +22,12 @@
 static sd_json_dispatch_flags_t json_dispatch_flags = SD_JSON_ALLOW_EXTENSIONS;
 
 static void setup_logging(void) {
+        log_set_assert_return_is_critical_from_env();
         log_parse_environment_variables();
 
         if (DEBUG_LOGGING)
                 json_dispatch_flags = SD_JSON_LOG;
 }
-
-static void setup_logging_once(void) {
-        static pthread_once_t once = PTHREAD_ONCE_INIT;
-        assert_se(pthread_once(&once, setup_logging) == 0);
-}
-
-#define NSS_ENTRYPOINT_BEGIN                    \
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);       \
-        setup_logging_once()
 
 NSS_GETHOSTBYNAME_PROTOTYPES(resolve);
 NSS_GETHOSTBYADDR_PROTOTYPES(resolve);
@@ -220,7 +212,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
         int r;
 
         PROTECT_ERRNO;
-        NSS_ENTRYPOINT_BEGIN;
+        NSS_ENTRYPOINT_BEGIN_FULL(setup_logging);
 
         assert(name);
         assert(pat);
@@ -380,7 +372,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
         int r;
 
         PROTECT_ERRNO;
-        NSS_ENTRYPOINT_BEGIN;
+        NSS_ENTRYPOINT_BEGIN_FULL(setup_logging);
 
         assert(name);
         assert(result);
@@ -596,7 +588,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         int r;
 
         PROTECT_ERRNO;
-        NSS_ENTRYPOINT_BEGIN;
+        NSS_ENTRYPOINT_BEGIN_FULL(setup_logging);
 
         assert(addr);
         assert(result);

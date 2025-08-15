@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 #include "assert-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "log.h"
 
@@ -15,6 +16,14 @@ static char *log_abort_msg = NULL;
 
 void log_set_assert_return_is_critical(bool b) {
         assert_return_is_critical = b;
+}
+
+void log_set_assert_return_is_critical_from_env(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_ASSERT_RETURN_IS_CRITICAL");
+        if (r >= 0)
+                log_set_assert_return_is_critical(r);
 }
 
 bool log_get_assert_return_is_critical(void) {
