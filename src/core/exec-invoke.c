@@ -4955,6 +4955,11 @@ int exec_invoke(
                 const CGroupContext *cgroup_context,
                 int *exit_status) {
 
+        if (params->debug_wait) {
+                raise(SIGSTOP);
+                return CONFIRM_EXECUTE;
+        }
+
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL;
         int r;
         const char *username = NULL, *groupname = NULL;
