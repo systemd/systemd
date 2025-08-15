@@ -454,6 +454,9 @@ systemd tests:
   causes all non-matching test functions to be skipped. Only applies to tests
   using our regular test boilerplate.
 
+* `$SYSTEMD_ASSERT_RETURN_IS_CRITICAL` — Takes a boolean to control if
+  `assert_return()` and friends call `abort()`.
+
 fuzzers:
 
 * `$SYSTEMD_FUZZ_OUTPUT` — A boolean that specifies whether to write output to
