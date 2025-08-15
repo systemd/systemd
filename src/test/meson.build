@@ -376,7 +376,10 @@ executables += [
                         'nss-test-util.c',
                 ),
                 'extract' : files('nss-test-util.c'),
-                'dependencies' : libdl,
+                'dependencies' : [
+                        libdl,
+                        libseccomp,
+                ],
                 'conditions' : ['ENABLE_NSS'],
                 'timeout' : 120,
         },
