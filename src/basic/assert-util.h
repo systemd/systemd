@@ -6,6 +6,7 @@
 /* Logging for various assertions */
 
 void log_set_assert_return_is_critical(bool b);
+void log_set_assert_return_is_critical_from_env(void);
 bool log_get_assert_return_is_critical(void) _pure_;
 
 void log_assert_failed_return(const char *text, const char *file, int line, const char *func);
