@@ -4,6 +4,7 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "build-path.h"
 #include "dlfcn-util.h"
 #include "env-util.h"
 #include "errno-list.h"
@@ -17,7 +18,6 @@
 #include "nss-test-util.h"
 #include "nss-util.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -478,7 +478,7 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse arguments: %m");
 
-        assert_se(path_extract_directory(argv[0], &dir) >= 0);
+        ASSERT_OK(get_build_exec_dir(&dir));
 
         STRV_FOREACH(module, modules) {
                 r = test_one_module(dir, *module, names, addresses, n_addresses);
