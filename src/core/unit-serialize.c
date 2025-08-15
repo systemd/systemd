@@ -111,6 +111,8 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
         (void) serialize_bool(f, "debug-invocation", u->debug_invocation);
 
+        (void) serialize_bool(f, "debug-wait", u->debug_wait);
+
         (void) serialize_bool(f, "exported-invocation-id", u->exported_invocation_id);
         (void) serialize_bool(f, "exported-log-level-max", u->exported_log_level_max);
         (void) serialize_bool(f, "exported-log-extra-fields", u->exported_log_extra_fields);
@@ -275,6 +277,9 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         continue;
 
                 else if (MATCH_DESERIALIZE("debug-invocation", l, v, parse_boolean, u->debug_invocation))
+                        continue;
+
+                else if (MATCH_DESERIALIZE("debug-wait", l, v, parse_boolean, u->debug_wait))
                         continue;
 
                 else if (MATCH_DESERIALIZE("exported-invocation-id", l, v, parse_boolean, u->exported_invocation_id))
