@@ -141,7 +141,9 @@ units = [
           'file' : 'machines.target',
           'conditions' : ['ENABLE_MACHINED'],
         },
+        { 'file' : 'modprobe.slice' },
         { 'file' : 'modprobe@.service' },
+        { 'file' : 'modules-load.target' },
         { 'file' : 'multi-user.target' },
         { 'file' : 'network-online.target' },
         { 'file' : 'network-pre.target' },
@@ -476,11 +478,6 @@ units = [
           'file' : 'systemd-machined.socket',
           'conditions' : ['ENABLE_MACHINED'],
           'symlinks' : ['sockets.target.wants/'],
-        },
-        {
-          'file' : 'systemd-modules-load.service.in',
-          'conditions' : ['HAVE_KMOD'],
-          'symlinks' : ['sysinit.target.wants/'],
         },
         { 'file' : 'systemd-network-generator.service.in' },
         {
