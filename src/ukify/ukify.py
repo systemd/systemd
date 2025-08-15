@@ -1294,7 +1294,7 @@ def parse_efifw_dir(path: Path) -> bytes:
 
 STUB_SBAT = """\
 sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
-uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
+uki,1,UKI,uki,1,n/a
 """
 
 ADDON_SBAT = """\
