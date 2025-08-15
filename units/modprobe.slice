@@ -8,10 +8,6 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=System Initialization
+Description=Modprobe Slice
 Documentation=man:systemd.special(7)
-
-Wants=local-fs.target modules-load.target swap.target
-After=local-fs.target modules-load.target swap.target
-Conflicts=emergency.service emergency.target
-Before=emergency.service emergency.target
+Before=slices.target
