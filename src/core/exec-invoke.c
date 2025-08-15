@@ -772,6 +772,11 @@ static int ask_for_confirmation(const ExecContext *context, const ExecParameters
         assert(context);
         assert(params);
 
+        if (params->debug_wait) {
+                raise(SIGSTOP);
+                return CONFIRM_EXECUTE;
+        }
+
         /* For any internal errors, assume a positive response. */
         r = setup_confirm_stdio(context, params->confirm_spawn, &saved_stdin, &saved_stdout);
         if (r < 0) {
