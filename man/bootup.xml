@@ -97,19 +97,19 @@
  mqueue, configfs,                                |    |
  debugfs, ...)                                    v    |
  |                                  cryptsetup.target  |
- |  (various swap                                 |    |    remote-fs-pre.target
- |   devices...)                                  |    |     |        |
- |    |                                           |    |     |        v
- |    v                       local-fs-pre.target |    |     |  (network file systems)
- |  swap.target                       |           |    v     v                 |
- |    |                               v           |  remote-cryptsetup.target  |
- |    |  (various low-level  (various mounts and  |  remote-veritysetup.target |
- |    |   services: udevd,    fsck services...)   |             |              |
- |    |   tmpfiles, random            |           |             |    remote-fs.target
- |    |   seed, sysctl, ...)          v           |             |              |
- |    |      |                 local-fs.target    |             | _____________/
- |    |      |                        |           |             |/
- \____|______|_______________   ______|___________/             |
+ | (various swap                                  |    |    remote-fs-pre.target
+ |  devices...)    modules-load.target            |    |     |        |
+ |   |                     |                      |    |     |        v
+ |   v                     | local-fs-pre.target  |    |     |  (network file systems)
+ | swap.target             |         |            |    v     v                 |
+ |   |                     |         v            |  remote-cryptsetup.target  |
+ |   | (various low-level  | (various mounts and  |  remote-veritysetup.target |
+ |   |  services: udevd,   |  fsck services...)   |             |              |
+ |   |  tmpfiles, random   |          |           |             |    remote-fs.target
+ |   |  seed, sysctl, ...) |          v           |             |              |
+ |   |      |              |  local-fs.target     |             | _____________/
+ |   |      |              |          |           |             |/
+ \___|______|______________|_   ______|___________/             |
                              \ /                                |
                               v                                 |
                        sysinit.target                           |

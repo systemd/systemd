@@ -829,6 +829,7 @@ TEST(unit_name_from_dbus_path) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/local_2dfs_2etarget", 0, "local-fs.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/machines_2etarget", 0, "machines.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/mcelog_2eservice", 0, "mcelog.service");
+        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/modules_2dload_2etarget", 0, "modules-load.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/multi_2duser_2etarget", 0, "multi-user.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/network_2dpre_2etarget", 0, "network-pre.target");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/network_2etarget", 0, "network.target");
@@ -943,7 +944,6 @@ TEST(unit_name_from_dbus_path) {
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2djournald_2esocket", 0, "systemd-journald.socket");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dlogind_2eservice", 0, "systemd-logind.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dmachine_2did_2dcommit_2eservice", 0, "systemd-machine-id-commit.service");
-        test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dmodules_2dload_2eservice", 0, "systemd-modules-load.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dnetworkd_2eservice", 0, "systemd-networkd.service");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2dnetworkd_2esocket", 0, "systemd-networkd.socket");
         test_unit_name_from_dbus_path_one("/org/freedesktop/systemd1/unit/systemd_2drandom_2dseed_2eservice", 0, "systemd-random-seed.service");

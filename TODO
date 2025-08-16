@@ -133,9 +133,6 @@ Features:
   DDIs of some OS in your home dir, but combine its /usr/ with a locally
   maintained root fs in a regular dir to maintain local state.
 
-* maybe rework systemd-modules-load to be a generator that just instantiates
-  modprobe@.service a bunch of times
-
 * Split vconsole-setup in two, of which the second is started via udev (instead
   of the "restart" job it currently fires). That way, boot becomes purely
   positive again, and we can nicely order the two against each other.

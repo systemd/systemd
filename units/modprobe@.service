@@ -24,7 +24,7 @@
 [Unit]
 Description=Load Kernel Module %i
 DefaultDependencies=no
-Before=sysinit.target
+Before=modules-load.target
 Documentation=man:modprobe(8)
 ConditionCapability=CAP_SYS_MODULE
 ConditionKernelModuleLoaded=!%i
@@ -33,3 +33,4 @@ StartLimitIntervalSec=0
 [Service]
 Type=oneshot
 ExecStart=-/sbin/modprobe -abq %i
+Slice=modprobe.slice

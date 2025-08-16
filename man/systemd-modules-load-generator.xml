@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-modules-load-generator" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-modules-load-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-modules-load-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-modules-load-generator</refname>
+    <refpurpose>Generator for loading kernel modules at boot</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-modules-load-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-modules-load-generator</filename> is a generator that automatically
+    instantiates <filename>modprobe@.service</filename> to load kernel modules during early boot.
+    It reads static configuration from files in <filename>/usr/</filename> and <filename>/etc/</filename>,
+    but also runtime configuration from <filename>/run/</filename> and the kernel command line
+    (see below).</para>
+
+    <para>See
+    <citerefentry><refentrytitle>modules-load.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    information about the configuration format of this generator and paths where configuration files can be
+    created.</para>
+
+    <para>Instances of <filename>modprobe@.service</filename> are collectively contained in the
+    <filename>modprobe.slice</filename> unit, whose <varname>ConcurrencySoftMax=</varname>
+    property can be used to limit the number of probes running in parallel. Also see
+    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+    <para><filename>systemd-modules-load-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-modules-load-generator</filename> understands the following
+    <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    parameters:</para>
+
+    <variablelist class='kernel-commandline-options'>
+
+      <varlistentry>
+        <term><varname>modules_load=</varname></term>
+        <term><varname>rd.modules_load=</varname></term>
+
+        <listitem>
+          <para>Takes a comma-separated list of kernel modules to statically load during early boot.
+          The option prefixed with <literal>rd.</literal> is read in the initrd only.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>modules-load.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
