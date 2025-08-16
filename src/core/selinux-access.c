@@ -226,7 +226,7 @@ static int check_access(
         assert(audit_info);
         assert(audit_info->function);
 
-        r = selinux_check_access(scon, tcon, tclass, permission, &audit_info);
+        r = selinux_check_access(scon, tcon, tclass, permission, audit_info);
         if (r < 0) {
                 errno = -(r = errno_or_else(EPERM));
 
