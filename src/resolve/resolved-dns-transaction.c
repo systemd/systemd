@@ -3595,27 +3595,24 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                   t->id,
                   dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str));
 
-        /* First, see if this response contains any revoked trust
-         * anchors we care about */
+        /* First, see if this response contains any revoked trust anchors we care about. */
         r = dns_transaction_check_revoked_trust_anchors(t);
         if (r < 0)
                 return r;
 
-        /* Third, copy all RRs we acquired successfully from auxiliary RRs over. */
+        /* Second, copy all RRs we acquired successfully from auxiliary RRs over. */
         r = dns_transaction_copy_validated(t);
         if (r < 0)
                 return r;
 
-        /* Second, see if there are DNSKEYs we already know a
-         * validated DS for. */
+        /* Third, see if there are DNSKEYs we already know a validated DS for. */
         r = dns_transaction_validate_dnskey_by_ds(t);
         if (r < 0)
                 return r;
 
-        /* Fourth, remove all DNSKEY and DS RRs again that our trust
-         * anchor says are revoked. After all we might have marked
-         * some keys revoked above, but they might still be lingering
-         * in our validated_keys list. */
+        /* Fourth, remove all DNSKEY and DS RRs again that our trust anchor says are revoked. After all we
+         * might have marked some keys revoked above, but they might still be lingering in our validated_keys
+         * list. */
         r = dns_transaction_invalidate_revoked_keys(t);
         if (r < 0)
                 return r;
