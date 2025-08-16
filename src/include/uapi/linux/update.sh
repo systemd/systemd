@@ -18,12 +18,14 @@ for i in *.h */*.h; do
 
     case "$i" in
         auto_dev-ioctl.h)
-            # set AUTOFS_DEV_IOCTL_VERSION_MINOR to 0
-            sed -r -i '/^#define[[:space:]]+AUTOFS_DEV_IOCTL_VERSION_MINOR/ s/[0-9]+/0/' "$i"
+            # set AUTOFS_DEV_IOCTL_VERSION_MINOR to 1, bumped by 3dd8f7c3b78b9556582fd64bf5c9986723f9dca1 (v4.14)
+            sed -r -i '/^#define[[:space:]]+AUTOFS_DEV_IOCTL_VERSION_MINOR/ s/[0-9]+/1/' "$i"
             ;;
         dm-ioctl.h)
-            # set DM_VERSION_MINOR to 27
-            sed -r -i '/^#define[[:space:]]+DM_VERSION_MINOR/ s/[0-9]+/27/' "$i"
+            # set DM_VERSION_MINOR to 41, bumped by afa179eb603847494aa5061d4f501224a30dd187 (v5.4)
+            sed -r -i '/^#define[[:space:]]+DM_VERSION_MINOR/ s/[0-9]+/41/' "$i"
+            # also update DM_VERSION_EXTRA to make it match with the minor version
+            sed -r -i '/^#define[[:space:]]+DM_VERSION_EXTRA/ s/"-ioctl \([0-9-]*\)"/"-ioctl (2019-09-16)"/' "$i"
             ;;
         ethtool.h)
             # add casts in ethtool_cmd_speed()
