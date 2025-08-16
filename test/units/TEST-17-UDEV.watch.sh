@@ -25,6 +25,7 @@ function check_validity() {
 function check() {
     for _ in {1..2}; do
         # To make journal not rotated during checking journals below.
+        journalctl --sync
         journalctl --rotate
 
         systemctl reset-failed systemd-udevd.service
