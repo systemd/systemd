@@ -85,6 +85,7 @@ _systemd_analyze() {
         [TRANSIENT_SETTINGS]='transient-settings'
         [UNIT_SHELL]='unit-shell'
         [UNIT_GDB]='unit-gdb'
+        [UNIT_GDB_START]='unit-gdb-start'
     )
 
     local CONFIGS='locale.conf systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -250,7 +251,14 @@ _systemd_analyze() {
             comps=$( __get_services $mode )
         fi
 
-    elif __contains_word "$verb" ${VERBS[UNIT_GDB]}; then
+#    elif __contains_word "$verb" ${VERBS[UNIT_GDB]}; then
+#        if [[ $cur = -* ]]; then
+#            comps='--help --version --debugger --debugger-arguments --root'
+#        else
+#            comps=$( __get_services $mode )
+#        fi
+#
+    elif __contains_word "$verb" ${VERBS[UNIT_GDB_START]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version --debugger --debugger-arguments --root'
         else

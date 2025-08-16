@@ -74,6 +74,12 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">unit-gdb-start</arg>
+      <arg choice="plain"><replaceable>SERVICE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-analyze</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">unit-paths</arg>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -1206,6 +1212,23 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
 
       <xi:include href="version-info.xml" xpointer="v258"/>
     </refsect2>
+
+    <refsect2>
+      <title><command>systemd-analyze unit-gdb-start <replaceable>SERVICE</replaceable></command></title>
+
+      <para>Start the given inactive service and attach a debugger to it. By default,
+      <citerefentry project='man-pages'><refentrytitle>gdb</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      will be used. This may be changed using the <option>--debugger=</option> option or the
+      <varname>$SYSTEMD_DEBUGGER</varname> environment variable. Use the <option>--debugger-arguments=</option> option
+      to pass extra command line arguments to the debugger and quote as appropriate
+      when <replaceable>ARGS</replaceable> contain whitespace (See Example).</para>
+
+      <example>
+        <programlisting>$ systemd-analyze --debugger-arguments="-batch -ex 'info all-registers'" unit-gdb-start test-unit-gdb-start.service</programlisting>
+      </example>
+
+      <xi:include href="version-info.xml" xpointer="v258"/>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -1351,9 +1374,9 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>With <command>cat-config</command>, <command>verify</command>,
-        <command>condition</command>, <command>unit-gdb</command>, and <command>security</command> when
-        used with <option>--offline=</option>, operate on files underneath the specified root path
-        <replaceable>PATH</replaceable>.</para>
+        <command>condition</command>, <command>unit-gdb</command>, <command>unit-gdb-start</command>,
+        and <command>security</command> when used with <option>--offline=</option>, operate on files underneath
+        the specified root path <replaceable>PATH</replaceable>.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
