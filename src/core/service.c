@@ -414,6 +414,12 @@ static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
 static void service_reset_watchdog(Service *s) {
         assert(s);
 
+        if (freezer_state_finish(UNIT(s)->freezer_state) != FREEZER_RUNNING) {
+                log_unit_debug(UNIT(s), "Service is currently %s, skipping resetting watchdog.",
+                               freezer_state_to_string(UNIT(s)->freezer_state));
+                return;
+        }
+
         dual_timestamp_now(&s->watchdog_timestamp);
         service_start_watchdog(s);
 }
