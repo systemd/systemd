@@ -137,6 +137,7 @@ shared_sources = files(
         'notify-recv.c',
         'nsflags.c',
         'nsresource.c',
+        'nss-util.c',
         'numa-util.c',
         'open-file.c',
         'openssl-util.c',
