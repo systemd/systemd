@@ -65,8 +65,8 @@ extern const SyscallFilterSet syscall_filter_sets[];
 
 const SyscallFilterSet *syscall_filter_set_find(const char *name);
 
-int seccomp_filter_set_add_by_name(Hashmap *s, bool b, const char *name);
-int seccomp_filter_set_add(Hashmap *s, bool b, const SyscallFilterSet *set);
+int seccomp_filter_set_add_by_name(Hashmap *filter, bool add, const char *name);
+int seccomp_filter_set_add(Hashmap *filter, bool add, const SyscallFilterSet *set);
 
 int seccomp_add_syscall_filter_item(
                 scmp_filter_ctx *ctx,
@@ -77,7 +77,7 @@ int seccomp_add_syscall_filter_item(
                 char ***added);
 
 int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action, bool log_missing);
-int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* set, uint32_t action, bool log_missing);
+int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap *filter, uint32_t action, bool log_missing);
 
 typedef enum SeccompParseFlags {
         SECCOMP_PARSE_INVERT     = 1 << 0,
