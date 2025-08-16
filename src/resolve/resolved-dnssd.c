@@ -413,7 +413,7 @@ int dnssd_signal_conflict(Manager *manager, const char *name) {
         return 0;
 }
 
-int config_parse_dnssd_registered_service_name(
+int config_parse_dnssd_name(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -467,7 +467,7 @@ int config_parse_dnssd_registered_service_name(
         return free_and_strdup_warn(&s->name_template, rvalue);
 }
 
-int config_parse_dnssd_registered_service_type(
+int config_parse_dnssd_type(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -503,7 +503,7 @@ int config_parse_dnssd_registered_service_type(
         return 0;
 }
 
-int config_parse_dnssd_registered_service_subtype(
+int config_parse_dnssd_subtype(
                 const char *unit,
                 const char *filename,
                 unsigned line,
