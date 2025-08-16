@@ -91,7 +91,7 @@ static int parse_where(const char *input, char **ret_where) {
         assert(ret_where);
 
         if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
-                r = chase(input, /* root= */ NULL, CHASE_NONEXISTENT, ret_where, /* ret_fd= */ NULL);
+                r = chase(input, /* root= */ NULL, CHASE_NONEXISTENT|CHASE_AUTOFS, ret_where, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make path %s absolute: %m", input);
         } else {
@@ -476,7 +476,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 }
 
                                 if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
-                                        r = chase(p, /* root= */ NULL, /* flags= */ 0, &arg_mount_what, /* ret_fd= */ NULL);
+                                        r = chase(p, /* root= */ NULL, CHASE_AUTOFS, &arg_mount_what, /* ret_fd= */ NULL);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to chase path '%s': %m", p);
                                 } else {
@@ -1103,7 +1103,7 @@ static int action_umount(sd_bus *bus, int argc, char **argv) {
                         return log_oom();
 
                 _cleanup_close_ int fd = -EBADF;
-                r = chase(u, /* root= */ NULL, 0, &p, &fd);
+                r = chase(u, /* root= */ NULL, CHASE_AUTOFS, &p, &fd);
                 if (r < 0) {
                         RET_GATHER(ret, log_error_errno(r, "Failed to chase path '%s': %m", u));
                         continue;

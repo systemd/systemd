@@ -83,7 +83,7 @@ static int openat_opath_with_automount(int dir_fd, const char *path, bool automo
 
         /* Pin an inode via O_PATH semantics. Sounds pretty obvious to do this, right? You just do open()
          * with O_PATH, and there you go. But uh, it's not that easy. open() via O_PATH does not trigger
-         * automounts, but we usually want that (except if CHASE_NO_AUTOFS is used). But thankfully there's
+         * automounts, but we usually want that (when CHASE_AUTOFS is used). But thankfully there's
          * a way out: the newer open_tree() call, when specified without OPEN_TREE_CLONE actually is fully
          * equivalent to open() with O_PATH – except for one thing: it triggers automounts.
          *
@@ -202,7 +202,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
          *    -ENOLINK. If CHASE_WARN is also set, a warning describing the unsafe transition is emitted.
          *    CHASE_WARN cannot be used in PID 1.
          *
-         * 5. With CHASE_NO_AUTOFS: in this case if an autofs mount point is encountered, path normalization
+         * 5. Without CHASE_AUTOFS: in this case if an autofs mount point is encountered, path normalization
          *    is aborted and -EREMOTE is returned. If CHASE_WARN is also set, a warning showing the path of
          *    the mount point is emitted. CHASE_WARN cannot be used in PID 1.
          */
@@ -219,7 +219,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         }
 
         if (!(flags &
-              (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NONEXISTENT|CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_STEP|
+              (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NONEXISTENT|CHASE_AUTOFS|CHASE_SAFE|CHASE_STEP|
                CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_PARENT)) &&
             !ret_path && ret_fd) {
 
@@ -396,7 +396,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 }
 
                 /* Otherwise let's pin it by file descriptor, via O_PATH. */
-                child = r = openat_opath_with_automount(fd, first, /* automount = */ !FLAGS_SET(flags, CHASE_NO_AUTOFS));
+                child = r = openat_opath_with_automount(fd, first, /* automount = */ FLAGS_SET(flags, CHASE_AUTOFS));
                 if (r < 0) {
                         if (r != -ENOENT)
                                 return r;
@@ -435,7 +435,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                     unsafe_transition(&st, &st_child))
                         return log_unsafe_transition(fd, child, path, flags);
 
-                if (FLAGS_SET(flags, CHASE_NO_AUTOFS) &&
+                if (!FLAGS_SET(flags, CHASE_AUTOFS) &&
                     fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
                         return log_autofs_mount_point(child, path, flags);
 
@@ -783,7 +783,7 @@ int chase_and_open(
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+            (chase_flags & (CHASE_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
                 return xopenat_full(AT_FDCWD, path,
                                     open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
@@ -822,7 +822,7 @@ int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags
         assert(ret_dir);
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
+            (chase_flags & (CHASE_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 d = opendir(path);
                 if (!d)
@@ -858,7 +858,7 @@ int chase_and_stat(const char *path, const char *root, ChaseFlags chase_flags, c
         assert(ret_stat);
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+            (chase_flags & (CHASE_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
                 return RET_NERRNO(fstatat(AT_FDCWD, path, ret_stat,
                                           FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
@@ -886,7 +886,7 @@ int chase_and_access(const char *path, const char *root, ChaseFlags chase_flags,
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         if (empty_or_root(root) && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+            (chase_flags & (CHASE_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
                 return RET_NERRNO(faccessat(AT_FDCWD, path, access_mode,
                                             FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
@@ -992,7 +992,7 @@ int chase_and_openat(
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         if (dir_fd == AT_FDCWD && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+            (chase_flags & (CHASE_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
                 return xopenat_full(dir_fd, path,
                                     open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
@@ -1029,7 +1029,7 @@ int chase_and_opendirat(int dir_fd, const char *path, ChaseFlags chase_flags, ch
         assert(ret_dir);
 
         if (dir_fd == AT_FDCWD && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
+            (chase_flags & (CHASE_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0) {
                 /* Shortcut this call if none of the special features of this call are requested */
                 d = opendir(path);
                 if (!d)
@@ -1065,7 +1065,7 @@ int chase_and_statat(int dir_fd, const char *path, ChaseFlags chase_flags, char 
         assert(ret_stat);
 
         if (dir_fd == AT_FDCWD && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+            (chase_flags & (CHASE_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
                 return RET_NERRNO(fstatat(AT_FDCWD, path, ret_stat,
                                           FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));
@@ -1093,7 +1093,7 @@ int chase_and_accessat(int dir_fd, const char *path, ChaseFlags chase_flags, int
         assert(!(chase_flags & (CHASE_NONEXISTENT|CHASE_STEP)));
 
         if (dir_fd == AT_FDCWD && !ret_path &&
-            (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
+            (chase_flags & (CHASE_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
                 return RET_NERRNO(faccessat(AT_FDCWD, path, access_mode,
                                             FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? AT_SYMLINK_NOFOLLOW : 0));

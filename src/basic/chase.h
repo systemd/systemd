@@ -6,7 +6,7 @@
 typedef enum ChaseFlags {
         CHASE_PREFIX_ROOT        = 1 << 0,  /* The specified path will be prefixed by the specified root before beginning the iteration */
         CHASE_NONEXISTENT        = 1 << 1,  /* It's OK if the path doesn't actually exist. */
-        CHASE_NO_AUTOFS          = 1 << 2,  /* Return -EREMOTE if autofs mount point found */
+        CHASE_AUTOFS             = 1 << 2,  /* Trigger automount if autofs mount point found instead of returning -EREMOTE */
         CHASE_SAFE               = 1 << 3,  /* Return -EPERM if we ever traverse from unprivileged to privileged files or directories */
         CHASE_TRAIL_SLASH        = 1 << 4,  /* Any trailing slash will be preserved */
         CHASE_STEP               = 1 << 5,  /* Just execute a single step of the normalization */

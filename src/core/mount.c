@@ -1196,7 +1196,7 @@ static void mount_enter_mounting(Mount *m) {
         /* Validate that the path we are overmounting does not contain any symlinks, because if it does, we
          * couldn't support that reasonably: the mounts in /proc/self/mountinfo would not be recognizable to
          * us anymore. */
-        fd = chase_and_open_parent(m->where, /* root= */ NULL, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755, &fn);
+        fd = chase_and_open_parent(m->where, /* root= */ NULL, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_AUTOFS, &fn);
         if (fd == -EREMCHG) {
                 r = unit_log_noncanonical_mount_path(UNIT(m), m->where);
                 goto fail;

@@ -371,7 +371,7 @@ static int verify_esp(
         /* Non-root user can only check the status, so if an error occurred in the following, it does not cause any
          * issues. Let's also, silence the error messages. */
 
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT, &p, &pfd);
+        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_AUTOFS, &p, &pfd);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
@@ -492,7 +492,7 @@ int find_esp_and_warn_at(
                                                "$SYSTEMD_ESP_PATH does not refer to an absolute path, refusing to use it: %s",
                                                path);
 
-                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, &p, &fd);
+                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_AUTOFS, &p, &fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path %s: %m", path);
 
@@ -766,7 +766,7 @@ static int verify_xbootldr(
         assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(path);
 
-        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT, &p, &pfd);
+        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_AUTOFS, &p, &pfd);
         if (r < 0)
                 return log_full_errno((searching && r == -ENOENT) ||
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
@@ -844,7 +844,7 @@ int find_xbootldr_and_warn_at(
                                                "$SYSTEMD_XBOOTLDR_PATH does not refer to an absolute path, refusing to use it: %s",
                                                path);
 
-                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, &p, &fd);
+                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_AUTOFS, &p, &fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve path %s: %m", p);
 
