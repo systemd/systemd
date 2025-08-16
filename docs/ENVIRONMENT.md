@@ -816,3 +816,10 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 
 * `$SYSTEMD_ETC_VCONSOLE_CONF` - override the path to the virtual console
   configuration file. The default is `/etc/vconsole.conf`.
+
+`systemd-modules-load`:
+
+* `$SYSTEMD_MODULES_LOAD_NUM_THREADS` - takes a number, which controls the
+  number of threads used to load modules by `systemd-modules-load`.
+  If unset, the default number of threads is equal to the number of online CPUs,
+  with a maximum of 8.
