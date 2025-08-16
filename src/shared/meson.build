@@ -137,7 +137,6 @@ shared_sources = files(
         'notify-recv.c',
         'nsflags.c',
         'nsresource.c',
-        'nss-util.c',
         'numa-util.c',
         'open-file.c',
         'openssl-util.c',
@@ -227,6 +226,10 @@ shared_sources = files(
         'wifi-util.c',
         'xml.c',
 )
+
+if conf.get('ENABLE_NSS') == 1
+        shared_sources += files('nss-util.c')
+endif
 
 if get_option('tests') != 'false'
         shared_sources += files('tests.c')
