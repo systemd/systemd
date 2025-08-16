@@ -109,6 +109,11 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                         log_debug("Module '%s' is already loaded", sym_kmod_module_get_name(mod));
                         break;
 
+                case KMOD_MODULE_COMING:
+                        log_full(verbose ? LOG_INFO : LOG_DEBUG,
+                                 "Module '%s' is being loaded elsewhere", sym_kmod_module_get_name(mod));
+                        break;
+
                 default:
                         err = sym_kmod_module_probe_insert_module(
                                         mod,
