@@ -1130,7 +1130,7 @@ conf.set10('HAVE_PWQUALITY', have)
 conf.set10('HAVE_PASSWDQC', not have and libpwquality.found())
 
 libseccomp = dependency('libseccomp',
-                        version : '>= 2.3.1',
+                        version : '>= 2.4.0',
                         required : get_option('seccomp'))
 conf.set10('HAVE_SECCOMP', libseccomp.found())
 libseccomp_cflags = libseccomp.partial_dependency(includes: true, compile_args: true)
