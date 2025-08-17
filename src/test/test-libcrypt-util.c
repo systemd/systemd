@@ -9,13 +9,7 @@
 static void test_crypt_preferred_method(void) {
         log_info("/* %s */", __func__);
 
-        log_info("crypt_preferred_method: %s",
-#if HAVE_CRYPT_PREFERRED_METHOD
-                 crypt_preferred_method()
-#else
-                 "(not available)"
-#endif
-        );
+        log_info("crypt_preferred_method: %s", crypt_preferred_method());
 }
 
 static void test_make_salt(void) {
@@ -29,12 +23,10 @@ static void test_make_salt(void) {
         }
 }
 
-static int test_hash_password(void) {
+static void test_hash_password(void) {
         log_info("/* %s */", __func__);
 
         /* As a warm-up exercise, check if we can hash passwords. */
-
-        bool have_sane_hash = false;
 
         FOREACH_STRING(hash,
                        "ew3bU1.hoKk4o",
@@ -47,16 +39,8 @@ static int test_hash_password(void) {
 
                 b = test_password_one(hash, "ppp");
                 log_info("%s: %s", hash, yes_no(b));
-#if defined(XCRYPT_VERSION_MAJOR)
-                /* xcrypt is supposed to always implement all methods. */
                 assert_se(b);
-#endif
-
-                if (b && IN_SET(hash[1], '6', 'y'))
-                        have_sane_hash = true;
         }
-
-        return have_sane_hash;
 }
 
 static void test_hash_password_full(void) {
@@ -106,16 +90,9 @@ static void test_hash_password_full(void) {
 int main(int argc, char *argv[]) {
         test_setup_logging(LOG_DEBUG);
 
-#if defined(__powerpc__) && !defined(XCRYPT_VERSION_MAJOR)
-        return log_tests_skipped("crypt_r() causes a buffer overflow on ppc64el, see https://github.com/systemd/systemd/pull/16981#issuecomment-691203787");
-#endif
-
         test_crypt_preferred_method();
         test_make_salt();
-
-        if (!test_hash_password())
-                return log_tests_skipped("crypt doesn't support yescrypt or sha512crypt");
-
+        test_hash_password();
         test_hash_password_full();
 
         return 0;
