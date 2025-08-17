@@ -1380,16 +1380,13 @@ conf.set10('HAVE_TSS2_ESYS3', tpm2.found() and tpm2.version().version_compare('>
 conf.set('TPM2_NVPCR_BASE', get_option('tpm2-nvpcr-base'))
 
 libdw = dependency('libdw',
+                   version : '>=0.177',
                    required : get_option('elfutils'))
 libdw_cflags = libdw.partial_dependency(includes: true, compile_args: true)
 libelf = dependency('libelf',
                     required : get_option('elfutils'))
 libelf_cflags = libelf.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_ELFUTILS', libdw.found() and libelf.found())
-
-# New in elfutils 0.177
-conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
-           libdw.found() and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
 
 # New in elfutils 0.192
 conf.set10('HAVE_DWFL_SET_SYSROOT',
