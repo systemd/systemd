@@ -429,7 +429,7 @@ option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' :
        description : 'libidn2 support')
 option('libidn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn support')
-option('libiptc', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+option('libiptc', type : 'feature', deprecated : true,
        description : 'libiptc support')
 option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libqrencode support')
