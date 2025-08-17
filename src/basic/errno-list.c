@@ -24,26 +24,12 @@ int errno_from_name(const char *name) {
         return sc->id;
 }
 
-#if HAVE_STRERRORNAME_NP
 const char* errno_name_no_fallback(int id) {
-        if (id == 0) /* To stay in line with our implementation below.  */
+        if (id == 0) /* To stay in line with our implementation below. */
                 return NULL;
 
         return strerrorname_np(ABS(id));
 }
-#else
-#  include "errno-to-name.inc"
-
-const char* errno_name_no_fallback(int id) {
-        if (id < 0)
-                id = -id;
-
-        if ((size_t) id >= ELEMENTSOF(errno_names))
-                return NULL;
-
-        return errno_names[id];
-}
-#endif
 
 const char* errno_name(int id, char buf[static ERRNO_NAME_BUF_LEN]) {
         const char *a = errno_name_no_fallback(id);
