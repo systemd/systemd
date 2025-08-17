@@ -37,6 +37,9 @@ int enable_sysv_units(const char *verb, char **args) {
                         "is-enabled"))
                 return 0;
 
+        if (arg_sysv_install && access(arg_sysv_install, X_OK) < 0)
+                return log_error_errno(errno, "%s is not executable: %m", arg_sysv_install);
+
         r = lookup_paths_init_or_warn(&paths, arg_runtime_scope, LOOKUP_PATHS_EXCLUDE_GENERATED, arg_root);
         if (r < 0)
                 return r;
@@ -45,7 +48,7 @@ int enable_sysv_units(const char *verb, char **args) {
         while (args[f]) {
 
                 const char *argv[] = {
-                        LIBEXECDIR "/systemd-sysv-install",
+                        arg_sysv_install ?: LIBEXECDIR "/systemd-sysv-install",
                         NULL, /* --root= */
                         NULL, /* verb */
                         NULL, /* service */
