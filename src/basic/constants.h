@@ -64,4 +64,4 @@
 #define VARLINK_ADDR_PATH_MANAGED_OOM_USER "/run/systemd/oom/io.systemd.ManagedOOM"
 
 /* Recommended baseline - see README for details */
-#define KERNEL_BASELINE_VERSION "5.7"
+#define KERNEL_BASELINE_VERSION "5.14"

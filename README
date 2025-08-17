@@ -47,25 +47,24 @@ REQUIREMENTS:
                      ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
                            and nexthop support
                      ≥ 5.4 for pidfd and signed Verity images
-
-        ⛔ Kernel versions below 5.4 ("minimum baseline") are not supported at all,
-           and are missing required functionality as listed above.
-
-        Linux kernel ≥ 5.6 for getrandom() GRND_INSECURE
+                     ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
                                BPF links and the BPF LSM hook
+                     ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
+                     ≥ 5.9 for close_range()
 
-        ⚠️ Kernel versions below 5.7 ("recommended baseline") have significant gaps
+        ⛔ Kernel versions below 5.10 ("minimum baseline") are not supported at all,
+           and are missing required functionality as listed above.
+
+        Linux kernel ≥ 5.12 for idmapped mount
+                     ≥ 5.14 for cgroup.kill and quotactl_fd()
+
+        ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
            in functionality and are not recommended for use with this version
            of systemd. Taint flag 'old-kernel' will be set. systemd will most likely
            still function, but upstream support and testing are limited.
 
-        Linux kernel ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
-                     ≥ 5.9 for close_range()
-                     ≥ 5.12 for idmapped mount
-                     ≥ 5.14 for cgroup.kill
-                     ≥ 5.14 for quotactl_fd()
-                     ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
+        Linux kernel ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
@@ -210,17 +209,16 @@ REQUIREMENTS:
         with audit being enabled. This works correctly only on kernels 3.14 and
         newer though. TL;DR: turn audit off, still.
 
-        glibc >= 2.31
-        libxcrypt or glibc (<= 2.38 built with --enable-crypt)
+        glibc >= 2.34
+        libxcrypt >= 4.4.0
         libcap
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
-        libseccomp >= 2.3.1 (optional)
-        libblkid >= 2.24 (from util-linux) (optional)
+        libseccomp >= 2.4.0 (optional)
+        libblkid >= 2.37 (from util-linux) (optional)
         libkmod >= 15 (optional)
         PAM >= 1.1.2 (optional)
-        libcryptsetup >= 2.0.1 (optional),
-                      >= 2.3.0 is required for signed Verity images support
+        libcryptsetup >= 2.4.0 (optional),
         libaudit (optional)
         libacl (optional)
         libbpf >= 0.1.0 (optional),
@@ -243,11 +241,11 @@ REQUIREMENTS:
         libcurl >= 7.32.0 (optional)
         libidn2 or libidn (optional)
         gnutls >= 3.1.4 (optional)
-        openssl >= 1.1.0 (optional, required to support DNS-over-TLS)
+        openssl >= 3.0.0 (optional, required to support DNS-over-TLS)
         p11-kit >= 0.23.3 (optional)
-        libfido2 (optional)
+        libfido2 >= 1.5.0 (optional)
         tpm2-tss (optional)
-        elfutils >= 158 (optional)
+        elfutils >= 177 (optional)
         polkit (optional)
         tzdata >= 2014f (optional)
         pkg-config
