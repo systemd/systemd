@@ -16,6 +16,8 @@ libc_wrapper_sources = files(
         'xattr.c',
 )
 
+subdir('oss-fuzz')
+
 sources += libc_wrapper_sources
 
 libc_wrapper_static = static_library(
