@@ -24,14 +24,13 @@ function check_validity() {
 
 function check() {
     for _ in {1..2}; do
-        # To make journal not rotated during checking journals below.
-        journalctl --rotate
-
         systemctl reset-failed systemd-udevd.service
         systemctl restart systemd-udevd.service
         udevadm settle --timeout=30
 
         journalctl --sync
+        # Also rotate journal to make expected journal entries in an archived journal file.
+        journalctl --rotate
 
         # Check if the inotify watch fd is received from fd store.
         journalctl -n 1 -q -u systemd-udevd.service --invocation=0 --grep 'Received inotify fd \(\d+\) from service manager.'
