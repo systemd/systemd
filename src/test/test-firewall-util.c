@@ -62,13 +62,6 @@ static bool test_v4(FirewallContext *ctx) {
 
         log_info("/* %s(backend=%s) */", __func__, firewall_backend_to_string(ctx->backend));
 
-#if HAVE_LIBIPTC
-        if (ctx->backend == FW_BACKEND_IPTABLES && fw_iptables_init_nat(NULL) < 0) {
-                log_debug("iptables backend is used, but nat table is not enabled, skipping tests");
-                return false;
-        }
-#endif
-
         ASSERT_ERROR(fw_add_masquerade(&ctx, true, AF_INET, NULL, 0), EINVAL);
         ASSERT_ERROR(fw_add_masquerade(&ctx, true, AF_INET, parse_addr("10.1.2.0", &u), 0), EINVAL);
 
@@ -115,13 +108,6 @@ int main(int argc, char *argv[]) {
 
         if (test_v4(ctx) && ctx->backend == FW_BACKEND_NFTABLES)
                 test_v6(ctx);
-
-#if HAVE_LIBIPTC
-        if (ctx->backend != FW_BACKEND_IPTABLES) {
-                ctx->backend = FW_BACKEND_IPTABLES;
-                test_v4(ctx);
-        }
-#endif
 
         return 0;
 }
