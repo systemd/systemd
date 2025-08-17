@@ -1328,12 +1328,9 @@ conf.set10('HAVE_TPM2', tpm2.found())
 conf.set10('HAVE_TSS2_ESYS3', tpm2.found() and tpm2.version().version_compare('>= 3.0.0'))
 
 libdw = dependency('libdw',
+                   version : '>=0.177',
                    required : get_option('elfutils'))
 conf.set10('HAVE_ELFUTILS', libdw.found())
-# New in elfutils 0.177
-conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
-           libdw.found() and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
-
 # New in elfutils 0.192
 conf.set10('HAVE_DWFL_SET_SYSROOT',
            libdw.found() and cc.has_function('dwfl_set_sysroot', dependencies : libdw))
