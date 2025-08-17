@@ -573,10 +573,10 @@ conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
-        ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
-        ['execveat',          '''#include <unistd.h>'''],       # since glibc-2.34
-        ['close_range',       '''#include <unistd.h>'''],       # since glibc-2.34
+        ['strerrorname_np',   '''#include <string.h>''',        get_option('oss-fuzz')], # since glibc-2.32
+        ['mallinfo2',         '''#include <malloc.h>''',        get_option('oss-fuzz')], # since glibc-2.33
+        ['close_range',       '''#include <unistd.h>''',        get_option('oss-fuzz')], # since glibc-2.34
+        ['execveat',          '''#include <unistd.h>''',        get_option('oss-fuzz')], # since glibc-2.34
         ['epoll_pwait2',      '''#include <sys/epoll.h>'''],    # since glibc-2.35
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
@@ -2005,6 +2005,12 @@ system_includes = [
                 is_system : true,
         ),
 ]
+
+if get_option('oss-fuzz')
+        # oss-fuzz still uses Ubuntu 20.04, which uses glibc-2.31.
+        # To make fuzzers built with glibc-2.31, we need additional wrappers.
+        system_includes += include_directories('src/include/oss-fuzz', is_system : true)
+endif
 
 basic_includes = [
         include_directories(
