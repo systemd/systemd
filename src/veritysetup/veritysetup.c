@@ -161,14 +161,10 @@ static int parse_options(const char *options) {
                         arg_activate_flags |= CRYPT_ACTIVATE_RESTART_ON_CORRUPTION;
                 else if (streq(word, "ignore-zero-blocks"))
                         arg_activate_flags |= CRYPT_ACTIVATE_IGNORE_ZERO_BLOCKS;
-#ifdef CRYPT_ACTIVATE_CHECK_AT_MOST_ONCE
                 else if (streq(word, "check-at-most-once"))
                         arg_activate_flags |= CRYPT_ACTIVATE_CHECK_AT_MOST_ONCE;
-#endif
-#ifdef CRYPT_ACTIVATE_PANIC_ON_CORRUPTION
                 else if (streq(word, "panic-on-corruption"))
                         arg_activate_flags |= CRYPT_ACTIVATE_PANIC_ON_CORRUPTION;
-#endif
                 else if ((val = startswith(word, "superblock="))) {
 
                         r = parse_boolean(val);
