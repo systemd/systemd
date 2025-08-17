@@ -76,7 +76,7 @@ shared_sources = files(
         'fdset.c',
         'fido2-util.c',
         'find-esp.c',
-        'firewall-util-nft.c',
+        'firewall-util.c',
         'fork-notify.c',
         'format-table.c',
         'fstab-util.c',
