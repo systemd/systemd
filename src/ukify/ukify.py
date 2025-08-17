@@ -1695,7 +1695,7 @@ def inspect_section(
 
     if ttype == 'text':
         try:
-            struct['text'] = data.decode()
+            struct['text'] = data.decode(errors="replace").replace("\x00", "")
         except UnicodeDecodeError as e:
             print(f'Section {name!r} is not valid text: {e}', file=sys.stderr)
             struct['text'] = '(not valid UTF-8)'
