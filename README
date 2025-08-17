@@ -216,7 +216,7 @@ REQUIREMENTS:
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
         libseccomp >= 2.3.1 (optional)
-        libblkid >= 2.24 (from util-linux) (optional)
+        libblkid >= 2.37 (from util-linux) (optional)
         libkmod >= 15 (optional)
         PAM >= 1.1.2 (optional)
         libcryptsetup >= 2.4.0 (optional),
