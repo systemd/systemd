@@ -210,7 +210,7 @@ REQUIREMENTS:
         with audit being enabled. This works correctly only on kernels 3.14 and
         newer though. TL;DR: turn audit off, still.
 
-        glibc >= 2.31
+        glibc >= 2.34
         libxcrypt >= 4.4.0
         libcap
         libmount >= 2.30 (from util-linux)
