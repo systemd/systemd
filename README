@@ -47,25 +47,24 @@ REQUIREMENTS:
                      ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
                            and nexthop support
                      ≥ 5.4 for pidfd and signed Verity images
-
-        ⛔ Kernel versions below 5.4 ("minimum baseline") are not supported at all,
-           and are missing required functionality as listed above.
-
-        Linux kernel ≥ 5.6 for getrandom() GRND_INSECURE
+                     ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
                                BPF links and the BPF LSM hook
+                     ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
+                     ≥ 5.9 for close_range()
 
-        ⚠️ Kernel versions below 5.7 ("recommended baseline") have significant gaps
+        ⛔ Kernel versions below 5.10 ("minimum baseline") are not supported at all,
+           and are missing required functionality as listed above.
+
+        Linux kernel ≥ 5.12 for idmapped mount
+                     ≥ 5.14 for cgroup.kill and quotactl_fd()
+
+        ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
            in functionality and are not recommended for use with this version
            of systemd. Taint flag 'old-kernel' will be set. systemd will most likely
            still function, but upstream support and testing are limited.
 
-        Linux kernel ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
-                     ≥ 5.9 for close_range()
-                     ≥ 5.12 for idmapped mount
-                     ≥ 5.14 for cgroup.kill
-                     ≥ 5.14 for quotactl_fd()
-                     ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
+        Linux kernel ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
