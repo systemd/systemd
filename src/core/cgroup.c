@@ -28,12 +28,12 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
-#include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "inotify-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "manager.h"
+#include "netlink-internal.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1335,12 +1335,10 @@ void unit_modify_nft_set(Unit *u, bool add) {
         if (!crt || crt->cgroup_id == 0)
                 return;
 
-        if (!u->manager->fw_ctx) {
-                r = fw_ctx_new_full(&u->manager->fw_ctx, /* init_tables= */ false);
+        if (!u->manager->nfnl) {
+                r = sd_nfnl_socket_open(&u->manager->nfnl);
                 if (r < 0)
                         return;
-
-                assert(u->manager->fw_ctx);
         }
 
         CGroupContext *c = ASSERT_PTR(unit_get_cgroup_context(u));
@@ -1351,7 +1349,7 @@ void unit_modify_nft_set(Unit *u, bool add) {
 
                 uint64_t element = crt->cgroup_id;
 
-                r = nft_set_element_modify_any(u->manager->fw_ctx, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
+                r = nft_set_element_modify_any(u->manager->nfnl, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
                 if (r < 0)
                         log_warning_errno(r, "Failed to %s NFT set entry: family %s, table %s, set %s, cgroup %" PRIu64 ", ignoring: %m",
                                           add? "add" : "delete", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, crt->cgroup_id);
