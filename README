@@ -246,7 +246,7 @@ REQUIREMENTS:
         p11-kit >= 0.23.3 (optional)
         libfido2 (optional)
         tpm2-tss (optional)
-        elfutils >= 158 (optional)
+        elfutils >= 177 (optional)
         polkit (optional)
         tzdata >= 2014f (optional)
         pkg-config
