@@ -466,7 +466,8 @@ static int timeout_compare(const void *a, const void *b) {
 }
 
 size_t netlink_get_reply_callback_count(sd_netlink *nl) {
-        assert(nl);
+        if (!nl)
+                return 0;
 
         return hashmap_size(nl->reply_callbacks);
 }
