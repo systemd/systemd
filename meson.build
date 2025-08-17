@@ -573,10 +573,10 @@ conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
-        ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
-        ['execveat',          '''#include <unistd.h>'''],       # since glibc-2.34
-        ['close_range',       '''#include <unistd.h>'''],       # since glibc-2.34
+        ['strerrorname_np',   '''#include <string.h>''',        get_option('oss-fuzz')], # since glibc-2.32
+        ['mallinfo2',         '''#include <malloc.h>''',        get_option('oss-fuzz')], # since glibc-2.33
+        ['close_range',       '''#include <unistd.h>''',        get_option('oss-fuzz')], # since glibc-2.34
+        ['execveat',          '''#include <unistd.h>''',        get_option('oss-fuzz')], # since glibc-2.34
         ['epoll_pwait2',      '''#include <sys/epoll.h>'''],    # since glibc-2.35
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
@@ -603,6 +603,10 @@ foreach ident : [
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
         ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
+
+        if ident.length() >= 3 and not ident[2]
+                continue
+        endif
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
@@ -2001,6 +2005,12 @@ system_includes = [
                 is_system : true,
         ),
 ]
+
+if get_option('oss-fuzz')
+        # oss-fuzz still uses Ubuntu 20.04, which uses glibc-2.31.
+        # To make fuzzers built with glibc-2.31, we need additional wrappers.
+        system_includes += include_directories('src/include/oss-fuzz', is_system : true)
+endif
 
 basic_includes = [
         include_directories(

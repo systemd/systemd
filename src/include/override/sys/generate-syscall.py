@@ -6,11 +6,8 @@ import functools
 
 # We only generate numbers for a dozen or so syscalls
 SYSCALLS = [
-    'close_range',   # defined in glibc header since glibc-2.33
     'fchmodat2',     # defined in glibc header since glibc-2.39
-    'mount_setattr', # defined in glibc header since glibc-2.34
     'open_tree_attr',
-    'openat2',       # defined in glibc header since glibc-2.32
     'quotactl_fd',   # defined in glibc header since glibc-2.35
     'removexattrat',
     'setxattrat',
