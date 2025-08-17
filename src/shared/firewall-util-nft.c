@@ -14,7 +14,6 @@
 #include "escape.h"
 #include "extract-word.h"
 #include "firewall-util.h"
-#include "firewall-util-private.h"
 #include "in-addr-util.h"
 #include "log.h"
 #include "netlink-internal.h"
@@ -815,43 +814,6 @@ static int fw_nftables_init_family(sd_netlink *nfnl, int family) {
         return 0;
 }
 
-int fw_nftables_init_full(FirewallContext *ctx, bool init_tables) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
-        int r;
-
-        assert(ctx);
-        assert(!ctx->nfnl);
-
-        r = sd_nfnl_socket_open(&nfnl);
-        if (r < 0)
-                return r;
-
-        if (init_tables) {
-                r = fw_nftables_init_family(nfnl, AF_INET);
-                if (r < 0)
-                        return r;
-
-                if (socket_ipv6_is_supported()) {
-                        r = fw_nftables_init_family(nfnl, AF_INET6);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to init ipv6 NAT: %m");
-                }
-        }
-
-        ctx->nfnl = TAKE_PTR(nfnl);
-        return 0;
-}
-
-int fw_nftables_init(FirewallContext *ctx) {
-        return fw_nftables_init_full(ctx, /* init_tables= */ true);
-}
-
-void fw_nftables_exit(FirewallContext *ctx) {
-        assert(ctx);
-
-        ctx->nfnl = sd_netlink_unref(ctx->nfnl);
-}
-
 static int nft_message_append_setelem_iprange(
                 sd_netlink_message *m,
                 const union in_addr_union *source,
@@ -922,7 +884,7 @@ static int nft_message_append_setelem_ip6range(
 }
 
 int nft_set_element_modify_iprange(
-                FirewallContext *ctx,
+                sd_netlink *nfnl,
                 bool add,
                 int nfproto,
                 int af,
@@ -934,7 +896,7 @@ int nft_set_element_modify_iprange(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        assert(ctx->nfnl);
+        assert(nfnl);
         assert(IN_SET(af, AF_INET, AF_INET6));
         assert(nfproto_is_valid(nfproto));
         assert(table);
@@ -946,7 +908,7 @@ int nft_set_element_modify_iprange(
         if (af == AF_INET6 && source_prefixlen < 8)
                 return -EINVAL;
 
-        r = sd_nfnl_nft_message_new_setelems(ctx->nfnl, &m, add, nfproto, table, set);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, nfproto, table, set);
         if (r < 0)
                 return r;
 
@@ -957,11 +919,11 @@ int nft_set_element_modify_iprange(
         if (r < 0)
                 return r;
 
-        return sd_nfnl_call_batch(ctx->nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
 }
 
 int nft_set_element_modify_ip(
-                FirewallContext *ctx,
+                sd_netlink *nfnl,
                 bool add,
                 int nfproto,
                 int af,
@@ -972,7 +934,7 @@ int nft_set_element_modify_ip(
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        assert(ctx->nfnl);
+        assert(nfnl);
         assert(IN_SET(af, AF_INET, AF_INET6));
         assert(nfproto_is_valid(nfproto));
         assert(table);
@@ -981,7 +943,7 @@ int nft_set_element_modify_ip(
         if (!source)
                 return -EINVAL;
 
-        r = sd_nfnl_nft_message_new_setelems(ctx->nfnl, &m, add, nfproto, table, set);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, add, nfproto, table, set);
         if (r < 0)
                 return r;
 
@@ -997,28 +959,35 @@ int nft_set_element_modify_ip(
         if (r < 0)
                 return r;
 
-        return sd_nfnl_call_batch(ctx->nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
 }
 
-int nft_set_element_modify_any(FirewallContext *ctx, bool add, int nfproto, const char *table, const char *set, const void *element, size_t element_size) {
+int nft_set_element_modify_any(
+                sd_netlink *nfnl,
+                bool add,
+                int nfproto,
+                const char *table,
+                const char *set,
+                const void *element,
+                size_t element_size) {
+
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
 
-        assert(ctx);
-        assert(ctx->nfnl);
+        assert(nfnl);
         assert(nfproto_is_valid(nfproto));
         assert(table);
         assert(set);
         assert(element);
 
         if (add)
-                r = nft_add_element(ctx->nfnl, &m, nfproto, table, set, element, element_size, NULL, 0);
+                r = nft_add_element(nfnl, &m, nfproto, table, set, element, element_size, NULL, 0);
         else
-                r = nft_del_element(ctx->nfnl, &m, nfproto, table, set, element, element_size, NULL, 0);
+                r = nft_del_element(nfnl, &m, nfproto, table, set, element, element_size, NULL, 0);
         if (r < 0)
                 return r;
 
-        return sd_nfnl_call_batch(ctx->nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
+        return sd_nfnl_call_batch(nfnl, &m, 1, NFNL_DEFAULT_TIMEOUT_USECS, NULL);
 }
 
 static int af_to_nfproto(int af) {
@@ -1035,7 +1004,7 @@ static int af_to_nfproto(int af) {
 }
 
 int fw_nftables_add_masquerade(
-                FirewallContext *ctx,
+                sd_netlink *nfnl,
                 bool add,
                 int af,
                 const union in_addr_union *source,
@@ -1043,14 +1012,13 @@ int fw_nftables_add_masquerade(
 
         int r;
 
-        assert(ctx);
-        assert(ctx->nfnl);
+        assert(nfnl);
         assert(IN_SET(af, AF_INET, AF_INET6));
 
         if (!socket_ipv6_is_supported() && af == AF_INET6)
                 return -EOPNOTSUPP;
 
-        r = nft_set_element_modify_iprange(ctx, add, af_to_nfproto(af), af, nft_table_name(), NFT_SYSTEMD_MASQ_SET_NAME,
+        r = nft_set_element_modify_iprange(nfnl, add, af_to_nfproto(af), af, nft_table_name(), NFT_SYSTEMD_MASQ_SET_NAME,
                                            source, source_prefixlen);
         if (r != -ENOENT)
                 return r;
@@ -1072,11 +1040,11 @@ int fw_nftables_add_masquerade(
          * of extending the kernel to allow tables to be owned by stystemd-networkd and making them
          * non-deleteable except by the 'owning process'. */
 
-        r = fw_nftables_init_family(ctx->nfnl, af);
+        r = fw_nftables_init_family(nfnl, af);
         if (r < 0)
                 return r;
 
-        return nft_set_element_modify_iprange(ctx, add, af_to_nfproto(af), af, nft_table_name(), NFT_SYSTEMD_MASQ_SET_NAME,
+        return nft_set_element_modify_iprange(nfnl, add, af_to_nfproto(af), af, nft_table_name(), NFT_SYSTEMD_MASQ_SET_NAME,
                                               source, source_prefixlen);
 }
 
@@ -1172,7 +1140,7 @@ static int fw_nftables_add_local_dnat_internal(
 }
 
 int fw_nftables_add_local_dnat(
-                FirewallContext *ctx,
+                sd_netlink *nfnl,
                 bool add,
                 int af,
                 int protocol,
@@ -1183,24 +1151,23 @@ int fw_nftables_add_local_dnat(
 
         int r;
 
-        assert(ctx);
-        assert(ctx->nfnl);
+        assert(nfnl);
         assert(IN_SET(af, AF_INET, AF_INET6));
 
         if (!socket_ipv6_is_supported() && af == AF_INET6)
                 return -EOPNOTSUPP;
 
-        r = fw_nftables_add_local_dnat_internal(ctx->nfnl, add, af, protocol, local_port, remote, remote_port, previous_remote);
+        r = fw_nftables_add_local_dnat_internal(nfnl, add, af, protocol, local_port, remote, remote_port, previous_remote);
         if (r != -ENOENT)
                 return r;
 
         /* See comment in fw_nftables_add_masquerade(). */
-        r = fw_nftables_init_family(ctx->nfnl, af);
+        r = fw_nftables_init_family(nfnl, af);
         if (r < 0)
                 return r;
 
         /* table created anew; previous address already gone */
-        return fw_nftables_add_local_dnat_internal(ctx->nfnl, add, af, protocol, local_port, remote, remote_port, NULL);
+        return fw_nftables_add_local_dnat_internal(nfnl, add, af, protocol, local_port, remote, remote_port, NULL);
 }
 
 static const char *const nfproto_table[] = {
