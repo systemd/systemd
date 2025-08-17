@@ -1306,7 +1306,7 @@ libgnutls = dependency('gnutls',
 conf.set10('HAVE_GNUTLS', libgnutls.found())
 
 libopenssl = dependency('openssl',
-                        version : '>= 1.1.0',
+                        version : '>= 3.0.0',
                         required : get_option('openssl'))
 conf.set10('HAVE_OPENSSL', libopenssl.found())
 
