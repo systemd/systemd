@@ -39,11 +39,7 @@ DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
 DLSYM_PROTOTYPE(crypt_load) = NULL;
 DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
 DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase) = NULL;
-#if HAVE_CRYPT_REENCRYPT_RUN
 DLSYM_PROTOTYPE(crypt_reencrypt_run);
-#else
-DLSYM_PROTOTYPE(crypt_reencrypt);
-#endif
 DLSYM_PROTOTYPE(crypt_resize) = NULL;
 DLSYM_PROTOTYPE(crypt_resume_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_device) = NULL;
@@ -55,15 +51,7 @@ DLSYM_PROTOTYPE(crypt_set_pbkdf_type) = NULL;
 DLSYM_PROTOTYPE(crypt_suspend) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_get) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
-#if HAVE_CRYPT_TOKEN_MAX
 DLSYM_PROTOTYPE(crypt_token_max) = NULL;
-#else
-int crypt_token_max(_unused_ const char *type) {
-    assert(streq(type, CRYPT_LUKS2));
-
-    return 32;
-}
-#endif
 #if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
 DLSYM_PROTOTYPE(crypt_token_set_external_path) = NULL;
 #endif
@@ -250,11 +238,7 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_load),
                         DLSYM_ARG(crypt_metadata_locking),
                         DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
-#if HAVE_CRYPT_REENCRYPT_RUN
                         DLSYM_ARG(crypt_reencrypt_run),
-#else
-                        DLSYM_ARG(crypt_reencrypt),
-#endif
                         DLSYM_ARG(crypt_resize),
                         DLSYM_ARG(crypt_resume_by_volume_key),
                         DLSYM_ARG(crypt_set_data_device),
@@ -266,9 +250,7 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_suspend),
                         DLSYM_ARG(crypt_token_json_get),
                         DLSYM_ARG(crypt_token_json_set),
-#if HAVE_CRYPT_TOKEN_MAX
                         DLSYM_ARG(crypt_token_max),
-#endif
 #if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
                         DLSYM_ARG(crypt_token_set_external_path),
 #endif
