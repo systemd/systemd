@@ -1787,12 +1787,10 @@ static int luks_format(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate volume key: %m");
 
-#if HAVE_CRYPT_SET_METADATA_SIZE
         /* Increase the metadata space to 4M, the largest LUKS2 supports */
         r = sym_crypt_set_metadata_size(cd, 4096U*1024U, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to change LUKS2 metadata size: %m");
-#endif
 
         build_good_pbkdf(&good_pbkdf, hr);
         build_minimal_pbkdf(&minimal_pbkdf, hr);
