@@ -1046,22 +1046,13 @@ else
         libatomic = []
 endif
 
-libcrypt = dependency('libcrypt', 'libxcrypt', required : false)
-if not libcrypt.found()
-        # fallback to use find_library() if libcrypt is provided by glibc, e.g. for LibreELEC.
-        libcrypt = cc.find_library('crypt')
+if get_option('libc') == 'musl'
+        libcrypt = []
+else
+        libcrypt = dependency('libcrypt', 'libxcrypt',
+                              required : true,
+                              version : '>=4.4.0')
 endif
-
-foreach func : [
-        'crypt_ra',               # since libxcrypt-4.0.0
-        'crypt_gensalt_ra',       # since libxcrypt-4.0.0
-        'crypt_preferred_method', # since libxcrypt-4.4.0
-]
-
-        have = cc.has_function(func, prefix : '''#include <crypt.h>''', args : '-D_GNU_SOURCE',
-                               dependencies : libcrypt)
-        conf.set10('HAVE_' + func.to_upper(), have)
-endforeach
 
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
