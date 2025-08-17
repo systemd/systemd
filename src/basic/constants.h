@@ -68,4 +68,4 @@
 #define VARLINK_PATH_MACHINED_RESOLVE_HOOK "/run/systemd/resolve.hook/io.systemd.Machine"
 
 /* Recommended baseline - see README for details */
-#define KERNEL_BASELINE_VERSION "5.7"
+#define KERNEL_BASELINE_VERSION "5.14"
