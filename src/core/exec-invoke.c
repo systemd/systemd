@@ -1625,7 +1625,7 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p) {
         if (skip_seccomp_unavailable("SystemCallFilter="))
                 return 0;
 
-        negative_action = c->syscall_errno == SECCOMP_ERROR_NUMBER_KILL ? scmp_act_kill_process() : SCMP_ACT_ERRNO(c->syscall_errno);
+        negative_action = c->syscall_errno == SECCOMP_ERROR_NUMBER_KILL ? SCMP_ACT_KILL_PROCESS : SCMP_ACT_ERRNO(c->syscall_errno);
 
         if (c->syscall_allow_list) {
                 default_action = negative_action;
@@ -1646,9 +1646,7 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p) {
 }
 
 static int apply_syscall_log(const ExecContext *c, const ExecParameters *p) {
-#ifdef SCMP_ACT_LOG
         uint32_t default_action, action;
-#endif
 
         assert(c);
         assert(p);
@@ -1656,7 +1654,6 @@ static int apply_syscall_log(const ExecContext *c, const ExecParameters *p) {
         if (!context_has_syscall_logs(c))
                 return 0;
 
-#ifdef SCMP_ACT_LOG
         if (skip_seccomp_unavailable("SystemCallLog="))
                 return 0;
 
@@ -1671,11 +1668,6 @@ static int apply_syscall_log(const ExecContext *c, const ExecParameters *p) {
         }
 
         return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_log, action, false);
-#else
-        /* old libseccomp */
-        log_debug( "SECCOMP feature SCMP_ACT_LOG not available, skipping SystemCallLog=");
-        return 0;
-#endif
 }
 
 static int apply_syscall_archs(const ExecContext *c, const ExecParameters *p) {
