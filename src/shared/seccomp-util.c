@@ -129,10 +129,10 @@ uint32_t seccomp_local_archs[] = {
                 SCMP_ARCH_MIPSEL64,
                 SCMP_ARCH_MIPS64N32,
                 SCMP_ARCH_MIPSEL64N32, /* native */
-#elif defined(__hppa64__) && defined(SCMP_ARCH_PARISC) && defined(SCMP_ARCH_PARISC64)
+#elif defined(__hppa64__)
                 SCMP_ARCH_PARISC,
                 SCMP_ARCH_PARISC64,    /* native */
-#elif defined(__hppa__) && defined(SCMP_ARCH_PARISC)
+#elif defined(__hppa__)
                 SCMP_ARCH_PARISC,
 #elif defined(__powerpc64__) && __BYTE_ORDER == __BIG_ENDIAN
                 SCMP_ARCH_PPC,
@@ -190,14 +190,10 @@ const char* seccomp_arch_to_string(uint32_t c) {
                 return "mips64-le";
         case SCMP_ARCH_MIPSEL64N32:
                 return "mips64-le-n32";
-#ifdef SCMP_ARCH_PARISC
         case SCMP_ARCH_PARISC:
                 return "parisc";
-#endif
-#ifdef SCMP_ARCH_PARISC64
         case SCMP_ARCH_PARISC64:
                 return "parisc64";
-#endif
         case SCMP_ARCH_PPC:
                 return "ppc";
         case SCMP_ARCH_PPC64:
@@ -251,14 +247,10 @@ int seccomp_arch_from_string(const char *n, uint32_t *ret) {
                 *ret = SCMP_ARCH_MIPSEL64;
         else if (streq(n, "mips64-le-n32"))
                 *ret = SCMP_ARCH_MIPSEL64N32;
-#ifdef SCMP_ARCH_PARISC
         else if (streq(n, "parisc"))
                 *ret = SCMP_ARCH_PARISC;
-#endif
-#ifdef SCMP_ARCH_PARISC64
         else if (streq(n, "parisc64"))
                 *ret = SCMP_ARCH_PARISC64;
-#endif
         else if (streq(n, "ppc"))
                 *ret = SCMP_ARCH_PPC;
         else if (streq(n, "ppc64"))
@@ -1159,10 +1151,8 @@ static uint32_t override_default_action(uint32_t default_action) {
         if (default_action == SCMP_ACT_ALLOW)
                 return default_action;
 
-#ifdef SCMP_ACT_LOG
         if (default_action == SCMP_ACT_LOG)
                 return default_action;
-#endif
 
         return SCMP_ACT_ERRNO(ENOSYS);
 }
@@ -1264,11 +1254,9 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
                         int error = PTR_TO_INT(val);
 
                         if (error == SECCOMP_ERROR_NUMBER_KILL)
-                                a = scmp_act_kill_process();
-#ifdef SCMP_ACT_LOG
+                                a = SCMP_ACT_KILL_PROCESS;
                         else if (action == SCMP_ACT_LOG)
                                 a = SCMP_ACT_LOG;
-#endif
                         else if (error >= 0)
                                 a = SCMP_ACT_ERRNO(error);
 
@@ -1677,12 +1665,8 @@ int seccomp_restrict_address_families(Set *address_families, bool allow_list) {
                 case SCMP_ARCH_X86:
                 case SCMP_ARCH_MIPSEL:
                 case SCMP_ARCH_MIPS:
-#ifdef SCMP_ARCH_PARISC
                 case SCMP_ARCH_PARISC:
-#endif
-#ifdef SCMP_ARCH_PARISC64
                 case SCMP_ARCH_PARISC64:
-#endif
                 case SCMP_ARCH_PPC:
                 case SCMP_ARCH_PPC64:
                 case SCMP_ARCH_PPC64LE:
@@ -2486,21 +2470,6 @@ int seccomp_restrict_suid_sgid(void) {
         }
 
         return 0;
-}
-
-uint32_t scmp_act_kill_process(void) {
-
-        /* Returns SCMP_ACT_KILL_PROCESS if it's supported, and SCMP_ACT_KILL_THREAD otherwise. We never
-         * actually want to use SCMP_ACT_KILL_THREAD as its semantics are nuts (killing arbitrary threads of
-         * a program is just a bad idea), but on old kernels/old libseccomp it is all we have, and at least
-         * for single-threaded apps does the right thing. */
-
-#ifdef SCMP_ACT_KILL_PROCESS
-        if (dlopen_libseccomp() >= 0 && sym_seccomp_api_get() >= 3)
-                return SCMP_ACT_KILL_PROCESS;
-#endif
-
-        return SCMP_ACT_KILL; /* same as SCMP_ACT_KILL_THREAD */
 }
 
 int parse_syscall_and_errno(const char *in, char **name, int *error) {
