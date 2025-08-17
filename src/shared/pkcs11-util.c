@@ -546,7 +546,6 @@ int pkcs11_token_read_public_key(
                 if (!os)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_POINT.");
 
-#if OPENSSL_VERSION_MAJOR >= 3
                 _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, "EC", NULL);
                 if (!ctx)
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to create an EVP_PKEY_CTX for EC.");
@@ -642,31 +641,6 @@ int pkcs11_token_read_public_key(
 
                 if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, ec_params) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to create EVP_PKEY from EC parameters.");
-#else
-                _cleanup_(EC_POINT_freep) EC_POINT *point = EC_POINT_new(group);
-                if (!point)
-                        return log_oom_debug();
-
-                if (EC_POINT_oct2point(group, point, os->data, os->length, NULL) != 1)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Unable to decode CKA_EC_POINT.");
-
-                 _cleanup_(EC_KEY_freep) EC_KEY *ec_key = EC_KEY_new();
-                if (!ec_key)
-                        return log_oom_debug();
-
-                if (EC_KEY_set_group(ec_key, group) != 1)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set group for EC_KEY.");
-
-                if (EC_KEY_set_public_key(ec_key, point) != 1)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to set public key for EC_KEY.");
-
-                pkey = EVP_PKEY_new();
-                if (!pkey)
-                        return log_oom_debug();
-
-                if (EVP_PKEY_set1_EC_KEY(pkey, ec_key) != 1)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to assign EC_KEY to EVP_PKEY.");
-#endif
                 break;
         }
         default:
