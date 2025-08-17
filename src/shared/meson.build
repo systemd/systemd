@@ -249,10 +249,6 @@ if conf.get('ENABLE_UTMP') == 1
         shared_sources += files('utmp-wtmp.c')
 endif
 
-if conf.get('HAVE_LIBIPTC') == 1
-        shared_sources += files('firewall-util-iptables.c')
-endif
-
 if conf.get('HAVE_LIBBPF') == 1
         shared_sources += files('bpf-link.c')
 endif
@@ -323,7 +319,6 @@ libshared_deps = [threads,
                   libcrypt,
                   libdl,
                   libgcrypt,
-                  libiptc_cflags,
                   libkmod_cflags,
                   liblz4_cflags,
                   libmount,

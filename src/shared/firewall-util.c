@@ -13,9 +13,6 @@
 
 static const char * const firewall_backend_table[_FW_BACKEND_MAX] = {
         [FW_BACKEND_NONE] = "none",
-#if HAVE_LIBIPTC
-        [FW_BACKEND_IPTABLES] = "iptables",
-#endif
         [FW_BACKEND_NFTABLES] = "nftables",
 };
 
@@ -33,12 +30,6 @@ static void firewall_backend_probe(FirewallContext *ctx, bool init_tables) {
         if (e) {
                 if (streq(e, "nftables"))
                         ctx->backend = FW_BACKEND_NFTABLES;
-                else if (streq(e, "iptables"))
-#if HAVE_LIBIPTC
-                        ctx->backend = FW_BACKEND_IPTABLES;
-#else
-                        log_debug("Unsupported firewall backend requested, ignoring: %s", e);
-#endif
                 else
                         log_debug("Unrecognized $SYSTEMD_FIREWALL_BACKEND value, ignoring: %s", e);
         }
@@ -48,11 +39,7 @@ static void firewall_backend_probe(FirewallContext *ctx, bool init_tables) {
                 if (fw_nftables_init_full(ctx, init_tables) >= 0)
                         ctx->backend = FW_BACKEND_NFTABLES;
                 else
-#if HAVE_LIBIPTC
-                        ctx->backend = FW_BACKEND_IPTABLES;
-#else
                         ctx->backend = FW_BACKEND_NONE;
-#endif
         }
 
         if (ctx->backend != FW_BACKEND_NONE)
@@ -116,10 +103,6 @@ int fw_add_masquerade(
         }
 
         switch ((*ctx)->backend) {
-#if HAVE_LIBIPTC
-        case FW_BACKEND_IPTABLES:
-                return fw_iptables_add_masquerade(add, af, source, source_prefixlen);
-#endif
         case FW_BACKEND_NFTABLES:
                 return fw_nftables_add_masquerade(*ctx, add, af, source, source_prefixlen);
         default:
@@ -148,10 +131,6 @@ int fw_add_local_dnat(
         }
 
         switch ((*ctx)->backend) {
-#if HAVE_LIBIPTC
-        case FW_BACKEND_IPTABLES:
-                return fw_iptables_add_local_dnat(add, af, protocol, local_port, remote, remote_port, previous_remote);
-#endif
         case FW_BACKEND_NFTABLES:
                 return fw_nftables_add_local_dnat(*ctx, add, af, protocol, local_port, remote, remote_port, previous_remote);
         default:
