@@ -50,7 +50,6 @@ REQUIREMENTS:
 
         ⛔ Kernel versions below 5.4 ("minimum baseline") are not supported at all,
            and are missing required functionality as listed above.
-           # FIXME: actually drop compat glue before v258
 
         Linux kernel ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
