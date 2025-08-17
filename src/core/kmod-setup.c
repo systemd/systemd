@@ -115,10 +115,6 @@ int kmod_setup(void) {
                 /* This should never be a module */
                 { "unix",                       "/proc/net/unix",            true,  true,  NULL               },
 
-#if HAVE_LIBIPTC
-                /* netfilter is needed by networkd, nspawn among others, and cannot be autoloaded */
-                { "ip_tables",                  "/proc/net/ip_tables_names", false, false, NULL               },
-#endif
                 /* virtio_rng would be loaded by udev later, but real entropy might be needed very early */
                 { "virtio_rng",                 NULL,                        false, false, has_virtio_rng     },
 
