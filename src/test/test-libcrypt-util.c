@@ -7,13 +7,7 @@
 #include "tests.h"
 
 TEST(crypt_preferred_method) {
-        log_info("crypt_preferred_method: %s",
-#if HAVE_CRYPT_PREFERRED_METHOD
-                 crypt_preferred_method()
-#else
-                 "(not available)"
-#endif
-        );
+        log_info("crypt_preferred_method: %s", crypt_preferred_method());
 }
 
 TEST(make_salt) {
@@ -31,10 +25,6 @@ TEST(make_salt) {
 }
 
 TEST(hash_password) {
-#if defined(__powerpc__) && !defined(XCRYPT_VERSION_MAJOR)
-        return log_tests_skipped("crypt_r() causes a buffer overflow on ppc64el, see https://github.com/systemd/systemd/pull/16981#issuecomment-691203787");
-#endif
-
         /* As a warm-up exercise, check if we can hash passwords. */
         FOREACH_STRING(hash,
                        "ew3bU1.hoKk4o",
@@ -50,9 +40,6 @@ TEST(hash_password) {
                         ASSERT_OK_ZERO(test_password_one(hash, "ppp"));
                         continue;
                 }
-#elif !defined(XCRYPT_VERSION_MAJOR)
-                ASSERT_OK(test_password_one(hash, "ppp"));
-                continue;
 #endif
                 ASSERT_OK_POSITIVE(test_password_one(hash, "ppp"));
         }
