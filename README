@@ -243,7 +243,7 @@ REQUIREMENTS:
         gnutls >= 3.1.4 (optional)
         openssl >= 3.0.0 (optional, required to support DNS-over-TLS)
         p11-kit >= 0.23.3 (optional)
-        libfido2 (optional)
+        libfido2 >= 1.5.0 (optional)
         tpm2-tss (optional)
         elfutils >= 177 (optional)
         polkit (optional)

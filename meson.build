@@ -1297,6 +1297,7 @@ feature = get_option('libfido2').require(
         conf.get('HAVE_OPENSSL') == 1,
         error_message : 'openssl required')
 libfido2 = dependency('libfido2',
+                      version : '>=1.5.0',
                       required : feature)
 conf.set10('HAVE_LIBFIDO2', libfido2.found())
 
