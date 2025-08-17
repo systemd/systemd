@@ -219,8 +219,7 @@ REQUIREMENTS:
         libblkid >= 2.24 (from util-linux) (optional)
         libkmod >= 15 (optional)
         PAM >= 1.1.2 (optional)
-        libcryptsetup >= 2.0.1 (optional),
-                      >= 2.3.0 is required for signed Verity images support
+        libcryptsetup >= 2.4.0 (optional),
         libaudit (optional)
         libacl (optional)
         libbpf >= 0.1.0 (optional),
