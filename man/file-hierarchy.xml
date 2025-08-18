@@ -230,7 +230,12 @@
         <listitem><para>Repository for vendor-supplied default configuration files. This directory should be
         populated with pristine vendor versions of all configuration files that may be placed in
         <filename>/etc/</filename>. This is useful to compare the local configuration of a system with vendor
-        defaults and to populate the local configuration with defaults.</para></listitem>
+        defaults and to populate the local configuration with defaults. Software should not read vendor
+        settings directly from <filename>/usr/share/factory/</filename>; rather, they should load from configuration
+        files in directories listed by the <ulink
+        url="https://uapi-group.org/specifications/specs/configuration_files_specification/">UAPI
+        configuration files specification</ulink>, such as <filename>/usr/lib/</filename> and
+        <filename>/usr/share/</filename>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -239,7 +244,9 @@
         <listitem><para>Similar to
         <filename>/usr/share/factory/etc/</filename>, but for vendor
         versions of files in the variable, persistent data directory
-        <filename>/var/</filename>.</para></listitem>
+        <filename>/var/</filename>. The same recommendations from
+        <filename>/usr/share/factory/etc/</filename> apply here.
+        </para></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
