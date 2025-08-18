@@ -421,7 +421,7 @@ assert_cc(sizeof(dummy_t) == 0);
 
 /* Restriction/bug (see below) was fixed in GCC 15 and clang 19. */
 #if __GNUC__ >= 15 || (defined(__clang__) && __clang_major__ >= 19)
-#define DECLARE_FLEX_ARRAY(type, name) type name[]
+#  define DECLARE_FLEX_ARRAY(type, name) type name[]
 #else
 /* Declare a flexible array usable in a union.
  * This is essentially a work-around for a pointless constraint in C99
@@ -443,9 +443,9 @@ assert_cc(sizeof(dummy_t) == 0);
             ".popsection\n")
 
 #ifdef SBAT_DISTRO
-        #define DECLARE_SBAT(text) DECLARE_NOALLOC_SECTION(".sbat", text)
+#  define DECLARE_SBAT(text) DECLARE_NOALLOC_SECTION(".sbat", text)
 #else
-        #define DECLARE_SBAT(text)
+#  define DECLARE_SBAT(text)
 #endif
 
 #define typeof_field(struct_type, member) typeof(((struct_type *) 0)->member)
