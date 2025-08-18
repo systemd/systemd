@@ -22,6 +22,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "sysctl-util.h"
+#include "sd-path.h"
 
 static char **arg_prefixes = NULL;
 static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
@@ -452,6 +453,11 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
         int r;
+        _cleanup_strv_free_ char **search_paths = NULL;
+
+        r = sd_path_lookup_strv(SD_PATH_SEARCH_SYSCTL, NULL, &search_paths);
+        if (r < 0)
+                return log_oom();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -468,7 +474,7 @@ static int run(int argc, char *argv[]) {
                         _cleanup_free_ char *pp = NULL;
                         int r1;
 
-                        r1 = search_and_fopen(argv[i], "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), &f, &pp);
+                        r1 = search_and_fopen(argv[i], "re", NULL, (const char**) search_paths, &f, &pp);
                         if (r1 < 0)
                                 return log_error_errno(r1, "Failed to open file '%s', ignoring: %m", pp);
 
@@ -478,7 +484,7 @@ static int run(int argc, char *argv[]) {
         } else {
                 _cleanup_strv_free_ char **files = NULL;
 
-                r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("sysctl.d"));
+                r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) search_paths);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
 
