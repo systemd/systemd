@@ -89,6 +89,11 @@ prepare_root() {
         echo "VERSION=1.2.3"
     } >"$root/usr/lib/os-release"
 
+    if [[ ! -L $root/etc/os-release ]]; then
+        mv "$root/etc/os-release" "$root/etc/os-release.orig"
+        cp "$root/usr/lib/os-release" "$root/etc/os-release"
+    fi
+
     prepend_trap "cleanup_os_release ${root@Q}"
 }
 
@@ -102,6 +107,11 @@ cleanup_os_release() {
     if [[ -e $root/usr/lib/os-release.orig ]]; then
         # shellcheck disable=SC2317 # It is not unreachable, used in a trap couple lines above.
         mv "$root/usr/lib/os-release.orig" "$root/usr/lib/os-release"
+    fi
+    # shellcheck disable=SC2317 # It is not unreachable, used in a trap couple lines above.
+    if [[ -e $root/etc/os-release.orig ]]; then
+        # shellcheck disable=SC2317 # It is not unreachable, used in a trap couple lines above.
+        mv "$root/etc/os-release.orig" "$root/etc/os-release"
     fi
 }
 
