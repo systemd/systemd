@@ -16,6 +16,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "unaligned.h"
 
 static thread_local int have_pidfs = -1;
 
@@ -239,7 +240,7 @@ int pidfd_get_inode_id_impl(int fd, uint64_t *ret) {
                 union {
                         struct file_handle file_handle;
                         uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
-                } _alignas_(uint64_t) fh = {
+                } fh = {
                         .file_handle.handle_bytes = sizeof(uint64_t),
                         .file_handle.handle_type = FILEID_KERNFS,
                 };
@@ -248,7 +249,8 @@ int pidfd_get_inode_id_impl(int fd, uint64_t *ret) {
                 r = RET_NERRNO(name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH));
                 if (r >= 0) {
                         if (ret)
-                                *ret = *CAST_ALIGN_PTR(uint64_t, fh.file_handle.f_handle);
+                                /* Note, "struct file_handle" is 32bit aligned usually, but we need to read a 64bit value from it */
+                                *ret = unaligned_read_ne64(fh.file_handle.f_handle);
                         return 0;
                 }
                 assert(r != -EOVERFLOW);
