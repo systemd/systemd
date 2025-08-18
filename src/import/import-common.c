@@ -72,11 +72,11 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 }
 
                 if (unshare(CLONE_NEWNET) < 0)
-                        log_warning_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
+                        log_debug_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
 
                 r = capability_bounding_set_drop(retain, true);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to drop capabilities, ignoring: %m");
+                        log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
                 if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
                         log_warning_errno(errno, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
