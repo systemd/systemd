@@ -436,17 +436,22 @@ assert_cc(sizeof(dummy_t) == 0);
         }
 #endif
 
-/* Declares an ELF read-only string section that does not occupy memory at runtime. */
-#define DECLARE_NOALLOC_SECTION(name, text)   \
-        asm(".pushsection " name ",\"S\"\n\t" \
-            ".ascii " STRINGIFY(text) "\n\t"  \
+/* Declare an ELF read-only string section that does not occupy memory at runtime. */
+#define DECLARE_NOALLOC_SECTION(name, text)           \
+        asm(".pushsection " name ",\"S\"\n\t"         \
+            ".ascii " STRINGIFY(text) "\n\t"          \
             ".popsection\n")
 
-#ifdef SBAT_DISTRO
-#  define DECLARE_SBAT(text) DECLARE_NOALLOC_SECTION(".sbat", text)
-#else
-#  define DECLARE_SBAT(text)
-#endif
+/* Similar to DECLARE_NOALLOC_SECTION, but pad the section with extra 512 bytes. After taking alignment into
+ * account, the section has up to 1024 bytes minus the size of the original content of padding, and this
+ * extra space can be used to extend the contents. This is intended for the .sbat section. */
+#define DECLARE_NOALLOC_SECTION_PADDED(name, text)    \
+        assert_cc(STRLEN(text) <= 512);               \
+        asm(".pushsection " name ",\"S\"\n\t"         \
+            ".ascii " STRINGIFY(text) "\n\t"          \
+            ".balign 512\n\t"                         \
+            ".fill 512, 1, 0\n\t"                     \
+            ".popsection\n")
 
 #define typeof_field(struct_type, member) typeof(((struct_type *) 0)->member)
 #define sizeof_field(struct_type, member) sizeof(((struct_type *) 0)->member)
