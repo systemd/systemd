@@ -537,7 +537,7 @@ static int parse_one_option(const char *option) {
 #if HAVE_OPENSSL
                 _cleanup_strv_free_ char **l = NULL;
 
-                l = strv_split(optarg, ":");
+                l = strv_split(val, ":");
                 if (!l)
                         return log_oom();
 
