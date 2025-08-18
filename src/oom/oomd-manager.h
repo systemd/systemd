@@ -54,6 +54,8 @@ typedef struct Manager {
         /* This varlink server object is used to manage systemd-oomd's varlink server which is used by user
          * managers to report changes in ManagedOOM settings (oomd server - systemd client). */
         sd_varlink_server *varlink_server;
+
+        struct PrekillHook prekill_hook;
 } Manager;
 
 Manager* manager_free(Manager *m);
