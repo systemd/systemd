@@ -421,7 +421,7 @@ assert_cc(sizeof(dummy_t) == 0);
 
 /* Restriction/bug (see below) was fixed in GCC 15 and clang 19. */
 #if __GNUC__ >= 15 || (defined(__clang__) && __clang_major__ >= 19)
-#define DECLARE_FLEX_ARRAY(type, name) type name[]
+#  define DECLARE_FLEX_ARRAY(type, name) type name[]
 #else
 /* Declare a flexible array usable in a union.
  * This is essentially a work-around for a pointless constraint in C99
@@ -436,17 +436,19 @@ assert_cc(sizeof(dummy_t) == 0);
         }
 #endif
 
-/* Declares an ELF read-only string section that does not occupy memory at runtime. */
-#define DECLARE_NOALLOC_SECTION(name, text)   \
-        asm(".pushsection " name ",\"S\"\n\t" \
-            ".ascii " STRINGIFY(text) "\n\t"  \
+/* Declare an ELF read-only string section that does not occupy memory at runtime. */
+#define DECLARE_NOALLOC_SECTION(name, text)           \
+        asm(".pushsection " name ",\"S\"\n\t"         \
+            ".ascii " STRINGIFY(text) "\n\t"          \
             ".popsection\n")
 
-#ifdef SBAT_DISTRO
-        #define DECLARE_SBAT(text) DECLARE_NOALLOC_SECTION(".sbat", text)
-#else
-        #define DECLARE_SBAT(text)
-#endif
+#define DECLARE_NOALLOC_SECTION_PADDED(name, text)    \
+        assert_cc(STRLEN(text) <= 512);               \
+        asm(".pushsection " name ",\"S\"\n\t"         \
+            ".ascii " STRINGIFY(text) "\n\t"          \
+            ".balign 512\n"                           \
+            ".fill 512, 1, 0\n"                       \
+            ".popsection\n")
 
 #define typeof_field(struct_type, member) typeof(((struct_type *) 0)->member)
 #define sizeof_field(struct_type, member) sizeof(((struct_type *) 0)->member)
