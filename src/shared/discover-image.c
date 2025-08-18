@@ -110,7 +110,7 @@ static const char *const image_root_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_CONFEXT]  = "/var/lib/confexts",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(image_root, ImageClass);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_root, ImageClass);
 
 static const char *const image_root_runtime_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE]  = "/run/machines",
@@ -119,7 +119,7 @@ static const char *const image_root_runtime_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_CONFEXT]  = "/run/confexts",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(image_root_runtime, ImageClass);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_root_runtime, ImageClass);
 
 static const char *const image_dirname_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE]  = "machines",
@@ -2022,3 +2022,45 @@ static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);
+
+int image_root_pick(
+                RuntimeScope scope,
+                ImageClass c,
+                bool runtime,
+                char **ret) {
+
+        int r;
+
+        assert(scope >= 0);
+        assert(scope < _RUNTIME_SCOPE_MAX);
+        assert(c >= 0);
+        assert(c < _IMAGE_CLASS_MAX);
+        assert(ret);
+
+        /* Picks the primary target directory for downloads, depeneding on invocation contexts */
+
+        _cleanup_free_ char *s = NULL;
+        switch (scope) {
+
+        case RUNTIME_SCOPE_SYSTEM: {
+                s = strdup(runtime ? image_root_runtime_to_string(c) : image_root_to_string(c));
+                if (!s)
+                        return -ENOMEM;
+
+                break;
+        }
+
+        case RUNTIME_SCOPE_USER:
+                r = sd_path_lookup(runtime ? SD_PATH_USER_RUNTIME : SD_PATH_USER_STATE_PRIVATE, "machines", &s);
+                if (r < 0)
+                        return r;
+
+                break;
+
+        default:
+                return -EOPNOTSUPP;
+        }
+
+        *ret = TAKE_PTR(s);
+        return 0;
+}
