@@ -810,7 +810,7 @@ static int shovel_force(PTYForward *f) {
 
         if (!f->master_hangup)
                 f->master_writable = f->master_readable = true;
-        if (!f->stdin_hangup)
+        if (!f->stdin_hangup && f->input_fd >= 0)
                 f->stdin_readable = true;
         if (!f->stdout_hangup)
                 f->stdout_writable = true;
