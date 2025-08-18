@@ -1446,4 +1446,26 @@ testcase_unpriv_dir() {
     rm -rf "$root"
 }
 
+testcase_link_journa_hostl() {
+    local root hoge i
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.link-journal.XXX)"
+    create_dummy_container "$root"
+
+    systemd-id128 new > "$root"/etc/machine-id
+
+    hoge="/var/log/journal/$(cat "$root"/etc/machine-id)/hoge"
+
+    for i in no yes pick; do
+        systemd-nspawn \
+            --directory="$root" --private-users="$i" --link-journal=host \
+            bash -xec 'p="/var/log/journal/$(cat /etc/machine-id)"; mountpint "$p"; [[ "$(stat "$p" --format=%u)" == 0 ]]; touch "$p/hoge"'
+
+        [[ "$(stat "$hoge" --format=%u)" == 0 ]]
+        rm "$hoge"
+    done
+
+    rm -fr "$root"
+}
+
 run_testcases
