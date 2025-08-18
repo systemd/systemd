@@ -1045,7 +1045,10 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
         for i, s in enumerate(pe.sections[:n_original_sections]):
             if pe_strip_section_name(s.Name) == section.name and section.name != '.dtbauto':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
-                    raise PEError(f'Not enough space in existing section {section.name} to append new data')
+                    raise PEError(
+                        f'Not enough space in existing section {section.name} to append new data'
+                        f' (need {new_section.Misc_VirtualSize}, have {s.SizeOfRawData}'
+                    )
 
                 padding = bytes(new_section.SizeOfRawData - new_section.Misc_VirtualSize)
                 pe.__data__ = (
