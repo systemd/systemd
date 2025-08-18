@@ -2659,7 +2659,7 @@ static int setup_hostname(void) {
         return 0;
 }
 
-static int setup_journal(const char *directory) {
+static int setup_journal(const char *directory, uid_t uid_shift, uid_t uid_range) {
         _cleanup_free_ char *d = NULL;
         const char *p, *q;
         sd_id128_t this_id;
@@ -2782,11 +2782,19 @@ static int setup_journal(const char *directory) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s: %m", q);
 
-        r = mount_nofollow_verbose(LOG_DEBUG, p, q, NULL, MS_BIND, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind mount journal from host into guest: %m");
-
-        return 0;
+        return mount_custom(
+                        directory,
+                        &(CustomMount) {
+                                .type = CUSTOM_MOUNT_BIND,
+                                .options = (char*) (uid_is_valid(uid_shift) ? "rootidmap" : NULL),
+                                .source = (char *)p,
+                                .destination = (char *)p,
+                        },
+                        /* n = */ 1,
+                        uid_shift,
+                        uid_range,
+                        arg_selinux_apifs_context,
+                        MOUNT_NON_ROOT_ONLY);
 }
 
 static int drop_capabilities(uid_t uid) {
@@ -4292,7 +4300,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_journal(directory);
+        r = setup_journal(directory, arg_uid_shift, arg_uid_range);
         if (r < 0)
                 return r;
 
