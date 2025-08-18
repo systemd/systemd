@@ -1084,6 +1084,19 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         link->dhcp_lease = sd_dhcp_lease_ref(lease);
         link_dirty(link);
 
+        /* save leases acquired here */
+        if (link->network->dhcp_client_persist_leases != DHCP_CLIENT_PERSIST_LEASES_NO) {
+                _cleanup_free_ char *lease_file = NULL;
+
+                r = asprintf(&lease_file, "%s/%d", "/var/lib/systemd/network/netif/leases", link->ifindex);
+
+                if (r >= 0) {
+                        r = dhcp_lease_save(lease, lease_file);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to save DHCP lease: %m");
+                }
+        }
+
         if (link->network->dhcp_use_mtu) {
                 uint16_t mtu;
 
