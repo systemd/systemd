@@ -105,6 +105,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(parentFileDescriptor, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Name of the directory to create."),
                 SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("File descriptor referencing the newly created directory."),
                 SD_VARLINK_DEFINE_OUTPUT(directoryFileDescriptor, SD_VARLINK_INT, 0));
 
