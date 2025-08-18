@@ -471,6 +471,9 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to pick image root: %m");
         }
 
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER)
+                arg_import_flags |= IMPORT_FOREIGN_UID;
+
         return 1;
 }
 
