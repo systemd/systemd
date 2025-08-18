@@ -4848,13 +4848,16 @@ int mountfsd_mount_image(
 #endif
 }
 
-int mountfsd_mount_directory(
-                const char *path,
+int mountfsd_mount_directory_fd(
+                int directory_fd,
                 int userns_fd,
                 DissectImageFlags flags,
                 int *ret_mount_fd) {
 
         int r;
+
+        assert(directory_fd >= 0);
+        assert(ret_mount_fd);
 
         /* Pick one identity, not both, that makes no sense. */
         assert(!FLAGS_SET(flags, DISSECT_IMAGE_FOREIGN_UID|DISSECT_IMAGE_IDENTITY_UID));
@@ -4871,10 +4874,6 @@ int mountfsd_mount_directory(
         r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
-
-        _cleanup_close_ int directory_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_PATH);
-        if (directory_fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", path);
 
         r = sd_varlink_push_dup_fd(vl, directory_fd);
         if (r < 0)
@@ -4918,4 +4917,104 @@ int mountfsd_mount_directory(
 
         *ret_mount_fd = TAKE_FD(fsmount_fd);
         return 0;
+}
+
+int mountfsd_mount_directory(
+                const char *path,
+                int userns_fd,
+                DissectImageFlags flags,
+                int *ret_mount_fd) {
+
+        assert(path);
+        assert(ret_mount_fd);
+
+        _cleanup_close_ int directory_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_PATH);
+        if (directory_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+        return mountfsd_mount_directory_fd(directory_fd, userns_fd, flags, ret_mount_fd);
+}
+
+int mountfsd_make_directory_fd(
+                int parent_fd,
+                const char *name,
+                DissectImageFlags flags,
+                int *ret_directory_fd) {
+
+        int r;
+
+        assert(parent_fd >= 0);
+        assert(name);
+        assert(ret_directory_fd);
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to mountfsd: %m");
+
+        r = sd_varlink_set_allow_fd_passing_input(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for read: %m");
+
+        r = sd_varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
+
+        r = sd_varlink_push_dup_fd(vl, parent_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to push parent fd into varlink connection: %m");
+
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.MountFileSystem.MakeDirectory",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("parentFileDescriptor", 0),
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
+        if (r < 0)
+                return r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "directoryFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        unsigned directory_fd_idx = UINT_MAX;
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &directory_fd_idx);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse MountImage() reply: %m");
+
+        _cleanup_close_ int directory_fd = sd_varlink_take_fd(vl, directory_fd_idx);
+        if (directory_fd < 0)
+                return log_error_errno(directory_fd, "Failed to take directory fd from Varlink connection: %m");
+
+        *ret_directory_fd = TAKE_FD(directory_fd);
+        return 0;
+}
+
+int mountfsd_make_directory(
+                const char *path,
+                DissectImageFlags flags,
+                int *ret_directory_fd) {
+
+        int r;
+
+        _cleanup_free_ char *parent = NULL;
+        r = path_extract_directory(path, &parent);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract parent directory from '%s': %m", path);
+
+        _cleanup_free_ char *dirname = NULL;
+        r = path_extract_filename(path, &dirname);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract directory name from '%s': %m", path);
+
+        _cleanup_close_ int fd = open(parent, O_DIRECTORY|O_CLOEXEC);
+        if (fd < 0)
+                return log_error_errno(r, "Failed to open '%s': %m", parent);
+
+        return mountfsd_make_directory_fd(fd, dirname, flags, ret_directory_fd);
 }
