@@ -560,6 +560,9 @@ static int parse_argv(int argc, char *argv[]) {
         if (auto_keep_download)
                 SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, arg_class == IMAGE_MACHINE);
 
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER)
+                arg_import_flags |= IMPORT_FOREIGN_UID;
+
         return 1;
 }
 
