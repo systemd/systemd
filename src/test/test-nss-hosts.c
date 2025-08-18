@@ -483,6 +483,7 @@ static int run(int argc, char **argv) {
 
         assert_se(path_extract_directory(argv[0], &dir) >= 0);
 
+#if HAVE_SECCOMP
         if (geteuid() != 0 || !is_seccomp_available())
                 log_tests_skipped("Not privileged or seccomp is not available");
         else {
@@ -508,6 +509,7 @@ static int run(int argc, char **argv) {
                         _exit(EXIT_SUCCESS);
                 }
         }
+#endif
 
         STRV_FOREACH(module, modules) {
                 r = test_one_module(dir, *module, names, addresses, n_addresses);
