@@ -12,3 +12,24 @@
         SBAT_PROJECT "-stub" ",1,The systemd Developers," SBAT_PROJECT "," PROJECT_VERSION "," PROJECT_URL "\n" \
         SBAT_PROJECT "-stub" "." SBAT_DISTRO "," STRINGIFY(SBAT_DISTRO_GENERATION) "," SBAT_DISTRO_SUMMARY "," SBAT_DISTRO_PKGNAME "," SBAT_DISTRO_VERSION "," SBAT_DISTRO_URL "\n"
 #endif
+
+/* Declare an ELF read-only string section that is padded to >512 bytes,
+ * to force the whole section to be 1k. Because of alignment we don't need
+ * to be exact.
+ */
+#define ZEROS_16 "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+#define ZEROS_128 ZEROS_16 ZEROS_16 ZEROS_16 ZEROS_16 ZEROS_16 ZEROS_16 ZEROS_16 ZEROS_16
+#define ZEROS_512 ZEROS_128 ZEROS_128 ZEROS_128 ZEROS_128
+
+#define DECLARE_NOALLOC_SECTION_PADDED(name, text)       \
+        assert_cc(STRLEN(text) > 0);                     \
+        assert_cc(STRLEN(text) <= 512);                  \
+        DECLARE_NOALLOC_SECTION(name, text ZEROS_512)
+
+#ifdef SBAT_DISTRO
+#  define DECLARE_SBAT(text) DECLARE_NOALLOC_SECTION(".sbat", text)
+#  define DECLARE_SBAT_PADDED(text) DECLARE_NOALLOC_SECTION_PADDED(".sbat", text)
+#else
+#  define DECLARE_SBAT(text)
+#  define DECLARE_SBAT_PADDED(text)
+#endif
