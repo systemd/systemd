@@ -51,7 +51,7 @@ enum {
 /* magic string to find in the binary image */
 DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION " ####");
 
-DECLARE_SBAT(SBAT_STUB_SECTION_TEXT);
+DECLARE_SBAT_PADDED(SBAT_STUB_SECTION_TEXT);
 
 static char16_t* pe_section_to_str16(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
