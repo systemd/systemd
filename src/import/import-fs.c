@@ -280,7 +280,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              subvolume\n"
                "     --sync=BOOL              Controls whether to sync() before completing\n"
                "     --class=CLASS            Select image class (machine, sysext, confext,\n"
-               "                              portable)\n",
+               "                              portable)\n"
+               "     --system                 Operate in per-system mode\n"
+               "     --user                   Operate in per-user mode\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -302,6 +304,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BTRFS_QUOTA,
                 ARG_SYNC,
                 ARG_CLASS,
+                ARG_SYSTEM,
+                ARG_USER,
         };
 
         static const struct option options[] = {
@@ -315,6 +319,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "btrfs-quota",     required_argument, NULL, ARG_BTRFS_QUOTA     },
                 { "sync",            required_argument, NULL, ARG_SYNC            },
                 { "class",           required_argument, NULL, ARG_CLASS           },
+                { "system",          no_argument,       NULL, ARG_SYSTEM          },
+                { "user",            no_argument,       NULL, ARG_USER            },
                 {}
         };
 
@@ -375,6 +381,14 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_class < 0)
                                 return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
 
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
                         break;
 
                 case '?':
