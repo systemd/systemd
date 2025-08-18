@@ -50,15 +50,23 @@ static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 #define PROGRESS_PREFIX "Total:"
 
 static int settle_image_class(void) {
+        int r;
 
         if (arg_image_class < 0) {
                 _cleanup_free_ char *j = NULL;
 
-                for (ImageClass class = 0; class < _IMAGE_CLASS_MAX; class++)
+                for (ImageClass class = 0; class < _IMAGE_CLASS_MAX; class++) {
+                        _cleanup_free_ char *root = NULL;
+
+                        r = image_root_pick(arg_runtime_scope, class, /* runtime= */ false, &root);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to pick image root: %m");
+
                         if (strextendf_with_separator(&j, ", ", "%s (downloads to %s/)",
                                                       image_class_to_string(class),
-                                                      image_root_to_string(class)) < 0)
+                                                      root) < 0)
                                 return log_oom();
+                }
 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No image class specified, retry with --class= set to one of: %s.", j);
