@@ -13,7 +13,8 @@ Documentation=man:systemd-importd.service(8)
 Documentation=man:org.freedesktop.import1(5)
 DefaultDependencies=no
 WantsMountsFor=/var/lib/machines /var/lib/portables /var/lib/extensions /var/lib/confexts
-After=systemd-remount-fs.service
+Requires=systemd-importd.socket
+After=systemd-remount-fs.service systemd-importd.socket
 Before=shutdown.target
 Conflicts=shutdown.target
 
