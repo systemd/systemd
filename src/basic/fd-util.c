@@ -1047,7 +1047,7 @@ int path_is_root_at(int dir_fd, const char *path) {
                 dir_fd = fd;
         }
 
-        pfd = openat(dir_fd, "..", O_PATH|O_DIRECTORY|O_CLOEXEC);
+        pfd = openat(dir_fd, "/", O_PATH|O_DIRECTORY|O_CLOEXEC);
         if (pfd < 0)
                 return errno == ENOTDIR ? false : -errno;
 
@@ -1055,8 +1055,8 @@ int path_is_root_at(int dir_fd, const char *path) {
          * and we also need to check that the mount ids are the same. Otherwise, a construct like the
          * following could be used to trick us:
          *
-         * $ mkdir /tmp/x /tmp/x/y
-         * $ mount --bind /tmp/x /tmp/x/y
+         * $ mkdir /tmp/x
+         * $ mount --bind / /tmp/x
          */
 
         return fds_are_same_mount(dir_fd, pfd);
