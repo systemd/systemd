@@ -1131,7 +1131,8 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
 
         for section in pe.sections:
             if pe_strip_section_name(section.Name) == '.sbat':
-                split = section.get_data().rstrip(b'\x00').decode().splitlines()
+                orig_data = section.get_data()
+                split = orig_data.rstrip(b'\x00').decode().splitlines()
                 if not split[0].startswith('sbat,'):
                     print(f'{f} does not contain a valid SBAT section, skipping.', file=sys.stderr)
                     continue
@@ -1148,12 +1149,14 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
             continue
         sbat += split[1:]
 
-    return (
-        'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n'
-        + '\n'.join(sbat)
-        + '\n\x00'
-    )
+    new_data = '\n'.join(('sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md',
+                          *sbat,
+                          ''))
 
+    # Pad the new section contents to be the same size as the old section, if
+    # the new contents fit. If not, make the section bigger.
+    # Terminate by a NUL char in all cases.
+    return new_data + '\x00' * max(1, len(orig_data) - len(new_data))
 
 # Keep in sync with Device from src/boot/chid.h
 # uint32_t descriptor, EFI_GUID chid, uint32_t name_offset, uint32_t compatible_offset
