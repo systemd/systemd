@@ -66,6 +66,7 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SEARCH_CONFIGURATION_FACTORY]                = "search-configuration-factory",
         [SD_PATH_SEARCH_STATE_FACTORY]                        = "search-state-factory",
         [SD_PATH_SEARCH_CONFIGURATION]                        = "search-configuration",
+        [SD_PATH_SEARCH_SYSCTL]                               = "search-sysctl",
 
         [SD_PATH_SYSTEMD_UTIL]                                = "systemd-util",
 
