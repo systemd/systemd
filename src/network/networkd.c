@@ -57,6 +57,10 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         log_warning_errno(r, "Could not create runtime directory: %m");
 
+                r = mkdir_safe_label("/var/lib/systemd/network/", 0755, uid, gid, MKDIR_WARN_MODE);
+                if (r < 0)
+                        log_warning_errno(r, "Could not create runtime directory: %m");
+
                 r = drop_privileges(uid, gid,
                                     (1ULL << CAP_NET_ADMIN) |
                                     (1ULL << CAP_NET_BIND_SERVICE) |
