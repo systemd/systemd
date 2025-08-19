@@ -2016,6 +2016,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnT-bao:pnTbookair:*
  KEYBOARD_KEY_76=touchpad_toggle                        # Touchpad toggle
 
 ###########################################################
+# TongFang
+###########################################################
+# TongFang GX4 (X4SP4NAL)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAiStone:pnX4SP4NAL:*
+ KEYBOARD_KEY_f8=fn
+
+###########################################################
 # Toshiba
 ###########################################################
 
