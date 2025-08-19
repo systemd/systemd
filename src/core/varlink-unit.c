@@ -16,6 +16,7 @@
 #include "unit-name.h"
 #include "varlink-cgroup.h"
 #include "varlink-common.h"
+#include "varlink-execute.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
 
@@ -184,8 +185,8 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_BOOLEAN("Perpetual", u->perpetual),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
 
-                        /* CGroup */
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, u));
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", unit_exec_context_build_json, u));
 
         // TODO follow up PRs:
         // JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", exec_context_build_json, u)
