@@ -96,7 +96,10 @@
     <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_bus_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-    functions into a single function call.</para>
+    functions into a single function call. When <parameter>reply</parameter> message returned from this function
+    is no longer needed, it should be unreferenced by calling
+    <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    on it.</para>
 
     <para><function>sd_bus_call_method_async()</function> is a convenience function for initializing
     a bus message object and calling the corresponding D-Bus method asynchronously. It combines the
@@ -104,6 +107,13 @@
     <citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
     <citerefentry><refentrytitle>sd_bus_call_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     functions into a single function call.</para>
+
+    <para>The message <parameter>m</parameter> passed to the callback is only borrowed, that is, the callback should
+    not call <citerefentry><refentrytitle>sd_bus_message_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    on it. If the callback wants to hold on to the message beyond the lifetime of the callback, it needs to call
+    <citerefentry><refentrytitle>sd_bus_message_ref</refentrytitle><manvolnum>3</manvolnum></citerefentry> to create a
+    new reference.</para>
+
   </refsect1>
 
   <refsect1>
