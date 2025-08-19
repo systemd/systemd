@@ -71,7 +71,10 @@ static void fido_log_propagate_handler(const char *s) {
         log_debug("libfido2: %s", strempty(s));
 }
 
+#endif
+
 int dlopen_libfido2(void) {
+#if HAVE_LIBFIDO2
         int r;
 
         ELF_NOTE_DLOPEN("fido2",
@@ -136,7 +139,12 @@ int dlopen_libfido2(void) {
         sym_fido_set_log_handler(fido_log_propagate_handler);
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
+
+#if HAVE_LIBFIDO2
 
 static int verify_features(
                 fido_dev_t *d,

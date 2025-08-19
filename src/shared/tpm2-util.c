@@ -217,7 +217,10 @@ static int dlopen_tpm2_mu(void) {
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
 }
 
+#endif
+
 int dlopen_tpm2(void) {
+#if HAVE_TPM2
         int r;
 
         r = dlopen_tpm2_esys();
@@ -233,7 +236,12 @@ int dlopen_tpm2(void) {
                 return r;
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
+
+#if HAVE_TPM2
 
 void Esys_Freep(void *p) {
         assert(p);
