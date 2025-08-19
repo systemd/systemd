@@ -1050,14 +1050,13 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
                         f' (need {new_section.Misc_VirtualSize}, have {s.SizeOfRawData})'
                     )
 
-                padding = bytes(new_section.SizeOfRawData - new_section.Misc_VirtualSize)
+                padding = bytes(s.SizeOfRawData - new_section.Misc_VirtualSize)
                 pe.__data__ = (
                     pe.__data__[: s.PointerToRawData]
                     + data
                     + padding
                     + pe.__data__[pe.sections[i + 1].PointerToRawData :]
                 )
-                s.SizeOfRawData = new_section.SizeOfRawData
                 s.Misc_VirtualSize = new_section.Misc_VirtualSize
                 break
         else:
