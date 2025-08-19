@@ -36,7 +36,6 @@ ProtectKernelLogs=yes
 ProtectSystem=strict
 RestrictAddressFamilies=AF_UNIX
 RestrictRealtime=yes
-RestrictSUIDSGID=yes
 RuntimeMaxSec=5min
 StateDirectory=systemd/coredump
 SystemCallArchitectures=native
