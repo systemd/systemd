@@ -946,7 +946,7 @@ static void session_context_mangle(
                  * (as they otherwise even try to update it!) — but cron doesn't actually allocate a TTY for its forked
                  * off processes.) */
                 c->type = "unspecified";
-                c->class = "background";
+                c->class = "background-light";
                 c->tty = NULL;
 
         } else if (streq_ptr(c->tty, "ssh")) {
