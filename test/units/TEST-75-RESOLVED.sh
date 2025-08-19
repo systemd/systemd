@@ -1346,28 +1346,28 @@ testcase_15_wait_online_dns() {
 }
 
 testcase_delegate() {
-    # Before we install the delegation file the DNS name should be directly resolveable via our DNS server
-    run resolvectl query delegation.excercise.test
+    # Before we install the delegation file the DNS name should be directly resolvable via our DNS server
+    run resolvectl query delegation.exercise.test
     grep -qF "1.2.3.4" "$RUN_OUT"
 
     mkdir -p /run/systemd/dns-delegate.d/
     cat >/run/systemd/dns-delegate.d/testcase.dns-delegate <<EOF
 [Delegate]
 DNS=192.168.77.78
-Domains=excercise.test
+Domains=exercise.test
 EOF
     systemctl reload systemd-resolved
     resolvectl status
 
     # Now that we installed the delegation the resolution should fail, because nothing is listening on that IP address
-    (! resolvectl query delegation.excercise.test)
+    (! resolvectl query delegation.exercise.test)
 
     # Now make that IP address connectible
     ip link add delegate0 type dummy
     ip addr add 192.168.77.78 dev delegate0
 
     # This should work now
-    run resolvectl query delegation.excercise.test
+    run resolvectl query delegation.exercise.test
     grep -qF "1.2.3.4" "$RUN_OUT"
 
     ip link del delegate0
@@ -1376,13 +1376,13 @@ EOF
     systemctl restart systemd-resolved
 
     # Should no longer work
-    (! resolvectl query delegation.excercise.test)
+    (! resolvectl query delegation.exercise.test)
 
     rm /run/systemd/dns-delegate.d/testcase.dns-delegate
     systemctl reload systemd-resolved
 
     # Should work again without delegation in the mix
-    run resolvectl query delegation.excercise.test
+    run resolvectl query delegation.exercise.test
     grep -qF "1.2.3.4" "$RUN_OUT"
 }
 

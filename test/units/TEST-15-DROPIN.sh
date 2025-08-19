@@ -335,7 +335,7 @@ testcase_transient_slice_dropins() {
     # FIXME: implement reloading of individual units.
     #
     # The settings here are loaded twice. For most settings it doesn't matter,
-    # but Documentation is not deduplicated, so we current get repeated entried
+    # but Documentation is not deduplicated, so we currently get repeated entries
     # which is a bug.
 
     mkdir -p /etc/systemd/system/slice.d
