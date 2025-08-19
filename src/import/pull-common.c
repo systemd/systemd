@@ -10,6 +10,7 @@
 #include "discover-image.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "hexdecoct.h"
 #include "hostname-util.h"
 #include "io-util.h"
 #include "memory-util.h"
@@ -318,7 +319,6 @@ int pull_make_verification_jobs(
 
 static int verify_one(PullJob *checksum_job, PullJob *job) {
         _cleanup_free_ char *fn = NULL;
-        const char *line, *p;
         int r;
 
         assert(checksum_job);
@@ -351,17 +351,23 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                 return log_error_errno(SYNTHETIC_ERRNO(ELOOP),
                                        "Cannot verify checksum/signature files via themselves.");
 
-        line = strjoina(job->checksum, " *", fn, "\n"); /* string for binary mode */
-        p = memmem_safe(checksum_job->payload,
-                        checksum_job->payload_size,
-                        line,
-                        strlen(line));
-        if (!p) {
-                line = strjoina(job->checksum, "  ", fn, "\n"); /* string for text mode */
+        const char *p = NULL;
+        FOREACH_STRING(separator,
+                       " *", /* separator for binary mode */
+                       "  ", /* separator for text mode */
+                       " "   /* non-standard separator used by linuxcontainers.org */) {
+                _cleanup_free_ char *line = NULL;
+
+                line = strjoin(job->checksum, separator, fn, "\n");
+                if (!line)
+                        return log_oom();
+
                 p = memmem_safe(checksum_job->payload,
                                 checksum_job->payload_size,
                                 line,
                                 strlen(line));
+                if (p)
+                        break;
         }
 
         /* Only counts if found at beginning of a line */
