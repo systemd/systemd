@@ -1150,10 +1150,12 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
             continue
         sbat += split[1:]
 
-    return (
-        'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n'
-        + '\n'.join(sbat)
-        + '\n\x00'
+    return '\n'.join(
+        (
+            'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md',
+            *sbat,
+            '',  # an empty line so that we end up with a newline at the end
+        )
     )
 
 
