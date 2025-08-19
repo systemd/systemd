@@ -32,27 +32,21 @@ int parse_openssl_key_source_argument(const char *argument, char **private_key_s
 #if HAVE_OPENSSL
 #  include <openssl/bio.h>              /* IWYU pragma: export */
 #  include <openssl/bn.h>               /* IWYU pragma: export */
+#  include <openssl/core_names.h>       /* IWYU pragma: export */
 #  include <openssl/crypto.h>           /* IWYU pragma: export */
 #  include <openssl/err.h>              /* IWYU pragma: export */
 #  include <openssl/evp.h>              /* IWYU pragma: export */
+#  include <openssl/kdf.h>              /* IWYU pragma: export */
 #  include <openssl/opensslv.h>         /* IWYU pragma: export */
+#  include <openssl/param_build.h>      /* IWYU pragma: export */
 #  include <openssl/pkcs7.h>            /* IWYU pragma: export */
+#  include <openssl/provider.h>         /* IWYU pragma: export */
 #  include <openssl/ssl.h>              /* IWYU pragma: export */
+#  include <openssl/store.h>            /* IWYU pragma: export */
 #  ifndef OPENSSL_NO_UI_CONSOLE
 #    include <openssl/ui.h>             /* IWYU pragma: export */
 #  endif
 #  include <openssl/x509v3.h>           /* IWYU pragma: export */
-#  ifndef OPENSSL_VERSION_MAJOR
-/* OPENSSL_VERSION_MAJOR macro was added in OpenSSL 3. Thus, if it doesn't exist,  we must be before OpenSSL 3. */
-#    define OPENSSL_VERSION_MAJOR 1
-#  endif
-#  if OPENSSL_VERSION_MAJOR >= 3
-#    include <openssl/core_names.h>     /* IWYU pragma: export */
-#    include <openssl/kdf.h>            /* IWYU pragma: export */
-#    include <openssl/param_build.h>    /* IWYU pragma: export */
-#    include <openssl/provider.h>       /* IWYU pragma: export */
-#    include <openssl/store.h>          /* IWYU pragma: export */
-#  endif
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(void*, OPENSSL_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
@@ -92,7 +86,6 @@ static inline STACK_OF(X509_ATTRIBUTE) *x509_attribute_free_many(STACK_OF(X509_A
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(STACK_OF(X509_ATTRIBUTE)*, x509_attribute_free_many, NULL);
 
-#if OPENSSL_VERSION_MAJOR >= 3
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_CIPHER*, EVP_CIPHER_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_KDF*, EVP_KDF_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_KDF_CTX*, EVP_KDF_CTX_free, NULL);
@@ -103,11 +96,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_PARAM*, OSSL_PARAM_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_PARAM_BLD*, OSSL_PARAM_BLD_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_STORE_CTX*, OSSL_STORE_close, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OSSL_STORE_INFO*, OSSL_STORE_INFO_free, NULL);
-#else
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_KEY*, EC_KEY_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(HMAC_CTX*, HMAC_CTX_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(RSA*, RSA_free, NULL);
-#endif
 
 static inline void sk_X509_free_allp(STACK_OF(X509) **sk) {
         if (!sk || !*sk)
