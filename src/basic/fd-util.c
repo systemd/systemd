@@ -317,17 +317,12 @@ int close_all_fds_by_proc(const int except[], size_t n_except) {
         return r;
 }
 
-static bool have_close_range = true; /* Assume we live in the future */
-
 static int close_all_fds_special_case(const int except[], size_t n_except) {
         assert(n_except == 0 || except);
 
         /* Handles a few common special cases separately, since they are common and can be optimized really
          * nicely, since we won't need sorting for them. Returns > 0 if the special casing worked, 0
          * otherwise. */
-
-        if (!have_close_range)
-                return 0;
 
         if (n_except == 1 && except[0] < 0) /* Minor optimization: if we only got one fd, and it's invalid,
                                              * we got none */
@@ -337,31 +332,22 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
 
         case 0:
                 /* Close everything. Yay! */
+                if (close_range(3, INT_MAX, 0) < 0)
+                        return -errno;
 
-                if (close_range(3, INT_MAX, 0) >= 0)
-                        return 1;
-
-                if (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno)) {
-                        have_close_range = false;
-                        return 0;
-                }
-
-                return -errno;
+                return 1;
 
         case 1:
                 /* Close all but exactly one, then we don't need no sorting. This is a pretty common
                  * case, hence let's handle it specially. */
 
-                if ((except[0] <= 3 || close_range(3, except[0]-1, 0) >= 0) &&
-                    (except[0] >= INT_MAX || close_range(MAX(3, except[0]+1), -1, 0) >= 0))
-                        return 1;
+                if (except[0] > 3 && close_range(3, except[0] - 1, 0) < 0)
+                        return -errno;
 
-                if (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno)) {
-                        have_close_range = false;
-                        return 0;
-                }
+                if (except[0] < INT_MAX && close_range(MAX(3, except[0] + 1), -1, 0) < 0)
+                        return -errno;
 
-                return -errno;
+                return 1;
 
         default:
                 return 0;
@@ -392,9 +378,6 @@ int close_all_fds(const int except[], size_t n_except) {
                 return r;
         if (r > 0) /* special case worked! */
                 return 0;
-
-        if (!have_close_range)
-                return close_all_fds_by_proc(except, n_except);
 
         _cleanup_free_ int *sorted_malloc = NULL;
         size_t n_sorted;
@@ -437,13 +420,8 @@ int close_all_fds(const int except[], size_t n_except) {
                         continue;
 
                 /* Close everything between the start and end fds (both of which shall stay open) */
-                if (close_range(start + 1, end - 1, 0) < 0) {
-                        if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
-                                return -errno;
-
-                        have_close_range = false;
-                        return close_all_fds_by_proc(except, n_except);
-                }
+                if (close_range(start + 1, end - 1, 0) < 0)
+                        return -errno;
         }
 
         /* The loop succeeded. Let's now close everything beyond the end */
@@ -451,13 +429,8 @@ int close_all_fds(const int except[], size_t n_except) {
         if (sorted[n_sorted-1] >= INT_MAX) /* Dont let the addition below overflow */
                 return 0;
 
-        if (close_range(sorted[n_sorted-1] + 1, INT_MAX, 0) < 0) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
-                        return -errno;
-
-                have_close_range = false;
-                return close_all_fds_by_proc(except, n_except);
-        }
+        if (close_range(sorted[n_sorted-1] + 1, INT_MAX, 0) < 0)
+                return -errno;
 
         return 0;
 }
