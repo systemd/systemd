@@ -572,3 +572,14 @@ mode_t inode_type_from_string(const char *s) {
 
         return MODE_INVALID;
 }
+
+int statx_warn_mount_root(const struct statx *sx, int log_level) {
+        assert(sx);
+
+        /* The STATX_ATTR_MOUNT_ROOT flag is supported since kernel v5.8. */
+        if (!FLAGS_SET(sx->stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOSYS),
+                                      "statx() did not set STATX_ATTR_MOUNT_ROOT, running on an old kernel?");
+
+        return 0;
+}
