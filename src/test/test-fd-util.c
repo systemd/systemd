@@ -260,7 +260,7 @@ static size_t validate_fds(
         return c; /* Return number of fds >= 0 in the array */
 }
 
-static void test_close_all_fds_inner(void) {
+static void test_close_all_fds_inner(int (*func)(const int except[], size_t n_except)) {
         _cleanup_free_ int *fds = NULL, *keep = NULL;
         size_t n_fds, n_keep;
         int max_fd;
@@ -320,13 +320,13 @@ static void test_close_all_fds_inner(void) {
         log_settle_target();
 
         /* Close all but the ones to keep */
-        assert_se(close_all_fds(keep, n_keep) >= 0);
+        ASSERT_OK(func(keep, n_keep));
 
         assert_se(validate_fds(false, fds, n_fds) == n_fds - n_keep);
         assert_se(validate_fds(true, keep, n_keep) == n_keep);
 
         /* Close everything else too! */
-        assert_se(close_all_fds(NULL, 0) >= 0);
+        ASSERT_OK(func(NULL, 0));
 
         assert_se(validate_fds(false, fds, n_fds) == n_fds - n_keep);
         assert_se(validate_fds(false, keep, n_keep) == n_keep);
@@ -335,95 +335,32 @@ static void test_close_all_fds_inner(void) {
         log_open();
 }
 
-static int seccomp_prohibit_close_range(void) {
-#if HAVE_SECCOMP && defined(__SNR_close_range)
-        _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
-        int r;
-
-        r = seccomp_init_for_arch(&seccomp, SCMP_ARCH_NATIVE, SCMP_ACT_ALLOW);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to acquire seccomp context, ignoring: %m");
-
-        r = seccomp_rule_add_exact(
-                        seccomp,
-                        SCMP_ACT_ERRNO(EPERM),
-                        SCMP_SYS(close_range),
-                        0);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to add close_range() rule, ignoring: %m");
-
-        r = seccomp_load(seccomp);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to apply close_range() restrictions, ignoring: %m");
-
-        return 0;
-#else
-        return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Seccomp support or close_range() syscall definition not available.");
-#endif
-}
-
 TEST(close_all_fds) {
         int r;
 
-        /* Runs the test four times. Once as is. Once with close_range() syscall blocked via seccomp, once
-         * with /proc/ overmounted, and once with the combination of both. This should trigger all fallbacks
-         * in the close_range_all() function. */
-
-        r = safe_fork("(caf-plain)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
+        ASSERT_OK(r = safe_fork("(caf-plain)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
-                test_close_all_fds_inner();
+                test_close_all_fds_inner(close_all_fds);
                 _exit(EXIT_SUCCESS);
         }
-        assert_se(r >= 0);
 
-        if (geteuid() != 0)
-                return (void) log_tests_skipped("Lacking privileges for test with close_range() blocked and /proc/ overmounted");
-
-        r = safe_fork("(caf-noproc)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
+        ASSERT_OK(r = safe_fork("(caf-nomalloc)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
-                r = mount_nofollow_verbose(LOG_WARNING, "tmpfs", "/proc", "tmpfs", 0, NULL);
-                if (r < 0)
-                        log_notice("Overmounting /proc/ didn't work, skipping close_all_fds() with masked /proc/.");
-                else
-                        test_close_all_fds_inner();
+                test_close_all_fds_inner(close_all_fds_without_malloc);
                 _exit(EXIT_SUCCESS);
         }
-        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                return (void) log_tests_skipped("Lacking privileges for test in namespace with /proc/ overmounted");
-        assert_se(r >= 0);
 
-        if (!is_seccomp_available())
-                return (void) log_tests_skipped("Seccomp not available");
-
-        r = safe_fork("(caf-seccomp)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
+        ASSERT_OK(r = safe_fork("(caf-proc)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
-                r = seccomp_prohibit_close_range();
-                if (r < 0)
-                        log_notice("Applying seccomp filter didn't work, skipping close_all_fds() test with masked close_range().");
-                else
-                        test_close_all_fds_inner();
-
+                test_close_all_fds_inner(close_all_fds_by_proc);
                 _exit(EXIT_SUCCESS);
         }
-        assert_se(r >= 0);
 
-        r = safe_fork("(caf-scnp)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
+        ASSERT_OK(r = safe_fork("(caf-frugal)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
-                r = seccomp_prohibit_close_range();
-                if (r < 0)
-                        log_notice("Applying seccomp filter didn't work, skipping close_all_fds() test with masked close_range().");
-                else {
-                        r = mount_nofollow_verbose(LOG_WARNING, "tmpfs", "/proc", "tmpfs", 0, NULL);
-                        if (r < 0)
-                                log_notice("Overmounting /proc/ didn't work, skipping close_all_fds() with masked /proc/.");
-                        else
-                                test_close_all_fds_inner();
-                }
-
-                test_close_all_fds_inner();
+                test_close_all_fds_inner(close_all_fds_frugal);
                 _exit(EXIT_SUCCESS);
         }
-        assert_se(r >= 0);
 }
 
 TEST(format_proc_fd_path) {
