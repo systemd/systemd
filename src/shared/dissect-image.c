@@ -4713,12 +4713,12 @@ int mountfsd_mount_directory(
 
         r = sd_varlink_push_dup_fd(vl, directory_fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
+                return log_error_errno(r, "Failed to push directory fd into varlink connection: %m");
 
         if (userns_fd >= 0) {
                 r = sd_varlink_push_dup_fd(vl, userns_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
+                        return log_error_errno(r, "Failed to push user namespace fd into varlink connection: %m");
         }
 
         sd_json_variant *reply = NULL;
