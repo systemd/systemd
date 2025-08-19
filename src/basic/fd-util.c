@@ -1066,7 +1066,6 @@ int path_is_root_at(int dir_fd, const char *path) {
 
 int fds_are_same_mount(int fd1, int fd2) {
         struct statx sx1 = {}, sx2 = {}; /* explicitly initialize the struct to make msan silent. */
-        int r;
 
         assert(fd1 >= 0);
         assert(fd2 >= 0);
@@ -1077,39 +1076,7 @@ int fds_are_same_mount(int fd1, int fd2) {
         if (statx(fd2, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sx2) < 0)
                 return -errno;
 
-        /* First, compare inode. If these are different, the fd does not point to the root directory "/". */
-        if (!statx_inode_same(&sx1, &sx2))
-                return false;
-
-        /* Note, statx() does not provide the mount ID and path_get_mnt_id_at() does not work when an old
-         * kernel is used. In that case, let's assume that we do not have such spurious mount points in an
-         * early boot stage, and silently skip the following check. */
-
-        if (!FLAGS_SET(sx1.stx_mask, STATX_MNT_ID)) {
-                int mntid;
-
-                r = path_get_mnt_id_at_fallback(fd1, "", &mntid);
-                if (r < 0)
-                        return r;
-                assert(mntid >= 0);
-
-                sx1.stx_mnt_id = mntid;
-                sx1.stx_mask |= STATX_MNT_ID;
-        }
-
-        if (!FLAGS_SET(sx2.stx_mask, STATX_MNT_ID)) {
-                int mntid;
-
-                r = path_get_mnt_id_at_fallback(fd2, "", &mntid);
-                if (r < 0)
-                        return r;
-                assert(mntid >= 0);
-
-                sx2.stx_mnt_id = mntid;
-                sx2.stx_mask |= STATX_MNT_ID;
-        }
-
-        return statx_mount_same(&sx1, &sx2);
+        return statx_inode_same(&sx1, &sx2) && statx_mount_same(&sx1, &sx2);
 }
 
 char* format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int fd) {
