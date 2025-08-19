@@ -475,13 +475,10 @@ bool statx_mount_same(const struct statx *a, const struct statx *b) {
         if (!statx_is_set(a) || !statx_is_set(b))
                 return false;
 
-        /* if we have the mount ID, that's all we need */
-        if (FLAGS_SET(a->stx_mask, STATX_MNT_ID) && FLAGS_SET(b->stx_mask, STATX_MNT_ID))
-                return a->stx_mnt_id == b->stx_mnt_id;
+        assert(FLAGS_SET(a->stx_mask, STATX_MNT_ID));
+        assert(FLAGS_SET(b->stx_mask, STATX_MNT_ID));
 
-        /* Otherwise, major/minor of backing device must match */
-        return a->stx_dev_major == b->stx_dev_major &&
-                a->stx_dev_minor == b->stx_dev_minor;
+        return a->stx_mnt_id == b->stx_mnt_id;
 }
 
 int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
@@ -580,6 +577,17 @@ int statx_warn_mount_root(const struct statx *sx, int log_level) {
         if (!FLAGS_SET(sx->stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
                 return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOSYS),
                                       "statx() did not set STATX_ATTR_MOUNT_ROOT, running on an old kernel?");
+
+        return 0;
+}
+
+int statx_warn_mount_id(const struct statx *sx, int log_level) {
+        assert(sx);
+
+        /* The STATX_MNT_ID flag is supported since kernel v5.10. */
+        if (!FLAGS_SET(sx->stx_mask, STATX_MNT_ID))
+                return log_full_errno(log_level, SYNTHETIC_ERRNO(ENOSYS),
+                                      "statx() does not support STATX_MNT_ID, running on an old kernel?");
 
         return 0;
 }
