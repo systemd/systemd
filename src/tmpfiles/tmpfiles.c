@@ -559,7 +559,7 @@ static int opendir_and_stat(
                 bool *ret_mountpoint) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        struct statx sx1;
+        struct statx sx;
         int r;
 
         assert(path);
@@ -586,21 +586,15 @@ static int opendir_and_stat(
                 return 0;
         }
 
-        if (statx(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx1) < 0)
+        if (statx(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx) < 0)
                 return log_error_errno(errno, "statx(%s) failed: %m", path);
 
-        if (FLAGS_SET(sx1.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
-                *ret_mountpoint = FLAGS_SET(sx1.stx_attributes, STATX_ATTR_MOUNT_ROOT);
-        else {
-                struct statx sx2;
-                if (statx(dirfd(d), "..", 0, STATX_INO, &sx2) < 0)
-                        return log_error_errno(errno, "statx(%s/..) failed: %m", path);
+        if (!FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOSYS), "statx() does not provides STATX_ATTR_MOUNT_ROOT, running on an old kernel?");
 
-                *ret_mountpoint = !statx_mount_same(&sx1, &sx2);
-        }
-
+        *ret_mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         *ret = TAKE_PTR(d);
-        *ret_sx = sx1;
+        *ret_sx = sx;
         return 1;
 }
 
@@ -713,35 +707,12 @@ static int dir_cleanup(
                         continue;
                 }
 
-                if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) {
-                        /* Yay, we have the mount point API, use it */
-                        if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
-                                log_debug("Ignoring \"%s/%s\": different mount points.", p, de->d_name);
-                                continue;
-                        }
-                } else {
-                        /* So we might have statx() but the STATX_ATTR_MOUNT_ROOT flag is not supported, fall
-                         * back to traditional stx_dev checking. */
-                        if (sx.stx_dev_major != rootdev_major ||
-                            sx.stx_dev_minor != rootdev_minor) {
-                                log_debug("Ignoring \"%s/%s\": different filesystem.", p, de->d_name);
-                                continue;
-                        }
+                if (!FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS), "statx() does not provides STATX_ATTR_MOUNT_ROOT, running on an old kernel?");
 
-                        /* Try to detect bind mounts of the same filesystem instance; they do not differ in
-                         * device major/minors. This type of query is not supported on all kernels or
-                         * filesystem types though. */
-                        if (S_ISDIR(sx.stx_mode)) {
-                                int q;
-
-                                q = is_mount_point_at(dirfd(d), de->d_name, 0);
-                                if (q < 0)
-                                        log_debug_errno(q, "Failed to determine whether \"%s/%s\" is a mount point, ignoring: %m", p, de->d_name);
-                                else if (q > 0) {
-                                        log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.", p, de->d_name);
-                                        continue;
-                                }
-                        }
+                if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
+                        log_debug("Ignoring \"%s/%s\": different mount points.", p, de->d_name);
+                        continue;
                 }
 
                 atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : 0;
