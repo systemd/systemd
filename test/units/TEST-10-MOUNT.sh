@@ -88,7 +88,7 @@ check_dependencies() {
     # event source will be retriggered when /run/mount/utab is updated, and the mount unit will be updated
     # again with the userspace options. Typically, the window between the two calls is very short, but when
     # the mount event source is ratelimited after the first event, processing the second event may be delayed
-    # about 1 secound. Hence, here we need to wait for a while.
+    # about 1 second. Hence, here we need to wait for a while.
     timeout 10 bash -c 'until systemctl show --property=After --value tmp-deptest.mount | grep -q -F remote-fs-pre.target; do sleep .1; done'
     after=$(systemctl show --property=After --value tmp-deptest.mount)
     assert_not_in "local-fs-pre.target" "$after"
