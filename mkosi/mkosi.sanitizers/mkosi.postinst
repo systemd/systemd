@@ -62,7 +62,6 @@ wrap=(
     findmnt
     getent
     getfacl
-    groups
     id
     integritysetup
     iscsid
