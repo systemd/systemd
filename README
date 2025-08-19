@@ -52,6 +52,7 @@ REQUIREMENTS:
                                BPF links and the BPF LSM hook
                      ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
                      ≥ 5.9 for close_range()
+                     ≥ 5.10 for STATX_MNT_ID
 
         ⛔ Kernel versions below 5.10 ("minimum baseline") are not supported at all,
            and are missing required functionality as listed above.
