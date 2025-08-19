@@ -1199,7 +1199,7 @@ TEST(verify_alias) {
         verify_one(&bare_template, "foo.target.wants/plain.socket", -EXDEV, NULL);
         verify_one(&bare_template, "foo.target.wants/plain@.service", -EXDEV, NULL);
          /* Name mismatch: we cannot allow this, because plain@foo.service would be pulled in by foo.target,
-          * but would not be resolveable on its own, since systemd doesn't know how to load the fragment. */
+          * but would not be resolvable on its own, since systemd doesn't know how to load the fragment. */
         verify_one(&bare_template, "foo.target.wants/plain@foo.service", -EXDEV, NULL);
         verify_one(&bare_template, "foo.target.wants/template1@foo.service", 0, NULL);
         verify_one(&bare_template, "foo.target.wants/service", -EXDEV, NULL);
