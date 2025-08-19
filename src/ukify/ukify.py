@@ -943,10 +943,10 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
             pe.FILE_HEADER.NumberOfSymbols = 0
             pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED = True
 
-    # Old stubs might have been stripped, leading to unaligned raw data values, so let's fix them up here.
     # pylint thinks that Structure doesn't have various members that it has…
     # pylint: disable=no-member
 
+    # Old stubs might have been stripped, leading to unaligned raw data values, so let's fix them up here.
     for i, section in enumerate(pe.sections):
         oldp = section.PointerToRawData
         oldsz = section.SizeOfRawData
@@ -1045,16 +1045,18 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
         for i, s in enumerate(pe.sections[:n_original_sections]):
             if pe_strip_section_name(s.Name) == section.name and section.name != '.dtbauto':
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
-                    raise PEError(f'Not enough space in existing section {section.name} to append new data')
+                    raise PEError(
+                        f'Not enough space in existing section {section.name} to append new data'
+                        f' (need {new_section.Misc_VirtualSize}, have {s.SizeOfRawData})'
+                    )
 
-                padding = bytes(new_section.SizeOfRawData - new_section.Misc_VirtualSize)
+                padding = bytes(s.SizeOfRawData - new_section.Misc_VirtualSize)
                 pe.__data__ = (
                     pe.__data__[: s.PointerToRawData]
                     + data
                     + padding
                     + pe.__data__[pe.sections[i + 1].PointerToRawData :]
                 )
-                s.SizeOfRawData = new_section.SizeOfRawData
                 s.Misc_VirtualSize = new_section.Misc_VirtualSize
                 break
         else:
@@ -1148,10 +1150,12 @@ def merge_sbat(input_pe: list[Path], input_text: list[str]) -> str:
             continue
         sbat += split[1:]
 
-    return (
-        'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md\n'
-        + '\n'.join(sbat)
-        + '\n\x00'
+    return '\n'.join(
+        (
+            'sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md',
+            *sbat,
+            '',  # an empty line so that we end up with a newline at the end
+        )
     )
 
 
@@ -1415,11 +1419,11 @@ def make_uki(opts: UkifyConfig) -> None:
     for section in opts.sections:
         uki.add_section(section)
 
-    # Don't add a sbat section to profile PE binaries.
+    # Don't add an .sbat section to profile PE binaries.
     if (opts.join_profiles or not opts.profile) and not opts.pcrsig:
         if linux is not None:
-            # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on
-            # either.
+            # Merge the .sbat sections from stub, kernel, and parameter, so
+            # that revocation can be done on either.
             input_pes = [opts.stub, linux]
             if not opts.sbat:
                 opts.sbat = [STUB_SBAT]
