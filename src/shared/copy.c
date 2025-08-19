@@ -1257,7 +1257,7 @@ static int fd_copy_directory(
         }
 
 finish:
-        if (!exists) {
+        if (FLAGS_SET(copy_flags, COPY_MERGE_APPLY_STAT) || !exists) {
                 if (fchown(fdt,
                            uid_is_valid(override_uid) ? override_uid : st->st_uid,
                            gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
