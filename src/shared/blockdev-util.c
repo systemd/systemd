@@ -101,7 +101,7 @@ int block_device_get_whole_disk(sd_device *dev, sd_device **ret) {
         return 0;
 }
 
-int block_device_get_originating(sd_device *dev, sd_device **ret) {
+int block_device_get_originating(sd_device *dev, bool lookup_originating, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *first_found = NULL;
         const char *suffix;
         dev_t devnum = 0;  /* avoid false maybe-uninitialized warning */
@@ -144,6 +144,13 @@ int block_device_get_originating(sd_device *dev, sd_device **ret) {
         if (!first_found)
                 return -ENOENT;
 
+        // We go one level deeper in case we have a dm-crypt partition backed by dm-verity
+        if (lookup_originating) {
+                _cleanup_(sd_device_unrefp) sd_device *dev_origin = NULL;
+                int r = block_device_get_originating(first_found, false, &dev_origin);
+                if (r > 0)
+                        device_unref_and_replace(first_found, dev_origin);
+        }
         *ret = TAKE_PTR(first_found);
         return 0;
 }
@@ -172,7 +179,7 @@ int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **re
                 if (r < 0)
                         return r;
 
-                r = block_device_get_originating(dev_whole_disk, &dev_origin);
+                r = block_device_get_originating(dev_whole_disk, true, &dev_origin);
                 if (r >= 0)
                         device_unref_and_replace(dev, dev_origin);
                 else if (r != -ENOENT)
@@ -300,7 +307,7 @@ int block_get_originating(dev_t dt, dev_t *ret) {
         if (r < 0)
                 return r;
 
-        r = block_device_get_originating(dev, &origin);
+        r = block_device_get_originating(dev, true, &origin);
         if (r < 0)
                 return r;
 
