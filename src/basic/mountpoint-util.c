@@ -198,9 +198,6 @@ bool file_handle_equal(const struct file_handle *a, const struct file_handle *b)
 }
 
 int is_mount_point_at(int fd, const char *filename, int flags) {
-        bool fd_is_self;
-        int r;
-
         assert(fd >= 0 || fd == AT_FDCWD);
         assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
@@ -216,35 +213,12 @@ int is_mount_point_at(int fd, const char *filename, int flags) {
                         filename = "";
                 }
 
-                fd_is_self = true;
-        } else if (STR_IN_SET(filename, ".", "./"))
-                fd_is_self = true;
-        else {
+        } else if (!STR_IN_SET(filename, ".", "./")) {
                 /* Insist that the specified filename is actually a filename, and not a path, i.e. some inode
                  * further up or down the tree then immediately below the specified directory fd. */
                 if (!filename_possibly_with_slash_suffix(filename))
                         return -EINVAL;
-
-                fd_is_self = false;
         }
-
-        /* First we will try statx()' STATX_ATTR_MOUNT_ROOT attribute, which is our ideal API, available
-         * since kernel 5.8.
-         *
-         * If that fails, our second try is the name_to_handle_at() syscall, which tells us the mount id and
-         * an opaque file "handle". It is not supported everywhere though (kernel compile-time option, not
-         * all file systems are hooked up). If it works the mount id is usually good enough to tell us
-         * whether something is a mount point.
-         *
-         * If that didn't work we will try to read the mount id from /proc/self/fdinfo/<fd>. This is almost
-         * as good as name_to_handle_at(), however, does not return the opaque file handle. The opaque file
-         * handle is pretty useful to detect the root directory, which we should always consider a mount
-         * point. Hence we use this only as fallback.
-         *
-         * Note that traditionally the check is done via fstat()-based st_dev comparisons. However, various
-         * file systems don't guarantee same st_dev across single fs anymore, e.g. unionfs exposes file systems
-         * with a variety of st_dev reported. Also, btrfs subvolumes have different st_dev, even though
-         * they aren't real mounts of their own. */
 
         struct statx sx = {}; /* explicitly initialize the struct to make msan silent. */
         if (statx(fd, filename,
@@ -255,93 +229,10 @@ int is_mount_point_at(int fd, const char *filename, int flags) {
                   &sx) < 0)
                 return -errno;
 
-        if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) /* yay! */
-                return FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+        if (!FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS), "statx() does not provides STATX_ATTR_MOUNT_ROOT, running on an old kernel?");
 
-        _cleanup_free_ struct file_handle *h = NULL, *h_parent = NULL;
-        int mount_id = -1, mount_id_parent = -1;
-        bool nosupp = false;
-
-        r = name_to_handle_at_try_fid(fd, filename, &h, &mount_id, flags);
-        if (r < 0) {
-                if (is_name_to_handle_at_fatal_error(r))
-                        return r;
-                if (!ERRNO_IS_NOT_SUPPORTED(r))
-                        goto fallback_fdinfo;
-
-                /* This file system does not support name_to_handle_at(), hence let's see if the upper fs
-                 * supports it (in which case it is a mount point), otherwise fall back to the fdinfo logic. */
-                nosupp = true;
-        }
-
-        if (fd_is_self)
-                r = name_to_handle_at_try_fid(fd, "..", &h_parent, &mount_id_parent, 0); /* can't work for non-directories 😢 */
-        else
-                r = name_to_handle_at_try_fid(fd, "", &h_parent, &mount_id_parent, AT_EMPTY_PATH);
-        if (r < 0) {
-                if (is_name_to_handle_at_fatal_error(r))
-                        return r;
-                if (!ERRNO_IS_NOT_SUPPORTED(r))
-                        goto fallback_fdinfo;
-                if (nosupp)
-                        /* Both the parent and the directory can't do name_to_handle_at() */
-                        goto fallback_fdinfo;
-
-                /* The parent can't do name_to_handle_at() but the directory we are
-                 * interested in can?  If so, it must be a mount point. */
-                return 1;
-        }
-
-        /* The parent can do name_to_handle_at() but the directory we are interested in can't? If
-         * so, it must be a mount point. */
-        if (nosupp)
-                return 1;
-
-        /* If the file handle for the directory we are interested in and its parent are identical,
-         * we assume this is the root directory, which is a mount point. */
-        if (file_handle_equal(h_parent, h))
-                return 1;
-
-        return mount_id != mount_id_parent;
-
-fallback_fdinfo:
-        r = fd_fdinfo_mnt_id(fd, filename, flags, &mount_id);
-        if (r < 0)
-                return r;
-
-        if (fd_is_self)
-                r = fd_fdinfo_mnt_id(fd, "..", 0, &mount_id_parent); /* can't work for non-directories 😢 */
-        else
-                r = fd_fdinfo_mnt_id(fd, "", AT_EMPTY_PATH, &mount_id_parent);
-        if (r < 0)
-                return r;
-
-        if (mount_id != mount_id_parent)
-                return 1;
-
-        /* Hmm, so, the mount ids are the same. This leaves one special case though for the root file
-         * system. For that, let's see if the parent directory has the same inode as we are interested
-         * in. */
-
-        struct stat a, b;
-
-        /* yay for fstatat() taking a different set of flags than the other _at() above */
-        if (fstatat(fd, filename, &a, at_flags_normalize_nofollow(flags)) < 0)
-                return -errno;
-
-        if (fd_is_self)
-                r = fstatat(fd, "..", &b, 0);
-        else
-                r = fstatat(fd, "", &b, AT_EMPTY_PATH);
-        if (r < 0)
-                return -errno;
-
-        /* A directory with same device and inode as its parent must be the root directory. Otherwise
-         * not a mount point.
-         *
-         * NB: we avoid inode_same_at() here because it internally attempts name_to_handle_at_try_fid() first,
-         * which is redundant. */
-        return stat_inode_same(&a, &b);
+        return FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
 }
 
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
