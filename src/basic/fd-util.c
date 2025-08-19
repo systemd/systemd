@@ -410,7 +410,7 @@ int close_all_fds(const int except[], size_t n_except) {
         assert(n_except < SIZE_MAX);
         n_sorted = n_except + 1;
 
-        if (n_sorted > 64) /* Use heap for large numbers of fds, stack otherwise */
+        if (n_sorted > ALLOCA_MAX / sizeof(int)) /* Use heap for large numbers of fds, stack otherwise */
                 sorted = sorted_malloc = new(int, n_sorted);
         else
                 sorted = newa(int, n_sorted);
