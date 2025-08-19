@@ -956,14 +956,13 @@ def pe_add_sections(uki: UKI, output: str) -> None:
                 if new_section.Misc_VirtualSize > s.SizeOfRawData:
                     raise PEError(f'Not enough space in existing section {section.name} to append new data.')
 
-                padding = bytes(new_section.SizeOfRawData - new_section.Misc_VirtualSize)
+                padding = bytes(s.SizeOfRawData - new_section.Misc_VirtualSize)
                 pe.__data__ = (
                     pe.__data__[: s.PointerToRawData]
                     + data
                     + padding
                     + pe.__data__[pe.sections[i + 1].PointerToRawData :]
                 )
-                s.SizeOfRawData = new_section.SizeOfRawData
                 s.Misc_VirtualSize = new_section.Misc_VirtualSize
                 break
         else:
