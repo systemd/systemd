@@ -771,6 +771,8 @@ static int vl_method_mount_directory(
                 return log_debug_errno(r, "Failed to get client UID: %m");
 
         DirectoryOwnership owned_by = validate_directory_fd(directory_fd, peer_uid);
+        if (owned_by == -EREMOTEIO)
+                return sd_varlink_errorbo(link, "io.systemd.MountFileSystem.BadFileDescriptorFlags", SD_JSON_BUILD_PAIR_STRING("parameter", "directoryFileDescriptor"));
         if (owned_by < 0)
                 return owned_by;
 
