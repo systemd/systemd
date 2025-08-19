@@ -882,13 +882,13 @@ systemd-analyze security --threshold=90 --offline=true \
                            --security-policy=/tmp/testfile.json \
                            --root=/tmp/img/ testfile.service
 
-# The strict profile adds a lot of sanboxing options
+# The strict profile adds a lot of sandboxing options
 systemd-analyze security --threshold=25 --offline=true \
                            --security-policy=/tmp/testfile.json \
                            --profile=strict \
                            --root=/tmp/img/ testfile.service
 
-# The trusted profile doesn't add any sanboxing options
+# The trusted profile doesn't add any sandboxing options
 (! systemd-analyze security --threshold=25 --offline=true \
                            --security-policy=/tmp/testfile.json \
                            --profile=/usr/lib/systemd/portable/profile/trusted/service.conf \
