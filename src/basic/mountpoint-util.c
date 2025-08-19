@@ -135,34 +135,6 @@ int name_to_handle_at_try_fid(
         return name_to_handle_at_loop(fd, path, ret_handle, ret_mnt_id, flags & ~AT_HANDLE_FID);
 }
 
-static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mnt_id) {
-        char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
-        _cleanup_close_ int subfd = -EBADF;
-        int r;
-
-        assert((flags & ~(AT_SYMLINK_FOLLOW|AT_EMPTY_PATH)) == 0);
-        assert(ret_mnt_id);
-
-        if ((flags & AT_EMPTY_PATH) && isempty(filename))
-                xsprintf(path, "/proc/self/fdinfo/%i", fd);
-        else {
-                subfd = openat(fd, filename, O_CLOEXEC|O_PATH|(flags & AT_SYMLINK_FOLLOW ? 0 : O_NOFOLLOW));
-                if (subfd < 0)
-                        return -errno;
-
-                xsprintf(path, "/proc/self/fdinfo/%i", subfd);
-        }
-
-        _cleanup_free_ char *p = NULL;
-        r = get_proc_field(path, "mnt_id", &p);
-        if (r == -ENOENT)
-                return -EBADF;
-        if (r < 0)
-                return r;
-
-        return safe_atoi(p, ret_mnt_id);
-}
-
 static bool filename_possibly_with_slash_suffix(const char *s) {
         const char *slash, *copied;
 
@@ -258,19 +230,6 @@ int path_is_mount_point_full(const char *path, const char *root, int flags) {
         return is_mount_point_at(dfd, fn, flags);
 }
 
-int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret) {
-        int r;
-
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(ret);
-
-        r = name_to_handle_at_loop(dir_fd, path, NULL, ret, isempty(path) ? AT_EMPTY_PATH : 0);
-        if (r >= 0 || is_name_to_handle_at_fatal_error(r))
-                return r;
-
-        return fd_fdinfo_mnt_id(dir_fd, path, isempty(path) ? AT_EMPTY_PATH : 0, ret);
-}
-
 int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
         struct statx sx;
 
@@ -286,12 +245,11 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
                   &sx) < 0)
                 return -errno;
 
-        if (FLAGS_SET(sx.stx_mask, STATX_MNT_ID)) {
-                *ret = sx.stx_mnt_id;
-                return 0;
-        }
+        if (!FLAGS_SET(sx.stx_mask, STATX_MNT_ID))
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSYS), "statx() does not support STATX_MNT_ID, running on an old kernel?");
 
-        return path_get_mnt_id_at_fallback(dir_fd, path, ret);
+        *ret = sx.stx_mnt_id;
+        return 0;
 }
 
 bool fstype_is_network(const char *fstype) {
