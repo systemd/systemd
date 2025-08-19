@@ -943,10 +943,10 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
             pe.FILE_HEADER.NumberOfSymbols = 0
             pe.FILE_HEADER.IMAGE_FILE_LOCAL_SYMS_STRIPPED = True
 
-    # Old stubs might have been stripped, leading to unaligned raw data values, so let's fix them up here.
     # pylint thinks that Structure doesn't have various members that it has…
     # pylint: disable=no-member
 
+    # Old stubs might have been stripped, leading to unaligned raw data values, so let's fix them up here.
     for i, section in enumerate(pe.sections):
         oldp = section.PointerToRawData
         oldsz = section.SizeOfRawData
@@ -1418,11 +1418,11 @@ def make_uki(opts: UkifyConfig) -> None:
     for section in opts.sections:
         uki.add_section(section)
 
-    # Don't add a sbat section to profile PE binaries.
+    # Don't add an .sbat section to profile PE binaries.
     if (opts.join_profiles or not opts.profile) and not opts.pcrsig:
         if linux is not None:
-            # Merge the .sbat sections from stub, kernel and parameter, so that revocation can be done on
-            # either.
+            # Merge the .sbat sections from stub, kernel, and parameter, so
+            # that revocation can be done on either.
             input_pes = [opts.stub, linux]
             if not opts.sbat:
                 opts.sbat = [STUB_SBAT]
