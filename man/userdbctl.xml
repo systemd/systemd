@@ -228,6 +228,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--uuid=</option></term>
+
+        <listitem><para>When used with the <command>user</command> or <command>group</command> command,
+        filters the output to the record with the specified UUID. If unspecified, no UUID-based filtering is applied.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--boundaries=</option></term>
 
         <listitem><para>When used with the <command>user</command> or <command>group</command> command,

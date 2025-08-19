@@ -149,6 +149,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 { "dispositionMask", SD_JSON_VARIANT_ARRAY,         json_dispatch_dispositions_mask,     offsetof(LookupParameters, match.disposition_mask), 0             },
                 { "uidMin",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.uid_min),          0             },
                 { "uidMax",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.uid_max),          0             },
+                { "uuid",            SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,              offsetof(LookupParameters, match.uuid),             0             },
                 {}
         };
 
@@ -293,6 +294,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 { "dispositionMask", SD_JSON_VARIANT_ARRAY,         json_dispatch_dispositions_mask,     offsetof(LookupParameters, match.disposition_mask), 0             },
                 { "gidMin",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.gid_min),          0             },
                 { "gidMax",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,            offsetof(LookupParameters, match.gid_max),          0             },
+                { "uuid",            SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,              offsetof(LookupParameters, match.uuid),             0             },
                 {}
         };
 
