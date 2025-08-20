@@ -535,6 +535,7 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
         systemctl is-active -q mysshserver.socket && systemctl stop mysshserver.socket
         rm -f /tmp/homed.id_ecdsa /run/systemd/system/mysshserver{@.service,.socket}
         systemctl daemon-reload
+        wait_for_state homedsshtest inactive
         homectl remove homedsshtest
         for dir in /etc /usr/lib; do
             if [[ -f "$dir/pam.d/sshd.bak" ]]; then
@@ -623,8 +624,8 @@ EOF
         -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" \
         homedsshtest@localhost env
 
-    wait_for_state homedsshtest inactive
-    homectl remove homedsshtest
+    trap - EXIT
+    at_exit
 fi
 
 systemd-analyze log-level info
