@@ -486,6 +486,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "fcntl\0"
                 "fcntl64\0"
                 "fgetxattr\0"
+                "file_getattr\0"
+                "file_setattr\0"
                 "flistxattr\0"
                 "fremovexattr\0"
                 "fsetxattr\0"
