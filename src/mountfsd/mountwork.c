@@ -659,7 +659,7 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
         if (r < 0)
                 return r;
 
-        fl = fd_verify_safe_flags_full(fd, O_DIRECTORY);
+        fl = fd_verify_safe_flags_full(fd, O_DIRECTORY|O_PATH);
         if (fl < 0)
                 return log_debug_errno(fl, "Directory file descriptor has unsafe flags set: %m");
 
