@@ -53,6 +53,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tar-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
@@ -1432,109 +1433,6 @@ static int mtree_print_item(
         return RECURSE_DIR_CONTINUE;
 }
 
-#if HAVE_LIBARCHIVE
-static int archive_item(
-                RecurseDirEvent event,
-                const char *path,
-                int dir_fd,
-                int inode_fd,
-                const struct dirent *de,
-                const struct statx *sx,
-                void *userdata) {
-
-        struct archive *a = ASSERT_PTR(userdata);
-        int r;
-
-        assert(path);
-
-        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
-                return RECURSE_DIR_CONTINUE;
-
-        assert(inode_fd >= 0);
-        assert(sx);
-
-        log_debug("Archiving %s\n", path);
-
-        _cleanup_(sym_archive_entry_freep) struct archive_entry *entry = NULL;
-        entry = sym_archive_entry_new();
-        if (!entry)
-                return log_oom();
-
-        assert(FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_MODE));
-        sym_archive_entry_set_pathname(entry, path);
-        sym_archive_entry_set_filetype(entry, sx->stx_mode);
-
-        if (!S_ISLNK(sx->stx_mode))
-                sym_archive_entry_set_perm(entry, sx->stx_mode);
-
-        if (FLAGS_SET(sx->stx_mask, STATX_UID))
-                sym_archive_entry_set_uid(entry, sx->stx_uid);
-        if (FLAGS_SET(sx->stx_mask, STATX_GID))
-                sym_archive_entry_set_gid(entry, sx->stx_gid);
-
-        if (S_ISREG(sx->stx_mode)) {
-                if (!FLAGS_SET(sx->stx_mask, STATX_SIZE))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Unable to determine file size of '%s'.", path);
-
-                sym_archive_entry_set_size(entry, sx->stx_size);
-        }
-
-        if (S_ISCHR(sx->stx_mode) || S_ISBLK(sx->stx_mode)) {
-                sym_archive_entry_set_rdevmajor(entry, sx->stx_rdev_major);
-                sym_archive_entry_set_rdevminor(entry, sx->stx_rdev_minor);
-        }
-
-        /* We care about a modicum of reproducibility here, hence we don't save atime/btime here */
-        if (FLAGS_SET(sx->stx_mask, STATX_MTIME))
-                sym_archive_entry_set_mtime(entry, sx->stx_mtime.tv_sec, sx->stx_mtime.tv_nsec);
-        if (FLAGS_SET(sx->stx_mask, STATX_CTIME))
-                sym_archive_entry_set_ctime(entry, sx->stx_ctime.tv_sec, sx->stx_ctime.tv_nsec);
-
-        if (S_ISLNK(sx->stx_mode)) {
-                _cleanup_free_ char *s = NULL;
-
-                assert(dir_fd >= 0);
-                assert(de);
-
-                r = readlinkat_malloc(dir_fd, de->d_name, &s);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read symlink target of '%s': %m", path);
-
-                sym_archive_entry_set_symlink(entry, s);
-        }
-
-        if (sym_archive_write_header(a, entry) != ARCHIVE_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive entry header: %s", sym_archive_error_string(a));
-
-        if (S_ISREG(sx->stx_mode)) {
-                _cleanup_close_ int data_fd = -EBADF;
-
-                /* Convert the O_PATH fd in a proper fd */
-                data_fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
-                if (data_fd < 0)
-                        return log_error_errno(data_fd, "Failed to open '%s': %m", path);
-
-                for (;;) {
-                        char buffer[64*1024];
-                        ssize_t l;
-
-                        l = read(data_fd, buffer, sizeof(buffer));
-                        if (l < 0)
-                                return log_error_errno(errno, "Failed to read '%s': %m",  path);
-                        if (l == 0)
-                                break;
-
-                        la_ssize_t k;
-                        k = sym_archive_write_data(a, buffer, l);
-                        if (k < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive data: %s", sym_archive_error_string(a));
-                }
-        }
-
-        return RECURSE_DIR_CONTINUE;
-}
-#endif
-
 static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopDevice *d, int userns_fd) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_free_ char *t = NULL;
@@ -1736,56 +1634,34 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
         case ACTION_MAKE_ARCHIVE: {
 #if HAVE_LIBARCHIVE
-                _cleanup_(unlink_and_freep) char *tar = NULL;
                 _cleanup_close_ int dfd = -EBADF;
-                _cleanup_fclose_ FILE *f = NULL;
 
                 dfd = open(root, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open mount directory: %m");
 
-                _cleanup_(sym_archive_write_freep) struct archive *a = sym_archive_write_new();
-                if (!a)
-                        return log_oom();
-
-                if (arg_target)
-                        r = sym_archive_write_set_format_filter_by_ext(a, arg_target);
-                else
-                        r = sym_archive_write_set_format_gnutar(a);
-                if (r != ARCHIVE_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to set libarchive output format: %s", sym_archive_error_string(a));
-
+                _cleanup_(unlink_and_freep) char *tar = NULL;
+                _cleanup_close_ int tmp_fd = -EBADF;
+                int output_fd;
                 if (arg_target) {
-                        r = fopen_tmpfile_linkable(arg_target, O_WRONLY|O_CLOEXEC, &tar, &f);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create target file '%s': %m", arg_target);
+                        tmp_fd = open_tmpfile_linkable(arg_target, O_WRONLY|O_CLOEXEC, &tar);
+                        if (tmp_fd < 0)
+                                return log_error_errno(tmp_fd, "Failed to create target file '%s': %m", arg_target);
 
-                        r = sym_archive_write_open_FILE(a, f);
+                        output_fd = tmp_fd;
                 } else {
                         if (isatty_safe(STDOUT_FILENO))
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Refusing to write archive to TTY.");
 
-                        r = sym_archive_write_open_fd(a, STDOUT_FILENO);
+                        output_fd = STDOUT_FILENO;
                 }
-                if (r != ARCHIVE_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to set libarchive output file: %s", sym_archive_error_string(a));
 
-                r = recurse_dir(dfd,
-                                ".",
-                                STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE|STATX_ATIME|STATX_CTIME,
-                                UINT_MAX,
-                                RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL,
-                                archive_item,
-                                a);
+                r = tar_c(dfd, output_fd, arg_target, /* flags= */ 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make archive: %m");
-
-                r = sym_archive_write_close(a);
-                if (r != ARCHIVE_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unable to finish writing archive: %s", sym_archive_error_string(a));
+                        return r;
 
                 if (arg_target) {
-                        r = flink_tmpfile(f, tar, arg_target, LINK_TMPFILE_REPLACE);
+                        r = link_tmpfile(tmp_fd, tar, arg_target, LINK_TMPFILE_REPLACE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to move archive file into place: %m");
 
