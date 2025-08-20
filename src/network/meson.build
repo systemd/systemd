@@ -53,6 +53,7 @@ systemd_networkd_extract_sources = files(
         'networkd-dhcp6-bus.c',
         'networkd-dhcp6.c',
         'networkd-dns.c',
+        'networkd-hwts.c',
         'networkd-ipv4acd.c',
         'networkd-ipv4ll.c',
         'networkd-ipv6-proxy-ndp.c',

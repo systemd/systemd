@@ -42,6 +42,7 @@
 #include "networkd-dhcp4.h"
 #include "networkd-dhcp6.h"
 #include "networkd-ipv4acd.h"
+#include "networkd-hwts.h"
 #include "networkd-ipv4ll.h"
 #include "networkd-ipv6-proxy-ndp.h"
 #include "networkd-link.h"
@@ -1246,6 +1247,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_request_to_activate(link);
+        if (r < 0)
+                return r;
+
+        r = link_hwts_configure(link);
         if (r < 0)
                 return r;
 

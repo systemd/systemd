@@ -683,3 +683,5 @@ FairQueueingControlledDelay.MemoryLimit,     config_parse_fair_queueing_controll
 FairQueueingControlledDelay.Quantum,         config_parse_fair_queueing_controlled_delay_size,         QDISC_KIND_FQ_CODEL,           0
 TokenBucketFilter.Burst,                     config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
 TokenBucketFilter.LimitSize,                 config_parse_token_bucket_filter_size,                    QDISC_KIND_TBF,                0
+HardwareTimestamping.ReceiveMode,            config_parse_hwts_rx_mode,                              0,                             offsetof(Network, hwts_rx_mode)
+HardwareTimestamping.TransmitMode,           config_parse_hwts_tx_mode,                                0,                             offsetof(Network, hwts_tx_mode)

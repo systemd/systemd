@@ -512,6 +512,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .ipoib_mode = _IP_OVER_INFINIBAND_MODE_INVALID,
                 .ipoib_umcast = -1,
+
+                .hwts_tx_mode = _HWTS_TX_MODE_INVALID,
+                .hwts_rx_mode = _HWTS_RX_MODE_INVALID,
         };
 
         r = config_parse_many(
@@ -573,7 +576,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "StochasticFairBlue\0"
                         "StochasticFairnessQueueing\0"
                         "TokenBucketFilter\0"
-                        "TrivialLinkEqualizer\0",
+                        "TrivialLinkEqualizer\0"
+                        "HardwareTimestamping\0",
                         config_item_perf_lookup, network_network_gperf_lookup,
                         CONFIG_PARSE_WARN,
                         network,
