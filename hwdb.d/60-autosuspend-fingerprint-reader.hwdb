@@ -188,6 +188,7 @@ usb:v2808pA78A*
 # Supported by libfprint driver fpcmoc
 usb:v10A5pFFE0*
 usb:v10A5pA305*
+usb:v10A5pA306*
 usb:v10A5pDA04*
 usb:v10A5pD805*
 usb:v10A5pD205*
