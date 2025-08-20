@@ -204,7 +204,7 @@ static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX], 
 
 static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(locale_variables_freep) char *new_locale[_VARIABLE_LC_MAX] = {};
-        _cleanup_strv_free_ char **l = NULL, **l_set = NULL, **l_unset = NULL;
+        _cleanup_strv_free_ char **l = NULL, **l_set = NULL, **l_split = NULL, **l_unset = NULL;
         Context *c = ASSERT_PTR(userdata);
         int interactive, r;
         bool use_localegen;
@@ -236,7 +236,12 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
         }
 
         /* Check whether a variable is valid */
-        STRV_FOREACH(i, l) {
+        
+        l_split = strv_split(*l, ":");
+        if (!l_split)
+                return -ENOMEM;
+        
+        STRV_FOREACH(i, l_split) {
                 r = process_locale_list_item(*i, new_locale, use_localegen, error);
                 if (r < 0)
                         return r;
