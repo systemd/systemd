@@ -32,6 +32,10 @@ wait_for_exist() {
     timeout 2m bash -c "until homectl inspect '${1:?}'; do sleep 2; done"
 }
 
+wait_for_disappear() {
+    timeout 2m bash -c "while homectl inspect '${1:?}'; do sleep 2; done"
+}
+
 wait_for_state() {
     timeout 2m bash -c "until homectl inspect '${1:?}' | grep -qF 'State: $2'; do sleep 2; done"
 }
@@ -748,6 +752,7 @@ IDENTITY='{"userName":"signtest","storage":"directory","disposition":"regular","
 
 # Try with stripping the foreign signature first, this should just work
 echo "$IDENTITY" | homectl create -P --identity=- --seize=yes
+wait_for_state signtest inactive
 homectl remove signtest
 
 # No try again, and don't strip the signature. It will be refused.
@@ -774,6 +779,7 @@ echo "$IDENTITY" | homectl create -P --identity=- --seize=no
 PASSWORD="test" homectl with signtest true
 
 # Remove the key, and check again ,should fail now
+wait_for_state signtest inactive
 homectl remove-signing-key signtest.public
 wait_for_state signtest inactive
 (! PASSWORD="test" homectl with signtest true)
@@ -785,15 +791,17 @@ homectl list-signing-keys | grep -q local.public
 # Test unregister + adopt
 mkdir /home/elsewhere
 mv /home/signtest.homedir /home/elsewhere/
+wait_for_disappear signtest
 homectl unregister signtest
 print_public_key | homectl add-signing-key --key-name=signtest.public
 homectl adopt /home/elsewhere/signtest.homedir
 PASSWORD="test" homectl with signtest true
-wait_for_state signtest inactive
 
 # Test register
+wait_for_state signtest inactive
 homectl unregister signtest
 homectl register /home/elsewhere/signtest.homedir/.identity
+wait_for_state signtest inactive
 homectl unregister signtest
 
 # Test automatic fixation for anything in /home/
@@ -801,9 +809,9 @@ mv /home/elsewhere/signtest.homedir /home
 rmdir /home/elsewhere
 wait_for_exist signtest
 PASSWORD="test" homectl with signtest true
-wait_for_state signtest inactive
 
 # add signing key via credential
+wait_for_state signtest inactive
 homectl remove-signing-key signtest.public
 (! (homectl list-signing-keys | grep -q signtest.public))
 systemd-run --wait -p "SetCredential=home.add-signing-key.signtest.public:$(print_public_key)" homectl firstboot
@@ -812,16 +820,19 @@ homectl list-signing-keys | grep -q signtest.public
 # register user via credential
 mkdir /home/elsewhere2
 mv /home/signtest.homedir /home/elsewhere2/
+wait_for_state signtest inactive
 homectl unregister signtest
 systemd-run --wait -p "LoadCredential=home.register.signtest:/home/elsewhere2/signtest.homedir/.identity" homectl firstboot
 homectl inspect signtest
+wait_for_state signtest inactive
 homectl unregister signtest
 mv /home/elsewhere2/signtest.homedir /home/
 rmdir /home/elsewhere2
-wait_for_exist signtest
 
 # Remove it all again
+wait_for_exist signtest
 homectl remove-signing-key signtest.public
+wait_for_state signtest inactive
 homectl remove signtest
 
 # Test positive and negative matching
