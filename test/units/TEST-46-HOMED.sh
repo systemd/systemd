@@ -791,6 +791,7 @@ homectl list-signing-keys | grep -q local.public
 # Test unregister + adopt
 mkdir /home/elsewhere
 mv /home/signtest.homedir /home/elsewhere/
+homectl inspect signtest || :
 wait_for_disappear signtest
 homectl unregister signtest
 print_public_key | homectl add-signing-key --key-name=signtest.public
