@@ -1946,9 +1946,19 @@ static int link_admin_state_up(Link *link) {
 }
 
 static int link_admin_state_down(Link *link) {
+        int r;
+
         assert(link);
 
         log_link_info(link, "Link DOWN");
+
+        /* When the interface goes administratively down, send a shutdown Router Advertisement
+         * with zero lifetime to inform clients that this router is no longer available. */
+        if (link->radv && sd_radv_is_running(link->radv)) {
+                r = sd_radv_stop(link->radv);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to send shutdown Router Advertisement: %m");
+        }
 
         link_forget_nexthops(link);
         link_forget_routes(link);
