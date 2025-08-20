@@ -75,7 +75,7 @@ int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
                 return r;
 
         if (DEBUG_LOGGING)
-                sd_json_variant_dump(v, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL);
+                sd_json_variant_dump(v, SD_JSON_FORMAT_CENSOR_SENSITIVE|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO, NULL, NULL);
 
         signed_ur = user_record_new();
         if (!signed_ur)
