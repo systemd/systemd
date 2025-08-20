@@ -164,6 +164,7 @@ typedef struct sd_bus {
         BusState state;
         int input_fd, output_fd;
         int inotify_fd;
+        int rqueue_eventfd;
         int message_version;
         int message_endian;
 
@@ -276,6 +277,7 @@ typedef struct sd_bus {
 
         sd_event_source *input_io_event_source;
         sd_event_source *output_io_event_source;
+        sd_event_source *queue_io_event_source;
         sd_event_source *time_event_source;
         sd_event_source *quit_event_source;
         sd_event_source *inotify_event_source;
