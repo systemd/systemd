@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "pidfd-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "socket-netlink.h"
@@ -185,6 +186,17 @@ static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
                 r = strv_extendf(&envp, "LISTEN_PID=" PID_FMT, getpid_cached());
                 if (r < 0)
                         return r;
+
+                uint64_t pidfdid;
+                r = pidfd_get_inode_id_self_cached(&pidfdid);
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                        if (r < 0)
+                                return r;
+
+                        r = strv_extendf(&envp, "LISTEN_PIDFDID=" INO_FMT, pidfdid);
+                        if (r < 0)
+                                return r;
+                }
 
                 if (arg_fdnames) {
                         _cleanup_free_ char *names = NULL;
