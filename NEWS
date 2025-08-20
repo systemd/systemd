@@ -174,11 +174,12 @@ CHANGES WITH 258 in spe:
           Only nftables backend will be supported by systemd-networkd and
           systemd-nspawn since v259.
 
-        * Required minimum version of following components is planned to be
-          bumped in the next release:
+        * Required minimum versions of following components are planned to be
+          raised in the next release:
+
           * Linux kernel >= 5.10 (recommended >= 5.14),
           * glibc >= 2.34,
-          * libxcrypt >= 4.4.0 (libcrypt by glibc will be no longer supported),
+          * libxcrypt >= 4.4.0 (libcrypt in glibc will be no longer supported),
           * util-linux >= 2.37,
           * elfutils >= 0.177,
           * openssl >= 3.0.0,
@@ -186,8 +187,8 @@ CHANGES WITH 258 in spe:
           * libfido2 >= 1.5.0,
           * libseccomp >= 2.4.0,
           * python >= 3.9.0.
-          Please provide any feedback on systemd-devel if those removal of old
-          version support would cause problems.
+
+          Please provide feedback on systemd-devel if this would cause problems.
 
         Service manager/PID1:
 
