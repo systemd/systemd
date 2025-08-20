@@ -1687,6 +1687,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         return r;
         }
 
+        dhcp_lease_set_timestamp(lease, NULL);
         *ret = TAKE_PTR(lease);
 
         return 0;

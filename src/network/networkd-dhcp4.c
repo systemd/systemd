@@ -1828,6 +1828,39 @@ static int dhcp4_configure_duid(Link *link) {
         return dhcp_configure_duid(link, link_get_dhcp4_duid(link));
 }
 
+static int dhcp4_load_persistent_lease(Link *link) {
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        _cleanup_free_ char *lease_file = NULL;
+
+        int r;
+
+        assert(link);
+        assert(link->network);
+
+        if (link->network->dhcp_client_persist_leases == DHCP_CLIENT_PERSIST_LEASES_NO)
+                return 0;
+
+        /* get lease file here */
+        r = asprintf(&lease_file, "%s/%d", "/var/lib/systemd/network/netif/leases", link->ifindex);
+
+        if (r < 0)
+                return r;
+
+        r = dhcp_lease_load(&lease, lease_file);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_link_warning_errno(link, r, "Failed to load DHCP lease: %m");
+                return 0;
+        }
+
+        //Here I could check if the lease is still valid or if there is a setting to use expired leases
+
+        link->dhcp_lease = TAKE_PTR(lease);
+        link_dirty(link);
+        log_link_info(link, "Loaded persistent DHCP lease");
+
+        return dhcp4_request_address_and_routes(link,false);
+}
 static int dhcp4_process_request(Request *req, Link *link, void *userdata) {
         int r;
 
@@ -1835,6 +1868,10 @@ static int dhcp4_process_request(Request *req, Link *link, void *userdata) {
 
         if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                 return 0;
+
+        r = dhcp4_load_persistent_lease(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to load persistent lease: %m");
 
         r = dhcp4_configure_duid(link);
         if (r <= 0)
