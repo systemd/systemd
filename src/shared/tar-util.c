@@ -14,6 +14,7 @@
 #include "iovec-util.h"
 #include "libarchive-util.h"
 #include "path-util.h"
+#include "recurse-dir.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
@@ -674,11 +675,158 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         return 0;
 }
 
+static int archive_item(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        struct archive *a = ASSERT_PTR(userdata);
+        int r;
+
+        assert(path);
+
+        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
+                return RECURSE_DIR_CONTINUE;
+
+        assert(inode_fd >= 0);
+        assert(sx);
+
+        log_debug("Archiving %s\n", path);
+
+        _cleanup_(archive_entry_freep) struct archive_entry *entry = NULL;
+        entry = sym_archive_entry_new();
+        if (!entry)
+                return log_oom();
+
+        assert(FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_MODE));
+        sym_archive_entry_set_pathname(entry, path);
+        sym_archive_entry_set_filetype(entry, sx->stx_mode);
+
+        if (!S_ISLNK(sx->stx_mode))
+                sym_archive_entry_set_perm(entry, sx->stx_mode);
+
+        if (FLAGS_SET(sx->stx_mask, STATX_UID))
+                sym_archive_entry_set_uid(entry, sx->stx_uid);
+        if (FLAGS_SET(sx->stx_mask, STATX_GID))
+                sym_archive_entry_set_gid(entry, sx->stx_gid);
+
+        if (S_ISREG(sx->stx_mode)) {
+                if (!FLAGS_SET(sx->stx_mask, STATX_SIZE))
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Unable to determine file size of '%s'.", path);
+
+                sym_archive_entry_set_size(entry, sx->stx_size);
+        }
+
+        if (S_ISCHR(sx->stx_mode) || S_ISBLK(sx->stx_mode)) {
+                sym_archive_entry_set_rdevmajor(entry, sx->stx_rdev_major);
+                sym_archive_entry_set_rdevminor(entry, sx->stx_rdev_minor);
+        }
+
+        /* We care about a modicum of reproducibility here, hence we don't save atime/btime here */
+        if (FLAGS_SET(sx->stx_mask, STATX_MTIME))
+                sym_archive_entry_set_mtime(entry, sx->stx_mtime.tv_sec, sx->stx_mtime.tv_nsec);
+        if (FLAGS_SET(sx->stx_mask, STATX_CTIME))
+                sym_archive_entry_set_ctime(entry, sx->stx_ctime.tv_sec, sx->stx_ctime.tv_nsec);
+
+        if (S_ISLNK(sx->stx_mode)) {
+                _cleanup_free_ char *s = NULL;
+
+                assert(dir_fd >= 0);
+                assert(de);
+
+                r = readlinkat_malloc(dir_fd, de->d_name, &s);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read symlink target of '%s': %m", path);
+
+                sym_archive_entry_set_symlink(entry, s);
+        }
+
+        if (sym_archive_write_header(a, entry) != ARCHIVE_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive entry header: %s", sym_archive_error_string(a));
+
+        if (S_ISREG(sx->stx_mode)) {
+                _cleanup_close_ int data_fd = -EBADF;
+
+                /* Convert the O_PATH fd in a proper fd */
+                data_fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
+                if (data_fd < 0)
+                        return log_error_errno(data_fd, "Failed to open '%s': %m", path);
+
+                for (;;) {
+                        char buffer[64*1024];
+                        ssize_t l;
+
+                        l = read(data_fd, buffer, sizeof(buffer));
+                        if (l < 0)
+                                return log_error_errno(errno, "Failed to read '%s': %m",  path);
+                        if (l == 0)
+                                break;
+
+                        la_ssize_t k;
+                        k = sym_archive_write_data(a, buffer, l);
+                        if (k < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive data: %s", sym_archive_error_string(a));
+                }
+        }
+
+        return RECURSE_DIR_CONTINUE;
+}
+
+int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
+        int r;
+
+        assert(tree_fd >= 0);
+        assert(output_fd >= 0);
+
+        _cleanup_(archive_write_freep) struct archive *a = sym_archive_write_new();
+        if (!a)
+                return log_oom();
+
+        if (filename)
+                r = sym_archive_write_set_format_filter_by_ext(a, filename);
+        else
+                r = sym_archive_write_set_format_gnutar(a);
+        if (r != ARCHIVE_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to set libarchive output format: %s", sym_archive_error_string(a));
+
+        r = sym_archive_write_open_fd(a, output_fd);
+        if (r != ARCHIVE_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to set libarchive output file: %s", sym_archive_error_string(a));
+
+        r = recurse_dir(tree_fd,
+                        ".",
+                        STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE|STATX_ATIME|STATX_CTIME,
+                        UINT_MAX,
+                        RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL,
+                        archive_item,
+                        a);
+        if (r < 0)
+                return log_error_errno(r, "Failed to make archive: %m");
+
+        r = sym_archive_write_close(a);
+        if (r != ARCHIVE_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unable to finish writing archive: %s", sym_archive_error_string(a));
+
+        return 0;
+}
+
 #else
 
 int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         assert(input_fd >= 0);
         assert(tree_fd >= 0);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libarchive support not available.");
+}
+
+
+int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
+        assert(tree_fd >= 0);
+        assert(output_fd >= 0);
 
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libarchive support not available.");
 }
