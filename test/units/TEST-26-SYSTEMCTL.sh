@@ -84,6 +84,10 @@ printf '%s\n' '[X-Section]' | cmp - "/etc/systemd/system/$UNIT_NAME2.d/override2
 # Double free when editing a template unit (#26483)
 EDITOR='true' script -ec 'systemctl edit user@0' /dev/null
 
+# Test --global edit functionality (#31272)
+EDITOR='true' script -ec 'systemctl edit --global --runtime "$UNIT_NAME"' /dev/null
+EDITOR='true' script -ec 'systemctl edit --global --force --full nonexistent.service' /dev/null
+
 # Argument help
 systemctl --state help
 systemctl --signal help

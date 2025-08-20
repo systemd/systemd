@@ -211,7 +211,6 @@ static int find_paths_to_edit(
         const char *drop_in;
         int r;
 
-        assert(bus);
         assert(context);
         assert(names);
 
@@ -340,27 +339,41 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        r = acquire_bus(BUS_MANAGER, &bus);
-        if (r < 0)
-                return r;
+        if (arg_runtime_scope != RUNTIME_SCOPE_GLOBAL) {
+                r = acquire_bus(BUS_MANAGER, &bus);
+                if (r < 0)
+                        return r;
+                
+                r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to expand names: %m");
+                if (strv_isempty(names))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No units matched the specified patterns.");
 
-        r = expand_unit_names(bus, strv_skip(argv, 1), NULL, &names, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to expand names: %m");
-        if (strv_isempty(names))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No units matched the specified patterns.");
+                STRV_FOREACH(tmp, names) {
+                        r = unit_is_masked(bus, *tmp);
+                        if (r < 0 && r != -ENOENT)
+                                return log_error_errno(r, "Failed to check if unit %s is masked: %m", *tmp);
+                        if (r > 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit %s: unit is masked.", *tmp);
+                }
+        } else {
+                bus = NULL;
+                
+                /* For global scope, we can't use the bus, so do simple name expansion */
+                names = strv_copy(strv_skip(argv, 1));
+                if (!names)
+                        return log_oom();
+                
+                if (strv_isempty(names))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No units specified.");
+                
+                /* For global scope, we can't check if units are masked via bus */
+        }
 
         if (arg_stdin && arg_full && strv_length(names) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "With 'edit --stdin --full', exactly one unit for editing must be specified.");
-
-        STRV_FOREACH(tmp, names) {
-                r = unit_is_masked(bus, *tmp);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to check if unit %s is masked: %m", *tmp);
-                if (r > 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit %s: unit is masked.", *tmp);
-        }
 
         r = find_paths_to_edit(bus, &context, names);
         if (r < 0)
