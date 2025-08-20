@@ -212,23 +212,11 @@ static int apply_all(OrderedHashmap *sysctl_options) {
         return r;
 }
 
-static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ignore_enoent) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *pp = NULL;
+static int parse_file(OrderedHashmap **sysctl_options, FILE *f, const char *path) {
         unsigned c = 0;
-        int r;
+        int r = 0;
 
-        assert(path);
-
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), &f, &pp);
-        if (r < 0) {
-                if (ignore_enoent && r == -ENOENT)
-                        return 0;
-
-                return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
-        }
-
-        log_debug("Parsing %s", pp);
+        log_debug("Parsing %s", path);
         for (;;) {
                 _cleanup_(option_freep) Option *new_option = NULL;
                 _cleanup_free_ char *l = NULL;
@@ -241,7 +229,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                 if (k == 0)
                         break;
                 if (k < 0)
-                        return log_error_errno(k, "Failed to read file '%s', ignoring: %m", pp);
+                        return log_error_errno(k, "Failed to read file '%s', ignoring: %m", path);
 
                 c++;
 
@@ -267,7 +255,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                                 /* We have a "negative match" option. Let's continue with value==NULL. */
                                 p++;
                         else {
-                                log_syntax(NULL, LOG_WARNING, pp, c, 0,
+                                log_syntax(NULL, LOG_WARNING, path, c, 0,
                                            "Line is not an assignment, ignoring: %s", p);
                                 if (r == 0)
                                         r = -EINVAL;
@@ -290,7 +278,7 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
                                 continue;
                         }
 
-                        log_debug("Overwriting earlier assignment of %s at '%s:%u'.", p, pp, c);
+                        log_debug("Overwriting earlier assignment of %s at '%s:%u'.", p, path, c);
                         option_free(ordered_hashmap_remove(*sysctl_options, p));
                 }
 
@@ -308,6 +296,23 @@ static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ig
         return r;
 }
 
+static int open_and_parse_file(OrderedHashmap **sysctl_options, const char *path, bool ignore_enoent) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *pp = NULL;
+
+        assert(path);
+
+        f = fopen(path, "re");
+        if (f == NULL) {
+                if (ignore_enoent && errno == -ENOENT)
+                        return 0;
+
+                return log_error_errno(errno, "Failed to open file '%s', ignoring: %m", path);
+        }
+
+        return parse_file(sysctl_options, f, path);
+}
+
 static int read_credential_lines(OrderedHashmap **sysctl_options) {
         _cleanup_free_ char *j = NULL;
         const char *d;
@@ -323,7 +328,7 @@ static int read_credential_lines(OrderedHashmap **sysctl_options) {
         if (!j)
                 return log_oom();
 
-        (void) parse_file(sysctl_options, j, /* ignore_enoent= */ true);
+        (void) open_and_parse_file(sysctl_options, j, /* ignore_enoent= */ true);
         return 0;
 }
 
@@ -456,11 +461,19 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
+        r = 0;
         if (argc > optind) {
-                r = 0;
+                for (int i = optind; i < argc; i++) {
+                        _cleanup_fclose_ FILE *f = NULL;
+                        _cleanup_free_ char *pp = NULL;
+                        int r1;
 
-                for (int i = optind; i < argc; i++)
-                        RET_GATHER(r, parse_file(&sysctl_options, argv[i], false));
+                        r1 = search_and_fopen(argv[i], "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), &f, &pp);
+                        if (r1 < 0)
+                                return log_error_errno(r1, "Failed to open file '%s', ignoring: %m", pp);
+
+                        RET_GATHER(r, parse_file(&sysctl_options, f, pp));
+                }
 
         } else {
                 _cleanup_strv_free_ char **files = NULL;
@@ -473,7 +486,7 @@ static int run(int argc, char *argv[]) {
                         return cat_config(files);
 
                 STRV_FOREACH(f, files)
-                        RET_GATHER(r, parse_file(&sysctl_options, *f, true));
+                        RET_GATHER(r, open_and_parse_file(&sysctl_options, *f, /* ignore element */ true));
 
                 RET_GATHER(r, read_credential_lines(&sysctl_options));
         }
