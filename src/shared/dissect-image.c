@@ -4707,7 +4707,7 @@ int mountfsd_mount_directory(
         if (r < 0)
                 return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
 
-        _cleanup_close_ int directory_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        _cleanup_close_ int directory_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_PATH);
         if (directory_fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 
