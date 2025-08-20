@@ -2208,6 +2208,17 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
         link_was_admin_up = link->flags & IFF_UP;
         had_carrier = link_has_carrier(link);
 
+        /* Send shutdown RA before updating flags, while interface is still up.
+         * This handles the case where networkctl down brings an interface down. */
+        if (link_was_admin_up && !(flags & IFF_UP)) {
+                /* Interface is going from up to down - send shutdown RA while we still can */
+                if (link->radv && sd_radv_is_running(link->radv)) {
+                        int r_radv = sd_radv_stop(link->radv);
+                        if (r_radv < 0)
+                                log_link_warning_errno(link, r_radv, "Failed to send shutdown Router Advertisement: %m");
+                }
+        }
+
         link->flags = flags;
         link->kernel_operstate = operstate;
 
