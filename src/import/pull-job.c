@@ -5,6 +5,7 @@
 #include <sys/xattr.h>
 
 #include "alloc-util.h"
+#include "curl-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hexdecoct.h"
@@ -13,7 +14,6 @@
 #include "parse-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
-#include "curl-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
