@@ -1580,6 +1580,7 @@ static int add_any_file(
                 const char *path) {
 
         _cleanup_close_ int our_fd = -EBADF;
+        _cleanup_free_ char *resolved_path = NULL;
         JournalFile *f;
         struct stat st;
         int r;
@@ -1606,6 +1607,14 @@ static int add_any_file(
                         r = log_debug_errno(errno, "Failed to turn off O_NONBLOCK for %s: %m", path);
                         goto error;
                 }
+
+                r = fd_get_path(fd, &resolved_path);
+                if (r < 0) {
+                        r = log_debug_errno(r, "Failed to resolve path '%s': %m", path);
+                        goto error;
+                }
+
+                path = resolved_path;
         }
 
         if (fstat(fd, &st) < 0) {
