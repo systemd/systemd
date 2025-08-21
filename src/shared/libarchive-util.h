@@ -9,6 +9,7 @@
 
 #include "dlfcn-util.h"
 
+extern DLSYM_PROTOTYPE(archive_entry_fflags);
 extern DLSYM_PROTOTYPE(archive_entry_filetype);
 extern DLSYM_PROTOTYPE(archive_entry_free);
 extern DLSYM_PROTOTYPE(archive_entry_gid);
@@ -22,6 +23,7 @@ extern DLSYM_PROTOTYPE(archive_entry_pathname);
 extern DLSYM_PROTOTYPE(archive_entry_rdevmajor);
 extern DLSYM_PROTOTYPE(archive_entry_rdevminor);
 extern DLSYM_PROTOTYPE(archive_entry_set_ctime);
+extern DLSYM_PROTOTYPE(archive_entry_set_fflags);
 extern DLSYM_PROTOTYPE(archive_entry_set_filetype);
 extern DLSYM_PROTOTYPE(archive_entry_set_gid);
 extern DLSYM_PROTOTYPE(archive_entry_set_hardlink);
