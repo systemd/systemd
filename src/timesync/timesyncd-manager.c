@@ -60,6 +60,9 @@
 /* Maximum number of missed replies before selecting another source. */
 #define NTP_MAX_MISSED_REPLIES          2
 
+/* Maximum amount of milliseconds to wait for an NTS agreement to be reached */
+#define NTS_TIMEOUT_MSEC                60000
+
 #define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
 #define RATELIMIT_BURST 10
 
@@ -1419,6 +1422,8 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
 }
 
 static int manager_nts_obtain_agreement(Manager *m) {
+        unsigned tls_patience_msec = NTS_TIMEOUT_MSEC;
+
         int r;
         int socket = NTS_attach_socket(m->current_server_name->string, 4460, SOCK_STREAM);
 
@@ -1427,11 +1432,12 @@ static int manager_nts_obtain_agreement(Manager *m) {
         NTS_TLS *nts_handshake = NTS_TLS_setup(m->current_server_name->string, socket);
         assert_return(nts_handshake, -ENOMEM);
 
-        while ((r = NTS_TLS_handshake(nts_handshake)) > 0)
-                usleep_safe(10 * USEC_PER_MSEC);
+        while ((r = NTS_TLS_handshake(nts_handshake)) > 0 && tls_patience_msec-- > 0)
+                usleep_safe(USEC_PER_MSEC);
 
-        if (r < 0) {
+        if (r != 0) {
                 log_error("Could not set up TLS session with server");
+                NTS_TLS_close(nts_handshake);
                 return manager_connect(m);
         }
 
@@ -1439,24 +1445,23 @@ static int manager_nts_obtain_agreement(Manager *m) {
         int size = NTS_encode_request(buffer, sizeof(buffer), NULL);
         assert(size <= (int)sizeof(buffer));
 
-        do {
+        for (;;) {
                 r = NTS_TLS_write(nts_handshake, bufp, size);
                 assert(r <= size);
 
-                if (r <= 0) {
+                if (r <= 0 || (r < size && tls_patience_msec-- <= 0)) {
                         log_error("Error sending NTS key request");
                         NTS_TLS_close(nts_handshake);
-                        nts_handshake = NULL;
                         return manager_connect(m);
-                } else if (r < size)
-                        usleep_safe(10 * USEC_PER_MSEC);
-
-                bufp += r, size -= r;
-        } while (size > 0);
+                } else if (r < size) {
+                        usleep_safe(USEC_PER_MSEC);
+                        bufp += r, size -= r;
+                } else
+                        break;
+        }
 
         NTS_Agreement NTS;
         bufp = buffer;
-        int tolerance = 5;
         for (;;) {
                 r = NTS_TLS_read(nts_handshake, bufp, sizeof(buffer) - (bufp - buffer));
                 assert(r <= (int)sizeof(buffer) - (bufp - buffer));
@@ -1464,25 +1469,19 @@ static int manager_nts_obtain_agreement(Manager *m) {
                 if (r < 0) {
                         log_error("Error receiving NTS key response");
                         NTS_TLS_close(nts_handshake);
-                        nts_handshake = NULL;
                         return manager_connect(m);
-                } else if (r == 0)
-                        /* only accept a couple of 0-byte reads from the NTS server */
-                        --tolerance;
+                }
 
                 bufp += r;
 
                 r = NTS_decode_response(buffer, bufp - buffer, &NTS);
                 if (r < 0) {
-                        if (NTS.error == NTS_INSUFFICIENT_DATA && tolerance >= 0) {
-                                /* the server sent a fragmented packet; this should be really rare, but try again; unless
-                                 * when we had two zero-reads in a row, in which case we give up*/
-                                usleep_safe(1 * USEC_PER_MSEC);
+                        if (NTS.error == NTS_INSUFFICIENT_DATA && tls_patience_msec-- > 0) {
+                                usleep_safe(USEC_PER_MSEC);
                                 continue;
                         }
                         log_error("NTS Error: %s", NTS_error_string(NTS.error));
                         NTS_TLS_close(nts_handshake);
-                        nts_handshake = NULL;
                         return manager_connect(m);
                 } else
                         break;
