@@ -380,6 +380,9 @@ All tools:
   default keymap directories (/usr/share/keymaps/, /usr/share/kbd/keymaps/, and
   /usr/lib/kbd/keymaps/) will be used.
 
+* `$SYSTEMD_XKB_DIRECTORY=` — The directory must be absolute and normalized.
+  If unset, the default XKB directory (/usr/share/X11/xkb) will be used.
+
 `systemd-resolved`:
 
 * `$SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME` — if set to "0", `systemd-resolved`
