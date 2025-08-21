@@ -14,4 +14,4 @@ typedef struct StochasticFairBlue {
 DEFINE_QDISC_CAST(SFB, StochasticFairBlue);
 extern const QDiscVTable sfb_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_stochastic_fair_blue_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_sfb_u32);

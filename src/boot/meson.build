@@ -132,16 +132,19 @@ elif get_option('sbat-distro') != ''
         endif
 endif
 
-summary({'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)},
+summary({
+                'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)
+        },
         section : 'UEFI')
 
 if efi_conf.get('SBAT_DISTRO', '') != ''
         summary({
-                'SBAT distro':              efi_conf.get('SBAT_DISTRO'),
-                'SBAT distro generation':   efi_conf.get('SBAT_DISTRO_GENERATION'),
-                'SBAT distro version':      efi_conf.get('SBAT_DISTRO_VERSION'),
-                'SBAT distro summary':      efi_conf.get('SBAT_DISTRO_SUMMARY'),
-                'SBAT distro URL':          efi_conf.get('SBAT_DISTRO_URL')},
+                        'SBAT distro'            : efi_conf.get('SBAT_DISTRO'),
+                        'SBAT distro generation' : efi_conf.get('SBAT_DISTRO_GENERATION'),
+                        'SBAT distro version'    : efi_conf.get('SBAT_DISTRO_VERSION'),
+                        'SBAT distro summary'    : efi_conf.get('SBAT_DISTRO_SUMMARY'),
+                        'SBAT distro URL'        : efi_conf.get('SBAT_DISTRO_URL')
+                },
                 section : 'UEFI')
 endif
 
