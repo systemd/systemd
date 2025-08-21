@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-radv.h"
 #include "sd-varlink.h"
 
 #include "bus-polkit.h"
@@ -15,7 +16,9 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-varlink.h"
+#include "networkd-setlink.h"
 #include "stat-util.h"
+#include "strv.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
@@ -81,6 +84,7 @@ static int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Ma
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(InterfaceInfo, ifindex), SD_JSON_RELAX },
                 { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0             },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
@@ -182,6 +186,7 @@ static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *para
 static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "Ready", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, 0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
@@ -259,6 +264,66 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         return sd_varlink_reply(vlink, NULL);
 }
 
+static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_interface(vlink, parameters, manager, &link);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.manage-links",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* Stop all network engines while interface is still up, then bring it down */
+        r = link_stop_engines(link, /* may_keep_dynamic = */ false);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to stop network engines: %m");
+
+        /* Now bring the interface down via netlink */
+        r = link_request_to_bring_up_or_down(link, false);
+        if (r < 0)
+                return sd_varlink_error_errno(vlink, r);
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
+static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_interface(vlink, parameters, manager, &link);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.manage-links",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = link_request_to_bring_up_or_down(link, true);
+        if (r < 0)
+                return sd_varlink_error_errno(vlink, r);
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
 int manager_connect_varlink(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd;
@@ -292,6 +357,8 @@ int manager_connect_varlink(Manager *m, int fd) {
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
                         "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
+                        "io.systemd.Network.SetLinkDown",          vl_method_set_link_down,
+                        "io.systemd.Network.SetLinkUp",            vl_method_set_link_up,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment);
