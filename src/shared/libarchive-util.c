@@ -33,6 +33,7 @@ DLSYM_PROTOTYPE(archive_entry_set_rdevminor) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_size) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_symlink) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_uid) = NULL;
+DLSYM_PROTOTYPE(archive_entry_sparse_add_entry) = NULL;
 DLSYM_PROTOTYPE(archive_entry_symlink) = NULL;
 DLSYM_PROTOTYPE(archive_entry_uid) = NULL;
 DLSYM_PROTOTYPE(archive_entry_uid_is_set) = NULL;
@@ -55,7 +56,7 @@ DLSYM_PROTOTYPE(archive_write_new) = NULL;
 DLSYM_PROTOTYPE(archive_write_open_FILE) = NULL;
 DLSYM_PROTOTYPE(archive_write_open_fd) = NULL;
 DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext) = NULL;
-DLSYM_PROTOTYPE(archive_write_set_format_gnutar) = NULL;
+DLSYM_PROTOTYPE(archive_write_set_format_pax) = NULL;
 
 int dlopen_libarchive(void) {
         ELF_NOTE_DLOPEN("archive",
@@ -93,6 +94,7 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_entry_set_size),
                         DLSYM_ARG(archive_entry_set_symlink),
                         DLSYM_ARG(archive_entry_set_uid),
+                        DLSYM_ARG(archive_entry_sparse_add_entry),
                         DLSYM_ARG(archive_entry_symlink),
                         DLSYM_ARG(archive_entry_uid),
                         DLSYM_ARG(archive_entry_uid_is_set),
@@ -115,7 +117,7 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_write_open_FILE),
                         DLSYM_ARG(archive_write_open_fd),
                         DLSYM_ARG(archive_write_set_format_filter_by_ext),
-                        DLSYM_ARG(archive_write_set_format_gnutar));
+                        DLSYM_ARG(archive_write_set_format_pax));
 }
 
 /* libarchive uses its own file type macros. They happen to be defined the same way as the Linux one, and
