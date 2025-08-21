@@ -132,7 +132,10 @@ static EFI_STATUS kernel_set_nx(EFI_PHYSICAL_ADDRESS addr, uint64_t length) {
 
         err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_MEMORY_ATTRIBUTE_PROTOCOL), NULL, (void **) &memory_proto);
         if (err != EFI_SUCCESS) {
-                log_debug("No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
+                /* only log if the UEFI should have support in the first place (version >=2.10) */
+                if (ST->Hdr.Revision >= ((2U << 16) | 100U))
+                        log_debug("No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
+
                 return EFI_SUCCESS; /* ignore if firmware lacks support */
         }
 
@@ -144,8 +147,6 @@ static EFI_STATUS kernel_set_nx(EFI_PHYSICAL_ADDRESS addr, uint64_t length) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot make kernel image executable: %m");
 
-        log_debug("Changed kernel image to read-only for NX_COMPAT support.");
-
         return EFI_SUCCESS;
 }
 
@@ -155,7 +156,10 @@ static EFI_STATUS kernel_clear_nx(EFI_PHYSICAL_ADDRESS addr, uint64_t length) {
 
         err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_MEMORY_ATTRIBUTE_PROTOCOL), NULL, (void **) &memory_proto);
         if (err != EFI_SUCCESS) {
-                log_debug("No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
+                /* only log if the UEFI should have support in the first place (version >=2.10) */
+                if (ST->Hdr.Revision >= ((2U << 16) | 100U))
+                        log_debug("No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
+
                 return EFI_SUCCESS; /* ignore if firmware lacks support */
         }
 
