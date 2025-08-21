@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "chattr-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -27,6 +28,15 @@
 
 #define DEPTH_MAX 128U
 
+/* We are a bit conservative with the flags we save/restore in tar files */
+#define CHATTR_TAR_FL                                                   \
+        (FS_NOATIME_FL     |                                            \
+         FS_NOCOW_FL       |                                            \
+         FS_PROJINHERIT_FL |                                            \
+         FS_NODUMP_FL      |                                            \
+         FS_SYNC_FL        |                                            \
+         FS_DIRSYNC_FL)
+
 typedef struct XAttr {
         char *name;
         struct iovec data;
@@ -42,6 +52,7 @@ typedef struct OpenInode {
         struct timespec mtime;
         uid_t uid;
         gid_t gid;
+        unsigned fflags;
         XAttr *xattr;
         size_t n_xattr;
 } OpenInode;
@@ -103,6 +114,20 @@ static int open_inode_finalize(OpenInode *of) {
                                 RET_GATHER(r, log_error_errno(k, "Failed to adjust ownership/mode of '%s': %m", of->path));
                 }
 
+                if ((of->fflags & ~CHATTR_EARLY_FL) != 0 && inode_type_can_chattr(of->filetype)) {
+                        k = chattr_full(of->fd,
+                                        /* path= */ NULL,
+                                        of->fflags,
+                                        of->fflags,
+                                        /* ret_previous= */ NULL,
+                                        /* ret_final= */ NULL,
+                                        CHATTR_FALLBACK_BITWISE);
+                        if (ERRNO_IS_NEG_NOT_SUPPORTED(k))
+                                log_warning_errno(k, "Failed to apply chattr of '%s', ignoring: %m", of->path);
+                        else if (k < 0)
+                                RET_GATHER(r, log_error_errno(k, "Failed to adjust chattr of '%s': %m", of->path));
+                }
+
                 /* We also adjust the mtime only after leaving a dir, since it might otherwise change again
                  * because we make modifications inside it */
                 if (of->mtime.tv_nsec != UTIME_OMIT) {
@@ -153,7 +178,8 @@ static int archive_unpack_regular(
                 struct archive_entry *entry,
                 int parent_fd,
                 const char *filename,
-                const char *path) {
+                const char *path,
+                unsigned fflags) {
 
         int r;
 
@@ -167,6 +193,22 @@ static int archive_unpack_regular(
         _cleanup_close_ int fd = open_tmpfile_linkable_at(parent_fd, filename, O_CLOEXEC|O_WRONLY, &tmp);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create regular file '%s': %m", path);
+
+        if ((fflags & CHATTR_EARLY_FL) != 0) {
+                r = chattr_full(fd,
+                                /* path= */ NULL,
+                                fflags,
+                                fflags & CHATTR_EARLY_FL,
+                                /* ret_previous= */ NULL,
+                                /* ret_final= */ NULL,
+                                CHATTR_FALLBACK_BITWISE);
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_warning_errno(r, "Failed to apply chattr of '%s', ignoring: %m", path);
+                else if (r < 0) {
+                        log_error_errno(r, "Failed to adjust chattr of '%s': %m", path);
+                        goto fail;
+                }
+        }
 
         r = sym_archive_read_data_into_fd(a, fd);
         if (r != ARCHIVE_OK) {
@@ -206,7 +248,10 @@ static int archive_unpack_directory(
                 struct archive_entry *entry,
                 int parent_fd,
                 const char *filename,
-                const char *path) {
+                const char *path,
+                unsigned fflags) {
+
+        int r;
 
         assert(a);
         assert(entry);
@@ -221,6 +266,20 @@ static int archive_unpack_directory(
         _cleanup_close_ int fd = open_mkdir_at(parent_fd, filename, O_CLOEXEC, 0700);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create directory '%s': %m", path);
+
+        if ((fflags & CHATTR_EARLY_FL) != 0) {
+                r = chattr_full(fd,
+                                /* path= */ NULL,
+                                fflags,
+                                fflags & CHATTR_EARLY_FL,
+                                /* ret_previous= */ NULL,
+                                /* ret_final= */ NULL,
+                                CHATTR_FALLBACK_BITWISE);
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_warning_errno(r, "Failed to apply chattr of '%s', ignoring: %m", path);
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to adjust chattr of '%s': %m", path);
+        }
 
         return TAKE_FD(fd);
 }
@@ -328,6 +387,7 @@ static int archive_entry_read_stat(
                 struct timespec *mtime,
                 uid_t *uid,
                 gid_t *gid,
+                unsigned *fflags,
                 XAttr **xa,
                 size_t *n_xa,
                 TarFlags flags) {
@@ -354,6 +414,12 @@ static int archive_entry_read_stat(
                 *uid = sym_archive_entry_uid(entry);
         if (gid && sym_archive_entry_gid_is_set(entry))
                 *gid = sym_archive_entry_gid(entry);
+
+        if (fflags) {
+                unsigned long fs = 0, fc = 0;
+                sym_archive_entry_fflags(entry, &fs, &fc);
+                *fflags = (fs & ~fc) & CHATTR_TAR_FL;
+        }
 
         (void) sym_archive_entry_xattr_reset(entry);
         for (;;) {
@@ -464,6 +530,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                         &open_inodes[0].mtime,
                                         &open_inodes[0].uid,
                                         &open_inodes[0].gid,
+                                        &open_inodes[0].fflags,
                                         &open_inodes[0].xattr,
                                         &open_inodes[0].n_xattr,
                                         flags);
@@ -532,6 +599,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                         uid_t uid = UID_INVALID;
                         gid_t gid = GID_INVALID;
                         struct timespec mtime = { .tv_nsec = UTIME_OMIT };
+                        unsigned fflags = 0;
                         XAttr *xa = NULL;
                         size_t n_xa = 0;
                         CLEANUP_ARRAY(xa, n_xa, xattr_done_many);
@@ -576,6 +644,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                                 &mtime,
                                                 &uid,
                                                 &gid,
+                                                &fflags,
                                                 &xa,
                                                 &n_xa,
                                                 flags);
@@ -585,11 +654,11 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                 switch (filetype) {
 
                                 case S_IFREG:
-                                        fd = archive_unpack_regular(a, entry, parent_fd, e, j);
+                                        fd = archive_unpack_regular(a, entry, parent_fd, e, j, fflags);
                                         break;
 
                                 case S_IFDIR:
-                                        fd = archive_unpack_directory(a, entry, parent_fd, e, j);
+                                        fd = archive_unpack_directory(a, entry, parent_fd, e, j, fflags);
                                         break;
 
                                 case S_IFLNK:
@@ -632,6 +701,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                 .mtime = mtime,
                                 .uid = uid,
                                 .gid = gid,
+                                .fflags = fflags,
                                 .xattr = TAKE_PTR(xa),
                                 .n_xattr = n_xa,
                         };
@@ -921,6 +991,18 @@ static int archive_item(
                 r = archive_generate_sparse(entry, data_fd);
                 if (r < 0)
                         return r;
+        }
+
+        if (inode_type_can_chattr(sx->stx_mode)) {
+                unsigned f = 0;
+
+                r = read_attr_fd(data_fd >= 0 ? data_fd : inode_fd, &f);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        return log_error_errno(r, "Failed to read file flags of '%s': %m", path);
+
+                f &= CHATTR_TAR_FL;
+                if (f != 0)
+                        sym_archive_entry_set_fflags(entry, f, /* clear= */ 0);
         }
 
         if (sym_archive_write_header(d->archive, entry) != ARCHIVE_OK)
