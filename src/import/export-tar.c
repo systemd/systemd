@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
+#include "dissect-image.h"
 #include "export-tar.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -27,11 +28,15 @@ typedef struct TarExport {
         TarExportFinished on_finished;
         void *userdata;
 
+        ImportFlags flags;
+
         char *path;
         char *temp_path;
 
-        int output_fd;
-        int tar_fd;
+        int output_fd; /* compressed tar file in the fs */
+        int tar_fd;    /* uncompressed tar stream coming from child doing the libarchive loop */
+        int tree_fd;   /* directory fd of the tree to set up */
+        int userns_fd;
 
         ImportCompress compress;
 
@@ -98,6 +103,8 @@ int tar_export_new(
         *e = (TarExport) {
                 .output_fd = -EBADF,
                 .tar_fd = -EBADF,
+                .tree_fd = -EBADF,
+                .userns_fd = -EBADF,
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .quota_referenced = UINT64_MAX,
@@ -271,7 +278,13 @@ static int tar_export_on_defer(sd_event_source *s, void *userdata) {
         return tar_export_process(i);
 }
 
-int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType compress) {
+int tar_export_start(
+                TarExport *e,
+                const char *path,
+                int fd,
+                ImportCompressType compress,
+                ImportFlags flags) {
+
         _cleanup_close_ int sfd = -EBADF;
         int r;
 
@@ -299,6 +312,7 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
         if (r < 0)
                 return r;
 
+        e->flags = flags;
         e->quota_referenced = UINT64_MAX;
 
         if (btrfs_might_be_subvol(&e->st)) {
@@ -337,7 +351,33 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
         if (r < 0)
                 return r;
 
-        e->tar_fd = import_fork_tar_c(e->temp_path ?: e->path, &e->tar_pid);
+        const char *p = e->temp_path ?: e->path;
+
+        if (FLAGS_SET(e->flags, IMPORT_FOREIGN_UID)) {
+                r = import_make_foreign_userns(&e->userns_fd);
+                if (r < 0)
+                        return r;
+
+                _cleanup_close_ int directory_fd = open(p, O_DIRECTORY|O_CLOEXEC|O_PATH);
+                if (directory_fd < 0)
+                        return log_error_errno(r, "Failed to open '%s': %m", p);
+
+                _cleanup_close_ int mapped_fd = -EBADF;
+                r = mountfsd_mount_directory_fd(directory_fd, e->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &mapped_fd);
+                if (r < 0)
+                        return r;
+
+                /* Drop O_PATH */
+                e->tree_fd = fd_reopen(mapped_fd, O_DIRECTORY|O_CLOEXEC);
+                if (e->tree_fd < 0)
+                        return log_error_errno(errno, "Failed to re-open mapped '%s': %m", p);
+        } else {
+                e->tree_fd = open(p, O_DIRECTORY|O_CLOEXEC);
+                if (e->tree_fd < 0)
+                        return log_error_errno(errno, "Failed to open '%s': %m", p);
+        }
+
+        e->tar_fd = import_fork_tar_c(e->tree_fd, e->userns_fd, &e->tar_pid);
         if (e->tar_fd < 0) {
                 e->output_event_source = sd_event_source_unref(e->output_event_source);
                 return e->tar_fd;
