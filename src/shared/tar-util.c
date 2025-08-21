@@ -823,7 +823,6 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libarchive support not available.");
 }
 
-
 int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
         assert(tree_fd >= 0);
         assert(output_fd >= 0);
