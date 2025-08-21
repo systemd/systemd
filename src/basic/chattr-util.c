@@ -248,3 +248,7 @@ int set_proj_id_recursive(int fd, uint32_t proj_id) {
                         set_proj_id_cb,
                         UINT32_TO_PTR(proj_id));
 }
+
+bool inode_type_can_chattr(mode_t mode) {
+        return IN_SET(mode & S_IFMT, S_IFREG, S_IFDIR);
+}
