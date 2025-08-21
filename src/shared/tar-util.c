@@ -804,6 +804,57 @@ bypass:
         return 0;
 }
 
+static int archive_generate_sparse(struct archive_entry *entry, int fd) {
+        assert(entry);
+        assert(fd);
+
+        off_t c = 0;
+        for (;;) {
+                /* Look for the next hole */
+                off_t h = lseek(fd, c, SEEK_HOLE);
+                if (h < 0) {
+                        if (errno != ENXIO)
+                                return log_error_errno(errno, "Failed to issue SEEK_HOLE: %m");
+
+                        /* If errno == ENXIO, that means we've reached the final data of the file and
+                         * that data isn't followed by anything more */
+
+                        /* Figure out where the end of the file is */
+                        off_t e = lseek(fd, 0, SEEK_END);
+                        if (e < 0)
+                                return log_error_errno(errno, "Failed to issue SEEK_END: %m");
+
+                        /* Generate sparse entry for final block */
+                        if (e > c && c != 0) {
+                                log_debug("final sparse block %" PRIu64 "…%" PRIu64, (uint64_t) c, (uint64_t) e);
+                                sym_archive_entry_sparse_add_entry(entry, c, e - c);
+                        }
+
+                        break;
+                }
+
+                if (h > c) {
+                        log_debug("inner sparse block %" PRIu64 "…%" PRIu64 " (%" PRIu64 ")", (uint64_t) c, (uint64_t) h, (uint64_t) h - (uint64_t) c);
+                        sym_archive_entry_sparse_add_entry(entry, c, h - c);
+                }
+
+                /* Now look for the next data after the hole */
+                c = lseek(fd, h, SEEK_DATA);
+                if (c < 0) {
+                        if (errno != ENXIO)
+                                return log_error_errno(errno, "Failed to issue SEEK_DATA: %m");
+
+                        /* No data anymore */
+                        break;
+                }
+        }
+
+        if (lseek(fd, 0, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to reset seek offset: %m");
+
+        return 0;
+}
+
 static int archive_item(
                 RecurseDirEvent event,
                 const char *path,
@@ -912,16 +963,23 @@ static int archive_item(
                 sym_archive_entry_xattr_add_entry(entry, xa, buf, size);
         }
 
+        _cleanup_close_ int data_fd = -EBADF;
+        if (S_ISREG(sx->stx_mode)) {
+                /* Convert the O_PATH fd into a proper fd */
+                data_fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
+                if (data_fd < 0)
+                        return log_error_errno(data_fd, "Failed to open '%s': %m", path);
+
+                r = archive_generate_sparse(entry, data_fd);
+                if (r < 0)
+                        return r;
+        }
+
         if (sym_archive_write_header(d->archive, entry) != ARCHIVE_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive entry header: %s", sym_archive_error_string(d->archive));
 
         if (S_ISREG(sx->stx_mode)) {
-                _cleanup_close_ int data_fd = -EBADF;
-
-                /* Convert the O_PATH fd in a proper fd */
-                data_fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
-                if (data_fd < 0)
-                        return log_error_errno(data_fd, "Failed to open '%s': %m", path);
+                assert(data_fd >= 0);
 
                 for (;;) {
                         char buffer[64*1024];
@@ -965,7 +1023,7 @@ int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
         if (filename)
                 r = sym_archive_write_set_format_filter_by_ext(a, filename);
         else
-                r = sym_archive_write_set_format_gnutar(a);
+                r = sym_archive_write_set_format_pax(a);
         if (r != ARCHIVE_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to set libarchive output format: %s", sym_archive_error_string(a));
 
