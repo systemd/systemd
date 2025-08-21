@@ -1740,7 +1740,7 @@ static int add_file_by_name(
         if (!path)
                 return -ENOMEM;
 
-        return add_any_file(j, -1, path);
+        return add_any_file(j, /* fd = */ -EBADF, path);
 }
 
 static int remove_file_by_name(
@@ -2427,7 +2427,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
                 return -ENOMEM;
 
         STRV_FOREACH(path, paths) {
-                r = add_any_file(j, -1, *path);
+                r = add_any_file(j, /* fd = */ -EBADF, *path);
                 if (r < 0)
                         return r;
         }
@@ -2514,7 +2514,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
                 if (r < 0)
                         goto fail;
 
-                r = add_any_file(j, fds[i], NULL);
+                r = add_any_file(j, fds[i], /* path = */ NULL);
                 if (r < 0)
                         goto fail;
         }
