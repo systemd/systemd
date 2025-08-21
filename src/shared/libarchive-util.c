@@ -7,6 +7,7 @@
 #if HAVE_LIBARCHIVE
 static void *libarchive_dl = NULL;
 
+DLSYM_PROTOTYPE(archive_entry_fflags) = NULL;
 DLSYM_PROTOTYPE(archive_entry_filetype) = NULL;
 DLSYM_PROTOTYPE(archive_entry_free) = NULL;
 DLSYM_PROTOTYPE(archive_entry_gid) = NULL;
@@ -26,6 +27,7 @@ DLSYM_PROTOTYPE(archive_entry_pathname) = NULL;
 DLSYM_PROTOTYPE(archive_entry_rdevmajor) = NULL;
 DLSYM_PROTOTYPE(archive_entry_rdevminor) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_ctime) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_fflags) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_filetype) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_gid) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_hardlink) = NULL;
@@ -74,6 +76,7 @@ int dlopen_libarchive(void) {
                         &libarchive_dl,
                         "libarchive.so.13",
                         LOG_DEBUG,
+                        DLSYM_ARG(archive_entry_fflags),
                         DLSYM_ARG(archive_entry_filetype),
                         DLSYM_ARG(archive_entry_free),
                         DLSYM_ARG(archive_entry_gid),
@@ -93,6 +96,7 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_entry_rdevmajor),
                         DLSYM_ARG(archive_entry_rdevminor),
                         DLSYM_ARG(archive_entry_set_ctime),
+                        DLSYM_ARG(archive_entry_set_fflags),
                         DLSYM_ARG(archive_entry_set_filetype),
                         DLSYM_ARG(archive_entry_set_gid),
                         DLSYM_ARG(archive_entry_set_hardlink),
