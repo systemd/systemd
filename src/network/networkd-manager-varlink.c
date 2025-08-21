@@ -15,9 +15,12 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-varlink.h"
+#include "networkd-setlink.h"
 #include "stat-util.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.service.h"
+#include "sd-radv.h"
+#include "strv.h"
 #include "varlink-util.h"
 
 static int vl_method_get_states(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -259,6 +262,140 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         return sd_varlink_reply(vlink, NULL);
 }
 
+static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int64_t interface_index = -1;
+        const char *interface_name = NULL;
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+
+        r = sd_varlink_dispatch(vlink, parameters,
+                (const sd_json_dispatch_field[]) {
+                        { "InterfaceIndex", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int64, PTR_TO_SIZE(&interface_index), SD_JSON_NULLABLE },
+                        { "InterfaceName",  SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, PTR_TO_SIZE(&interface_name), SD_JSON_NULLABLE },
+                        {}
+                }, NULL);
+        if (r != 0)
+                return r;
+
+        if (interface_index <= 0 && isempty(interface_name)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+                r = sd_json_build(&params, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("parameter", SD_JSON_BUILD_STRING("InterfaceIndex|InterfaceName"))));
+                if (r < 0)
+                        return r;
+                return sd_varlink_error_invalid_parameter(vlink, params);
+        }
+
+        if (interface_index > 0)
+                link = hashmap_get(manager->links_by_index, INT_TO_PTR(interface_index));
+        else {
+                Link *l;
+                HASHMAP_FOREACH(l, manager->links_by_index) {
+                        if (streq_ptr(l->ifname, interface_name) ||
+                            strv_contains(l->alternative_names, interface_name)) {
+                                link = l;
+                                break;
+                        }
+                }
+        }
+
+        if (!link) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+                r = sd_json_build(&params, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("parameter", SD_JSON_BUILD_STRING("InterfaceIndex|InterfaceName"))));
+                if (r < 0)
+                        return r;
+                return sd_varlink_error_invalid_parameter(vlink, params);
+        }
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.manage-links",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* Send shutdown RA while interface is still up, then bring it down */
+        if (link->radv && sd_radv_is_running(link->radv)) {
+                r = sd_radv_stop(link->radv);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to send shutdown Router Advertisement: %m");
+        }
+
+        /* Now bring the interface down via netlink */
+        r = link_request_to_bring_up_or_down(link, false);
+        if (r < 0)
+                return sd_varlink_error_errno(vlink, r);
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
+static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int64_t interface_index = -1;
+        const char *interface_name = NULL;
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+
+        r = sd_varlink_dispatch(vlink, parameters,
+                (const sd_json_dispatch_field[]) {
+                        { "InterfaceIndex", SD_JSON_VARIANT_INTEGER, sd_json_dispatch_int64, PTR_TO_SIZE(&interface_index), SD_JSON_NULLABLE },
+                        { "InterfaceName",  SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, PTR_TO_SIZE(&interface_name), SD_JSON_NULLABLE },
+                        {}
+                }, NULL);
+        if (r != 0)
+                return r;
+
+        if (interface_index <= 0 && isempty(interface_name)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+                r = sd_json_build(&params, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("parameter", SD_JSON_BUILD_STRING("InterfaceIndex|InterfaceName"))));
+                if (r < 0)
+                        return r;
+                return sd_varlink_error_invalid_parameter(vlink, params);
+        }
+
+        if (interface_index > 0)
+                link = hashmap_get(manager->links_by_index, INT_TO_PTR(interface_index));
+        else {
+                Link *l;
+                HASHMAP_FOREACH(l, manager->links_by_index) {
+                        if (streq_ptr(l->ifname, interface_name) ||
+                            strv_contains(l->alternative_names, interface_name)) {
+                                link = l;
+                                break;
+                        }
+                }
+        }
+
+        if (!link) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+                r = sd_json_build(&params, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("parameter", SD_JSON_BUILD_STRING("InterfaceIndex|InterfaceName"))));
+                if (r < 0)
+                        return r;
+                return sd_varlink_error_invalid_parameter(vlink, params);
+        }
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.manage-links",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = link_request_to_bring_up_or_down(link, true);
+        if (r < 0)
+                return sd_varlink_error_errno(vlink, r);
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
 int manager_connect_varlink(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd;
@@ -292,6 +429,8 @@ int manager_connect_varlink(Manager *m, int fd) {
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
                         "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
+                        "io.systemd.Network.SetLinkDown",          vl_method_set_link_down,
+                        "io.systemd.Network.SetLinkUp",            vl_method_set_link_up,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment);

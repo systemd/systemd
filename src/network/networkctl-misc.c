@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 #include "sd-netlink.h"
+#include "sd-varlink.h"
 
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -9,6 +10,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-ifname.h"
+#include "json-util.h"
 #include "log.h"
 #include "netlink-util.h"
 #include "networkctl.h"
@@ -50,7 +52,40 @@ int link_up_down(int argc, char *argv[], void *userdata) {
         _cleanup_set_free_ Set *indexes = NULL;
         int index, r;
         void *p;
+        bool is_down_command;
 
+        is_down_command = streq(argv[0], "down");
+
+        /* For 'down' command, try to use varlink first for shutdown RA coordination */
+        if (is_down_command) {
+                _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+
+                r = varlink_connect_networkd(&vl);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to connect to systemd-networkd via varlink, falling back to netlink: %m");
+                        goto fallback_to_netlink;
+                }
+
+                for (int i = 1; i < argc; i++) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *params = NULL;
+
+                        r = sd_json_build(&params, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("InterfaceName", SD_JSON_BUILD_STRING(argv[i]))));
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to build JSON parameters for %s: %m", argv[i]);
+                                goto fallback_to_netlink;
+                        }
+
+                        r = varlink_call_and_log(vl, "io.systemd.Network.SetLinkDown", params, NULL);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to bring down %s via varlink, falling back to netlink: %m", argv[i]);
+                                goto fallback_to_netlink;
+                        }
+                        printf("Interface %s brought down with shutdown RA sent.\n", argv[i]);
+                }
+                return 0;
+        }
+
+fallback_to_netlink:
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");
