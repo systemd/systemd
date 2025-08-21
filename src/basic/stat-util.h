@@ -110,3 +110,10 @@ static inline bool stat_is_set(const struct stat *st) {
 static inline bool statx_is_set(const struct statx *sx) {
         return sx && sx->stx_mask != 0;
 }
+
+static inline bool inode_type_can_hardlink(mode_t m) {
+        /* returns true for all inode types that support hardlinks on linux. Note this is effectively all
+         * inode types except for directories (and those weird misc fds such as eventfds() that have no inode
+         * type). */
+        return IN_SET(m & S_IFMT, S_IFSOCK, S_IFLNK, S_IFREG, S_IFBLK, S_IFCHR, S_IFIFO);
+}
