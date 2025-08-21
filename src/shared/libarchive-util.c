@@ -35,6 +35,7 @@ DLSYM_PROTOTYPE(archive_entry_set_uid) = NULL;
 DLSYM_PROTOTYPE(archive_entry_symlink) = NULL;
 DLSYM_PROTOTYPE(archive_entry_uid) = NULL;
 DLSYM_PROTOTYPE(archive_entry_uid_is_set) = NULL;
+DLSYM_PROTOTYPE(archive_entry_xattr_add_entry) = NULL;
 DLSYM_PROTOTYPE(archive_entry_xattr_next) = NULL;
 DLSYM_PROTOTYPE(archive_entry_xattr_reset) = NULL;
 DLSYM_PROTOTYPE(archive_error_string) = NULL;
@@ -93,6 +94,7 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_entry_symlink),
                         DLSYM_ARG(archive_entry_uid),
                         DLSYM_ARG(archive_entry_uid_is_set),
+                        DLSYM_ARG(archive_entry_xattr_add_entry),
                         DLSYM_ARG(archive_entry_xattr_next),
                         DLSYM_ARG(archive_entry_xattr_reset),
                         DLSYM_ARG(archive_error_string),
