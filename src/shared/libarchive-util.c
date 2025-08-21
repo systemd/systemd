@@ -41,6 +41,7 @@ DLSYM_PROTOTYPE(archive_entry_uid) = NULL;
 #if HAVE_LIBARCHIVE_UID_IS_SET
 DLSYM_PROTOTYPE(archive_entry_uid_is_set) = NULL;
 #endif
+DLSYM_PROTOTYPE(archive_entry_xattr_add_entry) = NULL;
 DLSYM_PROTOTYPE(archive_entry_xattr_next) = NULL;
 DLSYM_PROTOTYPE(archive_entry_xattr_reset) = NULL;
 DLSYM_PROTOTYPE(archive_error_string) = NULL;
@@ -105,6 +106,7 @@ int dlopen_libarchive(void) {
 #if HAVE_LIBARCHIVE_UID_IS_SET
                         DLSYM_ARG(archive_entry_uid_is_set),
 #endif
+                        DLSYM_ARG(archive_entry_xattr_add_entry),
                         DLSYM_ARG(archive_entry_xattr_next),
                         DLSYM_ARG(archive_entry_xattr_reset),
                         DLSYM_ARG(archive_error_string),
