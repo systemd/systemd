@@ -24,6 +24,7 @@ extern DLSYM_PROTOTYPE(archive_entry_rdevminor);
 extern DLSYM_PROTOTYPE(archive_entry_set_ctime);
 extern DLSYM_PROTOTYPE(archive_entry_set_filetype);
 extern DLSYM_PROTOTYPE(archive_entry_set_gid);
+extern DLSYM_PROTOTYPE(archive_entry_set_hardlink);
 extern DLSYM_PROTOTYPE(archive_entry_set_mtime);
 extern DLSYM_PROTOTYPE(archive_entry_set_pathname);
 extern DLSYM_PROTOTYPE(archive_entry_set_perm);

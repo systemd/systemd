@@ -28,6 +28,7 @@ DLSYM_PROTOTYPE(archive_entry_rdevminor) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_ctime) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_filetype) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_gid) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_hardlink) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_mtime) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_pathname) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_perm) = NULL;
@@ -93,6 +94,7 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_entry_set_ctime),
                         DLSYM_ARG(archive_entry_set_filetype),
                         DLSYM_ARG(archive_entry_set_gid),
+                        DLSYM_ARG(archive_entry_set_hardlink),
                         DLSYM_ARG(archive_entry_set_mtime),
                         DLSYM_ARG(archive_entry_set_pathname),
                         DLSYM_ARG(archive_entry_set_perm),
