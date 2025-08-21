@@ -33,6 +33,7 @@ extern DLSYM_PROTOTYPE(archive_entry_set_rdevminor);
 extern DLSYM_PROTOTYPE(archive_entry_set_size);
 extern DLSYM_PROTOTYPE(archive_entry_set_symlink);
 extern DLSYM_PROTOTYPE(archive_entry_set_uid);
+extern DLSYM_PROTOTYPE(archive_entry_sparse_add_entry);
 extern DLSYM_PROTOTYPE(archive_entry_symlink);
 extern DLSYM_PROTOTYPE(archive_entry_uid);
 extern DLSYM_PROTOTYPE(archive_entry_xattr_add_entry);
@@ -54,7 +55,7 @@ extern DLSYM_PROTOTYPE(archive_write_new);
 extern DLSYM_PROTOTYPE(archive_write_open_FILE);
 extern DLSYM_PROTOTYPE(archive_write_open_fd);
 extern DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext);
-extern DLSYM_PROTOTYPE(archive_write_set_format_gnutar);
+extern DLSYM_PROTOTYPE(archive_write_set_format_pax);
 
 #if HAVE_LIBARCHIVE_UID_IS_SET
 extern DLSYM_PROTOTYPE(archive_entry_gid_is_set);
