@@ -4131,28 +4131,12 @@ int journal_file_open(
                 .last_direction = _DIRECTION_INVALID,
         };
 
-        if (fname) {
-                f->path = strdup(fname);
-                if (!f->path) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        } else {
-                assert(fd >= 0);
-
-                /* If we don't know the path, fill in something explanatory and vaguely useful */
-                if (asprintf(&f->path, "/proc/self/%i", fd) < 0) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        }
-
         if (f->fd < 0) {
                 /* We pass O_NONBLOCK here, so that in case somebody pointed us to some character device node or FIFO
                  * or so, we likely fail quickly than block for long. For regular files O_NONBLOCK has no effect, hence
                  * it doesn't hurt in that case. */
 
-                f->fd = openat_report_new(AT_FDCWD, f->path, f->open_flags|O_CLOEXEC|O_NONBLOCK, f->mode, &newly_created);
+                f->fd = openat_report_new(AT_FDCWD, fname, f->open_flags|O_CLOEXEC|O_NONBLOCK, f->mode, &newly_created);
                 if (f->fd < 0) {
                         r = f->fd;
                         goto fail;
@@ -4165,12 +4149,23 @@ int journal_file_open(
                 if (r < 0)
                         goto fail;
 
+                r = fd_get_path(f->fd, &f->path);
+                if (r < 0)
+                        goto fail;
+
                 if (!newly_created) {
                         r = journal_file_fstat(f);
                         if (r < 0)
                                 goto fail;
                 }
         } else {
+                /* If we don't know the path, fill in something explanatory and vaguely useful */
+                f->path = strdup(fname ?: FORMAT_PROC_FD_PATH(fd));
+                if (!f->path) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
                 r = journal_file_fstat(f);
                 if (r < 0)
                         goto fail;
