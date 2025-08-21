@@ -13,6 +13,8 @@
 #include "fs-util.h"
 #include "iovec-util.h"
 #include "libarchive-util.h"
+#include "log.h"
+#include "nulstr-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "stat-util.h"
@@ -332,6 +334,8 @@ static int archive_entry_read_stat(
                 size_t *n_xa,
                 TarFlags flags) {
 
+        int r;
+
         assert(entry);
 
         /* Fills in all fields that are present in the archive entry. Doesn't change the fields if the entry
@@ -357,14 +361,24 @@ static int archive_entry_read_stat(
         for (;;) {
                 const char *name = NULL;
                 struct iovec data;
-                (void) sym_archive_entry_xattr_next(entry, &name, (const void**) &data.iov_base, &data.iov_len);
-                if (!name)
+                r = sym_archive_entry_xattr_next(entry, &name, (const void**) &data.iov_base, &data.iov_len);
+                if (r != ARCHIVE_OK)
                         break;
 
+                assert(name);
                 if (xattr_is_acl(name))
                         continue;
 
                 if (!FLAGS_SET(flags, TAR_SELINUX) && xattr_is_selinux(name))
+                        continue;
+
+                bool duplicate = false;
+                FOREACH_ARRAY(i, *xa, *n_xa)
+                        if (streq(i->name, name)) {
+                                duplicate = true;
+                                break;
+                        }
+                if (duplicate)
                         continue;
 
                 _cleanup_free_ char *n = strdup(name);
@@ -675,6 +689,11 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         return 0;
 }
 
+struct make_archive_data {
+        struct archive *archive;
+        TarFlags flags;
+};
+
 static int archive_item(
                 RecurseDirEvent event,
                 const char *path,
@@ -684,7 +703,7 @@ static int archive_item(
                 const struct statx *sx,
                 void *userdata) {
 
-        struct archive *a = ASSERT_PTR(userdata);
+        struct make_archive_data *d = ASSERT_PTR(userdata);
         int r;
 
         assert(path);
@@ -745,8 +764,32 @@ static int archive_item(
                 sym_archive_entry_set_symlink(entry, s);
         }
 
-        if (sym_archive_write_header(a, entry) != ARCHIVE_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive entry header: %s", sym_archive_error_string(a));
+        _cleanup_free_ char *xattrs = NULL;
+        r = flistxattr_malloc(inode_fd, &xattrs);
+        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r) && r != -ENODATA)
+                return log_error_errno(r, "Failed to read xattr list of '%s': %m", path);
+
+        NULSTR_FOREACH(xa, xattrs) {
+                _cleanup_free_ char *buf = NULL;
+                size_t size;
+
+                if (xattr_is_acl(xa))
+                        continue;
+
+                if (!FLAGS_SET(d->flags, TAR_SELINUX) && xattr_is_selinux(xa))
+                        continue;
+
+                r = fgetxattr_malloc(inode_fd, xa, &buf, &size);
+                if (r == -ENODATA) /* deleted by now? ignore... */
+                        continue;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read xattr '%s' of '%s': %m", xa, path);
+
+                sym_archive_entry_xattr_add_entry(entry, xa, buf, size);
+        }
+
+        if (sym_archive_write_header(d->archive, entry) != ARCHIVE_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive entry header: %s", sym_archive_error_string(d->archive));
 
         if (S_ISREG(sx->stx_mode)) {
                 _cleanup_close_ int data_fd = -EBADF;
@@ -767,9 +810,9 @@ static int archive_item(
                                 break;
 
                         la_ssize_t k;
-                        k = sym_archive_write_data(a, buffer, l);
+                        k = sym_archive_write_data(d->archive, buffer, l);
                         if (k < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive data: %s", sym_archive_error_string(a));
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive data: %s", sym_archive_error_string(d->archive));
                 }
         }
 
@@ -803,7 +846,10 @@ int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
                         UINT_MAX,
                         RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL,
                         archive_item,
-                        a);
+                        &(struct make_archive_data) {
+                                .archive = a,
+                                .flags = flags,
+                        });
         if (r < 0)
                 return log_error_errno(r, "Failed to make archive: %m");
 
