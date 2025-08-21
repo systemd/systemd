@@ -5,17 +5,22 @@
 #include "tar-util.h"
 
 #if HAVE_LIBARCHIVE
+#include <sys/mount.h>
 #include <sys/sysmacros.h>
 
 #include "alloc-util.h"
 #include "chase.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "iovec-util.h"
 #include "libarchive-util.h"
+#include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "recurse-dir.h"
+#include "rm-rf.h"
+#include "sha256.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
@@ -688,10 +693,116 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         return 0;
 }
 
+static int make_tmpfs(void) {
+        /* Creates a tmpfs superblock to store our hardlink db in. We can do this if we run in our own
+         * userns, or if we are privileged. This is preferable, since it means the db is cleaned up
+         * automatically once we are done. Moreover, since this is a new superblock owned by us, we do not
+         * need to set up any uid mapping shenanigans */
+
+        _cleanup_close_ int superblock_fd = fsopen("tmpfs", FSOPEN_CLOEXEC);
+        if (superblock_fd < 0)
+                return log_debug_errno(errno, "Failed to allocate tmpfs superblock: %m");
+
+        (void) fsconfig(superblock_fd, FSCONFIG_SET_STRING, "source", "hardlink", /* aux= */ 0);
+        (void) fsconfig(superblock_fd, FSCONFIG_SET_STRING, "mode", "0700", /* aux= */ 0);
+
+        if (fsconfig(superblock_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
+                return log_debug_errno(errno, "Failed to finalize superblock: %m");
+
+        _cleanup_close_ int mount_fd = fsmount(superblock_fd, FSMOUNT_CLOEXEC, MS_NODEV|MS_NOEXEC|MS_NOSUID);
+        if (mount_fd < 0)
+                return log_debug_errno(errno, "Failed to turn tmpfs superblock into mount: %m");
+
+        return TAKE_FD(mount_fd);
+}
+
 struct make_archive_data {
         struct archive *archive;
         TarFlags flags;
+        int hardlink_db_fd;
+        char *hardlink_db_path;
 };
+
+static int hardlink_lookup(
+                struct make_archive_data *d,
+                int inode_fd,
+                const struct statx *sx,
+                const char *path,
+                char **ret) {
+
+        _cleanup_free_ struct file_handle *handle = NULL;
+        _cleanup_free_ char *m = NULL, *n = NULL;
+        int r;
+
+        assert(d);
+        assert(inode_fd >= 0);
+        assert(sx);
+
+        /* If we know the hardlink count, and it's 1, then don't bother */
+        if (FLAGS_SET(sx->stx_mask, STATX_NLINK) && sx->stx_nlink == 1)
+                goto bypass;
+
+        /* If this is a directory, then don't bother */
+        if (FLAGS_SET(sx->stx_mask, STATX_TYPE) && !inode_type_can_hardlink(sx->stx_mode))
+                goto bypass;
+
+        int mnt_id;
+        r = name_to_handle_at_try_fid(inode_fd, /* path= */ NULL, &handle, &mnt_id, /* flags= */ AT_EMPTY_PATH);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get file handle of file: %m");
+
+        m = hexmem(SHA256_DIRECT(handle->f_handle, handle->handle_bytes), SHA256_DIGEST_SIZE);
+        if (!m)
+                return log_oom();
+
+        if (asprintf(&n, "%i:%i:%s", mnt_id, handle->handle_type, m) < 0)
+                return log_oom();
+
+        if (d->hardlink_db_fd < 0) {
+                assert(!d->hardlink_db_path);
+
+                /* We first try to create our own superblock, which works if we are in a userns, and which
+                 * doesn't require explicit clean-up */
+                d->hardlink_db_fd = make_tmpfs();
+                if (d->hardlink_db_fd < 0) {
+                        log_debug_errno(d->hardlink_db_fd, "Failed to allocate tmpfs superblock for hardlink db, falling back to temporary directory: %m");
+
+                        const char *vt;
+                        r = var_tmp_dir(&vt);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine /var/tmp/ directory: %m");
+
+                        _cleanup_free_ char *j = path_join(vt, "make-tar-XXXXXX");
+                        if (!j)
+                                return log_oom();
+
+                        d->hardlink_db_fd = mkdtemp_open(j, /* flags= */ 0, &d->hardlink_db_path);
+                        if (d->hardlink_db_fd < 0)
+                                return log_error_errno(d->hardlink_db_fd, "Failed to make hardlink database directory: %m");
+                }
+        } else {
+                _cleanup_free_ char *p = NULL;
+                r = readlinkat_malloc(d->hardlink_db_fd, n, &p);
+                if (r >= 0) {
+                        /* Found previous hit! */
+                        log_debug("hardlinkdb: found %s → %s", n, p);
+                        *ret = TAKE_PTR(p);
+                        return 1;
+                }
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to read symlink '%s': %m", n);
+        }
+
+        /* Store information about this inode */
+        if (symlinkat(path, d->hardlink_db_fd, n) < 0)
+                return log_error_errno(errno, "Failed to create symlink '%s' → '%s': %m", n, path);
+
+        log_debug("hardlinkdb: created %s → %s", n, path);
+
+bypass:
+        *ret = NULL;
+        return 0;
+}
 
 static int archive_item(
                 RecurseDirEvent event,
@@ -720,8 +831,22 @@ static int archive_item(
         if (!entry)
                 return log_oom();
 
-        assert(FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_MODE));
         sym_archive_entry_set_pathname(entry, path);
+
+        _cleanup_free_ char *hardlink = NULL;
+        r = hardlink_lookup(d, inode_fd, sx, path, &hardlink);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                sym_archive_entry_set_hardlink(entry, hardlink);
+
+                if (sym_archive_write_header(d->archive, entry) != ARCHIVE_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to write archive entry header: %s", sym_archive_error_string(d->archive));
+
+                return RECURSE_DIR_CONTINUE;
+        }
+
+        assert(FLAGS_SET(sx->stx_mask, STATX_TYPE|STATX_MODE));
         sym_archive_entry_set_filetype(entry, sx->stx_mode);
 
         if (!S_ISLNK(sx->stx_mode))
@@ -818,6 +943,15 @@ static int archive_item(
         return RECURSE_DIR_CONTINUE;
 }
 
+static void make_archive_data_done(struct make_archive_data *d) {
+        assert(d);
+
+        if (d->hardlink_db_fd >= 0)
+                (void) rm_rf_children(d->hardlink_db_fd, REMOVE_PHYSICAL, /* root_dev= */ NULL);
+
+        unlink_and_free(d->hardlink_db_path);
+}
+
 int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
         int r;
 
@@ -839,16 +973,19 @@ int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
         if (r != ARCHIVE_OK)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to set libarchive output file: %s", sym_archive_error_string(a));
 
+        _cleanup_(make_archive_data_done) struct make_archive_data data = {
+                .archive = a,
+                .flags = flags,
+                .hardlink_db_fd = -EBADF,
+        };
+
         r = recurse_dir(tree_fd,
                         ".",
                         STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID|STATX_SIZE|STATX_ATIME|STATX_CTIME,
                         UINT_MAX,
                         RECURSE_DIR_SORT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL,
                         archive_item,
-                        &(struct make_archive_data) {
-                                .archive = a,
-                                .flags = flags,
-                        });
+                        &data);
         if (r < 0)
                 return log_error_errno(r, "Failed to make archive: %m");
 
