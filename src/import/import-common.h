@@ -34,7 +34,7 @@ typedef enum ImportFlags {
         _IMPORT_FLAGS_INVALID = -EINVAL,
 } ImportFlags;
 
-int import_fork_tar_c(const char *path, PidRef *ret);
+int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid);
 int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid);
 
 int import_mangle_os_tree(const char *path);
