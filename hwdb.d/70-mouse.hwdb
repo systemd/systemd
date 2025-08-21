@@ -833,6 +833,10 @@ mouse:usb:v1532p0042:name:Razer Razer Abyssus:*
 mouse:usb:v1532p0029:name:Razer Razer DeathAdder:*
  MOUSE_DPI=3500@1000
 
+# Razer Cobra RZ04-03750300-R3U1
+mouse:usb:v1532p00a3:name:Razer Razer Cobra:*
+ MOUSE_DPI=400@1000 800@1000 *1600@1000 3200@1000 6400@1000
+
 ##########################################
 # Roccat
 ##########################################
