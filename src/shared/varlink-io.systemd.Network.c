@@ -45,6 +45,16 @@ static SD_VARLINK_DEFINE_METHOD(
                 SetPersistentStorage,
                 SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetLinkDown,
+                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetLinkUp,
+                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -54,6 +64,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_GetNamespaceId,
                 &vl_method_GetLLDPNeighbors,
                 &vl_method_SetPersistentStorage,
+                &vl_method_SetLinkDown,
+                &vl_method_SetLinkUp,
                 &vl_type_LLDPNeighbor,
                 &vl_type_LLDPNeighborsByInterface,
                 &vl_error_StorageReadOnly);
