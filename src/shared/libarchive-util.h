@@ -34,6 +34,7 @@ extern DLSYM_PROTOTYPE(archive_entry_set_symlink);
 extern DLSYM_PROTOTYPE(archive_entry_set_uid);
 extern DLSYM_PROTOTYPE(archive_entry_symlink);
 extern DLSYM_PROTOTYPE(archive_entry_uid);
+extern DLSYM_PROTOTYPE(archive_entry_xattr_add_entry);
 extern DLSYM_PROTOTYPE(archive_entry_xattr_next);
 extern DLSYM_PROTOTYPE(archive_entry_xattr_reset);
 extern DLSYM_PROTOTYPE(archive_error_string);
