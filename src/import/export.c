@@ -18,6 +18,7 @@
 #include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "verbs.h"
 
 static ImportFlags arg_import_flags = 0;
@@ -93,6 +94,9 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                 log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, import_compress_type_to_string(arg_compress));
         } else {
                 _cleanup_free_ char *pretty = NULL;
+
+                if (isatty_safe(STDOUT_FILENO))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Refusing to write archive to TTY.");
 
                 fd = STDOUT_FILENO;
 
