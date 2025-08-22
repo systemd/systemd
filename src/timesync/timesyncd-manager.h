@@ -9,7 +9,9 @@
 
 #include "timesyncd-server.h"
 
+#if ENABLE_TIMESYNC_NTS
 #include "nts.h"
+#endif
 
 /*
  * "A client MUST NOT under any conditions use a poll interval less
@@ -57,14 +59,16 @@ typedef struct Manager {
         sd_event_source *event_timeout;
         bool talking;
 
+#if ENABLE_TIMESYNC_NTS
         /* nts ke */
+        struct NTS_Cookie nts_cookies[8];
         struct {
                 uint8_t s2c[MAX_NTS_AEAD_KEY_LEN];
                 uint8_t c2s[MAX_NTS_AEAD_KEY_LEN];
         } nts_keys;
-        struct NTS_Cookie nts_cookies[8];
         struct NTS_AEADParam nts_aead;
         unsigned nts_missing_cookies;
+#endif
         usec_t nts_keyexchange_timeout_usec;
 
         /* PolicyKit */
