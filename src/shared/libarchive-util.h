@@ -9,6 +9,9 @@
 
 #include "dlfcn-util.h"
 
+extern DLSYM_PROTOTYPE(archive_entry_acl_add_entry);
+extern DLSYM_PROTOTYPE(archive_entry_acl_next);
+extern DLSYM_PROTOTYPE(archive_entry_acl_reset);
 extern DLSYM_PROTOTYPE(archive_entry_fflags);
 extern DLSYM_PROTOTYPE(archive_entry_filetype);
 extern DLSYM_PROTOTYPE(archive_entry_free);
