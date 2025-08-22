@@ -1069,6 +1069,12 @@ static int fd_set_perms(
         }
 
 shortcut:
+        if (arg_dry_run) {
+                log_debug("Would relabel \"%s\"", path);
+                return 0;
+        }
+
+        log_debug("Relabelling \"%s\"", path);
         return label_fix_full(fd, /* inode_path= */ NULL, /* label_path= */ path, 0);
 }
 
