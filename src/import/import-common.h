@@ -49,3 +49,5 @@ int import_copy_foreign(int source_fd, int target_fd, int *userns_fd);
 
 int import_remove_tree_foreign(const char *path, int *userns_fd);
 int import_remove_tree(const char *path, int *userns_fd, ImportFlags flags);
+
+#define IMPORT_BUFFER_SIZE (128U*1024U)
