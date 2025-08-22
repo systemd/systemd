@@ -4017,6 +4017,7 @@ static int outer_child(
                         arg_bind_user,
                         arg_bind_user_shell,
                         arg_bind_user_shell_copy,
+                        "/run/host/home",
                         &bind_user_context);
         if (r < 0)
                 return r;
