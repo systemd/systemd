@@ -41,6 +41,8 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
+        (void) fcntl(pipefd[0], F_SETPIPE_SZ, IMPORT_BUFFER_SIZE);
+
         r = pidref_safe_fork_full(
                         "tar-x",
                         /* stdio_fds= */ NULL,
@@ -102,6 +104,8 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
+
+        (void) fcntl(pipefd[0], F_SETPIPE_SZ, IMPORT_BUFFER_SIZE);
 
         r = pidref_safe_fork_full(
                         "tar-c",
