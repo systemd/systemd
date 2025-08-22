@@ -8,6 +8,7 @@
 #include <sys/mount.h>
 #include <sys/sysmacros.h>
 
+#include "acl-util.h"
 #include "alloc-util.h"
 #include "chase.h"
 #include "chattr-util.h"
@@ -59,6 +60,7 @@ typedef struct OpenInode {
         unsigned fflags;
         XAttr *xattr;
         size_t n_xattr;
+        acl_t acl_access, acl_default;
 } OpenInode;
 
 static void xattr_done(XAttr *xa) {
@@ -87,6 +89,10 @@ static void open_inode_done(OpenInode *of) {
                 of->path = mfree(of->path);
         }
         xattr_done_many(of->xattr, of->n_xattr);
+        if (of->acl_access)
+                sym_acl_free(of->acl_access);
+        if (of->acl_default)
+                sym_acl_free(of->acl_default);
 }
 
 static void open_inode_done_many(OpenInode *array, size_t n) {
@@ -96,6 +102,29 @@ static void open_inode_done_many(OpenInode *array, size_t n) {
                 open_inode_done(i);
 
         free(array);
+}
+
+static int open_inode_apply_acl(OpenInode *of) {
+        int r = 0;
+
+        assert(of);
+        assert(of->fd >= 0);
+
+        if (!inode_type_can_acl(of->filetype))
+                return 0;
+
+        if (of->acl_access) {
+                if (sym_acl_set_fd(of->fd, of->acl_access) < 0)
+                        RET_GATHER(r, log_error_errno(errno, "Failed to adjust ACLs of '%s': %m", of->path));
+        }
+
+        if (of->filetype == S_IFDIR && of->acl_default) {
+                /* There's no API to set default ACLs by fd, hence go by /proc/self/fd/ path */
+                if (sym_acl_set_file(FORMAT_PROC_FD_PATH(of->fd), ACL_TYPE_DEFAULT, of->acl_default) < 0)
+                        RET_GATHER(r, log_error_errno(errno, "Failed to adjust default ACLs of '%s': %m", of->path));
+        }
+
+        return r;
 }
 
 static int open_inode_finalize(OpenInode *of) {
@@ -117,6 +146,10 @@ static int open_inode_finalize(OpenInode *of) {
                         if (k < 0)
                                 RET_GATHER(r, log_error_errno(k, "Failed to adjust ownership/mode of '%s': %m", of->path));
                 }
+
+                k = open_inode_apply_acl(of);
+                if (k < 0)
+                        RET_GATHER(r, log_error_errno(k, "Failed to adjust ACL of '%s': %m", of->path));
 
                 if ((of->fflags & ~CHATTR_EARLY_FL) != 0 && inode_type_can_chattr(of->filetype)) {
                         k = chattr_full(of->fd,
@@ -388,6 +421,119 @@ static int archive_entry_pathname_safe(struct archive_entry *entry, const char *
         return 0;
 }
 
+static int archive_entry_read_acl(
+                struct archive_entry *entry,
+                acl_type_t ntype,
+                acl_t *acl) {
+
+        int r;
+
+        assert(entry);
+        assert(acl);
+
+        int type;
+        if (ntype == ACL_TYPE_ACCESS)
+                type = ARCHIVE_ENTRY_ACL_TYPE_ACCESS;
+        else if (ntype == ACL_TYPE_DEFAULT)
+                type = ARCHIVE_ENTRY_ACL_TYPE_DEFAULT;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unexpected ACL type");
+
+        int c = sym_archive_entry_acl_reset(entry, type);
+        if (c == 0)
+                return 0;
+        assert(c > 0);
+
+        r = dlopen_libacl();
+        if (r < 0) {
+                log_debug_errno(r, "Not restoring ACL data on inode as libacl is not available: %m");
+                return 0;
+        }
+
+        _cleanup_(acl_freep) acl_t a = NULL;
+        a = sym_acl_init(c);
+        if (!a)
+                return log_oom();
+
+        for (;;) {
+                int rtype, permset, tag, qual;
+                const char *name;
+                r = sym_archive_entry_acl_next(
+                                entry,
+                                type,
+                                &rtype,
+                                &permset,
+                                &tag,
+                                &qual,
+                                &name);
+                if (r == ARCHIVE_EOF)
+                        break;
+                if (r != ARCHIVE_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Unexpected error while iterating through ACLs.");
+
+                assert(rtype == type);
+
+                acl_entry_t e;
+                if (sym_acl_create_entry(&a, &e) < 0)
+                        return log_error_errno(errno, "Failed to create ACL entry: %m");
+
+                static const struct {
+                        int libarchive;
+                        acl_tag_t libacl;
+                } tag_map[] = {
+                        { ARCHIVE_ENTRY_ACL_USER,      ACL_USER      },
+                        { ARCHIVE_ENTRY_ACL_GROUP,     ACL_GROUP     },
+                        { ARCHIVE_ENTRY_ACL_USER_OBJ,  ACL_USER_OBJ  },
+                        { ARCHIVE_ENTRY_ACL_GROUP_OBJ, ACL_GROUP_OBJ },
+                        { ARCHIVE_ENTRY_ACL_MASK,      ACL_MASK      },
+                        { ARCHIVE_ENTRY_ACL_OTHER,     ACL_OTHER     },
+                };
+
+                acl_tag_t ntag = ACL_UNDEFINED_TAG;
+                FOREACH_ELEMENT(t, tag_map)
+                        if (t->libarchive == tag) {
+                                ntag = t->libacl;
+                                break;
+                        }
+                if (ntag == ACL_UNDEFINED_TAG)
+                        continue;
+
+                if (sym_acl_set_tag_type(e, ntag) < 0)
+                        return log_error_errno(errno, "Failed to set ACL entry tag: %m");
+
+                if (IN_SET(ntag, ACL_USER, ACL_GROUP)) {
+                        id_t id = qual;
+
+                        if (sym_acl_set_qualifier(e, &id) < 0)
+                                return log_error_errno(errno, "Failed to set ACL entry qualifier: %m");
+                }
+
+                acl_permset_t p;
+                if (sym_acl_get_permset(e, &p) < 0)
+                        return log_error_errno(errno, "Failed to get ACL entry permission set: %m");
+
+                r = acl_set_perm(p, ACL_READ, permset & ARCHIVE_ENTRY_ACL_READ);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set ACL entry read bit: %m");
+
+                r = acl_set_perm(p, ACL_WRITE, permset & ARCHIVE_ENTRY_ACL_WRITE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set ACL entry write bit: %m");
+
+                r = acl_set_perm(p, ACL_EXECUTE, permset & ARCHIVE_ENTRY_ACL_EXECUTE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set ACL entry excute bit: %m");
+
+                if (sym_acl_set_permset(e, p) < 0)
+                        return log_error_errno(errno, "Failed to set ACL entry permission set: %m");
+        }
+
+        if (*acl)
+                sym_acl_free(*acl);
+        *acl = TAKE_PTR(a);
+        return 0;
+}
+
 static int archive_entry_read_stat(
                 struct archive_entry *entry,
                 mode_t *filetype,
@@ -396,6 +542,8 @@ static int archive_entry_read_stat(
                 uid_t *uid,
                 gid_t *gid,
                 unsigned *fflags,
+                acl_t *acl_access,
+                acl_t *acl_default,
                 XAttr **xa,
                 size_t *n_xa,
                 TarFlags flags) {
@@ -468,6 +616,18 @@ static int archive_entry_read_stat(
                         .name = TAKE_PTR(n),
                         .data = TAKE_STRUCT(iovec_copy),
                 };
+        }
+
+        if (acl_access) {
+                r = archive_entry_read_acl(entry, ACL_TYPE_ACCESS, acl_access);
+                if (r < 0)
+                        return r;
+        }
+
+        if (acl_default) {
+                r = archive_entry_read_acl(entry, ACL_TYPE_DEFAULT, acl_default);
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -545,6 +705,8 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                         &open_inodes[0].uid,
                                         &open_inodes[0].gid,
                                         &open_inodes[0].fflags,
+                                        &open_inodes[0].acl_access,
+                                        &open_inodes[0].acl_default,
                                         &open_inodes[0].xattr,
                                         &open_inodes[0].n_xattr,
                                         flags);
@@ -616,6 +778,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                         gid_t gid = GID_INVALID;
                         struct timespec mtime = { .tv_nsec = UTIME_OMIT };
                         unsigned fflags = 0;
+                        _cleanup_(acl_freep) acl_t acl_access = NULL, acl_default = NULL;
                         XAttr *xa = NULL;
                         size_t n_xa = 0;
                         CLEANUP_ARRAY(xa, n_xa, xattr_done_many);
@@ -691,6 +854,8 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                                 &uid,
                                                 &gid,
                                                 &fflags,
+                                                &acl_access,
+                                                &acl_default,
                                                 &xa,
                                                 &n_xa,
                                                 flags);
@@ -750,6 +915,8 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                 .uid = uid,
                                 .gid = gid,
                                 .fflags = fflags,
+                                .acl_access = TAKE_PTR(acl_access),
+                                .acl_default = TAKE_PTR(acl_default),
                                 .xattr = TAKE_PTR(xa),
                                 .n_xattr = n_xa,
                         };
@@ -921,6 +1088,88 @@ static int archive_generate_sparse(
         return 0;
 }
 
+static int archive_write_acl(
+                struct archive_entry *entry,
+                acl_type_t ntype,
+                acl_t acl) {
+        int r;
+
+        assert(entry);
+        assert(acl);
+
+        int type;
+        if (ntype == ACL_TYPE_ACCESS)
+                type = ARCHIVE_ENTRY_ACL_TYPE_ACCESS;
+        else if (ntype == ACL_TYPE_DEFAULT)
+                type = ARCHIVE_ENTRY_ACL_TYPE_DEFAULT;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unexpected ACL type");
+
+        acl_entry_t e;
+        r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &e);
+        for (;;) {
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to get ACL entry: %m");
+                if (r == 0)
+                        break;
+
+                acl_tag_t ntag;
+                if (sym_acl_get_tag_type(e, &ntag) < 0)
+                        return log_error_errno(errno, "Failed to get ACL entry tag: %m");
+
+                static const int tag_map[] = {
+                        [ACL_USER]      = ARCHIVE_ENTRY_ACL_USER,
+                        [ACL_GROUP]     = ARCHIVE_ENTRY_ACL_GROUP,
+                        [ACL_USER_OBJ]  = ARCHIVE_ENTRY_ACL_USER_OBJ,
+                        [ACL_GROUP_OBJ] = ARCHIVE_ENTRY_ACL_GROUP_OBJ,
+                        [ACL_MASK]      = ARCHIVE_ENTRY_ACL_MASK,
+                        [ACL_OTHER]     = ARCHIVE_ENTRY_ACL_OTHER,
+                };
+                assert_cc(ACL_UNDEFINED_TAG == 0);   /* safety check, we assume that holes are filled with ACL_UNDEFINED_TAG */
+                assert_cc(ELEMENTSOF(tag_map) <= 64); /* safety check, we assume that the tag ids are all packed and low */
+
+                int tag = ntag >= 0 && ntag <= (acl_tag_t) ELEMENTSOF(tag_map) ? tag_map[ntag] : ACL_UNDEFINED_TAG;
+
+                id_t qualifier = UID_INVALID;
+                if (IN_SET(ntag, ACL_USER, ACL_GROUP)) {
+                        id_t *q = sym_acl_get_qualifier(e);
+                        if (!q)
+                                return log_error_errno(errno, "Failed to get ACL entry qualifier: %m");
+
+                        qualifier = *q;
+                        sym_acl_free(q);
+                }
+
+                acl_permset_t p;
+                if (sym_acl_get_permset(e, &p) < 0)
+                        return log_error_errno(errno, "Failed to get ACL entry permission set: %m");
+
+                int permset = 0;
+                r = sym_acl_get_perm(p, ACL_READ);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get ACL entry read bit: %m");
+                SET_FLAG(permset, ARCHIVE_ENTRY_ACL_READ, r);
+
+                r = sym_acl_get_perm(p, ACL_WRITE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get ACL entry write bit: %m");
+                SET_FLAG(permset, ARCHIVE_ENTRY_ACL_WRITE, r);
+
+                r = sym_acl_get_perm(p, ACL_EXECUTE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get ACL entry execute bit: %m");
+                SET_FLAG(permset, ARCHIVE_ENTRY_ACL_EXECUTE, r);
+
+                r = sym_archive_entry_acl_add_entry(entry, type, permset, tag, qualifier, /* name= */ NULL);
+                if (r != ARCHIVE_OK)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to add ACL entry.");
+
+                r = sym_acl_get_entry(acl, ACL_NEXT_ENTRY, &e);
+        }
+
+        return 0;
+}
+
 static int archive_item(
                 RecurseDirEvent event,
                 const char *path,
@@ -1003,6 +1252,36 @@ static int archive_item(
                         return log_error_errno(r, "Failed to read symlink target of '%s': %m", path);
 
                 sym_archive_entry_set_symlink(entry, s);
+        }
+
+        if (inode_type_can_acl(sx->stx_mode)) {
+
+                r = dlopen_libacl();
+                if (r < 0)
+                        log_debug_errno(r, "No trying to read ACL off inode, as libacl support is not available: %m");
+                else {
+                        r = sym_acl_extended_file(FORMAT_PROC_FD_PATH(inode_fd));
+                        if (r < 0 && !ERRNO_IS_NOT_SUPPORTED(errno))
+                                return log_error_errno(errno, "Failed check if '%s' has ACLs: %m", path);
+                        if (r > 0) {
+                                _cleanup_(acl_freep) acl_t acl = NULL;
+                                acl = sym_acl_get_file(FORMAT_PROC_FD_PATH(inode_fd), ACL_TYPE_ACCESS);
+                                if (!acl)
+                                        return log_error_errno(errno, "Failed read access ACLs of '%s': %m", path);
+
+                                archive_write_acl(entry, ACL_TYPE_ACCESS, acl);
+
+                                if (S_ISDIR(sx->stx_mode)) {
+                                        sym_acl_free(acl);
+
+                                        acl = sym_acl_get_file(FORMAT_PROC_FD_PATH(inode_fd), ACL_TYPE_DEFAULT);
+                                        if (!acl)
+                                                return log_error_errno(errno, "Failed to read default ACLs of '%s': %m", path);
+
+                                        archive_write_acl(entry, ACL_TYPE_DEFAULT, acl);
+                                }
+                        }
+                }
         }
 
         _cleanup_free_ char *xattrs = NULL;
