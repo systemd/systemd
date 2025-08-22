@@ -135,7 +135,7 @@ EOF
         echo "FallbackDNS="
         echo "DNSSEC=allow-downgrade"
         echo "DNSOverTLS=opportunistic"
-    } >/run/systemd/resolved.conf.d/test.conf
+    } >/run/systemd/resolved.conf.d/10-test.conf
     ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     # Override the default NTA list, which turns off DNSSEC validation for (among
     # others) the test. domain
@@ -232,7 +232,6 @@ manual_testcase_01_resolvectl() {
     # Cleanup
     # shellcheck disable=SC2317
     cleanup() {
-        rm -f /run/systemd/resolved.conf.d/mdns-llmnr.conf
         ip link del hoge
         ip link del hoge.foo
     }
@@ -320,7 +319,7 @@ manual_testcase_02_mdns_llmnr() {
 
     # Cleanup
     cleanup() {
-        rm -f /run/systemd/resolved.conf.d/mdns-llmnr.conf
+        rm -f /run/systemd/resolved.conf.d/90-mdns-llmnr.conf
         ip link del hoge
         ip link del hoge.foo
     }
@@ -332,7 +331,7 @@ manual_testcase_02_mdns_llmnr() {
         echo "[Resolve]"
         echo "MulticastDNS=no"
         echo "LLMNR=no"
-    } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+    } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     restart_resolved
     # make sure networkd is not running.
     systemctl stop systemd-networkd.service
@@ -343,7 +342,7 @@ manual_testcase_02_mdns_llmnr() {
         echo "[Resolve]"
         echo "MulticastDNS=yes"
         echo "LLMNR=yes"
-    } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+    } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     systemctl reload systemd-resolved.service
     # defaults to yes (both the global and per-link settings are yes)
     assert_in 'yes' "$(resolvectl mdns hoge)"
@@ -367,7 +366,7 @@ manual_testcase_02_mdns_llmnr() {
         echo "[Resolve]"
         echo "MulticastDNS=resolve"
         echo "LLMNR=resolve"
-    } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+    } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     systemctl reload systemd-resolved.service
     # set per-link setting
     resolvectl mdns hoge yes
@@ -387,7 +386,7 @@ manual_testcase_02_mdns_llmnr() {
         echo "[Resolve]"
         echo "MulticastDNS=no"
         echo "LLMNR=no"
-    } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+    } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     systemctl reload systemd-resolved.service
     (! lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep -q ":mdns\|:5353")
     # set per-link setting
@@ -857,7 +856,7 @@ testcase_11_nft() {
     {
         echo "[Resolve]"
         echo "StaleRetentionSec=1d"
-    } >/run/systemd/resolved.conf.d/test.conf
+    } >/run/systemd/resolved.conf.d/10-test.conf
     systemctl reload systemd-resolved.service
 
     run dig stale1.unsigned.test -t A
@@ -948,7 +947,7 @@ testcase_12_resolvectl2() {
     # Cleanup
     # shellcheck disable=SC2317
     cleanup() {
-        rm -f /run/systemd/resolved.conf.d/reload.conf
+        rm -f /run/systemd/resolved.conf.d/90-reload.conf
         systemctl reload systemd-resolved.service
         resolvectl revert dns0
     }
@@ -1003,7 +1002,7 @@ testcase_12_resolvectl2() {
         echo "[Resolve]"
         echo "DNS=8.8.8.8"
         echo "DNSStubListenerExtra=127.0.0.153"
-    } >/run/systemd/resolved.conf.d/reload.conf
+    } >/run/systemd/resolved.conf.d/90-reload.conf
     resolvectl dns dns0 1.1.1.1
     systemctl reload systemd-resolved.service
     resolvectl status
@@ -1021,7 +1020,7 @@ testcase_12_resolvectl2() {
         echo "[Resolve]"
         echo "DNS=8.8.4.4"
         echo "DNSStubListenerExtra=127.0.0.154"
-    } >/run/systemd/resolved.conf.d/reload.conf
+    } >/run/systemd/resolved.conf.d/90-reload.conf
     systemctl reload systemd-resolved.service
     resolvectl status
 
@@ -1053,7 +1052,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
         echo "===== io.systemd.Resolve.Monitor.SubscribeDNSConfiguration output: ====="
         cat "$tmpfile"
         echo "=========="
-        rm -f /run/systemd/resolved.conf.d/global-dns.conf
+        rm -f /run/systemd/resolved.conf.d/90-global-dns.conf
         restart_resolved
         resolvectl revert dns0
     }
@@ -1071,7 +1070,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
     {
         echo "[Resolve]"
         echo "DNS="
-    } > /run/systemd/resolved.conf.d/global-dns.conf
+    } > /run/systemd/resolved.conf.d/90-global-dns.conf
     systemctl reload systemd-resolved.service
     resolvectl dns dns0 ""
     resolvectl domain dns0 ""
@@ -1089,7 +1088,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
         echo "[Resolve]"
         echo "DNS=8.8.8.8"
         echo "Domains=lan"
-    } > /run/systemd/resolved.conf.d/global-dns.conf
+    } > /run/systemd/resolved.conf.d/90-global-dns.conf
     systemctl reload systemd-resolved.service
 
     # Update a link configuration.
@@ -1127,7 +1126,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
 testcase_14_refuse_record_types() {
     # shellcheck disable=SC2317
     cleanup() {
-        rm -f /run/systemd/resolved.conf.d/refuserecords.conf
+        rm -f /run/systemd/resolved.conf.d/90-refuserecords.conf
         restart_resolved
     }
     trap cleanup RETURN ERR
@@ -1136,7 +1135,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=AAAA SRV TXT"
-    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    } >/run/systemd/resolved.conf.d/90-refuserecords.conf
     systemctl reload systemd-resolved.service
 
     run dig localhost -t AAAA
@@ -1185,7 +1184,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=AAAA"
-    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    } >/run/systemd/resolved.conf.d/90-refuserecords.conf
     systemctl reload systemd-resolved.service
 
     run dig localhost -t SRV
@@ -1234,7 +1233,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=A AAAA"
-    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    } >/run/systemd/resolved.conf.d/90-refuserecords.conf
     systemctl reload systemd-resolved.service
 
     run resolvectl service _mysvc._tcp signed.test
@@ -1256,7 +1255,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=AAAA TXT"
-    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    } >/run/systemd/resolved.conf.d/90-refuserecords.conf
     systemctl reload systemd-resolved.service
 
     run resolvectl service _mysvc._tcp signed.test
@@ -1277,7 +1276,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=SRV"
-    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    } >/run/systemd/resolved.conf.d/90-refuserecords.conf
     systemctl reload systemd-resolved.service
 
     (! run resolvectl service _mysvc._tcp signed.test)
