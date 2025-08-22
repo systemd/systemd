@@ -93,6 +93,7 @@ static int convert_user(
                 uid_t allocate_uid,
                 const char *shell,
                 bool shell_copy,
+                const char *home_mount_directory,
                 UserRecord **ret_converted_user,
                 GroupRecord **ret_converted_group) {
 
@@ -123,7 +124,7 @@ static int convert_user(
                 return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
                                        "Sorry, the group '%s' already exists in the machine.", g->group_name);
 
-        h = path_join("/run/host/home/", u->user_name);
+        h = path_join(home_mount_directory, u->user_name);
         if (!h)
                 return log_oom();
 
@@ -210,6 +211,7 @@ int machine_bind_user_prepare(
                 char **bind_user,
                 const char *bind_user_shell,
                 bool bind_user_shell_copy,
+                const char *bind_user_home_mount_directory,
                 MachineBindUserContext **ret) {
 
         _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *c = NULL;
@@ -279,7 +281,14 @@ int machine_bind_user_prepare(
                 if (r < 0)
                         return r;
 
-                r = convert_user(directory, u, g, current_uid, bind_user_shell, bind_user_shell_copy, &cu, &cg);
+                r = convert_user(
+                                directory,
+                                u, g,
+                                current_uid,
+                                bind_user_shell,
+                                bind_user_shell_copy,
+                                bind_user_home_mount_directory,
+                                &cu, &cg);
                 if (r < 0)
                         return r;
 
