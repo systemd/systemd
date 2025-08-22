@@ -594,6 +594,7 @@ static void manager_set_defaults(Manager *m) {
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        Link *l;
         int r;
 
         (void) notify_reloading();
@@ -628,6 +629,12 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         r = dns_scope_new(m, &m->unicast_scope, NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
                 return r;
+
+        /* A link's unicast scope may also be influenced by the manager's configuration. I.e., DNSSEC= and DNSOverTLS=
+         * from the manager will be used if not explicitly configured on the link. Free the scopes here so that
+         * link_allocate_scopes() in on_network_event() re-creates them. */
+        HASHMAP_FOREACH(l, m->links)
+                l->unicast_scope = dns_scope_free(l->unicast_scope);
 
         /* The configuration has changed, so reload the per-interface configuration too in order to take
          * into account any changes (e.g.: enable/disable DNSSEC). */
