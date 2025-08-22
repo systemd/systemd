@@ -65,6 +65,7 @@ typedef struct Manager {
         struct NTS_Cookie nts_cookies[8];
         struct NTS_AEADParam nts_aead;
         unsigned nts_missing_cookies;
+        usec_t nts_keyexchange_timeout_usec;
 
         /* PolicyKit */
         Hashmap *polkit_registry;
