@@ -60,9 +60,6 @@
 /* Maximum number of missed replies before selecting another source. */
 #define NTP_MAX_MISSED_REPLIES          2
 
-/* Maximum amount of milliseconds to wait for an NTS agreement to be reached */
-#define NTS_TIMEOUT_MSEC                60000
-
 #define RATELIMIT_INTERVAL_USEC (10*USEC_PER_SEC)
 #define RATELIMIT_BURST 10
 
@@ -1245,6 +1242,7 @@ int manager_new(Manager **ret) {
                 .root_distance_max_usec = NTP_ROOT_DISTANCE_MAX_USEC,
                 .poll_interval_min_usec = NTP_POLL_INTERVAL_MIN_USEC,
                 .poll_interval_max_usec = NTP_POLL_INTERVAL_MAX_USEC,
+                .nts_keyexchange_timeout_usec = NTP_POLL_INTERVAL_MIN_USEC,
 
                 .connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC,
 
@@ -1422,7 +1420,7 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
 }
 
 static int manager_nts_obtain_agreement(Manager *m) {
-        unsigned tls_patience_msec = NTS_TIMEOUT_MSEC;
+        unsigned tls_patience_msec = m->nts_keyexchange_timeout_usec / USEC_PER_MSEC;
 
         int r;
         int socket = NTS_attach_socket(m->current_server_name->string, 4460, SOCK_STREAM);
