@@ -12,12 +12,14 @@ timesyncd_extract_sources = files(
         'timesyncd-conf.c',
         'timesyncd-manager.c',
         'timesyncd-server.c',
-        'nts_tls.c',
-        'nts_crypto_gcrypt.c',
+)
+
+nts_sources = files(
         'tcp_connect.c',
         'nts_packet.c',
-        'nts_error.c',
         'nts_extfields.c',
+        'nts_error.c',
+        'nts_tls.c',
 )
 
 timesyncd_gperf_c = custom_target(
@@ -35,43 +37,83 @@ else
                                libshared_static]
 endif
 
+# Select the TLS dependency
+crypto_deps = []
+
+tls = get_option('timesync-nts')
+if tls == 'gnutls' or (tls == 'auto' and conf.get('HAVE_GNUTLS') == 1)
+        tls = 'gnutls'
+        crypto_deps += [libgnutls]
+        tls_c_args = '-DUSE_GNUTLS'
+        c_args = '-DENABLE_TIMESYNC_NTS=1'
+elif tls == 'openssl' or (tls == 'auto' and conf.get('HAVE_OPENSSL') == 1)
+        tls = 'openssl'
+        crypto_deps += [libopenssl]
+        tls_c_args = ''
+        c_args = '-DENABLE_TIMESYNC_NTS=1'
+else
+        tls = 'disabled'
+        tls_c_args = ''
+        c_args = '-DENABLE_TIMESYNC_NTS=0'
+endif
+
+crypto = get_option('timesync-cryptolib')
+if crypto_deps != []
+        if crypto == 'nettle' or (crypto == 'auto' and tls == 'gnutls')
+                nts_sources += files('nts_crypto_nettle.c')
+                libnettle = dependency('nettle',
+                                       version : '>= 3.8',
+                                       required : true)
+                crypto_deps += [libnettle]
+        elif crypto == 'gcrypt' or (crypto == 'auto' and conf.get('HAVE_GCRYPT') == 1)
+                nts_sources += files('nts_crypto_gcrypt.c')
+                crypto_deps += [libgcrypt]
+        elif crypto == 'openssl' or (crypto == 'auto' and tls == 'openssl')
+                nts_sources += files('nts_crypto_openssl.c')
+                crypto_deps += [libopenssl]
+        endif
+
+        libtimesyncd_nts = static_library(
+                'timesyncd-nts',
+                nts_sources,
+                include_directories : includes,
+                dependencies : crypto_deps,
+                c_args : tls_c_args,
+                build_by_default : false)
+
+        timesyncd_link_with += [libtimesyncd_nts]
+else
+        if crypto != 'auto'
+                error('Cannot set NTS crypto without having a TLS solution')
+        endif
+endif
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-timesyncd',
                 'sources' : timesyncd_sources,
                 'extract' : timesyncd_extract_sources,
                 'include_directories' : [libexec_template['include_directories'], include_directories('.')],
+                'c_args' : c_args,
                 'link_with' : timesyncd_link_with,
                 'dependencies' : [
                         libm,
                         threads,
-                        libopenssl,
-                        libgcrypt,
-                        libgnutls,
                 ],
         },
         libexec_template + {
                 'name' : 'systemd-time-wait-sync',
                 'sources' : files('wait-sync.c'),
                 'objects' : ['systemd-timesyncd'],
-                'dependencies' : [
-                        libm,
-                        threads,
-                        libopenssl,
-                        libgcrypt,
-                        libgnutls,
-                ],
+                'link_with' : timesyncd_link_with,
+                'dependencies' : libm,
         },
         test_template + {
                 'sources' : files('test-timesync.c'),
                 'objects' : ['systemd-timesyncd'],
-                'dependencies' : [
-                        libm,
-                        threads,
-                        libopenssl,
-                        libgcrypt,
-                        libgnutls,
-                ],
+                'c_args' : c_args,
+                'link_with' : timesyncd_link_with,
+                'dependencies' : libm,
         },
 ]
 
