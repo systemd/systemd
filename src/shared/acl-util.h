@@ -62,6 +62,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_acl_free, acl_free_charpp, NU
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(uid_t*, sym_acl_free, acl_free_uid_tpp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(gid_t*, sym_acl_free, acl_free_gid_tpp, NULL);
 
+static inline int acl_set_perm(acl_permset_t ps, acl_perm_t p, bool b) {
+        return (b ? sym_acl_add_perm : sym_acl_delete_perm)(ps, p);
+}
+
 #else
 
 #define ACL_READ    0x04
