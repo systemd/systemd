@@ -53,3 +53,5 @@ static inline int fd_acl_make_writable(int fd) {
 }
 
 #endif
+
+int inode_type_can_acl(mode_t mode);
