@@ -1439,8 +1439,22 @@ static int manager_nts_obtain_agreement(Manager *m) {
                 return manager_connect(m);
         }
 
+        NTS_AEADAlgorithmType prefs[6] = {
+                NTS_AEAD_AES_128_GCM_SIV,
+                NTS_AEAD_AES_256_GCM_SIV,
+                NTS_AEAD_AES_SIV_CMAC_256,
+                NTS_AEAD_AES_SIV_CMAC_384,
+                NTS_AEAD_AES_SIV_CMAC_512,
+                0
+        };
+
+        int prefs_len = 0;
+        FOREACH_ELEMENT(algo_type, prefs)
+                if (NTS_get_param(*algo_type))
+                        prefs[prefs_len++] = *algo_type;
+
         uint8_t buffer[1024], *bufp = buffer;
-        int size = NTS_encode_request(buffer, sizeof(buffer), NULL);
+        int size = NTS_encode_request(buffer, sizeof(buffer), prefs);
         assert(size <= (int)sizeof(buffer));
 
         for (;;) {
