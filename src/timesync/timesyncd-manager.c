@@ -37,8 +37,10 @@
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
 
+#if ENABLE_TIMESYNC_NTS
 #include "nts.h"
 #include "nts_extfields.h"
+#endif
 
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
@@ -71,7 +73,9 @@ static int manager_listen_setup(Manager *m);
 static void manager_listen_stop(Manager *m);
 static int manager_save_time_and_rearm(Manager *m, usec_t t);
 static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, Manager *m);
+#if ENABLE_TIMESYNC_NTS
 static int manager_nts_obtain_agreement(Manager *m);
+#endif
 
 static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
         return be16toh(ts->sec) + (be16toh(ts->frac) / 65536.0);
@@ -85,11 +89,13 @@ static double ts_to_d(const struct timespec *ts) {
         return ts->tv_sec + (1.0e-9 * ts->tv_nsec);
 }
 
+#if ENABLE_TIMESYNC_NTS
 static void swap_cookies(NTS_Cookie *a, NTS_Cookie *b) {
         NTS_Cookie tmp = *a;
         *a = *b;
         *b = tmp;
 }
+#endif
 
 static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata) {
         _cleanup_free_ char *pretty = NULL;
@@ -129,11 +135,13 @@ static int manager_send_request(Manager *m) {
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
+#if ENABLE_TIMESYNC_NTS
         /* If we are using NTS and out of cookies, we must first make an TLS
          * connection to perform key extractions and obtain cookies
          */
         if (m->nts_missing_cookies >= ELEMENTSOF(m->nts_cookies))
                 return manager_nts_obtain_agreement(m);
+#endif
 
         r = manager_listen_setup(m);
         if (r < 0) {
@@ -141,6 +149,7 @@ static int manager_send_request(Manager *m) {
                 return manager_connect(m);
         }
 
+#if ENABLE_TIMESYNC_NTS
         /*
          * Add NTS extension fields if NTS is supported for this NTP time source
          */
@@ -180,6 +189,9 @@ static int manager_send_request(Manager *m) {
                  * are, and the less we want to eat them. */
                 m->nts_cookies[m->nts_missing_cookies++].data[0] ^= 1;
         } else {
+#else
+        {
+#endif
                 /*
                  * Generate a random number as transmit timestamp, to ensure we get
                  * a full 64 bits of entropy to make it hard for off-path attackers
@@ -523,6 +535,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         struct ntp_msg ntpmsg = packet.ntpmsg;
 
+#if ENABLE_TIMESYNC_NTS
         if (m->nts_cookies->data) {
                 /* verify the NTS extension fields and unique identifier */
                 NTS_Receipt rcpt = { 0, };
@@ -567,6 +580,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
                 log_debug("NTP packet is authentic.");
         } else
+#endif
                 /* check the transmit request nonce was properly returned in the origin_time field */
                 if (ntpmsg.origin_time.sec != m->request_nonce.sec || ntpmsg.origin_time.frac != m->request_nonce.frac) {
                         log_debug("Invalid reply; not our transmit time. Ignoring.");
@@ -999,10 +1013,17 @@ int manager_connect(Manager *m) {
                         .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
                 };
 
+#if ENABLE_TIMESYNC_NTS
                 /* For NTS, we first connect to the NTSKE */
                 const char *port = nts? "4460" : "123";
 
                 m->nts_missing_cookies = nts? ELEMENTSOF(m->nts_cookies) : 0;
+#else
+                const char *port = "123";
+
+                if (nts)
+                        return log_error("timesyncd was not compiled with NTS support"), 0;
+#endif
 
                 r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, port, &hints, manager_resolve_handler, NULL, m);
 
@@ -1092,8 +1113,10 @@ Manager* manager_free(Manager *m) {
 
         hashmap_free(m->polkit_registry);
 
+#if ENABLE_TIMESYNC_NTS
         FOREACH_ELEMENT(cookie, m->nts_cookies)
                 mfree(cookie->data);
+#endif
 
         return mfree(m);
 }
@@ -1424,6 +1447,8 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
         return 1;
 }
 
+#if ENABLE_TIMESYNC_NTS
+
 static int manager_nts_obtain_agreement(Manager *m) {
         unsigned tls_patience_msec = m->nts_keyexchange_timeout_usec / USEC_PER_MSEC;
 
@@ -1570,3 +1595,5 @@ static int manager_nts_obtain_agreement(Manager *m) {
 
         return 1;
 }
+
+#endif
