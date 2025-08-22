@@ -135,5 +135,10 @@ int manager_parse_config_file(Manager *m) {
                 m->connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC;
         }
 
+        if (m->nts_keyexchange_timeout_usec < 1 * USEC_PER_SEC) {
+                log_warning("Invalid KeyExchangeTimeoutSec=. Using default value.");
+                m->nts_keyexchange_timeout_usec = NTP_POLL_INTERVAL_MIN_USEC;
+        }
+
         return r;
 }
