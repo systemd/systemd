@@ -424,7 +424,8 @@ static int archive_entry_pathname_safe(struct archive_entry *entry, const char *
 static int archive_entry_read_acl(
                 struct archive_entry *entry,
                 acl_type_t ntype,
-                acl_t *acl) {
+                acl_t *acl,
+                TarFlags flags) {
 
         int r;
 
@@ -503,6 +504,13 @@ static int archive_entry_read_acl(
 
                 if (IN_SET(ntag, ACL_USER, ACL_GROUP)) {
                         id_t id = qual;
+                        /* Suppress ACL entries for invalid  UIDs/GIDS */
+                        if (!uid_is_valid(id))
+                                continue;
+
+                        /* Suppress ACL entries for UIDs/GIDs to squash */
+                        if (FLAGS_SET(flags, TAR_SQUASH_UIDS_ABOVE_64K) && id >= 0x10000)
+                                continue;
 
                         if (sym_acl_set_qualifier(e, &id) < 0)
                                 return log_error_errno(errno, "Failed to set ACL entry qualifier: %m");
@@ -532,6 +540,24 @@ static int archive_entry_read_acl(
                 sym_acl_free(*acl);
         *acl = TAKE_PTR(a);
         return 0;
+}
+
+static uid_t maybe_squash_uid(uid_t uid, TarFlags flags) {
+        if (FLAGS_SET(flags, TAR_SQUASH_UIDS_ABOVE_64K) &&
+            uid_is_valid(uid) &&
+            uid >= 0x10000)
+                return UID_NOBODY;
+
+        return uid;
+}
+
+static uid_t maybe_squash_gid(uid_t gid, TarFlags flags) {
+        if (FLAGS_SET(flags, TAR_SQUASH_UIDS_ABOVE_64K) &&
+            gid_is_valid(gid) &&
+            gid >= 0x10000)
+                return GID_NOBODY;
+
+        return gid;
 }
 
 static int archive_entry_read_stat(
@@ -567,9 +593,9 @@ static int archive_entry_read_stat(
                         sym_archive_entry_mtime_nsec(entry),
                 };
         if (uid && sym_archive_entry_uid_is_set(entry))
-                *uid = sym_archive_entry_uid(entry);
+                *uid = maybe_squash_uid(sym_archive_entry_uid(entry), flags);
         if (gid && sym_archive_entry_gid_is_set(entry))
-                *gid = sym_archive_entry_gid(entry);
+                *gid = maybe_squash_gid(sym_archive_entry_gid(entry), flags);
 
         if (fflags) {
                 unsigned long fs = 0, fc = 0;
@@ -619,13 +645,13 @@ static int archive_entry_read_stat(
         }
 
         if (acl_access) {
-                r = archive_entry_read_acl(entry, ACL_TYPE_ACCESS, acl_access);
+                r = archive_entry_read_acl(entry, ACL_TYPE_ACCESS, acl_access, flags);
                 if (r < 0)
                         return r;
         }
 
         if (acl_default) {
-                r = archive_entry_read_acl(entry, ACL_TYPE_DEFAULT, acl_default);
+                r = archive_entry_read_acl(entry, ACL_TYPE_DEFAULT, acl_default, flags);
                 if (r < 0)
                         return r;
         }
@@ -1097,7 +1123,8 @@ static int archive_generate_sparse(struct archive_entry *entry, int fd) {
 static int archive_write_acl(
                 struct archive_entry *entry,
                 acl_type_t ntype,
-                acl_t acl) {
+                acl_t acl,
+                TarFlags flags) {
         int r;
 
         assert(entry);
@@ -1136,6 +1163,7 @@ static int archive_write_acl(
 
                 int tag = ntag >= 0 && ntag <= (acl_tag_t) ELEMENTSOF(tag_map) ? tag_map[ntag] : ACL_UNDEFINED_TAG;
 
+                bool skip = false;
                 id_t qualifier = UID_INVALID;
                 if (IN_SET(ntag, ACL_USER, ACL_GROUP)) {
                         id_t *q = sym_acl_get_qualifier(e);
@@ -1144,31 +1172,37 @@ static int archive_write_acl(
 
                         qualifier = *q;
                         sym_acl_free(q);
+
+                        /* Suppress invalid UIDs or those that shall be squashed */
+                        skip = !(uid_is_valid(qualifier) &&
+                                 (!FLAGS_SET(flags, TAR_SQUASH_UIDS_ABOVE_64K) || qualifier <= 0xFFFFU));
                 }
 
-                acl_permset_t p;
-                if (sym_acl_get_permset(e, &p) < 0)
-                        return log_error_errno(errno, "Failed to get ACL entry permission set: %m");
+                if (!skip) {
+                        acl_permset_t p;
+                        if (sym_acl_get_permset(e, &p) < 0)
+                                return log_error_errno(errno, "Failed to get ACL entry permission set: %m");
 
-                int permset = 0;
-                r = sym_acl_get_perm(p, ACL_READ);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get ACL entry read bit: %m");
-                SET_FLAG(permset, ARCHIVE_ENTRY_ACL_READ, r);
+                        int permset = 0;
+                        r = sym_acl_get_perm(p, ACL_READ);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get ACL entry read bit: %m");
+                        SET_FLAG(permset, ARCHIVE_ENTRY_ACL_READ, r);
 
-                r = sym_acl_get_perm(p, ACL_WRITE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get ACL entry write bit: %m");
-                SET_FLAG(permset, ARCHIVE_ENTRY_ACL_WRITE, r);
+                        r = sym_acl_get_perm(p, ACL_WRITE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get ACL entry write bit: %m");
+                        SET_FLAG(permset, ARCHIVE_ENTRY_ACL_WRITE, r);
 
-                r = sym_acl_get_perm(p, ACL_EXECUTE);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get ACL entry execute bit: %m");
-                SET_FLAG(permset, ARCHIVE_ENTRY_ACL_EXECUTE, r);
+                        r = sym_acl_get_perm(p, ACL_EXECUTE);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get ACL entry execute bit: %m");
+                        SET_FLAG(permset, ARCHIVE_ENTRY_ACL_EXECUTE, r);
 
-                r = sym_archive_entry_acl_add_entry(entry, type, permset, tag, qualifier, /* name= */ NULL);
-                if (r != ARCHIVE_OK)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to add ACL entry.");
+                        r = sym_archive_entry_acl_add_entry(entry, type, permset, tag, qualifier, /* name= */ NULL);
+                        if (r != ARCHIVE_OK)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to add ACL entry.");
+                }
 
                 r = sym_acl_get_entry(acl, ACL_NEXT_ENTRY, &e);
         }
@@ -1225,9 +1259,9 @@ static int archive_item(
                 sym_archive_entry_set_perm(entry, sx->stx_mode);
 
         if (FLAGS_SET(sx->stx_mask, STATX_UID))
-                sym_archive_entry_set_uid(entry, sx->stx_uid);
+                sym_archive_entry_set_uid(entry, maybe_squash_uid(sx->stx_uid, d->flags));
         if (FLAGS_SET(sx->stx_mask, STATX_GID))
-                sym_archive_entry_set_gid(entry, sx->stx_gid);
+                sym_archive_entry_set_gid(entry, maybe_squash_gid(sx->stx_gid, d->flags));
 
         if (S_ISREG(sx->stx_mode)) {
                 if (!FLAGS_SET(sx->stx_mask, STATX_SIZE))
@@ -1275,7 +1309,7 @@ static int archive_item(
                                 if (!acl)
                                         return log_error_errno(errno, "Failed read access ACLs of '%s': %m", path);
 
-                                archive_write_acl(entry, ACL_TYPE_ACCESS, acl);
+                                archive_write_acl(entry, ACL_TYPE_ACCESS, acl, d->flags);
 
                                 if (S_ISDIR(sx->stx_mode)) {
                                         sym_acl_free(acl);
@@ -1284,7 +1318,7 @@ static int archive_item(
                                         if (!acl)
                                                 return log_error_errno(errno, "Failed to read default ACLs of '%s': %m", path);
 
-                                        archive_write_acl(entry, ACL_TYPE_DEFAULT, acl);
+                                        archive_write_acl(entry, ACL_TYPE_DEFAULT, acl, d->flags);
                                 }
                         }
                 }
