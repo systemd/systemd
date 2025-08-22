@@ -3107,6 +3107,8 @@ static int dump_cache_scope(sd_json_variant *scope) {
                 int ifindex;
                 const char *ifname;
                 sd_json_variant *cache;
+                const char *dnssec_mode;
+                const char *dns_over_tls_mode;
         } scope_info = {
                 .family = AF_UNSPEC,
         };
@@ -3114,11 +3116,13 @@ static int dump_cache_scope(sd_json_variant *scope) {
         int r, c = 0;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "protocol", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, protocol), SD_JSON_MANDATORY },
-                { "family",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,           offsetof(struct scope_info, family),   0                 },
-                { "ifindex",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,          offsetof(struct scope_info, ifindex),  SD_JSON_RELAX     },
-                { "ifname",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, ifname),   0                 },
-                { "cache",    SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(struct scope_info, cache),    SD_JSON_MANDATORY },
+                { "protocol",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, protocol),          SD_JSON_MANDATORY },
+                { "family",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,           offsetof(struct scope_info, family),            0                 },
+                { "ifindex",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,          offsetof(struct scope_info, ifindex),           SD_JSON_RELAX     },
+                { "ifname",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, ifname),            0                 },
+                { "cache",        SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(struct scope_info, cache),             SD_JSON_MANDATORY },
+                { "dnssec",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, dnssec_mode),       0                 },
+                { "dnsOverTLS",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, dns_over_tls_mode), 0                 },
                 {},
         };
 
@@ -3135,6 +3139,13 @@ static int dump_cache_scope(sd_json_variant *scope) {
                 printf(" ifindex=%i", scope_info.ifindex);
         if (scope_info.ifname)
                 printf(" ifname=%s", scope_info.ifname);
+
+        if (dns_protocol_from_string(scope_info.protocol) == DNS_PROTOCOL_DNS) {
+                if (scope_info.dnssec_mode)
+                        printf(" DNSSEC=%s", scope_info.dnssec_mode);
+                if (scope_info.dns_over_tls_mode)
+                        printf(" DNSOverTLS=%s", scope_info.dns_over_tls_mode);
+        }
 
         printf("%s\n", ansi_normal());
 

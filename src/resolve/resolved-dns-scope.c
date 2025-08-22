@@ -1375,6 +1375,14 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
                 fputs(af_to_name(s->family), f);
         }
 
+        if (s->protocol == DNS_PROTOCOL_DNS) {
+                fputs(" DNSSEC=", f);
+                fputs(dnssec_mode_to_string(s->dnssec_mode), f);
+
+                fputs(" DNSOverTLS=", f);
+                fputs(dns_over_tls_mode_to_string(s->dns_over_tls_mode), f);
+        }
+
         fputs("]\n", f);
 
         if (!dns_zone_is_empty(&s->zone)) {
@@ -1737,7 +1745,13 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", SD_JSON_BUILD_INTEGER(scope->family)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(dns_scope_ifindex(scope))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(dns_scope_ifname(scope))),
-                        SD_JSON_BUILD_PAIR_VARIANT("cache", cache));
+                        SD_JSON_BUILD_PAIR_VARIANT("cache", cache),
+                        SD_JSON_BUILD_PAIR_CONDITION(scope->protocol == DNS_PROTOCOL_DNS,
+                                                     "dnssec",
+                                                     SD_JSON_BUILD_STRING(dnssec_mode_to_string(scope->dnssec_mode))),
+                        SD_JSON_BUILD_PAIR_CONDITION(scope->protocol == DNS_PROTOCOL_DNS,
+                                                     "dnsOverTLS",
+                                                     SD_JSON_BUILD_STRING(dns_over_tls_mode_to_string(scope->dns_over_tls_mode))));
 }
 
 int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol) {
