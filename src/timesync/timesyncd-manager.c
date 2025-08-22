@@ -152,6 +152,11 @@ static int manager_send_request(Manager *m) {
                             .c2s_key = m->nts_keys.c2s,
                             .s2c_key = m->nts_keys.s2c,
                             .cipher = m->nts_aead,
+                            /* note: we only ever request 1 cookie if we are short; some routers
+                             * don't like overly long NTP packets and might actually drop them,
+                             * which would only exacerbate the problem. If we have < 50% avg packet
+                             * loss, this will be enough to keep the cookie reservoir filled
+                             */
                             .extra_cookies = m->nts_missing_cookies > 0,
                         },
                         &m->nts_identifier);
