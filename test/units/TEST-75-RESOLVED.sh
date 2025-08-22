@@ -791,10 +791,56 @@ testcase_08_resolved() {
 }
 
 testcase_09_resolvectl_showcache() {
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-resolved.conf
+        rm -f /run/systemd/network/10-dns0.network.d/dnssec-no.conf
+        networkctl reload
+        networkctl reconfigure dns0
+        systemctl reload systemd-resolved.service
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN
+
     ### Test resolvectl show-cache
     run resolvectl show-cache
     run resolvectl show-cache --json=short
     run resolvectl show-cache --json=pretty
+
+    # Use resolvectl show-cache to check that reloding resolved updates scope
+    # DNSSEC and DNSOverTLS modes.
+    mkdir -p /run/systemd/network/10-dns0.network.d
+    {
+        echo "[Network]"
+        echo "DNSSEC=no"
+    } > /run/systemd/network/10-dns0.network.d/dnssec-no.conf
+    networkctl reload
+    networkctl reconfigure dns0
+
+    mkdir -p /run/systemd/resolved.conf.d/
+    {
+        echo "[Resolve]"
+        echo "DNSSEC=no"
+        echo "DNSOverTLS=no"
+    } > /run/systemd/resolved.conf.d/90-resolved.conf
+    systemctl reload systemd-resolved.service
+
+    systemd-analyze cat-config systemd/resolved.conf
+
+    test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns0" and .protocol == "dns") | .dnssec')" == 'no'
+    test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns0" and .protocol == "dns") | .dnsOverTLS')" == 'no'
+
+    {
+        echo "[Resolve]"
+        echo "DNSSEC=allow-downgrade"
+        echo "DNSOverTLS=opportunistic"
+    } > /run/systemd/resolved.conf.d/90-resolved.conf
+    systemctl reload systemd-resolved.service
+
+    test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns0" and .protocol == "dns") | .dnssec')" == 'allow-downgrade'
+    test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns0" and .protocol == "dns") | .dnsOverTLS')" == 'opportunistic'
 }
 
 testcase_10_resolvectl_json() {
