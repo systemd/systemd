@@ -7,6 +7,9 @@
 #if HAVE_LIBARCHIVE
 static void *libarchive_dl = NULL;
 
+DLSYM_PROTOTYPE(archive_entry_acl_add_entry) = NULL;
+DLSYM_PROTOTYPE(archive_entry_acl_next) = NULL;
+DLSYM_PROTOTYPE(archive_entry_acl_reset) = NULL;
 DLSYM_PROTOTYPE(archive_entry_fflags) = NULL;
 DLSYM_PROTOTYPE(archive_entry_filetype) = NULL;
 DLSYM_PROTOTYPE(archive_entry_free) = NULL;
@@ -76,6 +79,9 @@ int dlopen_libarchive(void) {
                         &libarchive_dl,
                         "libarchive.so.13",
                         LOG_DEBUG,
+                        DLSYM_ARG(archive_entry_acl_add_entry),
+                        DLSYM_ARG(archive_entry_acl_next),
+                        DLSYM_ARG(archive_entry_acl_reset),
                         DLSYM_ARG(archive_entry_fflags),
                         DLSYM_ARG(archive_entry_filetype),
                         DLSYM_ARG(archive_entry_free),
