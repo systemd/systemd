@@ -407,7 +407,9 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                         if (t->min_version && strverscmp_improved(t->min_version, cursor) > 0)
                                 extra_flags |= UPDATE_OBSOLETE;
 
-                        if (strv_contains(t->protected_versions, cursor))
+                        if (strv_contains(t->protected_versions, cursor) ||
+                            (IN_SET(t->target.path_relative_to, PATH_RELATIVE_TO_ESP, PATH_RELATIVE_TO_XBOOTLDR, PATH_RELATIVE_TO_BOOT) &&
+                             strv_contains(t->protected_uki_versions, cursor)))
                                 extra_flags |= UPDATE_PROTECTED;
                 }
 
