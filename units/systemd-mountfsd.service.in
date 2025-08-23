@@ -29,9 +29,16 @@ ProtectHostname=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 RestrictRealtime=yes
 RestrictSUIDSGID=yes
-SystemCallArchitectures=native
-SystemCallErrorNumber=EPERM
-SystemCallFilter=@system-service @mount
+
+# FIXME: libseccomp (as of 2.6.0) doesn't know the open_tree_attr() system call
+# yet which we need. Thus, applying any system call filter would block this
+# system call unconditionally, which is not desirable. This should be added
+# back once libseccomp is updated. See
+# https://github.com/seccomp/libseccomp/issues/465
+
+#SystemCallArchitectures=native
+#SystemCallErrorNumber=EPERM
+#SystemCallFilter=@system-service @mount
 Type=notify
 NotifyAccess=all
 FileDescriptorStoreMax=4096
