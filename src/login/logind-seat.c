@@ -131,20 +131,19 @@ int seat_save(Seat *s) {
         }
 
         if (s->sessions) {
-                fputs("SESSIONS=", f);
-                LIST_FOREACH(sessions_by_seat, i, s->sessions) {
-                        fprintf(f,
-                                "%s%c",
-                                i->id,
-                                i->sessions_by_seat_next ? ' ' : '\n');
-                }
-
-                fputs("UIDS=", f);
+                fputs("SESSIONS=\"", f);
                 LIST_FOREACH(sessions_by_seat, i, s->sessions)
                         fprintf(f,
-                                UID_FMT"%c",
+                                "%s%s",
+                                i->id,
+                                i->sessions_by_seat_next ? " " : "\"\n");
+
+                fputs("UIDS=\"", f);
+                LIST_FOREACH(sessions_by_seat, i, s->sessions)
+                        fprintf(f,
+                                UID_FMT"%s",
                                 i->user->user_record->uid,
-                                i->sessions_by_seat_next ? ' ' : '\n');
+                                i->sessions_by_seat_next ? " " : "\"\n");
         }
 
         r = flink_tmpfile(f, temp_path, s->state_file, LINK_TMPFILE_REPLACE);
