@@ -6,6 +6,17 @@
 
 static unsigned log_count = 0;
 
+static const uint8_t log_level_color[_LOG_MAX] = {
+        [LOG_EMERG]   = EFI_LIGHTRED,
+        [LOG_ALERT]   = EFI_LIGHTRED,
+        [LOG_CRIT]    = EFI_LIGHTRED,
+        [LOG_ERR]     = EFI_LIGHTRED,
+        [LOG_WARNING] = EFI_YELLOW,
+        [LOG_NOTICE]  = EFI_WHITE,
+        [LOG_INFO]    = EFI_WHITE,
+        [LOG_DEBUG]   = EFI_LIGHTGRAY,
+};
+
 void freeze(void) {
         for (;;)
                 BS->Stall(60 * 1000 * 1000);
@@ -31,14 +42,15 @@ void efi_assert(const char *expr, const char *file, unsigned line, const char *f
         freeze();
 }
 
-EFI_STATUS log_internal(EFI_STATUS status, uint8_t text_color, const char *format, ...) {
+EFI_STATUS log_internal(EFI_STATUS status, LogLevel log_level, const char *format, ...) {
         assert(format);
+        assert(log_level >= 0 && log_level < _LOG_MAX);
 
         int32_t attr = ST->ConOut->Mode->Attribute;
 
         if (ST->ConOut->Mode->CursorColumn > 0)
                 ST->ConOut->OutputString(ST->ConOut, (char16_t *) u"\r\n");
-        ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(text_color, EFI_BLACK));
+        ST->ConOut->SetAttribute(ST->ConOut, EFI_TEXT_ATTR(log_level_color[log_level], EFI_BLACK));
 
         va_list ap;
         va_start(ap, format);
