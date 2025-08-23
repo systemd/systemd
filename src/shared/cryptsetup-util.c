@@ -16,9 +16,7 @@
 static void *cryptsetup_dl = NULL;
 
 DLSYM_PROTOTYPE(crypt_activate_by_passphrase) = NULL;
-#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
 DLSYM_PROTOTYPE(crypt_activate_by_signed_key) = NULL;
-#endif
 DLSYM_PROTOTYPE(crypt_activate_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_deactivate_by_name) = NULL;
 DLSYM_PROTOTYPE(crypt_format) = NULL;
@@ -39,45 +37,25 @@ DLSYM_PROTOTYPE(crypt_keyslot_destroy) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
 DLSYM_PROTOTYPE(crypt_load) = NULL;
 DLSYM_PROTOTYPE(crypt_resize) = NULL;
-#if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
 DLSYM_PROTOTYPE(crypt_resume_by_volume_key) = NULL;
-#endif
 DLSYM_PROTOTYPE(crypt_set_data_device) = NULL;
 DLSYM_PROTOTYPE(crypt_set_debug_level) = NULL;
 DLSYM_PROTOTYPE(crypt_set_log_callback) = NULL;
-#if HAVE_CRYPT_SET_METADATA_SIZE
 DLSYM_PROTOTYPE(crypt_set_metadata_size) = NULL;
-#endif
 DLSYM_PROTOTYPE(crypt_set_pbkdf_type) = NULL;
 DLSYM_PROTOTYPE(crypt_suspend) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_get) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
-#if HAVE_CRYPT_TOKEN_MAX
 DLSYM_PROTOTYPE(crypt_token_max) = NULL;
-#else
-int crypt_token_max(_unused_ const char *type) {
-    assert(streq(type, CRYPT_LUKS2));
-
-    return 32;
-}
-#endif
 #if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
 DLSYM_PROTOTYPE(crypt_token_set_external_path) = NULL;
 #endif
 DLSYM_PROTOTYPE(crypt_token_status) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_get) = NULL;
-#if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
 DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase) = NULL;
-#endif
-#if HAVE_CRYPT_REENCRYPT_RUN
 DLSYM_PROTOTYPE(crypt_reencrypt_run);
-#elif HAVE_CRYPT_REENCRYPT
-DLSYM_PROTOTYPE(crypt_reencrypt);
-#endif
 DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
-#if HAVE_CRYPT_SET_DATA_OFFSET
 DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
-#endif
 DLSYM_PROTOTYPE(crypt_header_restore) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
 
@@ -237,9 +215,7 @@ int dlopen_cryptsetup(void) {
         r = dlopen_many_sym_or_warn(
                         &cryptsetup_dl, "libcryptsetup.so.12", LOG_DEBUG,
                         DLSYM_ARG(crypt_activate_by_passphrase),
-#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
                         DLSYM_ARG(crypt_activate_by_signed_key),
-#endif
                         DLSYM_ARG(crypt_activate_by_volume_key),
                         DLSYM_ARG(crypt_deactivate_by_name),
                         DLSYM_ARG(crypt_format),
@@ -260,39 +236,25 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_keyslot_max),
                         DLSYM_ARG(crypt_load),
                         DLSYM_ARG(crypt_resize),
-#if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
                         DLSYM_ARG(crypt_resume_by_volume_key),
-#endif
                         DLSYM_ARG(crypt_set_data_device),
                         DLSYM_ARG(crypt_set_debug_level),
                         DLSYM_ARG(crypt_set_log_callback),
-#if HAVE_CRYPT_SET_METADATA_SIZE
                         DLSYM_ARG(crypt_set_metadata_size),
-#endif
                         DLSYM_ARG(crypt_set_pbkdf_type),
                         DLSYM_ARG(crypt_suspend),
                         DLSYM_ARG(crypt_token_json_get),
                         DLSYM_ARG(crypt_token_json_set),
-#if HAVE_CRYPT_TOKEN_MAX
                         DLSYM_ARG(crypt_token_max),
-#endif
 #if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
                         DLSYM_ARG(crypt_token_set_external_path),
 #endif
                         DLSYM_ARG(crypt_token_status),
                         DLSYM_ARG(crypt_volume_key_get),
-#if HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE
                         DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
-#endif
-#if HAVE_CRYPT_REENCRYPT_RUN
                         DLSYM_ARG(crypt_reencrypt_run),
-#elif HAVE_CRYPT_REENCRYPT
-                        DLSYM_ARG(crypt_reencrypt),
-#endif
                         DLSYM_ARG(crypt_metadata_locking),
-#if HAVE_CRYPT_SET_DATA_OFFSET
                         DLSYM_ARG(crypt_set_data_offset),
-#endif
                         DLSYM_ARG(crypt_header_restore),
                         DLSYM_ARG(crypt_volume_key_keyring));
         if (r <= 0)

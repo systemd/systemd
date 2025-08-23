@@ -474,7 +474,7 @@ typedef struct Manager {
         sd_event_source *memory_pressure_event_source;
 
         /* For NFTSet= */
-        FirewallContext *fw_ctx;
+        sd_netlink *nfnl;
 
         /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
          * serialization/deserialization compatibility issues during upgrades. */
