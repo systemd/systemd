@@ -26,6 +26,9 @@ __attribute__((no_stack_protector, noinline)) void __stack_chk_guard_init(void);
 #define EFI_LOG_INFO    2
 #define EFI_LOG_DEBUG   3
 
+int log_set_max_level(int level);
+int log_set_max_level_from_string(const char *e);
+
 _noreturn_ void freeze(void);
 void log_wait(void);
 _gnu_printf_(3, 4) EFI_STATUS log_internal(EFI_STATUS status, int log_level, const char *format, ...);

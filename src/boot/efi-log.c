@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "efi-log.h"
+#include "efi-string-table.h"
 #include "proto/rng.h"
 #include "util.h"
 
 static unsigned log_count = 0;
+static int log_max_level = EFI_LOG_INFO;
 
 static const uint8_t log_level_color[] = {
         [EFI_LOG_ERR] = EFI_LIGHTRED,
@@ -12,6 +14,34 @@ static const uint8_t log_level_color[] = {
         [EFI_LOG_INFO] = EFI_WHITE,
         [EFI_LOG_DEBUG] = EFI_LIGHTGRAY,
 };
+
+static const char *const log_level_table[] = {
+        [EFI_LOG_ERR] = "err",
+        [EFI_LOG_WARNING] = "warning",
+        [EFI_LOG_INFO] = "info",
+        [EFI_LOG_DEBUG] = "debug",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(log_level, int);
+
+int log_set_max_level(int level) {
+        assert(level >= 0 && level <= EFI_LOG_DEBUG);
+
+        int old = log_max_level;
+        log_max_level = level;
+        return old;
+}
+
+int log_set_max_level_from_string(const char *e) {
+        assert(e);
+
+        int r = log_level_from_string(e);
+        if (r < 0)
+                return r;
+
+        log_set_max_level(r);
+        return 0;
+}
 
 void freeze(void) {
         for (;;)
@@ -41,6 +71,9 @@ void efi_assert(const char *expr, const char *file, unsigned line, const char *f
 EFI_STATUS log_internal(EFI_STATUS status, int log_level, const char *format, ...) {
         assert(format);
         assert(log_level >= 0 && log_level <= EFI_LOG_DEBUG);
+
+        if (log_level > log_max_level)
+                return status;
 
         int32_t attr = ST->ConOut->Mode->Attribute;
 
