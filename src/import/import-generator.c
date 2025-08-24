@@ -72,9 +72,12 @@ static int parse_pull_expression(const char *v) {
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No local string in pull expression '%s'.", v);
 
-        _cleanup_free_ char *remote = strdup(p);
-        if (!remote)
-                return log_oom();
+        _cleanup_free_ char *remote = NULL;
+        if (!isempty(p)) {
+                remote = strdup(p);
+                if (!remote)
+                        return log_oom();
+        }
 
         if (isempty(local))
                 local = mfree(local);
