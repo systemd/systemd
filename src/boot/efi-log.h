@@ -21,17 +21,25 @@ __attribute__((no_stack_protector, noinline)) void __stack_chk_guard_init(void);
 #  define __stack_chk_guard_init()
 #endif
 
+#define EFI_LOG_ERR     0
+#define EFI_LOG_WARNING 1
+#define EFI_LOG_INFO    2
+#define EFI_LOG_DEBUG   3
+
+int log_set_max_level(int level);
+int log_set_max_level_from_string(const char *e);
+
 _noreturn_ void freeze(void);
 void log_wait(void);
-_gnu_printf_(3, 4) EFI_STATUS log_internal(EFI_STATUS status, uint8_t text_color, const char *format, ...);
-#define log_full(status, text_color, format, ...)                       \
-        log_internal(status, text_color, "%s:%i@%s: " format, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
-#define log_debug(...) log_full(EFI_SUCCESS, EFI_LIGHTGRAY, __VA_ARGS__)
-#define log_info(...) log_full(EFI_SUCCESS, EFI_WHITE, __VA_ARGS__)
-#define log_warning_status(status, ...) log_full(status, EFI_YELLOW, __VA_ARGS__)
-#define log_error_status(status, ...) log_full(status, EFI_LIGHTRED, __VA_ARGS__)
-#define log_error(...) log_full(EFI_INVALID_PARAMETER, EFI_LIGHTRED, __VA_ARGS__)
-#define log_oom() log_full(EFI_OUT_OF_RESOURCES, EFI_LIGHTRED, "Out of memory.")
+_gnu_printf_(3, 4) EFI_STATUS log_internal(EFI_STATUS status, int log_level, const char *format, ...);
+#define log_full(status, log_level, format, ...)                        \
+        log_internal(status, log_level, "%s:%i@%s: " format, __FILE__, __LINE__, __func__, ##__VA_ARGS__)
+#define log_debug(...) log_full(EFI_SUCCESS, EFI_LOG_DEBUG, __VA_ARGS__)
+#define log_info(...) log_full(EFI_SUCCESS, EFI_LOG_INFO, __VA_ARGS__)
+#define log_warning_status(status, ...) log_full(status, EFI_LOG_WARNING, __VA_ARGS__)
+#define log_error_status(status, ...) log_full(status, EFI_LOG_ERR, __VA_ARGS__)
+#define log_error(...) log_full(EFI_INVALID_PARAMETER, EFI_LOG_ERR, __VA_ARGS__)
+#define log_oom() log_full(EFI_OUT_OF_RESOURCES, EFI_LOG_ERR, "Out of memory.")
 
 /* Debugging helper — please keep this around, even if not used */
 #define log_hexdump(prefix, data, size)                                 \
