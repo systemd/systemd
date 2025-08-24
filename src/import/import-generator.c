@@ -71,6 +71,8 @@ static int parse_pull_expression(const char *v) {
                 return log_error_errno(r, "Failed to extract local name from pull expression '%s': %m", v);
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No local string in pull expression '%s'.", v);
+        if (isempty(p))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No remote string in pull expression '%s'.", v);
 
         _cleanup_free_ char *remote = strdup(p);
         if (!remote)
