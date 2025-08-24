@@ -40,6 +40,7 @@ const char* log_level_to_string(LogLevel l) _const_;
 LogLevel log_get_max_level(void) _pure_;
 int log_set_max_level(LogLevel level);
 int log_set_max_level_from_string(const char *e);
+void log_set_max_level_from_smbios(void);
 
 _noreturn_ void freeze(void);
 void log_wait(void);
