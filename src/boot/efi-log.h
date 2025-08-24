@@ -34,6 +34,10 @@ typedef enum LogLevel {
         _LOG_INVALID = -1,
 } LogLevel;
 
+LogLevel log_level_from_string(const char *s);
+int log_set_max_level(LogLevel level);
+int log_set_max_level_from_string(const char *e);
+
 _noreturn_ void freeze(void);
 void log_wait(void);
 _gnu_printf_(3, 4) EFI_STATUS log_internal(EFI_STATUS status, LogLevel log_level, const char *format, ...);
