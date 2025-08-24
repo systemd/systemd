@@ -2982,6 +2982,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         uint64_t init_usec;
         bool menu = false;
 
+        /* set loglevel early to simplify debugging before loader.conf is loaded */
+        log_set_max_level_from_smbios();
+
         init_usec = time_usec();
 
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);

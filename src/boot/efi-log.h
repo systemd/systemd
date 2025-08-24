@@ -37,6 +37,7 @@ typedef enum LogLevel {
 LogLevel log_level_from_string(const char *s);
 int log_set_max_level(LogLevel level);
 int log_set_max_level_from_string(const char *e);
+void log_set_max_level_from_smbios(void);
 
 _noreturn_ void freeze(void);
 void log_wait(void);
