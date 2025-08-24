@@ -9829,7 +9829,9 @@ static int run(int argc, char *argv[]) {
         r = context_open_copy_block_paths(
                         context,
                         loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
-                                      arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
+                                      /* if --root= is specified, don't accept any block device, unless it
+                                       * was set automatically because we are in the initrd  */
+                                      arg_root && !arg_image && !STR_IN_SET(arg_root, "/sysusr", "/sysroot") ? 0 :
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
         if (r < 0)
                 return r;
