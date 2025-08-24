@@ -3,7 +3,9 @@
 #include "efi-log.h"
 #include "efi-string-table.h"
 #include "proto/rng.h"
+#include "smbios.h"
 #include "util.h"
+#include "vmm.h"
 
 static unsigned log_count = 0;
 static LogLevel log_max_level = LOG_INFO;
@@ -55,6 +57,21 @@ int log_set_max_level_from_string(const char *e) {
 
         log_set_max_level(r);
         return 0;
+}
+
+void log_set_max_level_from_smbios(void) {
+        int r;
+
+        if (is_confidential_vm())
+                return; /* Don't consume SMBIOS in Confidential Computing contexts */
+
+        const char *level_str = smbios_find_oem_string("io.systemd.boot.loglevel=", /* after= */ NULL);
+        if (!level_str)
+                return;
+
+        r = log_set_max_level_from_string(level_str);
+        if (r < 0)
+                log_warning("Failed to parse log level '%s', ignoring.", level_str);
 }
 
 void freeze(void) {
