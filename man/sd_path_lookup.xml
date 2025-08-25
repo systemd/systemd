@@ -106,6 +106,8 @@
         <constant>SD_PATH_SYSTEMD_USER_ENVIRONMENT_GENERATOR</constant>,
         <constant>SD_PATH_SYSTEMD_SEARCH_SYSTEM_ENVIRONMENT_GENERATOR</constant>,
         <constant>SD_PATH_SYSTEMD_SEARCH_USER_ENVIRONMENT_GENERATOR</constant>,
+
+        <constant>SD_PATH_SEARCH_SYSCTL</constant>,
 };</funcsynopsisinfo>
 
       <funcprototype>
