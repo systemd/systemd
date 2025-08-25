@@ -945,8 +945,10 @@ static void session_context_mangle(
                  * probably because it wants to set it to something as pam_time/pam_access/… require PAM_TTY to be set
                  * (as they otherwise even try to update it!) — but cron doesn't actually allocate a TTY for its forked
                  * off processes.) */
-                c->type = "unspecified";
-                c->class = "background";
+                if (isempty(c->type))
+                        c->type = "unspecified";
+                if (isempty(c->class))
+                        c->class = "background";
                 c->tty = NULL;
 
         } else if (streq_ptr(c->tty, "ssh")) {
