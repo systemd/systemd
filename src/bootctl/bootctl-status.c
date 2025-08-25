@@ -730,7 +730,7 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
 
         r = boot_config_find_in(config, root, id);
         if (r < 0)
-                return r;
+                return 0; /* There is nothing to remove. */
 
         if (r == config->default_entry)
                 log_warning("%s is the default boot entry", id);
@@ -751,6 +751,8 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
                 log_info("Would remove \"%s\"", e->path);
         else {
                 r = chase_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS, 0, NULL);
+                if (r == -ENOENT)
+                        return 0; /* Already removed? */
                 if (r < 0)
                         return log_error_errno(r, "Failed to remove \"%s\": %m", e->path);
 
@@ -783,7 +785,8 @@ static int list_remove_orphaned_file(
         if (arg_dry_run)
                 log_info("Would remove %s", path);
         else if (unlinkat(dir_fd, de->d_name, 0) < 0)
-                log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", path);
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to remove \"%s\", ignoring: %m", path);
         else
                 log_info("Removed %s", path);
 
@@ -870,12 +873,9 @@ int verb_list(int argc, char *argv[], void *userdata) {
                 return cleanup_orphaned_files(&config, arg_esp_path);
         } else {
                 assert(streq(argv[0], "unlink"));
-                if (arg_xbootldr_path && xbootldr_devid != esp_devid) {
+                if (arg_xbootldr_path && xbootldr_devid != esp_devid)
                         r = unlink_entry(&config, arg_xbootldr_path, argv[1]);
-                        if (r == 0 || r != -ENOENT)
-                                return r;
-                }
-                return unlink_entry(&config, arg_esp_path, argv[1]);
+                return RET_GATHER(r, unlink_entry(&config, arg_esp_path, argv[1]));
         }
 }
 
