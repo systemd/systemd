@@ -114,6 +114,10 @@
 
 #define DEFAULT_TASKS_MAX ((CGroupTasksMax) { 15U, 100U }) /* 15% */
 
+/* We dispatch at most 10 messages on the notify socket per second. */
+#define NOTIFY_RATE_LIMIT_INTERVAL (1*USEC_PER_SEC)
+#define NOTIFY_RATE_LIMIT_BURST 10
+
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_time_change_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -1102,6 +1106,10 @@ static int manager_setup_notify(Manager *m) {
                 r = sd_event_source_set_priority(m->notify_event_source, EVENT_PRIORITY_NOTIFY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of notify event source: %m");
+
+                r = sd_event_source_set_ratelimit(m->notify_event_source, NOTIFY_RATE_LIMIT_INTERVAL, NOTIFY_RATE_LIMIT_BURST);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to ratelimit of notify event source, ignoring: %m");
 
                 (void) sd_event_source_set_description(m->notify_event_source, "manager-notify");
         }
