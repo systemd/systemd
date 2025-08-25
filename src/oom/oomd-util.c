@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "constants.h"
+#include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -11,6 +13,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "process-util.h"
 #include "procfs-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -18,6 +21,15 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "varlink-util.h"
+
+struct sd_oomd_kill_state {
+        int refs;
+        char *path;
+        bool recurse;
+        usec_t prekill_deadline;
+        sd_event *e;
+};
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 oomd_cgroup_ctx_hash_ops,
@@ -231,22 +243,11 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
         return (int) k;
 }
 
-int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
+int oomd_cgroup_kill(const char *path, bool recurse, usec_t prekill_deadline, sd_event *e) {
         _cleanup_set_free_ Set *pids_killed = NULL;
         int r;
 
         assert(path);
-
-        if (dry_run) {
-                _cleanup_free_ char *cg_path = NULL;
-
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &cg_path);
-                if (r < 0)
-                        return r;
-
-                log_info("oomd dry-run: Would have tried to kill %s with recurse=%s", cg_path, true_false(recurse));
-                return 0;
-        }
 
         pids_killed = set_new(NULL);
         if (!pids_killed)
@@ -278,6 +279,144 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
                 log_debug_errno(r, "Failed to set user.oomd_kill on kill: %m");
 
         return !set_isempty(pids_killed);
+}
+
+static void sd_oomd_kill_state_dec_pending(struct sd_oomd_kill_state *ks) {
+        if (!ks || ks->refs <= 0)
+                return;
+
+        if (--ks->refs == 0) {
+                if (ks->path) {
+                        oomd_cgroup_kill(ks->path, ks->recurse, ks->prekill_deadline, ks->e);
+                        free(ks->path);
+                }
+                free(ks);
+        }
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct sd_oomd_kill_state*, sd_oomd_kill_state_dec_pending, NULL);
+
+static int prekill_callback(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        assert(userdata);
+
+        log_debug("oomd prekill hook returned");
+
+        if (error_id)
+                log_warning("oomd prekill hook returned error: %s", error_id);
+
+        sd_varlink_unref(link);
+        sd_oomd_kill_state_dec_pending((struct sd_oomd_kill_state *)userdata);
+
+        return 0;
+}
+
+static int oomd_prekill_hook(const char *path, usec_t prekill_deadline, sd_event *e) {
+        _cleanup_closedir_ DIR *d = NULL;
+
+        int r;
+
+        assert(path);
+
+        _cleanup_(sd_oomd_kill_state_dec_pendingp) struct sd_oomd_kill_state *ks = malloc(sizeof(*ks));
+        if (!ks)
+                return log_oom_debug();
+
+        *ks = (struct sd_oomd_kill_state) {
+                .refs = 1,
+                .path = strdup(path),
+                .recurse = true,
+                .prekill_deadline = prekill_deadline,
+                .e = e,
+        };
+
+        if (!ks->path)
+                return log_oom_debug();
+
+        if (!e)
+                return log_debug_errno(SYNTHETIC_ERRNO(-EINVAL), "No event loop, skipping oomd prekill hook.");
+
+        d = opendir(VARLINK_ADDR_PATH_PREKILL);
+        if (!d)
+                return log_warning_errno(errno, "Failed to open prekill varlink socket directory %s, ignoring: %m",
+                                  VARLINK_ADDR_PATH_PREKILL);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
+        r = sd_json_buildo(&cparams, SD_JSON_BUILD_PAIR("cgroup", SD_JSON_BUILD_STRING(path)));
+        if (r < 0)
+                return log_oom_debug();
+
+        FOREACH_DIRENT(de, d, return -errno) {
+                _cleanup_(sd_varlink_close_unrefp) sd_varlink *link = NULL;
+                _cleanup_free_ char *hook_path = NULL;
+
+                hook_path = path_join(VARLINK_ADDR_PATH_PREKILL, de->d_name);
+                if (!hook_path) {
+                        log_oom_debug();
+                        continue;
+                }
+
+                r = sd_varlink_connect_address(&link, hook_path);
+                if (r < 0) {
+                        log_debug("Prekill socket at %s not connected, ignoring.", hook_path);
+                        continue;
+                }
+
+                (void) sd_varlink_set_userdata(link, ks);
+                (void) sd_varlink_set_description(link, "oomd prekill hook");
+                (void) sd_varlink_set_relative_timeout(link, prekill_deadline);
+
+                r = sd_varlink_attach_event(link, e, SD_EVENT_PRIORITY_NORMAL);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to attach varlink to event loop: %m");
+                        continue;
+                }
+
+                r = sd_varlink_bind_reply(link, prekill_callback);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to bind reply callback: %m");
+                        continue;
+                }
+
+                r = sd_varlink_invoke(link, "org.freedesktop.oom1.Prekill", cparams);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to call varlink method org.freedesktop.oom1.Prekill: %m");
+                        continue;
+                }
+
+                TAKE_PTR(link);
+                ks->refs++;
+        }
+
+        return 0;
+}
+
+static int oomd_cgroup_kill_mark(const char *path, bool recurse, bool dry_run, usec_t prekill_deadline, sd_event *e) {
+        int r;
+
+        assert(path);
+
+        if (dry_run) {
+                _cleanup_free_ char *cg_path = NULL;
+
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &cg_path);
+                if (r < 0)
+                        return r;
+
+                log_info("oomd dry-run: Would have tried to kill %s with recurse=%s", cg_path, true_false(recurse));
+                return 0;
+        }
+
+        r = oomd_prekill_hook(path, prekill_deadline, e);
+        if (r < 0)
+                log_warning_errno(r, "oomd prekill hook failed for %s, ignoring: %m", path);
+
+        return 0;
 }
 
 typedef void (*dump_candidate_func)(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
@@ -317,7 +456,7 @@ static int dump_kill_candidates(
         return memstream_dump(LOG_INFO, &m);
 }
 
-int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected) {
+int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected, usec_t prekill_deadline, sd_event *e) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         const OomdCGroupContext *killed = NULL;
         int n, r, ret = 0;
@@ -337,7 +476,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                 if (c->pgscan == 0 && c->current_memory_usage == 0)
                         continue;
 
-                r = oomd_cgroup_kill(c->path, /* recurse= */ true, /* dry_run= */ dry_run);
+                r = oomd_cgroup_kill_mark(c->path, /* recurse= */ true, /* dry_run= */ dry_run, /* prekill_deadline= */ prekill_deadline, e);
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
                 if (r < 0) {
@@ -358,7 +497,7 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
         return ret;
 }
 
-int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected) {
+int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected, usec_t prekill_deadline, sd_event *e) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         const OomdCGroupContext *killed = NULL;
         int n, r, ret = 0;
@@ -381,7 +520,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                 if (c->swap_usage <= threshold_usage)
                         continue;
 
-                r = oomd_cgroup_kill(c->path, /* recurse= */ true, /* dry_run= */ dry_run);
+                r = oomd_cgroup_kill_mark(c->path, /* recurse= */ true, /* dry_run= */ dry_run, /* prekill_deadline= */ prekill_deadline, e);
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
                 if (r < 0) {
