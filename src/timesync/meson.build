@@ -38,39 +38,39 @@ else
 endif
 
 # Select the TLS dependency
-crypto_deps = []
-
-tls = get_option('timesync-nts')
-if tls == 'gnutls' or (tls == 'auto' and conf.get('HAVE_GNUTLS') == 1)
-        tls = 'gnutls'
-        crypto_deps += [libgnutls]
+if conf.get('NTS_USE_OPENSSL') == 1
+        crypto_deps = [libopenssl]
+        tls_c_args = ''
+elif conf.get('NTS_USE_GNUTLS') == 1
+        crypto_deps = [libgnutls]
         tls_c_args = '-DUSE_GNUTLS'
-        c_args = '-DENABLE_TIMESYNC_NTS=1'
-elif tls == 'openssl' or (tls == 'auto' and conf.get('HAVE_OPENSSL') == 1)
-        tls = 'openssl'
-        crypto_deps += [libopenssl]
-        tls_c_args = ''
-        c_args = '-DENABLE_TIMESYNC_NTS=1'
 else
-        tls = 'disabled'
-        tls_c_args = ''
-        c_args = '-DENABLE_TIMESYNC_NTS=0'
+        crypto_deps = []
 endif
 
-crypto = get_option('timesync-cryptolib')
+# Select the cryptographic library; prefer Nettle if GnuTLS is used
+opt = get_option('timesync-cryptolib')
 if crypto_deps != []
-        if crypto == 'nettle' or (crypto == 'auto' and tls == 'gnutls')
+        if opt == 'gcrypt' or (opt == 'auto' and conf.get('HAVE_GCRYPT') == 1)
+                if conf.get('HAVE_GCRYPT') != 1
+                        error('cryptolib(gcrypt) was selected but gcrypt is not available')
+                endif
+                nts_sources += files('nts_crypto_gcrypt.c')
+                crypto_deps += [libgcrypt]
+        elif opt == 'nettle' or (opt == 'auto' and conf.get('NTS_USE_GNUTLS') == 1)
                 nts_sources += files('nts_crypto_nettle.c')
                 libnettle = dependency('nettle',
                                        version : '>= 3.8',
                                        required : true)
                 crypto_deps += [libnettle]
-        elif crypto == 'gcrypt' or (crypto == 'auto' and conf.get('HAVE_GCRYPT') == 1)
-                nts_sources += files('nts_crypto_gcrypt.c')
-                crypto_deps += [libgcrypt]
-        elif crypto == 'openssl' or (crypto == 'auto' and tls == 'openssl')
+        elif opt == 'openssl' or (opt == 'auto' and conf.get('PREFER_OPENSSL') == 1)
+                if libopenssl.version().version_compare('< 3.5')
+                        error('OpenSSL @0@ does not work well for NTS; need at least OpenSSL 3.5, or use timesync-nts=gnutls and/or cryptolib=gcrypt.'.format(libopenssl.version()))
+                endif
                 nts_sources += files('nts_crypto_openssl.c')
                 crypto_deps += [libopenssl]
+        else
+                error('No cryptographic solution for NTS available')
         endif
 
         libtimesyncd_nts = static_library(
@@ -83,7 +83,7 @@ if crypto_deps != []
 
         timesyncd_link_with += [libtimesyncd_nts]
 else
-        if crypto != 'auto'
+        if opt != 'auto'
                 error('Cannot set NTS crypto without having a TLS solution')
         endif
 endif
