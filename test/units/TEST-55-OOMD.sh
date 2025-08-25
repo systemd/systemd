@@ -353,6 +353,35 @@ EOF
     systemctl reset-failed
 }
 
+testcase_prekill_hook() {
+    cat >/run/systemd/oomd.conf.d/99-oomd-prekill-test.conf <<'EOF'
+[OOM]
+PrekillHookTimeoutSec=3s
+EOF
+
+    # no hooks
+    systemctl reload systemd-oomd.service
+    ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
+
+    # one hook
+    mkdir -p /run/systemd/oomd.prekill.hook/
+    ncat --recv-only -kUl /run/systemd/oomd.prekill.hook/althook >/tmp/oomd_event.json &
+    ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
+    [[ $(jq -r .method </tmp/oomd_event.json) = 'io.systemd.oom.Prekill.Notify' ]]
+
+    rm -f /run/systemd/oomd.prekill.hook/* /tmp/oomd_event.json
+
+    # many hooks
+    for i in {1..4}; do
+        ncat --recv-only -kUl "/run/systemd/oomd.prekill.hook/althook$i" >"/tmp/oomd_event$i.json" &
+    done
+
+    ! systemctl start --wait TEST-55-OOMD-testbloat.service || exit 1
+    for j in /tmp/oomd_event*.json; do
+        [[ $(jq -r .method <"$j") = 'io.systemd.oom.Prekill.Notify' ]]
+    done
+}
+
 run_testcases
 
 touch /testok

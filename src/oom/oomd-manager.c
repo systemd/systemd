@@ -392,7 +392,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
         if (oomd_mem_available_below(&m->system_context, 10000 - m->swap_used_limit_permyriad) &&
                         oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
-                _cleanup_free_ char *selected = NULL;
+                OomdCGroupContext *selected = NULL;
                 uint64_t threshold;
 
                 log_debug("Memory used (%"PRIu64") / total (%"PRIu64") and "
@@ -408,29 +408,28 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
 
                 threshold = m->system_context.swap_total * THRESHOLD_SWAP_USED_PERCENT / 100;
-                r = oomd_kill_by_swap_usage(candidates, threshold, m->dry_run, &selected);
+                r = oomd_select_by_swap_usage(candidates, threshold, &selected);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to select any cgroups based on swap: %m");
+                if (r == 0) {
+                        log_debug("No cgroup candidates found for swap-based OOM action");
+                        return 0;
+                }
+
+                r = oomd_cgroup_kill_mark(m, selected);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
-                        log_notice_errno(r, "Failed to kill any cgroups based on swap: %m");
+                        log_error_errno(r, "Failed to select any cgroups based on swap: %m");
                 else {
                         if (selected && r > 0) {
-                                log_notice("Killed %s due to memory used (%"PRIu64") / total (%"PRIu64") and "
+                                log_notice("Marked %s for killing due to memory used (%"PRIu64") / total (%"PRIu64") and "
                                            "swap used (%"PRIu64") / total (%"PRIu64") being more than "
                                            PERMYRIAD_AS_PERCENT_FORMAT_STR,
-                                           selected,
+                                           selected->path,
                                            m->system_context.mem_used, m->system_context.mem_total,
                                            m->system_context.swap_used, m->system_context.swap_total,
                                            PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
-
-                                /* send dbus signal */
-                                (void) sd_bus_emit_signal(m->bus,
-                                                          "/org/freedesktop/oom1",
-                                                          "org.freedesktop.oom1.Manager",
-                                                          "Killed",
-                                                          "ss",
-                                                          selected,
-                                                          "memory-used");
                         }
                         return 0;
                 }
@@ -500,7 +499,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         else if (r == 1 && !in_post_action_delay) {
                 OomdCGroupContext *t;
                 SET_FOREACH(t, targets) {
-                        _cleanup_free_ char *selected = NULL;
+                        OomdCGroupContext *selected = NULL;
 
                         /* Check if there was reclaim activity in the given interval. The concern is the following case:
                          * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
@@ -525,14 +524,21 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         else
                                 clear_candidates = NULL;
 
-                        r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates,
-                                                     /* prefix= */ t->path,
-                                                     /* dry_run= */ m->dry_run,
-                                                     &selected);
+                        r = oomd_select_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates,
+                                                       /* prefix= */ t->path,
+                                                       &selected);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to select any cgroups based on swap, ignoring: %m");
+                        if (r == 0) {
+                                log_debug("No cgroup candidates found for memory pressure-based OOM action for %s", t->path);
+                                return 0;
+                        }
+
+                        r = oomd_cgroup_kill_mark(m, selected);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
-                                log_notice_errno(r, "Failed to kill any cgroups under %s based on pressure: %m", t->path);
+                                log_error_errno(r, "Failed to select any cgroups under %s based on pressure, ignoring: %m", t->path);
                         else {
                                 /* Don't act on all the high pressure cgroups at once; return as soon as we kill one.
                                  * If r == 0 then it means there were not eligible candidates, the candidate cgroup
@@ -541,21 +547,12 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                  * pressure is still high. */
                                 m->mem_pressure_post_action_delay_start = usec_now;
                                 if (selected && r > 0) {
-                                        log_notice("Killed %s due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
+                                        log_notice("Marked %s for killing due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
                                                    " for > %s with reclaim activity",
-                                                   selected, t->path,
+                                                   selected->path, t->path,
                                                    LOADAVG_INT_SIDE(t->memory_pressure.avg10), LOADAVG_DECIMAL_SIDE(t->memory_pressure.avg10),
                                                    LOADAVG_INT_SIDE(t->mem_pressure_limit), LOADAVG_DECIMAL_SIDE(t->mem_pressure_limit),
                                                    FORMAT_TIMESPAN(t->mem_pressure_duration_usec, USEC_PER_SEC));
-
-                                        /* send dbus signal */
-                                        (void) sd_bus_emit_signal(m->bus,
-                                                                  "/org/freedesktop/oom1",
-                                                                  "org.freedesktop.oom1.Manager",
-                                                                  "Killed",
-                                                                  "ss",
-                                                                  selected,
-                                                                  "memory-pressure");
                                 }
                                 return 0;
                         }
@@ -652,6 +649,8 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->monitored_swap_cgroup_contexts);
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts);
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts_candidates);
+
+        set_free(m->kill_states);
 
         return mfree(m);
 }
