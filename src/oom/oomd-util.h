@@ -45,6 +45,12 @@ struct OomdSystemContext {
         uint64_t swap_used;
 };
 
+struct PreKillContext {
+        usec_t timeout;
+        sd_event *event;
+        Set *prekill_ctxs;
+};
+
 OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OomdCGroupContext*, oomd_cgroup_context_free);
 
@@ -119,14 +125,14 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
 int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix);
 
 /* Returns a negative value on error, 0 if no processes were killed, or 1 if processes were killed. */
-int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run);
+int oomd_cgroup_kill(const char *path, bool recurse);
 
 /* The following oomd_kill_by_* functions return 1 if processes were killed, or negative otherwise. */
 /* If `prefix` is supplied, only cgroups whose paths start with `prefix` are eligible candidates. Otherwise,
  * everything in `h` is a candidate.
  * Returns the killed cgroup in ret_selected. */
-int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected);
-int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected);
+int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected, struct PreKillContext *pk_ctx);
+int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected, struct PreKillContext *pk_ctx);
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret);
 int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *ret);
@@ -143,3 +149,4 @@ void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_
 void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
 void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
 void oomd_dump_system_context(const OomdSystemContext *ctx, FILE *f, const char *prefix);
+int clean_prekills(sd_event_source *e, void *userdata);

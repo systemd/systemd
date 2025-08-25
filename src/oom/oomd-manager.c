@@ -408,7 +408,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
 
                 threshold = m->system_context.swap_total * THRESHOLD_SWAP_USED_PERCENT / 100;
-                r = oomd_kill_by_swap_usage(candidates, threshold, m->dry_run, &selected);
+                r = oomd_kill_by_swap_usage(candidates, threshold, m->dry_run, &selected, &(struct PreKillContext){m->prekill_timeout, m->event, m->prekill_ctxs});
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
@@ -528,7 +528,12 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates,
                                                      /* prefix= */ t->path,
                                                      /* dry_run= */ m->dry_run,
-                                                     &selected);
+                                                     &selected,
+                                                     &(struct PreKillContext){
+                                                        m->prekill_timeout,
+                                                        m->event,
+                                                        m->prekill_ctxs
+                                                     });
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
@@ -653,6 +658,8 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts);
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts_candidates);
 
+        set_free(m->prekill_ctxs);
+
         return mfree(m);
 }
 
@@ -676,6 +683,10 @@ int manager_new(Manager **ret) {
 
         m = new0(Manager, 1);
         if (!m)
+                return -ENOMEM;
+
+        m->prekill_ctxs = set_new(NULL);
+        if (!m->prekill_ctxs)
                 return -ENOMEM;
 
         manager_set_defaults(m);
@@ -804,6 +815,10 @@ int manager_start(
                 return r;
 
         r = manager_varlink_init(m, fd);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_exit(m->event, NULL, clean_prekills, m->prekill_ctxs);
         if (r < 0)
                 return r;
 
