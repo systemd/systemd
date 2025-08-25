@@ -735,6 +735,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-H</option></term>
         <term><option>--no-hostname</option></term>
 
         <listitem><para>Do not show the hostname field of log messages originating from the local host. This
