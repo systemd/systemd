@@ -3634,7 +3634,7 @@ static int setup_keyring(
                                                     "Failed to change GID back for user keyring: %m");
         }
 
-        /* Populate they keyring with the invocation ID by default, as original saved_uid. */
+        /* Populate the keyring with the invocation ID by default, as original saved_uid. */
         if (!sd_id128_is_null(p->invocation_id)) {
                 key_serial_t key;
 
