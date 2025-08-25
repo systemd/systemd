@@ -1493,7 +1493,7 @@ int image_read_only(Image *i, bool b, RuntimeScope scope) {
 
         assert(i);
 
-        if (image_is_vendor(i) || image_is_host(i))
+        if (image_is_vendor(i) || image_is_host(i) || image_is_hidden(i))
                 return -EROFS;
 
         /* Make sure we don't interfere with a running nspawn */
@@ -2005,7 +2005,7 @@ int image_to_json(const struct Image *img, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_STRING("Class", image_class_to_string(img->class)),
                         SD_JSON_BUILD_PAIR_STRING("Name", img->name),
                         SD_JSON_BUILD_PAIR_CONDITION(!!img->path, "Path", SD_JSON_BUILD_STRING(img->path)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("ReadOnly", img->read_only),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ReadOnly", image_is_read_only(img)),
                         SD_JSON_BUILD_PAIR_CONDITION(img->crtime != 0, "CreationTimestamp", SD_JSON_BUILD_UNSIGNED(img->crtime)),
                         SD_JSON_BUILD_PAIR_CONDITION(img->mtime != 0, "ModificationTimestamp", SD_JSON_BUILD_UNSIGNED(img->mtime)),
                         SD_JSON_BUILD_PAIR_CONDITION(img->usage != UINT64_MAX, "Usage", SD_JSON_BUILD_UNSIGNED(img->usage)),
