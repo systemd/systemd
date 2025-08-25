@@ -1743,6 +1743,35 @@ conf.set10('ENABLE_SSH_USERDB_CONFIG', conf.get('ENABLE_USERDB') == 1 and sshdco
 
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', want_slow_tests)
 
+nts = get_option('timesync-nts')
+if nts != 'disabled'
+        if nts == 'openssl'
+                have_gnutls = false
+        else
+                have_gnutls = conf.get('HAVE_GNUTLS') == 1 and libgnutls.version().version_compare('>= 3.6.0')
+        endif
+        if nts == 'gnutls' or have_gnutls
+                have_openssl = false
+        else
+                have_openssl = conf.get('HAVE_OPENSSL') == 1
+        endif
+        if nts == 'openssl' and not have_openssl
+                error('NTS support was requested with openssl, but dependencies are not available')
+        endif
+        if nts == 'gnutls' and not have_gnutls
+                error('NTS support was requested with gnutls, but dependencies are not available'.format(str))
+        endif
+        have = have_gnutls or have_openssl
+else
+        have = false
+        have_gnutls = false
+        have_openssl = false
+endif
+conf.set10('ENABLE_TIMESYNC_NTS', have)
+conf.set10('NTS_USE_GNUTLS', have_gnutls)
+conf.set10('NTS_USE_OPENSSL', have_openssl)
+
+
 #####################################################################
 
 pymod = import('python')
@@ -3289,6 +3318,14 @@ if static_libudev == 'false'
         missing += 'static-libudev'
 else
         found += f'static-libudev(@static_libudev@)'
+endif
+
+if conf.get('NTS_USE_GNUTLS') == 1
+        found += 'timesync-nts(gnutls)'
+elif conf.get('NTS_USE_OPENSSL') == 1
+        found += 'timesync-nts(openssl)'
+else
+        missing += 'timesync-nts'
 endif
 
 summary({
