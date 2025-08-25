@@ -177,7 +177,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
                 r = sd_bus_message_append(reply, "(ssbtttso)",
                                           image->name,
                                           image_type_to_string(image->type),
-                                          image->read_only,
+                                          image_is_read_only(image),
                                           image->crtime,
                                           image->mtime,
                                           image->usage,
