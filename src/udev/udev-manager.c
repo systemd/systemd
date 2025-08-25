@@ -304,7 +304,7 @@ void manager_exit(Manager *manager) {
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
         (void) manager_serialize_config(manager);
 
-        /* Disable the event source, but does not close the inotify fd here, as we may still receive
+        /* Disable the event source, but do not close the inotify fd here, as we may still receive
          * notification messages about requests to add or remove inotify watches. */
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
 
