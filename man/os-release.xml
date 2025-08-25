@@ -640,7 +640,7 @@
       set.</para>
 
       <para>Operating system vendors may extend the file format and introduce new fields. It is highly
-      recommended to prefix new fields with an OS specific name in order to avoid name clashes. Applications
+      recommended to prefix new fields with an OS-specific name in order to avoid name clashes. Applications
       reading this file must ignore unknown fields.</para>
 
       <para>Example: <literal>DEBIAN_BTS="debbugs://bugs.debian.org/"</literal>.</para>
