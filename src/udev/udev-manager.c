@@ -310,7 +310,7 @@ void manager_exit(Manager *manager) {
 
         /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
          * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
-         * Note, hwere we cannot use sd_device_monitor_stop(), as it changes the multicast group of the socket. */
+         * Note, here we cannot use sd_device_monitor_stop(), as it changes the multicast group of the socket. */
         (void) sd_event_source_set_enabled(sd_device_monitor_get_event_source(manager->monitor), SD_EVENT_OFF);
         (void) sd_device_monitor_detach_event(manager->monitor);
 
