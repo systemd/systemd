@@ -2959,7 +2959,7 @@ static int wait_for_container(PidRef *pid, ContainerStatus *container) {
 }
 
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        PidRef *pid = ASSERT_PTR(userdata);
+        PidRef *pid = userdata;
 
         assert(si);
 
