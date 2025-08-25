@@ -88,7 +88,7 @@ TEST(oomd_cgroup_kill) {
                         ASSERT_OK(cg_attach(subcgroup, pid[j]));
                 }
 
-                ASSERT_OK_POSITIVE(oomd_cgroup_kill(subcgroup, false /* recurse */, false /* dry run */));
+                ASSERT_OK_POSITIVE(oomd_cgroup_kill(NULL /* manager */, &(OomdCGroupContext){ .path = subcgroup }, false /* recurse */));
 
                 ASSERT_OK(cg_get_xattr(subcgroup, "user.oomd_ooms", &v, /* ret_size= */ NULL));
                 ASSERT_STREQ(v, i == 0 ? "1" : "2");
