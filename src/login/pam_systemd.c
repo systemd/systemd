@@ -921,11 +921,13 @@ static void session_context_mangle(
         assert(c);
         assert(ur);
 
+        /* The session class can be overridden via the PAM environment, and we try to honor that selection. */
         if (streq_ptr(c->service, "systemd-user")) {
                 /* If we detect that we are running in the "systemd-user" PAM stack, then let's patch the class to
                  * 'manager' if not set, simply for robustness reasons. */
                 c->type = "unspecified";
-                c->class = IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) ?
+                if (isempty(c->class))
+                        c->class = IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) ?
                         "manager-early" : "manager";
                 c->tty = NULL;
 
@@ -942,14 +944,16 @@ static void session_context_mangle(
                  * (as they otherwise even try to update it!) — but cron doesn't actually allocate a TTY for its forked
                  * off processes.) */
                 c->type = "unspecified";
-                c->class = "background";
+                if (isempty(c->class))
+                        c->class = "background";
                 c->tty = NULL;
 
         } else if (streq_ptr(c->tty, "ssh")) {
                 /* ssh has been setting PAM_TTY to "ssh" (for the same reason as cron does this, see above. For further
                  * details look for "PAM_TTY_KLUDGE" in the openssh sources). */
                 c->type = "tty";
-                c->class = "user";
+                if (isempty(c->class))
+                        c->class = "user";
                 c->tty = NULL; /* This one is particularly sad, as this means that ssh sessions — even though
                                * usually associated with a pty — won't be tracked by their tty in
                                * logind. This is because ssh does the PAM session registration early for new
