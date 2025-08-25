@@ -408,7 +408,15 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
 
                 threshold = m->system_context.swap_total * THRESHOLD_SWAP_USED_PERCENT / 100;
-                r = oomd_kill_by_swap_usage(candidates, threshold, m->dry_run, &selected);
+                r = oomd_select_by_swap_usage(candidates, threshold, &selected);
+                if (r < 0)
+                        return log_notice_errno(r, "Failed to select any cgroups based on swap: %m");
+                if (r == 0) {
+                        log_debug("No cgroup candidates found for swap-based OOM action");
+                        return 0;
+                }
+
+                r = oomd_cgroup_kill_mark(m, selected);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
@@ -525,10 +533,17 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         else
                                 clear_candidates = NULL;
 
-                        r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates,
-                                                     /* prefix= */ t->path,
-                                                     /* dry_run= */ m->dry_run,
-                                                     &selected);
+                        r = oomd_select_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates,
+                                                       /* prefix= */ t->path,
+                                                       &selected);
+                        if (r < 0)
+                                return log_notice_errno(r, "Failed to select any cgroups based on swap: %m");
+                        if (r == 0) {
+                                log_debug("No cgroup candidates found for memory pressure-based OOM action for %s", t->path);
+                                return 0;
+                        }
+
+                        r = oomd_cgroup_kill_mark(m, selected);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
@@ -652,6 +667,9 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->monitored_swap_cgroup_contexts);
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts);
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts_candidates);
+
+        clean_prekills(m->prekill_ctxs);
+        set_free(m->prekill_ctxs);
 
         return mfree(m);
 }
