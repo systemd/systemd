@@ -929,10 +929,6 @@ int verb_list(int argc, char *argv[], void *userdata) {
         }
 }
 
-int verb_unlink(int argc, char *argv[], void *userdata) {
-        return verb_list(argc, argv, userdata);
-}
-
 int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
