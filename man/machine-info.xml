@@ -172,6 +172,15 @@
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>HARDWARE_FAMILY=</varname></term>
+
+        <listitem><para>Specifies the hardware family. If unspecified, the hardware family set in DMI
+        will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
