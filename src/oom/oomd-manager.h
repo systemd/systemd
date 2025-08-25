@@ -3,6 +3,7 @@
 
 #include "conf-parser-forward.h"
 #include "shared-forward.h"
+#include "oomd-conf.h"
 #include "oomd-util.h"
 
 /* Polling interval for monitoring stats */
@@ -54,6 +55,9 @@ typedef struct Manager {
         /* This varlink server object is used to manage systemd-oomd's varlink server which is used by user
          * managers to report changes in ManagedOOM settings (oomd server - systemd client). */
         sd_varlink_server *varlink_server;
+
+        usec_t prekill_timeout;
+        Set *kill_states; /* currently ongoing OomdKillState operations */
 } Manager;
 
 Manager* manager_free(Manager *m);
