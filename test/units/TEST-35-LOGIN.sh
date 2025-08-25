@@ -351,7 +351,7 @@ create_session() {
 [Service]
 Type=simple
 ExecStart=
-ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
+ExecStart=-/usr/sbin/agetty --autologin logind-test-user --noclear %I $TERM
 Restart=no
 EOF
     systemctl daemon-reload
