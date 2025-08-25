@@ -1367,7 +1367,7 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
                                         i->name,
                                         image_type_to_string(i->type),
                                         i->path,
-                                        i->read_only,
+                                        image_is_read_only(i),
                                         i->crtime,
                                         i->mtime,
                                         i->usage,
