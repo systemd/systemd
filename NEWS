@@ -1042,6 +1042,10 @@ CHANGES WITH 258 in spe:
           before it's submitted to systemd-homed. The tool will then terminate
           before the submission.
 
+        * homectl's --recovery-key= option may now be used with the "update"
+          command to add recovery keys to existing user accounts. Previously,
+          recovery keys could only be configured during initial user creation.
+
         * User/group records' perMachine section now support negative matches
           too (i.e. for settings that apply to all systems but some selected
           few).
