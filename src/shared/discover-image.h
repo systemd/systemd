@@ -84,16 +84,28 @@ static inline char** image_extension_release(Image *image, ImageClass class) {
         return NULL;
 }
 
-static inline bool image_is_hidden(const struct Image *i) {
+static inline bool image_is_hidden(const Image *i) {
         assert(i);
 
         return i->name && i->name[0] == '.';
 }
 
-bool image_is_vendor(const struct Image *i);
-bool image_is_host(const struct Image *i);
+static inline int image_is_read_only(const Image *i) {
+        assert(i);
 
-int image_to_json(const struct Image *i, sd_json_variant **ret);
+        /* We enforce the rule that hidden images are always read-only too. If people want to change hidden
+         * images they should make a copy first, and make that one mutable */
+
+        if (image_is_hidden(i))
+                return true;
+
+        return i->read_only;
+}
+
+bool image_is_vendor(const Image *i);
+bool image_is_host(const Image *i);
+
+int image_to_json(const Image *i, sd_json_variant **ret);
 
 int image_root_pick(RuntimeScope scope, ImageClass c, bool runtime, char **ret);
 
