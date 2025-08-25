@@ -22,21 +22,6 @@
 #   ID_SOFTWARE_RADIO=0|1
 
 ##########################################
-# Nuand
-##########################################
-# bladeRF 1.x
-usb:v2CF0p5246*
- ID_SOFTWARE_RADIO=1
-
-# bladeRF 1.x (legacy)
-usb:v1D50p6066*
- ID_SOFTWARE_RADIO=1
-
-# bladeRF 2.0 micro
-usb:v2CF0p5250*
- ID_SOFTWARE_RADIO=1
-
-##########################################
 # Analog Devices
 ##########################################
 # ADI pluto SDR
@@ -65,6 +50,21 @@ usb:v2500p0021*
 usb:v2500p0022*
 usb:v3923p7813*
 usb:v3923p7814*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# Nuand
+##########################################
+# bladeRF 1.x
+usb:v2CF0p5246*
+ ID_SOFTWARE_RADIO=1
+
+# bladeRF 1.x (legacy)
+usb:v1D50p6066*
+ ID_SOFTWARE_RADIO=1
+
+# bladeRF 2.0 micro
+usb:v2CF0p5250*
  ID_SOFTWARE_RADIO=1
 
 ##########################################
