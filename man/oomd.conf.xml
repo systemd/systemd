@@ -98,6 +98,27 @@
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>PrekillHook=</varname></term>
+
+        <listitem><para>Sets the path of a program to be executed before killing a cgroup. The name of the
+        cgroup is passed as the first argument to the program. The program is executed synchronously, and
+        <command>systemd-oomd</command> will wait for it to finish before proceeding with the OOM action.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PrekillHookTimeoutSec=</varname></term>
+
+        <listitem><para>Sets the timeout for the <varname>PrekillHook=</varname> program. If the program does
+        not finish within this time, <command>systemd-oomd</command> will kill it and proceed with the OOM
+        action.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
