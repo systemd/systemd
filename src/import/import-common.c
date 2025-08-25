@@ -149,7 +149,7 @@ int import_fork_tar_c(const char *path, PidRef *ret) {
         return TAKE_FD(pipefd[0]);
 }
 
-int import_mangle_os_tree_fd(int tree_fd) {
+int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
         _cleanup_free_ char *child = NULL, *t = NULL, *joined = NULL;
         _cleanup_closedir_ DIR *d = NULL, *cd = NULL;
         struct dirent *dent;
@@ -157,6 +157,9 @@ int import_mangle_os_tree_fd(int tree_fd) {
         int r;
 
         assert(tree_fd >= 0);
+
+        if (FLAGS_SET(flags, IMPORT_FOREIGN_UID) && userns_fd >= 0)
+                return import_mangle_os_tree_fd_foreign(tree_fd, userns_fd);
 
         /* Some tarballs contain a single top-level directory that contains the actual OS directory tree. Try to
          * recognize this, and move the tree one level up. */
@@ -275,14 +278,58 @@ int import_mangle_os_tree_fd(int tree_fd) {
         return 0;
 }
 
-int import_mangle_os_tree(const char *path) {
+int import_mangle_os_tree(const char *path, int userns_fd, ImportFlags flags) {
         assert(path);
 
         _cleanup_close_ int fd = open(path, O_DIRECTORY|O_CLOEXEC|O_PATH);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 
-        return import_mangle_os_tree_fd(fd);
+        return import_mangle_os_tree_fd(fd, userns_fd, flags);
+}
+
+int import_mangle_os_tree_fd_foreign(
+                int tree_fd,
+                int userns_fd) {
+        int r;
+
+        assert(tree_fd >= 0);
+        assert(userns_fd >= 0);
+
+        r = safe_fork_full(
+                        "mangle-tree",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { userns_fd, tree_fd }, 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT,
+                        /* ret_pid= */ NULL);
+        if (r < 0)
+                return r;
+
+        if (r == 0) {
+                /* child */
+
+                r = namespace_enter(
+                                /* pidns_fd= */ -EBADF,
+                                /* mntns_fd= */ -EBADF,
+                                /* netns_fd= */ -EBADF,
+                                userns_fd,
+                                /* root_fd= */ -EBADF);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to join user namespace: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = import_mangle_os_tree_fd(tree_fd, /* userns_fd= */ -EBADF, /* flags= */ 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to mangle OS tree in foreign UID mode: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        return 0;
+
 }
 
 bool import_validate_local(const char *name, ImportFlags flags) {

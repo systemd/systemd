@@ -37,8 +37,9 @@ typedef enum ImportFlags {
 int import_fork_tar_c(const char *path, PidRef *ret);
 int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid);
 
-int import_mangle_os_tree_fd(int tree_fd);
-int import_mangle_os_tree(const char *path);
+int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags);
+int import_mangle_os_tree(const char *path, int userns_fd, ImportFlags flags);
+int import_mangle_os_tree_fd_foreign(int tree_fd, int userns_fd);
 
 bool import_validate_local(const char *name, ImportFlags flags);
 
