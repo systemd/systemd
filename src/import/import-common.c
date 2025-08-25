@@ -149,19 +149,24 @@ int import_fork_tar_c(const char *path, PidRef *ret) {
         return TAKE_FD(pipefd[0]);
 }
 
-int import_mangle_os_tree(const char *path) {
+int import_mangle_os_tree_fd(int tree_fd) {
         _cleanup_free_ char *child = NULL, *t = NULL, *joined = NULL;
         _cleanup_closedir_ DIR *d = NULL, *cd = NULL;
         struct dirent *dent;
         struct stat st;
         int r;
 
-        assert(path);
+        assert(tree_fd >= 0);
 
         /* Some tarballs contain a single top-level directory that contains the actual OS directory tree. Try to
          * recognize this, and move the tree one level up. */
 
-        r = path_is_os_tree(path);
+        _cleanup_free_ char *path = NULL;
+        r = fd_get_path(tree_fd, &path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine path of fd: %m");
+
+        r = fd_is_os_tree(tree_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether '%s' is an OS tree: %m", path);
         if (r > 0) {
@@ -171,9 +176,9 @@ int import_mangle_os_tree(const char *path) {
 
         log_debug("Directory tree '%s' is not recognizable as OS tree, checking whether to rearrange it.", path);
 
-        d = opendir(path);
+        d = xopendirat(tree_fd, /* path= */ NULL, /* flags= */ 0);
         if (!d)
-                return log_error_errno(r, "Failed to open directory '%s': %m", path);
+                return log_error_errno(errno, "Failed to open directory '%s': %m", path);
 
         errno = 0;
         dent = readdir_no_dot(d);
@@ -192,29 +197,29 @@ int import_mangle_os_tree(const char *path) {
         errno = 0;
         dent = readdir_no_dot(d);
         if (dent) {
-                if (errno != 0)
-                        return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
-
                 log_debug("Directory '%s' does not look like an OS tree, and has multiple children, leaving as it is.", path);
                 return 0;
+        } else if (errno != 0)
+                return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
+
+        _cleanup_close_ int child_fd = openat(dirfd(d), child, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW|O_NONBLOCK);
+        if (child_fd < 0) {
+                if (IN_SET(errno, ENOTDIR, ELOOP)) {
+                        log_debug_errno(errno, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
+                        return 0;
+                }
+
+                return log_debug_errno(errno, "Failed to open file '%s/%s': %m", path, child);
         }
 
-        if (fstatat(dirfd(d), child, &st, AT_SYMLINK_NOFOLLOW) < 0)
+        if (fstat(child_fd, &st) < 0)
                 return log_debug_errno(errno, "Failed to stat file '%s/%s': %m", path, child);
-        r = stat_verify_directory(&st);
-        if (r < 0) {
-                log_debug_errno(r, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
-                return 0;
-        }
 
         joined = path_join(path, child);
         if (!joined)
                 return log_oom();
-        r = path_is_os_tree(joined);
-        if (r == -ENOTDIR) {
-                log_debug("Directory '%s' does not look like an OS tree, and contains a single regular file only, leaving as it is.", path);
-                return 0;
-        }
+
+        r = fd_is_os_tree(child_fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether '%s' is an OS tree: %m", joined);
         if (r == 0) {
@@ -231,7 +236,7 @@ int import_mangle_os_tree(const char *path) {
          *
          * Let's now rearrange things, moving everything in the inner directory one level up */
 
-        cd = xopendirat(dirfd(d), child, O_NOFOLLOW);
+        cd = take_fdopendir(&child_fd);
         if (!cd)
                 return log_error_errno(errno, "Can't open directory '%s': %m", joined);
 
@@ -239,7 +244,7 @@ int import_mangle_os_tree(const char *path) {
 
         /* Let's rename the child to an unguessable name so that we can be sure all files contained in it can be
          * safely moved up and won't collide with the name. */
-        r = tempfn_random(child, NULL, &t);
+        r = tempfn_random(child, /* extra= */ NULL, &t);
         if (r < 0)
                 return log_oom();
         r = rename_noreplace(dirfd(d), child, dirfd(d), t);
@@ -260,15 +265,24 @@ int import_mangle_os_tree(const char *path) {
 
         r = futimens(dirfd(d), (struct timespec[2]) { st.st_atim, st.st_mtim });
         if (r < 0)
-                log_debug_errno(r, "Failed to adjust top-level timestamps '%s', ignoring: %m", path);
+                log_debug_errno(errno, "Failed to adjust top-level timestamps '%s', ignoring: %m", path);
 
         r = fchmod_and_chown(dirfd(d), st.st_mode, st.st_uid, st.st_gid);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust top-level directory mode/ownership '%s': %m", path);
 
         log_info("Successfully rearranged OS tree.");
-
         return 0;
+}
+
+int import_mangle_os_tree(const char *path) {
+        assert(path);
+
+        _cleanup_close_ int fd = open(path, O_DIRECTORY|O_CLOEXEC|O_PATH);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+        return import_mangle_os_tree_fd(fd);
 }
 
 bool import_validate_local(const char *name, ImportFlags flags) {
