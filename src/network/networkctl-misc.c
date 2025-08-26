@@ -38,13 +38,13 @@ int link_up_down(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to connect to systemd-networkd via varlink: %m");
 
         STRV_FOREACH(s, strv_skip(argv, 1)) {
-                r = parse_ifindex(*s);
-                if (r >= 0)
+                int ifindex = parse_ifindex(*s);
+                if (ifindex >= 0)
                         r = varlink_callbo_and_log(
                                         vl,
                                         method,
                                         /* reply = */ NULL,
-                                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", r));
+                                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex));
                 else
                         r = varlink_callbo_and_log(
                                         vl,
