@@ -1,19 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "errno-util.h"
+#include "log.h"
+#include "tar-util.h"
+
+#if HAVE_LIBARCHIVE
 #include <sys/sysmacros.h>
 
 #include "alloc-util.h"
 #include "chase.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "iovec-util.h"
 #include "libarchive-util.h"
-#include "log.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "tar-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "xattr-util.h"
@@ -626,3 +628,20 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
 
         return 0;
 }
+#else
+
+int tar_x(int input_fd, int tree_fd, TarFlags flags) {
+        assert(input_fd >= 0);
+        assert(tree_fd >= 0);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libarchive support not available.");
+}
+
+int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags) {
+        assert(tree_fd >= 0);
+        assert(output_fd >= 0);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libarchive support not available.");
+}
+
+#endif
