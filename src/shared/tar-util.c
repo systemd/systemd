@@ -697,7 +697,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                 if (ar != ARCHIVE_OK)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse archive: %s", sym_archive_error_string(a));
 
-                const char *p;
+                const char *p = NULL;
                 r = archive_entry_pathname_safe(entry, &p);
                 if (r < 0)
                         return log_error_errno(r, "Invalid path name '%s' in entry, refusing.", p);
