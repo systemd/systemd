@@ -79,6 +79,9 @@ static inline int sym_archive_entry_uid_is_set(struct archive_entry *e) {
 }
 #endif
 
+struct archive;
+struct archive_entry;
+
 int dlopen_libarchive(void);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct archive_entry*, sym_archive_entry_free, NULL);
