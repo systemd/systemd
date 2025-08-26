@@ -388,7 +388,7 @@ static int transfer_generate(const Transfer *t) {
         if (!escaped)
                 return log_oom();
 
-        fprintf(f, "ExecStart=:varlinkctl call -q --more /run/systemd/io.systemd.Import io.systemd.Import.Pull '%s'\n",
+        fprintf(f, "ExecStart=:varlinkctl call -q --more --timeout=infinity /run/systemd/io.systemd.Import io.systemd.Import.Pull '%s'\n",
                 escaped);
 
         r = fflush_and_check(f);
