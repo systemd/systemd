@@ -700,7 +700,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                 const char *p = NULL;
                 r = archive_entry_pathname_safe(entry, &p);
                 if (r < 0)
-                        return log_error_errno(r, "Invalid path name '%s' in entry, refusing.", p);
+                        return log_error_errno(r, "Invalid path name in entry, refusing.");
 
                 if (!p) {
                         /* This is the root inode */
@@ -992,7 +992,7 @@ static int hardlink_lookup(
                         *ret = TAKE_PTR(p);
                         return 1;
                 }
-                if (r < 0 && r != -ENOENT)
+                if (r != -ENOENT)
                         return log_error_errno(r, "Failed to read symlink '%s': %m", n);
         }
 
