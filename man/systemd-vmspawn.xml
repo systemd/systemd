@@ -287,7 +287,8 @@
           <listitem><para>Grows the image file specified by <option>--image=</option> to the specified size
           in bytes if it is smaller. Executes no operation if no image file is used or the image file is
           already as large or larger than requested. The specified size accepts the usual K, M, G suffixes
-          (to the base of 1024). Specified values are rounded up to multiples of 4096.</para>
+          (to the base of 1024). Specified values are rounded up to multiples of 4096. If the image is a GPT
+          disk, the headers will be adjusted accordingly to the new size.</para>
 
           <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
