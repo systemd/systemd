@@ -129,7 +129,8 @@ enum {
         SD_PATH_USER_CREDENTIAL_STORE_ENCRYPTED,
         SD_PATH_USER_SEARCH_CREDENTIAL_STORE_ENCRYPTED,
 
-        _SD_PATH_MAX
+        _SD_PATH_MAX,
+        _SD_PATH_INVALID = UINT64_MAX,
 };
 
 int sd_path_lookup(uint64_t type, const char *suffix, char **ret);
