@@ -63,7 +63,6 @@ extern DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext);
 extern DLSYM_PROTOTYPE(archive_write_set_format_pax);
 
 #if HAVE_LIBARCHIVE_IS_SET
-aaa
 extern DLSYM_PROTOTYPE(archive_entry_gid_is_set);
 extern DLSYM_PROTOTYPE(archive_entry_hardlink_is_set);
 extern DLSYM_PROTOTYPE(archive_entry_uid_is_set);
