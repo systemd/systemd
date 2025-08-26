@@ -48,7 +48,7 @@ _journalctl() {
                       --utc -x --catalog --no-full --force --dump-catalog
                       --flush --rotate --sync --no-hostname -N --fields
                       --list-namespaces --list-invocations -I -v --verbose'
-        [ARG]='-b --boot -D --directory --file -F --field -t --identifier
+        [ARG]='-b --boot -D --directory -i --file -F --field -t --identifier
                       -T --exclude-identifier --facility -M --machine -o --output
                       -u --unit --user-unit -p --priority --root --case-sensitive
                       --namespace --invocation'
@@ -73,7 +73,7 @@ _journalctl() {
                 comps=$(compgen -d -- "$cur")
                 compopt -o filenames
                 ;;
-            --file)
+            --file|-i)
                 comps=$(compgen -f -- "$cur")
                 compopt -o filenames
                 ;;
