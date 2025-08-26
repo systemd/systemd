@@ -63,3 +63,5 @@ int set_proj_id_recursive(int fd, uint32_t proj_id);
 static inline int chattr_secret(int fd, ChattrApplyFlags flags) {
         return chattr_full(fd, NULL, CHATTR_SECRET_FLAGS, CHATTR_SECRET_FLAGS, NULL, NULL, flags|CHATTR_FALLBACK_BITWISE);
 }
+
+bool inode_type_can_chattr(mode_t mode);
