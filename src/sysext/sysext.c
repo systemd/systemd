@@ -2098,7 +2098,7 @@ static int image_discover_and_read_metadata(ImageClass image_class, Hashmap **re
                 return log_error_errno(r, "Failed to discover images: %m");
 
         HASHMAP_FOREACH(img, images) {
-                r = image_read_metadata(img, image_class_info[image_class].default_image_policy);
+                r = image_read_metadata(img, image_class_info[image_class].default_image_policy, RUNTIME_SCOPE_SYSTEM);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
