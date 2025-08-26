@@ -59,10 +59,12 @@ DLSYM_PROTOTYPE(archive_write_open_FILE) = NULL;
 DLSYM_PROTOTYPE(archive_write_open_fd) = NULL;
 DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext) = NULL;
 DLSYM_PROTOTYPE(archive_write_set_format_pax) = NULL;
-#if HAVE_LIBARCHIVE_IS_SET
+#if HAVE_LIBARCHIVE_UID_IS_SET
 DLSYM_PROTOTYPE(archive_entry_gid_is_set) = NULL;
-DLSYM_PROTOTYPE(archive_entry_hardlink_is_set) = NULL;
 DLSYM_PROTOTYPE(archive_entry_uid_is_set) = NULL;
+#endif
+#if HAVE_LIBARCHIVE_HARDLINK_IS_SET
+DLSYM_PROTOTYPE(archive_entry_hardlink_is_set) = NULL;
 #endif
 
 int dlopen_libarchive(void) {
@@ -127,11 +129,14 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_write_open_fd),
                         DLSYM_ARG(archive_write_set_format_filter_by_ext),
                         DLSYM_ARG(archive_write_set_format_pax)
-#if HAVE_LIBARCHIVE_IS_SET
+#if HAVE_LIBARCHIVE_UID_IS_SET
                         ,
                         DLSYM_ARG(archive_entry_gid_is_set),
-                        DLSYM_ARG(archive_entry_hardlink_is_set),
                         DLSYM_ARG(archive_entry_uid_is_set)
+#endif
+#if HAVE_LIBARCHIVE_HARDLINK_IS_SET
+                        ,
+                        DLSYM_ARG(archive_entry_hardlink_is_set)
 #endif
         );
 }

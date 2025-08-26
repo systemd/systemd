@@ -62,20 +62,24 @@ extern DLSYM_PROTOTYPE(archive_write_open_fd);
 extern DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext);
 extern DLSYM_PROTOTYPE(archive_write_set_format_pax);
 
-#if HAVE_LIBARCHIVE_IS_SET
+#if HAVE_LIBARCHIVE_UID_IS_SET
 extern DLSYM_PROTOTYPE(archive_entry_gid_is_set);
-extern DLSYM_PROTOTYPE(archive_entry_hardlink_is_set);
 extern DLSYM_PROTOTYPE(archive_entry_uid_is_set);
 #else
 #include "user-util.h"
 static inline int sym_archive_entry_gid_is_set(struct archive_entry *e) {
         return gid_is_valid(sym_archive_entry_gid(e));
 }
-static inline int sym_archive_entry_hardlink_is_set(struct archive_entry *e) {
-        return !!sym_archive_entry_hardlink(e);
-}
 static inline int sym_archive_entry_uid_is_set(struct archive_entry *e) {
         return uid_is_valid(sym_archive_entry_uid(e));
+}
+#endif
+
+#if HAVE_LIBARCHIVE_HARDLINK_IS_SET
+extern DLSYM_PROTOTYPE(archive_entry_hardlink_is_set);
+#else
+static inline int sym_archive_entry_hardlink_is_set(struct archive_entry *e) {
+        return !!sym_archive_entry_hardlink(e);
 }
 #endif
 
