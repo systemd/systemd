@@ -18,6 +18,7 @@
 #include "machine-varlink.h"
 #include "machined.h"
 #include "machined-varlink.h"
+#include "path-lookup.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -620,8 +621,9 @@ static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image
         assert(link);
         assert(image);
 
+        Manager *m = ASSERT_PTR(image->userdata);
         if (should_acquire_metadata(am) && !image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container);
+                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
                 if (r < 0 && am != ACQUIRE_METADATA_GRACEFUL)
                         return log_debug_errno(r, "Failed to read image metadata: %m");
                 if (r < 0)
@@ -636,7 +638,7 @@ static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("path", image->path),
                         SD_JSON_BUILD_PAIR_STRING("type", image_type_to_string(image->type)),
                         SD_JSON_BUILD_PAIR_STRING("class", image_class_to_string(image->class)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", image->read_only),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", image_is_read_only(image)),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("creationTimestamp", image->crtime),
                         JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("modificationTimestamp", image->mtime),
                         JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("usage", image->usage, UINT64_MAX),
@@ -733,6 +735,8 @@ static int manager_varlink_init_userdb(Manager *m) {
 
         if (m->varlink_userdb_server)
                 return 0;
+        if (m->runtime_scope != RUNTIME_SCOPE_SYSTEM) /* no userdb in per-user mode! */
+                return 0;
 
         r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
         if (r < 0)
@@ -817,11 +821,20 @@ static int manager_varlink_init_machine(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
         if (r == 0) {
-                r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+                _cleanup_free_ char *socket_path = NULL;
+                r = runtime_directory_generic(m->runtime_scope, "systemd/machine/io.systemd.Machine", &socket_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine socket path: %m");
+
+                r = sd_varlink_server_listen_address(s, socket_path, runtime_scope_to_socket_mode(m->runtime_scope) | SD_VARLINK_SERVER_MODE_MKDIR_0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to io.systemd.Machine varlink socket: %m");
 
-                r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.MachineImage", 0666);
+                socket_path = mfree(socket_path);
+                r = runtime_directory_generic(m->runtime_scope, "systemd/machine/io.systemd.MachineImage", &socket_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine socket path: %m");
+                r = sd_varlink_server_listen_address(s, socket_path, runtime_scope_to_socket_mode(m->runtime_scope));
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to io.systemd.MachineImage varlink socket: %m");
         }

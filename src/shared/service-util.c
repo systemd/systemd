@@ -8,9 +8,15 @@
 #include "bus-object.h"
 #include "log.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
 #include "service-util.h"
 
-static int help(const char *program_path, const char *service, const char *description, bool bus_introspect) {
+static int help(const char *program_path,
+                const char *service,
+                const char *description,
+                bool bus_introspect,
+                bool runtime_scope) {
+
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -25,6 +31,7 @@ static int help(const char *program_path, const char *service, const char *descr
                "  -h --help                 Show this help\n"
                "     --version              Show package version\n"
                "%8$s"
+               "%9$s"
                "\nSee the %2$s for details.\n",
                program_path,
                link,
@@ -33,7 +40,9 @@ static int help(const char *program_path, const char *service, const char *descr
                ansi_highlight(),
                ansi_normal(),
                description,
-               bus_introspect ? "     --bus-introspect=PATH  Write D-Bus XML introspection data\n" : "");
+               bus_introspect ? "     --bus-introspect=PATH  Write D-Bus XML introspection data\n" : "",
+               runtime_scope  ? "     --system               Start service in system mode\n"
+                                "     --user                 Start service in user mode\n" : "");
 
         return 0; /* No further action */
 }
@@ -42,17 +51,22 @@ int service_parse_argv(
                 const char *service,
                 const char *description,
                 const BusObjectImplementation* const* bus_objects,
+                RuntimeScope *runtime_scope,
                 int argc, char *argv[]) {
 
         enum {
                 ARG_VERSION = 0x100,
                 ARG_BUS_INTROSPECT,
+                ARG_SYSTEM,
+                ARG_USER,
         };
 
         static const struct option options[] = {
                 { "help",           no_argument,       NULL, 'h'                },
                 { "version",        no_argument,       NULL, ARG_VERSION        },
                 { "bus-introspect", required_argument, NULL, ARG_BUS_INTROSPECT },
+                { "system",         no_argument,       NULL, ARG_SYSTEM         },
+                { "user",           no_argument,       NULL, ARG_USER           },
                 {}
         };
 
@@ -65,7 +79,7 @@ int service_parse_argv(
                 switch (c) {
 
                 case 'h':
-                        return help(argv[0], service, description, bus_objects);
+                        return help(argv[0], service, description, bus_objects, runtime_scope);
 
                 case ARG_VERSION:
                         return version();
@@ -75,6 +89,14 @@ int service_parse_argv(
                                         stdout,
                                         optarg,
                                         bus_objects);
+
+                case ARG_SYSTEM:
+                case ARG_USER:
+                        if (!runtime_scope)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This service cannot be run in --system or --user mode, refusing.");
+
+                        *runtime_scope = c == ARG_SYSTEM ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
+                        break;
 
                 case '?':
                         return -EINVAL;
