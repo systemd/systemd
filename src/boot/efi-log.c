@@ -32,7 +32,7 @@ static const char *const log_level_table[_LOG_MAX] = {
         [LOG_DEBUG]   = "debug",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(log_level, LogLevel);
+DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(log_level, LogLevel);
 
 int log_set_max_level(LogLevel level) {
         assert(level >= 0 && level < _LOG_MAX);
@@ -40,6 +40,10 @@ int log_set_max_level(LogLevel level) {
         int old = log_max_level;
         log_max_level = level;
         return old;
+}
+
+LogLevel log_get_max_level(void) {
+        return log_max_level;
 }
 
 int log_set_max_level_from_string(const char *e) {

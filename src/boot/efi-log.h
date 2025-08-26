@@ -34,7 +34,9 @@ typedef enum LogLevel {
         _LOG_INVALID = -1,
 } LogLevel;
 
+LogLevel log_level_from_string(const char *s);
 int log_set_max_level(LogLevel level);
+LogLevel log_get_max_level(void);
 int log_set_max_level_from_string(const char *e);
 void log_set_max_level_from_smbios(void);
 
