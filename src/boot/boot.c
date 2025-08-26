@@ -151,6 +151,7 @@ typedef struct {
         bool sysfail_occured;
         int64_t console_mode;
         int64_t console_mode_efivar;
+        LogLevel log_level;
 } Config;
 
 /* These values have been chosen so that the transitions the user sees could employ unsigned over-/underflow
@@ -1112,6 +1113,15 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 config->console_mode = u;
                         }
                 }
+                else if (streq8(key, "log-level")) {
+                        LogLevel l = log_level_from_string(value);
+                        if (l < 0) {
+                                log_error("Error parsing 'log-level' config option, ignoring: %s", value);
+                                continue;
+                        }
+                        config->log_level = l;
+                        log_set_max_level(l);
+                }
 }
 
 static void boot_entry_parse_tries(
@@ -1456,6 +1466,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
                 .timeout_sec_config = TIMEOUT_UNSET,
                 .timeout_sec_efivar = TIMEOUT_UNSET,
+                .log_level = log_get_max_level(),
         };
 
         err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, &content_size);
@@ -2981,6 +2992,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         EFI_STATUS err;
         uint64_t init_usec;
         bool menu = false;
+
+        /* set loglevel early to simplify debugging before loader.conf is loaded */
+        log_set_max_level_from_smbios();
 
         init_usec = time_usec();
 
