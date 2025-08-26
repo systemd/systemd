@@ -35,6 +35,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(uid_t*, acl_free_uid_tp, NULL);
 #define acl_free_gid_tp acl_free
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gid_t*, acl_free_gid_tp, NULL);
 
+static inline int acl_set_perm(acl_permset_t ps, acl_perm_t p, bool b) {
+        return (b ? acl_add_perm : acl_delete_perm)(ps, p);
+}
+
 #else
 #define ACL_READ    0x04
 #define ACL_WRITE   0x02
@@ -53,3 +57,5 @@ static inline int fd_acl_make_writable(int fd) {
 }
 
 #endif
+
+int inode_type_can_acl(mode_t mode);

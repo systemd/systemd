@@ -7,4 +7,5 @@ int service_parse_argv(
                 const char *service,
                 const char *description,
                 const BusObjectImplementation* const* bus_objects,
+                RuntimeScope *runtime_scope,
                 int argc, char *argv[]);
