@@ -22,6 +22,7 @@
 #include "sd-event.h"
 #include "sd-id128.h"
 #include "sd-netlink.h"
+#include "sd-path.h"
 
 #include "alloc-util.h"
 #include "barrier.h"
@@ -3112,7 +3113,7 @@ static int determine_names(void) {
                                 return log_oom();
 
                         if (!arg_ephemeral)
-                                arg_read_only = arg_read_only || i->read_only;
+                                arg_read_only = arg_read_only || image_is_read_only(i);
                 } else {
                         r = safe_getcwd(&arg_directory);
                         if (r < 0)
@@ -4974,29 +4975,48 @@ static int load_settings(void) {
         if (FLAGS_SET(arg_settings_mask, _SETTINGS_MASK_ALL))
                 return 0;
 
-        /* We first look in the admin's directories in /etc and /run */
-        if (arg_privileged)
-                FOREACH_STRING(i, "/etc/systemd/nspawn", "/run/systemd/nspawn") {
-                        _cleanup_free_ char *j = NULL;
+        /* We first look in the admin's directories in /etc/ and /run/ */
+        static const uint64_t lookup_dir_system[] = {
+                SD_PATH_SYSTEM_CONFIGURATION,
+                SD_PATH_SYSTEM_RUNTIME,
+                _SD_PATH_INVALID,
+        };
+        static const uint64_t lookup_dir_user[] = {
+                SD_PATH_USER_CONFIGURATION,
+                SD_PATH_USER_RUNTIME,
+                _SD_PATH_INVALID,
+        };
 
-                        j = path_join(i, arg_settings_filename);
-                        if (!j)
-                                return log_oom();
-
-                        f = fopen(j, "re");
-                        if (f) {
-                                p = TAKE_PTR(j);
-
-                                /* By default, we trust configuration from /etc and /run */
-                                if (arg_settings_trusted < 0)
-                                        arg_settings_trusted = true;
-
-                                break;
-                        }
-
-                        if (errno != ENOENT)
-                                return log_error_errno(errno, "Failed to open %s: %m", j);
+        const uint64_t *q = arg_privileged ? lookup_dir_system : lookup_dir_user;
+        for (; *q != _SD_PATH_INVALID; q++) {
+                _cleanup_free_ char *cd = NULL;
+                r = sd_path_lookup(*q, "systemd/nspawn", &cd);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to determine settings directory, ignoring: %m");
+                        continue;
                 }
+
+                _cleanup_free_ char *j = NULL;
+                j = path_join(cd, arg_settings_filename);
+                if (!j)
+                        return log_oom();
+
+                f = fopen(j, "re");
+                if (f) {
+                        p = TAKE_PTR(j);
+
+                        log_debug("Found settings file: %s", p);
+
+                        /* By default, we trust configuration from /etc and /run */
+                        if (arg_settings_trusted < 0)
+                                arg_settings_trusted = true;
+
+                        break;
+                }
+
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open %s: %m", j);
+        }
 
         if (!f) {
                 /* After that, let's look for a file next to the
@@ -5016,6 +5036,9 @@ static int load_settings(void) {
                         f = fopen(p, "re");
                         if (!f && errno != ENOENT)
                                 return log_error_errno(errno, "Failed to open %s: %m", p);
+
+                        if (f)
+                                log_debug("Found settings file: %s", p);
 
                         /* By default, we do not trust configuration from /var/lib/machines */
                         if (arg_settings_trusted < 0)
@@ -6054,6 +6077,7 @@ static int run(int argc, char *argv[]) {
                         /* We take an exclusive lock on this image, since it's our private, ephemeral copy
                          * only owned by us and no one else. */
                         r = image_path_lock(
+                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
                                         np,
                                         LOCK_EX|LOCK_NB,
                                         arg_privileged ? &tree_global_lock : NULL,
@@ -6090,6 +6114,7 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
 
                         r = image_path_lock(
+                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
                                         arg_directory,
                                         (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB,
                                         arg_privileged ? &tree_global_lock : NULL,
@@ -6217,6 +6242,7 @@ static int run(int argc, char *argv[]) {
 
                         /* Always take an exclusive lock on our own ephemeral copy. */
                         r = image_path_lock(
+                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
                                         np,
                                         LOCK_EX|LOCK_NB,
                                         arg_privileged ? &tree_global_lock : NULL,
@@ -6244,6 +6270,7 @@ static int run(int argc, char *argv[]) {
                         remove_image = true;
                 } else {
                         r = image_path_lock(
+                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
                                         arg_image,
                                         (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB,
                                         arg_privileged ? &tree_global_lock : NULL,

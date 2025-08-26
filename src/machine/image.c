@@ -143,7 +143,7 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
                         if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN && !image_is_hidden(image))
                                 continue;
 
-                        r = image_remove(image);
+                        r = image_remove(image, manager->runtime_scope);
                         if (r == -EBUSY) {
                                 log_debug("Keeping image '%s' because it's currently used.", image->name);
                                 continue;
