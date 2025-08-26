@@ -31,6 +31,7 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fdisk-util.h"
 #include "fork-notify.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -1620,6 +1621,27 @@ static int grow_image(const char *path, uint64_t size) {
         if (ftruncate(fd, size) < 0)
                 return log_error_errno(errno, "Failed to grow image file '%s' from %s to %s: %m", path,
                                        FORMAT_BYTES(st.st_size), FORMAT_BYTES(size));
+
+        /* If the image contains a GPT partition table then we need to fix the headers after growing the
+         * image. It's sufficient to load the partition table and write it again, fdisk will take care of
+         * fixing what needs to be fixed. */
+
+        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        r = fdisk_new_context_at(fd, /* path= */ NULL, /* read_only= */ false, /* sector_size= */ UINT32_MAX, &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create fdisk context: %m");
+
+        r = fdisk_has_label(c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether disk '%s' has a disk label: %m", FORMAT_PROC_FD_PATH(fd));
+        if (r > 0) {
+                r = fdisk_write_disklabel(c);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write resized GPT partition table: %m");
+
+                if (!arg_quiet)
+                        log_info("Resized GPT partition table.");
+        }
 
         r = fsync_full(fd);
         if (r < 0)

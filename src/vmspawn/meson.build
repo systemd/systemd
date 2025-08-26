@@ -21,7 +21,14 @@ executables += [
                 'public' : true,
                 'sources' : vmspawn_sources + vmspawn_extract_sources,
                 'extract' : vmspawn_extract_sources,
-                'dependencies' : [libblkid]
+                'link_with' : [
+                        libshared,
+                        libshared_fdisk,
+                ],
+                'dependencies' : [
+                        libblkid,
+                        libfdisk,
+                ],
         },
         test_template + {
                 'sources' : files('test-vmspawn-util.c'),
