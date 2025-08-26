@@ -1359,4 +1359,5 @@ udevadm control --log-level info
 
 systemctl status systemd-udevd
 
-touch /testok
+#touch /testok
+exit 1
