@@ -1794,6 +1794,24 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
         assert(!IN_SET(symbol->symbol_type, _SD_VARLINK_SYMBOL_COMMENT, _SD_VARLINK_INTERFACE_COMMENT));
 
         if (!v) {
+                /* For methods/structs/errors with no fields in the given direction, NULL is acceptable */
+                if (IN_SET(symbol->symbol_type, SD_VARLINK_METHOD, SD_VARLINK_STRUCT_TYPE, SD_VARLINK_ERROR)) {
+                        for (const sd_varlink_field *field = symbol->fields; field->field_type != _SD_VARLINK_FIELD_TYPE_END_MARKER; field++) {
+                                if (field->field_type == _SD_VARLINK_FIELD_COMMENT)
+                                        continue;
+                                if (field->field_direction == direction)
+                                        goto has_fields; /* Found at least one field in this direction */
+                        }
+                        /* No fields found in this direction, NULL is valid */
+                        return 0;
+
+                has_fields:
+                        /* Has fields but got NULL, create empty object for validation */
+                        if (reterr_bad_field)
+                                *reterr_bad_field = NULL;
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Expected object with fields but got null, refusing.");
+                }
+
                 if (reterr_bad_field)
                         *reterr_bad_field = NULL;
                 return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Null object passed, refusing.");
