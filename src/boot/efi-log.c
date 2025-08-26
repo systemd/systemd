@@ -42,6 +42,10 @@ int log_set_max_level(LogLevel level) {
         return old;
 }
 
+LogLevel log_get_max_level(void) {
+        return log_max_level;
+}
+
 int log_set_max_level_from_string(const char *e) {
         int r;
 
