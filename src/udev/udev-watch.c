@@ -9,8 +9,10 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "blkid-util.h"
 #include "blockdev-util.h"
 #include "daemon-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "dirent-util.h"
 #include "errno-util.h"
@@ -22,11 +24,13 @@
 #include "parse-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "set.h"
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "udev-manager.h"
 #include "udev-trace.h"
 #include "udev-util.h"
@@ -161,34 +165,296 @@ static int synthesize_change_one(sd_device *dev, sd_device *target) {
         return 0;
 }
 
-static int synthesize_change_all(sd_device *dev) {
+static int synthesize_change_all(sd_device *dev, sd_device_enumerator *enumerator) {
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
 
         assert(dev);
 
-        r = blockdev_reread_partition_table(dev);
-        if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to re-read partition table, ignoring: %m");
-        bool part_table_read = r >= 0;
+        if (!enumerator) {
+                r = partition_enumerator_new(dev, &e);
+                if (r < 0) {
+                        log_device_debug_errno(dev, r, "Failed to enumerate partitions, ignoring: %m");
+                        return synthesize_change_one(dev, dev);
+                }
 
-        /* search for partitions */
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        r = partition_enumerator_new(dev, &e);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to initialize partition enumerator, ignoring: %m");
+                enumerator = e;
+        }
 
-        /* We have partitions and re-read the table, the kernel already sent out a "change"
-         * event for the disk, and "remove/add" for all partitions. */
-        if (part_table_read && sd_device_enumerator_get_device_first(e))
-                return 0;
-
-        /* We have partitions but re-reading the partition table did not work, synthesize
-         * "change" for the disk and all partitions. */
         r = synthesize_change_one(dev, dev);
-        FOREACH_DEVICE(e, d)
+        FOREACH_DEVICE(enumerator, d)
                 RET_GATHER(r, synthesize_change_one(dev, d));
 
         return r;
+}
+
+#if HAVE_BLKID
+typedef struct Partition {
+        char *node;
+        unsigned nr;
+        uint64_t start;
+        uint64_t size;
+        sd_id128_t uuid;
+} Partition;
+
+static Partition* partition_free(Partition *p) {
+        if (!p)
+                return NULL;
+
+        free(p->node);
+        return mfree(p);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Partition*, partition_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                partition_hash_ops,
+                char, path_hash_func, path_compare,
+                Partition, partition_free);
+
+static int partition_add(sd_device *dev, blkid_partition pp, Hashmap **partitions) {
+        int r;
+
+        assert(dev);
+        assert(pp);
+        assert(partitions);
+
+        errno = 0;
+        int nr = blkid_partition_get_partno(pp);
+        if (nr < 0)
+                return errno_or_else(EIO);
+
+        const char *whole_devname;
+        r = sd_device_get_devname(dev, &whole_devname);
+        if (r < 0)
+                return r;
+
+        size_t l = strlen(whole_devname);
+        if (l < 1)
+                return -EINVAL;
+        bool need_p = ascii_isdigit(whole_devname[l-1]); /* Last char a digit? */
+
+        _cleanup_free_ char *node = NULL;
+        if (asprintf(&node, "%s%s%i", whole_devname, need_p ? "p" : "", nr) < 0)
+                return -ENOMEM;
+
+        errno = 0;
+        blkid_loff_t start = blkid_partition_get_start(pp);
+        if (start < 0)
+                return errno_or_else(EIO);
+        assert((uint64_t) start < UINT64_MAX/512);
+
+        errno = 0;
+        blkid_loff_t size = blkid_partition_get_size(pp);
+        if (size < 0)
+                return errno_or_else(EIO);
+        assert((uint64_t) size < UINT64_MAX/512);
+
+        sd_id128_t uuid = SD_ID128_NULL;
+        (void) blkid_partition_get_uuid_id128(pp, &uuid);
+
+        _cleanup_(partition_freep) Partition *p = new(Partition, 1);
+        if (!p)
+                return -ENOMEM;
+
+        *p = (Partition) {
+                .node = TAKE_PTR(node),
+                .nr = nr,
+                .start = start,
+                .size = size,
+                .uuid = uuid,
+        };
+
+        r = hashmap_ensure_put(partitions, &partition_hash_ops, p->node, p);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(p);
+        return 0;
+}
+
+static int enumerate_partitions_by_blkid(sd_device *dev, Hashmap **ret) {
+        int r;
+
+        assert(dev);
+        assert(ret);
+
+        _cleanup_close_ int fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (fd < 0)
+                return fd;
+
+        if (flock(fd, LOCK_EX|LOCK_NB) < 0)
+                return -errno;
+
+        _cleanup_(blkid_free_probep) blkid_probe b = blkid_new_probe();
+        if (!b)
+                return -ENOMEM;
+
+        errno = 0;
+        r = blkid_probe_set_device(b, fd, 0, 0);
+        if (r != 0)
+                return errno_or_else(ENOMEM);
+
+        blkid_probe_enable_partitions(b, 1);
+        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+
+        errno = 0;
+        r = blkid_do_safeprobe(b);
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return errno_or_else(EIO);
+        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
+                return -ENOPKG;
+        assert(r == _BLKID_SAFEPROBE_FOUND);
+
+        errno = 0;
+        blkid_partlist pl = blkid_probe_get_partitions(b);
+        if (!pl) {
+                if (errno > 0)
+                        return -errno;
+
+                *ret = NULL;
+                return 0;
+        }
+
+        errno = 0;
+        int n_partitions = blkid_partlist_numof_partitions(pl);
+        if (n_partitions < 0)
+                return errno_or_else(EIO);
+
+        _cleanup_hashmap_free_ Hashmap *partitions = NULL;
+        for (int i = 0; i < n_partitions; i++) {
+                blkid_partition pp;
+
+                errno = 0;
+                pp = blkid_partlist_get_partition(pl, i);
+                if (!pp)
+                        return errno_or_else(EIO);
+
+                r = partition_add(dev, pp, &partitions);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(partitions);
+        return 0;
+}
+
+static int partitions_synced(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        /* search for partitions by blkid */
+        _cleanup_hashmap_free_ Hashmap *partitions = NULL;
+        r = enumerate_partitions_by_blkid(dev, &partitions);
+        if (r == -EAGAIN) /* Device is locked. */
+                return 0;
+        if (r < 0)
+                return r;
+
+        /* search for partitions by sysfs */
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        r = partition_enumerator_new(dev, &e);
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                const char *node;
+                r = sd_device_get_devname(d, &node);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(partition_freep) Partition *p = hashmap_remove(partitions, node);
+                if (!p) {
+                        log_device_debug(dev, "Partition '%s' found in sysfs does not found by blkid.", node);
+                        return 0;
+                }
+
+                uint64_t start;
+                r = device_get_sysattr_u64(d, "start", &start);
+                if (r < 0)
+                        return r;
+
+                if (p->start != start) {
+                        log_device_debug(dev, "Partition offset of '%s' does not match: blkid=%"PRIu64", sysfs=%"PRIu64,
+                                         node, p->start, start);
+                        return 0;
+                }
+
+                uint64_t size;
+                r = device_get_sysattr_u64(d, "size", &size);
+                if (r < 0)
+                        return r;
+
+                if (p->size != size) {
+                        log_device_debug(dev, "Partition size of '%s' does not match: blkid=%"PRIu64", sysfs=%"PRIu64,
+                                         node, p->size, size);
+                        return 0;
+                }
+
+                sd_id128_t uuid = SD_ID128_NULL;
+                (void) device_get_property_id128(d, "PARTUUID", &uuid);
+                if (!sd_id128_equal(p->uuid, uuid)) {
+                        log_device_debug(dev, "Partition UUID of '%s' does not match: blkid=%s, sysfs=%s",
+                                         node, SD_ID128_TO_STRING(p->uuid), SD_ID128_TO_STRING(uuid));
+                        return 0;
+                }
+        }
+
+        if (!hashmap_isempty(partitions)) {
+                Partition *p = hashmap_first(partitions);
+                log_device_debug(dev, "Partition '%s' found by blkid does not found in sysfs.", p->node);
+                return 0;
+        }
+
+        log_device_debug(dev, "All partitions are available on sysfs, triggering 'change' events without requesting the kernel to reread partition table.");
+        (void) synthesize_change_all(dev, e);
+        return 1; /* synced and sent change events */
+}
+
+static int wait_for_partitions_synced(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        for (usec_t timeout_usec = usec_add(now(CLOCK_MONOTONIC), 5 * USEC_PER_SEC);;) {
+                r = partitions_synced(dev);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to check if partitions are synced: %m");
+                if (r > 0)
+                        return 1; /* synced and sent change events */
+
+                usec_t now_usec = now(CLOCK_MONOTONIC);
+                if (now_usec >= timeout_usec)
+                        break;
+
+                (void) usleep_safe(MIN(random_u64_range(250 * USEC_PER_MSEC) + 250 * USEC_PER_MSEC,
+                                       usec_sub_unsigned(timeout_usec, now_usec)));
+        }
+
+        return 0;
+}
+#endif
+
+static int synthesize_change_synced(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+#if HAVE_BLKID
+        r = wait_for_partitions_synced(dev);
+        if (r != 0)
+                return r;
+#endif
+
+        log_device_debug(dev, "Requesting re-reading partition table.");
+        r = blockdev_reread_partition_table(dev);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to request to re-read partition table: %m");
+
+        /* The kernel should already sent out a "change" event for the disk, and "remove/add" for all
+         * partitions. Hence, it is not necessary to do anything here. */
+        return 0;
 }
 
 static int synthesize_change_child_handler(sd_event_source *s, const siginfo_t *si, void *userdata) {
@@ -220,13 +486,16 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         "(udev-synth)",
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
                         &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
                 /* child */
-                (void) synthesize_change_all(dev);
+                if (synthesize_change_synced(dev) < 0)
+                        /* On any critical errors, as a fallback, let's enumerate pertitions and send change
+                         * events to the whole block device and its partitions. */
+                        (void) synthesize_change_all(dev, /* enumerator = */ NULL);
                 _exit(EXIT_SUCCESS);
         }
 
