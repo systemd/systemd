@@ -449,11 +449,17 @@ int rm_rf_at(int dir_fd, const char *path, RemoveFlags flags) {
                 if (FLAGS_SET(flags, REMOVE_MISSING_OK) && r == -ENOENT)
                         return 0;
 
-                if (!IN_SET(r, -ENOTTY, -EINVAL, -ENOTDIR))
+                if (!IN_SET(r, -ENOTTY, -EINVAL, -ENOTDIR, -EPERM, -EACCES))
                         return r;
 
-                /* Not btrfs or not a subvolume */
+                /* Not btrfs or not a subvolume, or permissions are not available (but might if we go via unlinkat()) */
         }
+
+        /* In the next step we'll try to open the directory in order to enumerate its contents. This might
+         * not work due to perms, but we might still be able to delete it, hence let's try that first. */
+        if (FLAGS_SET(flags, REMOVE_ROOT | REMOVE_PHYSICAL))
+                if (unlinkat(dir_fd, path, AT_REMOVEDIR) >= 0)
+                        return 0;
 
         fd = openat_harder(dir_fd, path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME, flags, &old_mode);
         if (fd >= 0) {
