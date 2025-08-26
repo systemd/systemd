@@ -273,6 +273,10 @@ All tools:
   the worker process is killed by the manager process. Defaults to 10 seconds,
   maximum allowed is 5 hours.
 
+* `$SYSTEMD_UDEV_SYNC_PARTITION_TIMEOUT_SEC=` — Specifies the timeout that
+  systemd-udevd waits for partitions detected by blkid are synced to sysfs.
+  Defaults to 30 seconds, maximum allowed is 5 hours.
+
 `udevadm` and `systemd-hwdb`:
 
 * `SYSTEMD_HWDB_UPDATE_BYPASS=` — If set to "1", execution of hwdb updates is skipped
