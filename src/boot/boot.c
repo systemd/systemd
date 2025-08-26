@@ -2974,6 +2974,21 @@ static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI
                 return open_volume(loaded_image->DeviceHandle, ret_dir);
 }
 
+static void set_log_level_from_smbios(void) {
+        int r;
+
+        if (is_confidential_vm())
+                return; /* Don't consume SMBIOS in Confidential Computing contexts */
+
+        const char *level_str = smbios_find_oem_string("io.systemd.boot.loglevel=", /* after= */ NULL);
+        if (!level_str)
+                return;
+
+        r = log_set_max_level_from_string(level_str);
+        if (r < 0)
+                log_warning_status(EFI_SUCCESS, "Failed to parse log level '%s', ignoring.", level_str);
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_file_close_ EFI_FILE *root_dir = NULL;
@@ -2981,6 +2996,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         EFI_STATUS err;
         uint64_t init_usec;
         bool menu = false;
+
+        /* set loglevel early to simplify debugging before loader.conf is loaded */
+        set_log_level_from_smbios();
 
         init_usec = time_usec();
 
