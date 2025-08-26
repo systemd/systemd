@@ -1113,6 +1113,9 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 }
                                 config->console_mode = u;
                         }
+                } else if (streq8(key, "log-level")) {
+                        if (log_set_max_level_from_string(value) < 0)
+                                log_error("Error parsing 'log-level' config option, ignoring: %s", value);
                 }
 }
 
