@@ -2438,7 +2438,7 @@ static int create_symlink(Context *c, Item *i) {
         if (arg_dry_run) {
                 fd = openat(pfd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH);
                 if (fd < 0) {
-                        if(errno == ENOENT) {
+                        if (errno == ENOENT) {
                                 log_info("Would create symlink %s -> %s", i->path, i->argument);
                                 return 0;
                         } else
