@@ -2319,6 +2319,20 @@ int device_get_property_int(sd_device *device, const char *key, int *ret) {
         return 0;
 }
 
+int device_get_property_id128(sd_device *device, const char *key, sd_id128_t *ret) {
+        const char *value;
+        int r;
+
+        assert(device);
+        assert(key);
+
+        r = sd_device_get_property_value(device, key, &value);
+        if (r < 0)
+                return r;
+
+        return sd_id128_from_string(value, ret);
+}
+
 _public_ int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret) {
         const char *s;
         sd_id128_t id;
@@ -2643,6 +2657,25 @@ int device_get_sysattr_u32(sd_device *device, const char *sysattr, uint32_t *ret
 
         uint32_t v;
         r = safe_atou32(value, &v);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to parse '%s' attribute: %m", sysattr);
+
+        if (ret_value)
+                *ret_value = v;
+        /* We return "true" if the value is positive. */
+        return v > 0;
+}
+
+int device_get_sysattr_u64(sd_device *device, const char *sysattr, uint64_t *ret_value) {
+        const char *value;
+        int r;
+
+        r = sd_device_get_sysattr_value(device, sysattr, &value);
+        if (r < 0)
+                return r;
+
+        uint64_t v;
+        r = safe_atou64(value, &v);
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to parse '%s' attribute: %m", sysattr);
 
