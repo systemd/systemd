@@ -1157,7 +1157,7 @@ static const char* skip_user_prefix(const char *path) {
         return skip_session(e);
 }
 
-int cg_path_get_user_unit(const char *path, char **ret) {
+int cg_path_get_user_unit_full(const char *path, char **ret_unit, char **ret_subgroup) {
         const char *t;
 
         assert(path);
@@ -1168,18 +1168,42 @@ int cg_path_get_user_unit(const char *path, char **ret) {
 
         /* And from here on it looks pretty much the same as for a system unit, hence let's use the same
          * parser. */
-        return cg_path_get_unit(t, ret);
+        return cg_path_get_unit_full(t, ret_unit, ret_subgroup);
 }
 
-int cg_pid_get_user_unit(pid_t pid, char **ret_unit) {
-        _cleanup_free_ char *cgroup = NULL;
+int cg_pid_get_user_unit_full(pid_t pid, char **ret_unit, char **ret_subgroup) {
         int r;
 
+        _cleanup_free_ char *cgroup = NULL;
         r = cg_pid_get_path_shifted(pid, NULL, &cgroup);
         if (r < 0)
                 return r;
 
-        return cg_path_get_user_unit(cgroup, ret_unit);
+        return cg_path_get_user_unit_full(cgroup, ret_unit, ret_subgroup);
+}
+
+int cg_pidref_get_user_unit_full(const PidRef *pidref, char **ret_unit, char **ret_subgroup) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+        if (pidref_is_remote(pidref))
+                return -EREMOTE;
+
+        _cleanup_free_ char *unit = NULL, *subgroup = NULL;
+        r = cg_pid_get_user_unit_full(pidref->pid, &unit, &subgroup);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pidref);
+        if (r < 0)
+                return r;
+
+        if (ret_unit)
+                *ret_unit = TAKE_PTR(unit);
+        if (ret_subgroup)
+                *ret_subgroup = TAKE_PTR(subgroup);
+        return 0;
 }
 
 int cg_path_get_machine_name(const char *path, char **ret_machine) {
