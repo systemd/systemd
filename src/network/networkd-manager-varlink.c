@@ -8,6 +8,7 @@
 
 #include "bus-polkit.h"
 #include "fd-util.h"
+#include "macro.h"
 #include "hashmap.h"
 #include "json-util.h"
 #include "lldp-rx-internal.h"
