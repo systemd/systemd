@@ -361,6 +361,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         if (config->console_mode_efivar != CONSOLE_MODE_KEEP)
                 printf("   console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
 
+        printf("                log-level: %s\n", log_level_to_string(log_get_max_level()));
+
         if (!ps_continue())
                 return;
 
@@ -1111,6 +1113,10 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 }
                                 config->console_mode = u;
                         }
+                }
+                else if (streq8(key, "log-level")) {
+                        if (log_set_max_level_from_string(value) < 0)
+                                log_error("Error parsing 'log-level' config option, ignoring: %s", value);
                 }
 }
 
@@ -2981,6 +2987,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         EFI_STATUS err;
         uint64_t init_usec;
         bool menu = false;
+
+        /* set loglevel early to simplify debugging before loader.conf is loaded */
+        log_set_max_level_from_smbios();
 
         init_usec = time_usec();
 
