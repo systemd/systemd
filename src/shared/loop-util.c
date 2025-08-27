@@ -1064,9 +1064,8 @@ int loop_device_refresh_size(LoopDevice *d, uint64_t offset, uint64_t size) {
         VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
 #endif
 
-        if (size == UINT64_MAX && offset == UINT64_MAX)
-                return 0;
-        if (info.lo_sizelimit == size && info.lo_offset == offset)
+        if ((size == UINT64_MAX || info.lo_sizelimit == size) &&
+            (offset == UINT64_MAX || info.lo_offset == offset))
                 return 0;
 
         if (size != UINT64_MAX)
