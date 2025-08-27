@@ -57,6 +57,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         log_warning_errno(r, "Could not create runtime directory: %m");
 
+                /* include this to allow access to write in runtime? */
                 r = mkdir_safe_label("/var/lib/systemd/network/", 0755, uid, gid, MKDIR_WARN_MODE);
                 if (r < 0)
                         log_warning_errno(r, "Could not create runtime directory: %m");
