@@ -1618,6 +1618,46 @@ EOF
     assert_in "${image}2 : start=      286680, size=      532480, type=${esp_guid}" "$output"
 }
 
+testcase_gpt_resize() {
+    local workdir image defs
+
+    workdir="$(mktemp --directory "/tmp/test-repart.gpt_resize.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir:?}'" RETURN
+
+    image="$workdir/image.img"
+    defs="$workdir/defs"
+    mkdir "$defs"
+
+    tee "$defs/10-esp.conf" <<EOF
+[Partition]
+Type=esp
+Format=vfat
+SizeMinBytes=256M
+SizeMaxBytes=256M
+EOF
+
+    tee "$defs/20-root.conf" <<EOF
+[Partition]
+Type=root
+SizeMinBytes=1G
+EOF
+
+    truncate -s 256M "$image"
+    sfdisk "$image" <<EOF
+label: gpt
+size=256M, type=${esp_guid},
+EOF
+    truncate -s 2G "$image"
+
+    systemd-repart --dry-run=no --definitions="$defs" "$image"
+
+    output=$(sfdisk --dump "$image")
+
+    assert_in "${image}1 : start=        2048, size=      524288, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, uuid=39107B09-615D-48FB-BA37-C663885FCE67, name=\"esp\"" "$output"
+    assert_in "${image}2 : start=      526336, size=     3667928, type=${root_guid}, uuid=${root_uuid}, name=\"root-${architecture}\", attrs=\"GUID:59\"" "$output"
+}
+
 OFFLINE="yes"
 run_testcases
 
