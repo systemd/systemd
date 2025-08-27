@@ -62,6 +62,8 @@ int verb_unit_gdb(int argc, char *argv[], void *userdata) {
         r = sd_bus_message_read(reply, "u", &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to read the main PID of %s from reply: %m", unit);
+        if (pid == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Unit %s has no MainPID (hint: inactive?)", unit);
 
         if (!arg_debugger) {
                 arg_debugger = strdup(secure_getenv("SYSTEMD_DEBUGGER") ?: "gdb");
