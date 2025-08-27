@@ -16,6 +16,8 @@
 #include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
+#include "in-addr-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
@@ -23,6 +25,7 @@
 #include "resolve-private.h"
 #include "set.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -31,6 +34,21 @@
 static unsigned arg_connections_max = 256;
 static const char *arg_remote_host = NULL;
 static usec_t arg_exit_idle_time = USEC_INFINITY;
+
+typedef enum ProxyProtocol {
+        PROXY_NONE,
+        PROXY_V1,
+        _PROXY_PROTOCOL_MAX,
+        _PROXY_PROTOCOL_INVALID = -EINVAL,
+} ProxyProtocol;
+
+static const char* const proxy_protocol_table[_PROXY_PROTOCOL_MAX] = {
+        [PROXY_V1] = "v1",
+};
+
+static ProxyProtocol arg_proxy_protocol = PROXY_NONE;
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(proxy_protocol, ProxyProtocol);
 
 typedef struct Context {
         sd_event *event;
@@ -297,10 +315,92 @@ static int connection_enable_event_sources(Connection *c) {
         return 0;
 }
 
+static int send_proxy_protocol_v1(Connection *c) {
+        _cleanup_free_ char *header = NULL;
+        int r, header_len;
+        union sockaddr_union local_sa, remote_sa;
+        socklen_t sa_len;
+
+        r = sd_is_socket(c->server_fd, AF_UNSPEC, SOCK_STREAM, /* listening= */ 0);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to issue SO_TYPE, reporting fallback proxy data 'UNKNOWN': %m");
+                goto unknown;
+        }
+        if (r == 0) {
+                log_warning("Only TCP is supported by the PROXY protocol, , reporting fallback proxy data 'UNKNOWN'.");
+                goto unknown;
+        }
+
+        sa_len = sizeof(local_sa);
+        if (getsockname(c->server_fd, &local_sa.sa, &sa_len) < 0) {
+                log_warning_errno(errno, "Failed to get local address (getsockname), reporting fallback proxy data 'UNKNOWN': %m");
+                goto unknown;
+        }
+
+        sa_len = sizeof(remote_sa);
+        if (getpeername(c->server_fd, &remote_sa.sa, &sa_len) < 0) {
+                log_warning_errno(errno, "Failed to get remote address (getpeername), reporting fallback proxy data 'UNKNOWN': %m");
+                goto unknown;
+        }
+
+        const char *proto = NULL;
+        switch (remote_sa.sa.sa_family) {
+
+        case AF_INET:
+                proto = "TCP4";
+                break;
+
+        case AF_INET6:
+                proto = "TCP6";
+                break;
+
+        default:
+                log_warning("Only TCP on IPv4 and IPv6 are supported, reporting fallback proxy data 'UNKNOWN'.");
+                goto unknown;
+        }
+
+        const union in_addr_union *remote_addr = sockaddr_in_addr(&remote_sa.sa);
+        const union in_addr_union *local_addr = sockaddr_in_addr(&local_sa.sa);
+
+        unsigned remote_port, local_port;
+        (void) sockaddr_port(&remote_sa.sa, &remote_port);
+        (void) sockaddr_port(&local_sa.sa, &local_port);
+
+        header_len = asprintf(&header, "PROXY %s %s %s %" PRIu16 " %" PRIu16 "\r\n",
+                         proto,
+                         IN_ADDR_TO_STRING(remote_sa.sa.sa_family, remote_addr),
+                         IN_ADDR_TO_STRING(local_sa.sa.sa_family, local_addr),
+                         remote_port,
+                         local_port);
+        if (header_len < 0)
+                return log_error_errno(errno, "Failed to allocate memory for PROXY header: %m");
+
+        r = loop_write(c->client_fd, header, header_len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write to backend host: %m");
+
+        /* success */
+        return 0;
+
+unknown:
+        /* ignore previous errors - server can decide to deny UNKNOWN connections */
+        r = loop_write(c->client_fd, "PROXY UNKNOWN\r\n", SIZE_MAX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write to backend host: %m");
+
+        return 0;
+}
+
 static int connection_complete(Connection *c) {
         int r;
 
         assert(c);
+
+        if (arg_proxy_protocol == PROXY_V1) {
+                r = send_proxy_protocol_v1(c);
+                if (r < 0)
+                        return r;
+        }
 
         r = connection_create_pipes(c, c->server_to_client_buffer, &c->server_to_client_buffer_size);
         if (r < 0)
@@ -565,6 +665,7 @@ static int help(void) {
                "  -c --connections-max=  Set the maximum number of connections to be accepted\n"
                "     --exit-idle-time=   Exit when without a connection for this duration. See\n"
                "                         the %4$s for time span format\n"
+               "     --proxy-protocol=v1  Enable PROXY protocol v1\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
                "\nSee the %5$s for details.\n",
@@ -582,12 +683,14 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_EXIT_IDLE,
-                ARG_IGNORE_ENV
+                ARG_IGNORE_ENV,
+                ARG_PROXY_PROTOCOL
         };
 
         static const struct option options[] = {
                 { "connections-max", required_argument, NULL, 'c'           },
                 { "exit-idle-time",  required_argument, NULL, ARG_EXIT_IDLE },
+                { "proxy-protocol",  required_argument, NULL, ARG_PROXY_PROTOCOL },
                 { "help",            no_argument,       NULL, 'h'           },
                 { "version",         no_argument,       NULL, ARG_VERSION   },
                 {}
@@ -625,6 +728,12 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_sec(optarg, &arg_exit_idle_time);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --exit-idle-time= argument: %s", optarg);
+                        break;
+
+                case ARG_PROXY_PROTOCOL:
+                        arg_proxy_protocol = proxy_protocol_from_string(optarg);
+                        if (arg_proxy_protocol < 0)
+                                return log_error_errno(arg_proxy_protocol, "Failed to parse --proxy-protocol= argument: %s", optarg);
                         break;
 
                 case '?':
