@@ -15,7 +15,9 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-varlink.h"
+#include "networkd-setlink.h"
 #include "stat-util.h"
+#include "strv.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
@@ -77,10 +79,16 @@ typedef struct InterfaceInfo {
         const char *ifname;
 } InterfaceInfo;
 
-static int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, Link **ret) {
-        static const sd_json_dispatch_field dispatch_table[] = {
+static int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, bool use_polkit, Link **ret) {
+        static const sd_json_dispatch_field dispatch_table_common[] = {
                 { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(InterfaceInfo, ifindex), SD_JSON_RELAX },
                 { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0             },
+                {}
+        };
+        static const sd_json_dispatch_field dispatch_table_polkit[] = {
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(InterfaceInfo, ifindex), SD_JSON_RELAX },
+                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0             },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
@@ -91,7 +99,7 @@ static int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Ma
         assert(vlink);
         assert(manager);
 
-        r = sd_varlink_dispatch(vlink, parameters, dispatch_table, &info);
+        r = sd_varlink_dispatch(vlink, parameters, use_polkit ? dispatch_table_polkit : dispatch_table_common, &info);
         if (r != 0)
                 return r;
 
@@ -138,7 +146,7 @@ static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *para
         assert(vlink);
         assert(manager);
 
-        r = dispatch_interface(vlink, parameters, manager, &link);
+        r = dispatch_interface(vlink, parameters, manager, /* use_polkit = */ false, &link);
         if (r != 0)
                 return r;
 
@@ -259,6 +267,76 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         return sd_varlink_reply(vlink, NULL);
 }
 
+static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_interface(vlink, parameters, manager, /* use_polkit = */ true, &link);
+        if (r != 0)
+                return r;
+
+        /* Require a specific link to be specified. */
+        if (!link)
+                return sd_varlink_error_invalid_parameter_name(vlink, "InterfaceIndex");
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.manage-links",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* Stop all network engines while interface is still up, then bring it down */
+        r = link_stop_engines(link, /* may_keep_dynamic = */ false);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to stop network engines: %m");
+
+        /* Now bring the interface down via netlink and reply after completion */
+        r = link_up_or_down_now_by_varlink(link, /* up = */ false, vlink);
+        if (r < 0)
+                return sd_varlink_error_errno(vlink, r);
+
+        /* Reply will be sent from the netlink completion handler. */
+        return 1;
+}
+
+static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link = NULL;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_interface(vlink, parameters, manager, /* use_polkit = */ true, &link);
+        if (r != 0)
+                return r;
+
+        /* Require a specific link to be specified. */
+        if (!link)
+                return sd_varlink_error_invalid_parameter_name(vlink, "InterfaceIndex");
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.manage-links",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = link_up_or_down_now_by_varlink(link, /* up = */ true, vlink);
+        if (r < 0)
+                return sd_varlink_error_errno(vlink, r);
+
+        /* Reply will be sent from the netlink completion handler. */
+        return 1;
+}
+
 int manager_connect_varlink(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd;
@@ -292,6 +370,8 @@ int manager_connect_varlink(Manager *m, int fd) {
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
                         "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
+                        "io.systemd.Network.SetLinkDown",          vl_method_set_link_down,
+                        "io.systemd.Network.SetLinkUp",            vl_method_set_link_up,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment);
