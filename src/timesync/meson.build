@@ -117,6 +117,18 @@ executables += [
         },
 ]
 
+if conf.get('ENABLE_TIMESYNC_NTS') == 1
+
+executables += [
+        test_template + {
+                'sources' : files('test-nts.c'),
+                'link_with' : timesyncd_link_with,
+                'dependencies' : conf.get('HAVE_OPENSSL') == 1? libopenssl : [],
+        },
+]
+
+endif
+
 custom_target(
         input : 'timesyncd.conf.in',
         output : 'timesyncd.conf',
