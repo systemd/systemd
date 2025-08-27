@@ -162,42 +162,39 @@ int dnstls_stream_on_io(DnsStream *stream, uint32_t revents) {
         }
 
         if (stream->dnstls_data.shutdown) {
+                /* NB: when a shutdown is initiated by us we'll wait until the close_notify TLS message is
+                 * sent out, but we'll not wait for the reply to it, to minimize dependencies on slow
+                 * servers */
+
                 ERR_clear_error();
                 r = SSL_shutdown(stream->dnstls_data.ssl);
-                if (r == 0) {
-                        stream->dnstls_events = 0;
-
-                        r = dnstls_flush_write_buffer(stream);
-                        if (r < 0)
-                                return r;
-
-                        return -EAGAIN;
-                } else if (r < 0) {
+                if (r < 0) {
                         error = SSL_get_error(stream->dnstls_data.ssl, r);
-                        if (IN_SET(error, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE)) {
-                                stream->dnstls_events = error == SSL_ERROR_WANT_READ ? EPOLLIN : EPOLLOUT;
-
-                                r = dnstls_flush_write_buffer(stream);
-                                if (r < 0)
-                                        return r;
-
-                                return -EAGAIN;
-                        } else if (error == SSL_ERROR_SYSCALL) {
-                                if (errno > 0)
-                                        log_debug_errno(errno, "Failed to invoke SSL_shutdown, ignoring: %m");
+                        if (error == SSL_ERROR_WANT_READ)
+                                stream->dnstls_events = EPOLLIN;
+                        else if (error == SSL_ERROR_WANT_WRITE)
+                                stream->dnstls_events = EPOLLOUT;
+                        else if (error == SSL_ERROR_SYSCALL) {
+                                if (errno != 0)
+                                        log_debug_errno(errno, "Failed to invoke SSL_shutdown(), ignoring: %m");
+                                else
+                                        log_debug("Failed to invoke SSL_shutdown(), ignoring (unknown system error).");
                         } else
-                                log_debug("Failed to invoke SSL_shutdown, ignoring: %s", DNSTLS_ERROR_STRING(error));
-                }
-
-                stream->dnstls_events = 0;
-                stream->dnstls_data.shutdown = false;
+                                log_debug("Failed to invoke SSL_shutdown(), ignoring: %s", DNSTLS_ERROR_STRING(error));
+                } else
+                        stream->dnstls_events = 0;
 
                 r = dnstls_flush_write_buffer(stream);
                 if (r < 0)
                         return r;
 
+                /* All data written? Then we are done, release the stream */
+
+                stream->dnstls_data.shutdown = false;
                 dns_stream_unref(stream);
+
                 return DNSTLS_STREAM_CLOSED;
+
         } else if (stream->dnstls_data.handshake <= 0) {
                 ERR_clear_error();
                 stream->dnstls_data.handshake = SSL_do_handshake(stream->dnstls_data.ssl);
@@ -244,45 +241,35 @@ int dnstls_stream_shutdown(DnsStream *stream, int error) {
         }
 
         if (error == ETIMEDOUT) {
-                ERR_clear_error();
-                r = SSL_shutdown(stream->dnstls_data.ssl);
-                if (r == 0) {
-                        if (!stream->dnstls_data.shutdown) {
-                                stream->dnstls_data.shutdown = true;
-                                dns_stream_ref(stream);
-                        }
-
-                        stream->dnstls_events = 0;
-
-                        r = dnstls_flush_write_buffer(stream);
-                        if (r < 0)
-                                return r;
-
-                        return -EAGAIN;
-                } else if (r < 0) {
-                        ssl_error = SSL_get_error(stream->dnstls_data.ssl, r);
-                        if (IN_SET(ssl_error, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE)) {
-                                stream->dnstls_events = ssl_error == SSL_ERROR_WANT_READ ? EPOLLIN : EPOLLOUT;
-                                r = dnstls_flush_write_buffer(stream);
-                                if (r < 0 && r != -EAGAIN)
-                                        return r;
-
-                                if (!stream->dnstls_data.shutdown) {
-                                        stream->dnstls_data.shutdown = true;
-                                        dns_stream_ref(stream);
-                                }
-                                return -EAGAIN;
-                        } else if (ssl_error == SSL_ERROR_SYSCALL) {
-                                if (errno > 0)
-                                        log_debug_errno(errno, "Failed to invoke SSL_shutdown, ignoring: %m");
-                        } else
-                                log_debug("Failed to invoke SSL_shutdown, ignoring: %s", DNSTLS_ERROR_STRING(ssl_error));
+                /* Initiate a shutdown from our side, and remember so. Pin the stream until that's complete. */
+                if (!stream->dnstls_data.shutdown) {
+                        stream->dnstls_data.shutdown = true;
+                        dns_stream_ref(stream);
                 }
 
-                stream->dnstls_events = 0;
+                ERR_clear_error();
+                r = SSL_shutdown(stream->dnstls_data.ssl);
+                if (r < 0) {
+                        ssl_error = SSL_get_error(stream->dnstls_data.ssl, r);
+                        if (ssl_error == SSL_ERROR_WANT_READ)
+                                stream->dnstls_events = EPOLLIN;
+                        else if (ssl_error == SSL_ERROR_WANT_WRITE)
+                                stream->dnstls_events = EPOLLOUT;
+                        else if (ssl_error == SSL_ERROR_SYSCALL) {
+                                if (errno != 0)
+                                        log_debug_errno(errno, "Failed to invoke SSL_shutdown(), ignoring: %m");
+                                else
+                                        log_debug("Failed to invoke SSL_shutdown(), ignoring (unknown system error).");
+                        } else
+                                log_debug("Failed to invoke SSL_shutdown(), ignoring: %s", DNSTLS_ERROR_STRING(error));
+                } else
+                        stream->dnstls_events = 0;
+
                 r = dnstls_flush_write_buffer(stream);
                 if (r < 0)
                         return r;
+
+                /* dnstls_stream_on_io() will complete the shutdown for us */
         }
 
         return 0;
