@@ -166,4 +166,5 @@ EOF
 
 run_testcases
 
-touch /testok
+#touch /testok
+exit 1
