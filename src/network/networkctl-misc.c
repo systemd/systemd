@@ -21,7 +21,6 @@
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
-#include "strv-fundamental.h"
 #include "varlink-util.h"
 
 int link_up_down(int argc, char *argv[], void *userdata) {
@@ -32,6 +31,9 @@ int link_up_down(int argc, char *argv[], void *userdata) {
         is_down_command = streq(argv[0], "down");
 
         const char *method = is_down_command ? "io.systemd.Network.SetLinkDown" : "io.systemd.Network.SetLinkUp";
+
+        /* Allow interactive polkit auth, mirroring other tools. */
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = varlink_connect_networkd(&vl);
         if (r < 0)
@@ -44,13 +46,15 @@ int link_up_down(int argc, char *argv[], void *userdata) {
                                         vl,
                                         method,
                                         /* reply = */ NULL,
-                                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", r));
+                                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", r),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
                 else
                         r = varlink_callbo_and_log(
                                         vl,
                                         method,
                                         /* reply = */ NULL,
-                                        SD_JSON_BUILD_PAIR_STRING("InterfaceName", *s));
+                                        SD_JSON_BUILD_PAIR_STRING("InterfaceName", *s),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
                 RET_GATHER(ret, r);
         }
 
