@@ -19,6 +19,7 @@
 #include "networkd-setlink.h"
 #include "stat-util.h"
 #include "strv.h"
+#include "time-util.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
@@ -284,6 +285,12 @@ static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameter
         if (r <= 0)
                 return r;
 
+        /* Check if interface is already down */
+        if (!FLAGS_SET(link->flags, IFF_UP)) {
+                log_debug("Interface %s is already down, skipping", link->ifname);
+                return sd_varlink_reply(vlink, NULL);
+        }
+
         /* Stop all network engines while interface is still up, then bring it down */
         r = link_stop_engines(link, /* may_keep_dynamic = */ false);
         if (r < 0)
@@ -316,6 +323,12 @@ static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters,
                         &manager->polkit_registry);
         if (r <= 0)
                 return r;
+
+        /* Check if interface is already up */
+        if (FLAGS_SET(link->flags, IFF_UP)) {
+                log_debug("Interface %s is already up, skipping", link->ifname);
+                return sd_varlink_reply(vlink, NULL);
+        }
 
         r = link_request_to_bring_up_or_down(link, true);
         if (r < 0)
