@@ -5470,7 +5470,7 @@ static int run_container(
         }
 
         bool scope_allocated = false;
-        if (!arg_keep_unit && (!arg_register || !arg_privileged)) {
+        if (!arg_keep_unit) {
                 AllocateScopeFlags flags = ALLOCATE_SCOPE_ALLOW_PIDFD;
                 r = allocate_scope(
                                 runtime_bus,
@@ -5489,10 +5489,8 @@ static int run_container(
                 scope_allocated = true;
         }
 
-        bool registered = false;
+        bool registered_system = false, registered_runtime = false;
         if (arg_register) {
-                RegisterMachineFlags flags = 0;
-                SET_FLAG(flags, REGISTER_MACHINE_KEEP_UNIT, arg_keep_unit || !arg_privileged);
                 r = register_machine(
                                 system_bus,
                                 arg_machine,
@@ -5500,18 +5498,26 @@ static int run_container(
                                 arg_directory,
                                 arg_uuid,
                                 ifi,
-                                arg_slice,
-                                arg_custom_mounts, arg_n_custom_mounts,
-                                arg_kill_signal,
-                                arg_property,
-                                arg_property_message,
-                                arg_container_service_name,
-                                arg_start_mode,
-                                flags);
+                                arg_container_service_name);
                 if (r < 0)
                         return r;
 
-                registered = true;
+                registered_system = true;
+
+                if (!arg_privileged) {
+                        r = register_machine(
+                                        runtime_bus,
+                                        arg_machine,
+                                        pid,
+                                        arg_directory,
+                                        arg_uuid,
+                                        ifi,
+                                        arg_container_service_name);
+                        if (r < 0)
+                                return r;
+
+                        registered_runtime = true;
+                }
         }
 
         if (arg_keep_unit && (arg_slice || arg_property))
@@ -5723,8 +5729,10 @@ static int run_container(
         r = wait_for_container(pid, &container_status);
 
         /* Tell machined that we are gone. */
-        if (registered)
+        if (registered_system)
                 (void) unregister_machine(system_bus, arg_machine);
+        if (registered_runtime)
+                (void) unregister_machine(runtime_bus, arg_machine);
 
         if (r < 0)
                 /* We failed to wait for the container, or the container exited abnormally. */
