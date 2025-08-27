@@ -1233,11 +1233,10 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         assert(lease_file);
 
         r = fopen_temporary(lease_file, &f, &temp_path);
-        if (r < 0) {
-                log_error("Failed to create temporary file: %s", strerror(-r));
+        if (r < 0)
                 return r;
 
-        }
+
         (void) fchmod(fileno(f), 0644);
 
         fprintf(f,
