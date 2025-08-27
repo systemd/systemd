@@ -125,6 +125,20 @@ executables += [
                 'link_with' : timesyncd_link_with,
                 'dependencies' : conf.get('HAVE_OPENSSL') == 1? libopenssl : [],
         },
+        fuzz_template + {
+                'sources' : files('fuzz-nts.c'),
+                'link_with' : [
+                        libshared,
+                        libtimesyncd_nts,
+                ],
+        },
+        fuzz_template + {
+                'sources' : files('fuzz-nts-extfields.c'),
+                'link_with' : [
+                        libshared,
+                        libtimesyncd_nts,
+                ],
+        },
 ]
 
 endif
