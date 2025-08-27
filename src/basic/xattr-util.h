@@ -54,3 +54,6 @@ int getcrtime_at(int fd, const char *path, int at_flags, usec_t *ret);
 static inline int fd_getcrtime(int fd, usec_t *ret) {
         return getcrtime_at(fd, NULL, 0, ret);
 }
+
+bool xattr_is_acl(const char *name);
+bool xattr_is_selinux(const char *name);

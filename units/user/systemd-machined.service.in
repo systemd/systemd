@@ -13,24 +13,16 @@ Documentation=man:systemd-machined.service(8)
 Documentation=man:org.freedesktop.machine1(5)
 Wants=machine.slice
 After=machine.slice
-RequiresMountsFor=/var/lib/machines
 
 [Service]
 BusName=org.freedesktop.machine1
-CapabilityBoundingSet=CAP_KILL CAP_SYS_PTRACE CAP_SYS_ADMIN CAP_SETGID CAP_SYS_CHROOT CAP_DAC_READ_SEARCH CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER CAP_FSETID CAP_MKNOD CAP_LINUX_IMMUTABLE
-ExecStart={{LIBEXECDIR}}/systemd-machined
-IPAddressDeny=any
+ExecStart={{LIBEXECDIR}}/systemd-machined --user
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
-ProtectHostname=yes
 RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
 RestrictRealtime=yes
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service @mount
 {{SERVICE_WATCHDOG}}
-
-# Note that machined cannot be placed in a mount namespace, since it
-# needs access to the host's mount namespace in order to implement the
-# "machinectl bind" operation.
