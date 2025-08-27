@@ -5380,10 +5380,10 @@ static int run_container(
                 (void) sd_bus_set_allow_interactive_authorization(system_bus, arg_ask_password);
         }
 
-        /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
-        if (!arg_keep_unit) {
+
+        if (arg_register || !arg_keep_unit) {
                 if (arg_privileged)
                         runtime_bus = sd_bus_ref(system_bus);
                 else {
@@ -5397,7 +5397,22 @@ static int run_container(
 
                         runtime_bus = sd_bus_ref(user_bus);
                 }
+        }
 
+        /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
+        if (arg_keep_unit) {
+                /* If we are not supposed to allocate a unit, then let's move the process now, so that we can
+                 * register things while being in the right cgroup location already. Otherwise, let's move
+                 * the process later, once we have unit and hence cgroup. */
+                r = create_subcgroup(
+                                pid,
+                                arg_keep_unit,
+                                arg_uid_shift,
+                                userns_fd,
+                                arg_userns_mode);
+                if (r < 0)
+                        return r;
+        } else {
                 /* When a new scope is created for this container, then we'll be registered as its controller, in which
                  * case PID 1 will send us a friendly RequestStop signal, when it is asked to terminate the
                  * scope. Let's hook into that, and cleanly shut down the container, and print a friendly message. */
@@ -5416,22 +5431,8 @@ static int run_container(
                         return log_error_errno(r, "Failed to request RequestStop match: %m");
         }
 
-        if (arg_keep_unit) {
-                /* If we are not supposed to allocate a unit, then let's move the process now, so that we can
-                 * register things while being in the right cgroup location already. Otherwise, let's move
-                 * the process later, once we have unit and hence cgroup. */
-                r = create_subcgroup(
-                                pid,
-                                arg_keep_unit,
-                                arg_uid_shift,
-                                userns_fd,
-                                arg_userns_mode);
-                if (r < 0)
-                        return r;
-        }
-
         bool scope_allocated = false;
-        if (!arg_keep_unit && (!arg_register || !arg_privileged)) {
+        if (!arg_keep_unit) {
                 AllocateScopeFlags flags = ALLOCATE_SCOPE_ALLOW_PIDFD;
                 r = allocate_scope(
                                 runtime_bus,
@@ -5450,10 +5451,8 @@ static int run_container(
                 scope_allocated = true;
         }
 
-        bool registered = false;
+        bool registered_system = false, registered_runtime = false;
         if (arg_register) {
-                RegisterMachineFlags flags = 0;
-                SET_FLAG(flags, REGISTER_MACHINE_KEEP_UNIT, arg_keep_unit || !arg_privileged);
                 r = register_machine(
                                 system_bus,
                                 arg_machine,
@@ -5461,18 +5460,32 @@ static int run_container(
                                 arg_directory,
                                 arg_uuid,
                                 ifi,
-                                arg_slice,
-                                arg_custom_mounts, arg_n_custom_mounts,
-                                arg_kill_signal,
-                                arg_property,
-                                arg_property_message,
-                                arg_container_service_name,
-                                arg_start_mode,
-                                flags);
-                if (r < 0)
-                        return r;
+                                arg_container_service_name);
+                if (r < 0) {
+                        if (arg_privileged) /* if privileged the request to register definitely failed */
+                                return r;
 
-                registered = true;
+                        log_notice_errno(r, "Failed to register machine in system context, will try in user context.");
+                } else
+                        registered_system = true;
+
+                if (!arg_privileged) {
+                        r = register_machine(
+                                        runtime_bus,
+                                        arg_machine,
+                                        pid,
+                                        arg_directory,
+                                        arg_uuid,
+                                        ifi,
+                                        arg_container_service_name);
+                        if (r < 0) {
+                                if (!registered_system) /* neither registration worked: fail */
+                                        return r;
+
+                                log_notice_errno(r, "Failed to register machine in user context, but succeeded in system context, will proceed.");
+                        } else
+                                registered_runtime = true;
+                }
         }
 
         if (arg_keep_unit && (arg_slice || arg_property))
@@ -5684,8 +5697,10 @@ static int run_container(
         r = wait_for_container(pid, &container_status);
 
         /* Tell machined that we are gone. */
-        if (registered)
+        if (registered_system)
                 (void) unregister_machine(system_bus, arg_machine);
+        if (registered_runtime)
+                (void) unregister_machine(runtime_bus, arg_machine);
 
         if (r < 0)
                 /* We failed to wait for the container, or the container exited abnormally. */
