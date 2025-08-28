@@ -652,6 +652,15 @@ units = [
           'symlinks' : ['sysinit.target.wants/', 'initrd-root-fs.target.wants/'],
         },
         {
+          'file' : 'systemd-repart.socket',
+          'conditions' : ['ENABLE_REPART'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-repart@.service',
+          'conditions' : ['ENABLE_REPART'],
+        },
+        {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],
         },
