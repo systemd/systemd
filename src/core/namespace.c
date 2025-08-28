@@ -1621,15 +1621,10 @@ static int mount_image(
                 const ImagePolicy *image_policy) {
 
         _cleanup_(extension_release_data_done) ExtensionReleaseData rdata = {};
-        _cleanup_free_ char *extension_name = NULL;
         ImageClass required_class = _IMAGE_CLASS_INVALID;
         int r;
 
         assert(m);
-
-        r = path_extract_filename(mount_entry_source(m), &extension_name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
 
         if (m->mode == MOUNT_EXTENSION_IMAGE) {
                 r = parse_os_release(
