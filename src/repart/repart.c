@@ -9830,7 +9830,12 @@ done:
         return 1;
 }
 
-static int determine_auto_size(Context *c, uint64_t *ret) {
+static int determine_auto_size(
+                Context *c,
+                int level,
+                bool ignore_allocated, /* If true, determines unallocated space needed */
+                uint64_t *ret) {
+
         uint64_t sum;
 
         assert(c);
@@ -9847,16 +9852,21 @@ static int determine_auto_size(Context *c, uint64_t *ret) {
                 if (m > UINT64_MAX - sum)
                         return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Image would grow too large, refusing.");
 
+                if (ignore_allocated && PARTITION_EXISTS(p))
+                        m = LESS_BY(m, p->current_size + p->current_padding);
+
                 sum += m;
         }
 
         if (c->total != UINT64_MAX)
                 /* Image already allocated? Then show its size. */
-                log_info("Automatically determined minimal disk image size as %s, current block device/image size is %s.",
+                log_full(level,
+                         "Automatically determined minimal disk image size as %s, current block device/image size is %s.",
                          FORMAT_BYTES(sum), FORMAT_BYTES(c->total));
         else
                 /* If the image is being created right now, then it has no previous size, suppress any comment about it hence. */
-                log_info("Automatically determined minimal disk image size as %s.",
+                log_full(level,
+                         "Automatically determined minimal disk image size as %s.",
                          FORMAT_BYTES(sum));
 
         if (ret)
@@ -9987,6 +9997,162 @@ static int vl_method_list_candidate_devices(
         return sd_varlink_reply(link, v);
 }
 
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_empty_mode, EmptyMode, empty_mode_from_string);
+
+typedef struct RunParameters {
+        char *node;
+        EmptyMode empty;
+        bool dry_run;
+        sd_id128_t seed;
+        char **definitions;
+} RunParameters;
+
+static void run_parameters_done(RunParameters *p) {
+        assert(p);
+
+        p->node = mfree(p->node);
+        p->definitions = strv_free(p->definitions);
+}
+
+static int vl_method_run(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "node",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(RunParameters, node),        SD_JSON_NULLABLE                 },
+                { "empty",       SD_JSON_VARIANT_STRING,  json_dispatch_empty_mode, offsetof(RunParameters, empty),       SD_JSON_MANDATORY                },
+                { "seed",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_id128,   offsetof(RunParameters, seed),        SD_JSON_NULLABLE                 },
+                { "dryRun",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, dry_run),     SD_JSON_MANDATORY                },
+                { "definitions", SD_JSON_VARIANT_ARRAY,   json_dispatch_strv_path,  offsetof(RunParameters, definitions), SD_JSON_MANDATORY|SD_JSON_STRICT },
+                {}
+        };
+
+        int r;
+
+        assert(link);
+
+        _cleanup_(run_parameters_done) RunParameters p = {
+                .empty = _EMPTY_MODE_INVALID,
+                .dry_run = true,
+        };
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        /* If no device node is specified, this is a dry run. Refuse if the caller claims otherwise. */
+        if (!p.node && !p.dry_run)
+                return sd_varlink_error_invalid_parameter_name(link, "dryRun");
+
+        _cleanup_(context_freep) Context* context = NULL;
+        context = context_new(
+                        p.definitions,
+                        p.empty,
+                        p.dry_run,
+                        p.seed,
+                        /* certificate= */ NULL,
+                        /* private_key= */ NULL);
+        if (!context)
+                return log_oom();
+
+        r = context_read_seed(context, arg_root);
+        if (r < 0)
+                return r;
+
+        r = context_read_definitions(context);
+        if (r < 0)
+                return r;
+
+        if (p.node) {
+                context->node = TAKE_PTR(p.node);
+
+                r = context_load_partition_table(context);
+                if (r == -EHWPOISON)
+                        return sd_varlink_error(link, "io.systemd.Repart.ConflictingDiskLabelPresent", NULL);
+        } else
+                r = context_load_fallback_metrics(context);
+        if (r < 0)
+                return r;
+        context->from_scratch = r > 0; /* Starting from scratch */
+
+        r = context_open_copy_block_paths(context, (dev_t) -1);
+        if (r < 0)
+                return r;
+
+        r = context_acquire_partition_uuids_and_labels(context);
+        if (r < 0)
+                return r;
+
+        r = context_update_verity_size(context);
+        if (r < 0)
+                return r;
+
+        r = context_minimize(context);
+        if (r < 0)
+                return r;
+
+        /* If we have no node, just sum up how much space we need */
+        if (!context->node) {
+                /* Check if space issue is caused by the whole disk being too small */
+                uint64_t size;
+                r = determine_auto_size(context, LOG_DEBUG, /* ignore_allocated= */ false, &size);
+                if (r < 0)
+                        return r;
+
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size));
+        }
+
+        r = context_ponder(context);
+        if (r == -ENOSPC) {
+                /* Check if space issue is caused by the whole disk being too small */
+                uint64_t size = UINT64_MAX;
+                (void) determine_auto_size(context, LOG_DEBUG, /* ignore_allocated= */ false, &size);
+                if (size != UINT64_MAX && context->total != UINT64_MAX && size > context->total)
+                        return sd_varlink_errorbo(
+                                        link,
+                                        "io.systemd.Repart.DiskTooSmall",
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", context->total));
+
+                /* Or if the disk would fit, but theres's not enough unallocated space */
+                uint64_t need_free = UINT64_MAX;
+                (void) determine_auto_size(context, LOG_DEBUG, /* ignore_allocated= */ true, &need_free);
+                return sd_varlink_errorbo(
+                                link,
+                                "io.systemd.Repart.InsufficientFreeSpace",
+                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", size, UINT64_MAX),
+                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", need_free, UINT64_MAX),
+                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", context->total, UINT64_MAX));
+        }
+        if (r < 0)
+                return r;
+
+        if (p.dry_run) {
+                uint64_t size;
+
+                /* If we are doing a dry-run, report the minimal size. */
+                r = determine_auto_size(context, LOG_DEBUG, /* ignore_allocated= */ false, &size);
+                if (r < 0)
+                        return r;
+
+                return sd_varlink_replybo(
+                                link,
+                                SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size),
+                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", context->total, UINT64_MAX));
+        }
+
+        r = context_write_partition_table(context);
+        if (r < 0)
+                return r;
+
+        context_disarm_auto_removal(context);
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
         int r;
@@ -10006,7 +10172,8 @@ static int vl_server(void) {
 
         r = sd_varlink_server_bind_method_many(
                         varlink_server,
-                        "io.systemd.Repart.ListCandidateDevices", vl_method_list_candidate_devices);
+                        "io.systemd.Repart.ListCandidateDevices", vl_method_list_candidate_devices,
+                        "io.systemd.Repart.Run",                  vl_method_run);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
@@ -10221,12 +10388,12 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_node_none) {
-                (void) determine_auto_size(context, /* size= */ NULL);
+                (void) determine_auto_size(context, LOG_INFO, /* ignore_allocated= */ false, /* ret= */ NULL);
                 return 0;
         }
 
         if (arg_size_auto) {
-                r = determine_auto_size(context, &arg_size);
+                r = determine_auto_size(context, LOG_INFO, /* ignore_allocated= */ false, &arg_size);
                 if (r < 0)
                         return r;
 
@@ -10251,7 +10418,7 @@ static int run(int argc, char *argv[]) {
         r = context_ponder(context);
         if (r == -ENOSPC) {
                 /* When we hit space issues, tell the user the minimal size. */
-                (void) determine_auto_size(context, /* size= */ NULL);
+                (void) determine_auto_size(context, LOG_INFO, /* ignore_allocated= */ false, /* ret= */ NULL);
                 return r;
         }
         if (r < 0)
