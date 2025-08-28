@@ -146,7 +146,7 @@ static int show_log_ids(const LogId *ids, size_t n_ids, const char *name) {
 
         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, !arg_quiet);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         return 0;
 }
