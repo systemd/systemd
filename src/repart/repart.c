@@ -31,6 +31,7 @@
 #include "efivars.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "factory-reset.h"
 #include "fd-util.h"
@@ -2368,8 +2369,7 @@ static int config_parse_mountpoint(
         }
 
         const char *q = rvalue;
-        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNQUOTE,
-                               &where, &options);
+        r = extract_first_word(&q, &where, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNQUOTE);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -2377,20 +2377,19 @@ static int config_parse_mountpoint(
                            "Invalid syntax in %s=, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
-        if (r < 1) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Too few arguments in %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
-        if (!isempty(q)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Too many arguments in %s=, ignoring: %s", lvalue, rvalue);
-                return 0;
-        }
 
         r = path_simplify_and_warn(where, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
         if (r < 0)
                 return 0;
+
+        if (!isempty(q)) {
+                ssize_t len = cunescape(q, /* flags = */ 0, &options);
+                if (len < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, len,
+                                   "Cannot unescape options in %s=, ignoring: %s", lvalue, q);
+                        return 0;
+                }
+        }
 
         if (!GREEDY_REALLOC(p->mountpoints, p->n_mountpoints + 1))
                 return log_oom();
