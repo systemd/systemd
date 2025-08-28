@@ -54,6 +54,7 @@ foreach item : [
         ['systemd-resolve',     'ENABLE_RESOLVE'],
         ['systemd-run',         ''],
         ['systemd-sysext',      'ENABLE_SYSEXT'],
+        ['systemd-sysinstall',  'ENABLE_SYSINSTALL'],
         ['systemd-vmspawn',     'ENABLE_VMSPAWN'],
         ['systemd-vpick',       ''],
         ['timedatectl',         'ENABLE_TIMEDATED'],
