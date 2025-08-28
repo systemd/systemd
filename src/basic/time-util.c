@@ -1697,6 +1697,15 @@ int get_timezone(char **ret) {
         return strdup_to(ret, e);
 }
 
+int get_timezone_prefer_env(char **ret) {
+        const char *e = getenv("TZ");
+
+        if (e && e[0] == ':' && timezone_is_valid(e + 1, LOG_DEBUG))
+                return strdup_to(ret, e + 1);
+
+        return get_timezone(ret);
+}
+
 const char* etc_localtime(void) {
         static const char *cached = NULL;
 
