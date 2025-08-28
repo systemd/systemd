@@ -2338,6 +2338,8 @@ static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, boo
                            TABLE_FIELD, "Default Route",
                            TABLE_SET_MINIMUM_WIDTH, 19,
                            TABLE_BOOLEAN, delegate_info.default_route);
+        if (r < 0)
+                return table_log_add_error(r);
 
         r = table_print(table, NULL);
         if (r < 0)
