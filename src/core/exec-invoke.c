@@ -5040,6 +5040,9 @@ int exec_invoke(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid command line arguments.");
         }
 
+        if (params->debug_wait)
+                raise(SIGSTOP);
+
         if (context->std_input == EXEC_INPUT_SOCKET ||
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
