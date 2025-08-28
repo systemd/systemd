@@ -1631,6 +1631,7 @@ foreach term : ['analyze',
                 'rfkill',
                 'smack',
                 'sysext',
+                'sysinstall',
                 'sysusers',
                 'timedated',
                 'timesyncd',
@@ -2403,6 +2404,7 @@ subdir('src/storagetm')
 subdir('src/sulogin-shell')
 subdir('src/sysctl')
 subdir('src/sysext')
+subdir('src/sysinstall')
 subdir('src/system-update-generator')
 subdir('src/systemctl')
 subdir('src/sysupdate')
@@ -3107,6 +3109,7 @@ foreach tuple : [
         ['sysupdate'],
         ['sysupdated'],
         ['sysusers'],
+        ['sysinstall'],
         ['storagetm'],
         ['timedated'],
         ['timesyncd'],
