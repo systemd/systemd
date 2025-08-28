@@ -4,10 +4,11 @@
 #include "forward.h"
 
 typedef enum BlockDevListFlags {
-        BLOCKDEV_LIST_SHOW_SYMLINKS              = 1 << 0,
-        BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING = 1 << 1,
-        BLOCKDEV_LIST_IGNORE_ZRAM                = 1 << 2,
-        BLOCKDEV_LIST_REQUIRE_LUKS               = 1 << 3,
+        BLOCKDEV_LIST_SHOW_SYMLINKS              = 1 << 0, /* Pick up symlinks to block devices too */
+        BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING = 1 << 1, /* Only consider block devices with partition scanning */
+        BLOCKDEV_LIST_IGNORE_ZRAM                = 1 << 2, /* Ignore ZRAM */
+        BLOCKDEV_LIST_REQUIRE_LUKS               = 1 << 3, /* Only consider block devices with LUKS superblocks */
+        BLOCKDEV_LIST_IGNORE_ROOT                = 1 << 4, /* Ignore the block device we are currently booted from */
 } BlockDevListFlags;
 
 typedef struct BlockDevice {
