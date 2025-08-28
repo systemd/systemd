@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "varlink-io.systemd.Network.h"
+#include "bus-polkit.h"
 
 static SD_VARLINK_DEFINE_METHOD(
                 GetStates,
@@ -45,6 +46,22 @@ static SD_VARLINK_DEFINE_METHOD(
                 SetPersistentStorage,
                 SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetLinkDown,
+                SD_VARLINK_FIELD_COMMENT("Kernel interface index. If specified together with InterfaceName, both must reference the same link."),
+                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface name. If specified together with InterfaceIndex, both must reference the same link."),
+                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetLinkUp,
+                SD_VARLINK_FIELD_COMMENT("Kernel interface index. If specified together with InterfaceName, both must reference the same link."),
+                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface name. If specified together with InterfaceIndex, both must reference the same link."),
+                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -54,6 +71,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_GetNamespaceId,
                 &vl_method_GetLLDPNeighbors,
                 &vl_method_SetPersistentStorage,
+                SD_VARLINK_SYMBOL_COMMENT("Bring the specified link administratively down (clears IFF_UP)."),
+                &vl_method_SetLinkDown,
+                SD_VARLINK_SYMBOL_COMMENT("Bring the specified link administratively up (sets IFF_UP)."),
+                &vl_method_SetLinkUp,
                 &vl_type_LLDPNeighbor,
                 &vl_type_LLDPNeighborsByInterface,
                 &vl_error_StorageReadOnly);
