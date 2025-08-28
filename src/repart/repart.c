@@ -9839,6 +9839,61 @@ static int determine_auto_size(Context *c) {
         return 0;
 }
 
+static int context_ponder(Context *context) {
+        int r;
+
+        assert(context);
+
+        /* First try to fit new partitions in, dropping by priority until it fits */
+        for (;;) {
+                uint64_t largest_free_area;
+
+                if (context_allocate_partitions(context, &largest_free_area))
+                        break; /* Success! */
+
+                if (context_unmerge_and_allocate_partitions(context))
+                        break; /* We had to un-suppress a supplement or few, but still success! */
+
+                if (context_drop_or_foreignize_one_priority(context))
+                        continue; /* Still no luck. Let's drop a priority and try again. */
+
+                /* No more priorities left to drop. This configuration just doesn't fit on this disk... */
+                r = log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                    "Can't fit requested partitions into available free space (%s), refusing.",
+                                    FORMAT_BYTES(largest_free_area));
+                (void) determine_auto_size(context);
+                return r;
+        }
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (!p->supplement_for)
+                        continue;
+
+                if (PARTITION_SUPPRESSED(p)) {
+                        assert(!p->allocated_to_area);
+                        p->dropped = true;
+
+                        log_debug("Partition %s can be merged into %s, suppressing supplement.",
+                                  p->definition_path, p->supplement_for->definition_path);
+                } else if (PARTITION_EXISTS(p))
+                        log_info("Partition %s already exists on disk, using supplement verbatim.",
+                                 p->definition_path);
+                else
+                        log_info("Couldn't allocate partitions with %s merged into %s, using supplement verbatim.",
+                                 p->definition_path, p->supplement_for->definition_path);
+        }
+
+        /* Now assign free space according to the weight logic */
+        r = context_grow_partitions(context);
+        if (r < 0)
+                return r;
+
+        /* Now calculate where each new partition gets placed */
+        context_place_partitions(context);
+
+        return 0;
+}
+
 static int vl_method_list_candidate_devices(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -10162,52 +10217,9 @@ static int run(int argc, char *argv[]) {
                         return r;
         }
 
-        /* First try to fit new partitions in, dropping by priority until it fits */
-        for (;;) {
-                uint64_t largest_free_area;
-
-                if (context_allocate_partitions(context, &largest_free_area))
-                        break; /* Success! */
-
-                if (context_unmerge_and_allocate_partitions(context))
-                        break; /* We had to un-suppress a supplement or few, but still success! */
-
-                if (context_drop_or_foreignize_one_priority(context))
-                        continue; /* Still no luck. Let's drop a priority and try again. */
-
-                /* No more priorities left to drop. This configuration just doesn't fit on this disk... */
-                r = log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                    "Can't fit requested partitions into available free space (%s), refusing.",
-                                    FORMAT_BYTES(largest_free_area));
-                determine_auto_size(context);
-                return r;
-        }
-
-        LIST_FOREACH(partitions, p, context->partitions) {
-                if (!p->supplement_for)
-                        continue;
-
-                if (PARTITION_SUPPRESSED(p)) {
-                        assert(!p->allocated_to_area);
-                        p->dropped = true;
-
-                        log_debug("Partition %s can be merged into %s, suppressing supplement.",
-                                  p->definition_path, p->supplement_for->definition_path);
-                } else if (PARTITION_EXISTS(p))
-                        log_info("Partition %s already exists on disk, using supplement verbatim.",
-                                 p->definition_path);
-                else
-                        log_info("Couldn't allocate partitions with %s merged into %s, using supplement verbatim.",
-                                 p->definition_path, p->supplement_for->definition_path);
-        }
-
-        /* Now assign free space according to the weight logic */
-        r = context_grow_partitions(context);
+        r = context_ponder(context);
         if (r < 0)
                 return r;
-
-        /* Now calculate where each new partition gets placed */
-        context_place_partitions(context);
 
         (void) context_dump(context, /*late=*/ false);
 
