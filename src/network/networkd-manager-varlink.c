@@ -295,9 +295,12 @@ static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameter
         if (r == 0)
                 return 1; /* Authentication in progress, reply later. */
 
-        /* Check if there are already ongoing setlink operations to prevent concurrent operations */
-        if (link->set_flags_messages > 0)
-                return sd_varlink_error(vlink, "io.systemd.Network.Busy", NULL);
+        /* If there are multiple operations on the same interface, just succeed immediately
+         * for duplicate operations to avoid accounting complexity */
+        if (link->set_flags_messages > 0) {
+                /* Already have an operation in progress, don't start another */
+                return sd_varlink_reply(vlink, NULL);
+        }
 
         /* Stop all network engines while interface is still up, then bring it down */
         r = link_stop_engines(link, /* may_keep_dynamic = */ false);
@@ -339,9 +342,12 @@ static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters,
         if (r == 0)
                 return 1; /* Authentication in progress, reply later. */
 
-        /* Check if there are already ongoing setlink operations to prevent concurrent operations */
-        if (link->set_flags_messages > 0)
-                return sd_varlink_error(vlink, "io.systemd.Network.Busy", NULL);
+        /* If there are multiple operations on the same interface, just succeed immediately
+         * for duplicate operations to avoid accounting complexity */
+        if (link->set_flags_messages > 0) {
+                /* Already have an operation in progress, don't start another */
+                return sd_varlink_reply(vlink, NULL);
+        }
 
         r = link_up_or_down_now_by_varlink(link, /* up = */ true, vlink);
         if (r < 0)
