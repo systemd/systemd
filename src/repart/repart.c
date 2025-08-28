@@ -9,6 +9,7 @@
 
 #include "sd-id128.h"
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
@@ -79,6 +80,8 @@
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "utf8.h"
+#include "varlink-io.systemd.Repart.h"
+#include "varlink-util.h"
 #include "xattr-util.h"
 
 /* If not configured otherwise use a minimal partition size of 10M */
@@ -202,6 +205,7 @@ static AppendMode arg_append_fstab = APPEND_NO;
 static char *arg_generate_fstab = NULL;
 static char *arg_generate_crypttab = NULL;
 static Set *arg_verity_settings = NULL;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -9265,6 +9269,14 @@ static int parse_argv(
         if (arg_append_fstab && !arg_generate_fstab)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No --generate-fstab= specified for --append-fstab=%s.", append_mode_to_string(arg_append_fstab));
 
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0) {
+                arg_varlink = true;
+                arg_pager_flags |= PAGER_DISABLE;
+        }
+
         *ret_certificate = TAKE_PTR(certificate);
         *ret_private_key = TAKE_PTR(private_key);
         *ret_ui = TAKE_PTR(ui);
@@ -9689,6 +9701,89 @@ static int determine_auto_size(Context *c) {
         return 0;
 }
 
+static int vl_method_list_candidate_devices(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        BlockDevice *l = NULL;
+        size_t n = 0;
+        CLEANUP_ARRAY(l, n, block_device_array_free);
+
+        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|BLOCKDEV_LIST_IGNORE_ZRAM, &l, &n);
+        if (r < 0)
+                return r;
+
+        if (n == 0)
+                return sd_varlink_error(link, "io.systemd.Repart.NoCandidateDevices", NULL);
+
+        /* We do not use FOREACH_ARRAY() here, since we want to know which the last entry is */
+        for (size_t i = 0; i < n; i++) {
+                BlockDevice *d = l + i;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                r = sd_json_buildo(
+                                &v,
+                                SD_JSON_BUILD_PAIR_STRING("node", d->node),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("symlinks", d->symlinks),
+                                SD_JSON_BUILD_PAIR_CONDITION(d->diskseq != UINT64_MAX, "diskseq", SD_JSON_BUILD_INTEGER(d->diskseq)),
+                                SD_JSON_BUILD_PAIR_CONDITION(d->size != UINT64_MAX, "sizeBytes", SD_JSON_BUILD_INTEGER(d->size)));
+                if (r < 0)
+                        return r;
+
+                if (i >= n-1) /* last item */
+                        return sd_varlink_reply(link, v);
+
+                r = sd_varlink_notify(link, v);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        /* Invocation as Varlink service */
+
+        r = varlink_server_new(
+                        &varlink_server,
+                        SD_VARLINK_SERVER_ROOT_ONLY,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Repart);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server,
+                        "io.systemd.Repart.ListCandidateDevices", vl_method_list_candidate_devices);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(X509_freep) X509 *certificate = NULL;
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
@@ -9705,6 +9800,13 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
+#if HAVE_LIBCRYPTSETUP
+        cryptsetup_enable_logging(NULL);
+#endif
+
+        if (arg_varlink)
+                return vl_server();
+
         r = parse_proc_cmdline_factory_reset();
         if (r < 0)
                 return r;
@@ -9712,10 +9814,6 @@ static int run(int argc, char *argv[]) {
         r = parse_efi_variable_factory_reset();
         if (r < 0)
                 return r;
-
-#if HAVE_LIBCRYPTSETUP
-        cryptsetup_enable_logging(NULL);
-#endif
 
         if (arg_image) {
                 assert(!arg_root);
