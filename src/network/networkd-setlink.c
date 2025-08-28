@@ -1302,7 +1302,8 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
                 return 0;
         }
 
-        link->set_flags_messages++;
+        link->set_flags_messages++; /* Account for the additional getlink call */
+
         return 0;
 }
 
@@ -1383,6 +1384,8 @@ static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_mess
         r = link_call_getlink(link, get_link_update_flag_handler);
         if (r < 0)
                 link_enter_failed(link);
+        else
+                link->set_flags_messages++; /* Account for the additional getlink call */
 
 reply:
         if (vlink) {
