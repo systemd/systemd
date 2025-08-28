@@ -45,6 +45,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
+#include "prompt-util.h"
 #include "runtime-scope.h"
 #include "smack-util.h"
 #include "stat-util.h"
@@ -144,102 +145,6 @@ static void print_welcome(int rfd) {
         done = true;
 }
 
-static int get_completions(
-                const char *key,
-                char ***ret_list,
-                void *userdata) {
-
-        int r;
-
-        if (!userdata) {
-                *ret_list = NULL;
-                return 0;
-        }
-
-        _cleanup_strv_free_ char **copy = strv_copy(userdata);
-        if (!copy)
-                return -ENOMEM;
-
-        r = strv_extend(&copy, "list");
-        if (r < 0)
-                return r;
-
-        *ret_list = TAKE_PTR(copy);
-        return 0;
-}
-
-static int prompt_loop(
-                int rfd,
-                const char *text,
-                char **l,
-                unsigned ellipsize_percentage,
-                bool (*is_valid)(int rfd, const char *name),
-                char **ret) {
-
-        int r;
-
-        assert(text);
-        assert(is_valid);
-        assert(ret);
-
-        for (;;) {
-                _cleanup_free_ char *p = NULL;
-
-                r = ask_string_full(
-                                &p,
-                                get_completions,
-                                l,
-                                strv_isempty(l) ? "%s %s (empty to skip): "
-                                                : "%s %s (empty to skip, \"list\" to list options): ",
-                                glyph(GLYPH_TRIANGULAR_BULLET), text);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query user: %m");
-
-                if (isempty(p)) {
-                        log_info("No data entered, skipping.");
-                        return 0;
-                }
-
-                if (!strv_isempty(l)) {
-                        if (streq(p, "list")) {
-                                r = show_menu(l,
-                                              /* n_columns= */ 3,
-                                              /* column_width= */ 20,
-                                              ellipsize_percentage,
-                                              /* grey_prefix= */ NULL,
-                                              /* with_numbers= */ true);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to show menu: %m");
-
-                                putchar('\n');
-                                continue;
-                        }
-
-                        unsigned u;
-                        r = safe_atou(p, &u);
-                        if (r >= 0) {
-                                if (u <= 0 || u > strv_length(l)) {
-                                        log_error("Specified entry number out of range.");
-                                        continue;
-                                }
-
-                                log_info("Selected '%s'.", l[u-1]);
-                                return free_and_strdup_warn(ret, l[u-1]);
-                        }
-                }
-
-                if (is_valid(rfd, p))
-                        return free_and_replace(*ret, p);
-
-                /* Be more helpful to the user, and give a hint what the user might have wanted to type. */
-                const char *best_match = strv_find_closest(l, p);
-                if (best_match)
-                        log_error("Invalid data '%s', did you mean '%s'?", p, best_match);
-                else
-                        log_error("Invalid data '%s'.", p);
-        }
-}
-
 static int should_configure(int dir_fd, const char *filename) {
         _cleanup_fclose_ FILE *passwd = NULL, *shadow = NULL;
         int r;
@@ -309,20 +214,15 @@ static int should_configure(int dir_fd, const char *filename) {
         return true;
 }
 
-static bool locale_is_installed_bool(const char *name) {
-        return locale_is_installed(name) > 0;
-}
-
-static bool locale_is_ok(int rfd, const char *name) {
-        int r;
-
+static int locale_is_ok(const char *name, void *userdata) {
+        int rfd = PTR_TO_FD(userdata), r;
         assert(rfd >= 0);
 
         r = dir_fd_is_root(rfd);
         if (r < 0)
                 log_debug_errno(r, "Unable to determine if operating on host root directory, assuming we are: %m");
 
-        return r != 0 ? locale_is_installed_bool(name) : locale_is_valid(name);
+        return r != 0 ? locale_is_installed(name) > 0 : locale_is_valid(name);
 }
 
 static int prompt_locale(int rfd) {
@@ -379,16 +279,35 @@ static int prompt_locale(int rfd) {
         } else {
                 print_welcome(rfd);
 
-                r = prompt_loop(rfd, "Please enter the new system locale name or number",
-                                locales, 60, locale_is_ok, &arg_locale);
+                r = prompt_loop("Please enter the new system locale name or number",
+                                GLYPH_WORLD,
+                                locales,
+                                /* accepted= */ NULL,
+                                /* ellipsize_percentage= */ 60,
+                                /* n_columns= */ 3,
+                                /* column_width= */ 20,
+                                locale_is_ok,
+                                /* refresh= */ NULL,
+                                FD_TO_PTR(rfd),
+                                PROMPT_MAY_SKIP|PROMPT_SHOW_MENU,
+                                &arg_locale);
                 if (r < 0)
                         return r;
-
                 if (isempty(arg_locale))
                         return 0;
 
-                r = prompt_loop(rfd, "Please enter the new system message locale name or number",
-                                locales, 60, locale_is_ok, &arg_locale_messages);
+                r = prompt_loop("Please enter the new system message locale name or number",
+                                GLYPH_WORLD,
+                                locales,
+                                /* accepted= */ NULL,
+                                /* ellipsize_percentage= */ 60,
+                                /* n_columns= */ 3,
+                                /* column_width= */ 20,
+                                locale_is_ok,
+                                /* refresh= */ NULL,
+                                FD_TO_PTR(rfd),
+                                PROMPT_MAY_SKIP|PROMPT_SHOW_MENU,
+                                &arg_locale_messages);
                 if (r < 0)
                         return r;
 
@@ -463,12 +382,8 @@ static int process_locale(int rfd) {
         return 1;
 }
 
-static bool keymap_exists_bool(const char *name) {
-        return keymap_exists(name) > 0;
-}
-
-static bool keymap_is_ok(int rfd, const char* name) {
-        int r;
+static int keymap_is_ok(const char* name, void *userdata) {
+        int rfd = PTR_TO_FD(userdata), r;
 
         assert(rfd >= 0);
 
@@ -476,7 +391,7 @@ static bool keymap_is_ok(int rfd, const char* name) {
         if (r < 0)
                 log_debug_errno(r, "Unable to determine if operating on host root directory, assuming we are: %m");
 
-        return r != 0 ? keymap_exists_bool(name) : keymap_is_valid(name);
+        return r != 0 ? keymap_exists(name) > 0 : keymap_is_valid(name);
 }
 
 static int prompt_keymap(int rfd) {
@@ -509,8 +424,19 @@ static int prompt_keymap(int rfd) {
 
         print_welcome(rfd);
 
-        return prompt_loop(rfd, "Please enter the new keymap name or number",
-                           kmaps, 60, keymap_is_ok, &arg_keymap);
+        return prompt_loop(
+                        "Please enter the new keymap name or number",
+                        GLYPH_KEYBOARD,
+                        kmaps,
+                        /* accepted= */ NULL,
+                        /* ellipsize_percentage= */ 60,
+                        /* n_columns= */ 3,
+                        /* column_width= */ 20,
+                        keymap_is_ok,
+                        /* refresh= */ NULL,
+                        FD_TO_PTR(rfd),
+                        PROMPT_MAY_SKIP|PROMPT_SHOW_MENU,
+                        &arg_keymap);
 }
 
 static int process_keymap(int rfd) {
@@ -578,7 +504,8 @@ static int process_keymap(int rfd) {
         return 1;
 }
 
-static bool timezone_is_ok(int rfd, const char *name) {
+static int timezone_is_ok(const char *name, void *userdata) {
+        int rfd = PTR_TO_FD(userdata);
         assert(rfd >= 0);
 
         return timezone_is_valid(name, LOG_DEBUG);
@@ -612,8 +539,19 @@ static int prompt_timezone(int rfd) {
 
         print_welcome(rfd);
 
-        return prompt_loop(rfd, "Please enter the new timezone name or number",
-                           zones, 30, timezone_is_ok, &arg_timezone);
+        return prompt_loop(
+                        "Please enter the new timezone name or number",
+                        GLYPH_CLOCK,
+                        zones,
+                        /* accepted= */ NULL,
+                        /* ellipsize_percentage= */ 30,
+                        /* n_columns= */ 3,
+                        /* column_width= */ 20,
+                        timezone_is_ok,
+                        /* refresh= */ NULL,
+                        FD_TO_PTR(rfd),
+                        PROMPT_MAY_SKIP|PROMPT_SHOW_MENU,
+                        &arg_timezone);
 }
 
 static int process_timezone(int rfd) {
@@ -677,7 +615,8 @@ static int process_timezone(int rfd) {
         return 0;
 }
 
-static bool hostname_is_ok(int rfd, const char *name) {
+static int hostname_is_ok(const char *name, void *userdata) {
+        int rfd = PTR_TO_FD(userdata);
         assert(rfd >= 0);
 
         return hostname_is_valid(name, VALID_HOSTNAME_TRAILING_DOT);
@@ -698,8 +637,18 @@ static int prompt_hostname(int rfd) {
 
         print_welcome(rfd);
 
-        r = prompt_loop(rfd, "Please enter the new hostname",
-                        NULL, 0, hostname_is_ok, &arg_hostname);
+        r = prompt_loop("Please enter the new hostname",
+                        GLYPH_LABEL,
+                        /* menu= */ NULL,
+                        /* accepted= */ NULL,
+                        /* ellipsize_percentage= */ 100,
+                        /* n_columns= */ 3,
+                        /* column_width= */ 20,
+                        hostname_is_ok,
+                        /* refresh= */ NULL,
+                        FD_TO_PTR(rfd),
+                        PROMPT_MAY_SKIP,
+                        &arg_hostname);
         if (r < 0)
                 return r;
 
@@ -796,8 +745,8 @@ static int prompt_root_password(int rfd) {
 
         print_welcome(rfd);
 
-        msg1 = strjoina(glyph(GLYPH_TRIANGULAR_BULLET), " Please enter the new root password (empty to skip):");
-        msg2 = strjoina(glyph(GLYPH_TRIANGULAR_BULLET), " Please enter the new root password again:");
+        msg1 = strjoina("Please enter the new root password (empty to skip):");
+        msg2 = strjoina("Please enter the new root password again:");
 
         suggest_passwords();
 
@@ -868,7 +817,8 @@ static int find_shell(int rfd, const char *path) {
         return 0;
 }
 
-static bool shell_is_ok(int rfd, const char *path) {
+static int shell_is_ok(const char *path, void *userdata) {
+        int rfd = PTR_TO_FD(userdata);
         assert(rfd >= 0);
 
         return find_shell(rfd, path) >= 0;
@@ -897,8 +847,19 @@ static int prompt_root_shell(int rfd) {
 
         print_welcome(rfd);
 
-        return prompt_loop(rfd, "Please enter the new root shell",
-                           NULL, 0, shell_is_ok, &arg_root_shell);
+        return prompt_loop(
+                        "Please enter the new root shell",
+                        GLYPH_SHELL,
+                        /* menu= */ NULL,
+                        /* accepted= */ NULL,
+                        /* ellipsize_percentage= */ 0,
+                        /* n_columns= */ 3,
+                        /* column_width= */ 20,
+                        shell_is_ok,
+                        /* refresh= */ NULL,
+                        FD_TO_PTR(rfd),
+                        PROMPT_MAY_SKIP,
+                        &arg_root_shell);
 }
 
 static int write_root_passwd(int rfd, int etc_fd, const char *password, const char *shell) {
@@ -1727,11 +1688,11 @@ static int run(int argc, char *argv[]) {
         /* We check these conditions here instead of in parse_argv() so that we can take the root directory
          * into account. */
 
-        if (arg_keymap && !keymap_is_ok(rfd, arg_keymap))
+        if (arg_keymap && !keymap_is_ok(arg_keymap, FD_TO_PTR(rfd)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Keymap %s is not installed.", arg_keymap);
-        if (arg_locale && !locale_is_ok(rfd, arg_locale))
+        if (arg_locale && !locale_is_ok(arg_locale, FD_TO_PTR(rfd)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale);
-        if (arg_locale_messages && !locale_is_ok(rfd, arg_locale_messages))
+        if (arg_locale_messages && !locale_is_ok(arg_locale_messages, FD_TO_PTR(rfd)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale %s is not installed.", arg_locale_messages);
 
         if (arg_root_shell) {
