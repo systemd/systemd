@@ -9060,7 +9060,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         break;
 
                 case ARG_LIST_DEVICES:
-                        r = blockdev_list(BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM);
+                        r = blockdev_list(BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM, /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
                         if (r < 0)
                                 return r;
 
