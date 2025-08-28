@@ -1582,6 +1582,7 @@ foreach tuple : [
                 ['rfkill'],
                 ['smack'],
                 ['sysext'],
+                ['sysinstall'],
                 ['sysusers'],
                 ['timedated'],
                 ['timesyncd'],
@@ -2144,6 +2145,7 @@ subdir('src/storagetm')
 subdir('src/sulogin-shell')
 subdir('src/sysctl')
 subdir('src/sysext')
+subdir('src/sysinstall')
 subdir('src/system-update-generator')
 subdir('src/systemctl')
 subdir('src/sysupdate')
@@ -2928,6 +2930,7 @@ foreach tuple : [
         ['resolve'],
         ['rfkill'],
         ['sysext'],
+        ['sysinstall'],
         ['systemd-analyze',        conf.get('ENABLE_ANALYZE') == 1],
         ['sysupdate'],
         ['sysupdated'],
