@@ -39,6 +39,14 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
         size_t n = 0;
         CLEANUP_ARRAY(l, n, block_device_array_free);
 
+        dev_t root_devno = 0;
+        if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ROOT))
+                if (blockdev_get_root(LOG_DEBUG, &root_devno) > 0) {
+                        r = block_get_whole_disk(root_devno, &root_devno);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to get whole block device of root device: %m");
+                }
+
         if (sd_device_enumerator_new(&e) < 0)
                 return log_oom();
 
@@ -59,6 +67,19 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                 if (r < 0) {
                         log_warning_errno(r, "Failed to get device node of discovered block device, ignoring: %m");
                         continue;
+                }
+
+                if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ROOT) && root_devno != 0) {
+                        dev_t devno;
+
+                        r = sd_device_get_devnum(dev, &devno);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to get major/minor of discovered block device, ignoring: %m");
+                                continue;
+                        }
+
+                        if (devno == root_devno)
+                                continue;
                 }
 
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ZRAM)) {
