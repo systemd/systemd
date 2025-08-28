@@ -2192,7 +2192,7 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
 
         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */true);
         if (r < 0)
-                return log_error_errno(r, "Failed to output table: %m");
+                return r;
 
         return 0;
 }
@@ -2353,7 +2353,7 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
 
         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
         if (r < 0)
-                return log_error_errno(r, "Failed to output table: %m");
+                return r;
 
         if (!sd_json_format_enabled(arg_json_format_flags))
                 printf("\n"
@@ -2664,7 +2664,7 @@ static int verb_list_components(int argc, char *argv[], void *userdata) {
         if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
                 r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                        return r;
         }
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
