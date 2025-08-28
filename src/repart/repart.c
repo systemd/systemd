@@ -789,7 +789,11 @@ static Partition* partition_unlink_and_free(Context *context, Partition *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Partition*, partition_free);
 
-static Context* context_new(sd_id128_t seed, X509 *certificate, EVP_PKEY *private_key) {
+static Context* context_new(
+                sd_id128_t seed,
+                X509 *certificate,
+                EVP_PKEY *private_key) {
+
         Context *context;
 
         /* Note: This function takes ownership of the certificate and private_key arguments. */
@@ -8666,7 +8670,13 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY **ret_private_key, OpenSSLAskPasswordUI **ret_ui) {
+static int parse_argv(
+                int argc,
+                char *argv[],
+                X509 **ret_certificate,
+                EVP_PKEY **ret_private_key,
+                OpenSSLAskPasswordUI **ret_ui) {
+
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
