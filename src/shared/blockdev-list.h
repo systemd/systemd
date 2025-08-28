@@ -10,4 +10,18 @@ typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_REQUIRE_LUKS               = 1 << 3,
 } BlockDevListFlags;
 
-int blockdev_list(BlockDevListFlags flags);
+typedef struct BlockDevice {
+        char *node;
+        char **symlinks;
+        uint64_t diskseq;
+} BlockDevice;
+
+#define BLOCK_DEVICE_NULL (BlockDevice) { \
+                .diskseq = UINT64_MAX,    \
+                .size = UINT64_MAX,       \
+        }
+
+void block_device_done(BlockDevice *d);
+void block_device_array_free(BlockDevice *d, size_t n_devices);
+
+int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *ret_n_devices);
