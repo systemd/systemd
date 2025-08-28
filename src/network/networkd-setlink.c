@@ -1287,9 +1287,11 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 
         assert(m);
         assert(link);
-        assert(link->set_flags_messages > 0);
 
-        link->set_flags_messages--;
+        /* Only decrement if we have pending messages to avoid underflow when
+         * multiple concurrent operations trigger getlink calls */
+        if (link->set_flags_messages > 0)
+                link->set_flags_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
@@ -1371,9 +1373,11 @@ static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_mess
 
         assert(m);
         assert(link);
-        assert(link->set_flags_messages > 0);
 
-        link->set_flags_messages--;
+        /* Only decrement if we have pending messages to avoid underflow when
+         * multiple concurrent operations trigger getlink calls */
+        if (link->set_flags_messages > 0)
+                link->set_flags_messages--;
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 goto reply;
