@@ -39,9 +39,11 @@ static int get_link_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Link
 
 static int get_link_update_flag_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
         assert(link);
-        assert(link->set_flags_messages > 0);
 
-        link->set_flags_messages--;
+        /* Only decrement if we have pending messages to avoid underflow when
+         * multiple concurrent operations trigger getlink calls */
+        if (link->set_flags_messages > 0)
+                link->set_flags_messages--;
 
         return get_link_default_handler(rtnl, m, link);
 }
