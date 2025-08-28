@@ -6,6 +6,7 @@
 #include "ansi-color.h"
 #include "blockdev-list.h"
 #include "blockdev-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -93,11 +94,17 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                 }
 
                 if (ret_devices) {
-                        uint64_t diskseq = UINT64_MAX;
+                        uint64_t diskseq = UINT64_MAX, size = UINT64_MAX;
 
                         r = sd_device_get_diskseq(dev, &diskseq);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
+
+                        r = device_get_sysattr_u64(dev, "size", &size);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to acquire size of device '%s', ignoring: %m", node);
+                        else
+                                size *= 512; /* the 'size' sysattr is always in multiples of 512, even on 4K sector block devices! */
 
                         if (!GREEDY_REALLOC(l, n+1))
                                 return log_oom();
@@ -110,6 +117,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                                 .node = TAKE_PTR(m),
                                 .symlinks = TAKE_PTR(list),
                                 .diskseq = diskseq,
+                                .size = size,
                         };
 
                 } else {
