@@ -2,6 +2,7 @@
 
 #include "sd-device.h"
 
+#include "alloc-util.h"
 #include "ansi-color.h"
 #include "blockdev-list.h"
 #include "blockdev-util.h"
@@ -9,9 +10,33 @@
 #include "strv.h"
 #include "terminal-util.h"
 
-int blockdev_list(BlockDevListFlags flags) {
+void block_device_done(BlockDevice *d) {
+        assert(d);
+
+        d->node = mfree(d->node);
+        d->symlinks = strv_free(d->symlinks);
+ }
+
+void block_device_array_free(BlockDevice *d, size_t n_devices) {
+
+        FOREACH_ARRAY(i, d, n_devices)
+                block_device_done(d);
+
+        free(d);
+}
+
+int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *ret_n_devices) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         int r;
+
+        assert(!!ret_devices == !!ret_n_devices);
+
+        /* If ret_devices/ret_n_devices are passed, returns a list of matching block devices, otherwise
+         * prints the list to stdout */
+
+        BlockDevice *l = NULL;
+        size_t n = 0;
+        CLEANUP_ARRAY(l, n, block_device_array_free);
 
         if (sd_device_enumerator_new(&e) < 0)
                 return log_oom();
@@ -57,21 +82,49 @@ int blockdev_list(BlockDevListFlags flags) {
                         }
                 }
 
-                printf("%s\n", node);
 
+                _cleanup_strv_free_ char **list = NULL;
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_SHOW_SYMLINKS)) {
-                        _cleanup_strv_free_ char **list = NULL;
-
-                        FOREACH_DEVICE_DEVLINK(dev, l)
-                                if (strv_extend(&list, l) < 0)
+                        FOREACH_DEVICE_DEVLINK(dev, sl)
+                                if (strv_extend(&list, sl) < 0)
                                         return log_oom();
 
                         strv_sort(list);
+                }
 
-                        STRV_FOREACH(i, list)
-                                printf("%s%s%s%s\n", on_tty() ? "    " : "", ansi_grey(), *i, ansi_normal());
+                if (ret_devices) {
+                        uint64_t diskseq = UINT64_MAX;
+
+                        r = sd_device_get_diskseq(dev, &diskseq);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
+
+                        if (!GREEDY_REALLOC(l, n+1))
+                                return log_oom();
+
+                        _cleanup_free_ char *m = strdup(node);
+                        if (!m)
+                                return log_oom();
+
+                        l[n++] = (BlockDevice) {
+                                .node = TAKE_PTR(m),
+                                .symlinks = TAKE_PTR(list),
+                                .diskseq = diskseq,
+                        };
+
+                } else {
+                        printf("%s\n", node);
+
+                        if (FLAGS_SET(flags, BLOCKDEV_LIST_SHOW_SYMLINKS))
+                                STRV_FOREACH(i, list)
+                                        printf("%s%s%s%s\n", on_tty() ? "    " : "", ansi_grey(), *i, ansi_normal());
                 }
         }
+
+        if (ret_devices)
+                *ret_devices = TAKE_PTR(l);
+        if (ret_n_devices)
+                *ret_n_devices = n;
 
         return 0;
 }
