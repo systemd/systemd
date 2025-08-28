@@ -243,13 +243,15 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         }
 
         r = varlink_verify_polkit_async(
-                                vlink,
-                                manager->bus,
-                                "org.freedesktop.network1.set-persistent-storage",
-                                /* details= */ NULL,
-                                &manager->polkit_registry);
-        if (r <= 0)
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.set-persistent-storage",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r < 0)
                 return r;
+        if (r == 0)
+                return 1; /* Authentication in progress, reply later. */
 
         if (ready) {
                 _cleanup_close_ int fd = -EBADF;
@@ -288,8 +290,10 @@ static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameter
                         "org.freedesktop.network1.manage-links",
                         /* details= */ NULL,
                         &manager->polkit_registry);
-        if (r <= 0)
+        if (r < 0)
                 return r;
+        if (r == 0)
+                return 1; /* Authentication in progress, reply later. */
 
         /* Stop all network engines while interface is still up, then bring it down */
         r = link_stop_engines(link, /* may_keep_dynamic = */ false);
@@ -326,8 +330,10 @@ static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters,
                         "org.freedesktop.network1.manage-links",
                         /* details= */ NULL,
                         &manager->polkit_registry);
-        if (r <= 0)
+        if (r < 0)
                 return r;
+        if (r == 0)
+                return 1; /* Authentication in progress, reply later. */
 
         r = link_up_or_down_now_by_varlink(link, /* up = */ true, vlink);
         if (r < 0)
