@@ -48,7 +48,7 @@ int verb_exit_status(int argc, char *argv[], void *userdata) {
 
         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
         if (r < 0)
-                return log_error_errno(r, "Failed to output table: %m");
+                return r;
 
         return EXIT_SUCCESS;
 }

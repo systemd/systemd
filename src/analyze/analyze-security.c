@@ -1880,7 +1880,7 @@ static int assess(const SecurityInfo *info,
 
                 r = table_print_with_pager(details_table, json_format_flags, pager_flags, /* show_header= */true);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                        return r;
         }
 
         exposure = DIV_ROUND_UP(badness_sum * 100U, weight_sum);
@@ -2891,7 +2891,7 @@ static int analyze_security(sd_bus *bus,
 
                 r = table_print_with_pager(overview_table, json_format_flags, pager_flags, /* show_header= */true);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                        return r;
         }
         return ret;
 }
