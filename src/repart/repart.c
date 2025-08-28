@@ -9696,11 +9696,18 @@ static int vl_method_list_candidate_devices(
                 sd_varlink_method_flags_t flags,
                 void *userdata) {
 
+        bool ignore_root = false;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ignoreRoot", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, 0, 0 },
+                {}
+        };
+
         int r;
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &ignore_root);
         if (r != 0)
                 return r;
 
@@ -9711,7 +9718,13 @@ static int vl_method_list_candidate_devices(
         size_t n = 0;
         CLEANUP_ARRAY(l, n, block_device_array_free);
 
-        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|BLOCKDEV_LIST_IGNORE_ZRAM, &l, &n);
+        r = blockdev_list(
+                        BLOCKDEV_LIST_SHOW_SYMLINKS|
+                        BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|
+                        BLOCKDEV_LIST_IGNORE_ZRAM|
+                        (ignore_root ? BLOCKDEV_LIST_IGNORE_ROOT : 0),
+                        &l,
+                        &n);
         if (r < 0)
                 return r;
 
