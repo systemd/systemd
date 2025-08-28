@@ -14,6 +14,7 @@ typedef struct BlockDevice {
         char *node;
         char **symlinks;
         uint64_t diskseq;
+        uint64_t size;     /* in bytes */
 } BlockDevice;
 
 #define BLOCK_DEVICE_NULL (BlockDevice) { \
