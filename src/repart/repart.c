@@ -470,6 +470,8 @@ struct FreeArea {
 };
 
 typedef struct Context {
+        char **definitions;
+
         LIST_HEAD(Partition, partitions);
         size_t n_partitions;
 
@@ -486,6 +488,9 @@ typedef struct Context {
         char *node;
         bool node_is_our_file;
         int backing_fd;
+
+        EmptyMode empty;
+        bool dry_run;
 
         bool from_scratch;
 
@@ -794,25 +799,36 @@ static Partition* partition_unlink_and_free(Context *context, Partition *p) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Partition*, partition_free);
 
 static Context* context_new(
+                char **definitions,
+                EmptyMode empty,
+                bool dry_run,
                 sd_id128_t seed,
                 X509 *certificate,
                 EVP_PKEY *private_key) {
 
-        Context *context;
-
         /* Note: This function takes ownership of the certificate and private_key arguments. */
 
-        context = new(Context, 1);
+        _cleanup_strv_free_ char **d = NULL;
+        if (!strv_isempty(definitions)) {
+                d = strv_copy(definitions);
+                if (!d)
+                        return NULL;
+        }
+
+        Context *context = new(Context, 1);
         if (!context)
                 return NULL;
 
         *context = (Context) {
+                .definitions = TAKE_PTR(d),
                 .start = UINT64_MAX,
                 .end = UINT64_MAX,
                 .total = UINT64_MAX,
                 .seed = seed,
                 .certificate = certificate,
                 .private_key = private_key,
+                .empty = empty,
+                .dry_run = dry_run,
         };
 
         return context;
@@ -831,6 +847,8 @@ static void context_free_free_areas(Context *context) {
 static Context* context_free(Context *context) {
         if (!context)
                 return NULL;
+
+        strv_free(context->definitions);
 
         while (context->partitions)
                 partition_unlink_and_free(context, context->partitions);
@@ -2624,7 +2642,11 @@ static MakeFileSystemFlags partition_mkfs_flags(const Partition *p) {
         return flags;
 }
 
-static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
+static int partition_read_definition(
+                Context *c,
+                Partition *p,
+                const char *path,
+                const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
                 { "Partition", "Type",                     config_parse_type,              0,                                  &p->type                    },
@@ -2673,6 +2695,10 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         const char* dropin_dirname;
         int r;
 
+        assert(c);
+        assert(p);
+        assert(path);
+
         r = path_extract_filename(path, &filename);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
@@ -2683,7 +2709,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                         STRV_MAKE_CONST(path),
                         conf_file_dirs,
                         dropin_dirname,
-                        arg_definitions ? NULL : arg_root,
+                        c->definitions ? NULL : arg_root,
                         "Partition\0",
                         config_item_table_lookup, table,
                         CONFIG_PARSE_WARN,
@@ -3192,9 +3218,9 @@ static int context_read_definitions(Context *context) {
 
         assert(context);
 
-        dirs = (const char* const*) (arg_definitions ?: CONF_PATHS_STRV("repart.d"));
+        dirs = (const char* const*) (context->definitions ?: CONF_PATHS_STRV("repart.d"));
 
-        r = conf_files_list_strv(&files, ".conf", arg_definitions ? NULL : arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
+        r = conf_files_list_strv(&files, ".conf", context->definitions ? NULL : arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate *.conf files: %m");
 
@@ -3209,7 +3235,7 @@ static int context_read_definitions(Context *context) {
                 if (!p->definition_path)
                         return log_oom();
 
-                r = partition_read_definition(p, *f, dirs);
+                r = partition_read_definition(context, p, *f, dirs);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -3399,7 +3425,7 @@ static int context_load_partition_table(Context *context) {
 
                 r = context_open_and_lock_backing_fd(
                                 context->node,
-                                arg_dry_run ? LOCK_SH : LOCK_EX,
+                                context->dry_run ? LOCK_SH : LOCK_EX,
                                 &context->backing_fd);
                 if (r < 0)
                         return r;
@@ -3407,7 +3433,7 @@ static int context_load_partition_table(Context *context) {
                 if (fstat(context->backing_fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat %s: %m", context->node);
 
-                if (IN_SET(arg_empty, EMPTY_REQUIRE, EMPTY_FORCE, EMPTY_CREATE) && S_ISREG(st.st_mode))
+                if (IN_SET(context->empty, EMPTY_REQUIRE, EMPTY_FORCE, EMPTY_CREATE) && S_ISREG(st.st_mode))
                         /* Don't probe sector size from partition table if we are supposed to start from an empty disk */
                         ssz = 512;
                 else {
@@ -3435,7 +3461,7 @@ static int context_load_partition_table(Context *context) {
         r = fdisk_assign_device(
                         c,
                         context->backing_fd >= 0 ? FORMAT_PROC_FD_PATH(context->backing_fd) : context->node,
-                        arg_dry_run);
+                        context->dry_run);
         if (r == -EINVAL && arg_size_auto) {
                 struct stat st;
 
@@ -3465,7 +3491,7 @@ static int context_load_partition_table(Context *context) {
         if (context->backing_fd < 0) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
                 r = context_open_and_lock_backing_fd(FORMAT_PROC_FD_PATH(fdisk_get_devfd(c)),
-                                                     arg_dry_run ? LOCK_SH : LOCK_EX,
+                                                     context->dry_run ? LOCK_SH : LOCK_EX,
                                                      &context->backing_fd);
                 if (r < 0)
                         return r;
@@ -3488,7 +3514,7 @@ static int context_load_partition_table(Context *context) {
 
         log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
-        switch (arg_empty) {
+        switch (context->empty) {
 
         case EMPTY_REFUSE:
                 /* Refuse empty disks, insist on an existing GPT partition table */
@@ -4501,7 +4527,7 @@ static int context_wipe_and_discard(Context *context) {
 
         assert(context);
 
-        if (arg_empty == EMPTY_CREATE) /* If we just created the image, no need to wipe */
+        if (context->empty == EMPTY_CREATE) /* If we just created the image, no need to wipe */
                 return 0;
 
         /* Wipe and discard the contents of all partitions we are about to create. We skip the discarding if
@@ -4645,7 +4671,7 @@ static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t
 
         r = read_attr_fd(fdisk_get_devfd(context->fdisk_context), &attrs);
         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", arg_node);
+                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", context->node);
 
         if (FLAGS_SET(attrs, FS_NOCOW_FL)) {
                 r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
@@ -7166,7 +7192,7 @@ static int context_split(Context *context) {
 
                         r = read_attr_fd(fd, &attrs);
                         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", arg_node);
+                                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", context->node);
                 }
 
                 fdt = xopenat_full(
@@ -7200,14 +7226,14 @@ static int context_write_partition_table(Context *context) {
                 return 0;
         }
 
-        if (arg_dry_run) {
+        if (context->dry_run) {
                 log_notice("Refusing to repartition, please re-run with --dry-run=no.");
                 return 0;
         }
 
         log_info("Applying changes to %s.", context->node);
 
-        if (context->from_scratch && arg_empty != EMPTY_CREATE) {
+        if (context->from_scratch && context->empty != EMPTY_CREATE) {
                 /* Erase everything if we operate from scratch, except if the image was just created anyway, and thus is definitely empty. */
                 r = context_wipe_range(context, 0, context->total);
                 if (r < 0)
@@ -7314,7 +7340,7 @@ static int context_factory_reset(Context *context) {
         if (context->from_scratch) /* Nothing to reset if we start from scratch */
                 return 0;
 
-        if (arg_dry_run) {
+        if (context->dry_run) {
                 log_notice("Refusing to factory reset, please re-run with --dry-run=no.");
                 return 0;
         }
@@ -8206,7 +8232,7 @@ static int context_minimize(Context *context) {
 
         r = read_attr_fd(context->backing_fd, &attrs);
         if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", arg_node);
+                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", context->node);
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
@@ -9542,7 +9568,7 @@ static int find_root(Context *context) {
         assert(context);
 
         if (arg_node) {
-                if (arg_empty == EMPTY_CREATE) {
+                if (context->empty == EMPTY_CREATE) {
                         _cleanup_close_ int fd = -EBADF;
                         _cleanup_free_ char *s = NULL;
 
@@ -9571,7 +9597,7 @@ static int find_root(Context *context) {
                 return 0;
         }
 
-        assert(IN_SET(arg_empty, EMPTY_REFUSE, EMPTY_ALLOW));
+        assert(IN_SET(context->empty, EMPTY_REFUSE, EMPTY_ALLOW));
 
         /* If the root mount has been replaced by some form of volatile file system (overlayfs), the
          * original root block device node is symlinked in /run/systemd/volatile-root. Let's read that
@@ -9975,7 +10001,13 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        context = context_new(arg_seed, certificate, private_key);
+        context = context_new(
+                        arg_definitions,
+                        arg_empty,
+                        arg_dry_run,
+                        arg_seed,
+                        certificate,
+                        private_key);
         if (!context)
                 return log_oom();
 
@@ -9992,7 +10024,7 @@ static int run(int argc, char *argv[]) {
 
         if (arg_make_ddi) {
                 _cleanup_free_ char *d = NULL, *dp = NULL;
-                assert(!arg_definitions);
+                assert(!context->definitions);
 
                 d = strjoin(arg_make_ddi, ".repart.d/");
                 if (!d)
@@ -10002,10 +10034,10 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "DDI type '%s' is not defined: %m", arg_make_ddi);
 
-                if (strv_consume(&arg_definitions, TAKE_PTR(dp)) < 0)
+                if (strv_consume(&context->definitions, TAKE_PTR(dp)) < 0)
                         return log_oom();
         } else
-                strv_uniq(arg_definitions);
+                strv_uniq(context->definitions);
 
         r = context_read_definitions(context);
         if (r < 0)
