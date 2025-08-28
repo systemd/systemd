@@ -32,7 +32,6 @@ int link_up_down(int argc, char *argv[], void *userdata) {
 
         const char *method = is_down_command ? "io.systemd.Network.SetLinkDown" : "io.systemd.Network.SetLinkUp";
 
-        /* Allow interactive polkit auth, mirroring other tools. */
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         r = varlink_connect_networkd(&vl);
