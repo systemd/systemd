@@ -49,8 +49,10 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        _cleanup_free_ char *cgroup_path = NULL;
-        r = enter_cgroup_subroot(&cgroup_path);
+        if (cg_is_available() <= 0)
+                return log_tests_skipped("Unified hierarchy is required");
+
+        r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
