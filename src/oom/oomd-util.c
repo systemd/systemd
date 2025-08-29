@@ -451,7 +451,7 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
                 else if (r < 0)
                         return log_debug_errno(r, "Error getting memory.swap.current from %s: %m", path);
 
-                r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, path, "memory.stat", STRV_MAKE("pgscan"), &val);
+                r = cg_get_keyed_attribute(path, "memory.stat", STRV_MAKE("pgscan"), &val);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting pgscan from memory.stat under %s: %m", path);
 
