@@ -253,7 +253,7 @@ TEST(proc, .sd_booted = true) {
                 if (pidref_is_kernel_thread(&pid) != 0)
                         continue;
 
-                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path);
+                r = cg_pidref_get_path(&pid, &path);
                 if (r == -ESRCH)
                         continue;
                 ASSERT_OK(r);
