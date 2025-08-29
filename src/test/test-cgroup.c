@@ -131,7 +131,7 @@ TEST(id) {
                 return (void) log_tests_skipped("skipping cgroupid test, not running in unified mode");
         ASSERT_OK_POSITIVE(r);
 
-        fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        fd = cg_path_open("/");
         ASSERT_OK(fd);
 
         ASSERT_OK(fd_get_path(fd, &p));
