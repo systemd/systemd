@@ -3260,7 +3260,7 @@ int manager_setup_cgroup(Manager *m) {
 
         /* 1. Determine hierarchy */
         m->cgroup_root = mfree(m->cgroup_root);
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &m->cgroup_root);
+        r = cg_pid_get_path(0, &m->cgroup_root);
         if (r < 0)
                 return log_error_errno(r, "Cannot determine cgroup we are running in: %m");
 
@@ -3404,7 +3404,7 @@ Unit* manager_get_unit_by_pidref_cgroup(Manager *m, const PidRef *pid) {
 
         assert(m);
 
-        if (cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup) < 0)
+        if (cg_pidref_get_path(pid, &cgroup) < 0)
                 return NULL;
 
         return manager_get_unit_by_cgroup(m, cgroup);
