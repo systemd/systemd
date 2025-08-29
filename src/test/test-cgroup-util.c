@@ -429,35 +429,6 @@ TEST(mask_supported, .sd_booted = true) {
                        yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
 }
 
-TEST(cg_tests) {
-        int all, hybrid, systemd, r;
-
-        r = cg_unified();
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
-                return (void) log_tests_skipped("cgroup not mounted");
-        assert_se(r >= 0);
-
-        all = cg_all_unified();
-        assert_se(IN_SET(all, 0, 1));
-
-        hybrid = cg_hybrid_unified();
-        assert_se(IN_SET(hybrid, 0, 1));
-
-        systemd = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        assert_se(IN_SET(systemd, 0, 1));
-
-        if (all) {
-                assert_se(systemd);
-                assert_se(!hybrid);
-
-        } else if (hybrid) {
-                assert_se(systemd);
-                assert_se(!all);
-
-        } else
-                assert_se(!systemd);
-}
-
 TEST(cg_get_keyed_attribute) {
         _cleanup_free_ char *val = NULL;
         char *vals3[3] = {}, *vals3a[3] = {};
