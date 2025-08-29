@@ -210,7 +210,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
         assert(new_h);
         assert(path);
 
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
+        r = cg_enumerate_subgroups(path, &d);
         if (r < 0)
                 return r;
 
