@@ -111,7 +111,7 @@ TEST(id) {
         _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
         uint64_t id, id2;
 
-        fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        fd = cg_path_open("/");
         ASSERT_OK(fd);
 
         ASSERT_OK(fd_get_path(fd, &p));
