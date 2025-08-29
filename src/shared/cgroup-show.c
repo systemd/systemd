@@ -303,17 +303,17 @@ int show_cgroup_by_path(
         return 0;
 }
 
-int show_cgroup(const char *controller,
-                const char *path,
+int show_cgroup(const char *path,
                 const char *prefix,
                 size_t n_columns,
                 OutputFlags flags) {
+
         _cleanup_free_ char *p = NULL;
         int r;
 
         assert(path);
 
-        r = cg_get_path(controller, path, NULL, &p);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &p);
         if (r < 0)
                 return r;
 
@@ -321,7 +321,6 @@ int show_cgroup(const char *controller,
 }
 
 static int show_extra_pids(
-                const char *controller,
                 const char *path,
                 const char *prefix,
                 size_t n_columns,
@@ -350,7 +349,7 @@ static int show_extra_pids(
         for (i = 0, j = 0; i < n_pids; i++) {
                 _cleanup_free_ char *k = NULL;
 
-                r = cg_pid_get_path(controller, pids[i], &k);
+                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pids[i], &k);
                 if (r < 0)
                         return r;
 
@@ -366,7 +365,6 @@ static int show_extra_pids(
 }
 
 int show_cgroup_and_extra(
-                const char *controller,
                 const char *path,
                 const char *prefix,
                 size_t n_columns,
@@ -378,11 +376,11 @@ int show_cgroup_and_extra(
 
         assert(path);
 
-        r = show_cgroup(controller, path, prefix, n_columns, flags);
+        r = show_cgroup(path, prefix, n_columns, flags);
         if (r < 0)
                 return r;
 
-        return show_extra_pids(controller, path, prefix, n_columns, extra_pids, n_extra_pids, flags);
+        return show_extra_pids(path, prefix, n_columns, extra_pids, n_extra_pids, flags);
 }
 
 int show_cgroup_get_unit_path_and_warn(
