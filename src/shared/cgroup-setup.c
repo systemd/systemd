@@ -334,7 +334,7 @@ int cg_migrate(
 
                 done = true;
 
-                r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, from, &f);
+                r = cg_enumerate_processes(from, &f);
                 if (r < 0)
                         return RET_GATHER(ret, r);
 

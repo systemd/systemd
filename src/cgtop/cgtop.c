@@ -367,7 +367,7 @@ static int process(
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t pid;
 
-                r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
+                r = cg_enumerate_processes(path, &f);
                 if (r < 0 && r != -ENOENT)
                         return r;
                 if (r >= 0) {
