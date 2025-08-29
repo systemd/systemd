@@ -179,7 +179,7 @@ int cg_get_attribute(const char *path, const char *attribute, char **ret);
 int cg_get_attribute_as_uint64(const char *path, const char *attribute, uint64_t *ret);
 int cg_get_attribute_as_bool(const char *path, const char *attribute);
 
-int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char * const *keys, char **values);
+int cg_get_keyed_attribute(const char *path, const char *attribute, char * const *keys, char **values);
 
 int cg_get_owner(const char *path, uid_t *ret_uid);
 
@@ -189,7 +189,7 @@ int cg_get_xattr(const char *path, const char *name, char **ret, size_t *ret_siz
 int cg_get_xattr_bool(const char *path, const char *name);
 int cg_remove_xattr(const char *path, const char *name);
 
-int cg_is_empty(const char *controller, const char *path);
+int cg_is_empty(const char *path);
 
 int cg_get_root_path(char **path);
 
