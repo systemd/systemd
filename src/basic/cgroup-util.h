@@ -170,7 +170,6 @@ int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
 int cg_mangle_path(const char *path, char **ret);
 
 int cg_get_path(const char *controller, const char *path, const char *suffix, char **ret);
-int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **ret);
 
 int cg_pid_get_path(pid_t pid, char **ret);
 int cg_pidref_get_path(const PidRef *pidref, char **ret);
