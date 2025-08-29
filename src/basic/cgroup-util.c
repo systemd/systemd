@@ -50,6 +50,19 @@ typedef union {
 /* The .f_handle field is not aligned to 64bit on some archs, hence read it via an unaligned accessor */
 #define CG_FILE_HANDLE_CGROUPID(fh) unaligned_read_ne64(fh.file_handle.f_handle)
 
+int cg_is_available(void) {
+        struct statfs fs;
+
+        if (statfs("/sys/fs/cgroup/", &fs) < 0) {
+                if (errno == ENOENT) /* sysfs not mounted? */
+                        return false;
+
+                return log_debug_errno(errno, "Failed to statfs /sys/fs/cgroup/: %m");
+        }
+
+        return is_fs_type(&fs, CGROUP2_SUPER_MAGIC);
+}
+
 int cg_path_open(const char *controller, const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
