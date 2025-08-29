@@ -562,33 +562,6 @@ static int controller_is_v1_accessible(const char *root, const char *controller)
         return access_nofollow(cpath, root ? W_OK : F_OK);
 }
 
-int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **ret) {
-        int r;
-
-        assert(controller);
-        assert(ret);
-
-        if (!cg_controller_is_valid(controller))
-                return -EINVAL;
-
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                /* In the unified hierarchy all controllers are considered accessible,
-                 * except for the named hierarchies */
-                if (startswith(controller, "name="))
-                        return -EOPNOTSUPP;
-        } else {
-                /* Check if the specified controller is actually accessible */
-                r = controller_is_v1_accessible(NULL, controller);
-                if (r < 0)
-                        return r;
-        }
-
-        return cg_get_path(controller, path, suffix, ret);
-}
-
 int cg_set_xattr(const char *path, const char *name, const void *value, size_t size, int flags) {
         _cleanup_free_ char *fs = NULL;
         int r;
