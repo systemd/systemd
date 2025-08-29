@@ -547,21 +547,6 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         return 0;
 }
 
-static int controller_is_v1_accessible(const char *root, const char *controller) {
-        const char *cpath, *dn;
-
-        assert(controller);
-
-        dn = controller_to_dirname(controller);
-
-        /* If root if specified, we check that:
-         * - possible subcgroup is created at root,
-         * - we can modify the hierarchy. */
-
-        cpath = strjoina("/sys/fs/cgroup/", dn, root, root ? "/cgroup.procs" : NULL);
-        return access_nofollow(cpath, root ? W_OK : F_OK);
-}
-
 int cg_set_xattr(const char *path, const char *name, const void *value, size_t size, int flags) {
         _cleanup_free_ char *fs = NULL;
         int r;
@@ -1801,48 +1786,22 @@ int cg_mask_supported_subtree(const char *root, CGroupMask *ret) {
          * are actually accessible. Only covers real controllers, i.e. not the CGROUP_CONTROLLER_BPF_xyz
          * pseudo-controllers. */
 
-        r = cg_all_unified();
+        /* We can read the supported and accessible controllers from the top-level cgroup attribute */
+        _cleanup_free_ char *controllers = NULL, *path = NULL;
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, root, "cgroup.controllers", &path);
         if (r < 0)
                 return r;
-        if (r > 0) {
-                _cleanup_free_ char *controllers = NULL, *path = NULL;
 
-                /* In the unified hierarchy we can read the supported and accessible controllers from
-                 * the top-level cgroup attribute */
+        r = read_one_line_file(path, &controllers);
+        if (r < 0)
+                return r;
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, root, "cgroup.controllers", &path);
-                if (r < 0)
-                        return r;
+        r = cg_mask_from_string(controllers, &mask);
+        if (r < 0)
+                return r;
 
-                r = read_one_line_file(path, &controllers);
-                if (r < 0)
-                        return r;
-
-                r = cg_mask_from_string(controllers, &mask);
-                if (r < 0)
-                        return r;
-
-                /* Mask controllers that are not supported in unified hierarchy. */
-                mask &= CGROUP_MASK_V2;
-
-        } else {
-                CGroupController c;
-
-                /* In the legacy hierarchy, we check which hierarchies are accessible. */
-
-                mask = 0;
-                for (c = 0; c < _CGROUP_CONTROLLER_MAX; c++) {
-                        CGroupMask bit = CGROUP_CONTROLLER_TO_MASK(c);
-                        const char *n;
-
-                        if (!FLAGS_SET(CGROUP_MASK_V1, bit))
-                                continue;
-
-                        n = cgroup_controller_to_string(c);
-                        if (controller_is_v1_accessible(root, n) >= 0)
-                                mask |= bit;
-                }
-        }
+        /* Mask controllers that are not supported in cgroup v2. */
+        mask &= CGROUP_MASK_V2;
 
         *ret = mask;
         return 0;
