@@ -235,7 +235,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
 
                 subpath = mfree(subpath);
 
-                r = cg_get_attribute_as_bool("memory", cg_path, "memory.oom.group");
+                r = cg_get_attribute_as_bool(cg_path, "memory.oom.group");
                 /* The cgroup might be gone. Skip it as a candidate since we can't get information on it. */
                 if (r == -ENOMEM)
                         return r;
