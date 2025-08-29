@@ -437,7 +437,7 @@ TEST(cg_get_keyed_attribute) {
         if (cg_is_ready() <= 0)
                 return (void) log_tests_skipped("/sys/fs/cgroup/ not available");
 
-        r = cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
+        r = cg_get_keyed_attribute("/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
         if (ERRNO_IS_PRIVILEGE(r))
                 return (void) log_tests_skipped_errno(r, "/sys/fs/cgroup not accessible");
 
@@ -447,20 +447,20 @@ TEST(cg_get_keyed_attribute) {
         if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0)
                 return (void) log_tests_skipped_errno(errno, "/init.scope/cpu.stat not accessible");
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
         ASSERT_NULL(val);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
         val = mfree(val);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat",
                                          STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
         for (size_t i = 0; i < 3; i++)
                 free(vals3[i]);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat",
                                          STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
         for (size_t i = 0; i < 3; i++)
                 free(vals3a[i]);
