@@ -1345,7 +1345,7 @@ static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set
                 return r;
 
         if (!p) {
-                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &buf);
+                r = cg_pidref_get_path(pid, &buf);
                 if (r == -ESRCH)
                         return 0;
                 if (r < 0)
