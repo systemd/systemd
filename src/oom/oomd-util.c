@@ -240,7 +240,7 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
         if (dry_run) {
                 _cleanup_free_ char *cg_path = NULL;
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &cg_path);
+                r = cg_get_path(path, /* suffix = */ NULL, &cg_path);
                 if (r < 0)
                         return r;
 
@@ -418,7 +418,7 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         is_root = empty_or_root(path);
         ctx->preference = MANAGED_OOM_PREFERENCE_NONE;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "memory.pressure", &p);
+        r = cg_get_path(path, "memory.pressure", &p);
         if (r < 0)
                 return log_debug_errno(r, "Error getting cgroup memory pressure path from %s: %m", path);
 
