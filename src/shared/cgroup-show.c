@@ -349,7 +349,7 @@ static int show_extra_pids(
         for (i = 0, j = 0; i < n_pids; i++) {
                 _cleanup_free_ char *k = NULL;
 
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pids[i], &k);
+                r = cg_pid_get_path(pids[i], &k);
                 if (r < 0)
                         return r;
 
