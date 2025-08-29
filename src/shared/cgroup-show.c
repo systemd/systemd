@@ -313,7 +313,7 @@ int show_cgroup(const char *path,
 
         assert(path);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &p);
+        r = cg_get_path(path, /* suffix = */ NULL, &p);
         if (r < 0)
                 return r;
 
