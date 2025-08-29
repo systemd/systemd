@@ -36,32 +36,19 @@ uint64_t physical_memory(void) {
                 return mem;
         }
 
-        r = cg_all_unified();
+        r = cg_get_attribute(root, "memory.max", &value);
+        if (r == -ENOENT) /* Field does not exist on the system's top-level cgroup, hence don't
+                           * complain. (Note that it might exist on our own root though, if we live
+                           * in a cgroup namespace, hence check anyway instead of not even
+                           * trying.) */
+                return mem;
         if (r < 0) {
-                log_debug_errno(r, "Failed to determine root unified mode, ignoring cgroup memory limit: %m");
+                log_debug_errno(r, "Failed to read memory.max cgroup attribute, ignoring cgroup memory limit: %m");
                 return mem;
         }
-        if (r > 0) {
-                r = cg_get_attribute(root, "memory.max", &value);
-                if (r == -ENOENT) /* Field does not exist on the system's top-level cgroup, hence don't
-                                   * complain. (Note that it might exist on our own root though, if we live
-                                   * in a cgroup namespace, hence check anyway instead of not even
-                                   * trying.) */
-                        return mem;
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to read memory.max cgroup attribute, ignoring cgroup memory limit: %m");
-                        return mem;
-                }
 
-                if (streq(value, "max"))
-                        return mem;
-        } else {
-                r = cg_get_attribute(root, "memory.limit_in_bytes", &value);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to read memory.limit_in_bytes cgroup attribute, ignoring cgroup memory limit: %m");
-                        return mem;
-                }
-        }
+        if (streq(value, "max"))
+                return mem;
 
         r = safe_atou64(value, &lim);
         if (r < 0) {
