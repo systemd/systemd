@@ -213,7 +213,7 @@ static int allocate_scope(void) {
 
         /* Let's try to run this test in a scope of its own, with delegation turned on, so that PID 1 doesn't
          * interfere with our cgroup management. */
-        if (cg_pid_get_path(NULL, 0, &cgroup_root) >= 0 && cg_is_delegated(cgroup_root) && stderr_is_journal()) {
+        if (cg_pid_get_path(0, &cgroup_root) >= 0 && cg_is_delegated(cgroup_root) && stderr_is_journal()) {
                 log_debug("Already running as a unit with delegated cgroup, not allocating a cgroup subroot.");
                 return 0;
         }
@@ -297,9 +297,9 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         if (r < 0)
                 log_warning_errno(r, "Couldn't allocate a scope unit for this test, proceeding without.");
 
-        r = cg_pid_get_path(NULL, 0, &cgroup_root);
+        r = cg_pid_get_path(0, &cgroup_root);
         if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return log_warning_errno(r, "cg_pid_get_path(NULL, 0, ...) failed: %m");
+                return log_warning_errno(r, "cg_pid_get_path(0, ...) failed: %m");
         ASSERT_OK(r);
 
         if (enter_subroot)
