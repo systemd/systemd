@@ -1,10 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "alloc-util.h"
 #include "glyph-util.h"
 #include "log.h"
 #include "macro.h"
+#include "os-util.h"
 #include "parse-util.h"
+#include "pretty-print.h"
 #include "prompt-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -194,4 +198,140 @@ int prompt_loop(
                                 log_error("Invalid input '%s'.", p);
                 }
         }
+}
+
+/* Default: bright white on blue background */
+#define ANSI_COLOR_CHROME "\x1B[0;44;1;37m"
+
+static unsigned chrome_visible = 0; /* if non-zero chrome is visible and value is saved number of lines */
+
+int chrome_show(
+                const char *top,
+                const char *bottom) {
+        int r;
+
+        assert(top);
+
+        /* Shows our "chrome", i.e. a blue bar at top and bottom. Reduces the scrolling area to the area in
+         * between */
+
+        if (terminal_is_dumb())
+                return 0;
+
+        unsigned n = lines();
+        if (n < 12) /* Do not bother with the chrom on tiny screens */
+                return 0;
+
+        _cleanup_free_ char *b = NULL, *ansi_color_reverse = NULL;
+        if (!bottom) {
+                _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL, *documentation_url = NULL;
+
+                r = parse_os_release(
+                                /* root= */ NULL,
+                                "PRETTY_NAME",        &pretty_name,
+                                "NAME",               &os_name,
+                                "ANSI_COLOR",         &ansi_color,
+                                "ANSI_COLOR_REVERSE", &ansi_color_reverse,
+                                "DOCUMENTATION_URL",  &documentation_url);
+                if (r < 0)
+                        log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to read os-release file, ignoring: %m");
+
+                const char *m = os_release_pretty_name(pretty_name, os_name);
+                const char *c = ansi_color ?: "0";
+
+                if (ansi_color_reverse) {
+                        _cleanup_free_ char *j = strjoin("\x1B[0;", ansi_color_reverse, "m");
+                        if (!j)
+                                return log_oom_debug();
+
+                        free_and_replace(ansi_color_reverse, j);
+                }
+
+                if (asprintf(&b, "\x1B[0;%sm %s %s", c, m, ansi_color_reverse ?: ANSI_COLOR_CHROME) < 0)
+                        return log_oom_debug();
+
+                if (documentation_url) {
+                        _cleanup_free_ char *u = NULL;
+                        if (terminal_urlify(documentation_url, "documentation", &u) < 0)
+                                return log_oom_debug();
+
+                        if (!strextend(&b, " - See ", u, " for more information."))
+                                return log_oom_debug();
+                }
+
+                bottom = b;
+
+        }
+
+        const char *chrome_color = ansi_color_reverse ?: ANSI_COLOR_CHROME;
+
+        WITH_BUFFERED_STDOUT;
+
+        fputs("\033[H"    /* move home */
+              "\033[2J",  /* clear screen */
+              stdout);
+
+        /* Blue bar on top (followed by one empty regular one) */
+        printf("\x1B[1;1H" /* jump to top left */
+               "%1$s" ANSI_ERASE_TO_END_OF_LINE "\n"
+               "%1$s     %2$s" ANSI_ERASE_TO_END_OF_LINE "\n"
+               "%1$s" ANSI_ERASE_TO_END_OF_LINE "\n"
+               ANSI_NORMAL ANSI_ERASE_TO_END_OF_LINE,
+               chrome_color,
+               top);
+
+        /* Blue bar on bottom (with one empty regular one before) */
+        printf("\x1B[%1$u;1H" /* jump to bottom left, above the blue bar */
+               ANSI_NORMAL ANSI_ERASE_TO_END_OF_LINE "\n"
+               "%2$s" ANSI_ERASE_TO_END_OF_LINE "\n"
+               "%2$s    %3$s" ANSI_ERASE_TO_END_OF_LINE "\n"
+               "%2$s" ANSI_ERASE_TO_END_OF_LINE ANSI_NORMAL,
+               n - 3,
+               chrome_color,
+               bottom);
+
+        /* Reduce scrolling area (DECSTBM), cutting off top and bottom bars */
+        printf("\x1B[5;%ur", n - 4);
+
+        /* Position cursor in fifth line */
+        fputs("\x1B[5;1H", stdout);
+
+        fflush(stdout);
+
+        chrome_visible = n;
+        return 1;
+}
+
+void chrome_hide(void) {
+        int r;
+
+        if (chrome_visible == 0)
+                return;
+
+        unsigned n = chrome_visible;
+        chrome_visible = 0;
+
+        unsigned saved_row = 0;
+        r = terminal_get_cursor_position(STDIN_FILENO, STDOUT_FILENO, &saved_row, /* ret_column= */ NULL);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to get terminal cursor position, skipping chrome hiding: %m");
+
+        WITH_BUFFERED_STDOUT;
+
+        /* Erase Blue bar on bottom (we */
+        printf("\x1B[%u;1H"
+               ANSI_NORMAL ANSI_ERASE_TO_END_OF_LINE "\n"
+               ANSI_NORMAL ANSI_ERASE_TO_END_OF_LINE "\n"
+               ANSI_NORMAL ANSI_ERASE_TO_END_OF_LINE ANSI_NORMAL,
+               n - 2);
+
+        /* Reset scrolling area (DECSTBM) */
+        fputs("\x1B[r\n", stdout);
+
+        /* Place the cursor where it was again, but not in the (former blue bars) */
+        unsigned k = CLAMP(saved_row, 5U, n - 4);
+        printf("\x1B[%u;1H", k);
+
+        fflush(stdout);
 }
