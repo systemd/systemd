@@ -105,7 +105,7 @@ _public_ int sd_pid_get_cgroup(pid_t pid, char **ret_cgroup) {
         assert_return(pid >= 0, -EINVAL);
 
         _cleanup_free_ char *c = NULL;
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &c);
+        r = cg_pid_get_path(pid, &c);
         if (r < 0)
                 return r;
 
@@ -418,7 +418,7 @@ _public_ int sd_peer_get_cgroup(int fd, char **ret_cgroup) {
                 return r;
 
         _cleanup_free_ char *c = NULL;
-        r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pidref, &c);
+        r = cg_pidref_get_path(&pidref, &c);
         if (r < 0)
                 return r;
 

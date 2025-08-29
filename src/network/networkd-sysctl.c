@@ -109,7 +109,7 @@ int manager_install_sysctl_monitor(Manager *manager) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to load libbpf, not installing sysctl monitor: %m");
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+        r = cg_pid_get_path(0, &cgroup);
         if (r < 0)
                 return log_warning_errno(r, "Failed to get cgroup path, ignoring: %m.");
 

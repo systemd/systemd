@@ -646,29 +646,13 @@ int cg_remove_xattr(const char *path, const char *name) {
         return RET_NERRNO(removexattr(fs, name));
 }
 
-int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
+int cg_pid_get_path(pid_t pid, char **ret_path) {
         _cleanup_fclose_ FILE *f = NULL;
-        const char *fs, *controller_str = NULL;  /* avoid false maybe-uninitialized warning */
-        int unified, r;
+        const char *fs;
+        int r;
 
         assert(pid >= 0);
         assert(ret_path);
-
-        if (controller) {
-                if (!cg_controller_is_valid(controller))
-                        return -EINVAL;
-        } else
-                controller = SYSTEMD_CGROUP_CONTROLLER;
-
-        unified = cg_unified_controller(controller);
-        if (unified < 0)
-                return unified;
-        if (unified == 0) {
-                if (streq(controller, SYSTEMD_CGROUP_CONTROLLER))
-                        controller_str = SYSTEMD_CGROUP_CONTROLLER_LEGACY;
-                else
-                        controller_str = controller;
-        }
 
         fs = procfs_file_alloca(pid, "cgroup");
         r = fopen_unlocked(fs, "re", &f);
@@ -687,34 +671,13 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
                 if (r == 0)
                         return -ENODATA;
 
-                if (unified) {
-                        e = startswith(line, "0:");
-                        if (!e)
-                                continue;
+                e = startswith(line, "0:");
+                if (!e)
+                        continue;
 
-                        e = strchr(e, ':');
-                        if (!e)
-                                continue;
-                } else {
-                        char *l;
-
-                        l = strchr(line, ':');
-                        if (!l)
-                                continue;
-
-                        l++;
-                        e = strchr(l, ':');
-                        if (!e)
-                                continue;
-                        *e = 0;
-
-                        assert(controller_str);
-                        r = string_contains_word(l, ",", controller_str);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                continue;
-                }
+                e = strchr(e, ':');
+                if (!e)
+                        continue;
 
                 _cleanup_free_ char *path = strdup(e + 1);
                 if (!path)
@@ -734,7 +697,7 @@ int cg_pid_get_path(const char *controller, pid_t pid, char **ret_path) {
         }
 }
 
-int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_path) {
+int cg_pidref_get_path(const PidRef *pidref, char **ret_path) {
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -749,7 +712,7 @@ int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret_
         // bit of information from pidfd directly. However, the latter requires privilege and it's
         // not entirely clear how to handle cgroups from outer namespace.
 
-        r = cg_pid_get_path(controller, pidref->pid, &path);
+        r = cg_pid_get_path(pidref->pid, &path);
         if (r < 0)
                 return r;
 
@@ -867,7 +830,7 @@ int cg_get_root_path(char **ret_path) {
 
         assert(ret_path);
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 1, &p);
+        r = cg_pid_get_path(1, &p);
         if (r < 0)
                 return r;
 
@@ -909,7 +872,7 @@ int cg_pid_get_path_shifted(pid_t pid, const char *root, char **ret_cgroup) {
         assert(pid >= 0);
         assert(ret_cgroup);
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &raw);
+        r = cg_pid_get_path(pid, &raw);
         if (r < 0)
                 return r;
 
