@@ -278,7 +278,7 @@ static int run(int argc, char *argv[]) {
 
                                 show_cg_info(controller, path);
 
-                                q = show_cgroup(controller, path, NULL, 0, arg_output_flags);
+                                q = show_cgroup(path, NULL, 0, arg_output_flags);
                         }
 
                 failed:
@@ -315,7 +315,7 @@ static int run(int argc, char *argv[]) {
                         show_cg_info(SYSTEMD_CGROUP_CONTROLLER, root);
 
                         printf("-.slice\n");
-                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_output_flags);
+                        r = show_cgroup(root, NULL, 0, arg_output_flags);
                 }
         }
         if (r < 0)
