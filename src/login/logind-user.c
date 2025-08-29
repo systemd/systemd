@@ -194,7 +194,7 @@ static int user_save_internal(User *u) {
         if (u->sessions) {
                 bool first;
 
-                fputs("SESSIONS=", f);
+                fputs("SESSIONS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (first)
@@ -205,7 +205,8 @@ static int user_save_internal(User *u) {
                         fputs(i->id, f);
                 }
 
-                fputs("\nSEATS=", f);
+                fputs("\"\n"
+                      "SEATS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!i->seat)
@@ -219,7 +220,8 @@ static int user_save_internal(User *u) {
                         fputs(i->seat->id, f);
                 }
 
-                fputs("\nACTIVE_SESSIONS=", f);
+                fputs("\"\n"
+                      "ACTIVE_SESSIONS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!session_is_active(i))
@@ -233,7 +235,8 @@ static int user_save_internal(User *u) {
                         fputs(i->id, f);
                 }
 
-                fputs("\nONLINE_SESSIONS=", f);
+                fputs("\"\n"
+                      "ONLINE_SESSIONS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (session_get_state(i) == SESSION_CLOSING)
@@ -247,7 +250,8 @@ static int user_save_internal(User *u) {
                         fputs(i->id, f);
                 }
 
-                fputs("\nACTIVE_SEATS=", f);
+                fputs("\"\n"
+                      "ACTIVE_SEATS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (!session_is_active(i) || !i->seat)
@@ -261,7 +265,8 @@ static int user_save_internal(User *u) {
                         fputs(i->seat->id, f);
                 }
 
-                fputs("\nONLINE_SEATS=", f);
+                fputs("\"\n"
+                      "ONLINE_SEATS=\"", f);
                 first = true;
                 LIST_FOREACH(sessions_by_user, i, u->sessions) {
                         if (session_get_state(i) == SESSION_CLOSING || !i->seat)
@@ -274,7 +279,7 @@ static int user_save_internal(User *u) {
 
                         fputs(i->seat->id, f);
                 }
-                fputc('\n', f);
+                fputs("\"\n", f);
         }
 
         r = flink_tmpfile(f, temp_path, u->state_file, LINK_TMPFILE_REPLACE);
