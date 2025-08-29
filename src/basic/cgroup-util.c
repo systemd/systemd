@@ -439,74 +439,12 @@ int cg_kill_kernel_sigkill(const char *path) {
         return 0;
 }
 
-static const char *controller_to_dirname(const char *controller) {
-        assert(controller);
-
-        /* Converts a controller name to the directory name below /sys/fs/cgroup/ we want to mount it
-         * to. Effectively, this just cuts off the name= prefixed used for named hierarchies, if it is
-         * specified. */
-
-        if (streq(controller, SYSTEMD_CGROUP_CONTROLLER)) {
-                if (cg_hybrid_unified() > 0)
-                        controller = SYSTEMD_CGROUP_CONTROLLER_HYBRID;
-                else
-                        controller = SYSTEMD_CGROUP_CONTROLLER_LEGACY;
-        }
-
-        return startswith(controller, "name=") ?: controller;
-}
-
-static int join_path_legacy(const char *controller, const char *path, const char *suffix, char **ret) {
-        const char *dn;
-        char *t = NULL;
-
-        assert(ret);
-        assert(controller);
-
-        dn = controller_to_dirname(controller);
-
-        if (isempty(path) && isempty(suffix))
-                t = path_join("/sys/fs/cgroup", dn);
-        else if (isempty(path))
-                t = path_join("/sys/fs/cgroup", dn, suffix);
-        else if (isempty(suffix))
-                t = path_join("/sys/fs/cgroup", dn, path);
-        else
-                t = path_join("/sys/fs/cgroup", dn, path, suffix);
-        if (!t)
-                return -ENOMEM;
-
-        *ret = t;
-        return 0;
-}
-
-static int join_path_unified(const char *path, const char *suffix, char **ret) {
+int cg_get_path(const char *controller, const char *path, const char *suffix, char **ret) {
         char *t;
 
         assert(ret);
 
-        if (isempty(path) && isempty(suffix))
-                t = strdup("/sys/fs/cgroup");
-        else if (isempty(path))
-                t = path_join("/sys/fs/cgroup", suffix);
-        else if (isempty(suffix))
-                t = path_join("/sys/fs/cgroup", path);
-        else
-                t = path_join("/sys/fs/cgroup", path, suffix);
-        if (!t)
-                return -ENOMEM;
-
-        *ret = t;
-        return 0;
-}
-
-int cg_get_path(const char *controller, const char *path, const char *suffix, char **ret) {
-        int r;
-
-        assert(ret);
-
         if (!controller) {
-                char *t;
 
                 /* If no controller is specified, we return the path *below* the controllers, without any
                  * prefix. */
@@ -530,17 +468,18 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         if (!cg_controller_is_valid(controller))
                 return -EINVAL;
 
-        r = cg_all_unified();
-        if (r < 0)
-                return r;
-        if (r > 0)
-                r = join_path_unified(path, suffix, ret);
+        if (isempty(path) && isempty(suffix))
+                t = strdup("/sys/fs/cgroup");
+        else if (isempty(path))
+                t = path_join("/sys/fs/cgroup", suffix);
+        else if (isempty(suffix))
+                t = path_join("/sys/fs/cgroup", path);
         else
-                r = join_path_legacy(controller, path, suffix, ret);
-        if (r < 0)
-                return r;
+                t = path_join("/sys/fs/cgroup", path, suffix);
+        if (!t)
+                return -ENOMEM;
 
-        path_simplify(*ret);
+        *ret = path_simplify(t);
         return 0;
 }
 
