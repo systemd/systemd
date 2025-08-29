@@ -38,19 +38,19 @@ TEST(cg_create) {
         ASSERT_OK_EQ(cg_create(test_c), 1);
         ASSERT_OK_ZERO(cg_create_and_attach(test_b, 0));
 
-        ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
+        ASSERT_OK_ZERO(cg_pid_get_path(getpid_cached(), &path));
         ASSERT_STREQ(path, test_b);
         free(path);
 
         ASSERT_OK_ZERO(cg_attach(test_a, 0));
 
-        ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
+        ASSERT_OK_ZERO(cg_pid_get_path(getpid_cached(), &path));
         ASSERT_TRUE(path_equal(path, test_a));
         free(path);
 
         ASSERT_OK_EQ(cg_create_and_attach(test_d, 0), 1);
 
-        ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
+        ASSERT_OK_ZERO(cg_pid_get_path(getpid_cached(), &path));
         ASSERT_TRUE(path_equal(path, test_d));
         free(path);
 

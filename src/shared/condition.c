@@ -1091,7 +1091,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         return log_debug_errno(r, "Cannot determine slice \"%s\" cgroup path: %m", slice);
 
                 /* We might be running under the user manager, so get the root path and prefix it accordingly. */
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &root_scope);
+                r = cg_pid_get_path(getpid_cached(), &root_scope);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get root cgroup path: %m");
 
