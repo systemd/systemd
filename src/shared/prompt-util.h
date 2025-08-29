@@ -24,3 +24,6 @@ int prompt_loop(
                 void *userdata,
                 PromptFlags flags,
                 char **ret);
+
+int chrome_show(const char *top, const char *bottom);
+void chrome_hide(void);
