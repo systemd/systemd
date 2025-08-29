@@ -157,7 +157,7 @@ int cg_enumerate_processes(const char *path, FILE **ret);
 int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags);
 int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags);
 
-int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret);
+int cg_enumerate_subgroups(const char *path, DIR **ret);
 int cg_read_subgroup(DIR *d, char **ret);
 
 typedef int (*cg_kill_log_func_t)(const PidRef *pid, int sig, void *userdata);
