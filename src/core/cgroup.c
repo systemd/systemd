@@ -2857,7 +2857,7 @@ int unit_search_main_pid(Unit *u, PidRef *ret) {
         if (!crt || !crt->cgroup_path)
                 return -ENXIO;
 
-        r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, &f);
+        r = cg_enumerate_processes(crt->cgroup_path, &f);
         if (r < 0)
                 return r;
 
