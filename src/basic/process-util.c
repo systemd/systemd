@@ -2146,11 +2146,7 @@ int posix_spawn_wrapper(
         if (cgroup && have_clone_into_cgroup) {
                 _cleanup_free_ char *resolved_cgroup = NULL;
 
-                r = cg_get_path_and_check(
-                                SYSTEMD_CGROUP_CONTROLLER,
-                                cgroup,
-                                /* suffix= */ NULL,
-                                &resolved_cgroup);
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup, /* suffix= */ NULL, &resolved_cgroup);
                 if (r < 0)
                         return r;
 
