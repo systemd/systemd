@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "cgroup-setup.h"
 #include "errno-list.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -327,8 +328,8 @@ TEST(monitor) {
 }
 
 static int intro(void) {
-        if (IN_SET(cg_unified(), -ENOENT, -ENOMEDIUM))
-                return log_tests_skipped("cgroupfs is not mounted");
+        if (cg_has_legacy() != 0)
+                return EXIT_TEST_SKIP;
 
         log_info("/* Information printed is from the live system */");
         return EXIT_SUCCESS;

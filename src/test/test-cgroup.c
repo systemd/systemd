@@ -43,10 +43,8 @@ TEST(cg_split_spec) {
 TEST(cg_create) {
         int r;
 
-        r = cg_unified_cached(false);
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return (void) log_tests_skipped("cgroupfs is not mounted");
-        ASSERT_OK(r);
+        if (cg_has_legacy() != 0)
+                return;
 
         _cleanup_free_ char *here = NULL;
         ASSERT_OK(cg_pid_get_path_shifted(0, NULL, &here));
@@ -93,14 +91,7 @@ TEST(cg_create) {
 
         ASSERT_OK_ZERO(cg_get_path(SYSTEMD_CGROUP_CONTROLLER, test_d, NULL, &path));
         log_debug("test_d: %s", path);
-        const char *full_d;
-        if (cg_all_unified())
-                full_d = strjoina("/sys/fs/cgroup", test_d);
-        else if (cg_hybrid_unified())
-                full_d = strjoina("/sys/fs/cgroup/unified", test_d);
-        else
-                full_d = strjoina("/sys/fs/cgroup/systemd", test_d);
-        ASSERT_TRUE(path_equal(path, full_d));
+        ASSERT_TRUE(path_equal(path, strjoina("/sys/fs/cgroup", test_d)));
         free(path);
 
         ASSERT_OK_POSITIVE(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, test_a));
@@ -122,14 +113,9 @@ TEST(id) {
         _cleanup_free_ char *p = NULL, *p2 = NULL;
         _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
         uint64_t id, id2;
-        int r;
 
-        r = cg_all_unified();
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return (void) log_tests_skipped("cgroupfs is not mounted");
-        if (r == 0)
-                return (void) log_tests_skipped("skipping cgroupid test, not running in unified mode");
-        ASSERT_OK_POSITIVE(r);
+        if (cg_has_legacy() != 0)
+                return;
 
         fd = cg_path_open("/");
         ASSERT_OK(fd);

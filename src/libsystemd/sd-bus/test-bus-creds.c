@@ -3,7 +3,7 @@
 #include "sd-bus.h"
 
 #include "bus-dump.h"
-#include "cgroup-util.h"
+#include "cgroup-setup.h"
 #include "errno-util.h"
 #include "tests.h"
 
@@ -13,8 +13,8 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        if (IN_SET(cg_unified(), -ENOMEDIUM, -ENOENT))
-                return log_tests_skipped("/sys/fs/cgroup/ not available");
+        if (cg_has_legacy() != 0)
+                return EXIT_TEST_SKIP;
 
         r = sd_bus_creds_new_from_pid(&creds, 0, _SD_BUS_CREDS_ALL);
         log_full_errno(r < 0 ? LOG_ERR : LOG_DEBUG, r, "sd_bus_creds_new_from_pid: %m");
