@@ -182,12 +182,12 @@ int cg_is_delegated_fd(int fd);
 
 int cg_has_coredump_receive(const char *path);
 
-int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
-int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret);
-int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char * const *keys, char **values);
+int cg_set_attribute(const char *path, const char *attribute, const char *value);
+int cg_get_attribute(const char *path, const char *attribute, char **ret);
+int cg_get_attribute_as_uint64(const char *path, const char *attribute, uint64_t *ret);
+int cg_get_attribute_as_bool(const char *path, const char *attribute);
 
-int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret);
-int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute);
+int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char * const *keys, char **values);
 
 int cg_get_owner(const char *path, uid_t *ret_uid);
 

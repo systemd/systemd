@@ -1610,13 +1610,13 @@ int cg_is_threaded(const char *path) {
         return strv_contains(v, "threaded") || strv_contains(v, "invalid");
 }
 
-int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value) {
+int cg_set_attribute(const char *path, const char *attribute, const char *value) {
         _cleanup_free_ char *p = NULL;
         int r;
 
         assert(attribute);
 
-        r = cg_get_path(controller, path, attribute, &p);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, attribute, &p);
         if (r < 0)
                 return r;
 
@@ -1628,27 +1628,27 @@ int cg_set_attribute(const char *controller, const char *path, const char *attri
         return write_string_file(p, value, WRITE_STRING_FILE_DISABLE_BUFFER|WRITE_STRING_FILE_OPEN_NONBLOCKING);
 }
 
-int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret) {
+int cg_get_attribute(const char *path, const char *attribute, char **ret) {
         _cleanup_free_ char *p = NULL;
         int r;
 
         assert(attribute);
 
-        r = cg_get_path(controller, path, attribute, &p);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, attribute, &p);
         if (r < 0)
                 return r;
 
         return read_one_line_file(p, ret);
 }
 
-int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret) {
+int cg_get_attribute_as_uint64(const char *path, const char *attribute, uint64_t *ret) {
         _cleanup_free_ char *value = NULL;
         uint64_t v;
         int r;
 
         assert(ret);
 
-        r = cg_get_attribute(controller, path, attribute, &value);
+        r = cg_get_attribute(path, attribute, &value);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
@@ -1667,11 +1667,11 @@ int cg_get_attribute_as_uint64(const char *controller, const char *path, const c
         return 0;
 }
 
-int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute) {
+int cg_get_attribute_as_bool(const char *path, const char *attribute) {
         _cleanup_free_ char *value = NULL;
         int r;
 
-        r = cg_get_attribute(controller, path, attribute, &value);
+        r = cg_get_attribute(path, attribute, &value);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
