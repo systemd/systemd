@@ -135,7 +135,7 @@ typedef enum CGroupUnified {
  * generate paths with multiple adjacent / removed.
  */
 
-int cg_path_open(const char *controller, const char *path);
+int cg_path_open(const char *path);
 int cg_cgroupid_open(int cgroupfs_fd, uint64_t id);
 
 int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret);
