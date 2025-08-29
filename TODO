@@ -128,6 +128,15 @@ Deprecations and removals:
 
 Features:
 
+* systemd-sysinstall:
+  - invoke "kernel-install -i …" to install a kernel after we install the image
+  - invoke "bootctl install -i …" to install a boot loader after we installed the image
+  - add switch for making registration in efi vars configurable
+  - make chrome color configurable for distros
+  - install units to run systemd-sysinstall at boot
+  - install units for systemd-repart to actually socket activate (and my sysinstall talk to that unless in offline mode)
+  - polkit support in repart
+
 * journald: log pidfid as another field, i.e. _PIDFDID=
 
 * systemd-nspawn: something like --volatile= but that isn't volatile, but
