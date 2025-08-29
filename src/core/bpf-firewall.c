@@ -696,7 +696,7 @@ int bpf_firewall_install(Unit *u) {
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                             "bpf-firewall: BPF firewalling not supported, proceeding without.");
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &path);
+        r = cg_get_path(crt->cgroup_path, /* suffix = */ NULL, &path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-firewall: Failed to determine cgroup path: %m");
 
