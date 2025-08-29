@@ -275,7 +275,7 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return log_tests_skipped_errno(r, "Failed to prepare cgroup subtree");
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup, NULL, &controller_path);
+        r = cg_get_path(cgroup, /* suffix = */ NULL, &controller_path);
         ASSERT_OK(r);
 
         _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
