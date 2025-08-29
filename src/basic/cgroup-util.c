@@ -219,7 +219,7 @@ bool cg_kill_supported(void) {
         return (supported = false);
 }
 
-int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret) {
+int cg_enumerate_subgroups(const char *path, DIR **ret) {
         _cleanup_free_ char *fs = NULL;
         DIR *d;
         int r;
@@ -228,7 +228,7 @@ int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret) 
 
         /* This is not recursive! */
 
-        r = cg_get_path(controller, path, NULL, &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -386,7 +386,7 @@ int cg_kill_recursive(
 
         ret = cg_kill(path, sig, flags, killed_pids, log_kill, userdata);
 
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
+        r = cg_enumerate_subgroups(path, &d);
         if (r < 0) {
                 if (r != -ENOENT)
                         RET_GATHER(ret, log_debug_errno(r, "Failed to enumerate cgroup '%s' subgroups: %m", path));
