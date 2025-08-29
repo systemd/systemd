@@ -254,7 +254,7 @@ int show_cgroup_by_path(
                 if (!k)
                         return -ENOMEM;
 
-                if (!(flags & OUTPUT_SHOW_ALL) && cg_is_empty(NULL, k) > 0)
+                if (!(flags & OUTPUT_SHOW_ALL) && cg_is_empty(k) > 0)
                         continue;
 
                 if (!shown_pids) {
