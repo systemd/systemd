@@ -159,6 +159,7 @@ typedef enum AppendMode {
 static EmptyMode arg_empty = EMPTY_UNSET;
 static bool arg_dry_run = true;
 static char *arg_node = NULL;
+static bool arg_node_none = false;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
 static char **arg_definitions = NULL;
@@ -830,6 +831,7 @@ static Context* context_new(
                 .private_key = private_key,
                 .empty = empty,
                 .dry_run = dry_run,
+                .backing_fd = -EBADF,
         };
 
         return context;
@@ -3410,6 +3412,15 @@ static void derive_salt(sd_id128_t base, const char *token, uint8_t ret[static S
         hmac_sha256(base.bytes, sizeof(base.bytes), token, strlen(token), ret);
 }
 
+static int context_load_fallback_metrics(Context *context) {
+        assert(context);
+
+        context->sector_size = arg_sector_size > 0 ? arg_sector_size : 512;
+        context->grain_size = MAX(context->sector_size, 4096U);
+        context->default_fs_sector_size = arg_sector_size > 0 ? arg_sector_size : DEFAULT_FILESYSTEM_SECTOR_SIZE;
+        return 1; /* Starting from scratch */
+}
+
 static int context_load_partition_table(Context *context) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
@@ -3422,6 +3433,7 @@ static int context_load_partition_table(Context *context) {
         int r;
 
         assert(context);
+        assert(context->node);
         assert(!context->fdisk_context);
         assert(!context->free_areas);
         assert(context->start == UINT64_MAX);
@@ -4685,14 +4697,16 @@ static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create temporary file: %m");
 
-        r = read_attr_fd(fdisk_get_devfd(context->fdisk_context), &attrs);
-        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", context->node);
+        if (context->fdisk_context) {
+                r = read_attr_fd(fdisk_get_devfd(context->fdisk_context), &attrs);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", context->node);
 
-        if (FLAGS_SET(attrs, FS_NOCOW_FL)) {
-                r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
-                if (r < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(r))
-                        return log_error_errno(r, "Failed to disable copy-on-write on %s: %m", temp);
+                if (FLAGS_SET(attrs, FS_NOCOW_FL)) {
+                        r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL);
+                        if (r < 0 && !ERRNO_IS_IOCTL_NOT_SUPPORTED(r))
+                                return log_error_errno(r, "Failed to disable copy-on-write on %s: %m", temp);
+                }
         }
 
         if (ftruncate(fd, size) < 0)
@@ -8242,9 +8256,11 @@ static int context_minimize(Context *context) {
 
         assert(context);
 
-        r = read_attr_fd(context->backing_fd, &attrs);
-        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", context->node);
+        if (context->backing_fd >= 0) {
+                r = read_attr_fd(context->backing_fd, &attrs);
+                if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        log_warning_errno(r, "Failed to read file attributes of %s, ignoring: %m", context->node);
+        }
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
@@ -9323,9 +9339,14 @@ static int parse_argv(
         }
 
         if (argc > optind) {
-                arg_node = strdup(argv[optind]);
-                if (!arg_node)
-                        return log_oom();
+                if (empty_or_dash(argv[optind]))
+                        arg_node_none = true;
+                else {
+                        arg_node = strdup(argv[optind]);
+                        if (!arg_node)
+                                return log_oom();
+                        arg_node_none = false;
+                }
         }
 
         if (IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE) && !arg_node && !arg_image)
@@ -9579,6 +9600,9 @@ static int find_root(Context *context) {
 
         assert(context);
 
+        if (arg_node_none)
+                return 0;
+
         if (arg_node) {
                 if (context->empty == EMPTY_CREATE) {
                         _cleanup_close_ int fd = -EBADF;
@@ -9806,7 +9830,11 @@ done:
         return 1;
 }
 
-static int determine_auto_size(Context *c) {
+static int determine_auto_size(
+                Context *c,
+                bool ignore_allocated, /* If true, determines unallocated space needed */
+                uint64_t *ret) {
+
         uint64_t sum;
 
         assert(c);
@@ -9823,19 +9851,23 @@ static int determine_auto_size(Context *c) {
                 if (m > UINT64_MAX - sum)
                         return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Image would grow too large, refusing.");
 
+                if (ignore_allocated && PARTITION_EXISTS(p))
+                        m = LESS_BY(m, p->current_size + p->current_padding);
+
                 sum += m;
         }
 
         if (c->total != UINT64_MAX)
                 /* Image already allocated? Then show its size. */
-                log_info("Automatically determined minimal disk image size as %s, current image size is %s.",
+                log_info("Automatically determined minimal disk image size as %s, current block device/image size is %s.",
                          FORMAT_BYTES(sum), FORMAT_BYTES(c->total));
         else
                 /* If the image is being created right now, then it has no previous size, suppress any comment about it hence. */
                 log_info("Automatically determined minimal disk image size as %s.",
                          FORMAT_BYTES(sum));
 
-        arg_size = sum;
+        if (ret)
+                *ret = sum;
         return 0;
 }
 
@@ -9858,11 +9890,9 @@ static int context_ponder(Context *context) {
                         continue; /* Still no luck. Let's drop a priority and try again. */
 
                 /* No more priorities left to drop. This configuration just doesn't fit on this disk... */
-                r = log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                    "Can't fit requested partitions into available free space (%s), refusing.",
-                                    FORMAT_BYTES(largest_free_area));
-                (void) determine_auto_size(context);
-                return r;
+                return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                       "Can't fit requested partitions into available free space (%s), refusing.",
+                                       FORMAT_BYTES(largest_free_area));
         }
 
         LIST_FOREACH(partitions, p, context->partitions) {
@@ -10050,7 +10080,7 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
 
-                if (!arg_node) {
+                if (!arg_node && !arg_node_none) {
                         arg_node = strdup(loop_device->node);
                         if (!arg_node)
                                 return log_oom();
@@ -10117,21 +10147,24 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (arg_size != UINT64_MAX) {
-                r = resize_backing_fd(
-                                context->node,
-                                &context->backing_fd,
-                                node_is_our_loop ? arg_image : NULL,
-                                node_is_our_loop ? loop_device : NULL,
-                                context->sector_size);
-                if (r < 0)
-                        return r;
-        }
+        if (context->node) {
+                if (arg_size != UINT64_MAX) {
+                        r = resize_backing_fd(
+                                        context->node,
+                                        &context->backing_fd,
+                                        node_is_our_loop ? arg_image : NULL,
+                                        node_is_our_loop ? loop_device : NULL,
+                                        context->sector_size);
+                        if (r < 0)
+                                return r;
+                }
 
-        r = context_load_partition_table(context);
-        if (r == -EHWPOISON)
-                return 77; /* Special return value which means "Not GPT, so not doing anything". This isn't
-                            * really an error when called at boot. */
+                r = context_load_partition_table(context);
+                if (r == -EHWPOISON)
+                        return 77; /* Special return value which means "Not GPT, so not doing anything". This isn't
+                                    * really an error when called at boot. */
+        } else
+                r = context_load_fallback_metrics(context);
         if (r < 0)
                 return r;
         context->from_scratch = r > 0; /* Starting from scratch */
@@ -10194,8 +10227,13 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        if (arg_node_none) {
+                (void) determine_auto_size(context, /* ignore_allocated= */ false, /* size= */ NULL);
+                return 0;
+        }
+
         if (arg_size_auto) {
-                r = determine_auto_size(context);
+                r = determine_auto_size(context, /* ignore_allocated= */ false, &arg_size);
                 if (r < 0)
                         return r;
 
@@ -10218,6 +10256,11 @@ static int run(int argc, char *argv[]) {
         }
 
         r = context_ponder(context);
+        if (r == -ENOSPC) {
+                /* When we hit space issues, tell the user the minimal size. */
+                (void) determine_auto_size(context, /* ignore_allocated= */ false, /* size= */ NULL);
+                return r;
+        }
         if (r < 0)
                 return r;
 
