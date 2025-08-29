@@ -63,11 +63,11 @@ int cg_is_available(void) {
         return is_fs_type(&fs, CGROUP2_SUPER_MAGIC);
 }
 
-int cg_path_open(const char *controller, const char *path) {
+int cg_path_open(const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        r = cg_get_path(controller, path, /* suffix=*/ NULL, &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
