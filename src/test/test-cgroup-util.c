@@ -402,7 +402,7 @@ TEST(cg_get_keyed_attribute) {
         char *vals3[3] = {}, *vals3a[3] = {};
         int r;
 
-        r = cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
+        r = cg_get_keyed_attribute("/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
         if (r == -ENOMEDIUM || ERRNO_IS_PRIVILEGE(r)) {
                 log_info_errno(r, "Skipping most of %s, /sys/fs/cgroup not accessible: %m", __func__);
                 return;
@@ -416,20 +416,20 @@ TEST(cg_get_keyed_attribute) {
                 return;
         }
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
         ASSERT_NULL(val);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
         val = mfree(val);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat",
                                          STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
         for (size_t i = 0; i < 3; i++)
                 free(vals3[i]);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat",
                                          STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
         for (size_t i = 0; i < 3; i++)
                 free(vals3a[i]);

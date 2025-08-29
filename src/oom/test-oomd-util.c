@@ -97,7 +97,7 @@ TEST(oomd_cgroup_kill) {
                 bool empty = false;
                 for (size_t t = 0; t < 100; t++) {
                         usleep_safe(100 * USEC_PER_MSEC);
-                        ASSERT_OK(r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, subcgroup));
+                        ASSERT_OK(r = cg_is_empty(subcgroup));
                         if (r > 0) {
                                 empty = true;
                                 break;
