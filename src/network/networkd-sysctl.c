@@ -113,7 +113,7 @@ int manager_install_sysctl_monitor(Manager *manager) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to get cgroup path, ignoring: %m.");
 
-        root_cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        root_cgroup_fd = cg_path_open("/");
         if (root_cgroup_fd < 0)
                 return log_warning_errno(root_cgroup_fd, "Failed to open cgroup, ignoring: %m");
 
@@ -122,7 +122,7 @@ int manager_install_sysctl_monitor(Manager *manager) {
                 return log_full_errno(errno == EINVAL ? LOG_DEBUG : LOG_INFO, errno,
                                       "Unable to load sysctl monitor BPF program, ignoring: %m");
 
-        cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, cgroup);
+        cgroup_fd = cg_path_open(cgroup);
         if (cgroup_fd < 0)
                 return log_warning_errno(cgroup_fd, "Failed to open cgroup: %m");
 
