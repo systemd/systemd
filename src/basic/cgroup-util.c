@@ -209,9 +209,6 @@ bool cg_kill_supported(void) {
         if (supported >= 0)
                 return supported;
 
-        if (cg_all_unified() <= 0)
-                return (supported = false);
-
         if (access("/sys/fs/cgroup/init.scope/cgroup.kill", F_OK) >= 0)
                 return (supported = true);
         if (errno != ENOENT)
