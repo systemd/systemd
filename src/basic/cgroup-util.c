@@ -594,7 +594,7 @@ int cg_pidref_get_path(const PidRef *pidref, char **ret_path) {
         return 0;
 }
 
-int cg_is_empty(const char *controller, const char *path) {
+int cg_is_empty(const char *path) {
         _cleanup_free_ char *t = NULL;
         int r;
 
@@ -607,7 +607,7 @@ int cg_is_empty(const char *controller, const char *path) {
         if (empty_or_root(path))
                 return false;
 
-        r = cg_get_keyed_attribute(controller, path, "cgroup.events", STRV_MAKE("populated"), &t);
+        r = cg_get_keyed_attribute(path, "cgroup.events", STRV_MAKE("populated"), &t);
         if (r == -ENOENT)
                 return true;
         if (r < 0)
@@ -1535,7 +1535,6 @@ int cg_get_owner(const char *path, uid_t *ret_uid) {
 }
 
 int cg_get_keyed_attribute(
-                const char *controller,
                 const char *path,
                 const char *attribute,
                 char * const *keys,
@@ -1554,7 +1553,7 @@ int cg_get_keyed_attribute(
          *
          * If the attribute file doesn't exist at all returns ENOENT, if any key is not found returns ENXIO. */
 
-        r = cg_get_path(controller, path, attribute, &filename);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, attribute, &filename);
         if (r < 0)
                 return r;
 
