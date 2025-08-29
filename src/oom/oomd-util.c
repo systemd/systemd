@@ -431,19 +431,19 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
                 if (r < 0)
                         return log_debug_errno(r, "Error getting memory used from procfs: %m");
         } else {
-                r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, path, "memory.current", &ctx->current_memory_usage);
+                r = cg_get_attribute_as_uint64(path, "memory.current", &ctx->current_memory_usage);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting memory.current from %s: %m", path);
 
-                r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, path, "memory.min", &ctx->memory_min);
+                r = cg_get_attribute_as_uint64(path, "memory.min", &ctx->memory_min);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting memory.min from %s: %m", path);
 
-                r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, path, "memory.low", &ctx->memory_low);
+                r = cg_get_attribute_as_uint64(path, "memory.low", &ctx->memory_low);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting memory.low from %s: %m", path);
 
-                r = cg_get_attribute_as_uint64(SYSTEMD_CGROUP_CONTROLLER, path, "memory.swap.current", &ctx->swap_usage);
+                r = cg_get_attribute_as_uint64(path, "memory.swap.current", &ctx->swap_usage);
                 if (r == -ENODATA)
                         /* The kernel can be compiled without support for memory.swap.* files,
                          * or it can be disabled with boot param 'swapaccount=0' */
