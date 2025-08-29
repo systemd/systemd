@@ -11,11 +11,6 @@
 TEST(cg_create) {
         int r;
 
-        r = cg_unified_cached(false);
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return (void) log_tests_skipped("cgroupfs is not mounted");
-        ASSERT_OK(r);
-
         _cleanup_free_ char *here = NULL;
         ASSERT_OK(cg_pid_get_path_shifted(0, NULL, &here));
 
@@ -61,14 +56,7 @@ TEST(cg_create) {
 
         ASSERT_OK_ZERO(cg_get_path(SYSTEMD_CGROUP_CONTROLLER, test_d, NULL, &path));
         log_debug("test_d: %s", path);
-        const char *full_d;
-        if (cg_all_unified())
-                full_d = strjoina("/sys/fs/cgroup", test_d);
-        else if (cg_hybrid_unified())
-                full_d = strjoina("/sys/fs/cgroup/unified", test_d);
-        else
-                full_d = strjoina("/sys/fs/cgroup/systemd", test_d);
-        ASSERT_TRUE(path_equal(path, full_d));
+        ASSERT_TRUE(path_equal(path, strjoina("/sys/fs/cgroup", test_d)));
         free(path);
 
         ASSERT_OK_POSITIVE(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, test_a));
@@ -86,4 +74,11 @@ TEST(cg_create) {
         ASSERT_OK(cg_trim(test_b, true));
 }
 
-DEFINE_TEST_MAIN(LOG_DEBUG);
+static int intro(void) {
+        if (cg_is_ready() <= 0)
+                return log_tests_skipped("cgroupfs is not mounted");
+
+        return 0;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
