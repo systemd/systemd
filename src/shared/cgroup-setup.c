@@ -115,7 +115,7 @@ int cg_create(const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        r = cg_get_path_and_check(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -140,7 +140,7 @@ int cg_attach(const char *path, pid_t pid) {
         assert(path);
         assert(pid >= 0);
 
-        r = cg_get_path_and_check(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.procs", &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
 
