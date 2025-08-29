@@ -287,6 +287,12 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         CGroupMask supported;
         int r;
 
+        r = cg_is_ready();
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "cgroupfs is not mounted.");
+
         r = allocate_scope();
         if (r < 0)
                 log_warning_errno(r, "Couldn't allocate a scope unit for this test, proceeding without.");
