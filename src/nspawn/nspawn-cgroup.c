@@ -100,7 +100,7 @@ int create_subcgroup(
         if (userns_mode == USER_NAMESPACE_MANAGED) {
                 _cleanup_close_ int cgroup_fd = -EBADF;
 
-                cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, payload);
+                cgroup_fd = cg_path_open(payload);
                 if (cgroup_fd < 0)
                         return log_error_errno(cgroup_fd, "Failed to open cgroup %s: %m", payload);
 
