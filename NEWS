@@ -161,6 +161,13 @@ CHANGES WITH 258 in spe:
           include a native systemd unit file instead of a legacy System V
           script to retain compatibility with future systemd releases.
 
+        * Support for the legacy /run/lock/ directory is deprecated and will be
+          removed in v259. Any software that still needs access to this legacy
+          directory is encouraged to ship their own tmpfiles.d configuration to
+          set it up according to their needs. In general, services should store
+          their lock files in RuntimeDirectory=/$RUNTIME_DIRECTORY, and software
+          directly executed by users should use $XDG_RUNTIME_DIR.
+
         * Support for systemd-repart's FactoryReset EFI variable has been
           deprecated and support for it will be removed in v260. Use the newer,
           more generic FactoryResetRequest variable instead, which can be
