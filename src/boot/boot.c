@@ -11,6 +11,7 @@
 #include "efi-string-table.h"
 #include "efivars-fundamental.h"
 #include "export-vars.h"
+#include "fwupd.h"
 #include "graphics.h"
 #include "initrd.h"
 #include "line-edit.h"
@@ -2850,13 +2851,18 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_TYPE1_UKI |
                 EFI_LOADER_FEATURE_TYPE1_UKI_URL |
                 EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS |
+                EFI_LOADER_FEATURE_FIRMWARE_UPDATE |
                 0;
+        uint8_t value = 1;
 
         assert(loaded_image);
 
         (void) efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
         (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, 0);
+
+        /* Defined by fwupd https://github.com/fwupd/fwupd/tree/main/plugins/uefi-capsule#3rd-party-bootloader */
+        (void) efivar_set_raw(MAKE_GUID_PTR(FWUPDATE), u"BootloaderSupportsFwupd", &value, sizeof(value), 0);
 }
 
 static void config_add_system_entries(Config *config) {
@@ -2983,6 +2989,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         bool menu = false;
 
         init_usec = time_usec();
+
+        /* First, apply any pending fwupd capsules */
+        fwupd_install_updates(image);
 
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
