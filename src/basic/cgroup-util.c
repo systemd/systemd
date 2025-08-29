@@ -67,7 +67,7 @@ int cg_path_open(const char *path) {
         _cleanup_free_ char *fs = NULL;
         int r;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, /* suffix= */ NULL, &fs);
+        r = cg_get_path(path, /* suffix= */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -137,7 +137,7 @@ int cg_enumerate_processes(const char *path, FILE **ret) {
 
         assert(ret);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.procs", &fs);
+        r = cg_get_path(path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
 
@@ -241,7 +241,7 @@ int cg_enumerate_subgroups(const char *path, DIR **ret) {
 
         /* This is not recursive! */
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix = */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -444,7 +444,7 @@ int cg_kill_kernel_sigkill(const char *path) {
         if (!cg_kill_supported())
                 return -EOPNOTSUPP;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.kill", &killfile);
+        r = cg_get_path(path, "cgroup.kill", &killfile);
         if (r < 0)
                 return r;
 
@@ -455,7 +455,7 @@ int cg_kill_kernel_sigkill(const char *path) {
         return 0;
 }
 
-int cg_get_path(const char *controller, const char *path, const char *suffix, char **ret) {
+int cg_get_path(const char *path, const char *suffix, char **ret) {
         char *t;
 
         assert(ret);
@@ -463,10 +463,7 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
         if (isempty(path))
                 path = TAKE_PTR(suffix);
 
-        if (controller)
-                t = path_join("/sys/fs/cgroup", path, suffix);
-        else
-                t = path_join(path, suffix);
+        t = path_join("/sys/fs/cgroup", path, suffix);
         if (!t)
                 return -ENOMEM;
 
@@ -482,7 +479,7 @@ int cg_set_xattr(const char *path, const char *name, const void *value, size_t s
         assert(name);
         assert(value || size <= 0);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix = */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -496,7 +493,7 @@ int cg_get_xattr(const char *path, const char *name, char **ret, size_t *ret_siz
         assert(path);
         assert(name);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix = */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -510,7 +507,7 @@ int cg_get_xattr_bool(const char *path, const char *name) {
         assert(path);
         assert(name);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix = */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -524,7 +521,7 @@ int cg_remove_xattr(const char *path, const char *name) {
         assert(path);
         assert(name);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
+        r = cg_get_path(path, /* suffix = */ NULL, &fs);
         if (r < 0)
                 return r;
 
@@ -691,7 +688,7 @@ int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
 }
 
 int cg_mangle_path(const char *path, char **ret) {
-        _cleanup_free_ char *c = NULL, *p = NULL;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(path);
@@ -702,11 +699,11 @@ int cg_mangle_path(const char *path, char **ret) {
                 return path_simplify_alloc(path, ret);
 
         /* Otherwise, treat it as cg spec */
-        r = cg_split_spec(path, &c, &p);
+        r = cg_split_spec(path, /* ret_controller = */ NULL, &p);
         if (r < 0)
                 return r;
 
-        return cg_get_path(c ?: SYSTEMD_CGROUP_CONTROLLER, p ?: "/", NULL, ret);
+        return cg_get_path(p, /* suffix = */ NULL, ret);
 }
 
 int cg_get_root_path(char **ret_path) {
@@ -1439,7 +1436,7 @@ int cg_is_threaded(const char *path) {
         _cleanup_strv_free_ char **v = NULL;
         int r;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.type", &fs);
+        r = cg_get_path(path, "cgroup.type", &fs);
         if (r < 0)
                 return r;
 
@@ -1464,7 +1461,7 @@ int cg_set_attribute(const char *path, const char *attribute, const char *value)
 
         assert(attribute);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, attribute, &p);
+        r = cg_get_path(path, attribute, &p);
         if (r < 0)
                 return r;
 
@@ -1482,7 +1479,7 @@ int cg_get_attribute(const char *path, const char *attribute, char **ret) {
 
         assert(attribute);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, attribute, &p);
+        r = cg_get_path(path, attribute, &p);
         if (r < 0)
                 return r;
 
@@ -1535,7 +1532,7 @@ int cg_get_owner(const char *path, uid_t *ret_uid) {
 
         assert(ret_uid);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &f);
+        r = cg_get_path(path, /* suffix = */ NULL, &f);
         if (r < 0)
                 return r;
 
@@ -1569,7 +1566,7 @@ int cg_get_keyed_attribute(
          *
          * If the attribute file doesn't exist at all returns ENOENT, if any key is not found returns ENXIO. */
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, attribute, &filename);
+        r = cg_get_path(path, attribute, &filename);
         if (r < 0)
                 return r;
 
@@ -1714,7 +1711,7 @@ int cg_mask_supported_subtree(const char *root, CGroupMask *ret) {
 
         /* We can read the supported and accessible controllers from the top-level cgroup attribute */
         _cleanup_free_ char *controllers = NULL, *path = NULL;
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, root, "cgroup.controllers", &path);
+        r = cg_get_path(root, "cgroup.controllers", &path);
         if (r < 0)
                 return r;
 

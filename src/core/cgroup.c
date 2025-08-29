@@ -1989,7 +1989,7 @@ static int unit_watch_cgroup(Unit *u) {
         if (r < 0)
                 return log_oom();
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "cgroup.events", &events);
+        r = cg_get_path(crt->cgroup_path, "cgroup.events", &events);
         if (r < 0)
                 return log_oom();
 
@@ -2044,7 +2044,7 @@ static int unit_watch_cgroup_memory(Unit *u) {
         if (r < 0)
                 return log_oom();
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "memory.events", &events);
+        r = cg_get_path(crt->cgroup_path, "memory.events", &events);
         if (r < 0)
                 return log_oom();
 
@@ -2103,7 +2103,7 @@ static int unit_update_cgroup(
         CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
 
         uint64_t cgroup_id = 0;
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &cgroup_full_path);
+        r = cg_get_path(crt->cgroup_path, /* suffix = */ NULL, &cgroup_full_path);
         if (r == 0) {
                 r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
                 if (r < 0)
@@ -3769,7 +3769,7 @@ static int unit_get_io_accounting_raw(
         if (!FLAGS_SET(crt->cgroup_realized_mask, CGROUP_MASK_IO))
                 return -ENODATA;
 
-        r = cg_get_path("io", crt->cgroup_path, "io.stat", &path);
+        r = cg_get_path(crt->cgroup_path, "io.stat", &path);
         if (r < 0)
                 return r;
 
@@ -4107,7 +4107,7 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
                         assert_not_reached();
         }
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "cgroup.freeze", &path);
+        r = cg_get_path(crt->cgroup_path, "cgroup.freeze", &path);
         if (r < 0)
                 return r;
 
