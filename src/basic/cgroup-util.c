@@ -444,36 +444,11 @@ int cg_get_path(const char *controller, const char *path, const char *suffix, ch
 
         assert(ret);
 
-        if (!controller) {
+        if (isempty(path))
+                path = TAKE_PTR(suffix);
 
-                /* If no controller is specified, we return the path *below* the controllers, without any
-                 * prefix. */
-
-                if (isempty(path) && isempty(suffix))
-                        return -EINVAL;
-
-                if (isempty(suffix))
-                        t = strdup(path);
-                else if (isempty(path))
-                        t = strdup(suffix);
-                else
-                        t = path_join(path, suffix);
-                if (!t)
-                        return -ENOMEM;
-
-                *ret = path_simplify(t);
-                return 0;
-        }
-
-        if (!cg_controller_is_valid(controller))
-                return -EINVAL;
-
-        if (isempty(path) && isempty(suffix))
-                t = strdup("/sys/fs/cgroup");
-        else if (isempty(path))
-                t = path_join("/sys/fs/cgroup", suffix);
-        else if (isempty(suffix))
-                t = path_join("/sys/fs/cgroup", path);
+        if (path && path_startswith(path, "/sys/fs/cgroup"))
+                t = path_join(path, suffix);
         else
                 t = path_join("/sys/fs/cgroup", path, suffix);
         if (!t)
