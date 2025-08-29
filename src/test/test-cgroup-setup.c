@@ -54,7 +54,7 @@ TEST(cg_create) {
         ASSERT_TRUE(path_equal(path, test_d));
         free(path);
 
-        ASSERT_OK_ZERO(cg_get_path(SYSTEMD_CGROUP_CONTROLLER, test_d, NULL, &path));
+        ASSERT_OK_ZERO(cg_get_path(test_d, /* suffix = */ NULL, &path));
         log_debug("test_d: %s", path);
         ASSERT_TRUE(path_equal(path, strjoina("/sys/fs/cgroup", test_d)));
         free(path);
