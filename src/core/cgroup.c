@@ -136,7 +136,7 @@ static int set_attribute_and_warn(Unit *u, const char *attribute, const char *va
         if (!crt || !crt->cgroup_path)
                 return -EOWNERDEAD;
 
-        r = cg_set_attribute(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, attribute, value);
+        r = cg_set_attribute(crt->cgroup_path, attribute, value);
         if (r < 0)
                 log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%.*s': %m",
                                     attribute, empty_to_root(crt->cgroup_path), (int) strcspn(value, NEWLINE), value);
@@ -287,7 +287,7 @@ static int unit_get_kernel_memory_limit(Unit *u, const char *file, uint64_t *ret
         if (!crt || !crt->cgroup_path)
                 return -EOWNERDEAD;
 
-        return cg_get_attribute_as_uint64("memory", crt->cgroup_path, file, ret);
+        return cg_get_attribute_as_uint64(crt->cgroup_path, file, ret);
 }
 
 static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_t *ret_unit_value, uint64_t *ret_kernel_value) {
@@ -1139,7 +1139,7 @@ static void cgroup_apply_cpu_idle(Unit *u, uint64_t weight) {
 
         is_idle = weight == CGROUP_WEIGHT_IDLE;
         idle_val = one_zero(is_idle);
-        r = cg_set_attribute("cpu", crt->cgroup_path, "cpu.idle", idle_val);
+        r = cg_set_attribute(crt->cgroup_path, "cpu.idle", idle_val);
         if (r < 0 && (r != -ENOENT || is_idle))
                 log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%s': %m",
                                     "cpu.idle", empty_to_root(crt->cgroup_path), idle_val);
@@ -1211,7 +1211,7 @@ static int set_bfq_weight(Unit *u, dev_t dev, uint64_t io_weight) {
         else
                 xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
-        r = cg_set_attribute(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "io.bfq.weight", buf);
+        r = cg_set_attribute(crt->cgroup_path, "io.bfq.weight", buf);
         if (r >= 0 && io_weight != bfq_weight)
                 log_unit_debug(u, "%s=%" PRIu64 " scaled to io.bfq.weight=%" PRIu64,
                                major(dev) > 0 ? "IODeviceWeight" : "IOWeight",
@@ -1236,7 +1236,7 @@ static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_
         r1 = set_bfq_weight(u, dev, io_weight);
 
         xsprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), io_weight);
-        r2 = cg_set_attribute("io", crt->cgroup_path, "io.weight", buf);
+        r2 = cg_set_attribute(crt->cgroup_path, "io.weight", buf);
 
         /* Look at the configured device, when both fail, prefer io.weight errno. */
         r = r2 == -EOPNOTSUPP ? r1 : r2;
@@ -3538,7 +3538,7 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
         if (!FLAGS_SET(crt->cgroup_realized_mask, CGROUP_MASK_MEMORY))
                 return -ENODATA;
 
-        r = cg_get_attribute_as_uint64("memory", crt->cgroup_path, attributes_table[metric], &bytes);
+        r = cg_get_attribute_as_uint64(crt->cgroup_path, attributes_table[metric], &bytes);
         if (r < 0 && r != -ENODATA)
                 return r;
         updated = r >= 0;
@@ -3581,7 +3581,7 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret) {
         if ((crt->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
                 return -ENODATA;
 
-        return cg_get_attribute_as_uint64("pids", crt->cgroup_path, "pids.current", ret);
+        return cg_get_attribute_as_uint64(crt->cgroup_path, "pids.current", ret);
 }
 
 static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_t *ret) {
@@ -4142,7 +4142,7 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
         if ((crt->cgroup_realized_mask & CGROUP_MASK_CPUSET) == 0)
                 return -ENODATA;
 
-        r = cg_get_attribute("cpuset", crt->cgroup_path, name, &v);
+        r = cg_get_attribute(crt->cgroup_path, name, &v);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)
