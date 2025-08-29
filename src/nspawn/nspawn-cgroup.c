@@ -113,7 +113,7 @@ int create_subcgroup(
                         return log_error_errno(r, "Failed to add cgroup %s to userns: %m", payload);
         } else {
                 _cleanup_free_ char *fs = NULL;
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, payload, NULL, &fs);
+                r = cg_get_path(payload, /* suffix = */ NULL, &fs);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
 
