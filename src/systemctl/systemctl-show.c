@@ -929,7 +929,7 @@ static void print_status_info(
                         if (i->control_pid > 0)
                                 extra[k++] = i->control_pid;
 
-                        show_cgroup_and_extra(SYSTEMD_CGROUP_CONTROLLER, i->control_group, prefix, c, extra, k, get_output_flags());
+                        show_cgroup_and_extra(i->control_group, prefix, c, extra, k, get_output_flags());
                 } else if (r < 0)
                         log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s",
                                           i->id, bus_error_message(&error, r));
@@ -2480,7 +2480,7 @@ static int show_system_status(sd_bus *bus) {
 
         r = unit_show_processes(bus, SPECIAL_ROOT_SLICE, mi.control_group, prefix, c, get_output_flags(), &error);
         if (r == -EBADR && arg_transport == BUS_TRANSPORT_LOCAL) /* Compatibility for really old systemd versions */
-                show_cgroup(SYSTEMD_CGROUP_CONTROLLER, strempty(mi.control_group), prefix, c, get_output_flags());
+                show_cgroup(strempty(mi.control_group), prefix, c, get_output_flags());
         else if (r < 0)
                 log_warning_errno(r, "Failed to dump process list for '%s', ignoring: %s",
                                   arg_host ?: hn, bus_error_message(&error, r));
