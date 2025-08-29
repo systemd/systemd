@@ -2728,7 +2728,7 @@ int unit_cgroup_is_empty(Unit *u) {
         if (!crt->cgroup_path)
                 return -EOWNERDEAD;
 
-        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path);
+        r = cg_is_empty(crt->cgroup_path);
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", empty_to_root(crt->cgroup_path));
         return r;
@@ -3037,7 +3037,6 @@ int unit_check_oom(Unit *u) {
                 return 0;
 
         r = cg_get_keyed_attribute(
-                        "memory",
                         crt->cgroup_path,
                         "memory.events",
                         STRV_MAKE("oom_kill"),
@@ -3147,7 +3146,6 @@ static int unit_check_cgroup_events(Unit *u) {
                 return 0;
 
         r = cg_get_keyed_attribute(
-                        SYSTEMD_CGROUP_CONTROLLER,
                         crt->cgroup_path,
                         "cgroup.events",
                         STRV_MAKE("populated", "frozen"),
@@ -3592,7 +3590,7 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         _cleanup_free_ char *val = NULL;
         uint64_t us;
 
-        r = cg_get_keyed_attribute("cpu", crt->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
+        r = cg_get_keyed_attribute(crt->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
         if (r < 0)
                 return r;
 
@@ -4028,7 +4026,6 @@ static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
                 return -EOWNERDEAD;
 
         r = cg_get_keyed_attribute(
-                        SYSTEMD_CGROUP_CONTROLLER,
                         crt->cgroup_path,
                         "cgroup.events",
                         STRV_MAKE("frozen"),
