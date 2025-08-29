@@ -117,14 +117,14 @@ int cg_get_cgroupid_at(int dfd, const char *path, uint64_t *ret) {
         return 0;
 }
 
-int cg_enumerate_processes(const char *controller, const char *path, FILE **ret) {
+int cg_enumerate_processes(const char *path, FILE **ret) {
         _cleanup_free_ char *fs = NULL;
         FILE *f;
         int r;
 
         assert(ret);
 
-        r = cg_get_path(controller, path, "cgroup.procs", &fs);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.procs", &fs);
         if (r < 0)
                 return r;
 
@@ -295,7 +295,7 @@ int cg_kill(
 
                 done = true;
 
-                r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
+                r = cg_enumerate_processes(path, &f);
                 if (r == -ENOENT)
                         break;
                 if (r < 0)
