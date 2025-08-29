@@ -435,7 +435,7 @@ static int refresh(
         if (r < 0)
                 return r;
 
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
+        r = cg_enumerate_subgroups(path, &d);
         if (r == -ENOENT) {
                 if (ret)
                         *ret = NULL;
