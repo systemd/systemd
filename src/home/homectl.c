@@ -1829,9 +1829,15 @@ static int acquire_updated_home_record(
                         return r;
         }
 
+        if (arg_recovery_key) {
+                r = identity_add_recovery_key(&json);
+                if (r < 0)
+                        return r;
+        }
+
         /* If the user supplied a full record, then add in lastChange, but do not override. Otherwise always
          * override. */
-        r = update_last_change(&json, arg_pkcs11_token_uri || arg_fido2_device, !arg_identity);
+        r = update_last_change(&json, arg_pkcs11_token_uri || arg_fido2_device || arg_recovery_key, !arg_identity);
         if (r < 0)
                 return r;
 
