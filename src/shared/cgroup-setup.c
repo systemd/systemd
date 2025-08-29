@@ -489,3 +489,16 @@ int cg_has_legacy(void) {
                                "Unknown filesystem type %llx mounted on /sys/fs/cgroup/.",
                                (unsigned long long) fs.f_type);
 }
+
+int cg_is_ready(void) {
+        struct statfs fs;
+
+        if (statfs("/sys/fs/cgroup/", &fs) < 0) {
+                if (errno == ENOENT) /* sysfs not mounted? */
+                        return false;
+
+                return log_debug_errno(errno, "Failed to statfs /sys/fs/cgroup/: %m");
+        }
+
+        return is_fs_type(&fs, CGROUP2_SUPER_MAGIC);
+}

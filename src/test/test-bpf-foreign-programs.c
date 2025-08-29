@@ -294,10 +294,6 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        r = cg_all_unified();
-        if (r <= 0)
-                return log_tests_skipped("Unified hierarchy is required");
-
         r = enter_cgroup_subroot(NULL);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
