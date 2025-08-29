@@ -3,6 +3,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -431,19 +432,18 @@ TEST(cg_get_keyed_attribute) {
         char *vals3[3] = {}, *vals3a[3] = {};
         int r;
 
+        if (cg_is_ready() <= 0)
+                return (void) log_tests_skipped("/sys/fs/cgroup/ not available");
+
         r = cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
-        if (r == -ENOMEDIUM || ERRNO_IS_PRIVILEGE(r)) {
-                log_info_errno(r, "Skipping most of %s, /sys/fs/cgroup not accessible: %m", __func__);
-                return;
-        }
+        if (ERRNO_IS_PRIVILEGE(r))
+                return (void) log_tests_skipped_errno(r, "/sys/fs/cgroup not accessible");
 
         assert_se(r == -ENOENT);
         ASSERT_NULL(val);
 
-        if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0) {
-                log_info_errno(errno, "Skipping most of %s, /init.scope/cpu.stat not accessible: %m", __func__);
-                return;
-        }
+        if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0)
+                return (void) log_tests_skipped_errno(errno, "/init.scope/cpu.stat not accessible");
 
         assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
         ASSERT_NULL(val);
