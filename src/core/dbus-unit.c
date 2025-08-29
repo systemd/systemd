@@ -1411,7 +1411,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                         return r;
         }
 
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, p, &d);
+        r = cg_enumerate_subgroups(p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
