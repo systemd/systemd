@@ -149,7 +149,7 @@ static int process_memory(Group *g) {
         else {
                 _cleanup_free_ char *p = NULL, *v = NULL;
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, g->path, "memory.current", &p);
+                r = cg_get_path(g->path, "memory.current", &p);
                 if (r < 0)
                         return r;
 
@@ -179,7 +179,7 @@ static int process_io(Group *g, unsigned iteration) {
 
         assert(g);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, g->path, "io.stat", &p);
+        r = cg_get_path(g->path, "io.stat", &p);
         if (r < 0)
                 return r;
 
@@ -372,7 +372,7 @@ static int process(
                 } else {
                         _cleanup_free_ char *p = NULL, *v = NULL;
 
-                        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "pids.current", &p);
+                        r = cg_get_path(path, "pids.current", &p);
                         if (r < 0)
                                 return r;
 
