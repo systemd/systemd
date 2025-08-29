@@ -153,7 +153,7 @@ typedef enum CGroupFlags {
         CGROUP_DONT_SKIP_UNMAPPED = 1 << 2,
 } CGroupFlags;
 
-int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
+int cg_enumerate_processes(const char *path, FILE **ret);
 int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags);
 int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags);
 
