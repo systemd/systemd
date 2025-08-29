@@ -42,7 +42,7 @@ uint64_t physical_memory(void) {
                 return mem;
         }
         if (r > 0) {
-                r = cg_get_attribute("memory", root, "memory.max", &value);
+                r = cg_get_attribute(root, "memory.max", &value);
                 if (r == -ENOENT) /* Field does not exist on the system's top-level cgroup, hence don't
                                    * complain. (Note that it might exist on our own root though, if we live
                                    * in a cgroup namespace, hence check anyway instead of not even
@@ -56,7 +56,7 @@ uint64_t physical_memory(void) {
                 if (streq(value, "max"))
                         return mem;
         } else {
-                r = cg_get_attribute("memory", root, "memory.limit_in_bytes", &value);
+                r = cg_get_attribute(root, "memory.limit_in_bytes", &value);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to read memory.limit_in_bytes cgroup attribute, ignoring cgroup memory limit: %m");
                         return mem;
@@ -159,7 +159,7 @@ uint64_t system_tasks_max(void) {
                 /* We'll have the "pids.max" attribute on the our root cgroup only if we are in a
                  * CLONE_NEWCGROUP namespace. On the top-level namespace this attribute is missing, hence
                  * suppress any message about that */
-                r = cg_get_attribute_as_uint64("pids", root, "pids.max", &c);
+                r = cg_get_attribute_as_uint64(root, "pids.max", &c);
                 if (r < 0 && r != -ENODATA)
                         log_debug_errno(r, "Failed to read pids.max attribute of root cgroup, ignoring: %m");
         }
