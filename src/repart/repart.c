@@ -3362,7 +3362,7 @@ static int context_load_partition_table(Context *context) {
                         /* Use the fallback values if we have no better idea */
                         context->sector_size = fdisk_get_sector_size(c);
                         context->default_fs_sector_size = fs_secsz;
-                        context->grain_size = 4096;
+                        context->grain_size = MAX(context->sector_size, 4096U);
                         return /* from_scratch = */ true;
                 }
 
