@@ -113,13 +113,6 @@ static inline uint64_t BFQ_WEIGHT(uint64_t io_weight) {
             CGROUP_BFQ_WEIGHT_DEFAULT + (io_weight - CGROUP_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_WEIGHT_MAX - CGROUP_WEIGHT_DEFAULT);
 }
 
-typedef enum CGroupUnified {
-        CGROUP_UNIFIED_UNKNOWN = -1,
-        CGROUP_UNIFIED_NONE = 0,        /* Both systemd and controllers on legacy */
-        CGROUP_UNIFIED_SYSTEMD = 1,     /* Only systemd on unified */
-        CGROUP_UNIFIED_ALL = 2,         /* Both systemd and controllers on unified */
-} CGroupUnified;
-
 /*
  * General rules:
  *
@@ -258,14 +251,6 @@ int cg_mask_from_string(const char *s, CGroupMask *ret);
 int cg_mask_to_string(CGroupMask mask, char **ret);
 
 bool cg_kill_supported(void);
-
-int cg_all_unified(void);
-int cg_hybrid_unified(void);
-int cg_unified_controller(const char *controller);
-int cg_unified_cached(bool flush);
-static inline int cg_unified(void) {
-        return cg_unified_cached(true);
-}
 
 const char* cgroup_controller_to_string(CGroupController c) _const_;
 CGroupController cgroup_controller_from_string(const char *s) _pure_;
