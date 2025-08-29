@@ -615,7 +615,7 @@ static int machine_watch_cgroup(Machine *m) {
                 return 0;
 
         _cleanup_free_ char *p = NULL;
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup, "cgroup.events", &p);
+        r = cg_get_path(m->cgroup, "cgroup.events", &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to get cgroup path for cgroup '%s': %m", m->cgroup);
 
