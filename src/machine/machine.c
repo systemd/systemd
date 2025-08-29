@@ -595,7 +595,7 @@ static int machine_dispatch_cgroup_empty(sd_event_source *s, const struct inotif
 
         assert(m->cgroup);
 
-        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, m->cgroup);
+        r = cg_is_empty(m->cgroup);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if cgroup '%s' is empty: %m", m->cgroup);
 
@@ -777,7 +777,7 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
         }
 
         if (m->cgroup) {
-                r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, m->cgroup);
+                r = cg_is_empty(m->cgroup);
                 if (IN_SET(r, 0, -ENOENT))
                         return true;
                 if (r < 0)
