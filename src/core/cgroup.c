@@ -1474,6 +1474,8 @@ static int cgroup_apply_devices(Unit *u) {
 
 static int gather_device_memory_limits_from_unit(
                 LIST_HEAD(CGroupDeviceMemoryLimit, *ancestor_mem_limits), Unit *u) {
+        _cleanup_free_ char *root = NULL;
+        _cleanup_strv_free_ char **capacity_keyvals = NULL;
         CGroupContext *c;
 
         assert_se((c = unit_get_cgroup_context(u)));
@@ -1517,6 +1519,90 @@ static int gather_device_memory_limits_from_unit(
 
                 if (!found)
                         LIST_APPEND(dev_limits, *ancestor_mem_limits, target);
+        }
+
+        if (c->default_device_memory_low_set || c->default_device_memory_min_set ||
+            c->default_device_memory_max_set) {
+                int r;
+
+                r = cg_get_root_path(&root);
+                if (r < 0) {
+                        log_debug_errno(r,
+                                        "Failed to determine root cgroup, ignoring device memory limit: %m");
+                        return r;
+                }
+
+                r = cg_get_all_keyed_attributes("", "dmem.capacity", &capacity_keyvals);
+                if (r < 0) {
+                        log_debug_errno(r,
+                                        "Failed to determine device memory capacities, ignoring device memory limit: %m");
+                        return r;
+                }
+
+                for (size_t i = 0; i < strv_length(capacity_keyvals) / 2; ++i) {
+                        CGroupDeviceMemoryLimit *found = NULL, *target;
+                        _cleanup_free_ CGroupDeviceMemoryLimit *new_l = NULL;
+                        char *domain = capacity_keyvals[2 * i];
+                        char *capacity_str = capacity_keyvals[2 * i + 1];
+
+                        uint64_t capacity;
+
+                        LIST_FOREACH(dev_limits, l, *ancestor_mem_limits)
+                                if (streq(domain, l->region)) {
+                                        found = l;
+                                        break;
+                                }
+
+                        if (found)
+                                target = found;
+                        else {
+                                new_l = new0(CGroupDeviceMemoryLimit, 1);
+                                if (!new_l)
+                                        return -ENOMEM;
+
+                                new_l->region = strdup(domain);
+                                if (!new_l->region)
+                                        return -ENOMEM;
+
+                                target = TAKE_PTR(new_l);
+                        }
+
+                        r = safe_atou64(capacity_str, &capacity);
+                        if (r < 0) {
+                                log_debug_errno(r,
+                                                "Failed to parse dmem.capacity cgroup attribute '%s', ignoring: %m",
+                                                capacity_str);
+                                continue;
+                        }
+
+                        if (c->default_device_memory_min_set && !target->min_valid) {
+                                if (c->default_device_memory_min == UINT64_MAX)
+                                        target->min = UINT64_MAX;
+                                else
+                                        target->min = c->default_device_memory_min * capacity /
+                                                        (uint64_t) 10000U;
+                                target->min_valid = true;
+                        }
+                        if (c->default_device_memory_low_set && !target->low_valid) {
+                                if (c->default_device_memory_low == UINT64_MAX)
+                                        target->low = UINT64_MAX;
+                                else
+                                        target->low = c->default_device_memory_low * capacity /
+                                                        (uint64_t) 10000U;
+                                target->low_valid = true;
+                        }
+                        if (c->default_device_memory_max_set) {
+                                if (c->default_device_memory_max == UINT64_MAX)
+                                        target->max = UINT64_MAX;
+                                else
+                                        target->max = c->default_device_memory_max * capacity /
+                                                        (uint64_t) 10000U;
+                                target->max_valid = true;
+                        }
+
+                        if (!found)
+                                LIST_APPEND(dev_limits, *ancestor_mem_limits, target);
+                }
         }
 
         return 0;
