@@ -1763,6 +1763,62 @@ fail:
         return r;
 }
 
+int cg_get_all_keyed_attributes(
+                const char *controller,
+                const char *path,
+                const char *attribute,
+                char ***keyvals) {
+
+        _cleanup_free_ char *filename = NULL, *contents = NULL;
+        _cleanup_strv_free_ char **kvs = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(path);
+        assert(attribute);
+
+        /* Reads all fields a cgroup v2 keyed attribute file. Both 'keys' and 'values' parameters are pointers
+         * to strvs that will be filled with all keys and their corresponding values.
+         *
+         * If the attribute file doesn't exist returns ENOENT. */
+
+        r = cg_get_path(controller, path, attribute, &filename);
+        if (r < 0)
+                return r;
+
+        r = read_full_file(filename, &contents, /* ret_size = */ NULL);
+        if (r < 0)
+                return r;
+
+        for (const char *p = contents; *p;) {
+                _cleanup_free_ char *key = NULL, *value = NULL;
+                const char *first_word, *second_word;
+                size_t first_word_len, second_word_len;
+
+                first_word = p;
+                first_word_len = strcspn(first_word, WHITESPACE);
+                second_word = skip_leading_chars(p + first_word_len, WHITESPACE);
+                second_word_len = strcspn(second_word, NEWLINE);
+
+                key = strndup(first_word, first_word_len);
+                if (!key)
+                        return -ENOMEM;
+                value = strndup(second_word, second_word_len);
+                if (!value)
+                        return -ENOMEM;
+
+                strv_consume_with_size(&kvs, &n, TAKE_PTR(key));
+                strv_consume_with_size(&kvs, &n, TAKE_PTR(value));
+
+                p = second_word + second_word_len;
+                p += strspn(p, NEWLINE);
+        }
+
+        *keyvals = TAKE_PTR(kvs);
+
+        return 0;
+}
+
 int cg_mask_to_string(CGroupMask mask, char **ret) {
         _cleanup_free_ char *s = NULL;
         bool space = false;

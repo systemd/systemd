@@ -13,6 +13,7 @@
 #include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static void check_p_d_u(const char *path, int code, const char *result) {
@@ -493,6 +494,32 @@ TEST(cg_get_keyed_attribute) {
                                          STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
         for (size_t i = 0; i < 3; i++)
                 free(vals3a[i]);
+}
+
+TEST(cg_get_all_keyed_attributes) {
+        int r;
+        _cleanup_strv_free_ char **keyvals = NULL;
+
+        r = cg_get_all_keyed_attributes("cpu", "/init.scope", "no_such_file", &keyvals);
+        if (r == -ENOMEDIUM || ERRNO_IS_PRIVILEGE(r)) {
+                return (void) log_tests_skipped_errno(r, "/sys/fs/cgroup not accessible");
+        }
+
+        ASSERT_ERROR(r, ENOENT);
+        ASSERT_NULL(keyvals);
+
+        if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0) {
+                return (void) log_tests_skipped_errno(errno, "/init.scope/cpu.stat not accessible");
+        }
+
+        ASSERT_OK(cg_get_all_keyed_attributes("cpu", "/init.scope", "cpu.stat", &keyvals) == 0);
+
+        /* keyvals must always be two entries per key */
+        ASSERT_TRUE(strv_length(keyvals) % 2 == 0);
+
+        ASSERT_TRUE(strv_contains(keyvals, "system_usec"));
+        ASSERT_TRUE(strv_contains(keyvals, "user_usec"));
+        ASSERT_TRUE(strv_contains(keyvals, "usage_usec"));
 }
 
 TEST(bfq_weight_conversion) {

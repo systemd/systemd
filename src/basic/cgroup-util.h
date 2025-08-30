@@ -187,6 +187,7 @@ int cg_has_coredump_receive(const char *path);
 int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
 int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret);
 int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char * const *keys, char **values);
+int cg_get_all_keyed_attributes(const char *controller, const char *path, const char *attribute, char ***keyvals);
 
 int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret);
 int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute);
