@@ -14,7 +14,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "log.h"
-#include "mkdir.h"
+#include "mkdir-label.h"
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -280,7 +280,7 @@ static int manager_make_listen_socket(Manager *m) {
         if (m->listen_fd >= 0)
                 return 0;
 
-        r = mkdir_p("/run/systemd/userdb", 0755);
+        r = mkdir_p_label("/run/systemd/userdb", 0755);
         if (r < 0)
                 return log_error_errno(r, "Failed to create /run/systemd/userdb: %m");
 
