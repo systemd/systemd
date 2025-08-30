@@ -697,6 +697,38 @@ static int bootctl_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        /* Invocation as Varlink service */
+
+        r = varlink_server_new(
+                        &varlink_server,
+                        SD_VARLINK_SERVER_ROOT_ONLY,
+                        NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_BootControl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server,
+                        "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
+                        "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
+                        "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
@@ -708,33 +740,8 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_varlink) {
-                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-
-                /* Invocation as Varlink service */
-
-                r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
-
-                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_BootControl);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add Varlink interface: %m");
-
-                r = sd_varlink_server_bind_method_many(
-                                varlink_server,
-                                "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
-                                "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
-                                "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind Varlink methods: %m");
-
-                r = sd_varlink_server_loop_auto(varlink_server);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
-
-                return EXIT_SUCCESS;
-        }
+        if (arg_varlink)
+                return vl_server();
 
         if (arg_print_root_device > 0) {
                 _cleanup_free_ char *path = NULL;
