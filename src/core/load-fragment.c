@@ -32,7 +32,6 @@
 #include "execute.h"
 #include "extract-word.h"
 #include "fd-util.h"
-#include "firewall-util.h"
 #include "fstab-util.h"
 #include "hashmap.h"
 #include "hexdecoct.h"
