@@ -9507,6 +9507,7 @@ static int resize_backing_fd(
                 int *fd,                    /* An O_RDONLY fd referring to that inode */
                 const char *backing_file,   /* If the above refers to a loopback device, the backing regular file for that, which we can grow */
                 LoopDevice *loop_device,
+                bool table_only,            /* Only update the partition table, leave the file/block device as-is */
                 uint64_t sector_size) {
 
         _cleanup_close_ int writable_fd = -EBADF;
@@ -9517,7 +9518,7 @@ static int resize_backing_fd(
         assert(node);
         assert(fd);
 
-        if (arg_size == UINT64_MAX) /* Nothing to do */
+        if (!table_only && arg_size == UINT64_MAX) /* Nothing to do */
                 return 0;
 
         if (*fd < 0) {
@@ -9550,7 +9551,7 @@ static int resize_backing_fd(
                 current_size = st.st_size;
         }
 
-        if (current_size >= arg_size) {
+        if (!table_only && current_size >= arg_size) {
                 log_info("File '%s' already is of requested size or larger, not growing. (%s >= %s)",
                          node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
                 return 0;
@@ -9590,7 +9591,7 @@ static int resize_backing_fd(
                         return log_error_errno(writable_fd, "Failed to reopen backing file '%s' writable: %m", node);
         }
 
-        if (!arg_discard) {
+        if (!table_only && !arg_discard) {
                 if (fallocate(writable_fd, 0, 0, arg_size) < 0) {
                         if (!ERRNO_IS_NOT_SUPPORTED(errno))
                                 return log_error_errno(errno, "Failed to grow '%s' from %s to %s by allocation: %m",
@@ -9609,22 +9610,24 @@ static int resize_backing_fd(
                 }
         }
 
-        if (ftruncate(writable_fd, arg_size) < 0)
-                return log_error_errno(errno, "Failed to grow '%s' from %s to %s by truncation: %m",
-                                       node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
+        if (!table_only) {
+                if (ftruncate(writable_fd, arg_size) < 0)
+                        return log_error_errno(errno, "Failed to grow '%s' from %s to %s by truncation: %m",
+                                               node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
 
-        if (current_size == 0) /* Likely regular file just created by us */
-                log_info("Sized '%s' to %s.", node, FORMAT_BYTES(arg_size));
-        else
-                log_info("File '%s' grown from %s to %s by truncation.",
-                         node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
+                if (current_size == 0) /* Likely regular file just created by us */
+                        log_info("Sized '%s' to %s.", node, FORMAT_BYTES(arg_size));
+                else
+                        log_info("File '%s' grown from %s to %s by truncation.",
+                                 node, FORMAT_BYTES(current_size), FORMAT_BYTES(arg_size));
+        }
 
 done:
         r = resize_pt(writable_fd, sector_size);
         if (r < 0)
                 return r;
 
-        if (loop_device) {
+        if (!table_only && loop_device) {
                 r = loop_device_refresh_size(loop_device, UINT64_MAX, arg_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to update loop device size: %m");
@@ -9786,6 +9789,7 @@ static int run(int argc, char *argv[]) {
                                 &context->backing_fd,
                                 node_is_our_loop ? arg_image : NULL,
                                 node_is_our_loop ? loop_device : NULL,
+                                /* table_only= */ false,
                                 context->sector_size);
                 if (r < 0)
                         return r;
@@ -9869,6 +9873,7 @@ static int run(int argc, char *argv[]) {
                                 &context->backing_fd,
                                 node_is_our_loop ? arg_image : NULL,
                                 node_is_our_loop ? loop_device : NULL,
+                                /* table_only= */ false,
                                 context->sector_size);
                 if (r < 0)
                         return r;
@@ -9879,11 +9884,35 @@ static int run(int argc, char *argv[]) {
         }
 
         /* First try to fit new partitions in, dropping by priority until it fits */
+        bool reloaded = false;
         for (;;) {
                 uint64_t largest_free_area;
 
                 if (context_allocate_partitions(context, &largest_free_area))
                         break; /* Success! */
+
+                if (!reloaded && !arg_dry_run) {
+                        /* We might be running on an image that was enlarged outside repart (e.g.: vmspawn)
+                         * but that didn't get its partition table updated. Refresh it and try again. */
+                        context_unload_partition_table(context);
+
+                        r = resize_backing_fd(
+                                        context->node,
+                                        &context->backing_fd,
+                                        node_is_our_loop ? arg_image : NULL,
+                                        node_is_our_loop ? loop_device : NULL,
+                                        /* table_only= */ true,
+                                        context->sector_size);
+                        if (r < 0)
+                                return r;
+
+                        r = context_load_partition_table(context);
+                        if (r < 0)
+                                return r;
+
+                        reloaded = true;
+                        continue;
+                }
 
                 if (context_unmerge_and_allocate_partitions(context))
                         break; /* We had to un-suppress a supplement or few, but still success! */
