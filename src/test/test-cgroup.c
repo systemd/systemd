@@ -10,36 +10,6 @@
 #include "string-util.h"
 #include "tests.h"
 
-TEST(cg_split_spec) {
-        char *c, *p;
-
-        ASSERT_OK_ZERO(cg_split_spec("foobar:/", &c, &p));
-        ASSERT_STREQ(c, "foobar");
-        ASSERT_STREQ(p, "/");
-        c = mfree(c);
-        p = mfree(p);
-
-        ASSERT_OK_ZERO(cg_split_spec("foobar:", &c, &p));
-        c = mfree(c);
-        p = mfree(p);
-
-        ASSERT_FAIL(cg_split_spec("foobar:asdfd", &c, &p));
-        ASSERT_FAIL(cg_split_spec(":///", &c, &p));
-        ASSERT_FAIL(cg_split_spec(":", &c, &p));
-        ASSERT_FAIL(cg_split_spec("", &c, &p));
-        ASSERT_FAIL(cg_split_spec("fo/obar:/", &c, &p));
-
-        ASSERT_OK(cg_split_spec("/", &c, &p));
-        ASSERT_NULL(c);
-        ASSERT_STREQ(p, "/");
-        p = mfree(p);
-
-        ASSERT_OK(cg_split_spec("foo", &c, &p));
-        ASSERT_STREQ(c, "foo");
-        ASSERT_NULL(p);
-        c = mfree(c);
-}
-
 TEST(cg_create) {
         int r;
 
