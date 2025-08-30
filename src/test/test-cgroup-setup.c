@@ -3,42 +3,10 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
-#include "fd-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "stat-util.h"
 #include "string-util.h"
 #include "tests.h"
-
-TEST(cg_split_spec) {
-        char *c, *p;
-
-        ASSERT_OK_ZERO(cg_split_spec("foobar:/", &c, &p));
-        ASSERT_STREQ(c, "foobar");
-        ASSERT_STREQ(p, "/");
-        c = mfree(c);
-        p = mfree(p);
-
-        ASSERT_OK_ZERO(cg_split_spec("foobar:", &c, &p));
-        c = mfree(c);
-        p = mfree(p);
-
-        ASSERT_FAIL(cg_split_spec("foobar:asdfd", &c, &p));
-        ASSERT_FAIL(cg_split_spec(":///", &c, &p));
-        ASSERT_FAIL(cg_split_spec(":", &c, &p));
-        ASSERT_FAIL(cg_split_spec("", &c, &p));
-        ASSERT_FAIL(cg_split_spec("fo/obar:/", &c, &p));
-
-        ASSERT_OK(cg_split_spec("/", &c, &p));
-        ASSERT_NULL(c);
-        ASSERT_STREQ(p, "/");
-        p = mfree(p);
-
-        ASSERT_OK(cg_split_spec("foo", &c, &p));
-        ASSERT_STREQ(c, "foo");
-        ASSERT_NULL(p);
-        c = mfree(c);
-}
 
 TEST(cg_create) {
         int r;
@@ -116,47 +84,6 @@ TEST(cg_create) {
 
         ASSERT_OK_ZERO(cg_attach(here, 0));
         ASSERT_OK(cg_trim(test_b, true));
-}
-
-TEST(id) {
-        _cleanup_free_ char *p = NULL, *p2 = NULL;
-        _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
-        uint64_t id, id2;
-        int r;
-
-        r = cg_all_unified();
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return (void) log_tests_skipped("cgroupfs is not mounted");
-        if (r == 0)
-                return (void) log_tests_skipped("skipping cgroupid test, not running in unified mode");
-        ASSERT_OK_POSITIVE(r);
-
-        fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
-        ASSERT_OK(fd);
-
-        ASSERT_OK(fd_get_path(fd, &p));
-        ASSERT_TRUE(path_equal(p, "/sys/fs/cgroup"));
-
-        ASSERT_OK(cg_fd_get_cgroupid(fd, &id));
-
-        fd2 = cg_cgroupid_open(fd, id);
-
-        if (ERRNO_IS_NEG_PRIVILEGE(fd2))
-                log_notice("Skipping open-by-cgroup-id test because lacking privs.");
-        else if (ERRNO_IS_NEG_NOT_SUPPORTED(fd2))
-                log_notice("Skipping open-by-cgroup-id test because syscall is missing or blocked.");
-        else {
-                ASSERT_OK(fd2);
-
-                ASSERT_OK(fd_get_path(fd2, &p2));
-                ASSERT_TRUE(path_equal(p2, "/sys/fs/cgroup"));
-
-                ASSERT_OK(cg_fd_get_cgroupid(fd2, &id2));
-
-                ASSERT_EQ(id, id2);
-
-                ASSERT_OK_EQ(inode_same_at(fd, NULL, fd2, NULL, AT_EMPTY_PATH), true);
-        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
