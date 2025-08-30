@@ -3,6 +3,8 @@
 
 #include "networkd-forward.h"
 
+typedef struct sd_varlink sd_varlink;
+
 int link_request_to_set_addrgen_mode(Link *link);
 int link_request_to_set_bond(Link *link);
 int link_request_to_set_bridge(Link *link);
@@ -22,6 +24,7 @@ int link_request_to_activate(Link *link);
 int link_request_to_bring_up_or_down(Link *link, bool up);
 
 int link_up_or_down_now(Link *link, bool up);
+int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink);
 static inline int link_up_now(Link *link) {
         return link_up_or_down_now(link, true);
 }
