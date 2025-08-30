@@ -3,7 +3,6 @@
 
 #include "forward.h"
 
-int show_cgroup_by_path(const char *path, const char *prefix, size_t n_columns, OutputFlags flags);
 int show_cgroup(const char *path, const char *prefix, size_t n_columns, OutputFlags flags);
 int show_cgroup_and_extra(
                 const char *path,
