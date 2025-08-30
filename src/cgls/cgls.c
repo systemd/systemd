@@ -231,14 +231,14 @@ static int run(int argc, char *argv[]) {
                                 printf("Unit %s (%s):\n", unit_name, cgroup);
                                 fflush(stdout);
 
-                                q = show_cgroup_by_path(cgroup, NULL, 0, arg_output_flags);
+                                q = show_cgroup(cgroup, NULL, 0, arg_output_flags);
 
                         } else if (path_startswith(*name, "/sys/fs/cgroup")) {
 
                                 printf("Directory %s:\n", *name);
                                 fflush(stdout);
 
-                                q = show_cgroup_by_path(*name, NULL, 0, arg_output_flags);
+                                q = show_cgroup(*name, NULL, 0, arg_output_flags);
                         } else {
                                 _cleanup_free_ char *p = NULL, *j = NULL;
                                 const char *path;
@@ -291,7 +291,7 @@ static int run(int argc, char *argv[]) {
                                 printf("Working directory %s:\n", cwd);
                                 fflush(stdout);
 
-                                r = show_cgroup_by_path(cwd, NULL, 0, arg_output_flags);
+                                r = show_cgroup(cwd, NULL, 0, arg_output_flags);
                                 done = true;
                         }
                 }
