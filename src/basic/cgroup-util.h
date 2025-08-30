@@ -159,8 +159,6 @@ int cg_kill(const char *path, int sig, CGroupFlags flags, Set *killed_pids, cg_k
 int cg_kill_kernel_sigkill(const char *path);
 int cg_kill_recursive(const char *path, int sig, CGroupFlags flags, Set *killed_pids, cg_kill_log_func_t log_kill, void *userdata);
 
-int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
-
 int cg_get_path(const char *path, const char *suffix, char **ret);
 
 int cg_pid_get_path(pid_t pid, char **ret);
@@ -239,8 +237,6 @@ int cg_path_decode_unit(const char *cgroup, char **ret_unit);
 bool cg_needs_escape(const char *p) _pure_;
 int cg_escape(const char *p, char **ret);
 char* cg_unescape(const char *p) _pure_;
-
-bool cg_controller_is_valid(const char *p);
 
 int cg_slice_to_path(const char *unit, char **ret);
 
