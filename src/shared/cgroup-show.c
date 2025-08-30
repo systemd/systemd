@@ -87,16 +87,13 @@ static int show_cgroup_one_by_path(
 
         _cleanup_free_ pid_t *pids = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
         size_t n = 0;
         char *fn;
         int r;
 
-        r = cg_mangle_path(path, &p);
-        if (r < 0)
-                return r;
+        assert(path);
 
-        fn = strjoina(p, "/cgroup.procs");
+        fn = strjoina(path, "/cgroup.procs");
         f = fopen(fn, "re");
         if (!f)
                 return -errno;
@@ -225,7 +222,7 @@ int show_cgroup_by_path(
                 size_t n_columns,
                 OutputFlags flags) {
 
-        _cleanup_free_ char *fn = NULL, *p1 = NULL, *last = NULL, *p2 = NULL;
+        _cleanup_free_ char *p1 = NULL, *last = NULL, *p2 = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         bool shown_pids = false;
         char *gn = NULL;
@@ -238,18 +235,14 @@ int show_cgroup_by_path(
 
         prefix = strempty(prefix);
 
-        r = cg_mangle_path(path, &fn);
-        if (r < 0)
-                return r;
-
-        d = opendir(fn);
+        d = opendir(path);
         if (!d)
                 return -errno;
 
         while ((r = cg_read_subgroup(d, &gn)) > 0) {
                 _cleanup_free_ char *k = NULL;
 
-                k = path_join(fn, gn);
+                k = path_join(path, gn);
                 free(gn);
                 if (!k)
                         return -ENOMEM;
