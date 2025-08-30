@@ -323,8 +323,7 @@ static int show_cgroup_name(
         return 0;
 }
 
-int show_cgroup_by_path(
-                const char *path,
+int show_cgroup(const char *path,
                 const char *prefix,
                 size_t n_columns,
                 OutputFlags flags) {
@@ -377,7 +376,7 @@ int show_cgroup_by_path(
                                         return -ENOMEM;
                         }
 
-                        show_cgroup_by_path(last, p1, n_columns-2, flags);
+                        show_cgroup(last, p1, n_columns-2, flags);
                         free(last);
                 }
 
@@ -401,27 +400,10 @@ int show_cgroup_by_path(
                                 return -ENOMEM;
                 }
 
-                show_cgroup_by_path(last, p2, n_columns-2, flags);
+                show_cgroup(last, p2, n_columns-2, flags);
         }
 
         return 0;
-}
-
-int show_cgroup(const char *path,
-                const char *prefix,
-                size_t n_columns,
-                OutputFlags flags) {
-
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        assert(path);
-
-        r = cg_get_path(path, /* suffix = */ NULL, &p);
-        if (r < 0)
-                return r;
-
-        return show_cgroup_by_path(p, prefix, n_columns, flags);
 }
 
 static int show_extra_pids(
