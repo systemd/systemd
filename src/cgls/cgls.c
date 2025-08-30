@@ -179,15 +179,6 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static void show_cg_info(const char *controller, const char *path) {
-
-        if (cg_all_unified() == 0 && controller && !streq(controller, SYSTEMD_CGROUP_CONTROLLER))
-                printf("Controller %s; ", controller);
-
-        printf("CGroup %s:\n", empty_to_root(path));
-        fflush(stdout);
-}
-
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -240,17 +231,17 @@ static int run(int argc, char *argv[]) {
                                 printf("Unit %s (%s):\n", unit_name, cgroup);
                                 fflush(stdout);
 
-                                q = show_cgroup_by_path(cgroup, NULL, 0, arg_output_flags);
+                                q = show_cgroup(cgroup, NULL, 0, arg_output_flags);
 
                         } else if (path_startswith(*name, "/sys/fs/cgroup")) {
 
                                 printf("Directory %s:\n", *name);
                                 fflush(stdout);
 
-                                q = show_cgroup_by_path(*name, NULL, 0, arg_output_flags);
+                                q = show_cgroup(*name, NULL, 0, arg_output_flags);
                         } else {
-                                _cleanup_free_ char *c = NULL, *p = NULL, *j = NULL;
-                                const char *controller, *path;
+                                _cleanup_free_ char *p = NULL, *j = NULL;
+                                const char *path;
 
                                 if (!root) {
                                         /* Query root only if needed, treat error as fatal */
@@ -259,13 +250,12 @@ static int run(int argc, char *argv[]) {
                                                 return log_error_errno(r, "Failed to list cgroup tree: %m");
                                 }
 
-                                q = cg_split_spec(*name, &c, &p);
+                                q = cg_split_spec(*name, /* ret_controller = */ NULL, &p);
                                 if (q < 0) {
                                         log_error_errno(q, "Failed to split argument %s: %m", *name);
                                         goto failed;
                                 }
 
-                                controller = c ?: SYSTEMD_CGROUP_CONTROLLER;
                                 if (p) {
                                         j = path_join(root, p);
                                         if (!j)
@@ -276,9 +266,10 @@ static int run(int argc, char *argv[]) {
                                 } else
                                         path = root;
 
-                                show_cg_info(controller, path);
+                                printf("CGroup %s:\n", path);
+                                fflush(stdout);
 
-                                q = show_cgroup(controller, path, NULL, 0, arg_output_flags);
+                                q = show_cgroup(path, NULL, 0, arg_output_flags);
                         }
 
                 failed:
@@ -300,7 +291,7 @@ static int run(int argc, char *argv[]) {
                                 printf("Working directory %s:\n", cwd);
                                 fflush(stdout);
 
-                                r = show_cgroup_by_path(cwd, NULL, 0, arg_output_flags);
+                                r = show_cgroup(cwd, NULL, 0, arg_output_flags);
                                 done = true;
                         }
                 }
@@ -312,10 +303,11 @@ static int run(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to list cgroup tree: %m");
 
-                        show_cg_info(SYSTEMD_CGROUP_CONTROLLER, root);
+                        printf("CGroup %s:\n", root);
+                        fflush(stdout);
 
                         printf("-.slice\n");
-                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_output_flags);
+                        r = show_cgroup(root, NULL, 0, arg_output_flags);
                 }
         }
         if (r < 0)

@@ -1452,7 +1452,7 @@ int manager_main(Manager *manager) {
         assert(manager);
 
         _cleanup_free_ char *cgroup = NULL;
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+        r = cg_pid_get_path(0, &cgroup);
         if (r < 0)
                 log_debug_errno(r, "Failed to get cgroup, ignoring: %m");
         else if (endswith(cgroup, "/udev")) { /* If we are in a subcgroup /udev/ we assume it was delegated to us */
