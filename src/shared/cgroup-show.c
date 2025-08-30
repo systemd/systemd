@@ -39,9 +39,6 @@ bool cg_controller_is_valid(const char *p) {
         if (!p)
                 return false;
 
-        if (streq(p, SYSTEMD_CGROUP_CONTROLLER))
-                return true;
-
         s = startswith(p, "name=");
         if (s)
                 p = s;
