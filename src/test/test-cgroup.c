@@ -10,43 +10,8 @@
 #include "string-util.h"
 #include "tests.h"
 
-TEST(cg_split_spec) {
-        char *c, *p;
-
-        ASSERT_OK_ZERO(cg_split_spec("foobar:/", &c, &p));
-        ASSERT_STREQ(c, "foobar");
-        ASSERT_STREQ(p, "/");
-        c = mfree(c);
-        p = mfree(p);
-
-        ASSERT_OK_ZERO(cg_split_spec("foobar:", &c, &p));
-        c = mfree(c);
-        p = mfree(p);
-
-        ASSERT_FAIL(cg_split_spec("foobar:asdfd", &c, &p));
-        ASSERT_FAIL(cg_split_spec(":///", &c, &p));
-        ASSERT_FAIL(cg_split_spec(":", &c, &p));
-        ASSERT_FAIL(cg_split_spec("", &c, &p));
-        ASSERT_FAIL(cg_split_spec("fo/obar:/", &c, &p));
-
-        ASSERT_OK(cg_split_spec("/", &c, &p));
-        ASSERT_NULL(c);
-        ASSERT_STREQ(p, "/");
-        p = mfree(p);
-
-        ASSERT_OK(cg_split_spec("foo", &c, &p));
-        ASSERT_STREQ(c, "foo");
-        ASSERT_NULL(p);
-        c = mfree(c);
-}
-
 TEST(cg_create) {
         int r;
-
-        r = cg_unified_cached(false);
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return (void) log_tests_skipped("cgroupfs is not mounted");
-        ASSERT_OK(r);
 
         _cleanup_free_ char *here = NULL;
         ASSERT_OK(cg_pid_get_path_shifted(0, NULL, &here));
@@ -75,38 +40,29 @@ TEST(cg_create) {
         ASSERT_OK_EQ(cg_create(test_c), 1);
         ASSERT_OK_ZERO(cg_create_and_attach(test_b, 0));
 
-        ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
+        ASSERT_OK_ZERO(cg_pid_get_path(getpid_cached(), &path));
         ASSERT_STREQ(path, test_b);
         free(path);
 
         ASSERT_OK_ZERO(cg_attach(test_a, 0));
 
-        ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
+        ASSERT_OK_ZERO(cg_pid_get_path(getpid_cached(), &path));
         ASSERT_TRUE(path_equal(path, test_a));
         free(path);
 
         ASSERT_OK_EQ(cg_create_and_attach(test_d, 0), 1);
 
-        ASSERT_OK_ZERO(cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &path));
+        ASSERT_OK_ZERO(cg_pid_get_path(getpid_cached(), &path));
         ASSERT_TRUE(path_equal(path, test_d));
         free(path);
 
-        ASSERT_OK_ZERO(cg_get_path(SYSTEMD_CGROUP_CONTROLLER, test_d, NULL, &path));
+        ASSERT_OK_ZERO(cg_get_path(test_d, /* suffix = */ NULL, &path));
         log_debug("test_d: %s", path);
-        const char *full_d;
-        if (cg_all_unified())
-                full_d = strjoina("/sys/fs/cgroup", test_d);
-        else if (cg_hybrid_unified())
-                full_d = strjoina("/sys/fs/cgroup/unified", test_d);
-        else
-                full_d = strjoina("/sys/fs/cgroup/systemd", test_d);
-        ASSERT_TRUE(path_equal(path, full_d));
+        ASSERT_TRUE(path_equal(path, strjoina("/sys/fs/cgroup", test_d)));
         free(path);
 
-        ASSERT_OK_POSITIVE(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, test_a));
-        ASSERT_OK_ZERO(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, test_b));
-        ASSERT_OK_POSITIVE(cg_is_empty(NULL, test_a));
-        ASSERT_OK_POSITIVE(cg_is_empty(NULL, test_b));
+        ASSERT_OK_POSITIVE(cg_is_empty(test_a));
+        ASSERT_OK_ZERO(cg_is_empty(test_b));
 
         ASSERT_OK_ZERO(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL));
         ASSERT_OK_POSITIVE(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL));
@@ -122,16 +78,8 @@ TEST(id) {
         _cleanup_free_ char *p = NULL, *p2 = NULL;
         _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
         uint64_t id, id2;
-        int r;
 
-        r = cg_all_unified();
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return (void) log_tests_skipped("cgroupfs is not mounted");
-        if (r == 0)
-                return (void) log_tests_skipped("skipping cgroupid test, not running in unified mode");
-        ASSERT_OK_POSITIVE(r);
-
-        fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        fd = cg_path_open("/");
         ASSERT_OK(fd);
 
         ASSERT_OK(fd_get_path(fd, &p));
@@ -159,4 +107,11 @@ TEST(id) {
         }
 }
 
-DEFINE_TEST_MAIN(LOG_DEBUG);
+static int intro(void) {
+        if (cg_is_ready() <= 0)
+                return log_tests_skipped("cgroupfs is not mounted");
+
+        return 0;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

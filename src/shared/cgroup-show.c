@@ -29,6 +29,110 @@
 #include "unit-def.h"
 #include "xattr-util.h"
 
+#define CONTROLLER_VALID                        \
+        DIGITS LETTERS                          \
+        "_"
+
+bool cg_controller_is_valid(const char *p) {
+        const char *t, *s;
+
+        if (!p)
+                return false;
+
+        s = startswith(p, "name=");
+        if (s)
+                p = s;
+
+        if (IN_SET(*p, 0, '_'))
+                return false;
+
+        for (t = p; *t; t++)
+                if (!strchr(CONTROLLER_VALID, *t))
+                        return false;
+
+        if (t - p > NAME_MAX)
+                return false;
+
+        return true;
+}
+
+int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
+        _cleanup_free_ char *controller = NULL, *path = NULL;
+        int r;
+
+        assert(spec);
+
+        if (*spec == '/') {
+                if (!path_is_normalized(spec))
+                        return -EINVAL;
+
+                if (ret_path) {
+                        r = path_simplify_alloc(spec, &path);
+                        if (r < 0)
+                                return r;
+                }
+
+        } else {
+                const char *e;
+
+                e = strchr(spec, ':');
+                if (e) {
+                        controller = strndup(spec, e-spec);
+                        if (!controller)
+                                return -ENOMEM;
+                        if (!cg_controller_is_valid(controller))
+                                return -EINVAL;
+
+                        if (!isempty(e + 1)) {
+                                path = strdup(e+1);
+                                if (!path)
+                                        return -ENOMEM;
+
+                                if (!path_is_normalized(path) ||
+                                    !path_is_absolute(path))
+                                        return -EINVAL;
+
+                                path_simplify(path);
+                        }
+
+                } else {
+                        if (!cg_controller_is_valid(spec))
+                                return -EINVAL;
+
+                        if (ret_controller) {
+                                controller = strdup(spec);
+                                if (!controller)
+                                        return -ENOMEM;
+                        }
+                }
+        }
+
+        if (ret_controller)
+                *ret_controller = TAKE_PTR(controller);
+        if (ret_path)
+                *ret_path = TAKE_PTR(path);
+        return 0;
+}
+
+static int cg_mangle_path(const char *path, char **ret) {
+        _cleanup_free_ char *p = NULL;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        /* First, check if it already is a filesystem path */
+        if (path_startswith(path, "/sys/fs/cgroup"))
+                return path_simplify_alloc(path, ret);
+
+        /* Otherwise, treat it as cg spec */
+        r = cg_split_spec(path, /* ret_controller = */ NULL, &p);
+        if (r < 0)
+                return r;
+
+        return cg_get_path(p, /* suffix = */ NULL, ret);
+}
+
 static void show_pid_array(
                 pid_t pids[],
                 size_t n_pids,
@@ -87,16 +191,13 @@ static int show_cgroup_one_by_path(
 
         _cleanup_free_ pid_t *pids = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
         size_t n = 0;
         char *fn;
         int r;
 
-        r = cg_mangle_path(path, &p);
-        if (r < 0)
-                return r;
+        assert(path);
 
-        fn = strjoina(p, "/cgroup.procs");
+        fn = strjoina(path, "/cgroup.procs");
         f = fopen(fn, "re");
         if (!f)
                 return -errno;
@@ -219,8 +320,7 @@ static int show_cgroup_name(
         return 0;
 }
 
-int show_cgroup_by_path(
-                const char *path,
+int show_cgroup(const char *path,
                 const char *prefix,
                 size_t n_columns,
                 OutputFlags flags) {
@@ -254,7 +354,7 @@ int show_cgroup_by_path(
                 if (!k)
                         return -ENOMEM;
 
-                if (!(flags & OUTPUT_SHOW_ALL) && cg_is_empty(NULL, k) > 0)
+                if (!(flags & OUTPUT_SHOW_ALL) && cg_is_empty(k) > 0)
                         continue;
 
                 if (!shown_pids) {
@@ -273,7 +373,7 @@ int show_cgroup_by_path(
                                         return -ENOMEM;
                         }
 
-                        show_cgroup_by_path(last, p1, n_columns-2, flags);
+                        show_cgroup(last, p1, n_columns-2, flags);
                         free(last);
                 }
 
@@ -284,7 +384,7 @@ int show_cgroup_by_path(
                 return r;
 
         if (!shown_pids)
-                (void) show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
+                (void) show_cgroup_one_by_path(fn, prefix, n_columns, !!last, flags);
 
         if (last) {
                 r = show_cgroup_name(last, prefix, GLYPH_TREE_RIGHT, flags);
@@ -297,31 +397,13 @@ int show_cgroup_by_path(
                                 return -ENOMEM;
                 }
 
-                show_cgroup_by_path(last, p2, n_columns-2, flags);
+                show_cgroup(last, p2, n_columns-2, flags);
         }
 
         return 0;
 }
 
-int show_cgroup(const char *controller,
-                const char *path,
-                const char *prefix,
-                size_t n_columns,
-                OutputFlags flags) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        assert(path);
-
-        r = cg_get_path(controller, path, NULL, &p);
-        if (r < 0)
-                return r;
-
-        return show_cgroup_by_path(p, prefix, n_columns, flags);
-}
-
 static int show_extra_pids(
-                const char *controller,
                 const char *path,
                 const char *prefix,
                 size_t n_columns,
@@ -350,7 +432,7 @@ static int show_extra_pids(
         for (i = 0, j = 0; i < n_pids; i++) {
                 _cleanup_free_ char *k = NULL;
 
-                r = cg_pid_get_path(controller, pids[i], &k);
+                r = cg_pid_get_path(pids[i], &k);
                 if (r < 0)
                         return r;
 
@@ -366,7 +448,6 @@ static int show_extra_pids(
 }
 
 int show_cgroup_and_extra(
-                const char *controller,
                 const char *path,
                 const char *prefix,
                 size_t n_columns,
@@ -378,11 +459,11 @@ int show_cgroup_and_extra(
 
         assert(path);
 
-        r = show_cgroup(controller, path, prefix, n_columns, flags);
+        r = show_cgroup(path, prefix, n_columns, flags);
         if (r < 0)
                 return r;
 
-        return show_extra_pids(controller, path, prefix, n_columns, extra_pids, n_extra_pids, flags);
+        return show_extra_pids(path, prefix, n_columns, extra_pids, n_extra_pids, flags);
 }
 
 int show_cgroup_get_unit_path_and_warn(
