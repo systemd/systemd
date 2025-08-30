@@ -10,41 +10,8 @@
 #include "string-util.h"
 #include "tests.h"
 
-TEST(cg_split_spec) {
-        char *c, *p;
-
-        ASSERT_OK_ZERO(cg_split_spec("foobar:/", &c, &p));
-        ASSERT_STREQ(c, "foobar");
-        ASSERT_STREQ(p, "/");
-        c = mfree(c);
-        p = mfree(p);
-
-        ASSERT_OK_ZERO(cg_split_spec("foobar:", &c, &p));
-        c = mfree(c);
-        p = mfree(p);
-
-        ASSERT_FAIL(cg_split_spec("foobar:asdfd", &c, &p));
-        ASSERT_FAIL(cg_split_spec(":///", &c, &p));
-        ASSERT_FAIL(cg_split_spec(":", &c, &p));
-        ASSERT_FAIL(cg_split_spec("", &c, &p));
-        ASSERT_FAIL(cg_split_spec("fo/obar:/", &c, &p));
-
-        ASSERT_OK(cg_split_spec("/", &c, &p));
-        ASSERT_NULL(c);
-        ASSERT_STREQ(p, "/");
-        p = mfree(p);
-
-        ASSERT_OK(cg_split_spec("foo", &c, &p));
-        ASSERT_STREQ(c, "foo");
-        ASSERT_NULL(p);
-        c = mfree(c);
-}
-
 TEST(cg_create) {
         int r;
-
-        if (cg_has_legacy() != 0)
-                return;
 
         _cleanup_free_ char *here = NULL;
         ASSERT_OK(cg_pid_get_path_shifted(0, NULL, &here));
@@ -112,9 +79,6 @@ TEST(id) {
         _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
         uint64_t id, id2;
 
-        if (cg_has_legacy() != 0)
-                return;
-
         fd = cg_path_open("/");
         ASSERT_OK(fd);
 
@@ -143,4 +107,11 @@ TEST(id) {
         }
 }
 
-DEFINE_TEST_MAIN(LOG_DEBUG);
+static int intro(void) {
+        if (cg_has_legacy() != 0)
+                return EXIT_TEST_SKIP;
+
+        return 0;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

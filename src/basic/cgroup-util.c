@@ -616,83 +616,6 @@ int cg_is_empty(const char *path) {
         return streq(t, "0");
 }
 
-int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
-        _cleanup_free_ char *controller = NULL, *path = NULL;
-        int r;
-
-        assert(spec);
-
-        if (*spec == '/') {
-                if (!path_is_normalized(spec))
-                        return -EINVAL;
-
-                if (ret_path) {
-                        r = path_simplify_alloc(spec, &path);
-                        if (r < 0)
-                                return r;
-                }
-
-        } else {
-                const char *e;
-
-                e = strchr(spec, ':');
-                if (e) {
-                        controller = strndup(spec, e-spec);
-                        if (!controller)
-                                return -ENOMEM;
-                        if (!cg_controller_is_valid(controller))
-                                return -EINVAL;
-
-                        if (!isempty(e + 1)) {
-                                path = strdup(e+1);
-                                if (!path)
-                                        return -ENOMEM;
-
-                                if (!path_is_normalized(path) ||
-                                    !path_is_absolute(path))
-                                        return -EINVAL;
-
-                                path_simplify(path);
-                        }
-
-                } else {
-                        if (!cg_controller_is_valid(spec))
-                                return -EINVAL;
-
-                        if (ret_controller) {
-                                controller = strdup(spec);
-                                if (!controller)
-                                        return -ENOMEM;
-                        }
-                }
-        }
-
-        if (ret_controller)
-                *ret_controller = TAKE_PTR(controller);
-        if (ret_path)
-                *ret_path = TAKE_PTR(path);
-        return 0;
-}
-
-int cg_mangle_path(const char *path, char **ret) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        assert(path);
-        assert(ret);
-
-        /* First, check if it already is a filesystem path */
-        if (path_startswith(path, "/sys/fs/cgroup"))
-                return path_simplify_alloc(path, ret);
-
-        /* Otherwise, treat it as cg spec */
-        r = cg_split_spec(path, /* ret_controller = */ NULL, &p);
-        if (r < 0)
-                return r;
-
-        return cg_get_path(p, /* suffix = */ NULL, ret);
-}
-
 int cg_get_root_path(char **ret_path) {
         char *p, *e;
         int r;
@@ -1294,36 +1217,6 @@ char* cg_unescape(const char *p) {
                 return (char*) p+1;
 
         return (char*) p;
-}
-
-#define CONTROLLER_VALID                        \
-        DIGITS LETTERS                          \
-        "_"
-
-bool cg_controller_is_valid(const char *p) {
-        const char *t, *s;
-
-        if (!p)
-                return false;
-
-        if (streq(p, SYSTEMD_CGROUP_CONTROLLER))
-                return true;
-
-        s = startswith(p, "name=");
-        if (s)
-                p = s;
-
-        if (IN_SET(*p, 0, '_'))
-                return false;
-
-        for (t = p; *t; t++)
-                if (!strchr(CONTROLLER_VALID, *t))
-                        return false;
-
-        if (t - p > NAME_MAX)
-                return false;
-
-        return true;
 }
 
 int cg_slice_to_path(const char *unit, char **ret) {
