@@ -86,6 +86,8 @@ const char* glyph_full(Glyph code, bool force_utf) {
                         [GLYPH_SUPERHERO]               = "S",
                         [GLYPH_IDCARD]                  = "@",
                         [GLYPH_HOME]                    = "^",
+                        [GLYPH_ROCKET]                  = "^",
+                        [GLYPH_BROOM]                   = "/",
                 },
 
                 /* UTF-8 */
@@ -161,6 +163,8 @@ const char* glyph_full(Glyph code, bool force_utf) {
                         [GLYPH_SUPERHERO]               = UTF8("🦸"),
                         [GLYPH_IDCARD]                  = UTF8("🪪"),
                         [GLYPH_HOME]                    = UTF8("🏠"),
+                        [GLYPH_ROCKET]                  = UTF8("🚀"),
+                        [GLYPH_BROOM]                   = UTF8("🧹"),
                 },
         };
 
