@@ -220,6 +220,7 @@
 {{type}}.CPUQuota,                            config_parse_cpu_quota,                             0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.CPUQuotaPeriodSec,                   config_parse_sec_def_infinity,                      0,                                  offsetof({{type}}, cgroup_context.cpu_quota_period_usec)
 {{type}}.MemoryAccounting,                    config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.memory_accounting)
+{{type}}.DeviceMemoryAccounting,              config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.device_memory_accounting)
 {{type}}.MemoryMin,                           config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.DefaultMemoryMin,                    config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
 {{type}}.DefaultMemoryLow,                    config_parse_memory_limit,                          0,                                  offsetof({{type}}, cgroup_context)
@@ -277,6 +278,9 @@
 {{type}}.MemoryPressureWatch,                 config_parse_memory_pressure_watch,                 0,                                  offsetof({{type}}, cgroup_context.memory_pressure_watch)
 {{type}}.NFTSet,                              config_parse_cgroup_nft_set,                        NFT_SET_PARSE_CGROUP,               offsetof({{type}}, cgroup_context)
 {{type}}.CoredumpReceive,                     config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.coredump_receive)
+{{type}}.DeviceMemoryMin,                     config_parse_device_memory_limit,                   0,                                  offsetof({{type}}, cgroup_context)
+{{type}}.DeviceMemoryLow,                     config_parse_device_memory_limit,                   0,                                  offsetof({{type}}, cgroup_context)
+{{type}}.DeviceMemoryMax,                     config_parse_device_memory_limit,                   0,                                  offsetof({{type}}, cgroup_context)
 {%- endmacro -%}
 
 %{

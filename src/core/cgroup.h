@@ -166,8 +166,15 @@ typedef struct CGroupContext {
         uint64_t memory_zswap_max;
         uint64_t startup_memory_zswap_max;
 
+        /* Permyriad defaults for device memory limits */
+        uint64_t default_device_memory_min;
+        uint64_t default_device_memory_low;
+        uint64_t default_device_memory_max;
         LIST_HEAD(CGroupDeviceMemoryLimit, dev_mem_limits);
 
+        bool default_device_memory_min_set:1;
+        bool default_device_memory_low_set:1;
+        bool default_device_memory_max_set:1;
         bool default_memory_min_set:1;
         bool default_memory_low_set:1;
         bool default_startup_memory_low_set:1;

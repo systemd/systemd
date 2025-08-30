@@ -3903,6 +3903,60 @@ int config_parse_memory_limit(
         return 0;
 }
 
+int config_parse_device_memory_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = data;
+        uint64_t scale = CGROUP_LIMIT_MAX;
+        int r;
+
+        if (isempty(rvalue)) {
+                if (streq(lvalue, "DeviceMemoryMin"))
+                        c->default_device_memory_min_set = false;
+                else if (streq(lvalue, "DeviceMemoryLow"))
+                        c->default_device_memory_low_set = false;
+                else if (streq(lvalue, "DeviceMemoryMax"))
+                        c->default_device_memory_max_set = false;
+                return 0;
+        }
+
+        if (!streq(rvalue, "infinity")) {
+                r = parse_permyriad(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid device memory limit '%s', ignoring: %m", rvalue);
+                        return 0;
+                }
+                scale = r;
+
+                if (scale > 10000U) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Device memory limit '%s' out of range, ignoring.", rvalue);
+                        return 0;
+                }
+        }
+
+        if (streq(lvalue, "DeviceMemoryMin")) {
+                c->default_device_memory_min = scale;
+                c->default_device_memory_min_set = true;
+        } else if (streq(lvalue, "DeviceMemoryLow")) {
+                c->default_device_memory_low = scale;
+                c->default_device_memory_low_set = true;
+        } else if (streq(lvalue, "DeviceMemoryMax")) {
+                c->default_device_memory_max = scale;
+                c->default_device_memory_max_set = true;
+        }
+
+        return 0;
+}
+
 int config_parse_tasks_max(
                 const char *unit,
                 const char *filename,

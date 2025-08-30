@@ -1525,6 +1525,8 @@ static int cgroup_apply_devices(Unit *u) {
 static void cgroup_apply_device_memory_limits(Unit *u) {
         Unit *parent;
         CGroupContext *c, *parent_c;
+        _cleanup_free_ char *root = NULL;
+        _cleanup_strv_free_ char **capacity_keyvals = NULL;
 
         assert_se((c = unit_get_cgroup_context(u)));
 
@@ -1534,6 +1536,64 @@ static void cgroup_apply_device_memory_limits(Unit *u) {
          * limits we encounter along the way. */
         LIST_HEAD(CGroupDeviceMemoryLimit, ancestor_mem_limits);
         LIST_HEAD_INIT(ancestor_mem_limits);
+
+        if (c->default_device_memory_low_set || c->default_device_memory_min_set) {
+                int r;
+
+                r = cg_get_root_path(&root);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to determine root cgroup, ignoring device memory limit: %m");
+                        goto finalize;
+                }
+
+                r = cg_get_all_keyed_attributes("dmem", "", "dmem.capacity", &capacity_keyvals);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to determine device memory capacities, ignoring device memory limit: %m");
+                        goto finalize;
+                }
+
+                for (size_t i = 0; i < strv_length(capacity_keyvals) / 2; ++i) {
+                        char *domain = capacity_keyvals[2 * i];
+                        char *capacity_str = capacity_keyvals[2 * i + 1];
+
+                        uint64_t capacity;
+                        CGroupDeviceMemoryLimit *l = new0(CGroupDeviceMemoryLimit, 1);
+
+                        r = safe_atou64(capacity_str, &capacity);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to parse dmem.capacity cgroup attribute '%s', ignoring: %m", capacity_str);
+                                continue;
+                        }
+
+                        /* l temporarily borrows the domain string here - it gets freed in the finalize step,
+                         * before the cleanup attribute frees the strv containing the domain string. */
+                        l->region = domain;
+
+                        if (c->default_device_memory_min_set) {
+                                if (c->default_device_memory_min == UINT64_MAX)
+                                        l->min = UINT64_MAX;
+                                else
+                                        l->min = c->default_device_memory_min * capacity / (uint64_t)10000U;
+                                l->min_valid = true;
+                        }
+                        if (c->default_device_memory_low_set) {
+                                if (c->default_device_memory_low == UINT64_MAX)
+                                        l->low = UINT64_MAX;
+                                else
+                                        l->low = c->default_device_memory_low * capacity / (uint64_t)10000U;
+                                l->low_valid = true;
+                        }
+                        if (c->default_device_memory_max_set) {
+                                if (c->default_device_memory_max == UINT64_MAX)
+                                        l->max = UINT64_MAX;
+                                else
+                                        l->max = c->default_device_memory_max * capacity / (uint64_t)10000U;
+                                l->max_valid = true;
+                        }
+
+                        LIST_APPEND(dev_limits, ancestor_mem_limits, l);
+                }
+        }
 
         LIST_FOREACH(dev_limits, l, c->dev_mem_limits) {
                 CGroupDeviceMemoryLimit *new_l = new0(CGroupDeviceMemoryLimit, 1);
