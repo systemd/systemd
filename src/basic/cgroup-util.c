@@ -674,25 +674,6 @@ int cg_split_spec(const char *spec, char **ret_controller, char **ret_path) {
         return 0;
 }
 
-int cg_mangle_path(const char *path, char **ret) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        assert(path);
-        assert(ret);
-
-        /* First, check if it already is a filesystem path */
-        if (path_startswith(path, "/sys/fs/cgroup"))
-                return path_simplify_alloc(path, ret);
-
-        /* Otherwise, treat it as cg spec */
-        r = cg_split_spec(path, /* ret_controller = */ NULL, &p);
-        if (r < 0)
-                return r;
-
-        return cg_get_path(p, /* suffix = */ NULL, ret);
-}
-
 int cg_get_root_path(char **ret_path) {
         char *p, *e;
         int r;
