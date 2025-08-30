@@ -255,6 +255,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term>auto-reboot</term>
+
+        <listitem><para>A boolean controlling the presence of the <literal>Reboot The System</literal>
+        entry (disabled by default). If this is disabled, the system may still be rebooted by pressing
+        <keycombo><keycap>Shift</keycap><keycap>b</keycap></keycombo>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>auto-poweroff</term>
+
+        <listitem><para>A boolean controlling the presence of the <literal>Power Off The System</literal>
+        entry (disabled by default). If this is disabled, the system may still be powered off by pressing
+        <keycombo><keycap>Shift</keycap><keycap>o</keycap></keycombo>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>beep</term>
 
         <listitem><para>Takes a boolean argument. If timeout enabled beep every second, otherwise beep n
