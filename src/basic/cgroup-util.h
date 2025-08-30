@@ -112,14 +112,6 @@ static inline uint64_t BFQ_WEIGHT(uint64_t io_weight) {
 /*
  * General rules:
  *
- * We accept named hierarchies in the syntax "foo" and "name=foo".
- *
- * We expect that named hierarchies do not conflict in name with a
- * kernel hierarchy, modulo the "name=" prefix.
- *
- * We always generate "normalized" controller names, i.e. without the
- * "name=" prefix.
- *
  * We require absolute cgroup paths. When returning, we will always
  * generate paths with multiple adjacent / removed.
  */
