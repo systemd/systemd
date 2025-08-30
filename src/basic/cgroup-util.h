@@ -3,10 +3,6 @@
 
 #include "forward.h"
 
-#define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
-#define SYSTEMD_CGROUP_CONTROLLER_HYBRID "name=unified"
-#define SYSTEMD_CGROUP_CONTROLLER "_systemd"
-
 /* An enum of well known cgroup controllers */
 typedef enum CGroupController {
         /* Original cgroup controllers */
