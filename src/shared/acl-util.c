@@ -648,3 +648,7 @@ int fd_acl_make_writable_fallback(int fd) {
 
         return 1;
 }
+
+int inode_type_can_acl(mode_t mode) {
+        return IN_SET(mode & S_IFMT, S_IFSOCK, S_IFREG, S_IFBLK, S_IFCHR, S_IFDIR, S_IFIFO);
+}
