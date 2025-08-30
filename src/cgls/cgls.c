@@ -244,7 +244,7 @@ static int run(int argc, char *argv[]) {
                                 printf("Unit %s (%s):\n", unit_name, cgroup);
                                 fflush(stdout);
 
-                                q = show_cgroup_by_path(cgroup, NULL, 0, arg_output_flags);
+                                q = show_cgroup(cgroup, NULL, 0, arg_output_flags);
 
                         } else if (path_startswith(*name, "/sys/fs/cgroup")) {
 
