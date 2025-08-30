@@ -503,6 +503,60 @@ CPUWeight=20   DisableControllers=cpu              /          \
       </varlistentry>
 
       <varlistentry>
+        <term><varname>DeviceMemoryMin=<replaceable>percent</replaceable></varname>, <varname>DeviceMemoryLow=<replaceable>percent</replaceable></varname></term>
+
+        <listitem>
+          <para>These settings control the <option>dmem</option> controller.</para>
+
+          <para>Specify the device memory usage protection of the executed processes in this unit.
+            When evicting on-device memory, for example VRAM buffers on GPUs, buffers from the unit will not be evicted
+            as long as the total device memory usage is below the limit.
+            Using <varname>DeviceMemoryLow=</varname> results in a weaker protection where buffers may still be evicted
+            if no unprotected buffers are left to evict. Device memory limits specified in the configuration file apply to
+            all device memory regions configured on the system.</para>
+          <para>
+            For a protection to be effective, it is generally required to set a corresponding
+            allocation on all ancestors, which is then distributed between children
+            (with the exception of the root slice).
+            Any <varname>DeviceMemoryMin=</varname> or <varname>DeviceMemoryLow=</varname> allocation that is not
+            explicitly distributed to specific children is used to create a shared protection for all children.
+            As this is a shared protection, the children will freely compete for the memory.</para>
+
+          <para>Takes a percentage value which is taken relative to the total capacity of each device memory region
+            separately. Contrary to <varname>MemoryMin=</varname> and <varname>MemoryLow=</varname>, an absolute size in
+            bytes is not supported, as the limit applies to potentially multiple regions whose capacities may be
+            different. If assigned the special value <literal>infinity</literal>, all available memory is protected,
+            which may be useful in order to always inherit all of the protection afforded by ancestors.
+            This controls the <literal>dmem.min</literal> or <literal>dmem.low</literal> control group attribute.
+            For details about this control group attribute, see <ulink
+                    url="https://docs.kernel.org/admin-guide/cgroup-v2.html#dmem">DMEM</ulink>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DeviceMemoryMax=<replaceable>percent</replaceable></varname></term>
+
+        <listitem>
+          <para>This setting controls the <option>dmem</option> controller.</para>
+
+          <para>Specify the absolute limit of device memory usage protection of the executed processes in this unit.
+            If a process attempts to allocate more device memory than this limit, the allocations will fail.</para>
+
+          <para>Takes a percentage value which is taken relative to the total capacity of each device memory region
+            separately. Contrary to <varname>MemoryMax</varname>, an absolute size in bytes is not supported, as the
+            limit applies to potentially multiple regions whose capacities may be different.
+            If assigned the special value <literal>infinity</literal>, no memory limit is applied.
+            This controls the <literal>dmem.max</literal> control group attribute.
+            For details about this control group attribute, see <ulink
+                    url="https://docs.kernel.org/admin-guide/cgroup-v2.html#dmem">DMEM</ulink>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>AllowedMemoryNodes=</varname></term>
         <term><varname>StartupAllowedMemoryNodes=</varname></term>
 
