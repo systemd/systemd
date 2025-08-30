@@ -167,6 +167,7 @@ int cg_get_attribute_as_uint64(const char *path, const char *attribute, uint64_t
 int cg_get_attribute_as_bool(const char *path, const char *attribute);
 
 int cg_get_keyed_attribute(const char *path, const char *attribute, char * const *keys, char **values);
+int cg_get_all_keyed_attributes(const char *path, const char *attribute, char ***keyvals);
 
 int cg_get_owner(const char *path, uid_t *ret_uid);
 
