@@ -194,16 +194,13 @@ static int show_cgroup_one_by_path(
 
         _cleanup_free_ pid_t *pids = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
         size_t n = 0;
         char *fn;
         int r;
 
-        r = cg_mangle_path(path, &p);
-        if (r < 0)
-                return r;
+        assert(path);
 
-        fn = strjoina(p, "/cgroup.procs");
+        fn = strjoina(path, "/cgroup.procs");
         f = fopen(fn, "re");
         if (!f)
                 return -errno;
@@ -391,7 +388,7 @@ int show_cgroup_by_path(
                 return r;
 
         if (!shown_pids)
-                (void) show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
+                (void) show_cgroup_one_by_path(fn, prefix, n_columns, !!last, flags);
 
         if (last) {
                 r = show_cgroup_name(last, prefix, GLYPH_TREE_RIGHT, flags);
