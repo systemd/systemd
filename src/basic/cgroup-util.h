@@ -242,8 +242,6 @@ bool cg_needs_escape(const char *p) _pure_;
 int cg_escape(const char *p, char **ret);
 char* cg_unescape(const char *p) _pure_;
 
-bool cg_controller_is_valid(const char *p);
-
 int cg_slice_to_path(const char *unit, char **ret);
 
 int cg_mask_supported(CGroupMask *ret);
