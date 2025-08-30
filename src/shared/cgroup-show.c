@@ -87,16 +87,13 @@ static int show_cgroup_one_by_path(
 
         _cleanup_free_ pid_t *pids = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *p = NULL;
         size_t n = 0;
         char *fn;
         int r;
 
-        r = cg_mangle_path(path, &p);
-        if (r < 0)
-                return r;
+        assert(path);
 
-        fn = strjoina(p, "/cgroup.procs");
+        fn = strjoina(path, "/cgroup.procs");
         f = fopen(fn, "re");
         if (!f)
                 return -errno;
@@ -219,7 +216,7 @@ static int show_cgroup_name(
         return 0;
 }
 
-int show_cgroup_by_path(
+int show_cgroup(
                 const char *path,
                 const char *prefix,
                 size_t n_columns,
@@ -238,7 +235,7 @@ int show_cgroup_by_path(
 
         prefix = strempty(prefix);
 
-        r = cg_mangle_path(path, &fn);
+        r = cg_get_path(path, /* suffix = */ NULL, &fn);
         if (r < 0)
                 return r;
 
@@ -273,7 +270,7 @@ int show_cgroup_by_path(
                                         return -ENOMEM;
                         }
 
-                        show_cgroup_by_path(last, p1, n_columns-2, flags);
+                        show_cgroup(last, p1, n_columns-2, flags);
                         free(last);
                 }
 
@@ -284,7 +281,7 @@ int show_cgroup_by_path(
                 return r;
 
         if (!shown_pids)
-                (void) show_cgroup_one_by_path(path, prefix, n_columns, !!last, flags);
+                (void) show_cgroup_one_by_path(fn, prefix, n_columns, !!last, flags);
 
         if (last) {
                 r = show_cgroup_name(last, prefix, GLYPH_TREE_RIGHT, flags);
@@ -297,27 +294,10 @@ int show_cgroup_by_path(
                                 return -ENOMEM;
                 }
 
-                show_cgroup_by_path(last, p2, n_columns-2, flags);
+                show_cgroup(last, p2, n_columns-2, flags);
         }
 
         return 0;
-}
-
-int show_cgroup(const char *path,
-                const char *prefix,
-                size_t n_columns,
-                OutputFlags flags) {
-
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        assert(path);
-
-        r = cg_get_path(path, /* suffix = */ NULL, &p);
-        if (r < 0)
-                return r;
-
-        return show_cgroup_by_path(p, prefix, n_columns, flags);
 }
 
 static int show_extra_pids(
