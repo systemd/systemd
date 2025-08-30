@@ -81,6 +81,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_unit_slice);
 CONFIG_PARSER_PROTOTYPE(config_parse_cg_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_cg_cpu_weight);
 CONFIG_PARSER_PROTOTYPE(config_parse_memory_limit);
+CONFIG_PARSER_PROTOTYPE(config_parse_device_memory_limit);
 CONFIG_PARSER_PROTOTYPE(config_parse_tasks_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate);
 CONFIG_PARSER_PROTOTYPE(config_parse_delegate_subgroup);
