@@ -179,6 +179,44 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int cg_mangle_path(const char *path, char **ret) {
+        assert(path);
+        assert(ret);
+
+        /* This extracts path from deprecated controller:path format. */
+
+        if (path_is_absolute(path))
+                /* Assume this does not contain controller. */
+                goto check_and_dup;
+
+        const char *e = strchr(path, ':');
+        if (!e) {
+                /* This does not contain path. Here, we do not check the validity of the controller anymore,
+                 * as it is deprecated. */
+                path = NULL;
+                goto check_and_dup;
+        }
+
+        /* When a path combined with a controller, it must be absolute. */
+        path = e + 1;
+        if (!path_is_absolute(path))
+                return -EINVAL;
+
+check_and_dup:
+        /* An empty path is OK, and returned as NULL. */
+        if (isempty(path)) {
+                *ret = NULL;
+                return 0;
+        }
+
+        /* Non-empty path must be normalized. */
+        if (!path_is_normalized(path))
+                return -EINVAL;
+
+        /* Note, here we do not simplify the path, as it will be done by show_cgroup(). */
+        return strdup_to(ret, path);
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -250,9 +288,9 @@ static int run(int argc, char *argv[]) {
                                                 return log_error_errno(r, "Failed to list cgroup tree: %m");
                                 }
 
-                                q = cg_split_spec(*name, /* ret_controller = */ NULL, &p);
+                                q = cg_mangle_path(*name, &p);
                                 if (q < 0) {
-                                        log_error_errno(q, "Failed to split argument %s: %m", *name);
+                                        log_error_errno(q, "Failed to mangle argument %s: %m", *name);
                                         goto failed;
                                 }
 
