@@ -216,16 +216,17 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *job) {
         return -EINVAL;
 }
 
-static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
+static int transaction_ensure_mergable(Transaction *tr, bool matters_to_anchor, sd_bus_error *e) {
         Job *j;
         int r;
 
         assert(tr);
 
-        /* First step, check whether any of the jobs for one specific
-         * task conflict. If so, try to drop one of them. */
         HASHMAP_FOREACH(j, tr->jobs) {
                 JobType t;
+
+                if (j->matters_to_anchor != matters_to_anchor)
+                        continue;
 
                 t = j->type;
                 LIST_FOREACH(transaction, k, j->transaction_next) {
@@ -253,7 +254,27 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
                 }
         }
 
-        /* Second step, merge the jobs. */
+        return 0;
+}
+
+static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
+        Job *j;
+        int r;
+
+        assert(tr);
+
+        /* First step, check whether any of the jobs for one specific anchor task conflict. If so, try to
+         * drop one of them. */
+        r = transaction_ensure_mergable(tr, /* matters_to_anchor = */ true, e);
+        if (r < 0)
+                return r;
+
+        /* Second step, do the same check for non-anchor task. */
+        r = transaction_ensure_mergable(tr, /* matters_to_anchor = */ false, e);
+        if (r < 0)
+                return r;
+
+        /* Third step, merge the jobs. */
         HASHMAP_FOREACH(j, tr->jobs) {
                 JobType t = j->type;
 
