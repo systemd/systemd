@@ -433,7 +433,7 @@ static int partitions_synced(sd_device *dev) {
 }
 
 static usec_t sync_partition_timeout_usec(void) {
-        static usec_t saved = 30 * USEC_PER_SEC;
+        static usec_t saved = 60 * USEC_PER_SEC;
         static bool parsed = false;
         int r;
 
