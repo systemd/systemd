@@ -8,6 +8,10 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+journalctl --sync
+# For issue #38765
+(! journalctl -q -o short-monotonic --grep "Looking at job [0-9]* .*/.* conflicted_by=(yes|no)" >>/failed)
+
 teardown_test_dependencies() (
     set +eux
 

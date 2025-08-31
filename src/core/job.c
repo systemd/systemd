@@ -82,6 +82,10 @@ Job* job_new(Unit *unit, JobType type) {
 
         /* We don't link it here, that's what job_dependency() is for */
 
+        log_unit_debug(j->unit,
+                       "Allocated new job %"PRIu32" %s/%s.",
+                       j->id, j->unit->id, job_type_to_string(j->type));
+
         return j;
 }
 
@@ -125,6 +129,11 @@ Job* job_free(Job *j) {
         strv_free(j->deserialized_clients);
 
         activation_details_unref(j->activation_details);
+
+        if (j->id != 0 && j->unit)
+                log_unit_debug(j->unit,
+                               "Freed job %"PRIu32" %s/%s.",
+                               j->id, j->unit->id, job_type_to_string(j->type));
 
         return mfree(j);
 }
