@@ -836,7 +836,7 @@ EOF
     btrfs filesystem show
     helper_check_device_symlinks
     helper_check_device_units
-    wipefs -a -f "${devices[0]}"
+    udevadm lock --timeout=30 --device="${devices[0]}" wipefs -a "${devices[0]}"
     udevadm wait --settle --timeout=30 --removed /dev/disk/by-partlabel/diskpart{1..4}
 
     echo "Multiple devices: using disks, data: raid10, metadata: raid10, mixed mode"
