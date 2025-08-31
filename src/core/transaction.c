@@ -162,38 +162,32 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *job) {
                          * drop one of them */
                         if (!j->matters_to_anchor && !k->matters_to_anchor) {
 
-                                /* Both jobs don't matter, so let's
-                                 * find the one that is smarter to
-                                 * remove. Let's think positive and
-                                 * rather remove stops then starts --
-                                 * except if something is being
-                                 * stopped because it is conflicted by
-                                 * another unit in which case we
-                                 * rather remove the start. */
+                                /* Both jobs don't matter, so let's find the one that is smarter to remove.
+                                 * Let's think positive and rather remove stops than starts -- except if
+                                 * something is being stopped because it is conflicted by another unit in
+                                 * which case we rather remove the start. */
+
+                                bool j_is_conflicted_by = job_is_conflicted_by(j),
+                                        k_is_conflicted_by = job_is_conflicted_by(k);
 
                                 log_unit_debug(j->unit,
-                                               "Looking at job %s/%s conflicted_by=%s",
-                                               j->unit->id, job_type_to_string(j->type),
-                                               yes_no(j->type == JOB_STOP && job_is_conflicted_by(j)));
+                                               "Looking at job %"PRIu32" %s/%s conflicted_by=%s",
+                                               j->id, j->unit->id, job_type_to_string(j->type),
+                                               yes_no(j->type == JOB_STOP && j_is_conflicted_by));
                                 log_unit_debug(k->unit,
-                                               "Looking at job %s/%s conflicted_by=%s",
-                                               k->unit->id, job_type_to_string(k->type),
-                                               yes_no(k->type == JOB_STOP && job_is_conflicted_by(k)));
+                                               "Looking at job %"PRIu32" %s/%s conflicted_by=%s",
+                                               k->id, k->unit->id, job_type_to_string(k->type),
+                                               yes_no(k->type == JOB_STOP && k_is_conflicted_by));
 
-                                if (j->type == JOB_STOP) {
-
-                                        if (job_is_conflicted_by(j))
-                                                d = k;
-                                        else
-                                                d = j;
-
-                                } else if (k->type == JOB_STOP) {
-
-                                        if (job_is_conflicted_by(k))
-                                                d = j;
-                                        else
-                                                d = k;
-                                } else
+                                if (j->type == JOB_STOP && j_is_conflicted_by)
+                                        d = k;
+                                else if (k->type == JOB_STOP && k_is_conflicted_by)
+                                        d = j;
+                                else if (j->type == JOB_STOP)
+                                        d = j;
+                                else if (k->type == JOB_STOP)
+                                        d = k;
+                                else
                                         d = j;
 
                         } else if (!j->matters_to_anchor)
