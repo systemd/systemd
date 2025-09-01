@@ -162,38 +162,32 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *job) {
                          * drop one of them */
                         if (!j->matters_to_anchor && !k->matters_to_anchor) {
 
-                                /* Both jobs don't matter, so let's
-                                 * find the one that is smarter to
-                                 * remove. Let's think positive and
-                                 * rather remove stops then starts --
-                                 * except if something is being
-                                 * stopped because it is conflicted by
-                                 * another unit in which case we
-                                 * rather remove the start. */
+                                /* Both jobs don't matter, so let's find the one that is smarter to remove.
+                                 * Let's think positive and rather remove stops than starts -- except if
+                                 * something is being stopped because it is conflicted by another unit in
+                                 * which case we rather remove the start. */
+
+                                bool j_is_conflicted_by = job_is_conflicted_by(j),
+                                        k_is_conflicted_by = job_is_conflicted_by(k);
 
                                 log_unit_debug(j->unit,
                                                "Looking at job %s/%s conflicted_by=%s",
                                                j->unit->id, job_type_to_string(j->type),
-                                               yes_no(j->type == JOB_STOP && job_is_conflicted_by(j)));
+                                               yes_no(j->type == JOB_STOP && j_is_conflicted_by));
                                 log_unit_debug(k->unit,
                                                "Looking at job %s/%s conflicted_by=%s",
                                                k->unit->id, job_type_to_string(k->type),
-                                               yes_no(k->type == JOB_STOP && job_is_conflicted_by(k)));
+                                               yes_no(k->type == JOB_STOP && k_is_conflicted_by));
 
-                                if (j->type == JOB_STOP) {
-
-                                        if (job_is_conflicted_by(j))
-                                                d = k;
-                                        else
-                                                d = j;
-
-                                } else if (k->type == JOB_STOP) {
-
-                                        if (job_is_conflicted_by(k))
-                                                d = j;
-                                        else
-                                                d = k;
-                                } else
+                                if (j->type == JOB_STOP && j_is_conflicted_by)
+                                        d = k;
+                                else if (k->type == JOB_STOP && k_is_conflicted_by)
+                                        d = j;
+                                else if (j->type == JOB_STOP)
+                                        d = j;
+                                else if (k->type == JOB_STOP)
+                                        d = k;
+                                else
                                         d = j;
 
                         } else if (!j->matters_to_anchor)
@@ -216,19 +210,20 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *job) {
         return -EINVAL;
 }
 
-static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
+static int transaction_ensure_mergable(Transaction *tr, bool matters_to_anchor, sd_bus_error *e) {
         Job *j;
         int r;
 
         assert(tr);
 
-        /* First step, check whether any of the jobs for one specific
-         * task conflict. If so, try to drop one of them. */
         HASHMAP_FOREACH(j, tr->jobs) {
                 JobType t;
 
                 t = j->type;
                 LIST_FOREACH(transaction, k, j->transaction_next) {
+                        if (j->matters_to_anchor || k->matters_to_anchor != matters_to_anchor)
+                                continue;
+
                         if (job_type_merge_and_collapse(&t, k->type, j->unit) >= 0)
                                 continue;
 
@@ -253,7 +248,26 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
                 }
         }
 
-        /* Second step, merge the jobs. */
+        return 0;
+}
+
+static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
+        Job *j;
+        int r;
+
+        assert(tr);
+
+        /* First step, try to drop unmergable jobs for anchor jobs. */
+        r = transaction_ensure_mergable(tr, /* matters_to_anchor = */ true, e);
+        if (r < 0)
+                return r;
+
+        /* Second step, do the same for non-anchor jobs. */
+        r = transaction_ensure_mergable(tr, /* matters_to_anchor = */ false, e);
+        if (r < 0)
+                return r;
+
+        /* Third step, merge the jobs. */
         HASHMAP_FOREACH(j, tr->jobs) {
                 JobType t = j->type;
 
