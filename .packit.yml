@@ -19,7 +19,7 @@ actions:
   post-upstream-clone:
     # Use the Fedora Rawhide specfile
     - git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm
-    - bash -c 'git -C .packit_rpm checkout "$(grep GIT_COMMIT= mkosi/mkosi.conf.d/centos-fedora/mkosi.conf.d/pkgenv.conf | cut -d= -f2)"'
+    - bash -c 'git -C .packit_rpm checkout "$(grep GIT_COMMIT= mkosi/mkosi.pkgenv/mkosi.conf.d/centos-fedora.conf | cut -d= -f2)"'
     - bash -c 'echo "%bcond upstream 1" > .packit_rpm/systemd.spec.new'
     - bash -c 'echo "%define meson_extra_configure_options --werror" >> .packit_rpm/systemd.spec.new'
     - bash -c 'cat .packit_rpm/systemd.spec >> .packit_rpm/systemd.spec.new'
