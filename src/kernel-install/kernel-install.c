@@ -1061,7 +1061,7 @@ static int context_execute(Context *c) {
         }
 
         ret = execute_strv(
-                        /* name = */ NULL,
+                        "plugins",
                         c->plugins,
                         /* root = */ NULL,
                         USEC_INFINITY,
