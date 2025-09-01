@@ -6,8 +6,8 @@
 
 #include "sd-netlink.h"
 #include "sd-varlink.h"
-#include "alloc-util.h"
 
+#include "alloc-util.h"
 #include "device-private.h"
 #include "missing-network.h"
 #include "netif-util.h"
@@ -1084,13 +1084,15 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         else if (r < 0)
                 log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up_or_down(up));
 
-        r = link_call_getlink(link, get_link_update_flag_handler);
-        if (r < 0) {
-                link_enter_failed(link);
-                return 0;
-        }
+        if (!IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
+                r = link_call_getlink(link, get_link_update_flag_handler);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return 0;
+                }
 
-        link->set_flags_messages++;
+                link->set_flags_messages++;
+        }
 
         if (on_activate) {
                 link->activated = true;
@@ -1351,9 +1353,7 @@ typedef struct SetLinkVarlinkContext {
 } SetLinkVarlinkContext;
 
 static void set_link_varlink_context_destroy(SetLinkVarlinkContext *ctx) {
-
-        if (!ctx)
-                return;
+        assert(ctx);
 
         if (ctx->vlink)
                 sd_varlink_unref(ctx->vlink);
@@ -1363,46 +1363,42 @@ static void set_link_varlink_context_destroy(SetLinkVarlinkContext *ctx) {
 }
 
 static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_message *m, SetLinkVarlinkContext *ctx) {
-        Link *link = ctx->link;
-        sd_varlink *vlink = ctx->vlink;
-        bool up = ctx->up;
         int r;
 
         assert(m);
-        assert(link);
+        assert(ctx);
+
+        Link *link = ASSERT_PTR(ctx->link);
+        sd_varlink *vlink = ASSERT_PTR(ctx->vlink);
+        bool up = ctx->up;
+
         assert(link->set_flags_messages > 0);
 
         link->set_flags_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                goto reply;
-
         r = sd_netlink_message_get_errno(m);
         if (r < 0)
-                log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up_or_down(up));
+                log_link_message_warning_errno(link, m, r, "Could not bring %s interface", up_or_down(up));
 
-        r = link_call_getlink(link, get_link_update_flag_handler);
-        if (r < 0)
-                link_enter_failed(link);
-        else
-                link->set_flags_messages++; /* Account for the additional getlink call */
+        if (r >= 0 && !IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
+                int k = link_call_getlink(link, get_link_update_flag_handler);
+                if (k < 0)
+                        link_enter_failed(link);
+                else
+                        link->set_flags_messages++; /* Account for the additional getlink call */
+        }
 
 reply:
-        if (vlink) {
-                int k = sd_netlink_message_get_errno(m);
-                if (k < 0)
-                        (void) sd_varlink_error_errno(vlink, k);
-                else
-                        (void) sd_varlink_reply(vlink, NULL);
-                ctx->vlink = sd_varlink_unref(vlink);
-        }
+        if (r < 0)
+                (void) sd_varlink_error_errno(vlink, r);
+        else
+                (void) sd_varlink_reply(vlink, NULL);
 
         return 0;
 }
 
 int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        SetLinkVarlinkContext *ctx = NULL;
         int r;
 
         assert(link);
@@ -1419,9 +1415,10 @@ int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not set link flags: %m");
 
-        ctx = new(SetLinkVarlinkContext, 1);
+        SetLinkVarlinkContext *ctx = new(SetLinkVarlinkContext, 1);
         if (!ctx)
                 return log_oom();
+
         *ctx = (SetLinkVarlinkContext) {
                 .link = link_ref(link),
                 .vlink = sd_varlink_ref(vlink),

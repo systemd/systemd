@@ -80,12 +80,11 @@ typedef struct InterfaceInfo {
 } InterfaceInfo;
 
 static int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, bool use_polkit, Link **ret) {
-        static const sd_json_dispatch_field dispatch_table_common[] = {
+        static const sd_json_dispatch_field dispatch_table[] = {
                 { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(InterfaceInfo, ifindex), SD_JSON_RELAX },
                 { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0             },
                 {}
-        };
-        static const sd_json_dispatch_field dispatch_table_polkit[] = {
+        }, dispatch_table_polkit[] = {
                 { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(InterfaceInfo, ifindex), SD_JSON_RELAX },
                 { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0             },
                 VARLINK_DISPATCH_POLKIT_FIELD,
@@ -99,7 +98,7 @@ static int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Ma
         assert(vlink);
         assert(manager);
 
-        r = sd_varlink_dispatch(vlink, parameters, use_polkit ? dispatch_table_polkit : dispatch_table_common, &info);
+        r = sd_varlink_dispatch(vlink, parameters, use_polkit ? dispatch_table_polkit : dispatch_table, &info);
         if (r != 0)
                 return r;
 
@@ -248,10 +247,8 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
                         "org.freedesktop.network1.set-persistent-storage",
                         /* details= */ NULL,
                         &manager->polkit_registry);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 1; /* Authentication in progress, reply later. */
 
         if (ready) {
                 _cleanup_close_ int fd = -EBADF;
@@ -290,30 +287,26 @@ static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameter
                         "org.freedesktop.network1.manage-links",
                         /* details= */ NULL,
                         &manager->polkit_registry);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 1; /* Authentication in progress, reply later. */
 
         /* If there are multiple operations on the same interface, just succeed immediately
-         * for duplicate operations to avoid accounting complexity */
+         * for duplicate operations to avoid accounting complexity. */
         if (link->set_flags_messages > 0) {
                 /* Already have an operation in progress, don't start another */
                 return sd_varlink_reply(vlink, NULL);
         }
 
         /* Stop all network engines while interface is still up, then bring it down */
-        r = link_stop_engines(link, /* may_keep_dynamic = */ false);
-        if (r < 0)
-                log_link_warning_errno(link, r, "Failed to stop network engines: %m");
+        (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
 
-        /* Now bring the interface down via netlink and reply after completion */
+        /* Now bring the interface down via netlink and reply after completion. */
         r = link_up_or_down_now_by_varlink(link, /* up = */ false, vlink);
         if (r < 0)
                 return sd_varlink_error_errno(vlink, r);
 
         /* Reply will be sent from the netlink completion handler. */
-        return 1;
+        return 0;
 }
 
 static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -337,13 +330,11 @@ static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters,
                         "org.freedesktop.network1.manage-links",
                         /* details= */ NULL,
                         &manager->polkit_registry);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 1; /* Authentication in progress, reply later. */
 
         /* If there are multiple operations on the same interface, just succeed immediately
-         * for duplicate operations to avoid accounting complexity */
+         * for duplicate operations to avoid accounting complexity. */
         if (link->set_flags_messages > 0) {
                 /* Already have an operation in progress, don't start another */
                 return sd_varlink_reply(vlink, NULL);
@@ -354,7 +345,7 @@ static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters,
                 return sd_varlink_error_errno(vlink, r);
 
         /* Reply will be sent from the netlink completion handler. */
-        return 1;
+        return 0;
 }
 
 int manager_connect_varlink(Manager *m, int fd) {

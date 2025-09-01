@@ -24,11 +24,9 @@
 #include "varlink-util.h"
 
 int link_up_down(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         int r, ret = 0;
-        bool is_down_command;
-
-        is_down_command = streq(argv[0], "down");
+        bool is_down_command = streq(argv[0], "down");
 
         const char *method = is_down_command ? "io.systemd.Network.SetLinkDown" : "io.systemd.Network.SetLinkUp";
 
