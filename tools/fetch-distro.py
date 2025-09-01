@@ -31,10 +31,13 @@ def parse_args():
         action='store_true',
         default=False,
     )
+    p.add_argument('--profile')
     return p.parse_args()
 
 def read_config(distro: str):
     cmd = ['mkosi', '--json', '-d', distro, 'summary']
+    if args.profile:
+        cmd += ['--profile', args.profile]
     print(f"+ {shlex.join(cmd)}")
     text = subprocess.check_output(cmd, text=True)
 
@@ -53,14 +56,15 @@ def commit_file(distro: str, files: list[Path], commit: str, changes: str):
     subprocess.check_call(cmd)
 
 def checkout_distro(args, distro: str, config: dict):
-    dest = Path(f'pkg/{distro}')
-    if dest.exists():
-        print(f'{dest} already exists.')
-        return
-
     url = config['Environment']['GIT_URL']
     branch = config['Environment']['GIT_BRANCH']
     subdir = config['Environment'].get('GIT_SUBDIR')
+    pkg_subdir = config['Environment']['PKG_SUBDIR']
+
+    dest = Path(f'pkg/{pkg_subdir}')
+    if dest.exists():
+        print(f'{dest} already exists.')
+        return
 
     # Do not checkout the full sources if the package is in a subdirectory,
     # a sparse checkout will be done after
@@ -81,12 +85,12 @@ def checkout_distro(args, distro: str, config: dict):
 
     # Sparse checkout if the package is in a subdirectory
     if subdir is not None:
-        cmd = ['git', '-C', f'pkg/{distro}', 'sparse-checkout', 'set',
+        cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'sparse-checkout', 'set',
                '--no-cone', f'{subdir}']
         print(f"+ {shlex.join(cmd)}")
         subprocess.check_call(cmd)
 
-        cmd = ['git', '-C', f'pkg/{distro}', 'checkout', 'HEAD']
+        cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'checkout', 'HEAD']
         print(f"+ {shlex.join(cmd)}")
         subprocess.check_call(cmd)
 
@@ -96,18 +100,19 @@ def update_distro(args, distro: str, config: dict):
     branch = config['Environment']['GIT_BRANCH']
     subdir = config['Environment'].get('GIT_SUBDIR')
     old_commit = config['Environment']['GIT_COMMIT']
+    pkg_subdir = config['Environment']['PKG_SUBDIR']
 
     if args.fetch:
-        cmd = ['git', '-C', f'pkg/{distro}', 'fetch', 'origin', '-v',
+        cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'fetch', 'origin', '-v',
                f'{branch}:remotes/origin/{branch}']
         print(f"+ {shlex.join(cmd)}")
         subprocess.check_call(cmd)
 
-    cmd = ['git', '-C', f'pkg/{distro}', 'switch', branch]
+    cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'switch', branch]
     print(f"+ {shlex.join(cmd)}")
     subprocess.check_call(cmd)
 
-    cmd = ['git', '-C', f'pkg/{distro}', 'log', '-n1', '--format=%H',
+    cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'log', '-n1', '--format=%H',
            f'refs/remotes/origin/{branch}']
     if subdir is not None:
         cmd += [f'{subdir}']
@@ -115,10 +120,10 @@ def update_distro(args, distro: str, config: dict):
     new_commit = subprocess.check_output(cmd, text=True).strip()
 
     if old_commit == new_commit:
-        print(f'{distro}: commit {new_commit!s} is still fresh')
+        print(f'{pkg_subdir}: commit {new_commit!s} is still fresh')
         return
 
-    cmd = ['git', '-C', f'pkg/{distro}', 'log', '--graph', '--first-parent',
+    cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'log', '--graph', '--first-parent',
            '--pretty=oneline', '--no-decorate', '--abbrev-commit', '--abbrev=10',
            f'{old_commit}..{new_commit}']
     if subdir is not None:
@@ -126,8 +131,8 @@ def update_distro(args, distro: str, config: dict):
     print(f"+ {shlex.join(cmd)}")
     changes = subprocess.check_output(cmd, text=True).strip()
 
-    conf_dir = Path('mkosi/mkosi.conf.d')
-    files = conf_dir.glob('**/pkgenv.conf')
+    conf_dir = Path('mkosi/mkosi.pkgenv/mkosi.conf.d')
+    files = conf_dir.glob('*.conf')
     for file in files:
         s = file.read_text()
         if old_commit in s:
