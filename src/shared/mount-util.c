@@ -110,7 +110,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         return n;
 }
 
-#define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW)
+#define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW|MS_RELATIME|MS_NOATIME|MS_STRICTATIME|MS_NODIRATIME)
 
 static uint64_t ms_flags_to_mount_attr(unsigned long a) {
         uint64_t f = 0;
@@ -129,6 +129,35 @@ static uint64_t ms_flags_to_mount_attr(unsigned long a) {
 
         if (FLAGS_SET(a, MS_NOSYMFOLLOW))
                 f |= MOUNT_ATTR_NOSYMFOLLOW;
+
+        if (FLAGS_SET(a, MS_RELATIME))
+                f |= MOUNT_ATTR_RELATIME;
+
+        if (FLAGS_SET(a, MS_NOATIME))
+                f |= MOUNT_ATTR_NOATIME;
+
+        if (FLAGS_SET(a, MS_STRICTATIME))
+                f |= MOUNT_ATTR_STRICTATIME;
+
+        if (FLAGS_SET(a, MS_NODIRATIME))
+                f |= MOUNT_ATTR_NODIRATIME;
+
+        return f;
+}
+
+static uint64_t ms_flags_to_mount_attr_clr(unsigned long a) {
+        uint64_t f = 0;
+
+        /* As per documentation, if relatime/noatime/strictatime are set, we need to clear the atime flag
+         * too, otherwise -EINVAL will be returned by the kernel. */
+        if (FLAGS_SET(a, MS_RELATIME))
+                f |= MOUNT_ATTR__ATIME;
+
+        if (FLAGS_SET(a, MS_NOATIME))
+                f |= MOUNT_ATTR__ATIME;
+
+        if (FLAGS_SET(a, MS_STRICTATIME))
+                f |= MOUNT_ATTR__ATIME;
 
         return f;
 }
@@ -1881,6 +1910,7 @@ int make_fsmount(
                 return log_full_errno(error_log_level, errno, "Failed to create mount fd for \"%s\" (\"%s\"): %m", what, type);
 
         struct mount_attr ma = {
+                .attr_clr = ms_flags_to_mount_attr_clr(f),
                 .attr_set = ms_flags_to_mount_attr(f) | (userns_fd >= 0 ? MOUNT_ATTR_IDMAP : 0),
                 .userns_fd = userns_fd,
         };
