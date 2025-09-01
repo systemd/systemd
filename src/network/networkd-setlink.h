@@ -3,8 +3,6 @@
 
 #include "networkd-forward.h"
 
-typedef struct sd_varlink sd_varlink;
-
 int link_request_to_set_addrgen_mode(Link *link);
 int link_request_to_set_bond(Link *link);
 int link_request_to_set_bridge(Link *link);
