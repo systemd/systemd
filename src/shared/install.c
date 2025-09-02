@@ -3283,7 +3283,7 @@ static int split_pattern_into_name_and_instances(const char *pattern, char **out
         return 0;
 }
 
-static int presets_find_config(RuntimeScope scope, const char *root_dir, char ***files) {
+static int presets_find_config(RuntimeScope scope, const char *root_dir, char ***ret) {
         static const char* const initrd_dirs[] = { CONF_PATHS("systemd/initrd-preset"), NULL };
         static const char* const system_dirs[] = { CONF_PATHS("systemd/system-preset"), NULL };
         static const char* const user_dirs[] = { CONF_PATHS("systemd/user-preset"), NULL };
@@ -3304,7 +3304,7 @@ static int presets_find_config(RuntimeScope scope, const char *root_dir, char **
         else
                 assert_not_reached();
 
-        return conf_files_list_strv(files, ".preset", root_dir, 0, dirs);
+        return conf_files_list_strv(ret, ".preset", root_dir, 0, dirs);
 }
 
 static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePresets *presets) {
