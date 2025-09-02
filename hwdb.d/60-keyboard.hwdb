@@ -251,7 +251,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnNitro*ANV*15-51:pvr*
 
 # Alienware/Dell reserves these keys; safe to apply on all their devices
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAlienware*:pn*:*
- KEYBOARD_KEY_68=!prog3                                 # Fn+f1 Performance mode toggle
+ KEYBOARD_KEY_68=!performance                           # Fn+f1 Performance mode toggle
  KEYBOARD_KEY_81=touchpad_toggle                        # Touchpad toggle
  KEYBOARD_KEY_8a=ejectcd
  KEYBOARD_KEY_92=macro1                                 # Fn+f2
@@ -285,20 +285,8 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnASUS:pn*:*
  KEYBOARD_KEY_ee=volumedown
  KEYBOARD_KEY_ef=mute
 
-# Asus ROG series
-# Prevents the keyboard from sending POWER and SLEEP key presses
-# when the keyboard goes to sleep.
-evdev:input:b*v0B05p*e0111*
- KEYBOARD_KEY_10081=reserved
- KEYBOARD_KEY_10082=reserved
- KEYBOARD_KEY_70070=reserved
- KEYBOARD_KEY_70071=reserved
- KEYBOARD_KEY_70072=reserved
- KEYBOARD_KEY_70073=reserved
- KEYBOARD_KEY_70074=reserved
- KEYBOARD_KEY_70075=reserved
- KEYBOARD_KEY_70076=reserved
- KEYBOARD_KEY_70077=reserved
+evdev:name:Asus WMI hotkeys:dmi:bvn*:bvr*:bd*:svnASUS*:pn*M1607KA*:*
+ KEYBOARD_KEY_7e=prog2                                  # Fn+F8, launch emoji keyboard
 
 # Asus TF103C misses the home button in its PNP0C40 GPIO resources
 # causing the volume-button mappings to be off by one, correct this
@@ -408,7 +396,7 @@ evdev:name:gpio-keys:phys:gpio-keys/input0:ev:3:dmi:bvn*:bvr*:bd*:svncube:pni1-T
 ###########################################################
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pn*:*
- KEYBOARD_KEY_68=!prog2                                 # G-Mode (Dell-specific)
+ KEYBOARD_KEY_68=!performance                           # G-Mode (Dell-specific)
  KEYBOARD_KEY_81=playpause                              # Play/Pause
  KEYBOARD_KEY_82=stopcd                                 # Stop
  KEYBOARD_KEY_83=previoussong                           # Previous song
@@ -2026,6 +2014,13 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnSystem76*:pnPangolin*:pvrpang15*
 
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnT-bao:pnTbookair:*
  KEYBOARD_KEY_76=touchpad_toggle                        # Touchpad toggle
+
+###########################################################
+# TongFang
+###########################################################
+# TongFang GX4 (X4SP4NAL)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAiStone:pnX4SP4NAL:*
+ KEYBOARD_KEY_f8=fn
 
 ###########################################################
 # Toshiba
