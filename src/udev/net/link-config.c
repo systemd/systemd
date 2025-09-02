@@ -491,7 +491,7 @@ static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
                 return 0;
         }
 
-        r = ethtool_set_glinksettings(ethtool_fd, name,
+        r = ethtool_set_link_settings(ethtool_fd, name,
                                       config->autonegotiation, config->advertise,
                                       config->speed, config->duplex, config->port, config->mdi);
         if (r < 0) {
