@@ -100,21 +100,6 @@ typedef enum NetDevPort {
         _NET_DEV_PORT_INVALID = -EINVAL,
 } NetDevPort;
 
-#define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32    (SCHAR_MAX)
-#define ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES  (4 * ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32)
-
-/* layout of the struct passed from/to userland */
-union ethtool_link_usettings {
-        struct ethtool_link_settings base;
-
-        struct {
-                uint8_t header[offsetof(struct ethtool_link_settings, link_mode_masks)];
-                uint32_t supported[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
-                uint32_t advertising[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
-                uint32_t lp_advertising[ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NU32];
-        } link_modes;
-};
-
 typedef struct u32_opt {
         uint32_t value; /* a value of 0 indicates the hardware advertised maximum should be used. */
         bool set;
