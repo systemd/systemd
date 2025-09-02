@@ -704,45 +704,6 @@ static int get_glinksettings(int fd, struct ifreq *ifr, union ethtool_link_usett
         return 0;
 }
 
-static int get_gset(int fd, struct ifreq *ifr, union ethtool_link_usettings **ret) {
-        struct ethtool_cmd ecmd = {
-                .cmd = ETHTOOL_GSET,
-        };
-
-        assert(fd >= 0);
-        assert(ifr);
-        assert(ret);
-
-        ifr->ifr_data = (void *) &ecmd;
-
-        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
-                return -errno;
-
-        union ethtool_link_usettings *u = new(union ethtool_link_usettings, 1);
-        if (!u)
-                return -ENOMEM;
-
-        *u = (union ethtool_link_usettings) {
-                .base.cmd = ETHTOOL_GSET,
-                .base.link_mode_masks_nwords = 1,
-                .base.speed = ethtool_cmd_speed(&ecmd),
-                .base.duplex = ecmd.duplex,
-                .base.port = ecmd.port,
-                .base.phy_address = ecmd.phy_address,
-                .base.autoneg = ecmd.autoneg,
-                .base.mdio_support = ecmd.mdio_support,
-                .base.eth_tp_mdix = ecmd.eth_tp_mdix,
-                .base.eth_tp_mdix_ctrl = ecmd.eth_tp_mdix_ctrl,
-        };
-
-        u->link_modes.supported[0] = ecmd.supported;
-        u->link_modes.advertising[0] = ecmd.advertising;
-        u->link_modes.lp_advertising[0] = ecmd.lp_advertising;
-
-        *ret = u;
-        return 0;
-}
-
 static int set_slinksettings(int fd, struct ifreq *ifr, const union ethtool_link_usettings *u) {
         assert(fd >= 0);
         assert(ifr);
@@ -758,37 +719,6 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const union ethtool_link
         p = mempcpy(p, u->link_modes.supported, sizeof(uint32_t) * ecmd.base.link_mode_masks_nwords);
         p = mempcpy(p, u->link_modes.advertising, sizeof(uint32_t) * ecmd.base.link_mode_masks_nwords);
         memcpy(p, u->link_modes.lp_advertising, sizeof(uint32_t) * ecmd.base.link_mode_masks_nwords);
-
-        ifr->ifr_data = (void *) &ecmd;
-
-        return RET_NERRNO(ioctl(fd, SIOCETHTOOL, ifr));
-}
-
-static int set_sset(int fd, struct ifreq *ifr, const union ethtool_link_usettings *u) {
-        struct ethtool_cmd ecmd = {
-                .cmd = ETHTOOL_SSET,
-        };
-
-        assert(fd >= 0);
-        assert(ifr);
-        assert(u);
-
-        if (u->base.cmd != ETHTOOL_GSET || u->base.link_mode_masks_nwords <= 0)
-                return -EINVAL;
-
-        ecmd.supported = u->link_modes.supported[0];
-        ecmd.advertising = u->link_modes.advertising[0];
-        ecmd.lp_advertising = u->link_modes.lp_advertising[0];
-
-        ethtool_cmd_speed_set(&ecmd, u->base.speed);
-
-        ecmd.duplex = u->base.duplex;
-        ecmd.port = u->base.port;
-        ecmd.phy_address = u->base.phy_address;
-        ecmd.autoneg = u->base.autoneg;
-        ecmd.mdio_support = u->base.mdio_support;
-        ecmd.eth_tp_mdix = u->base.eth_tp_mdix;
-        ecmd.eth_tp_mdix_ctrl = u->base.eth_tp_mdix_ctrl;
 
         ifr->ifr_data = (void *) &ecmd;
 
@@ -843,11 +773,8 @@ int ethtool_set_glinksettings(
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
         r = get_glinksettings(*fd, &ifr, &u);
-        if (r < 0) {
-                r = get_gset(*fd, &ifr, &u);
-                if (r < 0)
-                        return log_debug_errno(r, "ethtool: Cannot get device settings for %s: %m", ifname);
-        }
+        if (r < 0)
+                return log_debug_errno(r, "ethtool: Cannot get device settings for %s: %m", ifname);
 
         if (speed > 0)
                 UPDATE(u->base.speed, DIV_ROUND_UP(speed, 1000000), changed);
@@ -883,10 +810,7 @@ int ethtool_set_glinksettings(
         if (!changed)
                 return 0;
 
-        if (u->base.cmd == ETHTOOL_GLINKSETTINGS)
-                r = set_slinksettings(*fd, &ifr, u);
-        else
-                r = set_sset(*fd, &ifr, u);
+        r = set_slinksettings(*fd, &ifr, u);
         if (r < 0)
                 return log_debug_errno(r, "ethtool: Cannot set device settings for %s: %m", ifname);
 
