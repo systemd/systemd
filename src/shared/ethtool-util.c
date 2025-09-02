@@ -661,13 +661,12 @@ static int get_link_settings(int fd, struct ifreq *ifr, union ethtool_link_usett
         assert(ifr);
         assert(ret);
 
-        /* The interaction user/kernel via the new API requires a small ETHTOOL_GLINKSETTINGS
-           handshake first to agree on the length of the link mode bitmaps. If kernel doesn't
-           agree with user, it returns the bitmap length it is expecting from user as a negative
-           length (and cmd field is 0). When kernel and user agree, kernel returns valid info in
-           all fields (ie. link mode length > 0 and cmd is ETHTOOL_GLINKSETTINGS). Based on
-           https://github.com/torvalds/linux/commit/3f1ac7a700d039c61d8d8b99f28d605d489a60cf
-        */
+        /* The interaction user/kernel via the new API requires a small ETHTOOL_GLINKSETTINGS handshake first
+         * to agree on the length of the link mode bitmaps. If kernel doesn't agree with user, it returns the
+         * bitmap length it is expecting from user as a negative length. When kernel and user agree, kernel
+         * returns valid info in all fields (with bitmap length > 0).
+         * https://github.com/torvalds/linux/commit/3f1ac7a700d039c61d8d8b99f28d605d489a60cf
+         * https://github.com/torvalds/linux/commit/793cf87de9d1a62dc9079c3ec5fcc01cfc62fafb */
 
         ifr->ifr_data = (void*) &ecmd;
 
