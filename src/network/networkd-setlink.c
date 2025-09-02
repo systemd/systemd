@@ -5,7 +5,9 @@
 #include <netinet/in.h>
 
 #include "sd-netlink.h"
+#include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "device-private.h"
 #include "missing-network.h"
 #include "netif-util.h"
@@ -1082,13 +1084,15 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         else if (r < 0)
                 log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up_or_down(up));
 
-        r = link_call_getlink(link, get_link_update_flag_handler);
-        if (r < 0) {
-                link_enter_failed(link);
-                return 0;
-        }
+        if (link->state != LINK_STATE_LINGER) {
+                r = link_call_getlink(link, get_link_update_flag_handler);
+                if (r < 0) {
+                        link_enter_failed(link);
+                        return 0;
+                }
 
-        link->set_flags_messages++;
+                link->set_flags_messages++;
+        }
 
         if (on_activate) {
                 link->activated = true;
@@ -1287,7 +1291,7 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 
         link->set_flags_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        if (link->state == LINK_STATE_LINGER)
                 return 0;
 
         r = sd_netlink_message_get_errno(m);
@@ -1300,7 +1304,8 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
                 return 0;
         }
 
-        link->set_flags_messages++;
+        link->set_flags_messages++; /* Account for the additional getlink call */
+
         return 0;
 }
 
@@ -1341,6 +1346,103 @@ int link_up_or_down_now(Link *link, bool up) {
         return 0;
 }
 
+typedef struct SetLinkVarlinkContext {
+        Link *link;
+        sd_varlink *vlink;
+        bool up;
+} SetLinkVarlinkContext;
+
+static SetLinkVarlinkContext* set_link_varlink_context_destroy(SetLinkVarlinkContext *ctx) {
+        if (!ctx)
+                return NULL;
+
+        if (ctx->vlink)
+                sd_varlink_unref(ctx->vlink);
+        if (ctx->link)
+                link_unref(ctx->link);
+        free(ctx);
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(SetLinkVarlinkContext*, set_link_varlink_context_destroy);
+
+static void set_link_varlink_context_destroy_callback(SetLinkVarlinkContext *ctx) {
+        set_link_varlink_context_destroy(ctx);
+}
+
+static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_message *m, SetLinkVarlinkContext *ctx) {
+        int r;
+
+        assert(m);
+        assert(ctx);
+
+        Link *link = ASSERT_PTR(ctx->link);
+        sd_varlink *vlink = ASSERT_PTR(ctx->vlink);
+        bool up = ctx->up;
+
+        assert(link->set_flags_messages > 0);
+
+        link->set_flags_messages--;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0)
+                log_link_message_warning_errno(link, m, r, "Could not bring %s interface", up_or_down(up));
+
+        if (r >= 0 && link->state != LINK_STATE_LINGER) {
+                r = link_call_getlink(link, get_link_update_flag_handler);
+                if (r < 0)
+                        link_enter_failed(link);
+                else
+                        link->set_flags_messages++; /* Account for the additional getlink call */
+        }
+
+        if (r < 0)
+                (void) sd_varlink_error_errno(vlink, r);
+        else
+                (void) sd_varlink_reply(vlink, NULL);
+
+        return 0;
+}
+
+int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        log_link_debug(link, "Bringing link %s (varlink)", up_or_down(up));
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+
+        r = sd_rtnl_message_link_set_flags(req, up ? IFF_UP : 0, IFF_UP);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not set link flags: %m");
+
+        _cleanup_(set_link_varlink_context_destroyp) SetLinkVarlinkContext *ctx = new(SetLinkVarlinkContext, 1);
+        if (!ctx)
+                return log_oom();
+
+        *ctx = (SetLinkVarlinkContext) {
+                .link = link_ref(link),
+                .vlink = sd_varlink_ref(vlink),
+                .up = up,
+        };
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               link_up_or_down_now_varlink_handler,
+                               set_link_varlink_context_destroy_callback,
+                               ctx);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not send rtnetlink message: %m");
+
+        link->set_flags_messages++;
+        return 0;
+}
+
 int link_down_slave_links(Link *link) {
         Link *slave;
         int r;
@@ -1362,7 +1464,7 @@ static int link_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         assert(m);
         assert(link);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        if (link->state == LINK_STATE_LINGER)
                 return 0;
 
         r = sd_netlink_message_get_errno(m);
