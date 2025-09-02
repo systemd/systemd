@@ -1388,7 +1388,6 @@ static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_mess
                         link->set_flags_messages++; /* Account for the additional getlink call */
         }
 
-reply:
         if (r < 0)
                 (void) sd_varlink_error_errno(vlink, r);
         else
