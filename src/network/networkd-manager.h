@@ -117,7 +117,7 @@ typedef struct Manager {
 
         /* sysctl */
         int ip_forwarding[2];
-#if HAVE_VMLINUX_H
+#if ENABLE_SYSCTL_BPF
         Hashmap *sysctl_shadow;
         sd_event_source *sysctl_event_source;
         struct ring_buffer *sysctl_buffer;
@@ -148,7 +148,7 @@ int manager_set_timezone(Manager *m, const char *timezone);
 int manager_reload(Manager *m, sd_bus_message *message);
 
 static inline Hashmap** manager_get_sysctl_shadow(Manager *manager) {
-#if HAVE_VMLINUX_H
+#if ENABLE_SYSCTL_BPF
         return &ASSERT_PTR(manager)->sysctl_shadow;
 #else
         return NULL;

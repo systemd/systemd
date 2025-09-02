@@ -646,7 +646,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .dhcp_server_persist_leases = DHCP_SERVER_PERSIST_LEASES_YES,
                 .serialization_fd = -EBADF,
                 .ip_forwarding = { -1, -1, },
-#if HAVE_VMLINUX_H
+#if ENABLE_SYSCTL_BPF
                 .cgroup_fd = -EBADF,
 #endif
         };

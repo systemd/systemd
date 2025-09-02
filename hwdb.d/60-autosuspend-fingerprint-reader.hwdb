@@ -188,6 +188,7 @@ usb:v2808pA78A*
 # Supported by libfprint driver fpcmoc
 usb:v10A5pFFE0*
 usb:v10A5pA305*
+usb:v10A5pA306*
 usb:v10A5pDA04*
 usb:v10A5pD805*
 usb:v10A5pD205*
@@ -259,6 +260,8 @@ usb:v06CBp0104*
 usb:v06CBp0106*
 usb:v06CBp0107*
 usb:v06CBp0108*
+usb:v06CBp0109*
+usb:v06CBp010A*
 usb:v06CBp0123*
 usb:v06CBp0124*
 usb:v06CBp0126*
@@ -269,6 +272,7 @@ usb:v06CBp016C*
 usb:v06CBp0173*
 usb:v06CBp0174*
 usb:v06CBp019D*
+usb:v06CBp019F*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 

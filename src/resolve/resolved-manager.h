@@ -15,7 +15,7 @@
 #include "resolved-etc-hosts.h"
 #include "resolved-forward.h"
 
-#define MANAGER_SEARCH_DOMAINS_MAX 256
+#define MANAGER_SEARCH_DOMAINS_MAX 1024
 #define MANAGER_DNS_SERVERS_MAX 256
 
 typedef struct Manager {

@@ -269,7 +269,7 @@
 
     <variablelist>
       <varlistentry>
-        <term><option>kernel-identify</option> <replaceable>kernel</replaceable></term>
+        <term><option>kernel-identify</option> <replaceable>KERNEL-IMAGE</replaceable></term>
 
         <listitem><para>Takes a kernel image as argument. Checks what kind of kernel the image is. Returns
         one of <literal>uki</literal>, <literal>addon</literal>, <literal>pe</literal>, and
@@ -280,7 +280,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>kernel-inspect</option> <replaceable>kernel</replaceable></term>
+        <term><option>kernel-inspect</option> <replaceable>KERNEL-IMAGE</replaceable></term>
 
         <listitem><para>Takes a kernel image as argument. Prints details about the image.</para>
 

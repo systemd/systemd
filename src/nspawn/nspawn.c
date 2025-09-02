@@ -2566,7 +2566,7 @@ static int setup_hostname(void) {
         return 0;
 }
 
-static int setup_journal(const char *directory) {
+static int setup_journal(const char *directory, uid_t uid_shift, uid_t uid_range) {
         _cleanup_free_ char *d = NULL;
         sd_id128_t this_id;
         bool try;
@@ -2693,11 +2693,20 @@ static int setup_journal(const char *directory) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s: %m", q);
 
-        r = mount_nofollow_verbose(LOG_DEBUG, p, q, NULL, MS_BIND, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to bind mount journal from host into guest: %m");
-
-        return 0;
+        return mount_custom(
+                        directory,
+                        &(CustomMount) {
+                                .type = CUSTOM_MOUNT_BIND,
+                                .options = (char*) (uid_is_valid(uid_shift) ? "rootidmap" : NULL),
+                                .source = p,
+                                .destination = p,
+                                .destination_uid = UID_INVALID,
+                        },
+                        /* n = */ 1,
+                        uid_shift,
+                        uid_range,
+                        arg_selinux_apifs_context,
+                        MOUNT_NON_ROOT_ONLY);
 }
 
 static int drop_capabilities(uid_t uid) {
@@ -2950,7 +2959,7 @@ static int wait_for_container(PidRef *pid, ContainerStatus *container) {
 }
 
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        PidRef *pid = ASSERT_PTR(userdata);
+        PidRef *pid = userdata;
 
         assert(si);
 
@@ -3551,7 +3560,7 @@ static int inner_child(
         envp[n_env++] = strjoina("container=", arg_container_service_name);
 
         /* Propagate $TERM & Co. unless we are invoked in pipe mode and stdin/stdout/stderr don't refer to a TTY */
-        if (arg_console_mode != CONSOLE_PIPE || on_tty()) {
+        if (arg_console_mode != CONSOLE_PIPE && !terminal_is_dumb())
                 FOREACH_STRING(v, "TERM=", "COLORTERM=", "NO_COLOR=") {
                         char *t = strv_find_prefix(environ, v);
                         if (!t)
@@ -3559,7 +3568,7 @@ static int inner_child(
 
                         envp[n_env++] = t;
                 }
-        } else
+        else
                 envp[n_env++] = (char*) "TERM=dumb";
 
         if (home || !uid_is_valid(arg_uid) || arg_uid == 0)
@@ -4270,7 +4279,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_journal(directory);
+        r = setup_journal(directory, chown_uid, chown_range);
         if (r < 0)
                 return r;
 

@@ -6,9 +6,9 @@ set -eux
 set -o pipefail
 
 # Check if homectl is installed, and if it isn't bail out early instead of failing
-if ! test -x /usr/bin/homectl ; then
-        echo "no homed" >/skipped
-        exit 77
+if ! command -v homectl >/dev/null; then
+    echo "no homed" >/skipped
+    exit 77
 fi
 
 inspect() {
@@ -29,19 +29,11 @@ inspect() {
 }
 
 wait_for_exist() {
-    # 2min max
-    for i in {1..60}; do
-        (( i > 1 )) && sleep 2
-        homectl inspect "$1" && break
-    done
+    timeout 2m bash -c "until homectl inspect '${1:?}'; do sleep 2; done"
 }
 
 wait_for_state() {
-    # 2min max
-    for i in {1..60}; do
-        (( i > 1 )) && sleep 2
-        homectl inspect "$1" | grep -qF "State: $2" && break
-    done
+    timeout 2m bash -c "until homectl inspect '${1:?}' | grep -qF 'State: $2'; do sleep 2; done"
 }
 
 FSTYPE="$(stat --file-system --format "%T" /)"
@@ -123,32 +115,32 @@ inspect test-user
 # Do some keyring tests, but only on real kernels, since keyring access inside of containers will fail
 # (See: https://github.com/systemd/systemd/issues/17606)
 if ! systemd-detect-virt -cq ; then
-        PASSWORD=xEhErW0ndafV4s homectl activate test-user
-        inspect test-user
+    PASSWORD=xEhErW0ndafV4s homectl activate test-user
+    inspect test-user
 
-        # Key should now be in the keyring
-        homectl update test-user --real-name "Keyring Test"
-        inspect test-user
+    # Key should now be in the keyring
+    homectl update test-user --real-name "Keyring Test"
+    inspect test-user
 
-        # These commands shouldn't use the keyring
-        (! timeout 5s homectl authenticate test-user )
-        (! NEWPASSWORD="foobar" timeout 5s homectl passwd test-user )
+    # These commands shouldn't use the keyring
+    (! timeout 5s homectl authenticate test-user )
+    (! NEWPASSWORD="foobar" timeout 5s homectl passwd test-user )
 
-        homectl lock test-user
-        inspect test-user
+    homectl lock test-user
+    inspect test-user
 
-        # Key should be gone from keyring
-        (! timeout 5s homectl update test-user --real-name "Keyring Test 2" )
+    # Key should be gone from keyring
+    (! timeout 5s homectl update test-user --real-name "Keyring Test 2" )
 
-        PASSWORD=xEhErW0ndafV4s homectl unlock test-user
-        inspect test-user
+    PASSWORD=xEhErW0ndafV4s homectl unlock test-user
+    inspect test-user
 
-        # Key should have been re-instantiated into the keyring
-        homectl update test-user --real-name "Keyring Test 3"
-        inspect test-user
+    # Key should have been re-instantiated into the keyring
+    homectl update test-user --real-name "Keyring Test 3"
+    inspect test-user
 
-        homectl deactivate test-user
-        inspect test-user
+    homectl deactivate test-user
+    inspect test-user
 fi
 
 # Do some resize tests, but only if we run on real kernels and are on btrfs, as quota inside of containers
@@ -242,13 +234,13 @@ homectl remove test-user
 # blob directory tests
 # See docs/USER_RECORD_BLOB_DIRS.md
 checkblob() {
-        test -f "/var/cache/systemd/home/blob-user/$1"
-        stat -c "%u %#a" "/var/cache/systemd/home/blob-user/$1" | grep "^0 0644"
-        test -f "/home/blob-user/.identity-blob/$1"
-        stat -c "%u %#a" "/home/blob-user/.identity-blob/$1" | grep "^12345 0644"
+    test -f "/var/cache/systemd/home/blob-user/$1"
+    stat -c "%u %#a" "/var/cache/systemd/home/blob-user/$1" | grep "^0 0644"
+    test -f "/home/blob-user/.identity-blob/$1"
+    stat -c "%u %#a" "/home/blob-user/.identity-blob/$1" | grep "^12345 0644"
 
-        diff "/var/cache/systemd/home/blob-user/$1" "$2"
-        diff "/var/cache/systemd/home/blob-user/$1" "/home/blob-user/.identity-blob/$1"
+    diff "/var/cache/systemd/home/blob-user/$1" "$2"
+    diff "/var/cache/systemd/home/blob-user/$1" "/home/blob-user/.identity-blob/$1"
 }
 
 mkdir /tmp/blob1 /tmp/blob2
@@ -552,6 +544,7 @@ if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPT
         systemctl is-active -q mysshserver.socket && systemctl stop mysshserver.socket
         rm -f /tmp/homed.id_ecdsa /run/systemd/system/mysshserver{@.service,.socket}
         systemctl daemon-reload
+        wait_for_state homedsshtest inactive
         homectl remove homedsshtest
         for dir in /etc /usr/lib; do
             if [[ -f "$dir/pam.d/sshd.bak" ]]; then
@@ -639,7 +632,8 @@ EOF
         -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" \
         homedsshtest@localhost env
 
-    wait_for_state homedsshtest inactive
+    trap - EXIT
+    at_exit
 fi
 
 NEWPASSWORD=hunter4711 homectl create aliastest --storage=directory --alias=aliastest2 --alias=aliastest3 --realm=myrealm
@@ -664,6 +658,8 @@ getent passwd aliastest3
 getent passwd aliastest@myrealm
 getent passwd aliastest2@myrealm
 getent passwd aliastest3@myrealm
+
+homectl remove aliastest
 
 NEWPASSWORD=quux homectl create tmpfsquota --storage=subvolume --dev-shm-limit=50K --tmp-limit=50K -P
 for p in /dev/shm /tmp; do
@@ -752,6 +748,7 @@ IDENTITY='{"userName":"signtest","storage":"directory","disposition":"regular","
 
 # Try with stripping the foreign signature first, this should just work
 echo "$IDENTITY" | homectl create -P --identity=- --seize=yes
+wait_for_state signtest inactive
 homectl remove signtest
 
 # No try again, and don't strip the signature. It will be refused.
@@ -778,6 +775,7 @@ echo "$IDENTITY" | homectl create -P --identity=- --seize=no
 PASSWORD="test" homectl with signtest true
 
 # Remove the key, and check again ,should fail now
+wait_for_state signtest inactive
 homectl remove-signing-key signtest.public
 wait_for_state signtest inactive
 (! PASSWORD="test" homectl with signtest true)
@@ -789,15 +787,17 @@ homectl list-signing-keys | grep -q local.public
 # Test unregister + adopt
 mkdir /home/elsewhere
 mv /home/signtest.homedir /home/elsewhere/
+wait_for_state signtest absent
 homectl unregister signtest
 print_public_key | homectl add-signing-key --key-name=signtest.public
 homectl adopt /home/elsewhere/signtest.homedir
 PASSWORD="test" homectl with signtest true
-wait_for_state signtest inactive
 
 # Test register
+wait_for_state signtest inactive
 homectl unregister signtest
 homectl register /home/elsewhere/signtest.homedir/.identity
+wait_for_state signtest absent
 homectl unregister signtest
 
 # Test automatic fixation for anything in /home/
@@ -805,9 +805,9 @@ mv /home/elsewhere/signtest.homedir /home
 rmdir /home/elsewhere
 wait_for_exist signtest
 PASSWORD="test" homectl with signtest true
-wait_for_state signtest inactive
 
 # add signing key via credential
+wait_for_state signtest inactive
 homectl remove-signing-key signtest.public
 (! (homectl list-signing-keys | grep -q signtest.public))
 systemd-run --wait -p "SetCredential=home.add-signing-key.signtest.public:$(print_public_key)" homectl firstboot
@@ -816,15 +816,17 @@ homectl list-signing-keys | grep -q signtest.public
 # register user via credential
 mkdir /home/elsewhere2
 mv /home/signtest.homedir /home/elsewhere2/
+wait_for_state signtest absent
 homectl unregister signtest
 systemd-run --wait -p "LoadCredential=home.register.signtest:/home/elsewhere2/signtest.homedir/.identity" homectl firstboot
 homectl inspect signtest
+wait_for_state signtest absent
 homectl unregister signtest
 mv /home/elsewhere2/signtest.homedir /home/
 rmdir /home/elsewhere2
-wait_for_exist signtest
 
 # Remove it all again
+wait_for_exist signtest
 homectl remove-signing-key signtest.public
 homectl remove signtest
 

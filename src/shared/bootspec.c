@@ -533,6 +533,7 @@ static int boot_loader_read_conf_path(BootConfig *config, const char *root, cons
         assert(path);
 
         r = chase_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, "re", &full, &f);
+        config->loader_conf_status = r < 0 ? r : true;
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

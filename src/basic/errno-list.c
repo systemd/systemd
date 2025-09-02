@@ -10,7 +10,6 @@ static const struct errno_name* lookup_errno(register const char *str,
                                              register GPERF_LEN_TYPE len);
 
 #include "errno-from-name.inc"
-#include "errno-to-name.inc"
 
 int errno_from_name(const char *name) {
         const struct errno_name *sc;
@@ -25,27 +24,29 @@ int errno_from_name(const char *name) {
         return sc->id;
 }
 
-const char* errno_to_name(int id) {
-        if (id == 0) /* To stay in line with our own impl */
+#if HAVE_STRERRORNAME_NP
+const char* errno_name_no_fallback(int id) {
+        if (id == 0) /* To stay in line with our implementation below.  */
                 return NULL;
 
+        return strerrorname_np(ABS(id));
+}
+#else
+#  include "errno-to-name.inc"
+
+const char* errno_name_no_fallback(int id) {
         if (id < 0)
                 id = -id;
-
-#if HAVE_STRERRORNAME_NP
-        const char *n = strerrorname_np(id);
-        if (n)
-                return n;
-#endif
 
         if ((size_t) id >= ELEMENTSOF(errno_names))
                 return NULL;
 
         return errno_names[id];
 }
+#endif
 
-const char* errno_name_full(int id, char buf[static ERRNO_NAME_BUF_LEN]) {
-        const char *a = errno_to_name(id);
+const char* errno_name(int id, char buf[static ERRNO_NAME_BUF_LEN]) {
+        const char *a = errno_name_no_fallback(id);
         if (a)
                 return a;
         snprintf(buf, ERRNO_NAME_BUF_LEN, "%d", abs(id));

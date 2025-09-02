@@ -68,6 +68,8 @@ TEST(oomd_cgroup_kill) {
         /* Create another cgroup below this one for the pids we forked off. We need this to be managed
          * by the test so that pid1 doesn't delete it before we can read the xattrs. */
         ASSERT_NOT_NULL(subcgroup = path_join(cgroup, "oomdkilltest"));
+        /* Always start clean, in case of repeated runs and failures */
+        ASSERT_OK(cg_trim(subcgroup, /* delete_root */ true));
         ASSERT_OK(cg_create(subcgroup));
 
         /* If we don't have permissions to set xattrs we're likely in a userns or missing capabilities */
@@ -106,6 +108,8 @@ TEST(oomd_cgroup_kill) {
                 ASSERT_OK(cg_get_xattr(subcgroup, "user.oomd_kill", &v, /* ret_size= */ NULL));
                 ASSERT_STREQ(v, i == 0 ? "2" : "4");
         }
+
+        ASSERT_OK(cg_trim(subcgroup, /* delete_root */ true));
 }
 
 TEST(oomd_cgroup_context_acquire_and_insert) {

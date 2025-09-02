@@ -553,10 +553,13 @@ static int manager_do_rotate(
 
         int r;
 
+        assert(f);
         assert(m);
 
         if (!*f)
                 return -EINVAL;
+
+        log_debug("Rotating journal file %s.", (*f)->path);
 
         r = journal_file_rotate(f, m->mmap, manager_get_file_flags(m, seal), m->config.compress.threshold_bytes, m->deferred_closes);
         if (r < 0) {

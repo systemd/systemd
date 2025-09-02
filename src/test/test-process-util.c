@@ -123,34 +123,34 @@ static void test_pid_get_cmdline_one(pid_t pid) {
         int r;
 
         r = pid_get_cmdline(pid, SIZE_MAX, 0, &c);
-        log_info("PID "PID_FMT": %s", pid, r >= 0 ? c : errno_to_name(r));
+        log_info("PID "PID_FMT": %s", pid, r >= 0 ? c : ERRNO_NAME(r));
 
         r = pid_get_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_COMM_FALLBACK, &d);
-        log_info("      %s", r >= 0 ? d : errno_to_name(r));
+        log_info("      %s", r >= 0 ? d : ERRNO_NAME(r));
 
         r = pid_get_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE, &e);
-        log_info("      %s", r >= 0 ? e : errno_to_name(r));
+        log_info("      %s", r >= 0 ? e : ERRNO_NAME(r));
 
         r = pid_get_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE | PROCESS_CMDLINE_COMM_FALLBACK, &f);
-        log_info("      %s", r >= 0 ? f : errno_to_name(r));
+        log_info("      %s", r >= 0 ? f : ERRNO_NAME(r));
 
         r = pid_get_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &g);
-        log_info("      %s", r >= 0 ? g : errno_to_name(r));
+        log_info("      %s", r >= 0 ? g : ERRNO_NAME(r));
 
         r = pid_get_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX | PROCESS_CMDLINE_COMM_FALLBACK, &h);
-        log_info("      %s", r >= 0 ? h : errno_to_name(r));
+        log_info("      %s", r >= 0 ? h : ERRNO_NAME(r));
 
         r = pid_get_cmdline_strv(pid, 0, &strv_a);
         if (r >= 0)
                 ASSERT_NOT_NULL((joined = strv_join(strv_a, "\", \"")));
-        log_info("      \"%s\"", r >= 0 ? joined : errno_to_name(r));
+        log_info("      \"%s\"", r >= 0 ? joined : ERRNO_NAME(r));
 
         joined = mfree(joined);
 
         r = pid_get_cmdline_strv(pid, PROCESS_CMDLINE_COMM_FALLBACK, &strv_b);
         if (r >= 0)
                 ASSERT_NOT_NULL((joined = strv_join(strv_b, "\", \"")));
-        log_info("      \"%s\"", r >= 0 ? joined : errno_to_name(r));
+        log_info("      \"%s\"", r >= 0 ? joined : ERRNO_NAME(r));
 }
 
 TEST(pid_get_cmdline) {

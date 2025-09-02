@@ -7,7 +7,7 @@
 #include "tests.h"
 
 static int intro(void) {
-#if __LIBBPF_CURRENT_VERSION_GEQ(1, 5)
+#if defined(LIBBPF_MAJOR_VERSION) && (LIBBPF_MAJOR_VERSION > 1 || (LIBBPF_MAJOR_VERSION == 1 && LIBBPF_MINOR_VERSION >= 5))
         _cleanup_close_ int bpffs_fd = open("/sys/fs/bpf", O_RDONLY);
         if (bpffs_fd < 0)
                 return log_error_errno(errno, "Failed to open '/sys/fs/bpf': %m");

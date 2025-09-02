@@ -98,6 +98,8 @@ typedef enum DHCP6MessageType {
         DHCP6_MESSAGE_DISCONNECT                = 33, /* RFC 8156 */
         DHCP6_MESSAGE_STATE                     = 34, /* RFC 8156 */
         DHCP6_MESSAGE_CONTACT                   = 35, /* RFC 8156 */
+        DHCP6_MESSAGE_ADDR_REG_INFORM           = 36, /* RFC 9686 */
+        DHCP6_MESSAGE_ADDR_REG_REPLY            = 37, /* RFC 9686 */
         _DHCP6_MESSAGE_TYPE_MAX,
         _DHCP6_MESSAGE_TYPE_INVALID             = -EINVAL,
 } DHCP6MessageType;

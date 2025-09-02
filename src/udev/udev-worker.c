@@ -296,7 +296,7 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
                         return 0;
                 }
 
-                const char *e = errno_to_name(r);
+                const char *e = errno_name_no_fallback(r);
                 r = sd_notifyf(/* unset_environment = */ false, "ERRNO=%i%s%s", -r, e ? "\nERRNO_NAME=" : "", strempty(e));
                 if (r < 0) {
                         log_device_warning_errno(dev, r, "Failed to send notification message to manager process, ignoring: %m");

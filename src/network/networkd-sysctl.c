@@ -26,7 +26,7 @@
 #include "string-util.h"
 #include "sysctl-util.h"
 
-#if HAVE_VMLINUX_H
+#if ENABLE_SYSCTL_BPF
 
 #include "bpf-link.h"
 #include "bpf/sysctl-monitor/sysctl-monitor-skel.h"

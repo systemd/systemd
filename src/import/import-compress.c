@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "import-compress.h"
+#include "log.h"
 #include "string-table.h"
 
 void import_compress_free(ImportCompress *c) {
@@ -104,6 +105,7 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size) {
 
         c->encoding = false;
 
+        log_debug("Detected compression type: %s", import_compress_type_to_string(c->type));
         return 1;
 }
 
@@ -589,15 +591,15 @@ int import_compress_finish(ImportCompress *c, void **buffer, size_t *buffer_size
 }
 
 static const char* const import_compress_type_table[_IMPORT_COMPRESS_TYPE_MAX] = {
-        [IMPORT_COMPRESS_UNKNOWN] = "unknown",
+        [IMPORT_COMPRESS_UNKNOWN]      = "unknown",
         [IMPORT_COMPRESS_UNCOMPRESSED] = "uncompressed",
-        [IMPORT_COMPRESS_XZ] = "xz",
-        [IMPORT_COMPRESS_GZIP] = "gzip",
+        [IMPORT_COMPRESS_XZ]           = "xz",
+        [IMPORT_COMPRESS_GZIP]         = "gzip",
 #if HAVE_BZIP2
-        [IMPORT_COMPRESS_BZIP2] = "bzip2",
+        [IMPORT_COMPRESS_BZIP2]        = "bzip2",
 #endif
 #if HAVE_ZSTD
-        [IMPORT_COMPRESS_ZSTD] = "zstd",
+        [IMPORT_COMPRESS_ZSTD]         = "zstd",
 #endif
 };
 

@@ -6,12 +6,13 @@
 # Oğuz Ersen <oguzersen@protonmail.com>, 2020.
 # Muhammet Kara <muhammetk@gmail.com>, 2015-2020.
 # Oğuz Ersen <oguz@ersen.moe>, 2022, 2023, 2024.
+# Emir SARI <emir_sari@icloud.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2024-11-29 12:38+0000\n"
-"Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
+"PO-Revision-Date: 2025-07-29 19:53+0000\n"
+"Last-Translator: Emir SARI <emir_sari@icloud.com>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
 "Language: tr\n"
@@ -19,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.8.2\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -52,14 +53,14 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr "Sistem ve hizmet yöneticisi ortam değişkenlerini ayarla ya da kaldır"
+msgstr "Sistem ve hizmet yöneticisi ortam değişkenlerini ayarla veya kaldır"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
-"Sistem ve hizmet yöneticisi ortam değişkenlerini ayarlamak ya da kaldırmak "
+"Sistem ve hizmet yöneticisi ortam değişkenlerini ayarlamak veya kaldırmak "
 "için kimlik doğrulaması gereklidir."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
@@ -78,8 +79,8 @@ msgstr "systemd durumunu hız sınırlamaları olmadan dök"
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
 msgstr ""
-"systemd durumunu hız sınırlamaları olmadan dökmek kimlik doğrulaması "
-"gerektirir."
+"systemd durumunu hız sınırlamaları olmadan dökmek için kimlik doğrulaması "
+"gereklidir."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -87,7 +88,8 @@ msgstr "Ev alanı oluştur"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr "Bir kullanıcının ev alanını oluşturmak kimlik doğrulaması gerektirir."
+msgstr ""
+"Bir kullanıcının ev alanını oluşturmak için kimlik doğrulaması gereklidir."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
@@ -95,7 +97,8 @@ msgstr "Ev alanını kaldır"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr "Bir kullanıcının ev alanını kaldırmak kimlik doğrulaması gerektirir."
+msgstr ""
+"Bir kullanıcının ev alanını kaldırmak için kimlik doğrulaması gereklidir."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
@@ -106,7 +109,7 @@ msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
 "Bir kullanıcının ev alanının kimlik bilgilerini denetlemek için kimlik "
-"doğrulaması gerekir."
+"doğrulaması gereklidir."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -114,7 +117,8 @@ msgstr "Ev alanını güncelle"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr "Bir kullanıcının ev alanını güncellemek kimlik doğrulaması gerektirir."
+msgstr ""
+"Bir kullanıcının ev alanını güncellemek için kimlik doğrulaması gereklidir."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Update your home area"
@@ -122,7 +126,7 @@ msgstr "Ev alanınızı güncelleyin"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr "Ev alanınızı güncellemek kimlik doğrulaması gerektirir."
+msgstr "Ev alanınızı güncellemek için kimlik doğrulaması gereklidir."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
@@ -131,8 +135,8 @@ msgstr "Ev alanını yeniden boyutlandır"
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
 msgstr ""
-"Bir kullanıcının ev alanını yeniden boyutlandırmak kimlik doğrulaması "
-"gerektirir."
+"Bir kullanıcının ev alanını yeniden boyutlandırmak için kimlik doğrulaması "
+"gereklidir."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
@@ -142,29 +146,28 @@ msgstr "Ev alanının parolasını değiştir"
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
-"Bir kullanıcının ev alanının parolasını değiştirmek kimlik doğrulaması "
-"gerektirir."
+"Bir kullanıcının ev alanının parolasını değiştirmek için kimlik doğrulaması "
+"gereklidir."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
-msgstr "Bir ev alanını etkinleştir"
+msgstr "Ev alanını etkinleştir"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
 msgstr ""
-"Bir kullanıcının ev alanını etkinleştirmek kimlik doğrulaması gerektirir."
+"Bir kullanıcının ev alanını etkinleştirmek için kimlik doğrulaması "
+"gereklidir."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Ana Dizin İmzalama Anahtarlarını Yönet"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Sistem hizmetlerini veya diğer birimlerini yönetmek için kimlik doğrulaması "
-"gereklidir."
+"Ana dizinler için olan imzalama anahtarlarını yönetmek için kimlik "
+"doğrulaması gereklidir."
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
@@ -172,7 +175,7 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
-"%s kullanıcısının ev dizini şu anda mevcut değil, lütfen gerekli depolama "
+"%s kullanıcısının ana dizini şu anda mevcut değil, lütfen gerekli depolama "
 "aygıtını veya içeren dosya sistemini bağlayın."
 
 #: src/home/pam_systemd_home.c:341

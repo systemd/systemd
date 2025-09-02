@@ -707,7 +707,7 @@ TEST(dns_query_string_request_address) {
  * particular:
  *
  * - The very first thing it does is try to respond to the query by reading the system /etc/hosts file, which
- *   may be symlinked to a SystemD resource. Ideally we could test this without accessing global files.
+ *   may be symlinked to a systemd resource. Ideally we could test this without accessing global files.
  *
  * - dns_scope_get_dns_server() calls manager_get_dns_server(), which tries to read /etc/resolv.conf.
  *

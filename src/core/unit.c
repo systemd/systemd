@@ -2276,17 +2276,17 @@ static void retroactively_start_dependencies(Unit *u) {
         assert(u);
         assert(UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)));
 
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, /* error = */ NULL, /* ret = */ NULL);
 
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 }
@@ -2298,7 +2298,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         assert(UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)));
 
         /* Pull down units which are bound to us recursively if enabled */
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 }
@@ -2325,7 +2325,7 @@ void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
         assert(dependency_name);
 
         Unit *other;
-        UNIT_FOREACH_DEPENDENCY(other, u, atom) {
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, atom) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (n_jobs == 0)
@@ -2348,7 +2348,7 @@ void unit_trigger_notify(Unit *u) {
 
         assert(u);
 
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_TRIGGERED_BY)
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_TRIGGERED_BY)
                 if (UNIT_VTABLE(other)->trigger_notify)
                         UNIT_VTABLE(other)->trigger_notify(other, u);
 }
@@ -5291,10 +5291,10 @@ static void unit_modify_user_nft_set(Unit *u, bool add, NFTSetSource source, uin
 
                 r = nft_set_element_modify_any(u->manager->fw_ctx, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
                 if (r < 0)
-                        log_warning_errno(r, "Failed to %s NFT set: family %s, table %s, set %s, ID %u, ignoring: %m",
+                        log_warning_errno(r, "Failed to %s NFT set entry: family %s, table %s, set %s, ID %u, ignoring: %m",
                                           add? "add" : "delete", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, element);
                 else
-                        log_debug("%s NFT set: family %s, table %s, set %s, ID %u",
+                        log_debug("%s NFT set entry: family %s, table %s, set %s, ID %u",
                                   add? "Added" : "Deleted", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, element);
         }
 }

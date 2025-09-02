@@ -32,7 +32,7 @@ static void test_transient_settings_one(UnitType type, const char* const* lines)
                 }
 
                 r = bus_append_unit_property_assignment(m, type, t);
-                log_debug("%s → %d/%s", t, r, r < 0 ? ERRNO_NAME_FULL(r) : yes_no(r));
+                log_debug("%s → %d/%s", t, r, r < 0 ? ERRNO_NAME(r) : yes_no(r));
                 ASSERT_EQ(r, expect);
         }
 }

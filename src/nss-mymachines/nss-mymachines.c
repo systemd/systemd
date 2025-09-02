@@ -17,15 +17,6 @@
 #include "signal-util.h"
 #include "string-util.h"
 
-static void setup_logging_once(void) {
-        static pthread_once_t once = PTHREAD_ONCE_INIT;
-        assert_se(pthread_once(&once, log_parse_environment_variables) == 0);
-}
-
-#define NSS_ENTRYPOINT_BEGIN                    \
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);       \
-        setup_logging_once()
-
 NSS_GETHOSTBYNAME_PROTOTYPES(mymachines);
 NSS_GETPW_PROTOTYPES(mymachines);
 NSS_GETGR_PROTOTYPES(mymachines);

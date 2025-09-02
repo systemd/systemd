@@ -1128,6 +1128,8 @@ static int cmdline_add_smbios11(char ***cmdline, const char* smbios_dir) {
 
                 if (strv_extendf(cmdline, "type=11,path=%s", p) < 0)
                         return log_oom();
+
+                p = mfree(p);
         }
 
         return 0;

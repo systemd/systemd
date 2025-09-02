@@ -145,7 +145,9 @@ int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile
                 return log_debug_errno(r, "Failed to extract directory from '%s': %m", path);
         if (r >= 0) {
                 r = chaseat(rfd, dirpath,
-                            CHASE_AT_RESOLVE_IN_ROOT | (FLAGS_SET(chase_flags, CHASE_NONEXISTENT) ? CHASE_NONEXISTENT : CHASE_MUST_BE_DIRECTORY),
+                            CHASE_AT_RESOLVE_IN_ROOT |
+                            CHASE_MUST_BE_DIRECTORY |
+                            (FLAGS_SET(chase_flags, CHASE_NONEXISTENT) ? CHASE_NONEXISTENT : 0),
                             &resolved_dirpath, /* ret_fd = */ NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(dirpath));

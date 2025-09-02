@@ -51,15 +51,17 @@ TEST(cg_create) {
         _cleanup_free_ char *here = NULL;
         ASSERT_OK(cg_pid_get_path_shifted(0, NULL, &here));
 
-        _cleanup_free_ char *test_a = ASSERT_NOT_NULL(path_join(here, "/test-a")),
-                            *test_b = ASSERT_NOT_NULL(path_join(here, "/test-b")),
-                            *test_c = ASSERT_NOT_NULL(path_join(here, "/test-b/test-c")),
-                            *test_d = ASSERT_NOT_NULL(path_join(here, "/test-b/test-d"));
+        /* cg_* will use path_simplify(), so use it here too otherwise when running in a container at the
+         * root it asserts with "/test-b != //test-b" */
+        _cleanup_free_ char *test_a = ASSERT_NOT_NULL(path_simplify(path_join(here, "/test-a"))),
+                            *test_b = ASSERT_NOT_NULL(path_simplify(path_join(here, "/test-b"))),
+                            *test_c = ASSERT_NOT_NULL(path_simplify(path_join(here, "/test-b/test-c"))),
+                            *test_d = ASSERT_NOT_NULL(path_simplify(path_join(here, "/test-b/test-d")));
         char *path;
 
         log_info("Paths for test:\n%s\n%s", test_a, test_b);
 
-        /* Possibly clean up left-overs from aboted previous runs */
+        /* Possibly clean up left-overs from aborted previous runs */
         (void) cg_trim(test_a, /* delete_root= */ true);
         (void) cg_trim(test_b, /* delete_root= */ true);
 
@@ -103,12 +105,17 @@ TEST(cg_create) {
 
         ASSERT_OK_POSITIVE(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, test_a));
         ASSERT_OK_ZERO(cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, test_b));
+        ASSERT_OK_POSITIVE(cg_is_empty(NULL, test_a));
+        ASSERT_OK_POSITIVE(cg_is_empty(NULL, test_b));
 
         ASSERT_OK_ZERO(cg_kill_recursive(test_a, 0, 0, NULL, NULL, NULL));
         ASSERT_OK_POSITIVE(cg_kill_recursive(test_b, 0, 0, NULL, NULL, NULL));
 
         ASSERT_OK(cg_trim(test_a, true));
         ASSERT_ERROR(cg_trim(test_b, true), EBUSY);
+
+        ASSERT_OK_ZERO(cg_attach(here, 0));
+        ASSERT_OK(cg_trim(test_b, true));
 }
 
 TEST(id) {

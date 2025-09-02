@@ -340,7 +340,7 @@
         <term><option>--machine=</option></term>
 
         <listitem><para>Connect to
-        <citerefentry><refentrytitle>systemd-import.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <citerefentry><refentrytitle>systemd-importd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         running in a local container, to perform the specified operation within the container.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>

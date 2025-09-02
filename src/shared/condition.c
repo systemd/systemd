@@ -187,7 +187,6 @@ static int condition_test_version_cmp(const char *condition, const char *ver) {
         CompareOperator operator;
         bool first = true;
 
-        assert(condition);
         assert(ver);
 
         for (const char *p = condition;;) {

@@ -1615,6 +1615,8 @@ static int run(int argc, char *argv[]) {
         if (arg_transport == BUS_TRANSPORT_LOCAL)
                 polkit_agent_open();
 
+        (void) sd_bus_set_allow_interactive_authorization(bus, true);
+
         return dispatch_verb(argc, argv, verbs, bus);
 }
 

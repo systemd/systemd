@@ -227,6 +227,10 @@ shared_sources = files(
         'xml.c',
 )
 
+if conf.get('ENABLE_NSS') == 1
+        shared_sources += files('nss-util.c')
+endif
+
 if get_option('tests') != 'false'
         shared_sources += files('tests.c')
 endif

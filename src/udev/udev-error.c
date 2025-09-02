@@ -21,7 +21,7 @@ int device_add_errno(sd_device *dev, int error) {
         r = device_add_property(dev, "UDEV_WORKER_FAILED", "1");
         RET_GATHER(r, device_add_propertyf(dev, "UDEV_WORKER_ERRNO", "%i", error));
 
-        const char *str = errno_to_name(error);
+        const char *str = errno_name_no_fallback(error);
         if (str)
                 RET_GATHER(r, device_add_property(dev, "UDEV_WORKER_ERRNO_NAME", str));
 

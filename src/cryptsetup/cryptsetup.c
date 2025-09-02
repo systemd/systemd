@@ -537,7 +537,7 @@ static int parse_one_option(const char *option) {
 #if HAVE_OPENSSL
                 _cleanup_strv_free_ char **l = NULL;
 
-                l = strv_split(optarg, ":");
+                l = strv_split(val, ":");
                 if (!l)
                         return log_oom();
 
@@ -586,7 +586,7 @@ static int parse_one_option(const char *option) {
                         log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
         } else if ((val = startswith(option, "link-volume-key="))) {
-#ifdef HAVE_CRYPT_SET_KEYRING_TO_LINK
+#if HAVE_CRYPT_SET_KEYRING_TO_LINK
                 _cleanup_free_ char *keyring = NULL, *key_type = NULL, *key_description = NULL;
                 const char *sep;
 

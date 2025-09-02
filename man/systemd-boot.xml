@@ -149,6 +149,8 @@
         <term><keycap>d</keycap></term>
         <listitem><para>Make selected entry the default</para>
 
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -164,6 +166,8 @@
         <term><keycap>t</keycap></term>
         <listitem><para>Increase the timeout before default entry is booted</para>
 
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -172,6 +176,8 @@
         <term><keycap>T</keycap></term>
         <listitem><para>Decrease the timeout</para>
 
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -179,12 +185,16 @@
         <term><keycap>r</keycap></term>
         <listitem><para>Change screen resolution, skipping any unsupported modes.</para>
 
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
       <varlistentry>
         <term><keycap>R</keycap></term>
         <listitem><para>Reset screen resolution to firmware or configuration file default.</para>
+
+        <para>An EFI variable is set to allow this setting to persist.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
@@ -280,15 +290,15 @@
     </variablelist>
 
     <para>The boot menu is shown when a non-zero menu timeout has been configured. If the menu timeout has
-    been set to zero, it is sufficient to press any key — before the boot loader initializes — to bring up
-    the boot menu, except for the keys listed immediately above as they directly boot into the selected boot
-    menu item. Note that depending on the firmware implementation the time window where key presses are
-    accepted before the boot loader initializes might be short. If the window is missed, reboot and try
-    again, possibly pressing a suitable key (e.g. the space bar) continuously; on most systems it should be
-    possible to hit the time window after a few attempts. To avoid this problem, consider setting a non-zero
-    timeout, thus showing the boot menu unconditionally. Some desktop environments might offer an option to
-    directly boot into the boot menu, to avoid the problem altogether. Alternatively, use the command line
-    <command>systemctl reboot --boot-loader-menu=0</command> from the shell.</para>
+    been set to zero, hold down a key (<keycap>space</keycap> is recommended) before the boot loader
+    initializes to bring up the boot menu. Note that depending on the firmware implementation the time window
+    where key presses are accepted before the boot loader initializes might be short. If the window is
+    missed, reboot and try again, possibly repeatedly pressing a suitable key; on most systems it should be
+    possible to hit the time window after a few attempts. Keys other than the space bar may be used, except
+    for the keys listed above. If showing the menu on demand doesn't work well, consider setting a non-zero
+    timeout to show the boot menu unconditionally. Some desktop environments might offer an option to boot
+    directly into the boot menu, which also avoids the problem altogether. Alternatively, use the command
+    line <command>systemctl reboot --boot-loader-menu=</command> with a non-zero value from the shell.</para>
 
     <para>In the editor, most keys simply insert themselves, but the following keys
     may be used to perform additional actions:</para>
@@ -389,16 +399,16 @@
   <refsect1>
     <title>EFI Variables</title>
 
-    <para>The following EFI variables are defined, set and read by <command>systemd-boot</command>, under the
-    vendor UUID <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</literal>, for communication between the boot
-    loader and the OS:</para>
+    <para>The following EFI variables are defined, and may be set or read by <command>systemd-boot</command>
+    for communication between the boot loader and the OS. The vendor UUID
+    <literal>4a67b082-0a4c-41cf-b6c7-440b29bb8c4f</literal> is used in all cases.</para>
 
     <variablelist class='efi-variables'>
       <varlistentry>
         <term><varname>LoaderBootCountPath</varname></term>
-        <listitem><para>If boot counting is enabled, contains the path to the file in whose name the boot counters are
-        encoded. Set by the boot
-        loader. <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        <listitem><para>If boot counting is enabled, contains the path to the file in whose name the boot
+        counters are encoded. Set by the boot loader.
+        <citerefentry><refentrytitle>systemd-bless-boot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         uses this information to mark a boot as successful as determined by the successful activation of the
         <filename>boot-complete.target</filename> target unit.</para>
 
@@ -465,13 +475,13 @@
         <term><varname>LoaderEntrySysFail</varname></term>
         <term><varname>LoaderEntryOneShot</varname></term>
 
-        <listitem><para>The identifier of the default boot loader entry. Set primarily by the OS and read by the boot
+        <listitem><para>The identifier of the default boot loader entry. Can be set in the OS and the boot
         loader. <varname>LoaderEntryOneShot</varname> sets the default entry for the next boot only, while
-        <varname>LoaderEntryDefault</varname> sets it persistently for all future
-        boots. <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
-        <option>set-default</option> and <option>set-oneshot</option> commands make use of these variables. The boot
-        loader modifies <varname>LoaderEntryDefault</varname> on request, when the <keycap>d</keycap> key is used, see
-        above.</para>
+        <varname>LoaderEntryDefault</varname> sets it persistently for all future boots.
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <option>set-default</option> and <option>set-oneshot</option> commands make use of these variables.
+        The boot loader modifies <varname>LoaderEntryDefault</varname> on request, when the
+        <keycap>d</keycap> key is used, see above.</para>
 
         <xi:include href="version-info.xml" xpointer="v240"/></listitem>
       </varlistentry>

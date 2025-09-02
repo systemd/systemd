@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Indonesian translation for systemd.
-# Andika Triwidada <andika@gmail.com>, 2014, 2021, 2022, 2024.
+# Andika Triwidada <andika@gmail.com>, 2014, 2021, 2022, 2024, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2024-11-29 12:38+0000\n"
+"PO-Revision-Date: 2025-07-28 17:25+0000\n"
 "Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
 "systemd/main/id/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.8.2\n"
+"X-Generator: Weblate 5.12.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -148,14 +148,13 @@ msgstr "Otentikasi diperlukan untuk mengaktifkan suatu area home pengguna."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Kelola Kunci Penandatanganan Direktori Home"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Otentikasi diperlukan untuk mengelola layanan sistem atau unit lainnya."
+"Otentikasi diperlukan untuk mengelola kunci penandatanganan bagi direktori "
+"home."
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
@@ -882,19 +881,14 @@ msgstr ""
 "kontainer."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "Membuat suatu mesin virtual lokal atau kontainer"
+msgstr "Daftarkan suatu mesin virtual lokal atau kontainer"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
-"Otentikasi diperlukan untuk membuat sebuah mesin virtual lokal atau "
+"Otentikasi diperlukan untuk mendaftarkan sebuah mesin virtual lokal atau "
 "kontainer."
 
 #: src/machine/org.freedesktop.machine1.policy:116
@@ -1123,13 +1117,11 @@ msgstr "Otentikasi diperlukan untuk berlangganan hasil kuiri."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Berlangganan ke konfigurasi DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "Otentikasi diperlukan untuk berlangganan hasil kuiri."
+msgstr "Otentikasi diperlukan untuk berlangganan ke konfigurasi DNS."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1272,16 +1264,12 @@ msgstr ""
 "'$(unit)'."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
-"Otentikasi diperlukan untuk megirim suatu sinyal UNIX ke proses dari "
-"'$(unit)'."
+"Otentikasi diperlukan untuk megirim suatu sinyal UNIX ke proses dari sub "
+"grup '$(unit)'."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."

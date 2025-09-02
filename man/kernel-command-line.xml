@@ -768,7 +768,7 @@
         <term><varname>systemd.tpm2_allow_clear=</varname></term>
 
         <listitem><para>Controls whether to allow clearing of the TPM chip, implemented by
-        <citerefentry><refentrytitle>systemd-tpm2-clear</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+        <citerefentry><refentrytitle>systemd-tpm2-clear.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>

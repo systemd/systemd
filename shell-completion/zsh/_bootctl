@@ -45,7 +45,6 @@ _bootctl_reboot-to-firmware() {
         "remove:Remove systemd-boot from the ESP and EFI variables"
         "is-installed:Test whether systemd-boot is installed in the ESP"
         "random-seed:Initialize random seed in ESP and EFI variables"
-        "systemd-efi-options:Query or set system options string in EFI variable"
         "reboot-to-firmware:Query or set reboot-to-firmware EFI flag"
         "list:List boot loader entries"
         "set-default:Set the default boot loader entry"

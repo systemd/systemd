@@ -30,6 +30,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unaligned.h"
 #include "unit-name.h"
 #include "user-util.h"
 #include "xattr-util.h"
@@ -38,7 +39,7 @@
 typedef union {
         struct file_handle file_handle;
         uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
-} _alignas_(uint64_t) cg_file_handle;
+} cg_file_handle;
 
 #define CG_FILE_HANDLE_INIT                                     \
         (cg_file_handle) {                                      \
@@ -46,7 +47,8 @@ typedef union {
                 .file_handle.handle_type = FILEID_KERNFS,       \
         }
 
-#define CG_FILE_HANDLE_CGROUPID(fh) (*CAST_ALIGN_PTR(uint64_t, (fh).file_handle.f_handle))
+/* The .f_handle field is not aligned to 64bit on some archs, hence read it via an unaligned accessor */
+#define CG_FILE_HANDLE_CGROUPID(fh) unaligned_read_ne64(fh.file_handle.f_handle)
 
 int cg_path_open(const char *controller, const char *path) {
         _cleanup_free_ char *fs = NULL;
@@ -71,7 +73,7 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
         }
 
         cg_file_handle fh = CG_FILE_HANDLE_INIT;
-        CG_FILE_HANDLE_CGROUPID(fh) = id;
+        unaligned_write_ne64(fh.file_handle.f_handle, id);
 
         return RET_NERRNO(open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC));
 }
@@ -773,7 +775,7 @@ int cg_is_empty(const char *controller, const char *path) {
         if (empty_or_root(path))
                 return false;
 
-        r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, path, "cgroup.events", STRV_MAKE("populated"), &t);
+        r = cg_get_keyed_attribute(controller, path, "cgroup.events", STRV_MAKE("populated"), &t);
         if (r == -ENOENT)
                 return true;
         if (r < 0)

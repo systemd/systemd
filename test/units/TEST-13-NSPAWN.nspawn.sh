@@ -245,6 +245,15 @@ EOF
                    --bind="$tmpdir:/foo" \
                    --bind="$tmpdir:/also-foo:noidmap,norbind" \
                    bash -xec 'test -e /foo/foo; touch /foo/bar; test -e /also-foo/bar'
+    # --bind= recursive
+    rm -f "$tmpdir/bar"
+    mount --bind "$tmpdir/1" "$tmpdir/2"
+    systemd-nspawn --directory="$root" \
+                   ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
+                   --bind="$tmpdir:/foo" \
+                   --bind="$tmpdir:/also-foo:noidmap,norbind" \
+                   bash -xec 'test -e /foo/2/one; ! test -e /foo/2/two; test -e /also-foo/2/two; ! test -e /also-foo/2/one; test -e /foo/foo; touch /foo/bar; test -e /also-foo/bar'
+    umount "$tmpdir/2"
     test -e "$tmpdir/bar"
     # --bind-ro=
     systemd-nspawn --directory="$root" \
@@ -933,7 +942,7 @@ EOF
 
 testcase_machinectl_bind() {
     local service_path service_name root container_name ec
-    local cmd='for i in $(seq 1 20); do if test -f /tmp/marker && test -f /tmp/marker-varlink; then exit 0; fi; sleep .5; done; exit 1;'
+    local cmd="timeout 10 bash -c 'until [[ -f /tmp/marker ]] && [[ -f /tmp/marker-varlink ]]; do sleep .5; done'; sleep 3"
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.machinectl-bind.XXX)"
     create_dummy_container "$root"
@@ -1435,6 +1444,30 @@ testcase_unpriv_dir() {
     chown root:root "$root/.."
 
     rm -rf "$root"
+}
+
+testcase_link_journa_hostl() {
+    local root hoge i
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.link-journal.XXX)"
+    create_dummy_container "$root"
+
+    systemd-id128 new > "$root"/etc/machine-id
+
+    mkdir -p /var/log/journal
+
+    hoge="/var/log/journal/$(cat "$root"/etc/machine-id)/hoge"
+
+    for i in no yes pick; do
+        systemd-nspawn \
+            --directory="$root" --private-users="$i" --link-journal=host \
+            bash -xec 'p="/var/log/journal/$(cat /etc/machine-id)"; mountpoint "$p"; [[ "$(stat "$p" --format=%u)" == 0 ]]; touch "$p/hoge"'
+
+        [[ "$(stat "$hoge" --format=%u)" == 0 ]]
+        rm "$hoge"
+    done
+
+    rm -fr "$root"
 }
 
 run_testcases

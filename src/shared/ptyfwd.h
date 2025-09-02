@@ -28,13 +28,13 @@ extern const int pty_forward_signals[N_PTY_FORWARD_SIGNALS];
 int pty_forward_new(sd_event *event, int master, PTYForwardFlags flags, PTYForward **ret);
 PTYForward* pty_forward_free(PTYForward *f);
 
-int pty_forward_set_ignore_vhangup(PTYForward *f, bool ignore_vhangup);
-bool pty_forward_get_ignore_vhangup(PTYForward *f);
+int pty_forward_honor_vhangup(PTYForward *f);
+bool pty_forward_vhangup_honored(const PTYForward *f);
 
 void pty_forward_set_hangup_handler(PTYForward *f, PTYForwardHangupHandler handler, void *userdata);
 void pty_forward_set_hotkey_handler(PTYForward *f, PTYForwardHotkeyHandler handler, void *userdata);
 
-bool pty_forward_drain(PTYForward *f);
+int pty_forward_drain(PTYForward *f);
 
 int pty_forward_set_priority(PTYForward *f, int64_t priority);
 

@@ -419,8 +419,8 @@
                configuration knobs. -->
           <para>
             Controls whether
-            <citerefentry><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry> messages
-            should be sent to the terminals of all currently logged in users upon shutdown or
+            <citerefentry project='die-net'><refentrytitle>wall</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+            messages should be sent to the terminals of all currently logged in users upon shutdown or
             reboot. Defaults to <literal>yes</literal>, and can be changed at runtime via the DBus
             <literal>EnableWallMessages</literal> and <literal>WallMessagePrefix</literal> properties.
           </para>

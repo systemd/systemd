@@ -7,7 +7,27 @@
 #include <pwd.h>
 #include <resolv.h>
 
-#define NSS_SIGNALS_BLOCK SIGALRM,SIGVTALRM,SIGPIPE,SIGCHLD,SIGTSTP,SIGIO,SIGHUP,SIGUSR1,SIGUSR2,SIGPROF,SIGURG,SIGWINCH
+#include "forward.h"
+#include "signal-util.h"
+
+extern sd_json_dispatch_flags_t nss_json_dispatch_flags;
+
+void log_setup_nss(void);
+
+#define NSS_ENTRYPOINT_BEGIN        \
+        log_setup_nss();            \
+        BLOCK_SIGNALS(SIGALRM,      \
+                      SIGVTALRM,    \
+                      SIGPIPE,      \
+                      SIGCHLD,      \
+                      SIGTSTP,      \
+                      SIGIO,        \
+                      SIGHUP,       \
+                      SIGUSR1,      \
+                      SIGUSR2,      \
+                      SIGPROF,      \
+                      SIGURG,       \
+                      SIGWINCH)
 
 #ifndef DEPRECATED_RES_USE_INET6
 #  define DEPRECATED_RES_USE_INET6 0x00002000

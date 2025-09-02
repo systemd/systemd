@@ -128,26 +128,6 @@ static int flag_fds(
         return 0;
 }
 
-static bool is_terminal_input(ExecInput i) {
-        return IN_SET(i,
-                      EXEC_INPUT_TTY,
-                      EXEC_INPUT_TTY_FORCE,
-                      EXEC_INPUT_TTY_FAIL);
-}
-
-static bool is_terminal_output(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
-}
-
-static bool is_kmsg_output(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_KMSG,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
-}
-
 static int open_null_as(int flags, int nfd) {
         int fd;
 
@@ -252,8 +232,8 @@ static int connect_logger_as(
                 context->syslog_priority,
                 !!context->syslog_level_prefix,
                 false,
-                is_kmsg_output(output),
-                is_terminal_output(output)) < 0)
+                exec_output_is_kmsg(output),
+                exec_output_is_terminal(output)) < 0)
                 return -errno;
 
         return move_fd(TAKE_FD(fd), nfd, false);
@@ -325,7 +305,7 @@ static int fixup_input(
 
         std_input = context->std_input;
 
-        if (is_terminal_input(std_input) && !apply_tty_stdin)
+        if (exec_input_is_terminal(std_input) && !apply_tty_stdin)
                 return EXEC_INPUT_NULL;
 
         if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
@@ -531,7 +511,7 @@ static int setup_output(
                 if (e == EXEC_OUTPUT_INHERIT &&
                     o == EXEC_OUTPUT_INHERIT &&
                     i == EXEC_INPUT_NULL &&
-                    !is_terminal_input(context->std_input) &&
+                    !exec_input_is_terminal(context->std_input) &&
                     getppid() != 1)
                         return fileno;
 
@@ -543,7 +523,7 @@ static int setup_output(
 
         } else if (o == EXEC_OUTPUT_INHERIT) {
                 /* If input got downgraded, inherit the original value */
-                if (i == EXEC_INPUT_NULL && is_terminal_input(context->std_input))
+                if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
                         return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
                 /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
@@ -564,7 +544,7 @@ static int setup_output(
                 return open_null_as(O_WRONLY, fileno);
 
         case EXEC_OUTPUT_TTY:
-                if (is_terminal_input(i))
+                if (exec_input_is_terminal(i))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
@@ -1228,6 +1208,63 @@ static int attach_to_subcgroup(
         return 0;
 }
 
+#if HAVE_PAM
+static int exec_context_get_tty_for_pam(const ExecContext *context, char **ret) {
+        _cleanup_free_ char *tty = NULL;
+        int r;
+
+        assert(context);
+        assert(ret);
+
+        /* First, let's get TTY from STDIN. We may already set STDIN in setup_output(). */
+        r = getttyname_malloc(STDIN_FILENO, &tty);
+        if (r == -ENOMEM)
+                return log_oom_debug();
+        if (r >= 0) {
+                _cleanup_free_ char *q = path_join("/dev/", tty);
+                if (!q)
+                        return log_oom_debug();
+
+                log_debug("Got TTY '%s' from STDIN.", q);
+                *ret = TAKE_PTR(q);
+                return 1;
+        }
+
+        /* Next, let's try to use the TTY specified in TTYPath=. */
+        const char *t = exec_context_tty_path(context);
+        if (!t) {
+                *ret = NULL;
+                return 0;
+        }
+
+        /* If /dev/console is specified, resolve it. */
+        if (tty_is_console(t)) {
+                r = resolve_dev_console(&tty);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to resolve /dev/console, ignoring: %m");
+                        *ret = NULL;
+                        return 0;
+                }
+
+                log_debug("Got TTY '%s' from /dev/console.", tty);
+                *ret = TAKE_PTR(tty);
+                return 1;
+        }
+
+        /* Otherwise, use the specified TTY as is. */
+        if (path_startswith(t, "/dev/"))
+                tty = strdup(t);
+        else
+                tty = path_join("/dev/", t);
+        if (!tty)
+                return log_oom_debug();
+
+        log_debug("Got TTY '%s' from TTYPath= setting.", tty);
+        *ret = TAKE_PTR(tty);
+        return 1;
+}
+#endif
+
 static int setup_pam(
                 const ExecContext *context,
                 const CGroupContext *cgroup_context,
@@ -1289,17 +1326,10 @@ static int setup_pam(
                 goto fail;
         }
 
-        if (getttyname_malloc(STDIN_FILENO, &tty) >= 0) {
-                _cleanup_free_ char *q = path_join("/dev", tty);
-                if (!q) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                free_and_replace(tty, q);
-        }
-
-        if (tty) {
+        r = exec_context_get_tty_for_pam(context, &tty);
+        if (r < 0)
+                goto fail;
+        if (r > 0) {
                 pam_code = pam_set_item(handle, PAM_TTY, tty);
                 if (pam_code != PAM_SUCCESS)
                         goto fail;
@@ -3955,7 +3985,7 @@ static int apply_working_directory(
 
                 r = chase(wd,
                           runtime->ephemeral_copy ?: context->root_directory,
-                          CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT,
+                          CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS,
                           /* ret_path= */ NULL,
                           &dfd);
                 if (r >= 0)
@@ -4068,7 +4098,7 @@ static int setup_keyring(
                         return log_error_errno(errno, "Failed to change GID back for user keyring: %m");
         }
 
-        /* Populate they keyring with the invocation ID by default, as original saved_uid. */
+        /* Populate the keyring with the invocation ID by default, as original saved_uid. */
         if (!sd_id128_is_null(p->invocation_id)) {
                 key_serial_t key;
 
@@ -4830,8 +4860,8 @@ static void prepare_terminal(
         assert(p);
 
         /* We only try to reset things if we there's the chance our stdout points to a TTY */
-        if (!(is_terminal_output(context->std_output) ||
-              (context->std_output == EXEC_OUTPUT_INHERIT && is_terminal_input(context->std_input)) ||
+        if (!(context->std_output == EXEC_OUTPUT_TTY ||
+              (context->std_output == EXEC_OUTPUT_INHERIT && exec_input_is_terminal(context->std_input)) ||
               context->std_output == EXEC_OUTPUT_NAMED_FD ||
               p->stdout_fd >= 0))
                 return;
@@ -4871,10 +4901,7 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
                 return 0;
 
         /* Do we need $TERM at all? */
-        if (!is_terminal_input(context->std_input) &&
-            !is_terminal_output(context->std_output) &&
-            !is_terminal_output(context->std_error) &&
-            !context->tty_path)
+        if (!exec_context_has_tty(context))
                 return 0;
 
         const char *tty_path = exec_context_tty_path(context);

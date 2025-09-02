@@ -19,6 +19,18 @@ CHANGES WITH 258 in spe:
           option. (This effectively means "mesg n" is now the default, rather
           than "mesg y", see mesg(1) man page for help.)
 
+        * ACLs for device nodes requested by "uaccess" udev tag are now always
+          applied/updated by systemd-udevd through "uaccess" udev builtin, and
+          systemd-logind no longer applies/updates ACLs but triggers "change"
+          uevents to make systemd-udevd apply/update ACLs. Hence, the "uaccess"
+          udev tag should be set not only on "add" action but also on "change"
+          action, and it is highly recommended that the rule is applied all
+          actions except for "remove" action.
+          Recommended example:
+              ACTION!="remove", SUBSYSTEM=="hidraw", TAG+="uaccess"
+          The following example does not work since v258:
+              ACTION=="add", SUBSYSTEM=="hidraw", TAG+="uaccess"
+
         * systemd-run's --expand-environment= switch, which was disabled
           by default when combined with --scope, has been changed to be
           enabled by default. This brings cmdline expansion of transient
@@ -161,6 +173,15 @@ CHANGES WITH 258 in spe:
           include a native systemd unit file instead of a legacy System V
           script to retain compatibility with future systemd releases.
 
+        * Support for the legacy /run/lock/ directory is deprecated and will be
+          removed in v259. Any software that still needs access to this legacy
+          directory is encouraged to ship their own tmpfiles.d configuration to
+          set it up according to their needs. In general, services should store
+          their lock files in RuntimeDirectory=/$RUNTIME_DIRECTORY, and software
+          directly executed by users should use $XDG_RUNTIME_DIR. Software
+          working with specific devices (e.g. serial port devices) should flock
+          the device directly rather than creating a separate lock file.
+
         * Support for systemd-repart's FactoryReset EFI variable has been
           deprecated and support for it will be removed in v260. Use the newer,
           more generic FactoryResetRequest variable instead, which can be
@@ -173,6 +194,22 @@ CHANGES WITH 258 in spe:
         * The legacy iptables support through libiptc will be removed in v259.
           Only nftables backend will be supported by systemd-networkd and
           systemd-nspawn since v259.
+
+        * Required minimum versions of following components are planned to be
+          raised in the next release:
+
+          * Linux kernel >= 5.10 (recommended >= 5.14),
+          * glibc >= 2.34,
+          * libxcrypt >= 4.4.0 (libcrypt in glibc will be no longer supported),
+          * util-linux >= 2.37,
+          * elfutils >= 0.177,
+          * openssl >= 3.0.0,
+          * cryptsetup >= 2.4.0,
+          * libfido2 >= 1.5.0,
+          * libseccomp >= 2.4.0,
+          * python >= 3.9.0.
+
+          Please provide feedback on systemd-devel if this would cause problems.
 
         Service manager/PID1:
 
@@ -692,6 +729,9 @@ CHANGES WITH 258 in spe:
           information, and show the cryptographic algorithms by name instead of
           number.
 
+        * The search domains hard cap has been bumped from 256 to 1024, in order
+          to accommodate complex network setups.
+
         systemd-hostnamed:
 
         * The system hardware's serial number may now be read from DeviceTree
@@ -747,6 +787,9 @@ CHANGES WITH 258 in spe:
           --variables=yes/no. By setting --variables=yes modification of EFI
           variables can be forced now in environments where we'd previously
           automatically turn this off (e.g. in choot() contexts).
+
+        * bootctl's --graceful is now implicitly enabled when running in a
+          chroot, to ease integration in packaging scriptlets.
 
         * systemd-stub gained support for a couple of "extension" CHIDs, that
           are not part of the Microsoft's original spec, and which include EDID
@@ -1476,71 +1519,76 @@ CHANGES WITH 258 in spe:
           control the execution mode of quotacheck.
 
         Contributions from: 16mc1r, A. Wilcox, Aaron Rogers,
-        Adam Williamson, Adrian Vovk, Ahmad Fatoum, Alberto Planas, Alex,
-        Alex Xu (Hello71), Alexander Krabler, Alexander Kurtz,
-        Alexander Shopov, Alexander Stepchenko, Allison Karlitskaya,
-        Aman Verma, Américo Monteiro, AndreFerreiraMsc, Andreas Henriksson,
-        Andreas Schneider, Andreas Stührk, Andres Beltran, Andrew Sayers,
-        Andrii Chubatiuk, André Monteiro, Andy Shevchenko, Ani Sinha,
-        Anthony Avina, Anthony Messina, Anton Ryzhov,
-        Antonio Alvarez Feijoo, Arian van Putten, Arkadiusz Bokowy,
-        Arnaudv6, AsciiWolf, Avram Dorfman, Bastien Nocera,
-        Beniamino Galvani, Busayo Dada, Carlo Teubner, Chris Grant,
-        Chris Hofstaedtler, Chris Mayo, Christian Glombek, Christian Hesse,
-        Colin Foster, Craig McLure, Daan De Meyer, DaanDeMeyer,
+        Abderrahim Kitouni, Adam Williamson, Adrian Vovk, Ahmad Fatoum,
+        Alberto Planas, Alex, Alex Xu (Hello71), Alexander Bruy,
+        Alexander Krabler, Alexander Kurtz, Alexander Shopov,
+        Alexander Stepchenko, Allison Karlitskaya, Aman Verma,
+        Américo Monteiro, Andika Triwidada, AndreFerreiraMsc,
+        Andreas Henriksson, Andreas Schneider, Andreas Stührk,
+        Andres Beltran, Andrew Sayers, Andrii Chubatiuk, André Monteiro,
+        Andy Shevchenko, Ani Sinha, Anthony Avina, Anthony Messina,
+        Anton Ryzhov, Antonio Alvarez Feijoo, Arian van Putten,
+        Arkadiusz Bokowy, Arnaudv6, AsciiWolf, Avram Dorfman,
+        Bastien Nocera, Beniamino Galvani, Brett Holman, Busayo Dada,
+        ButterflyOfFire, Carlo Teubner, Chris Grant, Chris Hofstaedtler,
+        Chris Mayo, Christian Glombek, Christian Hesse, Colin Foster,
+        Cosima Neidahl, Craig McLure, Daan De Meyer, DaanDeMeyer,
         Dai MIKURUBE, Dan McGregor, Dan Streetman, Daniel Foster,
         Daniel Rusek, Daniil, David C. Manuelda, David Härdeman,
-        David Rheinsberg, David Tardon, Debarshi Ray, Devilish Spirits,
-        Dimitri John Ledkov, Duncan Overbruck, Dusty Mabe, Eaterminer,
-        Eisuke Kawashima, Emilio Sepulveda, Emmanuel Ferdman,
-        Enrico Tagliavini, Erik Larsson, Erin Shepherd, Ettore Atalan,
-        Fabian Möller, Fabian Vogt, Federico Giovanardi, Fleuria,
+        David Rheinsberg, David Tardon, Debarshi Ray, Deli Zhang,
+        Devilish Spirits, Dimitri John Ledkov, Duncan Overbruck,
+        Dusty Mabe, Eaterminer, Eisuke Kawashima, Emilio Sepulveda,
+        Emir SARI, Emmanuel Ferdman, Enrico Tagliavini, Erik Larsson,
+        Erin Shepherd, Ettore Atalan, Fabian Möller, Fabian Vogt,
+        Fco. Javier F. Serrador, Federico Giovanardi, Fleuria,
         Florian Schmaus, Franck Bui, Frantisek Sumsal, Frede Braendstrup,
         Gabríel Arthúr Pétursson, Gavin Li, George Tsiamasiotis,
-        Grimmauld, H A, Hang Li, Harrison Vanderbyl, Hendrik Wolff,
-        Henri Aunin, Igor Opaniuk, Itxaka, Ivan Kruglov, Ivan Trubach,
-        Jacob McNamee, James Hilliard, Jan Engelhardt, Jan Kalabza,
-        Jan Macku, Jan Vaclav, Jan Čermák, Jared Baur,
+        Graham Clinch, Grimmauld, H A, Hang Li, Harrison Vanderbyl,
+        Hendrik Wolff, Henri Aunin, Igor Opaniuk, Itxaka, Ivan Kruglov,
+        Ivan Trubach, Jacob McNamee, James Hilliard, Jan Engelhardt,
+        Jan Kalabza, Jan Macku, Jan Vaclav, Jan Čermák, Jared Baur,
         Jaroslav Škarvada, Javier Francisco, Jelle van der Waa,
-        Jeremy Linton, Jesper Nilsson, Jim Spentzos, Joaquim Monteiro,
-        Joey Holtzman, John Rinehart, Jonas Gorski, Jordan Petridis,
-        Jose Ortuno, Jules Lamur, Justinas Kairys, Jörg Behrmann,
-        Katariina Lounento, Khem Raj, KidGrimes, Kurt Borja,
-        Lennart Poettering, Li Tian, Lin Jian, Linus Heckemann,
-        Lorenzo Arena, Louis Sautier, LuK1337, Luca Boccassi,
-        Lucas Adriano Salles, Luke Yeager, Lukáš Nykrýn,
-        Léane GRASSER, Marco Trevisan (Treviño), Marcos Alano,
-        Mario Limonciello, Markus Kurz, Martin Hundebøll, Martin Wilck,
-        Matteo Croce, Matthew Schwartz, Matthias Lisin,
-        Matthieu Baerts (NGI0), Matthieu LAURENT, MaxHearnden,
-        Michael Catanzaro, Michael Ferrari, Michael Limiero,
-        Michael Olbrich, Michal Koutný, Michal Sekletár,
-        Michał Moczulski, Mike Yuan, Miroslav Lichvar,
+        Jeremy Linton, Jesper Nilsson, Jesse Guo, Jim Spentzos,
+        Joaquim Monteiro, Joey Holtzman, John Rinehart, Jonas Gorski,
+        Jordan Petridis, Jose Ortuno, Jules Lamur, Justinas Kairys,
+        Jörg Behrmann, Katariina Lounento, Kevin P. Fleming, Khem Raj,
+        KidGrimes, Kurt Borja, Lennart Poettering, Li Tian, Lin Jian,
+        Linus Heckemann, Lorenzo Arena, Louis Sautier, LuK1337,
+        Luca Boccassi, Lucas Adriano Salles, Luke Yeager, Lukáš Nykrýn,
+        Luna Jernberg, Léane GRASSER, Marco Trevisan (Treviño),
+        Marcos Alano, Mario Limonciello, Markus Kurz, Martin Hundebøll,
+        Martin Srebotnjak, Martin Wilck, Mate Kukri, Matteo Croce,
+        Matthew Schwartz, Matthias Lisin, Matthieu Baerts (NGI0),
+        Matthieu LAURENT, MaxHearnden, Michael Catanzaro, Michael Ferrari,
+        Michael Limiero, Michael Olbrich, Michal Koutný,
+        Michal Sekletár, Michał Moczulski, Mike Yuan, Miroslav Lichvar,
         Morten Hauke Solvang, Muhammad Nuzaihan Bin Kamal Luddin,
-        Myrrh Periwinkle, NetSysFire, Nick Labich, Nick Owens,
+        Myrrh Periwinkle, Nathan, NetSysFire, Nick Labich, Nick Owens,
         Nick Rosbrook, Nils K, Noel Georgi, Nuno Sá, Oliver Schramm,
         Paul Fertser, Pavithra Barithaya, Philip Freeman, Philip Withnall,
-        Piotr Drąg, Pontus Lundkvist, Ricky Tigg, Ronan Pigott,
-        Rudi Heitbaum, Ryan Blue, Ryan Thompson, Ryan Wilson, Salim B,
-        Salvatore Cocuzza, Sam James, Sam Leonard, Samuel Dionne-Riel,
-        Sea-Eun Lee, Septatrix, Shubhendra Kushwaha, Silvio Knizek,
-        Solar Designer, SoloSaravanan, Sonia Zorba, Soumyadeep Ghosh,
-        Stefan Hansson, Stefan Herbrechtsmeier, Steve Ramage,
-        Temuri Doghonadze, TheHillBright, Thomas Hebb, Thorsten Kukuk,
-        Tim Crawford, Tim Small, Tim Vangehugten, Tobias Klauser,
-        Todd C. Miller, Tommi Rantala, Tommy Unger, Trollimpo, Ubuntu,
-        Valentin David, Valentin Hăloiu, Vishal Chillara Srinivas,
-        Vishwanath Chandapur, Vitaly Kuznetsov, Volodymyr Shkriabets,
-        Vyacheslav Yurkov, Werner Sembach, Y T, Yaping Li, Yu Watanabe,
-        ZIHCO, Zbigniew Jędrzejewski-Szmek, andrejpodzimek, anonymix007,
-        cvlc12, damnkiwi6120, davjav, fishears, hanjinpeng, haxibami,
-        herbrechtsmeier, honjow, hsu zangmen, igo95862, jane400, jinyaoguo,
-        joo es, kmeaw, madroach, maia x., msizanoen, naly zzwd,
-        nkraetzschmar, nl6720, peelz, persmule, richfifeg, tim tom, tuxmainy,
-        tytan652, ver4a, victor-ok, vlefebvre, wrvsrx, wtmpx, xinpeng wang,
-        z z, Дамјан Георгиевски, 铝箔
+        Piotr Drąg, Pontus Lundkvist, Ricky Tigg, RocketDev, Ronan Pigott,
+        Rostislav Lastochkin, Rudi Heitbaum, Ryan Blue, Ryan Thompson,
+        Ryan Wilson, Salim B, Salvatore Cocuzza, Sam James, Sam Leonard,
+        Samuel Dionne-Riel, Sea-Eun Lee, Septatrix, Shubhendra Kushwaha,
+        Silvio Knizek, Solar Designer, SoloSaravanan, Sonia Zorba,
+        Soumyadeep Ghosh, Stefan Hansson, Stefan Herbrechtsmeier,
+        Steve Ramage, Temuri Doghonadze, TheHillBright, Thomas Hebb,
+        Thorsten Kukuk, Tim Crawford, Tim Small, Tim Vangehugten,
+        Tobias Heider, Tobias Klauser, Todd C. Miller, Tommi Rantala,
+        Tommy Unger, Trollimpo, Ubuntu, Valentin David, Valentin Hăloiu,
+        Vasiliy Kovalev, Vishal Chillara Srinivas, Vishwanath Chandapur,
+        Vitaly Kuznetsov, Volodymyr Shkriabets, Vyacheslav Yurkov,
+        Werner Sembach, Y T, Yaping Li, Yu Watanabe, ZIHCO,
+        Zbigniew Jędrzejewski-Szmek, andrejpodzimek, anonymix007, cvlc12,
+        damnkiwi6120, davjav, fishears, hanjinpeng, haxibami, herbrechtsmeier,
+        honjow, hsu zangmen, igo95862, jane400, jinyaoguo, joo es,
+        kanitha chim, keentux, kmeaw, luc-salles, madroach, maia x.,
+        msizanoen, naly zzwd, nkraetzschmar, nl6720, novenary, peelz,
+        persmule, richfifeg, ssoss, tim tom, tuxmainy, tytan652, ver4a,
+        victor-ok, vlefebvre, wrvsrx, wtmpx, xinpeng wang, z z,
+        Дамјан Георгиевски, 铝箔
 
-        — Edinburgh, 2025/07/23
+        — Edinburgh, 2025/08/20
 
 CHANGES WITH 257:
 

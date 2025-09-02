@@ -3,7 +3,7 @@
 
 #include "forward.h"
 
-const char* errno_to_name(int id) _const_;
+const char* errno_name_no_fallback(int id) _const_;
 int errno_from_name(const char *name) _pure_;
 
 static inline bool errno_is_valid(int n) {
@@ -12,7 +12,7 @@ static inline bool errno_is_valid(int n) {
 
 #define ERRNO_NAME_BUF_LEN DECIMAL_STR_MAX(int)
 /* Like errno_name, but always returns a string. */
-const char* errno_name_full(int id, char buf[static ERRNO_NAME_BUF_LEN]);
+const char* errno_name(int id, char buf[static ERRNO_NAME_BUF_LEN]);
 
 /* A helper to print the errno "name" or number if name is not defined. */
-#define ERRNO_NAME_FULL(errnum) errno_name_full(errnum, (char[ERRNO_NAME_BUF_LEN]){})
+#define ERRNO_NAME(errnum) errno_name(errnum, (char[ERRNO_NAME_BUF_LEN]){})

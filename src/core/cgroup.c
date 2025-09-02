@@ -1353,10 +1353,10 @@ void unit_modify_nft_set(Unit *u, bool add) {
 
                 r = nft_set_element_modify_any(u->manager->fw_ctx, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
                 if (r < 0)
-                        log_warning_errno(r, "Failed to %s NFT set: family %s, table %s, set %s, cgroup %" PRIu64 ", ignoring: %m",
+                        log_warning_errno(r, "Failed to %s NFT set entry: family %s, table %s, set %s, cgroup %" PRIu64 ", ignoring: %m",
                                           add? "add" : "delete", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, crt->cgroup_id);
                 else
-                        log_debug("%s NFT set: family %s, table %s, set %s, cgroup %" PRIu64,
+                        log_debug("%s NFT set entry: family %s, table %s, set %s, cgroup %" PRIu64,
                                   add? "Added" : "Deleted", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, crt->cgroup_id);
         }
 }
@@ -2087,9 +2087,6 @@ static int unit_update_cgroup(
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u))
                 return 0;
-
-        if (u->freezer_state != FREEZER_RUNNING)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EBUSY), "Cannot realize cgroup for frozen unit.");
 
         r = unit_get_cgroup_path_with_fallback(u, &cgroup);
         if (r < 0)

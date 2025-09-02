@@ -53,7 +53,7 @@ __systemd_osc_context_precmdline() {
     read -r systemd_osc_context_cmd_id </proc/sys/kernel/random/uuid
 }
 
-if [[ -n "${BASH_VERSION:-}" ]]; then
+if [[ -n "${BASH_VERSION:-}" ]] && [[ "${TERM:-}" != "dumb" ]]; then
     # Whenever a new prompt is shown close the previous command, and prepare new command
     PROMPT_COMMAND+=(__systemd_osc_context_precmdline)
 

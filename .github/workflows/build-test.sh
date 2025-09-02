@@ -124,10 +124,15 @@ fi
 
 # This is added by default, and it is often broken, but we don't need anything from it
 sudo rm -f /etc/apt/sources.list.d/microsoft-prod.{list,sources}
-# add-apt-repository --enable-source does not work on deb822 style sources.
-for f in /etc/apt/sources.list.d/*.sources; do
-    sudo sed -i "s/Types: deb/Types: deb deb-src/g" "$f"
-done
+if grep -q 'VERSION_CODENAME=jammy' /usr/lib/os-release; then
+    sudo add-apt-repository -y --no-update ppa:upstream-systemd-ci/systemd-ci
+    sudo add-apt-repository -y --no-update --enable-source
+else
+    # add-apt-repository --enable-source does not work on deb822 style sources.
+    for f in /etc/apt/sources.list.d/*.sources; do
+        sudo sed -i "s/Types: deb/Types: deb deb-src/g" "$f"
+    done
+fi
 sudo apt-get -y update
 sudo apt-get -y build-dep systemd
 sudo apt-get -y install "${PACKAGES[@]}"
@@ -137,6 +142,11 @@ sudo apt-get -y install "${PACKAGES[@]}"
 # locally and add the local bin directory to the $PATH.
 pip3 install --user -r .github/workflows/requirements.txt --require-hashes --break-system-packages
 export PATH="$HOME/.local/bin:$PATH"
+
+if [[ -n "$CUSTOM_PYTHON" ]]; then
+    # If CUSTOM_PYTHON is set we need to pull jinja2 from pip, as a local interpreter is used
+    pip3 install --user --break-system-packages jinja2
+fi
 
 $CC --version
 meson --version

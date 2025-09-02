@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+/* This needs to be included before the seccomp headers, otherwise missing syscalls will be defined in this
+ * file and pass the ifdef, but they won't be defined in the seccomp headers so things like
+ * SCMP_SYS(fchmodat2) will resolve as empty and fail the build with older glibc/libseccomp. */
+#include <sys/syscall.h>
 #include <fcntl.h>
 #include <linux/seccomp.h>
 #include <sched.h>
@@ -488,6 +492,8 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "fcntl\0"
                 "fcntl64\0"
                 "fgetxattr\0"
+                "file_getattr\0"
+                "file_setattr\0"
                 "flistxattr\0"
                 "fremovexattr\0"
                 "fsetxattr\0"
@@ -2541,5 +2547,5 @@ int seccomp_parse_errno_or_action(const char *p) {
 const char* seccomp_errno_or_action_to_string(int num) {
         if (num == SECCOMP_ERROR_NUMBER_KILL)
                 return "kill";
-        return errno_to_name(num);
+        return errno_name_no_fallback(num);
 }
