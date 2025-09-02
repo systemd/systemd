@@ -3298,7 +3298,24 @@ static int presets_find_config(RuntimeScope scope, const char *root_dir, char **
                 if (r < 0 && r != -ENOENT)
                         return r;
 
-                dirs = r >= 0 ? initrd_dirs : system_dirs;
+                /* Make sure that we fall back to the system preset files if we're operating on a root
+                 * directory without initrd preset files. This makes sure that we don't regress when using a
+                 * newer systemctl to operate on a root directory with an older version of systemd installed
+                 * that doesn't yet known about initrd preset files. */
+                if (r >= 0) {
+                        _cleanup_strv_free_ char **files = NULL;
+
+                        r = conf_files_list_strv(&files, ".preset", root_dir, 0, initrd_dirs);
+                        if (r < 0)
+                                return r;
+
+                        if (files) {
+                                *ret = TAKE_PTR(files);
+                                return 0;
+                        }
+                }
+
+                dirs = system_dirs;
         } else if (IN_SET(scope, RUNTIME_SCOPE_GLOBAL, RUNTIME_SCOPE_USER))
                 dirs = user_dirs;
         else
