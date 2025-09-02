@@ -652,7 +652,7 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         return 0;
 }
 
-static int get_glinksettings(int fd, struct ifreq *ifr, union ethtool_link_usettings **ret) {
+static int get_link_settings(int fd, struct ifreq *ifr, union ethtool_link_usettings **ret) {
         union ethtool_link_usettings ecmd = {
                 .base.cmd = ETHTOOL_GLINKSETTINGS,
         };
@@ -704,7 +704,7 @@ static int get_glinksettings(int fd, struct ifreq *ifr, union ethtool_link_usett
         return 0;
 }
 
-static int set_slinksettings(int fd, struct ifreq *ifr, const union ethtool_link_usettings *u) {
+static int set_link_settings(int fd, struct ifreq *ifr, const union ethtool_link_usettings *u) {
         assert(fd >= 0);
         assert(ifr);
         assert(u);
@@ -725,7 +725,7 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const union ethtool_link
         return RET_NERRNO(ioctl(fd, SIOCETHTOOL, ifr));
 }
 
-int ethtool_set_glinksettings(
+int ethtool_set_link_settings(
                 int *fd,
                 const char *ifname,
                 int autonegotiation,
@@ -772,9 +772,9 @@ int ethtool_set_glinksettings(
 
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = get_glinksettings(*fd, &ifr, &u);
+        r = get_link_settings(*fd, &ifr, &u);
         if (r < 0)
-                return log_debug_errno(r, "ethtool: Cannot get device settings for %s: %m", ifname);
+                return log_debug_errno(r, "ethtool: Cannot get link settings for %s: %m", ifname);
 
         if (speed > 0)
                 UPDATE(u->base.speed, DIV_ROUND_UP(speed, 1000000), changed);
@@ -810,9 +810,9 @@ int ethtool_set_glinksettings(
         if (!changed)
                 return 0;
 
-        r = set_slinksettings(*fd, &ifr, u);
+        r = set_link_settings(*fd, &ifr, u);
         if (r < 0)
-                return log_debug_errno(r, "ethtool: Cannot set device settings for %s: %m", ifname);
+                return log_debug_errno(r, "ethtool: Cannot set link settings for %s: %m", ifname);
 
         return r;
 }
