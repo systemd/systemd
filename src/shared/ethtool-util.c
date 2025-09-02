@@ -652,9 +652,9 @@ int ethtool_set_features(int *ethtool_fd, const char *ifname, const int features
         return 0;
 }
 
-static int get_glinksettings(int fd, struct ifreq *ifr, union ethtool_link_usettings **ret) {
-        union ethtool_link_usettings ecmd = {
-                .base.cmd = ETHTOOL_GLINKSETTINGS,
+static int get_glinksettings(int fd, struct ifreq *ifr, struct ethtool_link_settings **ret) {
+        struct ethtool_link_settings ecmd = {
+                .cmd = ETHTOOL_GLINKSETTINGS,
         };
 
         assert(fd >= 0);
@@ -669,33 +669,35 @@ static int get_glinksettings(int fd, struct ifreq *ifr, union ethtool_link_usett
            https://github.com/torvalds/linux/commit/3f1ac7a700d039c61d8d8b99f28d605d489a60cf
         */
 
-        ifr->ifr_data = (void*) &ecmd;
+        ifr->ifr_data = &ecmd;
 
         if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
-        if (ecmd.base.link_mode_masks_nwords >= 0 || ecmd.base.cmd != ETHTOOL_GLINKSETTINGS)
+        if (ecmd.link_mode_masks_nwords >= 0 || ecmd.cmd != ETHTOOL_GLINKSETTINGS)
                 return -EOPNOTSUPP;
 
-        ecmd.base.link_mode_masks_nwords = -ecmd.base.link_mode_masks_nwords;
-
-        ifr->ifr_data = (void *) &ecmd;
-
-        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
-                return -errno;
-
-        if (ecmd.base.link_mode_masks_nwords <= 0 || ecmd.base.cmd != ETHTOOL_GLINKSETTINGS)
-                return -EOPNOTSUPP;
-
-        union ethtool_link_usettings *u = newdup(union ethtool_link_usettings, &ecmd, 1);
-        if (!u)
+        int8_t n = -ecmd.link_mode_masks_nwords;
+        size_t sz = offsetof(struct ethtool_link_settings, link_mode_masks) + sizeof(uint32_t) * n * 3;
+        _cleanup_free_ struct ethtool_link_settings *settings = calloc(sz, 1);
+        if (!settings)
                 return -ENOMEM;
 
-        *ret = u;
+        settings->cmd = ETHTOOL_GLINKSETTINGS;
+        settings->link_mode_masks_nwords = n;
+
+        ifr->ifr_data = settings;
+        if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
+                return -errno;
+
+        if (settings->link_mode_masks_nwords != n || settings->cmd != ETHTOOL_GLINKSETTINGS)
+                return -EOPNOTSUPP;
+
+        *ret = TAKE_PTR(settings);
         return 0;
 }
 
-static int get_gset(int fd, struct ifreq *ifr, union ethtool_link_usettings **ret) {
+static int get_gset(int fd, struct ifreq *ifr, struct ethtool_link_settings **ret) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_GSET,
         };
@@ -709,71 +711,55 @@ static int get_gset(int fd, struct ifreq *ifr, union ethtool_link_usettings **re
         if (ioctl(fd, SIOCETHTOOL, ifr) < 0)
                 return -errno;
 
-        union ethtool_link_usettings *u = new(union ethtool_link_usettings, 1);
-        if (!u)
+        size_t sz = offsetof(struct ethtool_link_settings, link_mode_masks) + sizeof(uint32_t) * 3;
+        struct ethtool_link_settings *settings = malloc(sz);
+        if (!settings)
                 return -ENOMEM;
 
-        *u = (union ethtool_link_usettings) {
-                .base.cmd = ETHTOOL_GSET,
-                .base.link_mode_masks_nwords = 1,
-                .base.speed = ethtool_cmd_speed(&ecmd),
-                .base.duplex = ecmd.duplex,
-                .base.port = ecmd.port,
-                .base.phy_address = ecmd.phy_address,
-                .base.autoneg = ecmd.autoneg,
-                .base.mdio_support = ecmd.mdio_support,
-                .base.eth_tp_mdix = ecmd.eth_tp_mdix,
-                .base.eth_tp_mdix_ctrl = ecmd.eth_tp_mdix_ctrl,
+        *settings = (struct ethtool_link_settings) {
+                .cmd = ETHTOOL_GSET,
+                .link_mode_masks_nwords = 1,
+                .speed = ethtool_cmd_speed(&ecmd),
+                .duplex = ecmd.duplex,
+                .port = ecmd.port,
+                .phy_address = ecmd.phy_address,
+                .autoneg = ecmd.autoneg,
+                .mdio_support = ecmd.mdio_support,
+                .eth_tp_mdix = ecmd.eth_tp_mdix,
+                .eth_tp_mdix_ctrl = ecmd.eth_tp_mdix_ctrl,
         };
 
-        u->link_modes.supported[0] = ecmd.supported;
-        u->link_modes.advertising[0] = ecmd.advertising;
-        u->link_modes.lp_advertising[0] = ecmd.lp_advertising;
+        settings->link_mode_masks[0] = ecmd.supported;
+        settings->link_mode_masks[1] = ecmd.advertising;
+        settings->link_mode_masks[2] = ecmd.lp_advertising;
 
-        *ret = u;
+        *ret = settings;
         return 0;
 }
 
-static int set_slinksettings(int fd, struct ifreq *ifr, const union ethtool_link_usettings *u) {
+static int set_sset(int fd, struct ifreq *ifr, const struct ethtool_link_settings *settings) {
         assert(fd >= 0);
         assert(ifr);
-        assert(u);
+        assert(settings);
 
-        if (u->base.cmd != ETHTOOL_GLINKSETTINGS || u->base.link_mode_masks_nwords <= 0)
+        if (settings->cmd != ETHTOOL_GSET || settings->link_mode_masks_nwords != 1)
                 return -EINVAL;
 
-        union ethtool_link_usettings ecmd = *u;
-        ecmd.base.cmd = ETHTOOL_SLINKSETTINGS;
-        ifr->ifr_data = (void *) &ecmd;
-
-        return RET_NERRNO(ioctl(fd, SIOCETHTOOL, ifr));
-}
-
-static int set_sset(int fd, struct ifreq *ifr, const union ethtool_link_usettings *u) {
         struct ethtool_cmd ecmd = {
                 .cmd = ETHTOOL_SSET,
+                .supported = settings->link_mode_masks[0],
+                .advertising = settings->link_mode_masks[1],
+                .lp_advertising = settings->link_mode_masks[2],
+                .duplex = settings->duplex,
+                .port = settings->port,
+                .phy_address = settings->phy_address,
+                .autoneg = settings->autoneg,
+                .mdio_support = settings->mdio_support,
+                .eth_tp_mdix = settings->eth_tp_mdix,
+                .eth_tp_mdix_ctrl = settings->eth_tp_mdix_ctrl,
         };
 
-        assert(fd >= 0);
-        assert(ifr);
-        assert(u);
-
-        if (u->base.cmd != ETHTOOL_GSET || u->base.link_mode_masks_nwords <= 0)
-                return -EINVAL;
-
-        ecmd.supported = u->link_modes.supported[0];
-        ecmd.advertising = u->link_modes.advertising[0];
-        ecmd.lp_advertising = u->link_modes.lp_advertising[0];
-
-        ethtool_cmd_speed_set(&ecmd, u->base.speed);
-
-        ecmd.duplex = u->base.duplex;
-        ecmd.port = u->base.port;
-        ecmd.phy_address = u->base.phy_address;
-        ecmd.autoneg = u->base.autoneg;
-        ecmd.mdio_support = u->base.mdio_support;
-        ecmd.eth_tp_mdix = u->base.eth_tp_mdix;
-        ecmd.eth_tp_mdix_ctrl = u->base.eth_tp_mdix_ctrl;
+        ethtool_cmd_speed_set(&ecmd, settings->speed);
 
         ifr->ifr_data = (void *) &ecmd;
 
@@ -790,7 +776,7 @@ int ethtool_set_glinksettings(
                 NetDevPort port,
                 uint8_t mdi) {
 
-        _cleanup_free_ union ethtool_link_usettings *u = NULL;
+        _cleanup_free_ struct ethtool_link_settings *settings = NULL;
         struct ifreq ifr = {};
         bool changed = false;
         int r;
@@ -827,51 +813,55 @@ int ethtool_set_glinksettings(
 
         strscpy(ifr.ifr_name, sizeof(ifr.ifr_name), ifname);
 
-        r = get_glinksettings(*fd, &ifr, &u);
+        r = get_glinksettings(*fd, &ifr, &settings);
         if (r < 0) {
-                r = get_gset(*fd, &ifr, &u);
+                r = get_gset(*fd, &ifr, &settings);
                 if (r < 0)
                         return log_debug_errno(r, "ethtool: Cannot get device settings for %s: %m", ifname);
         }
 
         if (speed > 0)
-                UPDATE(u->base.speed, DIV_ROUND_UP(speed, 1000000), changed);
+                UPDATE(settings->speed, DIV_ROUND_UP(speed, 1000000), changed);
 
         if (duplex >= 0)
-                UPDATE(u->base.duplex, duplex, changed);
+                UPDATE(settings->duplex, duplex, changed);
 
         if (port >= 0)
-                UPDATE(u->base.port, port, changed);
+                UPDATE(settings->port, port, changed);
 
         if (autonegotiation >= 0)
-                UPDATE(u->base.autoneg, autonegotiation, changed);
+                UPDATE(settings->autoneg, autonegotiation, changed);
 
         if (!memeqzero(advertise, sizeof(uint32_t) * N_ADVERTISE)) {
-                UPDATE(u->base.autoneg, AUTONEG_ENABLE, changed);
+                UPDATE(settings->autoneg, AUTONEG_ENABLE, changed);
+
+                uint32_t *a = settings->link_mode_masks + settings->link_mode_masks_nwords;
+                size_t n = MIN(settings->link_mode_masks_nwords, N_ADVERTISE);
 
                 changed = changed ||
-                        memcmp(&u->link_modes.advertising, advertise, sizeof(uint32_t) * N_ADVERTISE) != 0 ||
-                        !memeqzero((uint8_t*) &u->link_modes.advertising + sizeof(uint32_t) * N_ADVERTISE,
-                                   ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES - sizeof(uint32_t) * N_ADVERTISE);
-                memcpy(&u->link_modes.advertising, advertise, sizeof(uint32_t) * N_ADVERTISE);
-                memzero((uint8_t*) &u->link_modes.advertising + sizeof(uint32_t) * N_ADVERTISE,
-                        ETHTOOL_LINK_MODE_MASK_MAX_KERNEL_NBYTES - sizeof(uint32_t) * N_ADVERTISE);
+                        memcmp(a, advertise, sizeof(uint32_t) * n) != 0 ||
+                        !memeqzero(a + n, sizeof(uint32_t) * (settings->link_mode_masks_nwords - n));
+
+                memcpy(a, advertise, sizeof(uint32_t) * n);
+                memzero(a + n, sizeof(uint32_t) * (settings->link_mode_masks_nwords - n));
         }
 
         if (mdi != ETH_TP_MDI_INVALID) {
-                if (u->base.eth_tp_mdix_ctrl == ETH_TP_MDI_INVALID)
+                if (settings->eth_tp_mdix_ctrl == ETH_TP_MDI_INVALID)
                         log_debug("ethtool: setting MDI not supported for %s, ignoring.", ifname);
                 else
-                        UPDATE(u->base.eth_tp_mdix_ctrl, mdi, changed);
+                        UPDATE(settings->eth_tp_mdix_ctrl, mdi, changed);
         }
 
         if (!changed)
                 return 0;
 
-        if (u->base.cmd == ETHTOOL_GLINKSETTINGS)
-                r = set_slinksettings(*fd, &ifr, u);
-        else
-                r = set_sset(*fd, &ifr, u);
+        if (settings->cmd == ETHTOOL_GLINKSETTINGS) {
+                settings->cmd = ETHTOOL_SLINKSETTINGS;
+                ifr.ifr_data = settings;
+                r = RET_NERRNO(ioctl(*fd, SIOCETHTOOL, &ifr));
+        } else
+                r = set_sset(*fd, &ifr, settings);
         if (r < 0)
                 return log_debug_errno(r, "ethtool: Cannot set device settings for %s: %m", ifname);
 
