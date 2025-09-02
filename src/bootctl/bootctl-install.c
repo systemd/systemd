@@ -335,7 +335,10 @@ static int create_subdirs(const char *root, const char * const *subdirs) {
         return 0;
 }
 
-static int update_efi_boot_binaries(const char *esp_path, const char *source_path) {
+static int update_efi_boot_binaries(
+                const char *esp_path,
+                const char *source_path,
+                const char *ignore_filename) {
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *p = NULL;
         int r, ret = 0;
@@ -353,6 +356,9 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
                 _cleanup_close_ int fd = -EBADF;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
+                        continue;
+
+                if (strcaseeq_ptr(ignore_filename, de->d_name))
                         continue;
 
                 fd = xopenat_full(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, /* mode= */ 0);
@@ -426,7 +432,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 
                 /* Create the EFI default boot loader name (specified for removable devices) */
                 v = strjoina("/EFI/BOOT/BOOT", e);
-                ascii_strupper(strrchr(v, '/') + 1);
+                const char *boot_dot_efi = ascii_strupper(strrchr(v, '/') + 1);
 
                 r = chase(v, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &default_dest_path, NULL);
                 if (r < 0)
@@ -434,10 +440,10 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 
                 RET_GATHER(ret, copy_file_with_version_check(source_path, default_dest_path, force));
 
-                /* If we were installed under any other name in /EFI/BOOT, make sure we update those binaries
+                /* If we were installed under any other name in /EFI/BOOT/, make sure we update those binaries
                  * as well. */
                 if (!force)
-                        RET_GATHER(ret, update_efi_boot_binaries(esp_path, source_path));
+                        RET_GATHER(ret, update_efi_boot_binaries(esp_path, source_path, boot_dot_efi));
         }
 
         return ret;
