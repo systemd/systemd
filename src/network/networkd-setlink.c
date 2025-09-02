@@ -1084,7 +1084,7 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         else if (r < 0)
                 log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up_or_down(up));
 
-        if (!IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
+        if (link->state != LINK_STATE_LINGER) {
                 r = link_call_getlink(link, get_link_update_flag_handler);
                 if (r < 0) {
                         link_enter_failed(link);
@@ -1291,7 +1291,7 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 
         link->set_flags_messages--;
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        if (link->state == LINK_STATE_LINGER)
                 return 0;
 
         r = sd_netlink_message_get_errno(m);
@@ -1352,14 +1352,22 @@ typedef struct SetLinkVarlinkContext {
         bool up;
 } SetLinkVarlinkContext;
 
-static void set_link_varlink_context_destroy(SetLinkVarlinkContext *ctx) {
-        assert(ctx);
+static SetLinkVarlinkContext* set_link_varlink_context_destroy(SetLinkVarlinkContext *ctx) {
+        if (!ctx)
+                return NULL;
 
         if (ctx->vlink)
                 sd_varlink_unref(ctx->vlink);
         if (ctx->link)
                 link_unref(ctx->link);
         free(ctx);
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(SetLinkVarlinkContext*, set_link_varlink_context_destroy);
+
+static void set_link_varlink_context_destroy_callback(SetLinkVarlinkContext *ctx) {
+        set_link_varlink_context_destroy(ctx);
 }
 
 static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_message *m, SetLinkVarlinkContext *ctx) {
@@ -1380,9 +1388,9 @@ static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_mess
         if (r < 0)
                 log_link_message_warning_errno(link, m, r, "Could not bring %s interface", up_or_down(up));
 
-        if (r >= 0 && !IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER)) {
-                int k = link_call_getlink(link, get_link_update_flag_handler);
-                if (k < 0)
+        if (r >= 0 && link->state != LINK_STATE_LINGER) {
+                r = link_call_getlink(link, get_link_update_flag_handler);
+                if (r < 0)
                         link_enter_failed(link);
                 else
                         link->set_flags_messages++; /* Account for the additional getlink call */
@@ -1414,7 +1422,7 @@ int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not set link flags: %m");
 
-        SetLinkVarlinkContext *ctx = new(SetLinkVarlinkContext, 1);
+        _cleanup_(set_link_varlink_context_destroyp) SetLinkVarlinkContext *ctx = new(SetLinkVarlinkContext, 1);
         if (!ctx)
                 return log_oom();
 
@@ -1426,12 +1434,10 @@ int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
                                link_up_or_down_now_varlink_handler,
-                               set_link_varlink_context_destroy,
+                               set_link_varlink_context_destroy_callback,
                                ctx);
-        if (r < 0) {
-                set_link_varlink_context_destroy(ctx);
+        if (r < 0)
                 return log_link_warning_errno(link, r, "Could not send rtnetlink message: %m");
-        }
 
         link->set_flags_messages++;
         return 0;
@@ -1458,7 +1464,7 @@ static int link_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         assert(m);
         assert(link);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
+        if (link->state == LINK_STATE_LINGER)
                 return 0;
 
         r = sd_netlink_message_get_errno(m);
