@@ -210,12 +210,12 @@ static int version_check(int fd_from, const char *from, int fd_to, const char *t
 
         r = get_file_version(fd_to, &b);
         if (r == -ESRCH)
-                return log_notice_errno(r, "Skipping \"%s\", it's owned by another boot loader (no version info found).",
+                return log_info_errno(r, "Skipping \"%s\", it's owned by another boot loader (no version info found).",
                                         to);
         if (r < 0)
                 return r;
         if (compare_product(a, b) != 0)
-                return log_notice_errno(SYNTHETIC_ERRNO(ESRCH),
+                return log_info_errno(SYNTHETIC_ERRNO(ESRCH),
                                         "Skipping \"%s\", it's owned by another boot loader.", to);
 
         r = compare_version(a, b);
