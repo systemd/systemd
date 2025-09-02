@@ -242,11 +242,11 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         }
 
         r = varlink_verify_polkit_async(
-                        vlink,
-                        manager->bus,
-                        "org.freedesktop.network1.set-persistent-storage",
-                        /* details= */ NULL,
-                        &manager->polkit_registry);
+                                        vlink,
+                                        manager->bus,
+                                        "org.freedesktop.network1.set-persistent-storage",
+                                        /* details= */ NULL,
+                                        &manager->polkit_registry);
         if (r <= 0)
                 return r;
 
@@ -266,7 +266,7 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         return sd_varlink_reply(vlink, NULL);
 }
 
-static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static int vl_method_set_link_up_or_down(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, bool up) {
         Manager *manager = ASSERT_PTR(userdata);
         Link *link = NULL;
         int r;
@@ -290,18 +290,12 @@ static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameter
         if (r <= 0)
                 return r;
 
-        /* If there are multiple operations on the same interface, just succeed immediately
-         * for duplicate operations to avoid accounting complexity. */
-        if (link->set_flags_messages > 0) {
-                /* Already have an operation in progress, don't start another */
-                return sd_varlink_reply(vlink, NULL);
+        if (!up) {
+                /* Stop all network engines while interface is still up, then bring it down */
+                (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
         }
 
-        /* Stop all network engines while interface is still up, then bring it down */
-        (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
-
-        /* Now bring the interface down via netlink and reply after completion. */
-        r = link_up_or_down_now_by_varlink(link, /* up = */ false, vlink);
+        r = link_up_or_down_now_by_varlink(link, up, vlink);
         if (r < 0)
                 return sd_varlink_error_errno(vlink, r);
 
@@ -310,42 +304,11 @@ static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameter
 }
 
 static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
-        Link *link = NULL;
-        int r;
+        return vl_method_set_link_up_or_down(vlink, parameters, flags, userdata, /* up = */ true);
+}
 
-        assert(vlink);
-
-        r = dispatch_interface(vlink, parameters, manager, /* use_polkit = */ true, &link);
-        if (r != 0)
-                return r;
-
-        /* Require a specific link to be specified. */
-        if (!link)
-                return sd_varlink_error_invalid_parameter_name(vlink, "InterfaceIndex");
-
-        r = varlink_verify_polkit_async(
-                        vlink,
-                        manager->bus,
-                        "org.freedesktop.network1.manage-links",
-                        /* details= */ NULL,
-                        &manager->polkit_registry);
-        if (r <= 0)
-                return r;
-
-        /* If there are multiple operations on the same interface, just succeed immediately
-         * for duplicate operations to avoid accounting complexity. */
-        if (link->set_flags_messages > 0) {
-                /* Already have an operation in progress, don't start another */
-                return sd_varlink_reply(vlink, NULL);
-        }
-
-        r = link_up_or_down_now_by_varlink(link, /* up = */ true, vlink);
-        if (r < 0)
-                return sd_varlink_error_errno(vlink, r);
-
-        /* Reply will be sent from the netlink completion handler. */
-        return 0;
+static int vl_method_set_link_down(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        return vl_method_set_link_up_or_down(vlink, parameters, flags, userdata, /* up = */ false);
 }
 
 int manager_connect_varlink(Manager *m, int fd) {
