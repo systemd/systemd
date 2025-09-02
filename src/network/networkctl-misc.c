@@ -26,9 +26,7 @@
 int link_up_down(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         int r, ret = 0;
-        bool is_down_command = streq(argv[0], "down");
-
-        const char *method = is_down_command ? "io.systemd.Network.SetLinkDown" : "io.systemd.Network.SetLinkUp";
+        const char *method = streq(argv[0], "up") ? "io.systemd.Network.SetLinkUp" : "io.systemd.Network.SetLinkDown";
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
