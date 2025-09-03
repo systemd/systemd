@@ -963,10 +963,67 @@ static int are_we_installed(const char *esp_path) {
         return r == 0;
 }
 
-int verb_install(int argc, char *argv[], void *userdata) {
+static int load_secure_boot_auto_enroll(
+                X509 **ret_certificate,
+                EVP_PKEY **ret_private_key) {
+
+        int r;
+
+        assert(ret_certificate);
+        assert(ret_private_key);
+
+        if (!arg_secure_boot_auto_enroll) {
+               *ret_certificate = NULL;
+                *ret_private_key = NULL;
+               return 0;
+        }
+
+        if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                if (r < 0)
+                        return r;
+        }
+
         _cleanup_(X509_freep) X509 *certificate = NULL;
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+        r = openssl_load_x509_certificate(
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        &certificate);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+
+        if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
+        }
+
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
+        r = openssl_load_private_key(
+                        arg_private_key_source_type,
+                        arg_private_key_source,
+                        arg_private_key,
+                        &(AskPasswordRequest) {
+                                .tty_fd = -EBADF,
+                                .id = "bootctl-private-key-pin",
+                                .keyring = arg_private_key,
+                                .credential = "bootctl.private-key-pin",
+                                .until = USEC_INFINITY,
+                                .hup_fd = -EBADF,
+                        },
+                        &private_key,
+                        /* ret_ui= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+
+        *ret_certificate = TAKE_PTR(certificate);
+        *ret_private_key = TAKE_PTR(private_key);
+
+        return 0;
+}
+
+int verb_install(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         uint64_t pstart = 0, psize = 0;
         uint32_t part = 0;
@@ -980,43 +1037,12 @@ int verb_install(int argc, char *argv[], void *userdata) {
         /* Support graceful mode only for updates, unless forcibly enabled in chroot environments */
         graceful = arg_graceful() == ARG_GRACEFUL_FORCE || (!install && arg_graceful() != ARG_GRACEFUL_NO);
 
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
+        _cleanup_(X509_freep) X509 *certificate = NULL;
         if (arg_secure_boot_auto_enroll) {
-                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_x509_certificate(
-                                arg_certificate_source_type,
-                                arg_certificate_source,
-                                arg_certificate,
-                                &certificate);
+                r = load_secure_boot_auto_enroll(&certificate, &private_key);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
-
-                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse private key path %s: %m", arg_private_key);
-                }
-
-                r = openssl_load_private_key(
-                                arg_private_key_source_type,
-                                arg_private_key_source,
-                                arg_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "bootctl-private-key-pin",
-                                        .keyring = arg_private_key,
-                                        .credential = "bootctl.private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
-                                &private_key,
-                                &ui);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+                        return r;
         }
 
         r = acquire_esp(/* unprivileged_mode= */ false, graceful, &part, &pstart, &psize, &uuid, NULL);
