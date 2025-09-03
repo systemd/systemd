@@ -1122,7 +1122,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
     {
         echo "[Resolve]"
         echo "DNS="
-    } > /run/systemd/resolved.conf.d/90-global-dns.conf
+    } >/run/systemd/resolved.conf.d/90-global-dns.conf
     systemctl reload systemd-resolved.service
     resolvectl dns dns0 ""
     resolvectl domain dns0 ""
@@ -1140,7 +1140,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
         echo "[Resolve]"
         echo "DNS=8.8.8.8"
         echo "Domains=lan"
-    } > /run/systemd/resolved.conf.d/90-global-dns.conf
+    } >/run/systemd/resolved.conf.d/90-global-dns.conf
     systemctl reload systemd-resolved.service
 
     # Update a link configuration.
@@ -1362,7 +1362,7 @@ testcase_15_wait_online_dns() {
         echo "[Resolve]"
         echo "DNS="
         echo "FallbackDNS="
-    } > "$override"
+    } >"$override"
     systemctl reload systemd-resolved.service
     resolvectl dns dns0 ""
     resolvectl domain dns0 ""
@@ -1382,7 +1382,7 @@ testcase_15_wait_online_dns() {
     {
         echo "[Resolve]"
         echo "DNS=10.0.0.1"
-    } > "$override"
+    } >"$override"
     systemctl restart systemd-resolved.service
 
     # Wait for the monitor to exit gracefully.
@@ -1390,10 +1390,10 @@ testcase_15_wait_online_dns() {
     journalctl --sync
 
     # Check that a disconnect happened, and was handled.
-    journalctl -b -u "$unit" --grep="DNS configuration monitor disconnected, reconnecting..." > /dev/null
+    journalctl -b -u "$unit" --grep="DNS configuration monitor disconnected, reconnecting..." >/dev/null
 
     # Check that dns0 was found to be online.
-    journalctl -b -u "$unit" --grep="dns0: link is configured by networkd and online." > /dev/null
+    journalctl -b -u "$unit" --grep="dns0: link is configured by networkd and online." >/dev/null
 }
 
 testcase_delegate() {
