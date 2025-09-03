@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "sd-varlink.h"
+
 #include "alloc-util.h"
 #include "boot-entry.h"
 #include "bootctl.h"
@@ -18,11 +20,13 @@
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "find-esp.h"
 #include "fs-util.h"
 #include "glyph-util.h"
 #include "id128-util.h"
 #include "install-file.h"
 #include "io-util.h"
+#include "json-util.h"
 #include "kernel-config.h"
 #include "log.h"
 #include "openssl-util.h"
@@ -88,6 +92,15 @@ typedef struct InstallContext {
                 .xbootldr_fd = -EBADF,                                  \
                 .touch_variables = -1,                                  \
         }
+
+static const char* install_operation_table[_INSTALL_OPERATION_MAX] = {
+        [INSTALL_NEW]    = "new",
+        [INSTALL_UPDATE] = "update",
+        [INSTALL_REMOVE] = "remove",
+        [INSTALL_TEST]   = "test",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(install_operation, InstallOperation);
 
 static void install_context_done(InstallContext *c) {
         assert(c);
@@ -1761,4 +1774,113 @@ int verb_is_installed(int argc, char *argv[], void *userdata) {
                         puts("no");
                 return EXIT_FAILURE;
         }
+}
+
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_install_operation, InstallOperation, install_operation_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_boot_entry_token_type, BootEntryTokenType, boot_entry_token_type_from_string);
+
+typedef struct InstallParameters {
+        InstallContext context;
+        unsigned root_fd_index;
+} InstallParameters;
+
+static void install_parameters_done(InstallParameters *p) {
+        assert(p);
+
+        install_context_done(&p->context);
+}
+
+int vl_method_install(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        int r;
+
+        assert(link);
+
+        _cleanup_(install_parameters_done) InstallParameters p = {
+                .context = INSTALL_CONTEXT_NULL,
+                .root_fd_index = UINT_MAX,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "operation",          SD_JSON_VARIANT_STRING,        json_dispatch_install_operation,     voffsetof(p, context.operation),        SD_JSON_MANDATORY },
+                { "graceful",           SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,            voffsetof(p, context.graceful),         0                 },
+                { "rootFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),            0                 },
+                { "rootDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_path,                  voffsetof(p, context.root),             0                 },
+                { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0                 },
+                { "touchVariables",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,           voffsetof(p, context.touch_variables),  0                 },
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!IN_SET(p.context.operation, INSTALL_NEW, INSTALL_UPDATE))
+                return sd_varlink_error_invalid_parameter_name(link, "operation");
+
+        if (p.root_fd_index != UINT_MAX) {
+                p.context.root_fd = sd_varlink_peek_dup_fd(link, p.root_fd_index);
+                if (p.context.root_fd < 0)
+                        return log_debug_errno(p.context.root_fd, "Failed to acquire root fd from Varlink: %m");
+        }
+
+        if (p.context.root_fd < 0 && p.context.root) {
+                p.context.root_fd = open(p.context.root, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                if (p.context.root_fd < 0)
+                        return log_debug_errno(errno, "Failed to open '%s': %m", p.context.root);
+
+        } else if (p.context.root_fd >= 0) {
+                r = fd_verify_directory(p.context.root_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Specified file descriptor does not refer to a directory: %m");
+
+                if (!p.context.root) {
+                        r = fd_get_path(p.context.root_fd, &p.context.root);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to get path of file descriptor: %m");
+
+                        if (isempty(p.context.root) || path_is_root(p.context.root))
+                                p.context.root = mfree(p.context.root);
+                }
+        }
+
+        if (p.context.entry_token_type < 0)
+                p.context.entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+
+        r = find_esp_and_warn_at(
+                        p.context.root_fd,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &p.context.esp_path,
+                        &p.context.esp_part,
+                        &p.context.esp_pstart,
+                        &p.context.esp_psize,
+                        &p.context.esp_uuid,
+                        /* ret_devid= */ NULL);
+        if (r == -ENOKEY)
+                return sd_varlink_errorb(link, "io.systemd.BootControl.NoESPFound", NULL);
+        if (r < 0)
+                return r;
+
+        r = find_xbootldr_and_warn_at(
+                        p.context.root_fd,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &p.context.xbootldr_path,
+                        /* ret_uuid= */ NULL,
+                        /* ret_devid= */ NULL);
+        if (r == -ENOKEY)
+                log_debug_errno(r, "Didn't find an XBOOTLDR partition, using ESP as $BOOT.");
+        else if (r < 0)
+                return r;
+
+        r = run_install(&p.context);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
 }
