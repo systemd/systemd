@@ -381,7 +381,7 @@ static int update_efi_boot_binaries(const char *esp_path, const char *source_pat
 }
 
 static int copy_one_file(const char *esp_path, const char *name, bool force) {
-        char *root = IN_SET(arg_install_source, ARG_INSTALL_SOURCE_AUTO, ARG_INSTALL_SOURCE_IMAGE) ? arg_root : NULL;
+        char *root = IN_SET(arg_install_source, INSTALL_SOURCE_AUTO, INSTALL_SOURCE_IMAGE) ? arg_root : NULL;
         _cleanup_free_ char *source_path = NULL, *dest_path = NULL, *p = NULL, *q = NULL;
         const char *e;
         char *dest_name, *s;
@@ -398,7 +398,7 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 
         r = chase(p, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, &source_path, NULL);
         /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
-        if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
+        if (r == -ENOENT && root && arg_install_source == INSTALL_SOURCE_AUTO)
                 r = chase(p, NULL, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, &source_path, NULL);
         if (r < 0)
                 return log_error_errno(r,
@@ -444,14 +444,14 @@ static int copy_one_file(const char *esp_path, const char *name, bool force) {
 }
 
 static int install_binaries(const char *esp_path, const char *arch, bool force) {
-        char *root = IN_SET(arg_install_source, ARG_INSTALL_SOURCE_AUTO, ARG_INSTALL_SOURCE_IMAGE) ? arg_root : NULL;
+        char *root = IN_SET(arg_install_source, INSTALL_SOURCE_AUTO, INSTALL_SOURCE_IMAGE) ? arg_root : NULL;
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
         r = chase_and_opendir(BOOTLIBDIR, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, &path, &d);
         /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
-        if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
+        if (r == -ENOENT && root && arg_install_source == INSTALL_SOURCE_AUTO)
                 r = chase_and_opendir(BOOTLIBDIR, NULL, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, &path, &d);
         if (r == -ENOENT && arg_graceful() != ARG_GRACEFUL_NO) {
                 log_debug("Source directory does not exist, ignoring.");

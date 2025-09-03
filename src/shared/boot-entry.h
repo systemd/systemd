@@ -11,6 +11,8 @@ typedef enum BootEntryTokenType {
         BOOT_ENTRY_TOKEN_OS_ID,
         BOOT_ENTRY_TOKEN_LITERAL,
         BOOT_ENTRY_TOKEN_AUTO,
+        _BOOT_ENTRY_TOKEN_TYPE_MAX,
+        _BOOT_ENTRY_TOKEN_TYPE_INVALID = -EINVAL,
 } BootEntryTokenType;
 
 bool boot_entry_token_valid(const char *p);
