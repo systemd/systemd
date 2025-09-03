@@ -6,19 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-at_exit() {
-    # Since the soft-reboot drops the enqueued end.service, we won't shutdown
-    # the test VM if the test fails and have to wait for the watchdog to kill
-    # us (which may take quite a long time). Let's just forcibly kill the machine
-    # instead to save CI resources.
-    if [[ $? -ne 0 ]]; then
-        echo >&2 "Test failed, shutting down the machine..."
-        systemctl poweroff -ff
-    fi
-}
-
-trap at_exit EXIT
-
 # Because this test tests soft-reboot, we have to get rid of the symlink we put at
 # /run/nextroot to allow rebooting into the previous snapshot if the test fails for
 # the duration of the test. However, let's make sure we put the symlink back in place
@@ -272,7 +259,7 @@ exec -a @sleep sleep infinity
 EOF
     chmod +x "$survive_argv"
     # This sets DefaultDependencies=no so that they remain running until the very end, and
-    # IgnoreOnIsolate=yes so that they aren't stopped via the "testsuite.target" isolation we do on next boot,
+    # IgnoreOnIsolate=yes so that they aren't stopped via isolation on next boot,
     # and will be killed by the final sigterm/sigkill spree.
     systemd-run --collect --service-type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=TEST-82-SOFTREBOOT-nosurvive-sigterm.service "$survive_sigterm"
     systemd-run --collect --service-type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes -p SetCredential=gone:hoge --unit=TEST-82-SOFTREBOOT-nosurvive.service sleep infinity

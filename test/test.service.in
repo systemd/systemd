@@ -8,6 +8,7 @@ After=basic.target network.target @after@
 [Service]
 ExecStartPre=rm -f /failed /testok
 ExecStart=@command@
+ExecStartPost=@command-post@
 Type=oneshot
 MemoryAccounting=@memory-accounting@
 Environment=SYSTEMD_PAGER= @env@
