@@ -102,7 +102,7 @@ static int load_kernel_install_layout(void) {
         int r;
 
         r = load_kernel_install_conf(arg_root,
-                                     getenv("KERNEL_INSTALL_CONF_ROOT"),
+                                     secure_getenv("KERNEL_INSTALL_CONF_ROOT"),
                                      /* ret_machine_id= */ NULL,
                                      /* ret_boot_root= */ NULL,
                                      &layout,
@@ -578,7 +578,7 @@ static int install_entry_token(void) {
         if (!arg_make_entry_directory && arg_entry_token_type == BOOT_ENTRY_TOKEN_MACHINE_ID)
                 return 0;
 
-        p = path_join(arg_root, getenv("KERNEL_INSTALL_CONF_ROOT") ?: "/etc/kernel/", "entry-token");
+        p = path_join(arg_root, secure_getenv("KERNEL_INSTALL_CONF_ROOT") ?: "/etc/kernel/", "entry-token");
         if (!p)
                 return log_oom();
 
