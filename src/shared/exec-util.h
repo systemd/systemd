@@ -32,6 +32,7 @@ int execute_strv(
                 ExecDirFlags flags);
 
 int execute_directories(
+                const char *name,
                 const char * const *directories,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
