@@ -151,9 +151,17 @@ int boot_entry_token_ensure_at(
 
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
         assert(type);
         assert(token);
+
+        _cleanup_close_ int rrfd = -EBADF;
+        if (rfd < 0) {
+                rrfd = open("/", O_CLOEXEC | O_DIRECTORY);
+                if (rrfd < 0)
+                        return log_error_errno(errno, "Failed to open root directory: %m");
+
+                rfd = rrfd;
+        }
 
         if (*token)
                 return 0; /* Already set. */
@@ -229,11 +237,12 @@ int boot_entry_token_ensure(
         if (*token)
                 return 0; /* Already set. */
 
-        _cleanup_close_ int rfd = -EBADF;
-
-        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (rfd < 0)
-                return -errno;
+        _cleanup_close_ int rfd = XAT_FDROOT;
+        if (root) {
+                rfd = open(root, O_CLOEXEC | O_DIRECTORY);
+                if (rfd < 0)
+                        return -errno;
+        }
 
         return boot_entry_token_ensure_at(rfd, conf_root, machine_id, machine_id_is_random, type, token);
 }
