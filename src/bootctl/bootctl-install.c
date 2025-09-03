@@ -906,10 +906,17 @@ static int install_variables(
                 return graceful ? 0 : r;
         }
 
-        if (first || r == 0) {
-                r = efi_add_boot_option(slot, pick_efi_boot_option_description(),
-                                        part, pstart, psize,
-                                        uuid, path);
+        bool existing = r > 0;
+
+        if (first || !existing) {
+                r = efi_add_boot_option(
+                                slot,
+                                pick_efi_boot_option_description(),
+                                part,
+                                pstart,
+                                psize,
+                                uuid,
+                                path);
                 if (r < 0) {
                         int level = graceful ? arg_quiet ? LOG_DEBUG : LOG_INFO : LOG_ERR;
                         const char *skip = graceful ? ", skipping" : "";
@@ -919,7 +926,9 @@ static int install_variables(
                         return graceful ? 0 : r;
                 }
 
-                log_info("Created EFI boot entry \"%s\".", pick_efi_boot_option_description());
+                log_info("%s EFI boot entry \"%s\".",
+                         existing ? "Updated" : "Created",
+                         pick_efi_boot_option_description());
         }
 
         return insert_into_order(slot, first);
