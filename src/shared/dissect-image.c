@@ -2494,6 +2494,7 @@ static int decrypt_partition(
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_close_ int fd = -EBADF;
+        const char *source_node = m->decrypted_node ?: m->node;
         int r;
 
         assert(m);
@@ -2505,21 +2506,18 @@ static int decrypt_partition(
         if (!streq(m->fstype, "crypto_LUKS"))
                 return 0;
 
-        if (!passphrase)
-                return -ENOKEY;
-
         r = dlopen_cryptsetup();
         if (r < 0)
                 return r;
 
-        r = make_dm_name_and_node(m->node, "-decrypted", &name, &node);
+        r = make_dm_name_and_node(source_node, "-decrypted", &name, &node);
         if (r < 0)
                 return r;
 
         if (!GREEDY_REALLOC0(d->decrypted, d->n_decrypted + 1))
                 return -ENOMEM;
 
-        r = sym_crypt_init(&cd, m->node);
+        r = sym_crypt_init(&cd, source_node);
         if (r < 0)
                 return log_debug_errno(r, "Failed to initialize dm-crypt: %m");
 
@@ -2529,9 +2527,34 @@ static int decrypt_partition(
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
-        r = sym_crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
-                                             ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
-                                             ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
+        if (passphrase) {
+                r = sym_crypt_activate_by_passphrase(
+                                cd,
+                                name,
+                                CRYPT_ANY_SLOT,
+                                passphrase,
+                                strlen(passphrase),
+                                ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
+                                                ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ?
+                                                                 CRYPT_ACTIVATE_ALLOW_DISCARDS :
+                                                                 0));
+        } else {
+                r = sym_crypt_activate_by_token_pin(
+                                cd,
+                                name,
+                                /* type= */ NULL,
+                                CRYPT_ANY_TOKEN,
+                                /* pin= */ NULL,
+                                /* pin_size= */ 0,
+                                /* usrptr= */ NULL,
+                                ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
+                                                ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ?
+                                                                 CRYPT_ACTIVATE_ALLOW_DISCARDS :
+                                                                 0));
+                if (r < 0) {
+                        return -ENOKEY;
+                }
+        }
         if (r < 0) {
                 log_debug_errno(r, "Failed to activate LUKS device: %m");
                 return r == -EPERM ? -EKEYREJECTED : r;
@@ -2545,7 +2568,7 @@ static int decrypt_partition(
                 .name = TAKE_PTR(name),
                 .device = TAKE_PTR(cd),
         };
-
+        free(m->decrypted_node);
         m->decrypted_node = TAKE_PTR(node);
         close_and_replace(m->mount_node_fd, fd);
 
@@ -3039,10 +3062,6 @@ int dissected_image_decrypt(
                 if (!p->found)
                         continue;
 
-                r = decrypt_partition(p, passphrase, flags, d);
-                if (r < 0)
-                        return r;
-
                 k = partition_verity_of(i);
                 if (k >= 0) {
                         flags |= getenv_bool("SYSTEMD_VERITY_SHARING") != 0 ? DISSECT_IMAGE_VERITY_SHARE : 0;
@@ -3051,6 +3070,10 @@ int dissected_image_decrypt(
                         if (r < 0)
                                 return r;
                 }
+
+                r = decrypt_partition(p, passphrase, flags, d);
+                if (r < 0)
+                        return r;
 
                 if (!p->decrypted_fstype && p->mount_node_fd >= 0 && p->decrypted_node) {
                         r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, &p->decrypted_fstype);
