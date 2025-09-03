@@ -1084,15 +1084,13 @@ static int link_up_or_down_handler(sd_netlink *rtnl, sd_netlink_message *m, Requ
         else if (r < 0)
                 log_link_message_warning_errno(link, m, r, "Could not bring %s interface, ignoring", up_or_down(up));
 
-        if (link->state != LINK_STATE_LINGER) {
-                r = link_call_getlink(link, get_link_update_flag_handler);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return 0;
-                }
-
-                link->set_flags_messages++;
+        r = link_call_getlink(link, get_link_update_flag_handler);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 0;
         }
+
+        link->set_flags_messages++;
 
         if (on_activate) {
                 link->activated = true;
@@ -1291,7 +1289,7 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 
         link->set_flags_messages--;
 
-        if (link->state == LINK_STATE_LINGER)
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
 
         r = sd_netlink_message_get_errno(m);
@@ -1304,8 +1302,7 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
                 return 0;
         }
 
-        link->set_flags_messages++; /* Account for the additional getlink call */
-
+        link->set_flags_messages++;
         return 0;
 }
 
@@ -1352,7 +1349,7 @@ typedef struct SetLinkVarlinkContext {
         bool up;
 } SetLinkVarlinkContext;
 
-static SetLinkVarlinkContext* set_link_varlink_context_destroy(SetLinkVarlinkContext *ctx) {
+static SetLinkVarlinkContext* set_link_varlink_context_free(SetLinkVarlinkContext *ctx) {
         if (!ctx)
                 return NULL;
 
@@ -1360,14 +1357,13 @@ static SetLinkVarlinkContext* set_link_varlink_context_destroy(SetLinkVarlinkCon
                 sd_varlink_unref(ctx->vlink);
         if (ctx->link)
                 link_unref(ctx->link);
-        free(ctx);
-        return NULL;
+        return mfree(ctx);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(SetLinkVarlinkContext*, set_link_varlink_context_destroy);
+DEFINE_TRIVIAL_CLEANUP_FUNC(SetLinkVarlinkContext*, set_link_varlink_context_free);
 
-static void set_link_varlink_context_destroy_callback(SetLinkVarlinkContext *ctx) {
-        set_link_varlink_context_destroy(ctx);
+static void set_link_varlink_context_destroy(SetLinkVarlinkContext *ctx) {
+        set_link_varlink_context_free(ctx);
 }
 
 static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_message *m, SetLinkVarlinkContext *ctx) {
@@ -1422,7 +1418,7 @@ int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not set link flags: %m");
 
-        _cleanup_(set_link_varlink_context_destroyp) SetLinkVarlinkContext *ctx = new(SetLinkVarlinkContext, 1);
+        _cleanup_(set_link_varlink_context_freep) SetLinkVarlinkContext *ctx = new(SetLinkVarlinkContext, 1);
         if (!ctx)
                 return log_oom();
 
@@ -1434,11 +1430,12 @@ int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
 
         r = netlink_call_async(link->manager->rtnl, NULL, req,
                                link_up_or_down_now_varlink_handler,
-                               set_link_varlink_context_destroy_callback,
+                               set_link_varlink_context_destroy,
                                ctx);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not send rtnetlink message: %m");
 
+        TAKE_PTR(ctx);
         link->set_flags_messages++;
         return 0;
 }
@@ -1464,7 +1461,7 @@ static int link_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *li
         assert(m);
         assert(link);
 
-        if (link->state == LINK_STATE_LINGER)
+        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return 0;
 
         r = sd_netlink_message_get_errno(m);

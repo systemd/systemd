@@ -242,11 +242,11 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         }
 
         r = varlink_verify_polkit_async(
-                                        vlink,
-                                        manager->bus,
-                                        "org.freedesktop.network1.set-persistent-storage",
-                                        /* details= */ NULL,
-                                        &manager->polkit_registry);
+                                vlink,
+                                manager->bus,
+                                "org.freedesktop.network1.set-persistent-storage",
+                                /* details= */ NULL,
+                                &manager->polkit_registry);
         if (r <= 0)
                 return r;
 
@@ -290,17 +290,11 @@ static int vl_method_set_link_up_or_down(sd_varlink *vlink, sd_json_variant *par
         if (r <= 0)
                 return r;
 
-        if (!up) {
+        if (!up)
                 /* Stop all network engines while interface is still up, then bring it down */
                 (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
-        }
 
-        r = link_up_or_down_now_by_varlink(link, up, vlink);
-        if (r < 0)
-                return sd_varlink_error_errno(vlink, r);
-
-        /* Reply will be sent from the netlink completion handler. */
-        return 0;
+        return link_up_or_down_now_by_varlink(link, up, vlink);
 }
 
 static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
