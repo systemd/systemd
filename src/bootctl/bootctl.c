@@ -711,7 +711,7 @@ static int vl_server(void) {
 
         r = varlink_server_new(
                         &varlink_server,
-                        SD_VARLINK_SERVER_ROOT_ONLY,
+                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
                         /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
@@ -724,7 +724,8 @@ static int vl_server(void) {
                         varlink_server,
                         "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
                         "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
-                        "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware);
+                        "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware,
+                        "io.systemd.BootControl.Install",             vl_method_install);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 

@@ -291,4 +291,4 @@ static const char *const boot_entry_token_type_table[] = {
         [BOOT_ENTRY_TOKEN_AUTO]        = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_token_type, BootEntryTokenType);
+DEFINE_STRING_TABLE_LOOKUP(boot_entry_token_type, BootEntryTokenType);
