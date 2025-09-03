@@ -171,6 +171,7 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *job) {
                                  * another unit in which case we
                                  * rather remove the start. */
 
+                                /* Update test/units/TEST-87-AUX-UTILS-VM.sh when logs below are changed. */
                                 log_unit_debug(j->unit,
                                                "Looking at job %s/%s conflicted_by=%s",
                                                j->unit->id, job_type_to_string(j->type),
