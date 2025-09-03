@@ -1161,7 +1161,7 @@ static int rmdir_one(const char *prefix, const char *suffix) {
 }
 
 static int remove_subdirs(const char *root, const char *const *subdirs) {
-        int r, q;
+        int r;
 
         /* We use recursion here to destroy the directories in reverse order. Which should be safe given how
          * short the array is. */
@@ -1170,9 +1170,8 @@ static int remove_subdirs(const char *root, const char *const *subdirs) {
                 return 0;
 
         r = remove_subdirs(root, subdirs + 1);
-        q = rmdir_one(root, subdirs[0]);
-
-        return r < 0 ? r : q;
+        RET_GATHER(r, rmdir_one(root, subdirs[0]));
+        return r;
 }
 
 static int remove_entry_directory(const char *root) {
@@ -1186,18 +1185,14 @@ static int remove_entry_directory(const char *root) {
 }
 
 static int remove_binaries(const char *esp_path) {
-        int r, q;
+        int r;
 
         _cleanup_free_ char *p = path_join(esp_path, "/EFI/systemd");
         if (!p)
                 return log_oom();
 
         r = rm_rf(p, REMOVE_ROOT|REMOVE_PHYSICAL);
-
-        q = remove_boot_efi(esp_path);
-        if (q < 0 && r == 0)
-                r = q;
-
+        RET_GATHER(r, remove_boot_efi(esp_path));
         return r;
 }
 
@@ -1258,11 +1253,9 @@ static int remove_loader_variables(void) {
                 q = efi_set_variable(var, NULL, 0);
                 if (q == -ENOENT)
                         continue;
-                if (q < 0) {
-                        log_warning_errno(q, "Failed to remove EFI variable %s: %m", var);
-                        if (r >= 0)
-                                r = q;
-                } else
+                if (q < 0)
+                        RET_GATHER(r, log_warning_errno(q, "Failed to remove EFI variable %s: %m", var));
+                else
                         log_info("Removed EFI variable %s.", var);
         }
 
@@ -1271,7 +1264,7 @@ static int remove_loader_variables(void) {
 
 int verb_remove(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
-        int r, q;
+        int r;
 
         r = acquire_esp(/* unprivileged_mode= */ false, /* graceful= */ false, NULL, NULL, NULL, &uuid, NULL);
         if (r < 0)
@@ -1286,59 +1279,28 @@ int verb_remove(int argc, char *argv[], void *userdata) {
                 return r;
 
         r = remove_binaries(arg_esp_path);
-
-        q = remove_file(arg_esp_path, "/loader/loader.conf");
-        if (q < 0 && r >= 0)
-                r = q;
-
-        q = remove_file(arg_esp_path, "/loader/random-seed");
-        if (q < 0 && r >= 0)
-                r = q;
-
-        q = remove_file(arg_esp_path, "/loader/entries.srel");
-        if (q < 0 && r >= 0)
-                r = q;
+        RET_GATHER(r, remove_file(arg_esp_path, "/loader/loader.conf"));
+        RET_GATHER(r, remove_file(arg_esp_path, "/loader/random-seed"));
+        RET_GATHER(r, remove_file(arg_esp_path, "/loader/entries.srel"));
 
         FOREACH_STRING(db, "PK.auth", "KEK.auth", "db.auth") {
                 _cleanup_free_ char *p = path_join("/loader/keys/auto", db);
                 if (!p)
                         return log_oom();
 
-                q = remove_file(arg_esp_path, p);
-                if (q < 0 && r >= 0)
-                        r = q;
+                RET_GATHER(r, remove_file(arg_esp_path, p));
         }
 
-        q = rmdir_one(arg_esp_path, "/loader/keys/auto");
-        if (q < 0 && r >= 0)
-                r = q;
-
-        q = remove_subdirs(arg_esp_path, esp_subdirs);
-        if (q < 0 && r >= 0)
-                r = q;
-
-        q = remove_subdirs(arg_esp_path, dollar_boot_subdirs);
-        if (q < 0 && r >= 0)
-                r = q;
-
-        q = remove_entry_directory(arg_esp_path);
-        if (q < 0 && r >= 0)
-                r = q;
+        RET_GATHER(r, rmdir_one(arg_esp_path, "/loader/keys/auto"));
+        RET_GATHER(r, remove_subdirs(arg_esp_path, esp_subdirs));
+        RET_GATHER(r, remove_subdirs(arg_esp_path, dollar_boot_subdirs));
+        RET_GATHER(r, remove_entry_directory(arg_esp_path));
 
         if (arg_xbootldr_path) {
                 /* Remove a subset of these also from the XBOOTLDR partition if it exists */
-
-                q = remove_file(arg_xbootldr_path, "/loader/entries.srel");
-                if (q < 0 && r >= 0)
-                        r = q;
-
-                q = remove_subdirs(arg_xbootldr_path, dollar_boot_subdirs);
-                if (q < 0 && r >= 0)
-                        r = q;
-
-                q = remove_entry_directory(arg_xbootldr_path);
-                if (q < 0 && r >= 0)
-                        r = q;
+                RET_GATHER(r, remove_file(arg_xbootldr_path, "/loader/entries.srel"));
+                RET_GATHER(r, remove_subdirs(arg_xbootldr_path, dollar_boot_subdirs));
+                RET_GATHER(r, remove_entry_directory(arg_xbootldr_path));
         }
 
         (void) sync_everything();
@@ -1352,14 +1314,8 @@ int verb_remove(int argc, char *argv[], void *userdata) {
         }
 
         char *path = strjoina("/EFI/systemd/systemd-boot", get_efi_arch(), ".efi");
-        q = remove_variables(uuid, path, true);
-        if (q < 0 && r >= 0)
-                r = q;
-
-        q = remove_loader_variables();
-        if (q < 0 && r >= 0)
-                r = q;
-
+        RET_GATHER(r, remove_variables(uuid, path, /* in_order= */ true));
+        RET_GATHER(r, remove_loader_variables());
         return r;
 }
 
