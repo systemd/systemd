@@ -109,6 +109,7 @@ typedef struct Link {
         unsigned set_link_messages;
         unsigned set_flags_messages;
         unsigned create_stacked_netdev_messages;
+        unsigned bearer_messages;
 
         Set *addresses;
         Set *neighbors;
@@ -142,6 +143,7 @@ typedef struct Link {
         bool master_set:1;
         bool stacked_netdevs_created:1;
         bool bridge_vlan_set:1;
+        bool bearer_configured:1;
 
         sd_dhcp_server *dhcp_server;
 
@@ -197,6 +199,10 @@ typedef struct Link {
 
         /* Similar, but NTP server configuration */
         char **ntp;
+
+        /* ModemManager */
+        struct in_addr_full **mm_dns;
+        unsigned mm_n_dns;
 } Link;
 
 extern const struct hash_ops link_hash_ops;
