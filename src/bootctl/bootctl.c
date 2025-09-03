@@ -67,7 +67,7 @@ sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 bool arg_arch_all = false;
 char *arg_root = NULL;
 char *arg_image = NULL;
-InstallSource arg_install_source = ARG_INSTALL_SOURCE_AUTO;
+InstallSource arg_install_source = INSTALL_SOURCE_AUTO;
 char *arg_efi_boot_option_description = NULL;
 bool arg_dry_run = false;
 ImagePolicy *arg_image_policy = NULL;
@@ -483,11 +483,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_INSTALL_SOURCE:
                         if (streq(optarg, "auto"))
-                                arg_install_source = ARG_INSTALL_SOURCE_AUTO;
+                                arg_install_source = INSTALL_SOURCE_AUTO;
                         else if (streq(optarg, "image"))
-                                arg_install_source = ARG_INSTALL_SOURCE_IMAGE;
+                                arg_install_source = INSTALL_SOURCE_IMAGE;
                         else if (streq(optarg, "host"))
-                                arg_install_source = ARG_INSTALL_SOURCE_HOST;
+                                arg_install_source = INSTALL_SOURCE_HOST;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unexpected parameter for --install-source=: %s", optarg);
@@ -648,7 +648,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_root && arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
-        if (arg_install_source != ARG_INSTALL_SOURCE_AUTO && !arg_root && !arg_image)
+        if (arg_install_source != INSTALL_SOURCE_AUTO && !arg_root && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-from-host is only supported with --root= or --image=.");
 
         if (arg_dry_run && argv[optind] && !STR_IN_SET(argv[optind], "unlink", "cleanup"))
