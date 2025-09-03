@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
-
 set -eux
 set -o pipefail
 
@@ -12,6 +11,3 @@ set -o pipefail
 # Check if sd-executor doesn't complain about not being able to (de)serialize stuff
 (! journalctl -q -o short-monotonic --grep "[F]ailed to parse serialized line" >>/failed)
 (! journalctl -q -o short-monotonic --grep "[F]ailed to (de)?serialize \w+" >>/failed)
-
-systemctl poweroff --no-block
-exit 0
