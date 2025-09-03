@@ -14,7 +14,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-08-31 14:53+0000\n"
+"PO-Revision-Date: 2025-09-03 09:14+0000\n"
 "Last-Translator: \"Sergey A.\" <Ser82-png@yandex.ru>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
@@ -1224,14 +1224,12 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Подписка на конфигурацию DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
 msgstr ""
-"Чтобы подписаться на результаты запроса, необходимо пройти аутентификацию."
+"Чтобы подписаться на конфигурацию DNS, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
