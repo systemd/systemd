@@ -1355,6 +1355,10 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 fprintf(f, "CLIENTID=%s\n", client_id_hex);
         }
 
+        r = sd_dhcp_lease_get_timestamp(lease, CLOCK_REALTIME, &t);
+        if (r >= 0)
+                fprintf(f, "TIMESTAMP_REALTIME=%s\n", FORMAT_TIMESTAMP_STYLE(t, TIMESTAMP_US));
+
         r = sd_dhcp_lease_get_vendor_specific(lease, &data, &data_len);
         if (r >= 0) {
                 _cleanup_free_ char *option_hex = NULL;
@@ -1422,7 +1426,8 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *vendor_specific_hex = NULL,
                 *lifetime = NULL,
                 *t1 = NULL,
-                *t2 = NULL;
+                *t2 = NULL,
+                *timestamp = NULL;
         _cleanup_(private_options_freep) char **options = NULL;
 
         int r, i;
@@ -1465,6 +1470,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "LIFETIME", &lifetime,
                            "T1", &t1,
                            "T2", &t2,
+                           "TIMESTAMP_REALTIME", &timestamp,
                            "OPTION_224", &options[0],
                            "OPTION_225", &options[1],
                            "OPTION_226", &options[2],
@@ -1649,6 +1655,16 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         log_debug_errno(r, "Failed to parse T2 %s, ignoring: %m", t2);
         }
 
+        if (timestamp) {
+                usec_t timestamp_usec;
+                r = parse_timestamp(timestamp, &timestamp_usec);
+                if (r >= 0) {
+                        triple_timestamp ts = {};
+                        ts.realtime = timestamp_usec;
+                        dhcp_lease_set_timestamp(lease, &ts);
+                }
+        }
+
         if (client_id_hex) {
                 _cleanup_free_ void *data = NULL;
                 size_t data_size;
@@ -1687,6 +1703,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         dhcp_lease_set_timestamp(lease, NULL);
+
         *ret = TAKE_PTR(lease);
 
         return 0;
