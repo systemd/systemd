@@ -1375,6 +1375,16 @@ EOF
     assert_in "${loop}p3 : start= *${start}, size= *${size}, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=DB081670-07AE-48CA-9F5E-813D5E40B976, name=\"linux-generic-2\"" "$output"
 }
 
+testcase_sector() {
+    # Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
+    # must be powers of 2. Which leaves exactly four different ones to test on
+    # typical hardware
+    test_sector 512
+    test_sector 1024
+    test_sector 2048
+    test_sector 4096
+}
+
 testcase_dropped_partitions() {
     local workdir image defs
 
@@ -1626,13 +1636,5 @@ if ! systemd-detect-virt --container; then
     OFFLINE="no"
     run_testcases
 fi
-
-# Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
-# must be powers of 2. Which leaves exactly four different ones to test on
-# typical hardware
-test_sector 512
-test_sector 1024
-test_sector 2048
-test_sector 4096
 
 touch /testok
