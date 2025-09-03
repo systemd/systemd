@@ -45,6 +45,8 @@
  * having to deal with a potentially too long string. */
 #define EFI_BOOT_OPTION_DESCRIPTION_MAX ((size_t) 255)
 
+static GracefulMode _arg_graceful = ARG_GRACEFUL_NO;
+
 char *arg_esp_path = NULL;
 char *arg_xbootldr_path = NULL;
 bool arg_print_esp_path = false;
@@ -55,7 +57,6 @@ unsigned arg_print_root_device = 0;
 int arg_touch_variables = -1;
 bool arg_install_random_seed = true;
 PagerFlags arg_pager_flags = 0;
-bool arg_graceful = false;
 bool arg_quiet = false;
 int arg_make_entry_directory = false; /* tri-state: < 0 for automatic logic */
 sd_id128_t arg_machine_id = SD_ID128_NULL;
@@ -243,6 +244,21 @@ bool touch_variables(void) {
         }
 
         return true;
+}
+
+GracefulMode arg_graceful(void) {
+        static bool chroot_checked = false;
+
+        if (!chroot_checked && running_in_chroot() > 0) {
+                if (_arg_graceful == ARG_GRACEFUL_NO)
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Running in a chroot, enabling --graceful.");
+
+                _arg_graceful = ARG_GRACEFUL_FORCE;
+        }
+
+        chroot_checked = true;
+
+        return _arg_graceful;
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -519,7 +535,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_GRACEFUL:
-                        arg_graceful = true;
+                        _arg_graceful = ARG_GRACEFUL_YES;
                         break;
 
                 case 'q':
@@ -643,11 +659,6 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_secure_boot_auto_enroll && !arg_private_key)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no private key provided");
-
-        if (!arg_graceful && running_in_chroot() > 0) {
-                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Running in a chroot, enabling --graceful.");
-                arg_graceful = true;
-        }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)

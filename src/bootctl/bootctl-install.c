@@ -453,7 +453,7 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
         /* If we had a root directory to try, we didn't find it and we are in auto mode, retry on the host */
         if (r == -ENOENT && root && arg_install_source == ARG_INSTALL_SOURCE_AUTO)
                 r = chase_and_opendir(BOOTLIBDIR, NULL, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, &path, &d);
-        if (r == -ENOENT && arg_graceful) {
+        if (r == -ENOENT && arg_graceful() != ARG_GRACEFUL_NO) {
                 log_debug("Source directory does not exist, ignoring.");
                 return 0;
         }
@@ -481,7 +481,7 @@ static int install_binaries(const char *esp_path, const char *arch, bool force) 
                 k = copy_one_file(esp_path, de->d_name, force);
                 /* Don't propagate an error code if no update necessary, installed version already equal or
                  * newer version, or other boot loader in place. */
-                if (arg_graceful && IN_SET(k, -ESTALE, -ESRCH))
+                if (arg_graceful() != ARG_GRACEFUL_NO && IN_SET(k, -ESTALE, -ESRCH))
                         continue;
                 RET_GATHER(r, k);
         }
@@ -961,7 +961,9 @@ int verb_install(int argc, char *argv[], void *userdata) {
         /* Invoked for both "update" and "install" */
 
         install = streq(argv[0], "install");
-        graceful = !install && arg_graceful; /* support graceful mode for updates */
+
+        /* Support graceful mode only for updates, unless forcibly enabled in chroot environments */
+        graceful = arg_graceful() == ARG_GRACEFUL_FORCE || (!install && arg_graceful() != ARG_GRACEFUL_NO);
 
         if (arg_secure_boot_auto_enroll) {
                 if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
@@ -1365,7 +1367,7 @@ int verb_is_installed(int argc, char *argv[], void *userdata) {
         int r;
 
         r = acquire_esp(/* unprivileged_mode= */ false,
-                        /* graceful= */ arg_graceful,
+                        /* graceful= */ arg_graceful() != ARG_GRACEFUL_NO,
                         NULL, NULL, NULL, NULL, NULL);
         if (r < 0)
                 return r;
