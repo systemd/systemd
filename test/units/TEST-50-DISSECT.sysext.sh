@@ -1106,5 +1106,14 @@ systemd-sysext unmerge
 test ! -f /usr/lib/systemd/system/some_file
 mountpoint /usr/share
 umount /usr/share
+rm /var/lib/extensions/app0.raw
+
+# Test encrypted extension image
+ln -s "$ENCRYPTED_IMAGE.raw" /var/lib/extensions/app0.sysext.raw
+systemd-sysext merge
+test -f /usr/lib/systemd/system/some_file
+systemd-sysext unmerge
+test ! -f /usr/lib/systemd/system/some_file
+
 
 exit 0
