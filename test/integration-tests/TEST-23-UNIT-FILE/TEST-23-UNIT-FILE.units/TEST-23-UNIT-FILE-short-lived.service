@@ -8,4 +8,4 @@ StartLimitBurst=15
 StartLimitIntervalSec=1h
 
 [Service]
-ExecStart=/usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-short-lived.sh
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-23-UNIT-FILE.units/TEST-23-UNIT-FILE-short-lived.sh

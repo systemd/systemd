@@ -510,6 +510,12 @@ systemd-analyze verify /tmp/testwarnings.service
 
 rm /tmp/testwarnings.service
 
+TESTDATA=/usr/lib/systemd/tests/testdata/TEST-65-ANALYZE.units
+systemd-analyze verify "${TESTDATA}/loopy.service"
+systemd-analyze verify "${TESTDATA}/loopy2.service"
+systemd-analyze verify "${TESTDATA}/loopy3.service"
+systemd-analyze verify "${TESTDATA}/loopy4.service"
+
 # Added an additional "INVALID_ID" id to the .json to verify that nothing breaks when input is malformed
 # The PrivateNetwork id description and weight was changed to verify that 'security' is actually reading in
 # values from the .json file when required. The default weight for "PrivateNetwork" is 2500, and the new weight
