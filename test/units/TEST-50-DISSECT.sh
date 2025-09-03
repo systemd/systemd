@@ -50,6 +50,7 @@ fi
 
 export SYSTEMD_LOG_LEVEL=debug
 export ARCHITECTURE
+export ENCRYPTED_IMAGE
 export IMAGE_DIR
 export MACHINE
 export MINIMAL_IMAGE
@@ -199,6 +200,62 @@ udevadm wait --timeout=60 --settle --initialized=no "${partitions[@]}"
 udevadm lock --timeout=60 --device="${loop}p1" dd if="$MINIMAL_IMAGE.raw" of="${loop}p1"
 udevadm lock --timeout=60 --device="${loop}p2" dd if="$MINIMAL_IMAGE.verity" of="${loop}p2"
 udevadm lock --timeout=60 --device="${loop}p3" dd if="$MINIMAL_IMAGE.verity-sig" of="${loop}p3"
+losetup -d "$loop"
+udevadm settle --timeout=60
+
+# Create DDI from app0 sysext image with encrypted rootfs and verity
+ENCRYPTED_IMAGE="$IMAGE_DIR/encrypted"
+
+cp /tmp/app0.raw.enc "$ENCRYPTED_IMAGE.raw"
+veritysetup format "$ENCRYPTED_IMAGE.raw" "$ENCRYPTED_IMAGE.verity" --root-hash-file "$ENCRYPTED_IMAGE.roothash"
+ENCRYPTED_IMAGE_ROOTHASH="$(<"$ENCRYPTED_IMAGE.roothash")"
+
+root_size="$(du --apparent-size -k "$ENCRYPTED_IMAGE.raw" | cut -f1)"
+verity_size="$(du --apparent-size -k "$ENCRYPTED_IMAGE.verity" | cut -f1)"
+signature_size=4
+# 4MB seems to be the minimum size blkid will accept, below that probing fails
+dd if=/dev/zero of="$ENCRYPTED_IMAGE.gpt" bs=512 count=$((8192+root_size*2+verity_size*2+signature_size*2))
+# sfdisk seems unhappy if the size overflows into the next unit, eg: 1580KiB will be interpreted as 1MiB
+# so do some basic rounding up if the minimal image is more than 1 MB
+if [[ "$root_size" -ge 1024 ]]; then
+    root_size="$((root_size/1024 + 1))MiB"
+else
+    root_size="${root_size}KiB"
+fi
+verity_size="$((verity_size * 2))KiB"
+signature_size="$((signature_size * 2))KiB"
+
+# Sign Verity root hash with mkosi key
+openssl smime -sign -nocerts -noattr -binary \
+                -in "$ENCRYPTED_IMAGE.roothash" \
+                -inkey /usr/share/mkosi.key \
+                -signer /usr/share/mkosi.crt \
+                -outform der \
+                -out "$ENCRYPTED_IMAGE.roothash.p7s"
+# Generate signature partition JSON data
+echo '{"rootHash":"'"$ENCRYPTED_IMAGE_ROOTHASH"'","signature":"'"$(base64 -w 0 <"$ENCRYPTED_IMAGE.roothash.p7s")"'"}' >"$ENCRYPTED_IMAGE.verity-sig"
+# Pad it
+uuid="$(head -c 32 "$ENCRYPTED_IMAGE.roothash" | sed -r 's/(.{8})(.{4})(.{4})(.{4})(.+)/\1-\2-\3-\4-\5/')"
+echo -e "label: gpt\nsize=$root_size, type=$ROOT_GUID, uuid=$uuid" | sfdisk "$ENCRYPTED_IMAGE.gpt"
+uuid="$(tail -c 32 "$ENCRYPTED_IMAGE.roothash" | sed -r 's/(.{8})(.{4})(.{4})(.{4})(.+)/\1-\2-\3-\4-\5/')"
+echo -e "size=$verity_size, type=$VERITY_GUID, uuid=$uuid" | sfdisk "$ENCRYPTED_IMAGE.gpt" --append
+echo -e "size=$signature_size, type=$SIGNATURE_GUID" | sfdisk "$ENCRYPTED_IMAGE.gpt" --append
+
+sfdisk --part-label "$ENCRYPTED_IMAGE.gpt" 1 "Root Partition"
+sfdisk --part-label "$ENCRYPTED_IMAGE.gpt" 2 "Verity Partition"
+sfdisk --part-label "$ENCRYPTED_IMAGE.gpt" 3 "Signature Partition"
+loop="$(losetup --show -P -f "$ENCRYPTED_IMAGE.gpt")"
+partitions=(
+    "${loop:?}p1"
+    "${loop:?}p2"
+    "${loop:?}p3"
+)
+# The kernel sometimes(?) does not emit "add" uevent for loop block partition devices.
+# Let's not expect the devices to be initialized.
+udevadm wait --timeout=60 --settle --initialized=no "${partitions[@]}"
+udevadm lock --timeout=60 --device="${loop}p1" dd if="$ENCRYPTED_IMAGE.raw" of="${loop}p1"
+udevadm lock --timeout=60 --device="${loop}p2" dd if="$ENCRYPTED_IMAGE.verity" of="${loop}p2"
+udevadm lock --timeout=60 --device="${loop}p3" dd if="$ENCRYPTED_IMAGE.verity-sig" of="${loop}p3"
 losetup -d "$loop"
 udevadm settle --timeout=60
 

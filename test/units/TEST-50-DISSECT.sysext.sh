@@ -1174,4 +1174,12 @@ mountpoint /usr/share
 umount /usr/share
 rm -f /var/lib/extensions/app0.raw
 
+# Test encrypted + verity-protected extension image
+ln -s "$ENCRYPTED_IMAGE.gpt" /var/lib/extensions/app0.sysext.raw
+systemd-sysext merge --image-policy="root=encrypted+signed"
+test -f /usr/lib/systemd/system/some_file
+systemd-sysext unmerge
+test ! -f /usr/lib/systemd/system/some_file
+rm -f /var/lib/extensions/app0.sysext.raw
+
 exit 0
