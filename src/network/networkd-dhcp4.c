@@ -35,6 +35,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "network-internal.h"
 
 void network_adjust_dhcp4(Network *network) {
         assert(network);
