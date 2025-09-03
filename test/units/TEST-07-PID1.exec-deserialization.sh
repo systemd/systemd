@@ -216,6 +216,29 @@ EOF
     (! journalctl -b --grep "Freezing execution" _PID=1)
 }
 
+testcase_alias() {
+    local unit_path unit_name log_file
+
+    unit_a_path="/run/systemd/system/test-deserialization-alias-a.service"
+    unit_b_path="/run/systemd/system/test-deserialization-alias-b.service"
+    unit_a_name="${unit_a_path##*/}"
+    unit_b_name="${unit_b_path##*/}"
+
+    cat >"$unit_a_path" <<EOF
+[Service]
+ExecStart=sleep infinity
+EOF
+    cp "$unit_a_path" "$unit_b_path"
+
+    systemctl daemon-reload
+    systemctl start "$unit_a_name" "$unit_b_name"
+    # If we make b an alias for a, we expect that a daemon-relad does not override a's fields with b's fields.
+    ln -s /run/systemd/system/test-deserialization-alias-a.service /etc/systemd/system/test-deserialization-alias-b.service
+    systemctl daemon-reload
+
+    assert_eq "$(systemctl show test-deserialization-alias-a.service --property ControlGroup --value)" /system.slice/test-deserialization-alias-a.service
+}
+
 mkdir -p /run/systemd/system/
 run_testcases
 systemctl daemon-reload
