@@ -541,6 +541,12 @@ static int dns_append_json(Link *link, sd_json_variant **v) {
                                 return r;
                 }
 
+                for (unsigned i = 0; i < link->mm_n_dns; i++) {
+                        r = dns_append_json_one(link, link->mm_dns[i], NETWORK_CONFIG_SOURCE_MODEM_MANAGER, NULL, &array);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (link->dhcp_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                         const struct in_addr *dns;
                         union in_addr_union s;
