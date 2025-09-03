@@ -72,6 +72,8 @@ check_sd() {
 
 # Copy the unit in /run so systemd finds it after the downgrade
 cp /usr/lib/systemd/tests/testdata/units/TEST-88-UPGRADE.service /run/systemd/system
+# Also backup post.sh
+cp /usr/lib/systemd/tests/testdata/units/post.sh /tmp/.
 
 now=$(date +%s)
 after_2h=$((now + 3600 * 2))
@@ -104,5 +106,9 @@ dnf -y upgrade --disablerepo '*' "$pkgdir"/devel/*.rpm
 
 # TODO: sanity checks
 check_sd
+
+# Restore post.sh
+mkdir -p /usr/lib/systemd/tests/testdata/units
+mv /tmp/post.sh /usr/lib/systemd/tests/testdata/units/.
 
 touch /testok
