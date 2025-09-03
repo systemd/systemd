@@ -35,3 +35,4 @@ int boot_entry_token_ensure_at(
 int parse_boot_entry_token_type(const char *s, BootEntryTokenType *type, char **token);
 
 const char* boot_entry_token_type_to_string(BootEntryTokenType t);
+BootEntryTokenType boot_entry_token_type_from_string(const char *s);
