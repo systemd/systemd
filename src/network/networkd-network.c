@@ -1145,7 +1145,7 @@ int config_parse_dhcp_client_persist_leases(
                         void *userdata) {
 
                 DHCPClientPersistLeases t, *k = ASSERT_PTR(data);
-                Network *network = ASSERT_PTR(userdata);
+                /* Network *network = ASSERT_PTR(userdata); */
 
         /* Not suree if the point to manager should be assigned here */
         /*
