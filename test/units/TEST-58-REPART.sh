@@ -1628,6 +1628,57 @@ EOF
     assert_in "${image}2 : start=      286680, size=      532480, type=${esp_guid}" "$output"
 }
 
+testcase_btrfs() {
+    local defs imgs output root
+
+    if ! systemd-analyze compare-versions "$(btrfs --version | head -n 1 | awk '{ print $2 }')" ge v6.12; then
+        echo "btrfs-progs is not installed or older than v6.12, skipping test."
+        return 0
+    fi
+
+    if [[ "$OFFLINE" != "yes" ]]; then
+        return 0
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/test-repart.root.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for btrfs ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=btrfs
+MakeDirectories=/@ /@home
+Subvolumes=/@ /@home
+DefaultSubvolume=/@
+MountPoint=/:"subvol=@,zstd:1,noatime,lazytime"
+MountPoint=/home:"subvol=@home,zstd:1,noatime,lazytime"
+EOF
+
+    mkdir -p "$root"/etc
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=1G \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=yes \
+                   --generate-fstab "$root"/etc/fstab \
+                   "$imgs/btrfs.img"
+
+    sfdisk --dump "$imgs/btrfs.img"
+
+    cat "$root"/etc/fstab
+    grep -q 'UUID=[0-9a-f-]* / btrfs discard,rw,nodev,suid,exec,subvol=@,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
+    grep -q 'UUID=[0-9a-f-]* /home btrfs discard,rw,nodev,suid,exec,subvol=@home,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
+}
+
 OFFLINE="yes"
 run_testcases
 
