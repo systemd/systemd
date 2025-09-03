@@ -63,6 +63,7 @@
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
+#include "networkd-wwan.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
@@ -232,6 +233,11 @@ void link_dns_settings_clear(Link *link) {
         link->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
 
         link->dnssec_negative_trust_anchors = set_free(link->dnssec_negative_trust_anchors);
+
+        if (link->mm_n_dns != UINT_MAX)
+                for (unsigned i = 0; i < link->mm_n_dns; i++)
+                        in_addr_full_free(link->mm_dns[i]);
+        link->mm_dns = mfree(link->mm_dns);
 }
 
 static void link_free_engines(Link *link) {
@@ -529,6 +535,9 @@ void link_check_ready(Link *link) {
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
 
+        if (!link->bearer_configured)
+                return (void) log_link_debug(link, "%s(): Bearer has not been applied.", __func__);
+
         /* IPv6LL is assigned after the link gains its carrier. */
         if (!link->network->configure_without_carrier &&
             link_ipv6ll_enabled(link) &&
@@ -538,7 +547,7 @@ void link_check_ready(Link *link) {
         /* All static addresses must be ready. */
         bool has_static_address = false;
         SET_FOREACH(a, link->addresses) {
-                if (a->source != NETWORK_CONFIG_SOURCE_STATIC)
+                if (!IN_SET(a->source, NETWORK_CONFIG_SOURCE_STATIC, NETWORK_CONFIG_SOURCE_MODEM_MANAGER))
                         continue;
                 if (!address_is_ready(a))
                         return (void) log_link_debug(link, "%s(): static address %s is not ready.", __func__,
@@ -1290,6 +1299,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_request_static_configs(link);
+        if (r < 0)
+                return r;
+
+        r = link_apply_bearer(link);
         if (r < 0)
                 return r;
 
@@ -2799,6 +2812,8 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .mdns = _RESOLVE_SUPPORT_INVALID,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+
+                .mm_n_dns = UINT_MAX,
         };
 
         r = hashmap_ensure_put(&manager->links_by_index, &link_hash_ops, INT_TO_PTR(link->ifindex), link);
