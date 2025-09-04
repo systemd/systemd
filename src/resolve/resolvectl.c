@@ -1772,7 +1772,7 @@ static char** global_protocol_status(const GlobalInfo *info) {
         return TAKE_PTR(s);
 }
 
-static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
+static int bus_map_link_info(sd_bus *bus, int ifindex, sd_bus_message **ret_reply, LinkInfo *ret_info) {
         static const struct bus_properties_map property_map[] = {
                 { "ScopesMask",                 "t",        NULL,                           offsetof(LinkInfo, scopes_mask)      },
                 { "DNS",                        "a(iay)",   map_link_dns_servers,           offsetof(LinkInfo, dns)              },
@@ -1790,11 +1790,40 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *p = NULL;
+        char ifi[DECIMAL_STR_MAX(int)];
+        int r;
+
+        assert(bus);
+        assert(ifindex > 0);
+        assert(ret_reply);
+        assert(ret_info);
+
+        xsprintf(ifi, "%i", ifindex);
+        r = sd_bus_path_encode("/org/freedesktop/resolve1/link", ifi, &p);
+        if (r < 0)
+                return log_oom();
+
+        r = bus_map_all_properties(bus,
+                                   "org.freedesktop.resolve1",
+                                   p,
+                                   property_map,
+                                   BUS_MAP_BOOLEAN_AS_BOOL,
+                                   &error,
+                                   ret_reply,
+                                   ret_info);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get link data for %i: %s", ifindex, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(link_info_done) LinkInfo link_info = {};
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_free_ char *p = NULL;
-        char ifi[DECIMAL_STR_MAX(int)], ifname[IF_NAMESIZE];
+        _cleanup_strv_free_ char **pstatus = NULL;
+        char ifname[IF_NAMESIZE];
         int r;
 
         assert(bus);
@@ -1808,21 +1837,13 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 name = ifname;
         }
 
-        xsprintf(ifi, "%i", ifindex);
-        r = sd_bus_path_encode("/org/freedesktop/resolve1/link", ifi, &p);
+        r = bus_map_link_info(bus, ifindex, &m, &link_info);
         if (r < 0)
-                return log_oom();
+                return r;
 
-        r = bus_map_all_properties(bus,
-                                   "org.freedesktop.resolve1",
-                                   p,
-                                   property_map,
-                                   BUS_MAP_BOOLEAN_AS_BOOL,
-                                   &error,
-                                   &m,
-                                   &link_info);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get link data for %i: %s", ifindex, bus_error_message(&error, r));
+        pstatus = link_protocol_status(&link_info);
+        if (!pstatus)
+                return log_oom();
 
         pager_open(arg_pager_flags);
 
@@ -1917,10 +1938,6 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
         }
         if (r < 0)
                 return table_log_add_error(r);
-
-        _cleanup_strv_free_ char **pstatus = link_protocol_status(&link_info);
-        if (!pstatus)
-                return log_oom();
 
         r = table_add_many(table,
                            TABLE_FIELD,       "Protocols",
@@ -2023,7 +2040,7 @@ static int map_global_domains(sd_bus *bus, const char *member, sd_bus_message *m
         return map_domains_internal(bus, member, m, /* with_ifindex= */ true, error, userdata);
 }
 
-static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
+static int bus_map_global_info(sd_bus *bus, sd_bus_message **ret_reply, GlobalInfo *ret_info) {
         static const struct bus_properties_map property_map[] = {
                 { "DNS",                        "a(iiay)",   map_global_dns_servers,           offsetof(GlobalInfo, dns)              },
                 { "DNSEx",                      "a(iiayqs)", map_global_dns_servers_ex,        offsetof(GlobalInfo, dns_ex)           },
@@ -2042,13 +2059,11 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 {}
         };
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(global_info_done) GlobalInfo global_info = {};
-        _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
         assert(bus);
-        assert(empty_line);
+        assert(ret_reply);
+        assert(ret_info);
 
         r = bus_map_all_properties(bus,
                                    "org.freedesktop.resolve1",
@@ -2056,10 +2071,31 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
                                    property_map,
                                    BUS_MAP_BOOLEAN_AS_BOOL,
                                    &error,
-                                   &m,
-                                   &global_info);
+                                   ret_reply,
+                                   ret_info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get global data: %s", bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(global_info_done) GlobalInfo global_info = {};
+        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_strv_free_ char **pstatus = NULL;
+        int r;
+
+        assert(bus);
+        assert(empty_line);
+
+        r = bus_map_global_info(bus, &m, &global_info);
+        if (r < 0)
+                return r;
+
+        pstatus = global_protocol_status(&global_info);
+        if (!pstatus)
+                return log_oom();
 
         pager_open(arg_pager_flags);
 
@@ -2109,10 +2145,6 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
         table = table_new_vertical();
         if (!table)
-                return log_oom();
-
-        _cleanup_strv_free_ char **pstatus = global_protocol_status(&global_info);
-        if (!pstatus)
                 return log_oom();
 
         r = table_add_many(table,
@@ -2249,8 +2281,7 @@ static int map_delegate_domains(sd_bus *bus, const char *member, sd_bus_message 
         return map_domains_internal(bus, member, m, /* with_ifindex= */ false, error, userdata);
 }
 
-static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, bool *empty_line) {
-
+static int bus_map_delegate_info(sd_bus *bus, const char *id, sd_bus_message **ret_reply, DelegateInfo *ret_info) {
         static const struct bus_properties_map property_map[] = {
                 { "DNS",              "a(iiayqs)", map_delegate_dns_servers,        offsetof(DelegateInfo, dns)           },
                 { "CurrentDNSServer", "(iiayqs)",  map_delegate_current_dns_server, offsetof(DelegateInfo, current_dns)   },
@@ -2258,15 +2289,14 @@ static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, boo
                 { "DefaultRoute",     "b",         NULL,                            offsetof(DelegateInfo, default_route) },
                 {}
         };
-
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(delegate_info_done) DelegateInfo delegate_info = {};
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
         assert(bus);
         assert(id);
+        assert(ret_reply);
+        assert(ret_info);
 
         r = sd_bus_path_encode("/org/freedesktop/resolve1/dns_delegate", id, &p);
         if (r < 0)
@@ -2279,10 +2309,25 @@ static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, boo
                         property_map,
                         BUS_MAP_BOOLEAN_AS_BOOL,
                         &error,
-                        &m,
-                        &delegate_info);
+                        ret_reply,
+                        ret_info);
         if (r < 0)
                 return log_error_errno(r, "Failed to get delegate data for %s: %s", id, bus_error_message(&error, r));
+
+        return 0;
+}
+
+static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, bool *empty_line) {
+        _cleanup_(delegate_info_done) DelegateInfo delegate_info = {};
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+        assert(id);
+
+        r = bus_map_delegate_info(bus, id, &m, &delegate_info);
+        if (r < 0)
+                return r;
 
         pager_open(arg_pager_flags);
 
