@@ -1,5 +1,5 @@
 ---
-title: OSC 3008: Hierarchical Context Signalling
+title: "OSC 3008: Hierarchical Context Signalling"
 category: Interfaces
 layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
