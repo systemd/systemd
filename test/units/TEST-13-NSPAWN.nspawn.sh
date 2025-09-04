@@ -1446,7 +1446,7 @@ testcase_unpriv_dir() {
     rm -rf "$root"
 }
 
-testcase_link_journa_hostl() {
+testcase_link_journal_host() {
     local root hoge i
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.link-journal.XXX)"
@@ -1466,6 +1466,24 @@ testcase_link_journa_hostl() {
         [[ "$(stat "$hoge" --format=%u)" == 0 ]]
         rm "$hoge"
     done
+
+    rm -fr "$root"
+}
+
+testcase_cap_net_bind_service() {
+    local root
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.cap-net-bind-service.XXX)"
+    create_dummy_container "$root"
+
+    # Check that CAP_NET_BIND_SERVICE is available without --private-users
+    systemd-nspawn --register=no --directory="$root" capsh --has-b=cap_net_bind_service
+
+    # Check that CAP_NET_BIND_SERVICE is not available with --private-users=identity
+    (! systemd-nspawn --register=no --directory="$root" --private-users=identity capsh --has-b=cap_net_bind_service)
+
+    # Check that CAP_NET_BIND_SERVICE is not available with --private-users=pick
+    (! systemd-nspawn --register=no --directory="$root" --private-users=pick capsh --has-b=cap_net_bind_service)
 
     rm -fr "$root"
 }
