@@ -11,30 +11,31 @@
 static void test_sparse_write_one(int fd, const char *buffer, size_t n) {
         char check[n];
 
-        assert_se(lseek(fd, 0, SEEK_SET) == 0);
-        assert_se(ftruncate(fd, 0) >= 0);
-        assert_se(sparse_write(fd, buffer, n, 4) == (ssize_t) n);
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 0, SEEK_SET), 0);
+        ASSERT_OK_ZERO_ERRNO(ftruncate(fd, 0));
+        ASSERT_EQ(sparse_write(fd, buffer, n, 4), (ssize_t) n);
 
-        assert_se(lseek(fd, 0, SEEK_CUR) == (off_t) n);
-        assert_se(ftruncate(fd, n) >= 0);
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 0, SEEK_CUR), (off_t) n);
+        ASSERT_OK_ZERO_ERRNO(ftruncate(fd, n));
 
-        assert_se(lseek(fd, 0, SEEK_SET) == 0);
-        assert_se(read(fd, check, n) == (ssize_t) n);
+        ASSERT_OK_EQ_ERRNO(lseek(fd, 0, SEEK_SET), 0);
+        ASSERT_OK_EQ_ERRNO(read(fd, check, n), (ssize_t) n);
 
-        assert_se(memcmp(buffer, check, n) == 0);
+        ASSERT_EQ(memcmp(buffer, check, n), 0);
 }
 
 TEST(sparse_write) {
         const char test_a[] = "test";
         const char test_b[] = "\0\0\0\0test\0\0\0\0";
         const char test_c[] = "\0\0test\0\0\0\0";
-        const char test_d[] = "\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0\0\0\0";
+        const char test_d[] =
+                        "\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0test\0\0\0test\0\0\0\0test\0\0\0\0\0\0\0\0";
         const char test_e[] = "test\0\0\0\0test";
         _cleanup_close_ int fd = -EBADF;
         char fn[] = "/tmp/sparseXXXXXX";
 
         fd = mkostemp(fn, O_CLOEXEC);
-        assert_se(fd >= 0);
+        ASSERT_GE(fd, 0);
         (void) unlink(fn);
 
         test_sparse_write_one(fd, test_a, sizeof(test_a));
