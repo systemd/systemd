@@ -240,24 +240,28 @@ static int write_string_file_atomic_at(
         }
 
         r = fopen_temporary_at(dir_fd, fn, &f, &p);
-        if (call_label_ops_post)
-                /* If fopen_temporary_at() failed in the above, propagate the error code, and ignore failures
-                 * in label_ops_post(). */
-                RET_GATHER(r, label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fn, /* created= */ !!f));
+        int k = call_label_ops_post ? label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fn, /* created= */ !!f) : 0;
+        /* If fopen_temporary_at() failed in the above, propagate the error code, and ignore failures in
+         * label_ops_post(). */
         if (r < 0)
-                goto fail;
+                return r;
+        CLEANUP_TMPFILE_AT(dir_fd, p);
+        if (k < 0)
+                return k;
 
         r = write_string_stream_full(f, line, flags, ts);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = fchmod_umask(fileno(f), mode);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = RET_NERRNO(renameat(dir_fd, p, dir_fd, fn));
         if (r < 0)
-                goto fail;
+                return r;
+
+        p = mfree(p); /* disarm CLEANUP_TMPFILE_AT() */
 
         if (FLAGS_SET(flags, WRITE_STRING_FILE_SYNC)) {
                 /* Sync the rename, too */
@@ -267,11 +271,6 @@ static int write_string_file_atomic_at(
         }
 
         return 0;
-
-fail:
-        if (f)
-                (void) unlinkat(dir_fd, p, 0);
-        return r;
 }
 
 int write_string_file_full(
