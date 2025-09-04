@@ -135,6 +135,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         assert(!FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY|CHASE_MUST_BE_REGULAR));
         assert(!FLAGS_SET(flags, CHASE_STEP|CHASE_EXTRACT_FILENAME));
         assert(!FLAGS_SET(flags, CHASE_NO_AUTOFS|CHASE_TRIGGER_AUTOFS));
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
 
         if (FLAGS_SET(flags, CHASE_STEP))
                 assert(!ret_fd);
@@ -218,7 +219,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
          */
 
         _cleanup_close_ int _dir_fd = -EBADF;
-        if (dir_fd < 0 && dir_fd != AT_FDCWD) {
+        if (dir_fd == XAT_FDROOT) {
                 _dir_fd = open("/", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
                 if (_dir_fd < 0)
                         return -errno;
