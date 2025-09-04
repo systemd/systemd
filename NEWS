@@ -1,5 +1,11 @@
 systemd System and Service Manager
 
+CHANGES WITH 259 in spe:
+
+        * homectl's --recovery-key= option may now be used with the "update"
+          command to add recovery keys to existing user accounts. Previously,
+          recovery keys could only be configured during initial user creation.
+
 CHANGES WITH 258:
 
         Incompatible changes:
