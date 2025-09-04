@@ -64,6 +64,7 @@ int manager_serialize(Manager *manager) {
 
         if (!v) {
                 log_debug("There is nothing to serialize.");
+                (void) notify_remove_fd_warn("manager-serialization");
                 return 0;
         }
 
