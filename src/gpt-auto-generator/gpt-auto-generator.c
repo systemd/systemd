@@ -1063,15 +1063,6 @@ static int enumerate_partitions(dev_t devnum) {
         _cleanup_free_ char *devname = NULL;
         int r;
 
-        static const PartitionDesignator ignore_designators[] = {
-                PARTITION_ROOT,
-                PARTITION_ROOT_VERITY,
-                PARTITION_ROOT_VERITY_SIG,
-                PARTITION_USR,
-                PARTITION_USR_VERITY,
-                PARTITION_USR_VERITY_SIG,
-        };
-
         assert(!in_initrd());
 
         /* Run on the final root fs (not in the initrd), to mount auxiliary partitions, and hook in rw
@@ -1087,14 +1078,6 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_debug_errno(r, "Failed to get device node of " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devnum));
 
-        _cleanup_(image_policy_freep) ImagePolicy *image_policy = NULL;
-        r = image_policy_ignore_designators(
-                        arg_image_policy ?: &image_policy_host,
-                        ignore_designators, ELEMENTSOF(ignore_designators),
-                        &image_policy);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to mark root/usr designators as ignore in image policy: %m");
-
         /* Let's take a LOCK_SH lock on the block device, in case udevd is already running. If we don't take
          * the lock, udevd might end up issuing BLKRRPART in the middle, and we don't want that, since that
          * might remove all partitions while we are operating on them. */
@@ -1104,9 +1087,9 @@ static int enumerate_partitions(dev_t devnum) {
 
         r = dissect_loop_device(
                         loop,
-                        /* verity= */ NULL,
+                        &VERITY_SETTINGS_DEFAULT,
                         /* mount_options= */ NULL,
-                        image_policy,
+                        arg_image_policy ?: &image_policy_host,
                         arg_image_filter,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT|
