@@ -27,76 +27,113 @@ static int run(int argc, char **argv) {
          * around yet. */
 
 #if HAVE_LIBIDN2 || HAVE_LIBIDN
-        assert_se(dlopen_idn() >= 0);
+        ASSERT_OK(dlopen_idn());
+#else
+        ASSERT_ERROR(dlopen_idn(), EOPNOTSUPP);
 #endif
 
 #if HAVE_LIBCRYPTSETUP
-        assert_se(dlopen_cryptsetup() >= 0);
+        ASSERT_OK(dlopen_cryptsetup());
+#else
+        ASSERT_ERROR(dlopen_cryptsetup(), EOPNOTSUPP);
 #endif
 
 #if HAVE_PASSWDQC
-        assert_se(dlopen_passwdqc() >= 0);
+        ASSERT_OK(dlopen_passwdqc());
+#else
+        ASSERT_ERROR(dlopen_passwdqc(), EOPNOTSUPP);
 #endif
 
 #if HAVE_PWQUALITY
-        assert_se(dlopen_pwquality() >= 0);
+        ASSERT_OK(dlopen_pwquality());
+#else
+        ASSERT_ERROR(dlopen_pwquality(), EOPNOTSUPP);
 #endif
 
 #if HAVE_QRENCODE
-        assert_se(dlopen_qrencode() >= 0);
+        ASSERT_OK(dlopen_qrencode());
+#else
+        ASSERT_ERROR(dlopen_qrencode(), EOPNOTSUPP);
 #endif
 
 #if HAVE_TPM2
-        assert_se(dlopen_tpm2() >= 0);
+        ASSERT_OK(dlopen_tpm2());
+#else
+        ASSERT_ERROR(dlopen_tpm2(), EOPNOTSUPP);
 #endif
 
 #if HAVE_LIBFIDO2
-        assert_se(dlopen_libfido2() >= 0);
+        ASSERT_OK(dlopen_libfido2());
+#else
+        ASSERT_ERROR(dlopen_libfido2(), EOPNOTSUPP);
 #endif
 
 #if HAVE_LIBBPF
-        assert_se(dlopen_bpf() >= 0);
+        ASSERT_OK(dlopen_bpf());
+#else
+        ASSERT_ERROR(dlopen_bpf(), EOPNOTSUPP);
 #endif
 
 #if HAVE_ELFUTILS
-        assert_se(dlopen_dw() >= 0);
-        assert_se(dlopen_elf() >= 0);
+        ASSERT_OK(dlopen_dw());
+        ASSERT_OK(dlopen_elf());
+#else
+        ASSERT_ERROR(dlopen_dw(), EOPNOTSUPP);
+        ASSERT_ERROR(dlopen_elf(), EOPNOTSUPP);
 #endif
 
 #if HAVE_PCRE2
-        assert_se(dlopen_pcre2() >= 0);
+        ASSERT_OK(dlopen_pcre2());
+#else
+        ASSERT_ERROR(dlopen_pcre2(), EOPNOTSUPP);
 #endif
 
 #if HAVE_P11KIT
-        assert_se(dlopen_p11kit() >= 0);
+        ASSERT_OK(dlopen_p11kit());
+#else
+        ASSERT_ERROR(dlopen_p11kit(), EOPNOTSUPP);
 #endif
 
 #if HAVE_LIBARCHIVE
-        assert_se(dlopen_libarchive() >= 0);
+        ASSERT_OK(dlopen_libarchive());
+#else
+        ASSERT_ERROR(dlopen_libarchive(), EOPNOTSUPP);
 #endif
 
 #if HAVE_LZ4
-        assert_se(dlopen_lz4() >= 0);
+        ASSERT_OK(dlopen_lz4());
+#else
+        ASSERT_ERROR(dlopen_lz4(), EOPNOTSUPP);
 #endif
 
 #if HAVE_ZSTD
-        assert_se(dlopen_zstd() >= 0);
+        ASSERT_OK(dlopen_zstd());
+#else
+        ASSERT_ERROR(dlopen_zstd(), EOPNOTSUPP);
 #endif
 
 #if HAVE_XZ
-        assert_se(dlopen_lzma() >= 0);
+        ASSERT_OK(dlopen_lzma());
+#else
+        ASSERT_ERROR(dlopen_lzma(), EOPNOTSUPP);
 #endif
 
 #if HAVE_GCRYPT
-        assert_se(initialize_libgcrypt(/* secmem= */ false) >= 0);
+        ASSERT_OK(initialize_libgcrypt(/* secmem= */ false));
+#else
+        ASSERT_ERROR(initialize_libgcrypt(/* secmem= */ false), EOPNOTSUPP);
 #endif
 
 #if HAVE_KMOD
-        assert_se(dlopen_libkmod() >= 0);
+        ASSERT_OK(dlopen_libkmod());
+#else
+        ASSERT_ERROR(dlopen_libkmod(), EOPNOTSUPP);
 #endif
 
 #if HAVE_APPARMOR
-        assert_se(dlopen_libapparmor() >= 0);
+        ASSERT_OK(dlopen_libapparmor());
+#else
+        ASSERT_ERROR(dlopen_libapparmor(), EOPNOTSUPP);
 #endif
 
         return 0;

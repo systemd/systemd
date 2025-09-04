@@ -16,6 +16,8 @@ typedef enum Fido2EnrollFlags {
         _FIDO2ENROLL_TYPE_INVALID = -EINVAL,
 } Fido2EnrollFlags;
 
+int dlopen_libfido2(void);
+
 #if HAVE_LIBFIDO2
 #include <fido.h>
 
@@ -69,8 +71,6 @@ extern DLSYM_PROTOTYPE(fido_dev_open);
 extern DLSYM_PROTOTYPE(fido_init);
 extern DLSYM_PROTOTYPE(fido_set_log_handler);
 extern DLSYM_PROTOTYPE(fido_strerr);
-
-int dlopen_libfido2(void);
 
 static inline void fido_cbor_info_free_wrapper(fido_cbor_info_t **p) {
         if (*p)
