@@ -2408,10 +2408,20 @@ static int unit_log_resources(Unit *u) {
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
 
                 /* Format the CPU time for inclusion in the human language message string */
-                if (strextendf_with_separator(&message, ", ",
-                                              "Consumed %s CPU time",
-                                              FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC)) < 0)
-                        return log_oom();
+                if (dual_timestamp_is_set(&u->inactive_exit_timestamp) &&
+                    dual_timestamp_is_set(&u->inactive_enter_timestamp)) {
+                        usec_t wall_clock_usec = usec_sub_unsigned(u->inactive_enter_timestamp.monotonic, u->inactive_exit_timestamp.monotonic);
+                        if (strextendf_with_separator(&message, ", ",
+                                                      "Consumed %s CPU time over %s wall clock time",
+                                                      FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC),
+                                                      FORMAT_TIMESPAN(wall_clock_usec, USEC_PER_MSEC)) < 0)
+                                return log_oom();
+                } else {
+                        if (strextendf_with_separator(&message, ", ",
+                                                      "Consumed %s CPU time",
+                                                      FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC)) < 0)
+                                return log_oom();
+                }
 
                 log_level = raise_level(log_level,
                                         cpu_nsec > MENTIONWORTHY_CPU_NSEC,
