@@ -92,7 +92,7 @@ static int build_managed_oom_cgroups_json(Manager *m, sd_json_variant **ret) {
                                 continue;
 
                         c = unit_get_cgroup_context(u);
-                        if (!c)
+                        if (!c || !c->cgroup_path)
                                 continue;
 
                         FOREACH_ELEMENT(i, managed_oom_mode_properties) {
@@ -244,7 +244,7 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         }
 
         c = unit_get_cgroup_context(u);
-        if (!c)
+        if (!c || !c->cgroup_path)
                 return 0;
 
         r = sd_json_build(&arr, SD_JSON_BUILD_EMPTY_ARRAY);
