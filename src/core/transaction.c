@@ -1235,7 +1235,7 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
         return 0;
 }
 
-Transaction *transaction_new(bool irreversible) {
+Transaction* transaction_new(bool irreversible) {
         Transaction *tr;
 
         tr = new0(Transaction, 1);
@@ -1251,7 +1251,7 @@ Transaction *transaction_new(bool irreversible) {
         return tr;
 }
 
-Transaction *transaction_free(Transaction *tr) {
+Transaction* transaction_free(Transaction *tr) {
         if (!tr)
                 return NULL;
 
@@ -1261,7 +1261,7 @@ Transaction *transaction_free(Transaction *tr) {
         return mfree(tr);
 }
 
-Transaction *transaction_abort_and_free(Transaction *tr) {
+Transaction* transaction_abort_and_free(Transaction *tr) {
         if (!tr)
                 return NULL;
 
