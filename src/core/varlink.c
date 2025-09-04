@@ -95,6 +95,10 @@ static int build_managed_oom_cgroups_json(Manager *m, sd_json_variant **ret) {
                         if (!c)
                                 continue;
 
+                        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+                        if (!crt || !crt->cgroup_path)
+                                continue;
+
                         FOREACH_ELEMENT(i, managed_oom_mode_properties) {
                                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL;
 
