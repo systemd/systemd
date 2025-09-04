@@ -2191,12 +2191,16 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         return 0;
 }
 
-static int status_links(sd_bus *bus, StatusMode mode, bool *empty_line) {
+static int rtnl_get_interface_infos(sd_bus *bus, InterfaceInfo **ret_infos, size_t *ret_num_infos) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int ret = 0, r;
+        _cleanup_free_ InterfaceInfo *infos = NULL;
+        size_t n_infos = 0;
+        int r;
 
         assert(bus);
+        assert(ret_infos);
+        assert(ret_num_infos);
 
         r = sd_netlink_open(&rtnl);
         if (r < 0)
@@ -2213,9 +2217,6 @@ static int status_links(sd_bus *bus, StatusMode mode, bool *empty_line) {
         r = sd_netlink_call(rtnl, req, 0, &reply);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate links: %m");
-
-        _cleanup_free_ InterfaceInfo *infos = NULL;
-        size_t n_infos = 0;
 
         for (sd_netlink_message *i = reply; i; i = sd_netlink_message_next(i)) {
                 const char *name;
@@ -2247,6 +2248,23 @@ static int status_links(sd_bus *bus, StatusMode mode, bool *empty_line) {
         }
 
         typesafe_qsort(infos, n_infos, interface_info_compare);
+
+        *ret_infos = TAKE_PTR(infos);
+        *ret_num_infos = n_infos;
+
+        return 0;
+}
+
+static int status_links(sd_bus *bus, StatusMode mode, bool *empty_line) {
+        _cleanup_free_ InterfaceInfo *infos = NULL;
+        size_t n_infos = 0;
+        int ret = 0, r;
+
+        assert(bus);
+
+        r = rtnl_get_interface_infos(bus, &infos, &n_infos);
+        if (r < 0)
+                return r;
 
         FOREACH_ARRAY(info, infos, n_infos)
                 RET_GATHER(ret, status_ifindex(bus, info->index, info->name, mode, empty_line));
