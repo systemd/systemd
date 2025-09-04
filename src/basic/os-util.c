@@ -152,10 +152,10 @@ int open_os_release_at(int rfd, char **ret_path, int *ret_fd) {
 
         e = secure_getenv("SYSTEMD_OS_RELEASE");
         if (e)
-                return chaseat(rfd, e, CHASE_AT_RESOLVE_IN_ROOT, ret_path, ret_fd);
+                return chaseat(rfd, e, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, ret_path, ret_fd);
 
         FOREACH_STRING(path, "/etc/os-release", "/usr/lib/os-release") {
-                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, ret_path, ret_fd);
+                r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, ret_path, ret_fd);
                 if (r != -ENOENT)
                         return r;
         }
