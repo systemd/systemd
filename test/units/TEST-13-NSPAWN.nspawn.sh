@@ -1446,7 +1446,7 @@ testcase_unpriv_dir() {
     rm -rf "$root"
 }
 
-testcase_link_journa_hostl() {
+testcase_link_journal_host() {
     local root hoge i
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.link-journal.XXX)"
