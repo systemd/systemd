@@ -650,14 +650,16 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l, Writ
         }
 
         r = fopen_tmpfile_linkable_at(dir_fd, fname, O_WRONLY|O_CLOEXEC, &p, &f);
-        if (call_label_ops_post)
-                RET_GATHER(r, label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fname, /* created= */ !!f));
+        int k = call_label_ops_post ? label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fname, /* created= */ !!f) : 0;
         if (r < 0)
                 return r;
+        CLEANUP_TMPFILE_AT(dir_fd, p);
+        if (k < 0)
+                return k;
 
         r = fchmod_umask(fileno(f), 0644);
         if (r < 0)
-                goto fail;
+                return r;
 
         STRV_FOREACH(i, headers) {
                 assert(isempty(*i) || startswith(*i, "#"));
@@ -670,15 +672,11 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l, Writ
 
         r = flink_tmpfile_at(f, dir_fd, p, fname, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)
-                goto fail;
+                return r;
+
+        p = mfree(p); /* disarm CLEANUP_TMPFILE_AT() */
 
         return 0;
-
-fail:
-        if (p)
-                (void) unlinkat(dir_fd, p, 0);
-
-        return r;
 }
 
 int write_vconsole_conf(int dir_fd, const char *fname, char **l) {
