@@ -7949,6 +7949,48 @@ F20000-F20FFF     (base 16)		Thermaco Incorporated
 				Graz    8054
 				AT
 
+8C-1F-64   (hex)		Omnilink Tecnologia S/A
+023000-023FFF     (base 16)		Omnilink Tecnologia S/A
+				Alameda Tocantins, 350, Edificio West Corp, 13° andar, Alphaville Industrial
+				Barueri  SP  06455-020
+				BR
+
+8C-1F-64   (hex)		GETQCALL
+37A000-37AFFF     (base 16)		GETQCALL
+				23 Lorraine Drive 
+				North York   ON  M2N6Z6
+				CA
+
+8C-1F-64   (hex)		Vinfast Trading and Production JSC
+F80000-F80FFF     (base 16)		Vinfast Trading and Production JSC
+				Dinh Vu - Cat Hai Economic Zone, Cai Hai Island, Cat Hai Sepcial Administrative Zone
+				Hai Phong  Hai Phong  180000
+				VN
+
+8C-1F-64   (hex)		YDIIT Co., Ltd.
+1FA000-1FAFFF     (base 16)		YDIIT Co., Ltd.
+				#3010, U-Tower, 120, Heungdeokjungang-ro, Giheung-gu,
+				Yongin  Gyeonggi  16950
+				KR
+
+8C-1F-64   (hex)		BEST
+0A2000-0A2FFF     (base 16)		BEST
+				16, Deogyang-daero 1556beon-gil, Yeongtong-gu, ,  E-dong 1401ho, South Korea
+				수원  Gyeonggi-do  16690
+				KR
+
+8C-1F-64   (hex)		AUREKA SMART LIVING W.L.L
+689000-689FFF     (base 16)		AUREKA SMART LIVING W.L.L
+				Office 22, Bldg 288C, Avenue 16, Hidd
+				Hidd    0111
+				BH
+
+8C-1F-64   (hex)		Embedded Designs Services India Pvt Ltd
+CD7000-CD7FFF     (base 16)		Embedded Designs Services India Pvt Ltd
+				Unit No. 1119-20, 11th Floor, Tower 5, 12th Avenue, RPS Infinia, Faridabad, Haryana
+				Faridabad  Haryana  121001
+				IN
+
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
 				7765 Old Telegraph Road
@@ -15910,6 +15952,42 @@ D12000-D12FFF     (base 16)		QUANZHOU RADIOBOSS TECHNOLOGY CO., LTD
 				9 F., No. 202, Sec. 2, Yanping N. Rd., Datong Dist.
 				Taipei City    103606
 				TW
+
+8C-1F-64   (hex)		Foenix Coding Ltd
+DA4000-DA4FFF     (base 16)		Foenix Coding Ltd
+				The Barns - Hilltop Farm Lyne Lane
+				Chertsey  Surrey  KT16 0AW
+				GB
+
+8C-1F-64   (hex)		Rail Telematics Corp
+7C1000-7C1FFF     (base 16)		Rail Telematics Corp
+				494 6th Ave S
+				Jacksonville Beach    32250
+				US
+
+8C-1F-64   (hex)		Vigor Electric Corp.
+A64000-A64FFF     (base 16)		Vigor Electric Corp.
+				No.116, Xingzhong Rd., Danshui Dist., New Taipei City 25152, Taiwan (R.O.C.)
+				Danshui Dist.  New Taipei City  25152
+				TW
+
+8C-1F-64   (hex)		YUYAMA MFG Co.,Ltd
+70A000-70AFFF     (base 16)		YUYAMA MFG Co.,Ltd
+				1-4-30
+				MEISHINGUCHI,TOYONAKA  OSAKA  561-0841
+				JP
+
+8C-1F-64   (hex)		Sonic Italia
+8D2000-8D2FFF     (base 16)		Sonic Italia
+				Viale A. De Gasperi 76
+				Rho  Lombardia  20017
+				IT
+
+8C-1F-64   (hex)		HyperSilicon Co.,Ltd
+E26000-E26FFF     (base 16)		HyperSilicon Co.,Ltd
+				Room A11-A12，Yankuang Xinda Building,NO.66 Danshan Road，Xishan Ditrict
+				Wuxi  Jiangsu  214105
+				CN
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -23927,6 +24005,48 @@ A2F000-A2FFFF     (base 16)		AMC Europe Kft.
 				GuangZhou  GuangDong  51000
 				CN
 
+8C-1F-64   (hex)		Bots Unlimited LLC
+69D000-69DFFF     (base 16)		Bots Unlimited LLC
+				5817 La Colonia
+				San Antonio  TX  78218
+				US
+
+8C-1F-64   (hex)		Potter Electric Signal Co. LLC
+690000-690FFF     (base 16)		Potter Electric Signal Co. LLC
+				1609 Park 370 Place
+				Hazelwood  MO  63042
+				US
+
+8C-1F-64   (hex)		HARBIN DIGITAL ECONOMY DEVELOPMENT CO.,LTD
+EC2000-EC2FFF     (base 16)		HARBIN DIGITAL ECONOMY DEVELOPMENT CO.,LTD
+				No. 22, Binhe Avenue, Pingfang District
+				Harbin  Heilongjiang  150060
+				CN
+
+8C-1F-64   (hex)		Combined Public Communications, LLC
+6E8000-6E8FFF     (base 16)		Combined Public Communications, LLC
+				100 Aqua Drive
+				Cold Spring  KY  41076
+				US
+
+8C-1F-64   (hex)		Image Soft Oy
+843000-843FFF     (base 16)		Image Soft Oy
+				Valimotie 13A
+				HELSINKI    00380
+				FI
+
+8C-1F-64   (hex)		DEUTA Werke GmbH
+546000-546FFF     (base 16)		DEUTA Werke GmbH
+				ET
+				Bergisch Gladbach  NRW  51465
+				DE
+
+8C-1F-64   (hex)		Salience Labs
+078000-078FFF     (base 16)		Salience Labs
+				100 Park Drive
+				Abingdon-on-Thames  Oxfordshire  OX14 4RY
+				GB
+
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
 				Suite 2, Level 3, 18 - 20 York St
@@ -31913,6 +32033,30 @@ F54000-F54FFF     (base 16)		Rowan Tools Office
 				Hamamatsu  Shizuoka  4300918
 				JP
 
+8C-1F-64   (hex)		RADA Electronics Industries Ltd.
+B35000-B35FFF     (base 16)		RADA Electronics Industries Ltd.
+				7 Gibory Israel St.
+				Netanya    42504
+				IL
+
+8C-1F-64   (hex)		MB connect line GmbH
+46D000-46DFFF     (base 16)		MB connect line GmbH
+				Winnettener Strasse 6
+				Dinkelsbuehl  Bavaria  91550
+				DE
+
+8C-1F-64   (hex)		Intellicon Private Limited
+BF7000-BF7FFF     (base 16)		Intellicon Private Limited
+				Plot No. E-14,14/1,15,15/1,16,16/1/2,16/1/3,Sector - 26, GIDC Electronic Zone,Gandhinagar-382028, India
+				Gandhinagar  Gujarat  382028
+				IN
+
+8C-1F-64   (hex)		Nihon Bouhan Camera Inc
+9A7000-9A7FFF     (base 16)		Nihon Bouhan Camera Inc
+				7F Daiichikosam Bldg ,3-14-10,Ginza
+				Chuou-ku  Tokyo  104-0061
+				JP
+
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
 				13 Hartom st.
@@ -39771,4 +39915,34 @@ FC6000-FC6FFF     (base 16)		Invertek Drives Ltd
 686000-686FFF     (base 16)		Pazzk
 				7, Geombae-ro404, 4F
 				Guri-si    11929
+				KR
+
+8C-1F-64   (hex)		MOIZ
+37C000-37CFFF     (base 16)		MOIZ
+				25 Avenue des Martyrsc/o Institut Neel Bat E - BP166
+				Grenoble Cedex 9    38042
+				FR
+
+8C-1F-64   (hex)		METABUILD
+E36000-E36FFF     (base 16)		METABUILD
+				62, Seochojungang-ro
+				Seocho-gu  Seoul  KS013
+				KR
+
+8C-1F-64   (hex)		Realtek Semiconductor Corp.
+D5A000-D5AFFF     (base 16)		Realtek Semiconductor Corp.
+				No. 2, Innovation Road II, Hsinchu Science Park, Hsinchu 300
+				Taiwan  Guangdong  300
+				CN
+
+8C-1F-64   (hex)		LUNEAU TECHNOLOGY OPERATIONS
+C6F000-C6FFFF     (base 16)		LUNEAU TECHNOLOGY OPERATIONS
+				2, rue Roger Bonnet
+				Pont De L'Arche  France  27340
+				FR
+
+8C-1F-64   (hex)		JISEONGENG Co,.LTD
+0E3000-0E3FFF     (base 16)		JISEONGENG Co,.LTD
+				80 Seungsamsin-ri-gil, Yonggang-dong, Gyeongju-si, Gyeongsangbuk-do
+				Gyeongju city    38090
 				KR
