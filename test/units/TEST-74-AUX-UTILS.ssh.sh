@@ -3,7 +3,7 @@
 set -eux
 set -o pipefail
 
-if ! command -v ssh &> /dev/null || ! command -v sshd &> /dev/null ; then
+if ! command -v ssh >/dev/null || ! command -v sshd >/dev/null ; then
     echo "ssh/sshd not found, skipping test." >&2
     exit 0
 fi
@@ -58,11 +58,11 @@ ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" .host cat /etc/machine-id | cmp 
 ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" unix/run/ssh-unix-local/socket cat /etc/machine-id | cmp - /etc/machine-id
 ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" machine/.host cat /etc/machine-id | cmp - /etc/machine-id
 
-modprobe vsock_loopback ||:
+modprobe vsock_loopback || :
 if test -e /dev/vsock -a -d /sys/module/vsock_loopback ; then
     ssh -o StrictHostKeyChecking=no -v -i "$ROOTID" vsock/1 cat /etc/machine-id | cmp - /etc/machine-id
 
-    if ! command -v scp &> /dev/null ; then
+    if ! command -v scp >/dev/null ; then
         echo "scp not found, skipping subtest" >&2
     else
         OUT_FILE=$(mktemp -u)

@@ -9,7 +9,7 @@ mount -t ddi "$MINIMAL_IMAGE.gpt" "$dir" -o ro,X-mount.mkdir,discard
 umount -R "$dir"
 
 # Test systemd-repart --make-ddi=:
-if [[ -z "${OPENSSL_CONFIG:?}" ]] || ! command -v mksquashfs &>/dev/null; then
+if [[ -z "${OPENSSL_CONFIG:?}" ]] || ! command -v mksquashfs >/dev/null; then
     echo "Skipping --make-ddi= tests"
     exit 0
 fi
