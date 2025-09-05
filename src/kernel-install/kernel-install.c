@@ -109,7 +109,15 @@ typedef struct Context {
         char **envp;
 } Context;
 
-#define CONTEXT_NULL (Context) { .rfd = -EBADF }
+#define CONTEXT_NULL                                                    \
+        (Context) {                                                     \
+                .rfd = XAT_FDROOT,                                      \
+                .action = _ACTION_INVALID,                              \
+                .kernel_image_type = _KERNEL_IMAGE_TYPE_INVALID,        \
+                .layout = _LAYOUT_INVALID,                              \
+                .entry_type = _BOOT_ENTRY_TYPE_INVALID,                 \
+                .entry_token_type = _BOOT_ENTRY_TOKEN_TYPE_INVALID,     \
+        }
 
 static void context_done(Context *c) {
         assert(c);
@@ -768,9 +776,18 @@ static int context_ensure_layout(Context *c) {
         if (!srel_path)
                 return log_oom();
 
-        _cleanup_free_ char *srel = NULL;
-        r = read_one_line_file_at(c->rfd, srel_path, &srel);
-        if (r >= 0) {
+        _cleanup_fclose_ FILE *f = NULL;
+        r = chase_and_fopenat_unlocked(c->rfd, srel_path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to open '%s': %m", srel_path);
+        } else {
+                _cleanup_free_ char *srel = NULL;
+
+                r = read_line(f, LONG_LINE_MAX, &srel);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read %s: %m", srel_path);
+
                 if (streq(srel, "type1"))
                         /* The loader/entries.srel file clearly indicates that the installed boot loader
                          * implements the proper standard upstream boot loader spec for Type #1 entries.
@@ -784,17 +801,17 @@ static int context_ensure_layout(Context *c) {
 
                 log_debug("%s with '%s' found, using layout=%s.", srel_path, srel, layout_to_string(c->layout));
                 return 0;
-        } else if (r != -ENOENT)
-                return log_error_errno(r, "Failed to read %s: %m", srel_path);
+        }
 
         _cleanup_free_ char *entry_token_path = path_join(c->boot_root, c->entry_token);
         if (!entry_token_path)
                 return log_oom();
 
-        r = is_dir_at(c->rfd, entry_token_path, /* follow= */ false);
-        if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to check if '%s' is a directory: %m", entry_token_path);
-        if (r > 0) {
+        r = chaseat(c->rfd, entry_token_path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, /* ret_fd= */ NULL);
+        if (r < 0) {
+                if (!IN_SET(r, -ENOENT, -ENOTDIR))
+                        return log_error_errno(r, "Failed to check if '%s' exists and is a directory: %m", entry_token_path);
+        } else {
                 /* If the metadata in $BOOT_ROOT doesn't tell us anything, then check if the entry token
                  * directory already exists. If so, let's assume it's the standard boot loader spec, too. */
                 c->layout = LAYOUT_BLS;
@@ -1091,6 +1108,26 @@ static bool bypass(void) {
         return should_bypass("KERNEL_INSTALL");
 }
 
+static int kernel_from_version(const char *version, char **ret_kernel) {
+        _cleanup_free_ char *vmlinuz = NULL;
+        int r;
+
+        assert(version);
+
+        vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
+        if (!vmlinuz)
+                return log_oom();
+
+        r = access_nofollow(vmlinuz, F_OK);
+        if (r == -ENOENT)
+                return log_error_errno(r, "Kernel image not installed to '%s', specify kernel kernel image path explicitly.", vmlinuz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if kernel image is installed to '%s': %m", vmlinuz);
+
+        *ret_kernel = TAKE_PTR(vmlinuz);
+        return 0;
+}
+
 static int do_add(
                 Context *c,
                 const char *version,
@@ -1100,8 +1137,21 @@ static int do_add(
         int r;
 
         assert(c);
-        assert(version);
-        assert(kernel);
+
+        struct utsname un;
+        if (!version) {
+                assert_se(uname(&un) >= 0);
+                version = un.release;
+        }
+
+        _cleanup_free_ char *vmlinuz = NULL;
+        if (!kernel) {
+                r = kernel_from_version(version, &vmlinuz);
+                if (r < 0)
+                        return r;
+
+                kernel = vmlinuz;
+        }
 
         r = context_set_version(c, version);
         if (r < 0)
@@ -1122,38 +1172,12 @@ static int do_add(
         return context_execute(c);
 }
 
-static int kernel_from_version(const char *version, char **ret_kernel) {
-        _cleanup_free_ char *vmlinuz = NULL;
-        int r;
-
-        assert(version);
-
-        vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
-        if (!vmlinuz)
-                return log_oom();
-
-        r = access_nofollow(vmlinuz, F_OK);
-        if (r == -ENOENT)
-                return log_error_errno(r, "Kernel image not installed to '%s', requiring manual kernel image path specification.", vmlinuz);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine if kernel image is installed to '%s': %m", vmlinuz);
-
-        *ret_kernel = TAKE_PTR(vmlinuz);
-        return 0;
-}
-
 static int verb_add(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
-        _cleanup_free_ char *vmlinuz = NULL;
         const char *version, *kernel;
         char **initrds;
-        struct utsname un;
-        int r;
 
         assert(argv);
-
-        if (arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add' does not support --root= or --image=.");
 
         if (bypass())
                 return 0;
@@ -1167,19 +1191,6 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         kernel = argc > 2 ? empty_or_dash_to_null(argv[2]) :
                 (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
         initrds = strv_skip(argv, 3);
-
-        if (!version) {
-                assert_se(uname(&un) >= 0);
-                version = un.release;
-        }
-
-        if (!kernel) {
-                r = kernel_from_version(version, &vmlinuz);
-                if (r < 0)
-                        return r;
-
-                kernel = vmlinuz;
-        }
 
         return do_add(c, version, kernel, initrds);
 }
@@ -1661,6 +1672,11 @@ static int parse_argv(int argc, char *argv[], Context *c) {
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
+        if (c->kernel_image_type < 0)
+                c->kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN;
+        if (c->entry_token_type < 0)
+                c->entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+
         return 1;
 }
 
@@ -1673,24 +1689,17 @@ static int run(int argc, char* argv[]) {
                 { "list",        1,        1,        0,            verb_list           },
                 {}
         };
-        _cleanup_(context_done) Context c = {
-                .rfd = AT_FDCWD,
-                .action = _ACTION_INVALID,
-                .kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN,
-                .layout = _LAYOUT_INVALID,
-                .entry_type = _BOOT_ENTRY_TYPE_INVALID,
-                .entry_token_type = BOOT_ENTRY_TOKEN_AUTO,
-        };
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
 
         log_setup();
 
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
         r = parse_argv(argc, argv, &c);
         if (r <= 0)
                 return r;
 
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         if (arg_image) {
                 assert(!arg_root);
 
