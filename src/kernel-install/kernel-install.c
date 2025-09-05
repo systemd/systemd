@@ -109,7 +109,15 @@ typedef struct Context {
         char **envp;
 } Context;
 
-#define CONTEXT_NULL (Context) { .rfd = -EBADF }
+#define CONTEXT_NULL                                                    \
+        (Context) {                                                     \
+                .rfd = -EBADF,                                          \
+                .action = _ACTION_INVALID,                              \
+                .kernel_image_type = _KERNEL_IMAGE_TYPE_INVALID,        \
+                .layout = _LAYOUT_INVALID,                              \
+                .entry_type = _BOOT_ENTRY_TYPE_INVALID,                 \
+                .entry_token_type = _BOOT_ENTRY_TOKEN_TYPE_INVALID,     \
+        }
 
 static void context_done(Context *c) {
         assert(c);
@@ -1085,37 +1093,6 @@ static bool bypass(void) {
         return should_bypass("KERNEL_INSTALL");
 }
 
-static int do_add(
-                Context *c,
-                const char *version,
-                const char *kernel,
-                char **initrds) {
-
-        int r;
-
-        assert(c);
-        assert(version);
-        assert(kernel);
-
-        r = context_set_version(c, version);
-        if (r < 0)
-                return r;
-
-        r = context_set_kernel(c, kernel);
-        if (r < 0)
-                return r;
-
-        r = context_set_initrds(c, initrds);
-        if (r < 0)
-                return r;
-
-        r = context_prepare_execution(c);
-        if (r < 0)
-                return r;
-
-        return context_execute(c);
-}
-
 static int kernel_from_version(const char *version, char **ret_kernel) {
         _cleanup_free_ char *vmlinuz = NULL;
         int r;
@@ -1136,18 +1113,56 @@ static int kernel_from_version(const char *version, char **ret_kernel) {
         return 0;
 }
 
-static int verb_add(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
-        _cleanup_free_ char *vmlinuz = NULL;
-        const char *version, *kernel;
-        char **initrds;
-        struct utsname un;
+static int do_add(
+                Context *c,
+                const char *version,
+                const char *kernel,
+                char **initrds) {
+
         int r;
 
-        assert(argv);
+        assert(c);
 
-        if (arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add' does not support --root= or --image=.");
+        struct utsname un;
+        if (!version) {
+                assert_se(uname(&un) >= 0);
+                version = un.release;
+        }
+
+        _cleanup_free_ char *vmlinuz = NULL;
+        if (!kernel) {
+                r = kernel_from_version(version, &vmlinuz);
+                if (r < 0)
+                        return r;
+
+                kernel = vmlinuz;
+        }
+
+        r = context_set_version(c, version);
+        if (r < 0)
+                return r;
+
+        r = context_set_kernel(c, kernel);
+        if (r < 0)
+                return r;
+
+        r = context_set_initrds(c, initrds);
+        if (r < 0)
+                return r;
+
+        r = context_prepare_execution(c);
+        if (r < 0)
+                return r;
+
+        return context_execute(c);
+}
+
+static int verb_add(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
+        const char *version, *kernel;
+        char **initrds;
+
+        assert(argv);
 
         if (bypass())
                 return 0;
@@ -1161,19 +1176,6 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         kernel = argc > 2 ? empty_or_dash_to_null(argv[2]) :
                 (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
         initrds = strv_skip(argv, 3);
-
-        if (!version) {
-                assert_se(uname(&un) >= 0);
-                version = un.release;
-        }
-
-        if (!kernel) {
-                r = kernel_from_version(version, &vmlinuz);
-                if (r < 0)
-                        return r;
-
-                kernel = vmlinuz;
-        }
 
         return do_add(c, version, kernel, initrds);
 }
@@ -1654,6 +1656,11 @@ static int parse_argv(int argc, char *argv[], Context *c) {
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
+        if (c->kernel_image_type < 0)
+                c->kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN;
+        if (c->entry_token_type < 0)
+                c->entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+
         return 1;
 }
 
@@ -1666,24 +1673,17 @@ static int run(int argc, char* argv[]) {
                 { "list",        1,        1,        0,            verb_list           },
                 {}
         };
-        _cleanup_(context_done) Context c = {
-                .rfd = AT_FDCWD,
-                .action = _ACTION_INVALID,
-                .kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN,
-                .layout = _LAYOUT_INVALID,
-                .entry_type = _BOOT_ENTRY_TYPE_INVALID,
-                .entry_token_type = BOOT_ENTRY_TOKEN_AUTO,
-        };
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
 
         log_setup();
 
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
         r = parse_argv(argc, argv, &c);
         if (r <= 0)
                 return r;
 
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         if (arg_image) {
                 assert(!arg_root);
 
