@@ -1726,13 +1726,15 @@ int openssl_load_private_key(
 
         assert(private_key);
         assert(request);
+        assert(ret_private_key);
 
         if (private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                 r = openssl_load_private_key_from_file(private_key, ret_private_key);
                 if (r < 0)
                         return r;
 
-                *ret_user_interface = NULL;
+                if (ret_user_interface)
+                        *ret_user_interface = NULL;
         } else {
                 _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
                 r = openssl_ask_password_ui_new(request, &ui);
@@ -1757,7 +1759,8 @@ int openssl_load_private_key(
                                         private_key,
                                         private_key_source);
 
-                *ret_user_interface = TAKE_PTR(ui);
+                if (ret_user_interface)
+                        *ret_user_interface = TAKE_PTR(ui);
         }
 
         return 0;

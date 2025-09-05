@@ -81,11 +81,37 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The current state of the reboot-to-firmware-UI flag"),
                 SD_VARLINK_DEFINE_OUTPUT(state, SD_VARLINK_BOOL, 0));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                Operation,
+                SD_VARLINK_DEFINE_ENUM_VALUE(new),
+                SD_VARLINK_DEFINE_ENUM_VALUE(update));
+
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                BootEntryTokenType,
+                SD_VARLINK_DEFINE_ENUM_VALUE(machine-id),
+                SD_VARLINK_DEFINE_ENUM_VALUE(os-image-id),
+                SD_VARLINK_DEFINE_ENUM_VALUE(os-id),
+                SD_VARLINK_DEFINE_ENUM_VALUE(literal),
+                SD_VARLINK_DEFINE_ENUM_VALUE(auto));
+
+static SD_VARLINK_DEFINE_METHOD(
+                Install,
+                SD_VARLINK_FIELD_COMMENT("Operation, either 'new' or 'update'."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(operation, Operation, 0),
+                SD_VARLINK_DEFINE_INPUT(graceful, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(rootFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(rootDirectory, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(bootEntryTokenType, BootEntryTokenType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(touchVariables, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(
                 RebootToFirmwareNotSupported);
 
 static SD_VARLINK_DEFINE_ERROR(
                 NoSuchBootEntry);
+
+static SD_VARLINK_DEFINE_ERROR(
+                NoESPFound);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_BootControl,
@@ -99,13 +125,21 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_BootEntryAddon,
                 SD_VARLINK_SYMBOL_COMMENT("A structure encapsulating a boot entry"),
                 &vl_type_BootEntry,
+                SD_VARLINK_SYMBOL_COMMENT("The operation to execute"),
+                &vl_type_Operation,
                 SD_VARLINK_SYMBOL_COMMENT("Enumerates boot entries. Method call must be called with 'more' flag set. Each response returns one entry. If no entries are defined returns the NoSuchBootEntry error."),
                 &vl_method_ListBootEntries,
                 SD_VARLINK_SYMBOL_COMMENT("Sets the reboot-to-firmware-UI flag of the firmware, if this concept exists. Returns the RebootToFirmwareNotSupported error if not."),
                 &vl_method_SetRebootToFirmware,
                 SD_VARLINK_SYMBOL_COMMENT("Gets the current state of the reboot-to-firmware-UI flag of the firmware, if this concept exists. Returns the RebootToFirmwareNotSupported error if not."),
                 &vl_method_GetRebootToFirmware,
+                SD_VARLINK_SYMBOL_COMMENT("The boot entry token type to use."),
+                &vl_type_BootEntryTokenType,
+                SD_VARLINK_SYMBOL_COMMENT("Install the boot loader on the ESP."),
+                &vl_method_Install,
                 SD_VARLINK_SYMBOL_COMMENT("SetRebootToFirmware() and GetRebootToFirmware() return this if the firmware does not actually support the reboot-to-firmware-UI concept."),
                 &vl_error_RebootToFirmwareNotSupported,
                 SD_VARLINK_SYMBOL_COMMENT("No boot entry defined."),
-                &vl_error_NoSuchBootEntry);
+                &vl_error_NoSuchBootEntry,
+                SD_VARLINK_SYMBOL_COMMENT("No EFI System Partition (ESP) found."),
+                &vl_error_NoESPFound);

@@ -481,6 +481,7 @@ int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const s
 
 static int config_parse_many_files(
                 const char *root,
+                int root_fd,
                 const char* const* conf_files,
                 char **files,
                 const char *sections,
@@ -502,17 +503,20 @@ static int config_parse_many_files(
                         return log_oom_full(level);
         }
 
+        /* Pin and stat() all dropins */
         STRV_FOREACH(fn, files) {
                 _cleanup_fclose_ FILE *f = NULL;
-                _cleanup_free_ char *fname = NULL;
-
-                r = chase_and_fopen_unlocked(*fn, root, CHASE_AT_RESOLVE_IN_ROOT, "re", &fname, &f);
+                if (root_fd < 0)
+                        r = chase_and_fopen_unlocked(*fn, root, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
+                else
+                        r = chase_and_fopenat_unlocked(root_fd, *fn, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
                         return log_full_errno(level, r, "Failed to open %s: %m", *fn);
 
                 int fd = fileno(f);
+                assert(fd >= 0);
 
                 r = ordered_hashmap_ensure_put(&dropins, &config_file_hash_ops_fclose, *fn, f);
                 if (r < 0) {
@@ -537,11 +541,13 @@ static int config_parse_many_files(
                         return log_oom_full(level);
         }
 
-        /* First read the first found main config file. */
+        /* First process the first found main config file. */
         STRV_FOREACH(fn, conf_files) {
                 _cleanup_fclose_ FILE *f = NULL;
-
-                r = chase_and_fopen_unlocked(*fn, root, CHASE_AT_RESOLVE_IN_ROOT, "re", NULL, &f);
+                if (root_fd < 0)
+                        r = chase_and_fopen_unlocked(*fn, root, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
+                else
+                        r = chase_and_fopenat_unlocked(root_fd, *fn, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
@@ -572,7 +578,6 @@ static int config_parse_many_files(
         }
 
         /* Then read all the drop-ins. */
-
         const char *path_dropin;
         FILE *f_dropin;
         ORDERED_HASHMAP_FOREACH_KEY(f_dropin, path_dropin, dropins) {
@@ -595,11 +600,12 @@ static int config_parse_many_files(
 }
 
 /* Parse each config file in the directories specified as strv. */
-int config_parse_many(
+int config_parse_many_full(
                 const char* const* conf_files,
                 const char* const* conf_file_dirs,
                 const char *dropin_dirname,
                 const char *root,
+                int root_fd,
                 const char *sections,
                 ConfigItemLookup lookup,
                 const void *table,
@@ -615,12 +621,12 @@ int config_parse_many(
         assert(dropin_dirname);
         assert(table);
 
-        r = conf_files_list_dropins(&files, dropin_dirname, root, conf_file_dirs);
+        r = conf_files_list_dropins(&files, dropin_dirname, root, root_fd, conf_file_dirs);
         if (r < 0)
                 return log_full_errno(FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG, r,
                                       "Failed to list drop-ins in %s: %m", dropin_dirname);
 
-        r = config_parse_many_files(root, conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
+        r = config_parse_many_files(root, root_fd, conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
         if (r < 0)
                 return r; /* config_parse_many_files() logs internally. */
 
@@ -632,6 +638,7 @@ int config_parse_many(
 
 int config_parse_standard_file_with_dropins_full(
                 const char *root,
+                int root_fd,
                 const char *main_file,    /* A path like "systemd/frobnicator.conf" */
                 const char *sections,
                 ConfigItemLookup lookup,
@@ -646,7 +653,11 @@ int config_parse_standard_file_with_dropins_full(
         int r, level = FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG;
 
         /* Build the list of main config files */
-        r = strv_extend_strv_biconcat(&configs, root, conf_paths, main_file);
+        r = strv_extend_strv_biconcat(
+                        &configs,
+                        root_fd < 0 ? root : NULL, /* if we have a root fs, we suppress the prefix */
+                        conf_paths,
+                        main_file);
         if (r < 0)
                 return log_oom_full(level);
 
@@ -654,11 +665,12 @@ int config_parse_standard_file_with_dropins_full(
         if (!dropin_dirname)
                 return log_oom_full(level);
 
-        return config_parse_many(
+        return config_parse_many_full(
                         (const char* const*) configs,
                         conf_paths,
                         dropin_dirname,
                         root,
+                        root_fd,
                         sections,
                         lookup,
                         table,
@@ -690,7 +702,7 @@ static int dropins_get_stats_by_path(
         if (!strextend(&dropin_dirname, ".d"))
                 return -ENOMEM;
 
-        r = conf_files_list_dropins(&files, dropin_dirname, /* root = */ NULL, conf_file_dirs);
+        r = conf_files_list_dropins(&files, dropin_dirname, /* root= */ NULL, /* root_fd= */ -EBADF, conf_file_dirs);
         if (r < 0)
                 return r;
 

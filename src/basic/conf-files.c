@@ -760,6 +760,7 @@ int conf_files_list_dropins(
                 char ***ret,
                 const char *dropin_dirname,
                 const char *root,
+                int root_fd,
                 const char * const *dirs) {
 
         _cleanup_strv_free_ char **dropin_dirs = NULL;
@@ -775,7 +776,10 @@ int conf_files_list_dropins(
         if (r < 0)
                 return r;
 
-        return conf_files_list_strv(ret, ".conf", root, 0, (const char* const*) dropin_dirs);
+        if (root_fd < 0)
+                return conf_files_list_strv(ret, ".conf", root, 0, (const char* const*) dropin_dirs);
+
+        return conf_files_list_strv_at(ret, ".conf", root_fd, 0, (const char* const*) dropin_dirs);
 }
 
 /**
