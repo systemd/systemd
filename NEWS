@@ -166,6 +166,12 @@ CHANGES WITH 258 in spe:
           To control the mode, please use the quotacheck.mode= kernel command
           line option of newly introduced quotacheck.mode credential.
 
+        * systemd-stub v258 requires ukify v257.9 or v258 or newer when
+          building a UKI. Due to an incompatible change necessary in order to
+          fix a bug related to embedding a .sbat section larger than 512 bytes,
+          ukify v257.8 or older will not be able to use systemd-stub v258 or
+          newer.
+
         Announcements of Future Feature Removals:
 
         * Support for System V service scripts is deprecated and will be
