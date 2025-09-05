@@ -11,3 +11,10 @@ libc_wrapper_sources += files(
         'string.c',
         'time.c',
 )
+
+generator= files('generate-strerrorname_np.sh')
+libc_wrapper_sources += custom_target(
+        input : generator,
+        output : 'strerrorname_np.c',
+        command : [env, 'bash', generator, cpp],
+        capture : true)
