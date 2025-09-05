@@ -24,6 +24,7 @@
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.Journal.h"
+#include "varlink-io.systemd.KernelInstall.h"
 #include "varlink-io.systemd.Login.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
@@ -187,6 +188,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Hostname,
                 &vl_interface_io_systemd_Import,
                 &vl_interface_io_systemd_Journal,
+                &vl_interface_io_systemd_KernelInstall,
                 &vl_interface_io_systemd_Login,
                 &vl_interface_io_systemd_Machine,
                 &vl_interface_io_systemd_MachineImage,
