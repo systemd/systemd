@@ -179,6 +179,8 @@ TEST(parse_format) {
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Journal);
         print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_KernelInstall);
+        print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Login);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Machine);
