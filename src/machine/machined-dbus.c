@@ -285,28 +285,17 @@ static int method_create_or_register_machine(
         if (leader == 1)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
-        if (!isempty(root_directory) && (!path_is_absolute(root_directory) || !path_is_valid(root_directory)))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
-
-        if (leader == 0) {
-                /* If no PID is specified, the client is the leader */
-                r = bus_query_sender_pidref(message, &leader_pidref);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to pin client process: %m");
-        } else {
-                /* If a PID is specified that's the leader, but if the client process is different from it, than that's the supervisor */
-                r = pidref_set_pid(&leader_pidref, leader);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to pin process " PID_FMT ": %m", (pid_t) leader);
-
-                _cleanup_(pidref_done) PidRef client_pidref = PIDREF_NULL;
-                r = bus_query_sender_pidref(message, &client_pidref);
-                if (r < 0)
-                        return sd_bus_error_set_errnof(error, r, "Failed to pin client process: %m");
-
-                if (!pidref_equal(&client_pidref, &leader_pidref))
-                        supervisor_pidref = TAKE_PIDREF(client_pidref);
+        if (!isempty(root_directory)) {
+                if (!path_is_absolute(root_directory) || !path_is_valid(root_directory))
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path.");
+                if (!string_is_safe(root_directory))
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory contains unsafe characters.");
         }
+
+        _cleanup_(pidref_done) PidRef client_pidref = PIDREF_NULL;
+        r = bus_query_sender_pidref(message, &client_pidref);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "Failed to pin client process: %m");
 
         if (hashmap_get(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
@@ -337,6 +326,22 @@ static int method_create_or_register_machine(
                 return r;
         if (r == 0)
                 return 0; /* Will call us back */
+
+        /* Checking the passed leader_pidref exposes the existence of PID to the caller. Let's do that only
+         * after polkit auth. */
+        if (leader == 0)
+                /* If no PID is specified, the client is the leader */
+                leader_pidref = TAKE_PIDREF(client_pidref);
+        else {
+                /* If a PID is specified that's the leader, but if the client process is different from it,
+                 * than that's the supervisor */
+                r = pidref_set_pid(&leader_pidref, leader);
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to pin process " PID_FMT ": %m", (pid_t) leader);
+
+                if (!pidref_equal(&client_pidref, &leader_pidref))
+                        supervisor_pidref = TAKE_PIDREF(client_pidref);
+        }
 
         r = manager_add_machine(manager, name, &m);
         if (r < 0)

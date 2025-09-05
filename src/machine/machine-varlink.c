@@ -132,16 +132,33 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 { "id",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_id128,   offsetof(Machine, id),                   0                 },
                 { "service",             SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, service),              0                 },
                 { "class",               SD_JSON_VARIANT_STRING,        dispatch_machine_class,   offsetof(Machine, class),                SD_JSON_MANDATORY },
-                { "leader",              _SD_JSON_VARIANT_TYPE_INVALID, machine_pidref,           offsetof(Machine, leader),               SD_JSON_STRICT    },
-                { "leaderProcessId",     SD_JSON_VARIANT_OBJECT,        machine_pidref,           offsetof(Machine, leader),               SD_JSON_STRICT    },
-                { "supervisor",          _SD_JSON_VARIANT_TYPE_INVALID, machine_pidref,           offsetof(Machine, supervisor),           SD_JSON_STRICT    },
-                { "supervisorProcessId", SD_JSON_VARIANT_OBJECT,        machine_pidref,           offsetof(Machine, supervisor),           SD_JSON_STRICT    },
-                { "rootDirectory",       SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, root_directory),       0                 },
+                { "leader",              _SD_JSON_VARIANT_TYPE_INVALID, NULL,                     0,                                       SD_JSON_STRICT    },
+                { "leaderProcessId",     SD_JSON_VARIANT_OBJECT,        NULL,                     0,                                       SD_JSON_STRICT    },
+                { "supervisor",          _SD_JSON_VARIANT_TYPE_INVALID, NULL,                     0,                                       SD_JSON_STRICT    },
+                { "supervisorProcessId", SD_JSON_VARIANT_OBJECT,        NULL,                     0,                                       SD_JSON_STRICT    },
+                { "rootDirectory",       SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, root_directory),       SD_JSON_STRICT    },
                 { "ifIndices",           SD_JSON_VARIANT_ARRAY,         machine_ifindices,        0,                                       0                 },
                 { "vSockCid",            _SD_JSON_VARIANT_TYPE_INVALID, machine_cid,              offsetof(Machine, vsock_cid),            0                 },
                 { "sshAddress",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, ssh_address),          SD_JSON_STRICT    },
                 { "sshPrivateKeyPath",   SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, ssh_private_key_path), 0                 },
                 { "allocateUnit",        SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(Machine, allocate_unit),        0                 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        }, dispatch_table_after_polkit[] = {
+                { "name",                SD_JSON_VARIANT_STRING,        NULL,                     0,                                       SD_JSON_MANDATORY },
+                { "id",                  SD_JSON_VARIANT_STRING,        NULL,                     0,                                       0                 },
+                { "service",             SD_JSON_VARIANT_STRING,        NULL,                     0,                                       0                 },
+                { "class",               SD_JSON_VARIANT_STRING,        NULL,                     0,                                       SD_JSON_MANDATORY },
+                { "leader",              _SD_JSON_VARIANT_TYPE_INVALID, machine_pidref,           offsetof(Machine, leader),               SD_JSON_STRICT    },
+                { "leaderProcessId",     SD_JSON_VARIANT_OBJECT,        machine_pidref,           offsetof(Machine, leader),               SD_JSON_STRICT    },
+                { "supervisor",          _SD_JSON_VARIANT_TYPE_INVALID, machine_pidref,           offsetof(Machine, supervisor),           SD_JSON_STRICT    },
+                { "supervisorProcessId", SD_JSON_VARIANT_OBJECT,        machine_pidref,           offsetof(Machine, supervisor),           SD_JSON_STRICT    },
+                { "rootDirectory",       SD_JSON_VARIANT_STRING,        NULL,                     0,                                       SD_JSON_STRICT    },
+                { "ifIndices",           SD_JSON_VARIANT_ARRAY,         NULL,                     0,                                       0                 },
+                { "vSockCid",            _SD_JSON_VARIANT_TYPE_INVALID, NULL,                     0,                                       0                 },
+                { "sshAddress",          SD_JSON_VARIANT_STRING,        NULL,                     0,                                       SD_JSON_STRICT    },
+                { "sshPrivateKeyPath",   SD_JSON_VARIANT_STRING,        NULL,                     0,                                       0                 },
+                { "allocateUnit",        SD_JSON_VARIANT_BOOLEAN,       NULL,                     0,                                       0                 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -162,6 +179,11 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                                                  "class", machine_class_to_string(machine->class)),
                         &manager->polkit_registry);
         if (r <= 0)
+                return r;
+
+        /* Parse pids only after polkit auth, otherwise the existence of the PID is exposed to unprivileged callers. */
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_after_polkit, machine);
+        if (r != 0)
                 return r;
 
         if (!pidref_is_set(&machine->leader)) {
