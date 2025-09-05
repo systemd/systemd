@@ -188,14 +188,11 @@ static int dns_delegate_load(Manager *m, const char *path) {
                         STRV_MAKE_CONST(path),
                         DNS_DELEGATE_SEARCH_DIRS,
                         dropin_dirname,
-                        /* root= */ NULL,
                         "Delegate\0",
                         config_item_perf_lookup,
                         resolved_dns_delegate_gperf_lookup,
                         /* flags= */ 0,
-                        d,
-                        /* ret_stats_by_path= */ NULL,
-                        /* ret_drop_in_files= */ NULL);
+                        d);
         if (r < 0)
                 return r;
 
