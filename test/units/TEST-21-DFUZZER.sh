@@ -4,7 +4,7 @@ set -eux
 set -o pipefail
 
 # check dfuzzer is present before testing
-if ! command -v dfuzzer &>/dev/null; then
+if ! command -v dfuzzer >/dev/null; then
     echo "dfuzzer is not installed, skipping" | tee --append /skipped
     exit 77
 fi
