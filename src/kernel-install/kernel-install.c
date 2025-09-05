@@ -5,6 +5,8 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#include "sd-varlink.h"
+
 #include "argv-util.h"
 #include "boot-entry.h"
 #include "bootspec.h"
@@ -26,6 +28,7 @@
 #include "fs-util.h"
 #include "id128-util.h"
 #include "image-policy.h"
+#include "json-util.h"
 #include "kernel-config.h"
 #include "kernel-image.h"
 #include "loop-util.h"
@@ -42,6 +45,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "varlink-io.systemd.KernelInstall.h"
+#include "varlink-util.h"
 #include "verbs.h"
 
 typedef enum KernelSearch {
@@ -75,6 +80,7 @@ static char *arg_entry_token = NULL;
 static BootEntryType arg_boot_entry_type = _BOOT_ENTRY_TYPE_INVALID;
 static KernelSearch arg_kernel_search = _KERNEL_SEARCH_INVALID;
 static InstallSource arg_install_source = INSTALL_SOURCE_AUTO;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -2007,7 +2013,122 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0) {
+                arg_varlink = true;
+                arg_pager_flags |= PAGER_DISABLE;
+        }
+
         return 1;
+}
+
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_boot_entry_type, BootEntryType, boot_entry_type_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_boot_entry_token_type, BootEntryTokenType, boot_entry_token_type_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_kernel_search, KernelSearch, kernel_search_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_install_source, InstallSource, install_source_from_string);
+
+typedef struct AddParameters {
+        Context context;
+        const char *root;
+        const char *kernel;
+        const char *version;
+        unsigned root_fd_index;
+} AddParameters;
+
+static void add_parameters_done(AddParameters *p) {
+        assert(p);
+
+        context_done(&p->context);
+}
+
+static int vl_method_add(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        int r;
+
+        assert(link);
+
+        _cleanup_(add_parameters_done) AddParameters p = {
+                .context = CONTEXT_NULL,
+                .root_fd_index = UINT_MAX,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "rootFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),           0 },
+                { "rootDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_const_path,            voffsetof(p, root),                    0 },
+                { "version",            SD_JSON_VARIANT_STRING,        json_dispatch_const_version,         voffsetof(p, version),                 0 },
+                { "kernel",             SD_JSON_VARIANT_STRING,        json_dispatch_const_path,            voffsetof(p, kernel),                  0 },
+                { "bootEntryType",      SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_type,       voffsetof(p, context.entry_type),      0 },
+                { "kernelSearch",       SD_JSON_VARIANT_STRING,        json_dispatch_kernel_search,         voffsetof(p, context.kernel_search),   0 },
+                { "installSource",      SD_JSON_VARIANT_STRING,        json_dispatch_install_source,        voffsetof(p, context.install_source),  0 },
+                { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0                 },
+                {},
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        p.context.action = ACTION_ADD;
+
+        if (p.root_fd_index != UINT_MAX) {
+                p.context.rfd = sd_varlink_peek_dup_fd(link, p.root_fd_index);
+                if (p.context.rfd < 0)
+                        return log_debug_errno(p.context.rfd, "Failed to acquire root fd from Varlink: %m");
+
+                r = fd_verify_directory(p.context.rfd);
+                if (r < 0)
+                        return log_debug_errno(r, "Specified file descriptor does not refer to a directory: %m");
+        } else if (p.root) {
+                p.context.rfd = open(p.root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (p.context.rfd < 0)
+                        return log_debug_errno(p.context.rfd, "Failed to open specified root directory: %m");
+        }
+
+        r = context_setup(&p.context);
+        if (r < 0)
+                return r;
+
+        r = do_add(&p.context, p.version, p.kernel, /* initrds= */ NULL);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        /* Invocation as Varlink service */
+
+        r = varlink_server_new(
+                        &varlink_server,
+                        SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_KernelInstall);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server,
+                        "io.systemd.KernelInstall.Add", vl_method_add);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
 }
 
 static int kernel_install_main(int argc, char *argv[]) {
@@ -2031,6 +2152,9 @@ static int run(int argc, char* argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_varlink)
+                return vl_server();
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
