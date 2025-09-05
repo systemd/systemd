@@ -12,8 +12,6 @@
 #include "strv.h"
 
 int make_salt(char **ret) {
-
-#if HAVE_CRYPT_GENSALT_RA
         const char *e;
         char *salt;
 
@@ -22,11 +20,7 @@ int make_salt(char **ret) {
 
         e = secure_getenv("SYSTEMD_CRYPT_PREFIX");
         if (!e)
-#if HAVE_CRYPT_PREFERRED_METHOD
                 e = crypt_preferred_method();
-#else
-                e = "$6$";
-#endif
 
         log_debug("Generating salt for hash prefix: %s", e);
 
@@ -36,88 +30,7 @@ int make_salt(char **ret) {
 
         *ret = salt;
         return 0;
-#else
-        /* If crypt_gensalt_ra() is not available, we use SHA512 and generate the salt on our own. */
-
-        static const char table[] =
-                "abcdefghijklmnopqrstuvwxyz"
-                "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-                "0123456789"
-                "./";
-
-        uint8_t raw[16];
-        char *salt, *j;
-        size_t i;
-        int r;
-
-        /* This is a bit like crypt_gensalt_ra(), but doesn't require libcrypt, and doesn't do anything but
-         * SHA512, i.e. is legacy-free and minimizes our deps. */
-
-        assert_cc(sizeof(table) == 64U + 1U);
-
-        log_debug("Generating fallback salt for hash prefix: $6$");
-
-        /* Insist on the best randomness by setting RANDOM_BLOCK, this is about keeping passwords secret after all. */
-        r = crypto_random_bytes(raw, sizeof(raw));
-        if (r < 0)
-                return r;
-
-        salt = new(char, 3+sizeof(raw)+1+1);
-        if (!salt)
-                return -ENOMEM;
-
-        /* We only bother with SHA512 hashed passwords, the rest is legacy, and we don't do legacy. */
-        j = stpcpy(salt, "$6$");
-        for (i = 0; i < sizeof(raw); i++)
-                j[i] = table[raw[i] & 63];
-        j[i++] = '$';
-        j[i] = 0;
-
-        *ret = salt;
-        return 0;
-#endif
 }
-
-#if HAVE_CRYPT_RA
-#  define CRYPT_RA_NAME "crypt_ra"
-#else
-#  define CRYPT_RA_NAME "crypt_r"
-
-/* Provide a poor man's fallback that uses a fixed size buffer. */
-
-static char* systemd_crypt_ra(const char *phrase, const char *setting, void **data, int *size) {
-        assert(data);
-        assert(size);
-
-        /* We allocate the buffer because crypt(3) says: struct crypt_data may be quite large (32kB in this
-         * implementation of libcrypt; over 128kB in some other implementations). This is large enough that
-         * it may be unwise to allocate it on the stack. */
-
-        if (!*data) {
-                *data = new0(struct crypt_data, 1);
-                if (!*data) {
-                        errno = ENOMEM;
-                        return NULL;
-                }
-
-                *size = (int) (sizeof(struct crypt_data));
-        }
-
-        char *t = crypt_r(phrase, setting, *data);
-        if (!t)
-                return NULL;
-
-        /* crypt_r may return a pointer to an invalid hashed password on error. Our callers expect NULL on
-         * error, so let's just return that. */
-        if (t[0] == '*')
-                return NULL;
-
-        return t;
-}
-
-#define crypt_ra systemd_crypt_ra
-
-#endif
 
 int hash_password_full(const char *password, void **cd_data, int *cd_size, char **ret) {
         _cleanup_free_ char *salt = NULL;
@@ -134,8 +47,7 @@ int hash_password_full(const char *password, void **cd_data, int *cd_size, char 
         errno = 0;
         p = crypt_ra(password, salt, cd_data ?: &_cd_data, cd_size ?: &_cd_size);
         if (!p)
-                return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)),
-                                       CRYPT_RA_NAME "() failed: %m");
+                return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)), "crypt_ra() failed: %m");
 
         return strdup_to(ret, p);
 }

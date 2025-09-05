@@ -573,10 +573,10 @@ conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
 foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
-        ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
-        ['mallinfo2',         '''#include <malloc.h>'''],       # since glibc-2.33
-        ['execveat',          '''#include <unistd.h>'''],       # since glibc-2.34
-        ['close_range',       '''#include <unistd.h>'''],       # since glibc-2.34
+        ['strerrorname_np',   '''#include <string.h>''',        get_option('oss-fuzz')], # since glibc-2.32
+        ['mallinfo2',         '''#include <malloc.h>''',        get_option('oss-fuzz')], # since glibc-2.33
+        ['close_range',       '''#include <unistd.h>''',        get_option('oss-fuzz')], # since glibc-2.34
+        ['execveat',          '''#include <unistd.h>''',        get_option('oss-fuzz')], # since glibc-2.34
         ['epoll_pwait2',      '''#include <sys/epoll.h>'''],    # since glibc-2.35
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
@@ -603,6 +603,10 @@ foreach ident : [
         ['removexattrat',     '''#include <sys/xattr.h>'''],    # no known header declares removexattrat
         ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
+
+        if ident.length() >= 3 and not ident[2]
+                continue
+        endif
 
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
@@ -1009,22 +1013,7 @@ else
         libatomic = []
 endif
 
-libcrypt = dependency('libcrypt', 'libxcrypt', required : false)
-if not libcrypt.found()
-        # fallback to use find_library() if libcrypt is provided by glibc, e.g. for LibreELEC.
-        libcrypt = cc.find_library('crypt')
-endif
-
-foreach func : [
-        'crypt_ra',               # since libxcrypt-4.0.0
-        'crypt_gensalt_ra',       # since libxcrypt-4.0.0
-        'crypt_preferred_method', # since libxcrypt-4.4.0
-]
-
-        have = cc.has_function(func, prefix : '''#include <crypt.h>''', args : '-D_GNU_SOURCE',
-                               dependencies : libcrypt)
-        conf.set10('HAVE_' + func.to_upper(), have)
-endforeach
+libcrypt = dependency('libcrypt', 'libxcrypt', version : '>=4.4.0', required : true)
 
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
@@ -1139,7 +1128,7 @@ conf.set10('HAVE_PWQUALITY', have)
 conf.set10('HAVE_PASSWDQC', not have and libpwquality.found())
 
 libseccomp = dependency('libseccomp',
-                        version : '>= 2.3.1',
+                        version : '>= 2.4.0',
                         required : get_option('seccomp'))
 conf.set10('HAVE_SECCOMP', libseccomp.found())
 
@@ -1184,10 +1173,9 @@ libaudit = dependency('audit',
 conf.set10('HAVE_AUDIT', libaudit.found())
 
 libblkid = dependency('blkid',
+                      version : '>=2.37.0',
                       required : get_option('blkid'))
 conf.set10('HAVE_BLKID', libblkid.found())
-conf.set10('HAVE_BLKID_PROBE_SET_HINT',
-           libblkid.found() and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
 
 libkmod = dependency('libkmod',
                      version : '>= 15',
@@ -1230,56 +1218,22 @@ if libcryptsetup_plugins.enabled()
 endif
 
 libcryptsetup = dependency('libcryptsetup',
-                           version : libcryptsetup_plugins.enabled() ? '>= 2.4.0' : '>= 2.0.1',
+                           version : '>= 2.4.0',
                            required : libcryptsetup)
 
 have = libcryptsetup.found()
-foreach ident : ['crypt_set_metadata_size',
-                 'crypt_activate_by_signed_key',
-                 'crypt_token_max',
-                 'crypt_reencrypt_init_by_passphrase',
-                 'crypt_reencrypt',
-                 'crypt_reencrypt_run',
-                 'crypt_set_data_offset',
-                 'crypt_set_keyring_to_link',
-                 'crypt_resume_by_volume_key',
-                 'crypt_token_set_external_path']
+foreach ident : [
+                'crypt_set_keyring_to_link',     # 2.7
+                'crypt_token_set_external_path', # 2.7
+        ]
+
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
-                # crypt_reencrypt() raises a deprecation warning so make sure -Wno-deprecated-declarations is
-                # specified otherwise we fail to detect crypt_reencrypt() if -Werror is used.
-                args : '-Wno-deprecated-declarations',
                 dependencies : libcryptsetup)
         conf.set10('HAVE_' + ident.to_upper(), have_ident)
 endforeach
 conf.set10('HAVE_LIBCRYPTSETUP', have)
-
-if meson.version().version_compare('>=1.3.0')
-        have = (cc.has_function(
-                        'crypt_activate_by_token_pin',
-                        prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup,
-                        required : libcryptsetup_plugins) and
-                cc.has_function(
-                        'crypt_token_external_path',
-                        prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup,
-                        required : libcryptsetup_plugins))
-else
-        if libcryptsetup_plugins.allowed()
-                have = (cc.has_function(
-                                'crypt_activate_by_token_pin',
-                                prefix : '#include <libcryptsetup.h>',
-                                dependencies : libcryptsetup) and
-                        cc.has_function(
-                                'crypt_token_external_path',
-                                prefix : '#include <libcryptsetup.h>',
-                                dependencies : libcryptsetup))
-        else
-                have = false
-        endif
-endif
 conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS', have)
 
 libcurl = dependency('libcurl',
@@ -1299,11 +1253,6 @@ if not have
 endif
 conf.set10('HAVE_LIBIDN', not have and libidn.found())
 conf.set10('HAVE_LIBIDN2', have)
-
-libiptc = dependency('libiptc',
-                     required : get_option('libiptc'))
-conf.set10('HAVE_LIBIPTC', libiptc.found())
-libiptc_cflags = libiptc.partial_dependency(includes: true, compile_args: true)
 
 libqrencode = dependency('libqrencode',
                          version : '>= 3',
@@ -1333,7 +1282,7 @@ libgnutls = dependency('gnutls',
 conf.set10('HAVE_GNUTLS', libgnutls.found())
 
 libopenssl = dependency('openssl',
-                        version : '>= 1.1.0',
+                        version : '>= 3.0.0',
                         required : get_option('openssl'))
 conf.set10('HAVE_OPENSSL', libopenssl.found())
 
@@ -1347,6 +1296,7 @@ feature = get_option('libfido2').require(
         conf.get('HAVE_OPENSSL') == 1,
         error_message : 'openssl required')
 libfido2 = dependency('libfido2',
+                      version : '>=1.5.0',
                       required : feature)
 conf.set10('HAVE_LIBFIDO2', libfido2.found())
 
@@ -1356,12 +1306,9 @@ conf.set10('HAVE_TPM2', tpm2.found())
 conf.set10('HAVE_TSS2_ESYS3', tpm2.found() and tpm2.version().version_compare('>= 3.0.0'))
 
 libdw = dependency('libdw',
+                   version : '>=0.177',
                    required : get_option('elfutils'))
 conf.set10('HAVE_ELFUTILS', libdw.found())
-# New in elfutils 0.177
-conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
-           libdw.found() and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
-
 # New in elfutils 0.192
 conf.set10('HAVE_DWFL_SET_SYSROOT',
            libdw.found() and cc.has_function('dwfl_set_sysroot', dependencies : libdw))
@@ -1565,8 +1512,7 @@ conf.set10('ENABLE_IMPORTD', have)
 have = get_option('homed').require(
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_LIBFDISK') == 1 and
-        conf.get('HAVE_LIBCRYPTSETUP') == 1 and
-        conf.get('HAVE_CRYPT_RESUME_BY_VOLUME_KEY') == 1,
+        conf.get('HAVE_LIBCRYPTSETUP') == 1,
         error_message : 'openssl, fdisk and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
@@ -2059,6 +2005,12 @@ system_includes = [
                 is_system : true,
         ),
 ]
+
+if get_option('oss-fuzz')
+        # oss-fuzz still uses Ubuntu 20.04, which uses glibc-2.31.
+        # To make fuzzers built with glibc-2.31, we need additional wrappers.
+        system_includes += include_directories('src/include/oss-fuzz', is_system : true)
+endif
 
 basic_includes = [
         include_directories(
@@ -3046,7 +2998,6 @@ foreach tuple : [
         ['libfido2'],
         ['libidn'],
         ['libidn2'],
-        ['libiptc'],
         ['microhttpd'],
         ['openssl'],
         ['p11kit'],
