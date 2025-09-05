@@ -5,3 +5,5 @@
 
 char* strerror_r_gnu(int errnum, char *buf, size_t buflen);
 #define strerror_r strerror_r_gnu
+
+const char* strerrorname_np(int errnum);
