@@ -57,6 +57,7 @@ int conf_files_list_dropins(
                 char ***ret,
                 const char *dropin_dirname,
                 const char *root,
+                int root_fd,
                 ConfFilesFlags flags,
                 const char * const *dirs);
 
