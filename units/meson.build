@@ -448,6 +448,15 @@ units = [
         },
         { 'file' : 'systemd-journald@.service.in' },
         { 'file' : 'systemd-journald@.socket' },
+        {
+          'file' : 'systemd-kernel-install@.service',
+          'conditions' : ['ENABLE_KERNEL_INSTALL'],
+        },
+        {
+          'file' : 'systemd-kernel-install.socket',
+          'conditions' : ['ENABLE_KERNEL_INSTALL'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'systemd-kexec.service' },
         {
           'file' : 'systemd-localed.service.in',
