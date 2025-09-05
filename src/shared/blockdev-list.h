@@ -9,6 +9,7 @@ typedef enum BlockDevListFlags {
         BLOCKDEV_LIST_IGNORE_ZRAM                = 1 << 2, /* Ignore ZRAM */
         BLOCKDEV_LIST_REQUIRE_LUKS               = 1 << 3, /* Only consider block devices with LUKS superblocks */
         BLOCKDEV_LIST_IGNORE_ROOT                = 1 << 4, /* Ignore the block device we are currently booted from */
+        BLOCKDEV_LIST_IGNORE_EMPTY               = 1 << 5, /* Ignore disks of zero size (usually drives without a medium */
 } BlockDevListFlags;
 
 typedef struct BlockDevice {

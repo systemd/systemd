@@ -9722,6 +9722,7 @@ static int vl_method_list_candidate_devices(
                         BLOCKDEV_LIST_SHOW_SYMLINKS|
                         BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|
                         BLOCKDEV_LIST_IGNORE_ZRAM|
+                        BLOCKDEV_LIST_IGNORE_EMPTY|
                         (ignore_root ? BLOCKDEV_LIST_IGNORE_ROOT : 0),
                         &l,
                         &n);
