@@ -803,7 +803,7 @@ int chase_and_open(
                                     /* xopen_flags = */ 0,
                                     MODE_INVALID);
 
-        r = chase(path, root, CHASE_PARENT|chase_flags, &p, &path_fd);
+        r = chase(path, root, (CHASE_PARENT|chase_flags)&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
         if (r < 0)
                 return r;
         assert(path_fd >= 0);
@@ -1008,7 +1008,7 @@ int chase_and_openat(
                                     /* xopen_flags = */ 0,
                                     MODE_INVALID);
 
-        r = chaseat(dir_fd, path, chase_flags|CHASE_PARENT, &p, &path_fd);
+        r = chaseat(dir_fd, path, (chase_flags|CHASE_PARENT)&~CHASE_MUST_BE_REGULAR, &p, &path_fd);
         if (r < 0)
                 return r;
 
