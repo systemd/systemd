@@ -2,11 +2,13 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "fd-util.h"
 #include "kernel-config.h"
 #include "path-util.h"
 
-int load_kernel_install_conf(
+int load_kernel_install_conf_at(
                 const char *root,
+                int root_fd,
                 const char *conf_root,
                 char **ret_machine_id,
                 char **ret_boot_root,
@@ -26,16 +28,19 @@ int load_kernel_install_conf(
         };
         int r;
 
+        assert(root_fd >= 0 || IN_SET(root_fd, AT_FDCWD, XAT_FDROOT));
+
         if (conf_root) {
                 _cleanup_free_ char *conf = path_join(conf_root, "install.conf");
                 if (!conf)
                         return log_oom();
 
-                r = config_parse_many(
+                r = config_parse_many_full(
                                 STRV_MAKE_CONST(conf),
                                 STRV_MAKE_CONST(conf_root),
                                 "install.conf.d",
-                                /* root= */ NULL, /* $KERNEL_INSTALL_CONF_ROOT and --root are independent */
+                                root,
+                                root_fd,
                                 /* sections= */ NULL,
                                 config_item_table_lookup, items,
                                 CONFIG_PARSE_WARN,
@@ -45,6 +50,7 @@ int load_kernel_install_conf(
         } else
                 r = config_parse_standard_file_with_dropins_full(
                                 root,
+                                root_fd,
                                 "kernel/install.conf",
                                 /* sections= */ NULL,
                                 config_item_table_lookup, items,

@@ -543,11 +543,12 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", path);
 
-        r = config_parse_many(
+        r = config_parse_many_full(
                         STRV_MAKE_CONST(path),
                         dirs,
                         strjoina(filename, ".d"),
                         arg_root,
+                        /* root_fd= */ -EBADF,
                         "Transfer\0"
                         "Source\0"
                         "Target\0",
