@@ -842,11 +842,10 @@ static int parse_config_file(void) {
                                 (const char* const*) files,
                                 (const char* const*) dirs,
                                 "user.conf.d",
-                                /* root= */ NULL,
                                 "Manager\0",
                                 config_item_table_lookup, items,
                                 CONFIG_PARSE_WARN,
-                                NULL, NULL, NULL);
+                                /* userdata= */ NULL);
         }
 
         /* Traditionally "0" was used to turn off the default unit timeouts. Fix this up so that we use
