@@ -1473,6 +1473,10 @@ testcase_link_journal_host() {
 testcase_cap_net_bind_service() {
     local root
 
+    if ! command -v capsh >/dev/null; then
+        echo 'capsh not found, skipping subtest' >&2
+    fi
+
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.cap-net-bind-service.XXX)"
     create_dummy_container "$root"
 
