@@ -2871,16 +2871,17 @@ static int partition_read_definition(
 
         dropin_dirname = strjoina(filename, ".d");
 
-        r = config_parse_many(
+        r = config_parse_many_full(
                         STRV_MAKE_CONST(path),
                         conf_file_dirs,
                         dropin_dirname,
                         c->definitions ? NULL : arg_root,
+                        /* root_fd= */ -EBADF,
                         "Partition\0",
                         config_item_table_lookup, table,
                         CONFIG_PARSE_WARN,
                         p,
-                        NULL,
+                        /* ret_stats_by_path= */ NULL,
                         &p->drop_in_files);
         if (r < 0)
                 return r;
