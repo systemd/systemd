@@ -51,7 +51,7 @@ int sethostname_idempotent(const char *s) {
 int shorten_overlong(const char *s, char **ret) {
         _cleanup_free_ char *h = NULL;
 
-        /* Shorten an overlong name to HOST_NAME_MAX or to the first dot,
+        /* Shorten an overlong name to LINUX_HOST_NAME_MAX or to the first dot,
          * whatever comes earlier. */
 
         assert(s);
@@ -70,7 +70,7 @@ int shorten_overlong(const char *s, char **ret) {
         if (p)
                 *p = 0;
 
-        strshorten(h, HOST_NAME_MAX);
+        strshorten(h, LINUX_HOST_NAME_MAX);
 
         if (!hostname_is_valid(h, /* flags= */ 0))
                 return -EDOM;
@@ -403,7 +403,7 @@ int pidref_gethostname_full(PidRef *pidref, GetHostnameFlags flags, char **ret) 
         if (r < 0)
                 return r;
 
-        char buf[HOST_NAME_MAX+1];
+        char buf[LINUX_HOST_NAME_MAX+1];
         ssize_t n = loop_read(result_pipe[0], buf, sizeof(buf), /* do_poll = */ false);
         if (n < 0)
                 return n;
