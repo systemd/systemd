@@ -934,9 +934,7 @@ CHANGES WITH 258 in spe:
         * A new "org.freedesktop.machine1.register-machine" polkit action is
           used when checking for privileges to register a machine. Previously,
           "org.freedesktop.machine1.create-machine" was used for creation and
-          registration operations. The policy for the new action is more
-          permissive: active users are allowed to perform the action without
-          authentication.
+          registration operations.
 
         * systemd-machined now also tracks the "supervisor" process of a
           machine, i.e. the host process that manages the payload. This
