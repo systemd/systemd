@@ -649,6 +649,12 @@ void seat_complete_switch(Seat *s) {
 
         session = TAKE_PTR(s->pending_switch);
 
+        if (streq(session->id, "None")) {
+                free(session->id);
+                mfree(session);
+                session = NULL;
+        }
+
         seat_set_active(s, session);
 }
 
