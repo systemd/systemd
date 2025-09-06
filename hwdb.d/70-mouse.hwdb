@@ -192,6 +192,14 @@ mouse:bluetooth:v05acp030d:name:*:*
  MOUSE_DPI=1300@1000
 
 ##########################################
+# Asus
+##########################################
+
+# Asus Cerberus
+mouse:usb:v04d9pa0d6:name:E-Signal/A-One USB Gaming Mouse:*
+ MOUSE_DPI=800@500 *1350@500 1600@500 2650@500
+
+##########################################
 # Cherry
 ##########################################
 
@@ -387,6 +395,10 @@ mouse:usb:v17efp6045:name:Lenovo USB Laser Mouse:*
 # ThinkPad USB Laser Mouse
 mouse:usb:v17efp6044:name:ThinkPad USB Laser Mouse:*
  MOUSE_DPI=1200@125
+
+# Lenovo Essential USB Mouse (SM-8823)
+mouse:usb:v17efp608d:name:PixArt Lenovo USB Optical Mouse:*
+ MOUSE_DPI=1600@125
 
 ##########################################
 # Logitech
@@ -675,6 +687,10 @@ mouse:usb:v046dpc517:name:Logitech USB Receiver:*
 mouse:usb:v046dpc046:name:Logitech USB Optical Mouse:*
  MOUSE_DPI=1000@125
 
+# Logitech RX1500
+mouse:usb:v046dpc061:name:Logitech USB Laser Mouse:*
+ MOUSE_DPI=1000@125
+
 # Logitech M100 Optical Mouse
 mouse:usb:v046dpc05a:name:Logitech USB Optical Mouse:*
  MOUSE_DPI=1000@125
@@ -836,6 +852,10 @@ mouse:usb:v1532p0029:name:Razer Razer DeathAdder:*
 # Razer Cobra RZ04-03750300-R3U1
 mouse:usb:v1532p00a3:name:Razer Razer Cobra:*
  MOUSE_DPI=400@1000 800@1000 *1600@1000 3200@1000 6400@1000
+
+# Razer Basilisk V3
+mouse:usb:v1532p0099:name:Razer Razer Basilisk V3:*
+ MOUSE_DPI=400@125 800@125 1600@125 3200@125 6400@125 400@500 800@500 1600@500 3200@500 6400@500 400@1000 800@1000 *1600@1000 3200@1000 6400@1000
 
 ##########################################
 # Roccat

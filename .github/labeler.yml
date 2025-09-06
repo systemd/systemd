@@ -195,7 +195,7 @@ run:
     - any-glob-to-any-file: ['src/run/*', 'man/systemd-run*']
 sd-boot/sd-stub/bootctl:
   - changed-files:
-    - any-glob-to-any-file: ['src/boot/**/*', 'man/bootctl*', 'man/systemd-boot.xml']
+    - any-glob-to-any-file: ['src/boot/**/*', 'src/bootctl/*', 'man/bootctl*', 'man/systemd-boot.xml']
 sd-bus:
   - changed-files:
     - any-glob-to-any-file: '**/sd-bus*/**'

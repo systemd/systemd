@@ -15,7 +15,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-07-29 19:53+0000\n"
+"PO-Revision-Date: 2025-08-22 10:53+0000\n"
 "Last-Translator: Jesse Guo <jesseguotech@outlook.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
@@ -24,7 +24,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.12.2\n"
+"X-Generator: Weblate 5.13\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -859,12 +859,12 @@ msgstr "设定 DNS 服务器需要认证。"
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
-msgstr "设置域名"
+msgstr "设置域"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
 msgid "Authentication is required to set domains."
-msgstr "设定域需要认证。"
+msgstr "设置域需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
@@ -874,7 +874,7 @@ msgstr "设置默认路由"
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
 msgid "Authentication is required to set default route."
-msgstr "设定默认路由需要认证。"
+msgstr "设置默认路由需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
@@ -919,12 +919,12 @@ msgstr "启用或禁用 DNSSEC 需要认证。"
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
-msgstr "设定 DNSSEC 负信任锚（Negative Trust Anchors）"
+msgstr "设置 DNSSEC 负信任锚（Negative Trust Anchors）"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr "设定 DNSSEC 负信任锚需要认证。"
+msgstr "设置 DNSSEC 负信任锚需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -982,7 +982,7 @@ msgstr "指定systemd-networkd的永久存储是否可用"
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
-msgstr "需要身份验证才能指定systemd-networkd的永久存储是否可用。"
+msgstr "指定systemd-networkd的永久存储是否可用需要认证。"
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -994,7 +994,7 @@ msgstr "检查便携式服务映像需要认证。"
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
-msgstr "添加或卸载便携式服务映像"
+msgstr "附加或分离便携式服务映像"
 
 # Pay attention to the concept of "seat".
 #
@@ -1002,7 +1002,7 @@ msgstr "添加或卸载便携式服务映像"
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."
-msgstr "添加或卸载便携式服务映像需要认证。"
+msgstr "附加或分离便携式服务映像需要认证。"
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
@@ -1071,19 +1071,19 @@ msgstr "转储服务器状态需要认证。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
-msgstr "转储统计"
+msgstr "转储统计信息"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
 msgid "Authentication is required to dump statistics."
-msgstr "转储统计需要认证。"
+msgstr "转储统计信息需要认证。"
 
 #: src/resolve/org.freedesktop.resolve1.policy:198
 msgid "Reset statistics"
-msgstr "重置统计"
+msgstr "重置统计信息"
 
 #: src/resolve/org.freedesktop.resolve1.policy:199
 msgid "Authentication is required to reset statistics."
-msgstr "重置统计需要认证。"
+msgstr "重置统计信息需要认证。"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
@@ -1145,13 +1145,13 @@ msgstr "设置系统时区需要认证。"
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
-msgstr "设置硬件时钟使用本地时间或 UTC"
+msgstr "将 RTC 设置为本地时区或 UTC"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
-msgstr "设置硬件时钟使用本地时间或 UTC 需要认证。"
+msgstr "将 RTC 设置为本地时区或 UTC 需要认证。"
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
@@ -1165,25 +1165,25 @@ msgstr "打开或关闭网络时间同步需要认证。"
 
 #: src/core/dbus-unit.c:371
 msgid "Authentication is required to start '$(unit)'."
-msgstr "启动“$(unit)”需要认证。"
+msgstr "启动 '$(unit)' 需要认证。"
 
 #: src/core/dbus-unit.c:372
 msgid "Authentication is required to stop '$(unit)'."
-msgstr "停止“$(unit)”需要认证。"
+msgstr "停止 '$(unit)' 需要认证。"
 
 #: src/core/dbus-unit.c:373
 msgid "Authentication is required to reload '$(unit)'."
-msgstr "重新载入“$(unit)”需要认证。"
+msgstr "重新载入 '$(unit)' 需要认证。"
 
 #: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
 msgid "Authentication is required to restart '$(unit)'."
-msgstr "重新启动“$(unit)”需要认证。"
+msgstr "重新启动 '$(unit)' 需要认证。"
 
 #: src/core/dbus-unit.c:567
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "'$(unit)'."
-msgstr "发送 UNIX 信号给 '$(unit)' 进程需要认证。"
+msgstr "发送 UNIX 信号给 '$(unit)' 的进程需要认证。"
 
 #: src/core/dbus-unit.c:620
 msgid ""
@@ -1193,11 +1193,11 @@ msgstr "发送 UNIX 信号给 '$(unit)' 的子组的进程需要认证。"
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr "重置“$(unit)”的失败（\"failed\"）状态需要认证。"
+msgstr "重置 '$(unit)' 的 “失败” 状态需要认证。"
 
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr "设置“$(unit)”的属性需要认证。"
+msgstr "设置 '$(unit)' 的属性需要认证。"
 
 #: src/core/dbus-unit.c:775
 msgid ""

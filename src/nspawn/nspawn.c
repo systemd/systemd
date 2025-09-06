@@ -2959,7 +2959,7 @@ static int wait_for_container(PidRef *pid, ContainerStatus *container) {
 }
 
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        PidRef *pid = ASSERT_PTR(userdata);
+        PidRef *pid = userdata;
 
         assert(si);
 
@@ -5950,7 +5950,7 @@ static int run(int argc, char *argv[]) {
         /* If we're not unsharing the network namespace and are unsharing the user namespace, we won't have
          * permissions to bind ports in the container, so let's drop the CAP_NET_BIND_SERVICE capability to
          * indicate that. */
-        if (!arg_private_network && arg_userns_mode != USER_NAMESPACE_NO && arg_uid_shift > 0)
+        if (!arg_private_network && arg_userns_mode != USER_NAMESPACE_NO)
                 arg_caps_retain &= ~(UINT64_C(1) << CAP_NET_BIND_SERVICE);
 
         r = verify_arguments();
