@@ -526,8 +526,9 @@ static int manager_setup_signals(Manager *m) {
 
         assert_se(sigaction(SIGCHLD, &sa, NULL) == 0);
 
-        /* We make liberal use of realtime signals here. On Linux/glibc we have 30 of them, between
-         * SIGRTMIN+0 ... SIGRTMIN+30 (aka SIGRTMAX). */
+        /* We make liberal use of realtime signals here. On Linux we have 29 of them, between
+         * SIGRTMIN+0 ... SIGRTMIN+29. The glibc has one more (SIGRTMAX is SIGRTMIN+30),
+         * but musl does not (SIGRTMAX is SIGRTMIN+29). */
 
         assert_se(sigemptyset(&mask) == 0);
         sigset_add_many(&mask,
@@ -572,7 +573,7 @@ static int manager_setup_signals(Manager *m) {
                         SIGRTMIN+28, /* systemd: set log target to kmsg */
                         SIGRTMIN+29, /* systemd: set log target to syslog-or-kmsg (obsolete) */
 
-                        /* ... one free signal here SIGRTMIN+30 ... */
+                        /* ... one free signal here SIGRTMIN+30 (glibc only) ... */
                         -1);
         assert_se(sigprocmask(SIG_SETMASK, &mask, NULL) == 0);
 
