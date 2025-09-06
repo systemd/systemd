@@ -115,6 +115,7 @@ modules += [
                 'sources' : pam_systemd_home_sources,
                 'dependencies' : [
                         libcrypt,
+                        libintl,
                         libpam_misc,
                         libpam,
                         threads,
