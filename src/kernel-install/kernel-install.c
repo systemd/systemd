@@ -32,6 +32,7 @@
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
 #include "stat-util.h"
@@ -152,10 +153,10 @@ static int context_copy(const Context *source, Context *ret) {
 
         assert(source);
         assert(ret);
-        assert(source->rfd >= 0 || source->rfd == AT_FDCWD);
+        assert(source->rfd >= 0 || IN_SET(source->rfd, AT_FDCWD, XAT_FDROOT));
 
         _cleanup_(context_done) Context copy = (Context) {
-                .rfd = AT_FDCWD,
+                .rfd = XAT_FDROOT,
                 .action = source->action,
                 .machine_id = source->machine_id,
                 .machine_id_is_random = source->machine_id_is_random,
@@ -168,7 +169,8 @@ static int context_copy(const Context *source, Context *ret) {
                 copy.rfd = fd_reopen(source->rfd, O_CLOEXEC|O_DIRECTORY|O_PATH);
                 if (copy.rfd < 0)
                         return copy.rfd;
-        }
+        } else
+                copy.rfd = source->rfd;
 
         r = strdup_to(&copy.layout_other, source->layout_other);
         if (r < 0)
@@ -215,28 +217,6 @@ static int context_copy(const Context *source, Context *ret) {
 
         *ret = copy;
         copy = CONTEXT_NULL;
-
-        return 0;
-}
-
-static int context_open_root(Context *c) {
-        int r;
-
-        assert(c);
-        assert(c->rfd < 0);
-
-        if (isempty(arg_root))
-                return 0;
-
-        r = path_is_root(arg_root);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine if '%s' is the root directory: %m", arg_root);
-        if (r > 0)
-                return 0;
-
-        c->rfd = open(arg_root, O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (c->rfd < 0)
-                return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
 
         return 0;
 }
@@ -347,17 +327,10 @@ static int context_set_path(Context *c, const char *s, const char *source, const
         if (*dest || !s)
                 return 0;
 
-        if (c->rfd >= 0) {
-                r = chaseat(c->rfd, s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to chase path %s for %s specified via %s, ignoring: %m",
-                                                 s, name, source);
-        } else {
-                r = path_make_absolute_cwd(s, &p);
-                if (r < 0)
-                        return log_warning_errno(r, "Failed to make path '%s' for %s specified via %s absolute, ignoring: %m",
-                                                 s, name, source);
-        }
+        r = chaseat(c->rfd, s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd = */ NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to chase path %s for %s specified via %s, ignoring: %m",
+                                         s, name, source);
 
         log_debug("%s (%s) set via %s.", name, p, source);
 
@@ -395,17 +368,10 @@ static int context_set_path_strv(Context *c, char* const* strv, const char *sour
         STRV_FOREACH(s, strv) {
                 char *p;
 
-                if (c->rfd >= 0) {
-                        r = chaseat(c->rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
-                        if (r < 0)
-                                return log_warning_errno(r, "Failed to chase path %s for %s specified via %s: %m",
-                                                         *s, name, source);
-                } else {
-                        r = path_make_absolute_cwd(*s, &p);
-                        if (r < 0)
-                                return log_warning_errno(r, "Failed to make path '%s' for %s specified via %s absolute, ignoring: %m",
-                                                         *s, name, source);
-                }
+                r = chaseat(c->rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd = */ NULL);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to chase path %s for %s specified via %s: %m",
+                                                 *s, name, source);
                 r = strv_consume(&w, p);
                 if (r < 0)
                         return log_oom();
@@ -503,7 +469,7 @@ static int context_load_machine_info(Context *c) {
                 return 0;
         }
 
-        r = chase_and_fopenat_unlocked(c->rfd, path, CHASE_AT_RESOLVE_IN_ROOT, "re", NULL, &f);
+        r = chase_and_fopenat_unlocked(c->rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -677,18 +643,49 @@ static int context_load_plugins(Context *c) {
         int r;
 
         assert(c);
+        assert(c->rfd >= 0 || c->rfd == XAT_FDROOT);
 
         if (c->plugins)
                 return 0;
 
-        r = conf_files_list_strv_at(
-                        &c->plugins,
-                        ".install",
-                        c->rfd,
+        /* NB: the plugins directory is not subject to root directory shenanigans, we do not want to mix code
+         * from host and image. */
+        _cleanup_strv_free_ char **plugin_dirs = NULL;
+        r = getenv_path_list("KERNEL_INSTALL_PLUGINS_PATH", &plugin_dirs);
+        if (r == -ENXIO) {
+                plugin_dirs = strv_new("/etc/kernel/install.d", "/usr/lib/kernel/install.d");
+                if (!plugin_dirs)
+                        return log_oom();
+        } else if (r < 0)
+                return log_error_errno(r, "Failed to parse $KERNEL_INSTALL_PLUGINS_PATH: %m");
+
+        if (c->rfd == XAT_FDROOT) {
+                /* traditional *.install drop-ins do not support operation relative to a root directory. */
+                r = conf_files_list_strv(
+                                &c->plugins,
+                                ".install",
+                                /* root= */ NULL,
+                                CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
+                                (const char *const*) plugin_dirs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find *.install plugins: %m");
+        }
+
+        /* The newer-style *.rinstall drop-ins also support operation relative to a root directory. */
+        _cleanup_strv_free_ char **add = NULL;
+        r = conf_files_list_strv(
+                        &add,
+                        ".rinstall",
+                        /* root= */ NULL,
                         CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
-                        STRV_MAKE_CONST("/etc/kernel/install.d", "/usr/lib/kernel/install.d"));
+                        (const char *const*) plugin_dirs);
         if (r < 0)
-                return log_error_errno(r, "Failed to find plugins: %m");
+                return log_error_errno(r, "Failed to find *.rinstall plugins: %m");
+
+        if (strv_extend_strv(&c->plugins, add, /* filter_duplicates= */ true) < 0)
+                return log_oom();
+
+        strv_sort(c->plugins);
 
         return 0;
 }
@@ -702,10 +699,6 @@ static int context_setup(Context *c) {
                 c->kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN;
         if (c->entry_token_type < 0)
                 c->entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
-
-        r = context_open_root(c);
-        if (r < 0)
-                return r;
 
         r = context_load_environment(c);
         if (r < 0)
@@ -738,13 +731,38 @@ static int context_setup(Context *c) {
         return 0;
 }
 
+static int context_open_root(Context *c) {
+        int r;
+
+        assert(c);
+        assert(c->rfd < 0);
+
+        if (empty_or_root(arg_root)) {
+                c->rfd = XAT_FDROOT;
+                return 0;
+        }
+
+        r = path_is_root(arg_root);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if '%s' is the root directory: %m", arg_root);
+        if (r > 0) {
+                c->rfd = XAT_FDROOT;
+                return 0;
+        }
+
+        c->rfd = open(arg_root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+        if (c->rfd < 0)
+                return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
+
+        return 0;
+}
+
 static int context_from_cmdline(Context *c, Action action) {
         int r;
 
         assert(c);
 
         c->action = action;
-
         c->entry_type = arg_boot_entry_type;
 
         r = free_and_strdup_warn(&c->entry_token, arg_entry_token);
@@ -752,6 +770,10 @@ static int context_from_cmdline(Context *c, Action action) {
                 return r;
 
         c->entry_token_type = arg_entry_token_type;
+
+        r = context_open_root(c);
+        if (r < 0)
+                return r;
 
         return context_setup(c);
 }
@@ -956,6 +978,25 @@ static int context_remove_entry_dir(Context *c) {
         return 0;
 }
 
+static char* build_path_for_root(Context *c, const char *path) {
+        assert(c);
+        assert(c->rfd >= 0 || c->rfd == XAT_FDROOT);
+
+        if (c->rfd == XAT_FDROOT)
+                return path_is_absolute(path) ? strdup(path) : path_join("/", path);
+
+        /* An IPC client might have passed us a dir from another namespace, hence construct a path
+         * via our own /proc/<pid>/fd/<fd>, to pass to the plugins. */
+        _cleanup_free_ char *j = NULL;
+        if (asprintf(&j, "/proc/" PID_FMT "/fd/%i", getpid_cached(), c->rfd) < 0)
+                return NULL;
+
+        if (path && !path_extend(&j, path))
+                return NULL;
+
+        return TAKE_PTR(j);
+}
+
 static int context_build_arguments(Context *c) {
         _cleanup_strv_free_ char **a = NULL;
         const char *verb;
@@ -989,10 +1030,14 @@ static int context_build_arguments(Context *c) {
                 assert_not_reached();
         }
 
+        _cleanup_free_ char *ed = build_path_for_root(c, c->entry_dir);
+        if (!ed)
+                return log_oom();
+
         a = strv_new("dummy-arg", /* to make strv_free() works for this variable. */
                      verb,
                      c->version ?: "KERNEL_VERSION",
-                     c->entry_dir);
+                     ed);
         if (!a)
                 return log_oom();
 
@@ -1027,18 +1072,27 @@ static int context_build_environment(Context *c) {
         if (c->envp)
                 return 0;
 
+        _cleanup_free_ char *br = build_path_for_root(c, c->boot_root);
+        if (!br)
+                return log_oom();
+
+        _cleanup_free_ char *cr = build_path_for_root(c, c->conf_root ?: "/etc/kernel");
+        if (!cr)
+                return log_oom();
+
         r = strv_env_assign_many(&e,
                                  "LC_COLLATE",                      SYSTEMD_DEFAULT_LOCALE,
                                  "KERNEL_INSTALL_VERBOSE",          one_zero(arg_verbose),
                                  "KERNEL_INSTALL_IMAGE_TYPE",       kernel_image_type_to_string(c->kernel_image_type),
                                  "KERNEL_INSTALL_MACHINE_ID",       SD_ID128_TO_STRING(c->machine_id),
                                  "KERNEL_INSTALL_ENTRY_TOKEN",      c->entry_token,
-                                 "KERNEL_INSTALL_BOOT_ROOT",        c->boot_root,
+                                 "KERNEL_INSTALL_BOOT_ROOT",        br,
                                  "KERNEL_INSTALL_LAYOUT",           context_get_layout(c),
                                  "KERNEL_INSTALL_INITRD_GENERATOR", strempty(c->initrd_generator),
                                  "KERNEL_INSTALL_UKI_GENERATOR",    strempty(c->uki_generator),
                                  "KERNEL_INSTALL_BOOT_ENTRY_TYPE",  boot_entry_type_to_string(c->entry_type),
-                                 "KERNEL_INSTALL_STAGING_AREA",     c->staging_area);
+                                 "KERNEL_INSTALL_STAGING_AREA",     c->staging_area,
+                                 "KERNEL_INSTALL_CONF_ROOT",        cr);
         if (r < 0)
                 return log_error_errno(r, "Failed to build environment variables for plugins: %m");
 
