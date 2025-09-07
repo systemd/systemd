@@ -101,8 +101,10 @@
           one or more initrd images may be specified as well (note that plugins might generate additional
           ones).</para>
 
-          <para>The executable files from <filename>/usr/lib/kernel/install.d/*.install</filename> and
-          <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) are called with the
+          <para>The executable files from <filename>/usr/lib/kernel/install.d/*.install</filename>,
+          <filename>/usr/lib/kernel/install.d/*.rinstall</filename>,
+          <filename>/etc/kernel/install.d/*.install</filename> and
+          <filename>/etc/kernel/install.d/*.rinstall</filename> (i.e. the plugins) are called with the
           following arguments:</para>
 
           <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
@@ -119,6 +121,19 @@
           <para><command>kernel-install</command> creates
           <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable></filename>,
           if enabled (see <varname>$KERNEL_INSTALL_LAYOUT</varname>).</para>
+
+          <para>Plugin file names may end in either the <filename>.install</filename> or
+          <filename>.rinstall</filename> suffix. Plugins with former suffix are called only if
+          <command>kernel-install</command> is invoked without
+          <option>--root=</option>/<option>--image=</option> switch, i.e. when operating directly on the host
+          the command is called on, rather than a separate image. Plugins with the latter suffix are invoked
+          in any case, i.e. both when operating on the host and when operating on a root directory or disk
+          image. Plugins that alter system state (i.e. state outside of the relevant directories whose paths
+          are passed to the plugins via the command line and environment variables) should use the
+          <filename>.install</filename> suffix, and those operate purely below the specified directories may
+          use the <filename>.rinstall</filename> suffix. Or in other words, the suffix indicates whether a
+          plugin is ready to operate "offline" on a disk image (<filename>*.rinstall</filename>) or exclusively operates "online"
+          (<filename>*.install</filename>) on a running system.</para>
 
           <para>Three default plugins execute the following operations in this case:</para>
 
