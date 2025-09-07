@@ -12,6 +12,7 @@ typedef struct DnsCache {
 
 void dns_cache_flush(DnsCache *c);
 void dns_cache_prune(DnsCache *c);
+void dns_cache_force_stale(DnsCache *c);
 
 int dns_cache_put(
                 DnsCache *c,
