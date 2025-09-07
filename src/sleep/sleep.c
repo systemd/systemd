@@ -647,7 +647,9 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return r;
 
-                (void) unit_freezer_freeze(user_slice_freezer);
+                r = unit_freezer_freeze(user_slice_freezer);
+                if (r < 0)
+                        (void) unit_freezer_thaw(user_slice_freezer);
         } else
                 log_notice("User sessions remain unfrozen on explicit request ($SYSTEMD_SLEEP_FREEZE_USER_SESSIONS=0).\n"
                            "This is not recommended, and might result in unexpected behavior, particularly\n"
