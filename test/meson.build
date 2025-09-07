@@ -192,7 +192,7 @@ if want_tests != 'false'
         test('test-udev',
              test_udev_py,
              args : ['-v'],
-             env : ['UDEV_RULE_RUNNER=' + exe.full_path()],
+             env : test_env + { 'UDEV_RULE_RUNNER' : exe.full_path() },
              depends : exe,
              timeout : 180,
              suite : 'udev')
