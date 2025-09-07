@@ -4407,6 +4407,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         if (session) {
                 if (streq_ptr(path, session->scope_job)) {
                         session->scope_job = mfree(session->scope_job);
+                        user_flush_job(session->user);
                         session_jobs_reply(session, id, unit, result);
 
                         session_save(session);
