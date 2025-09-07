@@ -47,7 +47,7 @@ static int stochastic_fair_blue_fill_message(Link *link, QDisc *qdisc, sd_netlin
         return 0;
 }
 
-int config_parse_stochastic_fair_blue_u32(
+int config_parse_sfb_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,

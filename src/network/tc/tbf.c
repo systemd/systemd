@@ -108,7 +108,7 @@ static int token_bucket_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink
         return 0;
 }
 
-int config_parse_token_bucket_filter_size(
+int config_parse_tbf_size(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -181,7 +181,7 @@ int config_parse_token_bucket_filter_size(
         return 0;
 }
 
-int config_parse_token_bucket_filter_rate(
+int config_parse_tbf_rate(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -242,7 +242,7 @@ int config_parse_token_bucket_filter_rate(
         return 0;
 }
 
-int config_parse_token_bucket_filter_latency(
+int config_parse_tbf_latency(
                 const char *unit,
                 const char *filename,
                 unsigned line,

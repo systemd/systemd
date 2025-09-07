@@ -21,7 +21,7 @@ typedef struct FairQueueingControlledDelay {
 DEFINE_QDISC_CAST(FQ_CODEL, FairQueueingControlledDelay);
 extern const QDiscVTable fq_codel_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_controlled_delay_u32);
-CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_controlled_delay_usec);
-CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_controlled_delay_bool);
-CONFIG_PARSER_PROTOTYPE(config_parse_fair_queueing_controlled_delay_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_fq_codel_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_fq_codel_usec);
+CONFIG_PARSER_PROTOTYPE(config_parse_fq_codel_bool);
+CONFIG_PARSER_PROTOTYPE(config_parse_fq_codel_size);
