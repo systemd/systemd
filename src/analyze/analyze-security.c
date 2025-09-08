@@ -568,7 +568,7 @@ static bool syscall_names_in_filter(Set *s, bool allow_list, const SyscallFilter
                 }
 
                 /* Let's see if the system call actually exists on this platform, before complaining */
-                if (seccomp_syscall_resolve_name(syscall) < 0)
+                if (sym_seccomp_syscall_resolve_name(syscall) < 0)
                         continue;
 
                 if (set_contains(s, syscall) == allow_list) {
@@ -601,6 +601,13 @@ static int assess_system_call_filter(
         char *d;
         uint64_t b;
         int r;
+
+        r = dlopen_libseccomp();
+        if (r < 0) {
+                *ret_badness = UINT64_MAX;
+                *ret_description = NULL;
+                return r;
+        }
 
         if (!info->system_call_filter_allow_list && set_isempty(info->system_call_filter)) {
                 r = strdup_to(&d, "Service does not filter system calls");
@@ -2439,6 +2446,8 @@ static int analyze_security_one(sd_bus *bus,
 
 /* Refactoring SecurityInfo so that it can make use of existing struct variables instead of reading from dbus */
 static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, SecurityInfo **ret_info) {
+        int r;
+
         assert(ret_info);
 
         _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
@@ -2568,32 +2577,35 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                 info->_umask = c->umask;
 
 #if HAVE_SECCOMP
-                SET_FOREACH(key, c->syscall_archs) {
-                        const char *name;
+                r = dlopen_libseccomp();
+                if (r >= 0) {
+                        SET_FOREACH(key, c->syscall_archs) {
+                                const char *name;
 
-                        name = seccomp_arch_to_string(PTR_TO_UINT32(key) - 1);
-                        if (!name)
-                                continue;
+                                name = seccomp_arch_to_string(PTR_TO_UINT32(key) - 1);
+                                if (!name)
+                                        continue;
 
-                        if (set_put_strdup(&info->system_call_architectures, name) < 0)
-                                return log_oom();
-                }
+                                if (set_put_strdup(&info->system_call_architectures, name) < 0)
+                                        return log_oom();
+                        }
 
-                info->system_call_filter_allow_list = c->syscall_allow_list;
+                        info->system_call_filter_allow_list = c->syscall_allow_list;
 
-                void *id, *num;
-                HASHMAP_FOREACH_KEY(num, id, c->syscall_filter) {
-                        _cleanup_free_ char *name = NULL;
+                        void *id, *num;
+                        HASHMAP_FOREACH_KEY(num, id, c->syscall_filter) {
+                                _cleanup_free_ char *name = NULL;
 
-                        if (info->system_call_filter_allow_list && PTR_TO_INT(num) >= 0)
-                                continue;
+                                if (info->system_call_filter_allow_list && PTR_TO_INT(num) >= 0)
+                                        continue;
 
-                        name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
-                        if (!name)
-                                continue;
+                                name = sym_seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                                if (!name)
+                                        continue;
 
-                        if (set_ensure_consume(&info->system_call_filter, &string_hash_ops_free, TAKE_PTR(name)) < 0)
-                                return log_oom();
+                                if (set_ensure_consume(&info->system_call_filter, &string_hash_ops_free, TAKE_PTR(name)) < 0)
+                                        return log_oom();
+                        }
                 }
 #endif
         }
