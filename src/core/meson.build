@@ -133,7 +133,6 @@ libcore_static = static_library(
         c_args : ['-fvisibility=default'],
         dependencies : [libacl,
                         libaudit_cflags,
-                        libblkid,
                         libdl,
                         libm,
                         libmount,

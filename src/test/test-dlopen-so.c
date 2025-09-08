@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "apparmor-util.h"
+#include "blkid-util.h"
 #include "bpf-dlopen.h"
 #include "compress.h"
 #include "cryptsetup-util.h"
@@ -117,6 +118,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_SELINUX
         assert_se(dlopen_libselinux() >= 0);
+#endif
+
+#if HAVE_BLKID
+        assert_se(dlopen_libblkid() >= 0);
 #endif
 
         return 0;

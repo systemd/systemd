@@ -47,7 +47,6 @@ executables += [
                 ],
                 'extract' : nspawn_extract_sources,
                 'dependencies' : [
-                        libblkid,
                         libseccomp_cflags,
                         libselinux_cflags,
                 ],
