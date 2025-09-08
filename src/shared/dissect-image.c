@@ -730,7 +730,7 @@ static int dissect_image(
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
-        const char *pttype = NULL, *sptuuid = NULL;
+        const char *pttype = NULL;
         blkid_partlist pl;
         int r, generic_nr = -1, n_partitions;
 
@@ -838,7 +838,7 @@ static int dissect_image(
                 (void) sym_blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
                 if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
                         _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
-                        const char *fstype = NULL, *options = NULL, *suuid = NULL;
+                        const char *fstype = NULL, *options = NULL;
                         _cleanup_close_ int mount_node_fd = -EBADF;
                         sd_id128_t uuid = SD_ID128_NULL;
                         PartitionPolicyFlags found_flags;
@@ -856,7 +856,11 @@ static int dissect_image(
                                 return -ENOPKG;
 
                         (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
-                        (void) sym_blkid_probe_lookup_value(b, "UUID", &suuid, NULL);
+
+                        /* blkid will return FAT's serial number as UUID, hence it is quite possible that
+                         * parsing this will fail. We'll ignore the ID, since it's just too short to be
+                         * useful as true identifier. */
+                        (void) blkid_probe_lookup_value_id128(b, "UUID", &uuid);
 
                         encrypted = streq_ptr(fstype, "crypto_LUKS");
 
@@ -883,15 +887,6 @@ static int dissect_image(
                                 t = strdup(fstype);
                                 if (!t)
                                         return -ENOMEM;
-                        }
-
-                        if (suuid) {
-                                /* blkid will return FAT's serial number as UUID, hence it is quite possible
-                                 * that parsing this will fail. We'll ignore the ID, since it's just too
-                                 * short to be useful as true identifier. */
-                                r = sd_id128_from_string(suuid, &uuid);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to parse file system UUID '%s', ignoring: %m", suuid);
                         }
 
                         r = make_partition_devname(devname, diskseq, -1, flags, &n);
@@ -958,12 +953,7 @@ static int dissect_image(
                         return -EPROTONOSUPPORT;
         }
 
-        (void) sym_blkid_probe_lookup_value(b, "PTUUID", &sptuuid, NULL);
-        if (sptuuid) {
-                r = sd_id128_from_string(sptuuid, &m->image_uuid);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse partition table UUID '%s', ignoring: %m", sptuuid);
-        }
+        (void) blkid_probe_lookup_value_id128(b, "PTUUID", &m->image_uuid);
 
         errno = 0;
         pl = sym_blkid_probe_get_partitions(b);
