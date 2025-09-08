@@ -39,13 +39,13 @@ static inline bool TPM2_PCR_MASK_VALID(uint32_t pcr_mask) {
 
 #define TPM2_N_HASH_ALGORITHMS 4U
 
+int dlopen_tpm2(void);
+
 #if HAVE_TPM2
 
 #include <tss2/tss2_esys.h>     /* IWYU pragma: export */
 #include <tss2/tss2_mu.h>       /* IWYU pragma: export */
 #include <tss2/tss2_rc.h>       /* IWYU pragma: export */
-
-int dlopen_tpm2(void);
 
 typedef struct Tpm2Context {
         unsigned n_ref;

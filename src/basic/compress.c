@@ -144,8 +144,8 @@ bool compression_supported(Compression c) {
         return BIT_SET(supported, c);
 }
 
-#if HAVE_XZ
 int dlopen_lzma(void) {
+#if HAVE_XZ
         ELF_NOTE_DLOPEN("lzma",
                         "Support lzma compression in journal and coredump files",
                         COMPRESSION_PRIORITY_XZ,
@@ -160,8 +160,10 @@ int dlopen_lzma(void) {
                         DLSYM_ARG(lzma_stream_buffer_encode),
                         DLSYM_ARG(lzma_lzma_preset),
                         DLSYM_ARG(lzma_stream_decoder));
-}
+#else
+        return -EOPNOTSUPP;
 #endif
+}
 
 int compress_blob_xz(const void *src, uint64_t src_size,
                      void *dst, size_t dst_alloc_size, size_t *dst_size, int level) {
@@ -213,8 +215,8 @@ int compress_blob_xz(const void *src, uint64_t src_size,
 #endif
 }
 
-#if HAVE_LZ4
 int dlopen_lz4(void) {
+#if HAVE_LZ4
         ELF_NOTE_DLOPEN("lz4",
                         "Support lz4 compression in journal and coredump files",
                         COMPRESSION_PRIORITY_LZ4,
@@ -238,8 +240,10 @@ int dlopen_lz4(void) {
                         DLSYM_ARG(LZ4_decompress_safe),
                         DLSYM_ARG(LZ4_decompress_safe_partial),
                         DLSYM_ARG(LZ4_versionNumber));
-}
+#else
+        return -EOPNOTSUPP;
 #endif
+}
 
 int compress_blob_lz4(const void *src, uint64_t src_size,
                       void *dst, size_t dst_alloc_size, size_t *dst_size, int level) {
@@ -278,8 +282,8 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
 #endif
 }
 
-#if HAVE_ZSTD
 int dlopen_zstd(void) {
+#if HAVE_ZSTD
         ELF_NOTE_DLOPEN("zstd",
                         "Support zstd compression in journal and coredump files",
                         COMPRESSION_PRIORITY_ZSTD,
@@ -304,8 +308,10 @@ int dlopen_zstd(void) {
                         DLSYM_ARG(ZSTD_isError),
                         DLSYM_ARG(ZSTD_createDCtx),
                         DLSYM_ARG(ZSTD_createCCtx));
-}
+#else
+        return -EOPNOTSUPP;
 #endif
+}
 
 int compress_blob_zstd(
                 const void *src, uint64_t src_size,
