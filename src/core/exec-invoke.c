@@ -14,10 +14,6 @@
 #include <sys/statvfs.h>
 #include <unistd.h>
 
-#if HAVE_PAM
-#include <security/pam_appl.h>
-#endif
-
 #include "sd-messages.h"
 
 #include "apparmor-util.h"
@@ -62,6 +58,7 @@
 #include "open-file.h"
 #include "osc-context.h"
 #include "path-util.h"
+#include "pam-util.h"
 #include "percent-util.h"
 #include "pidref.h"
 #include "proc-cmdline.h"
@@ -1156,13 +1153,13 @@ static int pam_close_session_and_delete_credentials(pam_handle_t *handle, int fl
 
         assert(handle);
 
-        r = pam_close_session(handle, flags);
+        r = sym_pam_close_session(handle, flags);
         if (r != PAM_SUCCESS)
-                log_debug("pam_close_session() failed: %s", pam_strerror(handle, r));
+                pam_syslog_pam_error(handle, LOG_DEBUG, r, "pam_close_session() failed: @PAMERR@");
 
-        s = pam_setcred(handle, PAM_DELETE_CRED | flags);
+        s = sym_pam_setcred(handle, PAM_DELETE_CRED | flags);
         if (s != PAM_SUCCESS)
-                log_debug("pam_setcred(PAM_DELETE_CRED) failed: %s", pam_strerror(handle, s));
+                pam_syslog_pam_error(handle, LOG_DEBUG, r, "pam_setcred(PAM_DELETE_CRED) failed: @PAMERR@");
 
         return r != PAM_SUCCESS ? r : s;
 }
@@ -1306,12 +1303,14 @@ static int setup_pam(
         assert(fds || n_fds == 0);
         assert(env);
 
-        /* We set up PAM in the parent process, then fork. The child
-         * will then stay around until killed via PR_GET_PDEATHSIG or
-         * systemd via the cgroup logic. It will then remove the PAM
-         * session again. The parent process will exec() the actual
-         * daemon. We do things this way to ensure that the main PID
-         * of the daemon is the one we initially fork()ed. */
+        /* We set up PAM in the parent process, then fork. The child will then stay around until killed via
+         * PR_GET_PDEATHSIG or systemd via the cgroup logic. It will then remove the PAM session again. The
+         * parent process will exec() the actual daemon. We do things this way to ensure that the main PID of
+         * the daemon is the one we initially fork()ed. */
+
+        r = dlopen_libpam();
+        if (r < 0)
+                return log_error_errno(r, "PAM support not available: %m");
 
         r = barrier_create(&barrier);
         if (r < 0)
@@ -1320,7 +1319,7 @@ static int setup_pam(
         if (log_get_max_level() < LOG_DEBUG)
                 flags |= PAM_SILENT;
 
-        pam_code = pam_start(context->pam_name, user, &conv, &handle);
+        pam_code = sym_pam_start(context->pam_name, user, &conv, &handle);
         if (pam_code != PAM_SUCCESS) {
                 handle = NULL;
                 goto fail;
@@ -1330,32 +1329,32 @@ static int setup_pam(
         if (r < 0)
                 goto fail;
         if (r > 0) {
-                pam_code = pam_set_item(handle, PAM_TTY, tty);
+                pam_code = sym_pam_set_item(handle, PAM_TTY, tty);
                 if (pam_code != PAM_SUCCESS)
                         goto fail;
         }
 
         STRV_FOREACH(nv, *env) {
-                pam_code = pam_putenv(handle, *nv);
+                pam_code = sym_pam_putenv(handle, *nv);
                 if (pam_code != PAM_SUCCESS)
                         goto fail;
         }
 
-        pam_code = pam_acct_mgmt(handle, flags);
+        pam_code = sym_pam_acct_mgmt(handle, flags);
         if (pam_code != PAM_SUCCESS)
                 goto fail;
 
-        pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
+        pam_code = sym_pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
         if (pam_code != PAM_SUCCESS)
-                log_debug("pam_setcred(PAM_ESTABLISH_CRED) failed, ignoring: %s", pam_strerror(handle, pam_code));
+                pam_syslog_pam_error(handle, LOG_DEBUG, pam_code, "pam_setcred(PAM_ESTABLISH_CRED) failed, ignoring: @PAMERR@");
 
-        pam_code = pam_open_session(handle, flags);
+        pam_code = sym_pam_open_session(handle, flags);
         if (pam_code != PAM_SUCCESS)
                 goto fail;
 
         close_session = true;
 
-        e = pam_getenvlist(handle);
+        e = sym_pam_getenvlist(handle);
         if (!e) {
                 pam_code = PAM_BUF_ERR;
                 goto fail;
@@ -1440,7 +1439,7 @@ static int setup_pam(
         child_finish:
                 /* NB: pam_end() when called in child processes should set PAM_DATA_SILENT to let the module
                  * know about this. See pam_end(3) */
-                (void) pam_end(handle, pam_code | flags | PAM_DATA_SILENT);
+                (void) sym_pam_end(handle, pam_code | flags | PAM_DATA_SILENT);
                 _exit(ret);
         }
 
@@ -1466,7 +1465,7 @@ static int setup_pam(
 
 fail:
         if (pam_code != PAM_SUCCESS) {
-                log_error("PAM failed: %s", pam_strerror(handle, pam_code));
+                pam_syslog_pam_error(handle, LOG_ERR, pam_code, "PAM failed: @PAMERR@");
                 r = -EPERM;  /* PAM errors do not map to errno */
         } else
                 log_error_errno(r, "PAM failed: %m");
@@ -1475,7 +1474,7 @@ fail:
                 if (close_session)
                         pam_code = pam_close_session_and_delete_credentials(handle, flags);
 
-                (void) pam_end(handle, pam_code | flags);
+                (void) sym_pam_end(handle, pam_code | flags);
         }
 
         closelog();
