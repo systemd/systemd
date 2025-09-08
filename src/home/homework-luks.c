@@ -135,7 +135,7 @@ static int probe_file_system_by_fd(
                 sd_id128_t *ret_uuid) {
 
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        const char *fstype = NULL, *uuid = NULL;
+        const char *fstype = NULL;
         sd_id128_t id;
         int r;
 
@@ -172,11 +172,9 @@ static int probe_file_system_by_fd(
         if (!fstype)
                 return -ENOPKG;
 
-        (void) sym_blkid_probe_lookup_value(b, "UUID", &uuid, NULL);
-        if (!uuid)
+        r = blkid_probe_lookup_value_id128(b, "UUID", &id);
+        if (r == -ENXIO)
                 return -ENOPKG;
-
-        r = sd_id128_from_string(uuid, &id);
         if (r < 0)
                 return r;
 
