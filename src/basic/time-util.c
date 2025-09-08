@@ -892,7 +892,11 @@ static int parse_timestamp_impl(
                 if (!k || *k != ' ')
                         continue;
 
+#ifdef __GLIBC__
+                /* musl does not set tm_wday field and set 0 unless it is explicitly requested by %w or so.
+                 * In the below, let's only check tm_wday field only when built with glibc. */
                 weekday = day->nr;
+#endif
                 t = k + 1;
                 break;
         }
