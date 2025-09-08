@@ -37,7 +37,6 @@ int dlopen_libaudit(void) {
                         DLSYM_ARG(audit_log_user_comm_message),
                         DLSYM_ARG(audit_open));
 }
-#endif
 
 static int try_audit_request(int fd) {
         struct iovec iov;
@@ -76,8 +75,10 @@ static int try_audit_request(int fd) {
 
         return msg.err.error;
 }
+#endif
 
 bool use_audit(void) {
+#if HAVE_AUDIT
         static int cached_use = -1;
         int r;
 
@@ -113,6 +114,9 @@ bool use_audit(void) {
         }
 
         return cached_use;
+#else
+        return false;
+#endif
 }
 
 int close_audit_fd(int fd) {
