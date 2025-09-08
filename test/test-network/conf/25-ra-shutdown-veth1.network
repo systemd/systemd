@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=ra-veth1
+
+[Network]
+Bridge=ra-br99
+IPv6AcceptRA=no
+DHCP=no
