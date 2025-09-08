@@ -107,8 +107,15 @@ TEST(parse_syscall_and_errno) {
 TEST(seccomp_arch_to_string) {
         uint32_t a, b;
         const char *name;
+        int r;
 
-        a = seccomp_arch_native();
+        r = dlopen_libseccomp();
+        if (r < 0) {
+                log_notice_errno(r, "libseccomp not available, skipping %s: %m", __func__);
+                return;
+        }
+
+        a = sym_seccomp_arch_native();
         assert_se(a > 0);
         name = seccomp_arch_to_string(a);
         assert_se(name);

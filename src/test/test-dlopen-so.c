@@ -18,6 +18,7 @@
 #include "pcre2-util.h"
 #include "pkcs11-util.h"
 #include "qrcode-util.h"
+#include "seccomp-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
 
@@ -107,6 +108,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_PAM
         assert_se(dlopen_libpam() >= 0);
+#endif
+
+#if HAVE_SECCOMP
+        assert_se(dlopen_libseccomp() >= 0);
 #endif
 
         return 0;
