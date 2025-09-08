@@ -8,6 +8,7 @@
 #include "gcrypt-util.h"
 #include "idn-util.h"
 #include "libarchive-util.h"
+#include "libaudit-util.h"
 #include "libfido2-util.h"
 #include "main-func.h"
 #include "module-util.h"
@@ -97,6 +98,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_APPARMOR
         assert_se(dlopen_libapparmor() >= 0);
+#endif
+
+#if HAVE_AUDIT
+        assert_se(dlopen_libaudit() >= 0);
 #endif
 
         return 0;
