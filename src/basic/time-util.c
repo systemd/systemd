@@ -668,10 +668,14 @@ static int parse_timestamp_impl(
         _cleanup_free_ char *t_alloc = NULL;
         usec_t usec, plus = 0, minus = 0;
         bool with_tz = false;
-        int r, weekday = -1;
         unsigned fractional = 0;
         const char *k;
         struct tm tm, copy;
+        int r;
+#ifndef __GLIBC__
+        _unused_
+#endif
+        int weekday = -1;
 
         /* Allowed syntaxes:
          *
@@ -921,8 +925,11 @@ from_tm:
         assert(plus == 0);
         assert(minus == 0);
 
+#ifdef __GLIBC__
+        /* musl does not set tm_wday field and set 0 unless it is explicitly requested by %w or so. */
         if (weekday >= 0 && tm.tm_wday != weekday)
                 return -EINVAL;
+#endif
 
         if (gmtoff < 0) {
                 plus = -gmtoff * USEC_PER_SEC;
