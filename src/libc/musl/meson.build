@@ -8,4 +8,5 @@ libc_wrapper_sources += files(
         'printf.c',
         'stdio.c',
         'string.c',
+        'time.c',
 )
