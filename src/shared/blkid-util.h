@@ -63,6 +63,8 @@ enum {
         _BLKID_SAFEPROBE_ERROR     = -1,
 };
 
+int blkid_probe_lookup_value_id128(blkid_probe b, const char *field, sd_id128_t *ret);
+int blkid_probe_lookup_value_u64(blkid_probe b, const char *field, uint64_t *ret);
 #else
 static inline int dlopen_libblkid(void) {
         return -EOPNOTSUPP;
