@@ -12,6 +12,7 @@
 #include "libfido2-util.h"
 #include "main-func.h"
 #include "module-util.h"
+#include "pam-util.h"
 #include "password-quality-util-passwdqc.h"
 #include "password-quality-util-pwquality.h"
 #include "pcre2-util.h"
@@ -102,6 +103,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_AUDIT
         assert_se(dlopen_libaudit() >= 0);
+#endif
+
+#if HAVE_PAM
+        assert_se(dlopen_libpam() >= 0);
 #endif
 
         return 0;
