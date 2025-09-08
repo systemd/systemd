@@ -54,6 +54,8 @@ TEST(parse_syscall_and_errno) {
         _cleanup_free_ char *n = NULL;
         int e;
 
+        CHECK_SECCOMP(/* refuse_container= */ false);
+
         assert_se(parse_syscall_and_errno("uname:EILSEQ", &n, &e) >= 0);
         ASSERT_STREQ(n, "uname");
         assert_se(e == errno_from_name("EILSEQ") && e >= 0);
@@ -112,7 +114,9 @@ TEST(seccomp_arch_to_string) {
         uint32_t a, b;
         const char *name;
 
-        a = seccomp_arch_native();
+        CHECK_SECCOMP(/* refuse_container= */ false);
+
+        a = sym_seccomp_arch_native();
         assert_se(a > 0);
         name = seccomp_arch_to_string(a);
         assert_se(name);
