@@ -13,10 +13,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#if HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
-
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -103,6 +99,7 @@
 #include "rm-rf.h"
 #include "runtime-scope.h"
 #include "seccomp-util.h"
+#include "selinux-util.h"
 #include "shift-uid.h"
 #include "signal-util.h"
 #include "siphash24.h"
@@ -3531,8 +3528,8 @@ static int inner_child(
         }
 
 #if HAVE_SELINUX
-        if (arg_selinux_context)
-                if (setexeccon(arg_selinux_context) < 0)
+        if (arg_selinux_context && mac_selinux_use())
+                if (sym_setexeccon_raw(arg_selinux_context) < 0)
                         return log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
 #endif
 
