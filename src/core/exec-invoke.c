@@ -1576,6 +1576,10 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
 
         assert(c);
 
+        /* No libseccomp, all is fine */
+        if (dlopen_libseccomp() >= 0)
+                return true;
+
         /* No syscall filter, we are allowed to drop privileges */
         if (hashmap_isempty(c->syscall_filter))
                 return true;
@@ -1583,7 +1587,7 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
         HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
                 _cleanup_free_ char *name = NULL;
 
-                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                name = sym_seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
 
                 if (streq(name, "capget"))
                         have_capget = true;

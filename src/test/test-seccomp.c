@@ -108,7 +108,7 @@ TEST(seccomp_arch_to_string) {
         uint32_t a, b;
         const char *name;
 
-        a = seccomp_arch_native();
+        a = sym_seccomp_arch_native();
         assert_se(a > 0);
         name = seccomp_arch_to_string(a);
         assert_se(name);
