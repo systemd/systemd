@@ -51,12 +51,16 @@ static char *arg_root = NULL;
 static char *arg_image = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_legend = true;
+static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+static char *arg_entry_token = NULL;
+static BootEntryType arg_boot_entry_type = _BOOT_ENTRY_TYPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -437,20 +441,6 @@ static int context_set_initrds(Context *c, char* const* strv) {
         return context_set_path_strv(c, strv, "command line", "initrds", &c->initrds);
 }
 
-static int context_set_entry_type(Context *c, const char *s) {
-        assert(c);
-        BootEntryType e;
-        if (isempty(s) || streq(s, "all")) {
-                c->entry_type = _BOOT_ENTRY_TYPE_INVALID;
-                return 0;
-        }
-        e = boot_entry_type_from_string(s);
-        if (e < 0)
-                return log_error_errno(e, "Invalid entry type: %s", s);
-        c->entry_type = e;
-        return 1;
-}
-
 static int context_load_environment(Context *c) {
         assert(c);
 
@@ -703,10 +693,15 @@ static int context_load_plugins(Context *c) {
         return 0;
 }
 
-static int context_init(Context *c) {
+static int context_setup(Context *c) {
         int r;
 
         assert(c);
+
+        if (c->kernel_image_type < 0)
+                c->kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN;
+        if (c->entry_token_type < 0)
+                c->entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 
         r = context_open_root(c);
         if (r < 0)
@@ -741,6 +736,24 @@ static int context_init(Context *c) {
                 return r;
 
         return 0;
+}
+
+static int context_from_cmdline(Context *c, Action action) {
+        int r;
+
+        assert(c);
+
+        c->action = action;
+
+        c->entry_type = arg_boot_entry_type;
+
+        r = free_and_strdup_warn(&c->entry_token, arg_entry_token);
+        if (r < 0)
+                return r;
+
+        c->entry_token_type = arg_entry_token_type;
+
+        return context_setup(c);
 }
 
 static int context_inspect_kernel(Context *c) {
@@ -1173,16 +1186,19 @@ static int do_add(
 }
 
 static int verb_add(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
         const char *version, *kernel;
         char **initrds;
+        int r;
 
         assert(argv);
 
         if (bypass())
                 return 0;
 
-        c->action = ACTION_ADD;
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_ADD);
+        if (r < 0)
+                return r;
 
         /* We use the same order of arguments that "inspect" introduced, i.e. if only on argument is
          * specified we take it as the kernel path, not the version, i.e. it's the first argument that is
@@ -1192,11 +1208,10 @@ static int verb_add(int argc, char *argv[], void *userdata) {
                 (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
         initrds = strv_skip(argv, 3);
 
-        return do_add(c, version, kernel, initrds);
+        return do_add(&c, version, kernel, initrds);
 }
 
 static int verb_add_all(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
         _cleanup_close_ int fd = -EBADF;
         size_t n = 0;
         int ret = 0, r;
@@ -1209,9 +1224,12 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
         if (bypass())
                 return 0;
 
-        c->action = ACTION_ADD;
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_ADD);
+        if (r < 0)
+                return r;
 
-        fd = chase_and_openat(c->rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
+        fd = chase_and_openat(c.rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
@@ -1245,7 +1263,7 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
 
                 _cleanup_(context_done) Context copy = CONTEXT_NULL;
 
-                r = context_copy(c, &copy);
+                r = context_copy(&c, &copy);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy execution context: %m");
 
@@ -1273,18 +1291,17 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int run_as_installkernel(int argc, char *argv[], Context *c) {
+static int run_as_installkernel(int argc, char *argv[]) {
         /* kernel's install.sh invokes us as
          *   /sbin/installkernel <version> <vmlinuz> <map> <installation-dir>
          * We ignore the last two arguments. */
         if (optind + 2 > argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'installkernel' command requires at least two arguments.");
 
-        return verb_add(3, STRV_MAKE("add", argv[optind], argv[optind+1]), c);
+        return verb_add(3, STRV_MAKE("add", argv[optind], argv[optind+1]), /* userdata= */ NULL);
 }
 
 static int verb_remove(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
         int r;
 
         assert(argc >= 2);
@@ -1300,25 +1317,27 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         if (bypass())
                 return 0;
 
-        c->action = ACTION_REMOVE;
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_REMOVE);
+        if (r < 0)
+                return r;
 
         /* Note, we do not automatically derive the kernel version to remove from uname() here (unlike we do
          * it for the "add" verb), since we don't want to make it too easy to uninstall your running
          * kernel, as a safety precaution */
 
-        r = context_set_version(c, argv[1]);
+        r = context_set_version(&c, argv[1]);
         if (r < 0)
                 return r;
 
-        r = context_prepare_execution(c);
+        r = context_prepare_execution(&c);
         if (r < 0)
                 return r;
 
-        return context_execute(c);
+        return context_execute(&c);
 }
 
 static int verb_inspect(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *vmlinuz = NULL;
         const char *version, *kernel;
@@ -1326,7 +1345,10 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         struct utsname un;
         int r;
 
-        c->action = ACTION_INSPECT;
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_INSPECT);
+        if (r < 0)
+                return r;
 
         /* When only a single parameter is specified 'inspect' it's the kernel image path, and not the kernel
          * version. i.e. it's the first argument that is optional, not the 2nd. That's a bit unfortunate, but
@@ -1351,19 +1373,19 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
                 kernel = vmlinuz;
         }
 
-        r = context_set_version(c, version);
+        r = context_set_version(&c, version);
         if (r < 0)
                 return r;
 
-        r = context_set_kernel(c, kernel);
+        r = context_set_kernel(&c, kernel);
         if (r < 0)
                 return r;
 
-        r = context_set_initrds(c, initrds);
+        r = context_set_initrds(&c, initrds);
         if (r < 0)
                 return r;
 
-        r = context_prepare_execution(c);
+        r = context_prepare_execution(&c);
         if (r < 0)
                 return r;
 
@@ -1373,40 +1395,40 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
 
         r = table_add_many(t,
                            TABLE_FIELD, "Machine ID",
-                           TABLE_ID128, c->machine_id,
+                           TABLE_ID128, c.machine_id,
                            TABLE_FIELD, "Kernel Image Type",
-                           TABLE_STRING, kernel_image_type_to_string(c->kernel_image_type),
+                           TABLE_STRING, kernel_image_type_to_string(c.kernel_image_type),
                            TABLE_FIELD, "Layout",
-                           TABLE_STRING, context_get_layout(c),
+                           TABLE_STRING, context_get_layout(&c),
                            TABLE_FIELD, "Boot Root",
-                           TABLE_STRING, c->boot_root,
+                           TABLE_STRING, c.boot_root,
                            TABLE_FIELD, "Entry Token Type",
-                           TABLE_STRING, boot_entry_token_type_to_string(c->entry_token_type),
+                           TABLE_STRING, boot_entry_token_type_to_string(c.entry_token_type),
                            TABLE_FIELD, "Entry Token",
-                           TABLE_STRING, c->entry_token,
+                           TABLE_STRING, c.entry_token,
                            TABLE_FIELD, "Entry Directory",
-                           TABLE_STRING, c->entry_dir,
+                           TABLE_STRING, c.entry_dir,
                            TABLE_FIELD, "Kernel Version",
-                           TABLE_VERSION, c->version,
+                           TABLE_VERSION, c.version,
                            TABLE_FIELD, "Kernel",
-                           TABLE_STRING, c->kernel,
+                           TABLE_STRING, c.kernel,
                            TABLE_FIELD, "Initrds",
-                           TABLE_STRV, c->initrds,
+                           TABLE_STRV, c.initrds,
                            TABLE_FIELD, "Initrd Generator",
-                           TABLE_STRING, c->initrd_generator,
+                           TABLE_STRING, c.initrd_generator,
                            TABLE_FIELD, "UKI Generator",
-                           TABLE_STRING, c->uki_generator,
+                           TABLE_STRING, c.uki_generator,
                            TABLE_FIELD, "Plugins",
-                           TABLE_STRV, c->plugins,
+                           TABLE_STRV, c.plugins,
                            TABLE_FIELD, "Plugin Environment",
-                           TABLE_STRV, c->envp);
+                           TABLE_STRV, c.envp);
         if (r < 0)
                 return table_log_add_error(r);
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
                 r = table_add_many(t,
                                    TABLE_FIELD, "Plugin Arguments",
-                                   TABLE_STRV, strv_skip(c->argv, 1));
+                                   TABLE_STRV, strv_skip(c.argv, 1));
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -1429,11 +1451,15 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_list(int argc, char *argv[], void *userdata) {
-        Context *c = ASSERT_PTR(userdata);
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        fd = chase_and_openat(c->rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
+        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        r = context_from_cmdline(&c, ACTION_INSPECT);
+        if (r < 0)
+                return r;
+
+        fd = chase_and_openat(c.rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
@@ -1543,7 +1569,7 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[], Context *c) {
+static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_LEGEND,
@@ -1579,7 +1605,6 @@ static int parse_argv(int argc, char *argv[], Context *c) {
 
         assert(argc >= 0);
         assert(argv);
-        assert(c);
 
         while ((t = getopt_long(argc, argv, "hv", options, NULL)) >= 0)
                 switch (t) {
@@ -1623,7 +1648,7 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                         break;
 
                 case ARG_ENTRY_TOKEN:
-                        r = parse_boot_entry_token_type(optarg, &c->entry_token_type, &c->entry_token);
+                        r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
                         break;
@@ -1656,11 +1681,18 @@ static int parse_argv(int argc, char *argv[], Context *c) {
                                 return r;
                         break;
 
-                case ARG_BOOT_ENTRY_TYPE:
-                        r = context_set_entry_type(c, optarg);
-                        if (r < 0)
-                                return r;
+                case ARG_BOOT_ENTRY_TYPE: {
+                        if (isempty(optarg) || streq(optarg, "all")) {
+                                arg_boot_entry_type = _BOOT_ENTRY_TYPE_INVALID;
+                                break;
+                        }
+
+                        BootEntryType e = boot_entry_type_from_string(optarg);
+                        if (e < 0)
+                                return log_error_errno(e, "Invalid entry type: %s", optarg);
+                        arg_boot_entry_type = e;
                         break;
+                }
 
                 case '?':
                         return -EINVAL;
@@ -1672,29 +1704,28 @@ static int parse_argv(int argc, char *argv[], Context *c) {
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
-        if (c->kernel_image_type < 0)
-                c->kernel_image_type = KERNEL_IMAGE_TYPE_UNKNOWN;
-        if (c->entry_token_type < 0)
-                c->entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
-
         return 1;
 }
 
-static int run(int argc, char* argv[]) {
+static int kernel_install_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "add",         1,        VERB_ANY, 0,            verb_add            },
-                { "add-all",     1,        1,        0,            verb_add_all        },
-                { "remove",      2,        VERB_ANY, 0,            verb_remove         },
-                { "inspect",     1,        VERB_ANY, VERB_DEFAULT, verb_inspect        },
-                { "list",        1,        1,        0,            verb_list           },
+                { "add",     1, VERB_ANY, 0,            verb_add     },
+                { "add-all", 1, 1,        0,            verb_add_all },
+                { "remove",  2, VERB_ANY, 0,            verb_remove  },
+                { "inspect", 1, VERB_ANY, VERB_DEFAULT, verb_inspect },
+                { "list",    1, 1,        0,            verb_list    },
                 {}
         };
+
+        return dispatch_verb(argc, argv, verbs, /* userdata= */ NULL);
+}
+
+static int run(int argc, char* argv[]) {
         int r;
 
         log_setup();
 
-        _cleanup_(context_done) Context c = CONTEXT_NULL;
-        r = parse_argv(argc, argv, &c);
+        r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
@@ -1722,14 +1753,10 @@ static int run(int argc, char* argv[]) {
                         return log_oom();
         }
 
-        r = context_init(&c);
-        if (r < 0)
-                return r;
-
         if (invoked_as(argv, "installkernel"))
-                return run_as_installkernel(argc, argv, &c);
+                return run_as_installkernel(argc, argv);
 
-        return dispatch_verb(argc, argv, verbs, &c);
+        return kernel_install_main(argc, argv);
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
