@@ -1772,11 +1772,6 @@ Features:
 * pid1: also remove PID files of a service when the service starts, not just
   when it exits
 
-* make us use dynamically fewer deps for containers in general purpose distros:
-  o turn into dlopen() deps:
-    - libblkid (only in RootImage= handling in PID 1, but not elsewhere)
-    - libpam (only when called from PID 1)
-
 * seccomp: maybe use seccomp_merge() to merge our filters per-arch if we can.
   Apparently kernel performance is much better with fewer larger seccomp
   filters than with more smaller seccomp filters.
@@ -1798,7 +1793,7 @@ Features:
 * unify on openssl:
   - figure out what to do about libmicrohttpd, which has a hard dependency on
     gnutls
-  - port fsprg over to a dlopen lib, then switch it to openssl
+  - port fsprg over to openssl
 
 * add growvol and makevol options for /etc/crypttab, similar to
   x-systemd.growfs and x-systemd-makefs.
