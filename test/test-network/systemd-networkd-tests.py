@@ -7146,6 +7146,83 @@ class NetworkdRATests(unittest.TestCase, Utilities):
             print(output)
             self.assertNotIn('Captive Portal:', output)
 
+    @unittest.skipUnless(shutil.which('tcpdump'), "tcpdump is required for RA shutdown capture")
+    def test_ra_shutdown_messages(self):
+        copy_network_unit('25-ra-shutdown-bridge.netdev', '25-ra-shutdown-veth1.netdev', '25-ra-shutdown-veth2.netdev',
+                          '25-ra-shutdown-bridge.network', '25-ra-shutdown-veth1.network', '25-ra-shutdown-veth2.network',
+                          '25-ra-shutdown-veth1-peer.network', '25-ra-shutdown-veth2-peer.network')
+        start_networkd()
+        self.wait_online('ra-br99:routable', 'ra-veth1:enslaved', 'ra-veth2:enslaved',
+                         'ra-veth1-peer:routable', 'ra-veth2-peer:routable')
+
+        # Start packet capture on one of the peer interfaces to monitor RA messages
+        # We'll capture ICMPv6 Router Advertisement messages (type 134)
+        capture_proc = None
+        try:
+            # Start tcpdump to capture ICMPv6 RA messages on ra-veth1-peer
+            capture_proc = subprocess.Popen(
+                ['tcpdump', '-i', 'ra-veth1-peer', '-n', '-v', 'icmp6 and ip6[40] == 134'],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True
+            )
+
+            # Wait a moment to ensure capture is running
+            time.sleep(2)
+
+            # Verify the bridge is sending RA messages normally
+            # Check that the client interfaces have received addresses
+            self.wait_address('ra-veth1-peer', '2001:db8:1:[0-9a-f:]+/64', ipv='-6', timeout_sec=30)
+            self.wait_address('ra-veth2-peer', '2001:db8:1:[0-9a-f:]+/64', ipv='-6', timeout_sec=30)
+
+            # Verify IPv6 forwarding is enabled on the bridge
+            self.check_ipv6_sysctl_attr('ra-br99', 'forwarding', '1')
+
+            # Now bring down the bridge interface via networkctl
+            # This should trigger a shutdown RA with RouterLifetime=0
+            check_output('networkctl down ra-br99')
+
+            # Wait for the shutdown RA to be sent
+            time.sleep(3)
+
+            # Stop the capture
+            capture_proc.terminate()
+            stdout, stderr = capture_proc.communicate(timeout=5)
+
+            print("Captured packets:")
+            print(stdout)
+            print("Capture stderr:")
+            print(stderr)
+
+            # Verify that we captured Router Advertisement messages
+            # Look for both normal RA and shutdown RA (lifetime=0)
+            self.assertIn('router advertisement', stdout.lower())
+
+            # The key test: verify shutdown RA with router lifetime 0 was sent
+            # tcpdump formats can vary (e.g., "router lifetime 0s" or with a colon),
+            # so accept common variants.
+            self.assertRegex(stdout.lower(), r'router lifetime\s*[:=]?\s*0\s*s?')
+
+            # Verify that the interface is now down
+            output = check_output('ip link show ra-br99')
+            self.assertNotIn('UP', output)
+            self.assertNotIn('LOWER_UP', output)
+
+        except Exception as e:
+            if capture_proc:
+                capture_proc.terminate()
+                try:
+                    capture_proc.wait(timeout=5)
+                except:
+                    capture_proc.kill()
+            raise e
+
+        finally:
+            if capture_proc and capture_proc.poll() is None:
+                capture_proc.terminate()
+                try:
+                    capture_proc.wait(timeout=5)
+                except:
+                    capture_proc.kill()
+
 class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
     def setUp(self):

@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=ra-br99
+
+[Network]
+IPv6AcceptRA=no
+IPv6SendRA=yes
+DHCP=no
+Address=2001:db8:1::1/64
+
+[IPv6SendRA]
+RouterLifetimeSec=300
+EmitDNS=no
+EmitDomains=no
+
+[IPv6Prefix]
+Prefix=2001:db8:1::/64
+PreferredLifetimeSec=600
+ValidLifetimeSec=1200
