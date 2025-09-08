@@ -2505,9 +2505,6 @@ static int decrypt_partition(
         if (!streq(m->fstype, "crypto_LUKS"))
                 return 0;
 
-        if (!passphrase)
-                return -ENOKEY;
-
         r = dlopen_cryptsetup();
         if (r < 0)
                 return r;
@@ -2529,9 +2526,34 @@ static int decrypt_partition(
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
-        r = sym_crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
-                                             ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
-                                             ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
+        if (passphrase) {
+                r = sym_crypt_activate_by_passphrase(
+                                cd,
+                                name,
+                                CRYPT_ANY_SLOT,
+                                passphrase,
+                                strlen(passphrase),
+                                ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
+                                                ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ?
+                                                                 CRYPT_ACTIVATE_ALLOW_DISCARDS :
+                                                                 0));
+        } else {
+                r = sym_crypt_activate_by_token_pin(
+                                cd,
+                                name,
+                                /* type= */ NULL,
+                                CRYPT_ANY_TOKEN,
+                                /* pin= */ NULL,
+                                /* pin_size= */ 0,
+                                /* usrptr= */ NULL,
+                                ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
+                                                ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ?
+                                                                 CRYPT_ACTIVATE_ALLOW_DISCARDS :
+                                                                 0));
+                if (r < 0) {
+                        return -ENOKEY;
+                }
+        }
         if (r < 0) {
                 log_debug_errno(r, "Failed to activate LUKS device: %m");
                 return r == -EPERM ? -EKEYREJECTED : r;
