@@ -3506,7 +3506,7 @@ static int inner_child(
         if (arg_seccomp) {
 
                 if (is_seccomp_available()) {
-                        r = seccomp_load(arg_seccomp);
+                        r = sym_seccomp_load(arg_seccomp);
                         if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
                                 return log_error_errno(r, "Failed to install seccomp filter: %m");
                         if (r < 0)
@@ -4834,7 +4834,7 @@ static int merge_settings(Settings *settings, const char *path) {
                         if (!arg_settings_trusted)
                                 log_warning("Ignoring SECCOMP filter, file %s is not trusted.", path);
                         else {
-                                seccomp_release(arg_seccomp);
+                                sym_seccomp_release(arg_seccomp);
                                 arg_seccomp = TAKE_PTR(settings->seccomp);
                         }
                 }

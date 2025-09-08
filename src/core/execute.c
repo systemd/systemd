@@ -1489,27 +1489,29 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         fputc('~', f);
 
 #if HAVE_SECCOMP
-                void *id, *val;
-                bool first = true;
-                HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
-                        _cleanup_free_ char *name = NULL;
-                        const char *errno_name = NULL;
-                        int num = PTR_TO_INT(val);
+                if (dlopen_libseccomp() >= 0) {
+                        void *id, *val;
+                        bool first = true;
+                        HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
+                                _cleanup_free_ char *name = NULL;
+                                const char *errno_name = NULL;
+                                int num = PTR_TO_INT(val);
 
-                        if (first)
-                                first = false;
-                        else
-                                fputc(' ', f);
-
-                        name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
-                        fputs(strna(name), f);
-
-                        if (num >= 0) {
-                                errno_name = seccomp_errno_or_action_to_string(num);
-                                if (errno_name)
-                                        fprintf(f, ":%s", errno_name);
+                                if (first)
+                                        first = false;
                                 else
-                                        fprintf(f, ":%d", num);
+                                        fputc(' ', f);
+
+                                name = sym_seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                                fputs(strna(name), f);
+
+                                if (num >= 0) {
+                                        errno_name = seccomp_errno_or_action_to_string(num);
+                                        if (errno_name)
+                                                fprintf(f, ":%s", errno_name);
+                                        else
+                                                fprintf(f, ":%d", num);
+                                }
                         }
                 }
 #endif
@@ -1897,6 +1899,9 @@ char** exec_context_get_syscall_filter(const ExecContext *c) {
         assert(c);
 
 #if HAVE_SECCOMP
+        if (dlopen_libseccomp() < 0)
+                return strv_new(NULL);
+
         void *id, *val;
         HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
                 _cleanup_free_ char *name = NULL;
@@ -1908,7 +1913,7 @@ char** exec_context_get_syscall_filter(const ExecContext *c) {
                         /* syscall with num >= 0 in allow-list is denied. */
                         continue;
 
-                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                name = sym_seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
                 if (!name)
                         continue;
 
@@ -1965,11 +1970,14 @@ char** exec_context_get_syscall_log(const ExecContext *c) {
         assert(c);
 
 #if HAVE_SECCOMP
+        if (dlopen_libseccomp() < 0)
+                return strv_new(NULL);
+
         void *id, *val;
         HASHMAP_FOREACH_KEY(val, id, c->syscall_log) {
                 char *name = NULL;
 
-                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                name = sym_seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
                 if (!name)
                         continue;
 
