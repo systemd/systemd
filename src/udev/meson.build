@@ -115,7 +115,7 @@ endif
 
 udev_dependencies = [
         libacl,
-        libblkid,
+        libblkid_cflags,
         libkmod,
         threads,
 ]
@@ -132,7 +132,7 @@ udev_common_template = {
         'objects' : ['udevadm'],
         'dependencies' : [
                 libacl,
-                libblkid,
+                libblkid_cflags,
                 threads,
         ],
 }

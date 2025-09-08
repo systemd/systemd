@@ -1194,6 +1194,7 @@ libblkid = dependency('blkid',
 conf.set10('HAVE_BLKID', libblkid.found())
 conf.set10('HAVE_BLKID_PROBE_SET_HINT',
            libblkid.found() and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
+libblkid_cflags = libblkid.partial_dependency(includes: true, compile_args: true)
 
 libkmod = dependency('libkmod',
                      version : '>= 15',
