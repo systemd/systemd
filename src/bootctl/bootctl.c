@@ -31,6 +31,7 @@
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -92,6 +93,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
+
+static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
+        [INSTALL_SOURCE_IMAGE] = "image",
+        [INSTALL_SOURCE_HOST]  = "host",
+        [INSTALL_SOURCE_AUTO]  = "auto",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(install_source, InstallSource);
 
 int acquire_esp(
                 int unprivileged_mode,
@@ -481,18 +490,14 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_INSTALL_SOURCE:
-                        if (streq(optarg, "auto"))
-                                arg_install_source = INSTALL_SOURCE_AUTO;
-                        else if (streq(optarg, "image"))
-                                arg_install_source = INSTALL_SOURCE_IMAGE;
-                        else if (streq(optarg, "host"))
-                                arg_install_source = INSTALL_SOURCE_HOST;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unexpected parameter for --install-source=: %s", optarg);
+                case ARG_INSTALL_SOURCE: {
+                        InstallSource is = install_source_from_string(optarg);
+                        if (is < 0)
+                                return log_error_errno(is, "Unexpected parameter for --install-source=: %s", optarg);
 
+                        arg_install_source = is;
                         break;
+                }
 
                 case 'p':
                         arg_print_esp_path = true;
