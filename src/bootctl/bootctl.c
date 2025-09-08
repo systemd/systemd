@@ -594,7 +594,7 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-from-host is only supported with --root= or --image=.");
 
         if (arg_dry_run && argv[optind] && !STR_IN_SET(argv[optind], "unlink", "cleanup"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry is only supported with --unlink or --cleanup");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry-run is only supported with --unlink or --cleanup");
 
         if (arg_secure_boot_auto_enroll && !arg_certificate)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no certificate provided");
