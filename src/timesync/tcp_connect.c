@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <string.h>
 #include <netinet/in.h>
@@ -42,6 +43,11 @@ int NTS_attach_socket(const char *host, int port, int type) {
                 }
 
                 freeaddrinfo(info);
+
+                int flags;
+                if((flags = fcntl(sock, F_GETFL)) < 0 || fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0) {
+                        return close(sock), -2;
+                }
 
                 int status = 1;
                 setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &status, sizeof(status));
