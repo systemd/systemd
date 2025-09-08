@@ -434,6 +434,45 @@
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--kernel-search=</option></term>
+        <listitem>
+          <para>Controls whether and how to search for the kernel image to install. Normally, a path to the
+          kernel image to install is specified as second argument to the <literal>add</literal>
+          command. Alternatively, if <option>--kernel-search=</option> is specified, the kernel image may be
+          searched for automatically (in which case the second argument is ignored). If specified as
+          <literal>usr</literal> the kernel image is looked for in
+          <filename>/usr/lib/modules/<replaceable>version</replaceable>/vmlinuz</filename>, where
+          <replaceable>version</replaceable> is replaced with the version string specified as first argument
+          to the <literal>add</literal> command. If specified as <literal>current</literal> the kernel
+          currently booted is looked for in the EFI System Partition (ESP) or XBOOTLDR partition, using
+          information passed in from the boot loader (i.e. typically the
+          <varname>StubImageIdentifier</varname> and <varname>StubDevicePartUUID</varname> EFI
+          variables). This option is particularly useful when replicating the currently booted operating
+          system installation onto a new disk (e.g. in an OS installer scenario), specifically in order
+          to install a suitable kernel from the currently booted systemd onto the newly initialized
+          ESP/XBOOTLDR of the target disk.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--install-source=</option></term>
+        <listitem>
+          <para>When operating with <option>--root=</option>/<option>--image=</option> controls where to
+          look for the kernel to install on the target image. May be one of <literal>image</literal>
+          (for searching for it on the specified image), <literal>host</literal> (for searching on the host)
+          or <literal>auto</literal> (to pick the mode depending on <option>--kernel-search=</option>.</para>
+
+          <para>Note that <option>--install-source=image</option> is only available if the kernel version is
+          explicitly specified, i.e. it is not supported in conjunction with
+          <option>--kernel-search=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager"/>

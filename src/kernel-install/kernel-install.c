@@ -18,6 +18,8 @@
 #include "exec-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "efi-loader.h"
+#include "efivars.h"
 #include "fileio.h"
 #include "find-esp.h"
 #include "format-table.h"
@@ -42,6 +44,22 @@
 #include "tmpfile-util.h"
 #include "verbs.h"
 
+typedef enum KernelSearch {
+        KERNEL_LITERAL,                 /* kernel has been specified explicitly */
+        KERNEL_USR,                     /* Will use kernel below /usr/lib/modules/ */
+        KERNEL_CURRENT,                 /* Will try to find currently booted kernel image */
+        _KERNEL_SEARCH_MAX,
+        _KERNEL_SEARCH_INVALID = -EINVAL,
+} KernelSearch;
+
+typedef enum InstallSource {
+        INSTALL_SOURCE_IMAGE,
+        INSTALL_SOURCE_HOST,
+        INSTALL_SOURCE_AUTO,
+        _INSTALL_SOURCE_MAX,
+        _INSTALL_SOURCE_INVALID = -EINVAL,
+} InstallSource;
+
 static bool arg_verbose = false;
 static char *arg_esp_path = NULL;
 static char *arg_xbootldr_path = NULL;
@@ -55,6 +73,8 @@ static bool arg_legend = true;
 static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 static char *arg_entry_token = NULL;
 static BootEntryType arg_boot_entry_type = _BOOT_ENTRY_TYPE_INVALID;
+static KernelSearch arg_kernel_search = _KERNEL_SEARCH_INVALID;
+static InstallSource arg_install_source = INSTALL_SOURCE_AUTO;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
@@ -89,6 +109,22 @@ static const char * const layout_table[_LAYOUT_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(layout, Layout);
 
+static const char* const kernel_search_table[_KERNEL_SEARCH_MAX] = {
+        [KERNEL_LITERAL] = "literal",
+        [KERNEL_USR]     = "usr",
+        [KERNEL_CURRENT] = "current",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(kernel_search, KernelSearch);
+
+static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
+        [INSTALL_SOURCE_IMAGE] = "image",
+        [INSTALL_SOURCE_HOST]  = "host",
+        [INSTALL_SOURCE_AUTO]  = "auto",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(install_source, InstallSource);
+
 typedef struct Context {
         int rfd;
         Action action;
@@ -104,6 +140,7 @@ typedef struct Context {
         char *entry_token;
         char *entry_dir;
         char *version;
+        KernelSearch kernel_search;
         char *kernel;
         char **initrds;
         char *initrd_generator;
@@ -112,6 +149,7 @@ typedef struct Context {
         char **plugins;
         char **argv;
         char **envp;
+        InstallSource install_source;
 } Context;
 
 #define CONTEXT_NULL                                                    \
@@ -122,6 +160,8 @@ typedef struct Context {
                 .layout = _LAYOUT_INVALID,                              \
                 .entry_type = _BOOT_ENTRY_TYPE_INVALID,                 \
                 .entry_token_type = _BOOT_ENTRY_TOKEN_TYPE_INVALID,     \
+                .kernel_search = _KERNEL_SEARCH_INVALID,                \
+                .install_source = _INSTALL_SOURCE_INVALID,              \
         }
 
 static void context_done(Context *c) {
@@ -163,6 +203,8 @@ static int context_copy(const Context *source, Context *ret) {
                 .kernel_image_type = source->kernel_image_type,
                 .layout = source->layout,
                 .entry_token_type = source->entry_token_type,
+                .kernel_search = source->kernel_search,
+                .install_source = source->install_source,
         };
 
         if (source->rfd >= 0) {
@@ -309,13 +351,20 @@ static int context_set_uki_generator(Context *c, const char *s, const char *sour
 static int context_set_version(Context *c, const char *s) {
         assert(c);
 
-        if (s && !filename_is_valid(s))
+        if (s && !version_is_valid(s))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid version specified: %s", s);
 
         return context_set_string(s, "command line", "kernel version", &c->version);
 }
 
-static int context_set_path(Context *c, const char *s, const char *source, const char *name, char **dest) {
+static int context_set_path(
+                Context *c,
+                int rfd,
+                const char *path,
+                const char *source,
+                const char *name,
+                char **dest) {
+
         char *p;
         int r;
 
@@ -324,13 +373,13 @@ static int context_set_path(Context *c, const char *s, const char *source, const
         assert(name);
         assert(dest);
 
-        if (*dest || !s)
+        if (*dest || !path)
                 return 0;
 
-        r = chaseat(c->rfd, s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd = */ NULL);
+        r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to chase path %s for %s specified via %s, ignoring: %m",
-                                         s, name, source);
+                                         path, name, source);
 
         log_debug("%s (%s) set via %s.", name, p, source);
 
@@ -338,22 +387,35 @@ static int context_set_path(Context *c, const char *s, const char *source, const
         return 1;
 }
 
-static int context_set_boot_root(Context *c, const char *s, const char *source) {
+static int context_set_boot_root(Context *c, const char *path, const char *source) {
         assert(c);
-        return context_set_path(c, s, source, "BOOT_ROOT", &c->boot_root);
+        return context_set_path(c, c->rfd, path, source, "BOOT_ROOT", &c->boot_root);
 }
 
-static int context_set_conf_root(Context *c, const char *s, const char *source) {
+static int context_set_conf_root(Context *c, const char *path, const char *source) {
         assert(c);
-        return context_set_path(c, s, source, "CONF_ROOT", &c->conf_root);
+        return context_set_path(c, c->rfd, path, source, "CONF_ROOT", &c->conf_root);
 }
 
-static int context_set_kernel(Context *c, const char *s) {
+static int context_set_kernel(Context *c, const char *path) {
         assert(c);
-        return context_set_path(c, s, "command line", "kernel image file", &c->kernel);
+
+        return context_set_path(
+                        c,
+                        c->install_source == INSTALL_SOURCE_IMAGE ? c->rfd : XAT_FDROOT,
+                        path,
+                        "command line",
+                        "kernel image file",
+                        &c->kernel);
 }
 
-static int context_set_path_strv(Context *c, char* const* strv, const char *source, const char *name, char ***dest) {
+static int context_set_path_strv(
+                Context *c,
+                int rfd,
+                char* const* strv,
+                const char *source,
+                const char *name,
+                char ***dest) {
         _cleanup_strv_free_ char **w = NULL;
         int r;
 
@@ -368,7 +430,7 @@ static int context_set_path_strv(Context *c, char* const* strv, const char *sour
         STRV_FOREACH(s, strv) {
                 char *p;
 
-                r = chaseat(c->rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd = */ NULL);
+                r = chaseat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &p, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to chase path %s for %s specified via %s: %m",
                                                  *s, name, source);
@@ -399,12 +461,18 @@ static int context_set_plugins(Context *c, const char *s, const char *source) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse plugin paths from %s: %m", source);
 
-        return context_set_path_strv(c, v, source, "plugins", &c->plugins);
+        return context_set_path_strv(c, XAT_FDROOT, v, source, "plugins", &c->plugins);
 }
 
 static int context_set_initrds(Context *c, char* const* strv) {
         assert(c);
-        return context_set_path_strv(c, strv, "command line", "initrds", &c->initrds);
+        return context_set_path_strv(
+                        c,
+                        c->install_source == INSTALL_SOURCE_IMAGE ? c->rfd : XAT_FDROOT,
+                        strv,
+                        "command line",
+                        "initrds",
+                        &c->initrds);
 }
 
 static int context_load_environment(Context *c) {
@@ -728,6 +796,9 @@ static int context_setup(Context *c) {
         if (r < 0)
                 return r;
 
+        if (c->install_source < 0)
+                c->install_source = INSTALL_SOURCE_AUTO;
+
         return 0;
 }
 
@@ -770,6 +841,8 @@ static int context_from_cmdline(Context *c, Action action) {
                 return r;
 
         c->entry_token_type = arg_entry_token_type;
+        c->kernel_search = arg_kernel_search;
+        c->install_source = arg_install_source;
 
         r = context_open_root(c);
         if (r < 0)
@@ -1096,6 +1169,15 @@ static int context_build_environment(Context *c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build environment variables for plugins: %m");
 
+        if (c->rfd != XAT_FDROOT) {
+                _cleanup_free_ char *root = build_path_for_root(c, /* path= */ NULL);
+
+                /* Set $KERNEL_INSTALL_ROOT only when we operate on another root dir */
+                r = strv_env_assign(&e, "KERNEL_INSTALL_ROOT", root);
+                if (r < 0)
+                        return log_oom();
+        }
+
         c->envp = TAKE_PTR(e);
         return 0;
 }
@@ -1175,24 +1257,162 @@ static bool bypass(void) {
         return should_bypass("KERNEL_INSTALL");
 }
 
-static int kernel_from_version(const char *version, char **ret_kernel) {
-        _cleanup_free_ char *vmlinuz = NULL;
+static int normalize_version(
+                const char *version,
+                char **ret_version) {
+
+        int r;
+
+        assert(ret_version);
+
+        if (version) {
+                *ret_version = NULL;
+                return 0;
+        }
+
+        struct utsname un;
+        assert_se(uname(&un) >= 0);
+
+        r = strdup_to(ret_version, un.release);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
+static int find_usr_kernel_from_version(Context *c, const char *version, char **ret_kernel) {
         int r;
 
         assert(version);
 
-        vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
+        if (c->install_source == INSTALL_SOURCE_IMAGE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-source=host must be selected in case --kernel-search=usr is used.");
+
+        _cleanup_free_ char *vmlinuz = path_join("/usr/lib/modules/", version, "/vmlinuz");
         if (!vmlinuz)
                 return log_oom();
 
-        r = access_nofollow(vmlinuz, F_OK);
-        if (r == -ENOENT)
-                return log_error_errno(r, "Kernel image not installed to '%s', specify kernel kernel image path explicitly.", vmlinuz);
+        _cleanup_free_ char *v = NULL;
+        r = chase_and_accessat(XAT_FDROOT, vmlinuz, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, F_OK, &v);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine if kernel image is installed to '%s': %m", vmlinuz);
+                return log_error_errno(r, "Failed to look for '%s' on host: %m", vmlinuz);
 
-        *ret_kernel = TAKE_PTR(vmlinuz);
+        c->install_source = INSTALL_SOURCE_HOST;
+        *ret_kernel = TAKE_PTR(v);
         return 0;
+}
+
+static int find_current_kernel(Context *c, char **ret_kernel) {
+        int r;
+
+        if (c->install_source == INSTALL_SOURCE_IMAGE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-source=host must be selected in case --kernel-search=current is used.");
+
+        sd_id128_t uuid;
+        r = efi_stub_get_device_part_uuid(&uuid);
+        if (r == -ENOENT)
+                return log_error_errno(r, "Cannot find current kernel, no stub partition UUID passed via EFI variables.");
+        if (r < 0)
+                return log_error_errno(r, "Unable to determine stub partition UUID: %m");
+
+        _cleanup_free_ char *image = NULL;
+        r = efi_get_variable_path(EFI_LOADER_VARIABLE_STR("StubImageIdentifier"), &image);
+        if (r == -ENOENT)
+                return log_error_errno(r, "Cannot find current kernel, no stub EFI binary path passed.");
+        if (r < 0)
+                return log_error_errno(r, "Unable to determine stub EFI binary path: %m");
+
+        /* Note: we search for the *host* ESP here (i.e. the one the current EFI paths relate to), not the
+         * one of the target image */
+        _cleanup_free_ char *esp_path = NULL;
+        sd_id128_t esp_uuid;
+        r = find_esp_and_warn(
+                        /* root= */ NULL,
+                        arg_esp_path,
+                        /* unprivileged_mode= */ false,
+                        &esp_path,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        &esp_uuid,
+                        /* ret_devid= */ NULL);
+        if (r == -ENOKEY)
+                return log_error_errno(r, "Failed to find the host ESP.");
+        if (r < 0)
+                return r;
+        if (sd_id128_equal(uuid, esp_uuid)) {
+                r = chase(image, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR, ret_kernel, /* ret_fd= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find EFI binary '%s' on ESP partition '%s': %m", image, esp_path);
+
+                return 0;
+        }
+
+        _cleanup_free_ char *xbootldr_path = NULL;
+        sd_id128_t xbootldr_uuid;
+        r = find_xbootldr_and_warn(
+                        /* root= */ NULL,
+                        arg_xbootldr_path,
+                        /* unprivileged_mode= */ false,
+                        &xbootldr_path,
+                        &xbootldr_uuid,
+                        /* ret_devid= */ NULL);
+        if (r == -ENOKEY)
+                log_debug_errno(r, "Failed to find the host XBOOTLDR.");
+        else if (r < 0)
+                return r;
+        else if (sd_id128_equal(uuid, xbootldr_uuid)) {
+                r = chase(image, xbootldr_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR, ret_kernel, /* ret_fd= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find EFI binary '%s' on XBOOTLDR partition '%s': %m", image, xbootldr_path);
+
+                return 0;
+        }
+
+        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Boot partition " SD_ID128_FORMAT_STR " not found.", SD_ID128_FORMAT_VAL(uuid));
+}
+
+static int normalize_kernel(
+                Context *c,
+                const char *kernel,
+                const char *version,
+                char **ret_kernel) {
+
+        int r;
+
+        assert(c);
+        assert(version);
+        assert(ret_kernel);
+
+        if (c->kernel_search < 0)
+                c->kernel_search = kernel ? KERNEL_LITERAL : KERNEL_USR;
+        if (kernel && c->kernel_search != KERNEL_LITERAL)
+                log_warning("Automatic kernel discovery enabled, will ignore specified kernel.");
+
+        _cleanup_free_ char *found_kernel = NULL;
+        switch (c->kernel_search) {
+
+        case KERNEL_LITERAL:
+                *ret_kernel = NULL;
+                return 0; /* 0 → we didn't fill in a kernel */
+
+        case KERNEL_USR:
+                r = find_usr_kernel_from_version(c, version, &found_kernel);
+                break;
+
+        case KERNEL_CURRENT:
+                r = find_current_kernel(c, &found_kernel);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        if (r < 0)
+                return r;
+
+        *ret_kernel = TAKE_PTR(found_kernel);
+        return 1; /* 1 → we did in fill a kernel */
 }
 
 static int do_add(
@@ -1205,24 +1425,23 @@ static int do_add(
 
         assert(c);
 
-        struct utsname un;
-        if (!version) {
-                assert_se(uname(&un) >= 0);
-                version = un.release;
-        }
-
-        _cleanup_free_ char *vmlinuz = NULL;
-        if (!kernel) {
-                r = kernel_from_version(version, &vmlinuz);
-                if (r < 0)
-                        return r;
-
-                kernel = vmlinuz;
-        }
+        _cleanup_free_ char *found_version = NULL;
+        r = normalize_version(version, &found_version);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                version = found_version;
 
         r = context_set_version(c, version);
         if (r < 0)
                 return r;
+
+        _cleanup_free_ char *found_kernel = NULL;
+        r = normalize_kernel(c, kernel, version, &found_kernel);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                kernel = found_kernel;
 
         r = context_set_kernel(c, kernel);
         if (r < 0)
@@ -1393,10 +1612,8 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
 
 static int verb_inspect(int argc, char *argv[], void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
-        _cleanup_free_ char *vmlinuz = NULL;
         const char *version, *kernel;
         char **initrds;
-        struct utsname un;
         int r;
 
         _cleanup_(context_done) Context c = CONTEXT_NULL;
@@ -1414,22 +1631,27 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
                 (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
         initrds = strv_skip(argv, 3);
 
-        if (!version && !arg_root) {
-                assert_se(uname(&un) >= 0);
-                version = un.release;
-        }
-
-        if (!kernel && version) {
-                r = kernel_from_version(version, &vmlinuz);
+        _cleanup_free_ char *found_version = NULL;
+        if (!arg_root) {
+                r = normalize_version(version, &found_version);
                 if (r < 0)
                         return r;
-
-                kernel = vmlinuz;
+                if (r > 0)
+                        version = found_version;
         }
 
         r = context_set_version(&c, version);
         if (r < 0)
                 return r;
+
+        _cleanup_free_ char *found_kernel = NULL;
+        if (version) {
+                r = normalize_kernel(&c, kernel, version, &found_kernel);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        kernel = found_kernel;
+        }
 
         r = context_set_kernel(&c, kernel);
         if (r < 0)
@@ -1607,6 +1829,11 @@ static int help(void) {
                "     --root=PATH               Operate on an alternate filesystem root\n"
                "     --image=PATH              Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY     Specify disk image dissection policy\n"
+               "     --kernel-search=usr|current\n"
+               "                               Control how kernel to install is discovered\n"
+               "     --install-source=auto|image|host\n"
+               "                               Where to take files from when using\n"
+               "                               --root=/--image=\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
@@ -1637,6 +1864,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE,
                 ARG_IMAGE_POLICY,
                 ARG_BOOT_ENTRY_TYPE,
+                ARG_KERNEL_SEARCH,
+                ARG_INSTALL_SOURCE,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1653,6 +1882,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
                 { "entry-type",           required_argument, NULL, ARG_BOOT_ENTRY_TYPE      },
+                { "kernel-search",        required_argument, NULL, ARG_KERNEL_SEARCH        },
+                { "install-source",       required_argument, NULL, ARG_INSTALL_SOURCE       },
                 {}
         };
         int t, r;
@@ -1745,6 +1976,24 @@ static int parse_argv(int argc, char *argv[]) {
                         if (e < 0)
                                 return log_error_errno(e, "Invalid entry type: %s", optarg);
                         arg_boot_entry_type = e;
+                        break;
+                }
+
+                case ARG_KERNEL_SEARCH: {
+                        KernelSearch ks = kernel_search_from_string(optarg);
+                        if (ks < 0)
+                                return log_error_errno(ks, "Failed to parse --kernel-search= parameter: %s", optarg);
+
+                        arg_kernel_search = ks;
+                        break;
+                }
+
+                case ARG_INSTALL_SOURCE: {
+                        InstallSource is = install_source_from_string(optarg);
+                        if (is < 0)
+                                return log_error_errno(is, "Failed to parse --install-source= parameter: %s", optarg);
+
+                        arg_install_source = is;
                         break;
                 }
 
