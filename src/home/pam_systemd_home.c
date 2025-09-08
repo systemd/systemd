@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <libintl.h>
-#include <security/pam_ext.h>
 #include <security/pam_misc.h>
-#include <security/pam_modules.h>
 
 #include "sd-bus.h"
 
@@ -791,6 +789,11 @@ _public_ PAM_EXTERN int pam_sm_authenticate(
 
         AcquireHomeFlags flags = 0;
         bool debug = false;
+        int r;
+
+        r = dlopen_libpam();
+        if (r < 0)
+                return PAM_SERVICE_ERR;
 
         pam_log_setup();
 
@@ -854,6 +857,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         AcquireHomeFlags flags = 0;
         bool debug = false;
         int r;
+
+        r = dlopen_libpam();
+        if (r < 0)
+                return PAM_SERVICE_ERR;
 
         pam_log_setup();
 
@@ -969,6 +976,10 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
         usec_t t;
         int r;
 
+        r = dlopen_libpam();
+        if (r < 0)
+                return PAM_SERVICE_ERR;
+
         pam_log_setup();
 
         if (parse_env(handle, &flags) < 0)
@@ -1083,6 +1094,10 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         unsigned n_attempts = 0;
         bool debug = false;
         int r;
+
+        r = dlopen_libpam();
+        if (r < 0)
+                return PAM_SERVICE_ERR;
 
         pam_log_setup();
 

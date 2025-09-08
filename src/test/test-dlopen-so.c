@@ -12,6 +12,7 @@
 #include "libfido2-util.h"
 #include "main-func.h"
 #include "module-util.h"
+#include "pam-util.h"
 #include "password-quality-util-passwdqc.h"
 #include "password-quality-util-pwquality.h"
 #include "pcre2-util.h"
@@ -50,6 +51,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libkmod, HAVE_KMOD);
         ASSERT_DLOPEN(dlopen_libapparmor, HAVE_APPARMOR);
         ASSERT_DLOPEN(dlopen_libaudit, HAVE_AUDIT);
+        ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
 
         return 0;
 }
