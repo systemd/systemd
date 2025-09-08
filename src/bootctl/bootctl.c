@@ -291,7 +291,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --efi-boot-option-description=DESCRIPTION\n"
                "                       Description of the entry in the boot option list\n"
                "     --dry-run         Dry run (unlink and cleanup)\n"
-               "     --secure-boot-auto-enroll\n"
+               "     --secure-boot-auto-enroll=yes|no\n"
                "                       Set up secure boot auto-enrollment\n"
                "     --private-key=PATH|URI\n"
                "                       Private key to use when setting up secure boot\n"
