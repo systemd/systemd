@@ -1,9 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
-
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -27,6 +23,7 @@
 #include "prioq.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "selinux-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "syslog-util.h"
@@ -252,10 +249,15 @@ static void client_context_read_basic(ClientContext *c) {
 static int client_context_read_label(
                 ClientContext *c,
                 const char *label, size_t label_size) {
+        int r;
 
         assert(c);
         assert(pid_is_valid(c->pid));
         assert(label_size == 0 || label);
+
+        r = mac_selinux_use();
+        if (r < 0)
+                return r;
 
         if (label_size > 0) {
                 char *l;
@@ -275,7 +277,7 @@ static int client_context_read_label(
 
                 /* If we got no SELinux label passed in, let's try to acquire one */
 
-                if (getpidcon(c->pid, &con) >= 0 && con) {
+                if (sym_getpidcon_raw(c->pid, &con) >= 0 && con) {
                         free_and_replace(c->label, con);
                         c->label_size = strlen(c->label);
                 }

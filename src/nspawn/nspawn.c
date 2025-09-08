@@ -13,10 +13,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#if HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
-
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -103,6 +99,7 @@
 #include "rm-rf.h"
 #include "runtime-scope.h"
 #include "seccomp-util.h"
+#include "selinux-util.h"
 #include "shift-uid.h"
 #include "signal-util.h"
 #include "siphash24.h"
@@ -3506,7 +3503,7 @@ static int inner_child(
         if (arg_seccomp) {
 
                 if (is_seccomp_available()) {
-                        r = seccomp_load(arg_seccomp);
+                        r = sym_seccomp_load(arg_seccomp);
                         if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
                                 return log_error_errno(r, "Failed to install seccomp filter: %m");
                         if (r < 0)
@@ -3531,8 +3528,8 @@ static int inner_child(
         }
 
 #if HAVE_SELINUX
-        if (arg_selinux_context)
-                if (setexeccon(arg_selinux_context) < 0)
+        if (arg_selinux_context && mac_selinux_use())
+                if (sym_setexeccon_raw(arg_selinux_context) < 0)
                         return log_error_errno(errno, "setexeccon(\"%s\") failed: %m", arg_selinux_context);
 #endif
 
@@ -4834,7 +4831,7 @@ static int merge_settings(Settings *settings, const char *path) {
                         if (!arg_settings_trusted)
                                 log_warning("Ignoring SECCOMP filter, file %s is not trusted.", path);
                         else {
-                                seccomp_release(arg_seccomp);
+                                sym_seccomp_release(arg_seccomp);
                                 arg_seccomp = TAKE_PTR(settings->seccomp);
                         }
                 }
