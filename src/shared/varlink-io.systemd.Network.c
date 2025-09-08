@@ -3,6 +3,13 @@
 #include "varlink-io.systemd.Network.h"
 
 static SD_VARLINK_DEFINE_METHOD(
+                Describe,
+                SD_VARLINK_DEFINE_OUTPUT(Interfaces, SD_VARLINK_OBJECT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT(NextHops, SD_VARLINK_OBJECT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT(Routes, SD_VARLINK_OBJECT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT(RoutingPolicyRules, SD_VARLINK_OBJECT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
                 GetStates,
                 SD_VARLINK_DEFINE_OUTPUT(AddressState, SD_VARLINK_STRING, 0),
                 SD_VARLINK_DEFINE_OUTPUT(IPv4AddressState, SD_VARLINK_STRING, 0),
@@ -50,6 +57,7 @@ static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network,
                 "io.systemd.Network",
+                &vl_method_Describe,
                 &vl_method_GetStates,
                 &vl_method_GetNamespaceId,
                 &vl_method_GetLLDPNeighbors,
