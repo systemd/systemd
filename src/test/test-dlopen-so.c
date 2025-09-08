@@ -22,6 +22,7 @@
 #include "pkcs11-util.h"
 #include "qrcode-util.h"
 #include "seccomp-util.h"
+#include "selinux-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
 
@@ -60,6 +61,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libblkid, HAVE_BLKID);
         ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SECCOMP);
         ASSERT_DLOPEN(dlopen_libmount, true);
+        ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SELINUX);
 
         return 0;
 }
