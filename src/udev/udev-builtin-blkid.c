@@ -49,21 +49,21 @@ static void print_property(UdevEvent *event, const char *name, const char *value
                 udev_builtin_add_property(event, "ID_FS_VERSION", value);
 
         } else if (streq(name, "UUID")) {
-                blkid_safe_string(value, s, sizeof(s));
+                sym_blkid_safe_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_UUID", s);
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_UUID_ENC", s);
 
         } else if (streq(name, "UUID_SUB")) {
-                blkid_safe_string(value, s, sizeof(s));
+                sym_blkid_safe_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_UUID_SUB", s);
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_UUID_SUB_ENC", s);
 
         } else if (streq(name, "LABEL")) {
-                blkid_safe_string(value, s, sizeof(s));
+                sym_blkid_safe_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_LABEL", s);
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_LABEL_ENC", s);
 
         } else if (STR_IN_SET(name, "FSSIZE", "FSLASTBLOCK", "FSBLOCKSIZE")) {
@@ -77,11 +77,11 @@ static void print_property(UdevEvent *event, const char *name, const char *value
                 udev_builtin_add_property(event, "ID_PART_TABLE_UUID", value);
 
         } else if (streq(name, "PART_ENTRY_NAME")) {
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_PART_ENTRY_NAME", s);
 
         } else if (streq(name, "PART_ENTRY_TYPE")) {
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_PART_ENTRY_TYPE", s);
 
         } else if (startswith(name, "PART_ENTRY_")) {
@@ -89,35 +89,35 @@ static void print_property(UdevEvent *event, const char *name, const char *value
                 udev_builtin_add_property(event, s, value);
 
         } else if (streq(name, "SYSTEM_ID")) {
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_SYSTEM_ID", s);
 
         } else if (streq(name, "PUBLISHER_ID")) {
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_PUBLISHER_ID", s);
 
         } else if (streq(name, "APPLICATION_ID")) {
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_APPLICATION_ID", s);
 
         } else if (streq(name, "BOOT_SYSTEM_ID")) {
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_BOOT_SYSTEM_ID", s);
 
         } else if (streq(name, "VOLUME_ID")) {
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_VOLUME_ID", s);
 
         } else if (streq(name, "LOGICAL_VOLUME_ID")) {
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_LOGICAL_VOLUME_ID", s);
 
         } else if (streq(name, "VOLUME_SET_ID")) {
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_VOLUME_SET_ID", s);
 
         } else if (streq(name, "DATA_PREPARER_ID")) {
-                blkid_encode_string(value, s, sizeof(s));
+                sym_blkid_encode_string(value, s, sizeof(s));
                 udev_builtin_add_property(event, "ID_FS_DATA_PREPARER_ID", s);
         }
 }
@@ -222,7 +222,7 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
         }
 
         errno = 0;
-        blkid_partlist pl = blkid_probe_get_partitions(pr);
+        blkid_partlist pl = sym_blkid_probe_get_partitions(pr);
         if (!pl)
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to probe partitions: %m");
 
@@ -233,7 +233,7 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                 /* If we already know the root partition, let's verify its type ID and then directly query
                  * its ID */
 
-                blkid_partition root_partition = blkid_partlist_devno_to_partition(pl, root_devno);
+                blkid_partition root_partition = sym_blkid_partlist_devno_to_partition(pl, root_devno);
                 if (root_partition) {
                         sd_id128_t type;
                         r = blkid_partition_get_type_id128(root_partition, &type);
@@ -249,13 +249,13 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                 /* We do not know the root partition, let's search for it. */
 
                 _cleanup_free_ char *root_label = NULL;
-                int nvals = blkid_partlist_numof_partitions(pl);
+                int nvals = sym_blkid_partlist_numof_partitions(pl);
                 for (int i = 0; i < nvals; i++) {
                         blkid_partition pp;
                         const char *label;
                         sd_id128_t type, id;
 
-                        pp = blkid_partlist_get_partition(pl, i);
+                        pp = sym_blkid_partlist_get_partition(pl, i);
                         if (!pp)
                                 continue;
 
@@ -271,7 +271,7 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                                 continue;
                         }
 
-                        label = blkid_partition_get_name(pp); /* returns NULL if empty */
+                        label = sym_blkid_partition_get_name(pp); /* returns NULL if empty */
 
                         if (need_esp_or_xbootldr && sd_id128_in_set(type, SD_GPT_ESP, SD_GPT_XBOOTLDR)) {
 
@@ -282,7 +282,7 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                         } else if (sd_id128_equal(type, SD_GPT_ROOT_NATIVE)) {
                                 unsigned long long flags;
 
-                                flags = blkid_partition_get_flags(pp);
+                                flags = sym_blkid_partition_get_flags(pp);
                                 if (flags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
 
@@ -322,32 +322,32 @@ static int probe_superblocks(blkid_probe pr) {
 
         /* TODO: Return negative errno. */
 
-        if (fstat(blkid_probe_get_fd(pr), &st))
+        if (fstat(sym_blkid_probe_get_fd(pr), &st))
                 return -errno;
 
-        blkid_probe_enable_partitions(pr, 1);
+        sym_blkid_probe_enable_partitions(pr, 1);
 
         if (!S_ISCHR(st.st_mode) &&
-            blkid_probe_get_size(pr) <= 1024 * 1440 &&
-            blkid_probe_is_wholedisk(pr)) {
+            sym_blkid_probe_get_size(pr) <= 1024 * 1440 &&
+            sym_blkid_probe_is_wholedisk(pr)) {
                 /*
                  * check if the small disk is partitioned, if yes then
                  * don't probe for filesystems.
                  */
-                blkid_probe_enable_superblocks(pr, 0);
+                sym_blkid_probe_enable_superblocks(pr, 0);
 
-                rc = blkid_do_fullprobe(pr);
+                rc = sym_blkid_do_fullprobe(pr);
                 if (rc < 0)
                         return rc;        /* -1 = error, 1 = nothing, 0 = success */
 
-                if (blkid_probe_lookup_value(pr, "PTTYPE", NULL, NULL) == 0)
+                if (sym_blkid_probe_lookup_value(pr, "PTTYPE", NULL, NULL) == 0)
                         return 0;        /* partition table detected */
         }
 
-        blkid_probe_set_partitions_flags(pr, BLKID_PARTS_ENTRY_DETAILS);
-        blkid_probe_enable_superblocks(pr, 1);
+        sym_blkid_probe_set_partitions_flags(pr, BLKID_PARTS_ENTRY_DETAILS);
+        sym_blkid_probe_enable_superblocks(pr, 1);
 
-        return blkid_do_safeprobe(pr);
+        return sym_blkid_do_safeprobe(pr);
 }
 
 static int read_loopback_backing_inode(
@@ -440,8 +440,12 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                 {}
         };
 
+        r = dlopen_libblkid();
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "blkid not available: %m");
+
         errno = 0;
-        pr = blkid_new_probe();
+        pr = sym_blkid_new_probe();
         if (!pr)
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to create blkid prober: %m");
 
@@ -456,7 +460,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                 case 'H':
 #if HAVE_BLKID_PROBE_SET_HINT
                         errno = 0;
-                        r = blkid_probe_set_hint(pr, optarg, 0);
+                        r = sym_blkid_probe_set_hint(pr, optarg, 0);
                         if (r < 0)
                                 return log_device_error_errno(dev, errno_or_else(ENOMEM), "Failed to use '%s' probing hint: %m", optarg);
                         break;
@@ -482,7 +486,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                 }
         }
 
-        blkid_probe_set_superblocks_flags(pr,
+        sym_blkid_probe_set_superblocks_flags(pr,
                 BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
                 BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
 #ifdef BLKID_SUBLKS_FSINFO
@@ -491,7 +495,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                 BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
 
         if (noraid)
-                blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
+                sym_blkid_probe_filter_superblocks_usage(pr, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
 
         r = sd_device_get_devname(dev, &devnode);
         if (r < 0)
@@ -506,7 +510,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         }
 
         errno = 0;
-        r = blkid_probe_set_device(pr, fd, offset, 0);
+        r = sym_blkid_probe_set_device(pr, fd, offset, 0);
         if (r < 0)
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to set device to blkid prober: %m");
 
@@ -520,12 +524,12 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         (void) sd_device_get_property_value(dev, "ID_PART_GPT_AUTO_ROOT_UUID", &root_partition);
 
         errno = 0;
-        int nvals = blkid_probe_numof_values(pr);
+        int nvals = sym_blkid_probe_numof_values(pr);
         if (nvals < 0)
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to get number of probed values: %m");
 
         for (int i = 0; i < nvals; i++) {
-                if (blkid_probe_get_value(pr, i, &name, &data, NULL) < 0)
+                if (sym_blkid_probe_get_value(pr, i, &name, &data, NULL) < 0)
                         continue;
 
                 print_property(event, name, data);
@@ -559,7 +563,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
                         char encoded[sizeof_field(struct loop_info64, lo_file_name) * 4 + 1];
 
                         assert(strlen(backing_fname) < ELEMENTSOF(encoded) / 4);
-                        blkid_encode_string(backing_fname, encoded, ELEMENTSOF(encoded));
+                        sym_blkid_encode_string(backing_fname, encoded, ELEMENTSOF(encoded));
 
                         udev_builtin_add_property(event, "ID_LOOP_BACKING_FILENAME", backing_fname);
                         udev_builtin_add_property(event, "ID_LOOP_BACKING_FILENAME_ENC", encoded);

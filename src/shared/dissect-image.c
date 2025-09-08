@@ -199,12 +199,12 @@ static int probe_blkid_filter(blkid_probe p) {
                 return r;
 
         errno = 0;
-        r = blkid_probe_filter_superblocks_type(p, BLKID_FLTR_ONLYIN, fstypes);
+        r = sym_blkid_probe_filter_superblocks_type(p, BLKID_FLTR_ONLYIN, fstypes);
         if (r != 0)
                 return errno_or_else(EINVAL);
 
         errno = 0;
-        r = blkid_probe_filter_superblocks_usage(p, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
+        r = sym_blkid_probe_filter_superblocks_usage(p, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
         if (r != 0)
                 return errno_or_else(EINVAL);
 
@@ -253,7 +253,7 @@ int probe_filesystem_full(
         if (size == 0) /* empty size? nothing found! */
                 goto not_found;
 
-        b = blkid_new_probe();
+        b = sym_blkid_new_probe();
         if (!b)
                 return -ENOMEM;
 
@@ -279,7 +279,7 @@ int probe_filesystem_full(
                         log_debug_errno(errno, "Failed to flush block device cache, ignoring: %m");
 
         errno = 0;
-        r = blkid_probe_set_device(
+        r = sym_blkid_probe_set_device(
                         b,
                         fd,
                         offset,
@@ -287,11 +287,11 @@ int probe_filesystem_full(
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
-        blkid_probe_enable_superblocks(b, 1);
-        blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
+        sym_blkid_probe_enable_superblocks(b, 1);
+        sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
 
         errno = 0;
-        r = blkid_do_safeprobe(b);
+        r = sym_blkid_do_safeprobe(b);
         if (r == _BLKID_SAFEPROBE_NOT_FOUND)
                 goto not_found;
         if (r == _BLKID_SAFEPROBE_AMBIGUOUS)
@@ -302,8 +302,7 @@ int probe_filesystem_full(
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
-
+        (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
         if (fstype) {
                 log_debug("Probed fstype '%s' on partition %s.", fstype, path);
                 return strdup_to_full(ret_fstype, fstype);
@@ -789,7 +788,11 @@ static int dissect_image(
                 }
         }
 
-        b = blkid_new_probe();
+        r = dlopen_libblkid();
+        if (r < 0)
+                return r;
+
+        b = sym_blkid_new_probe();
         if (!b)
                 return -ENOMEM;
 
@@ -798,26 +801,26 @@ static int dissect_image(
                 return r;
 
         errno = 0;
-        r = blkid_probe_set_device(b, fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
         errno = 0;
-        r = blkid_probe_set_sectorsize(b, m->sector_size);
+        r = sym_blkid_probe_set_sectorsize(b, m->sector_size);
         if (r != 0)
                 return errno_or_else(EIO);
 
         if ((flags & DISSECT_IMAGE_GPT_ONLY) == 0) {
                 /* Look for file system superblocks, unless we only shall look for GPT partition tables */
-                blkid_probe_enable_superblocks(b, 1);
-                blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_USAGE|BLKID_SUBLKS_UUID);
+                sym_blkid_probe_enable_superblocks(b, 1);
+                sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_USAGE|BLKID_SUBLKS_UUID);
         }
 
-        blkid_probe_enable_partitions(b, 1);
-        blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+        sym_blkid_probe_enable_partitions(b, 1);
+        sym_blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
 
         errno = 0;
-        r = blkid_do_safeprobe(b);
+        r = sym_blkid_do_safeprobe(b);
         if (r == _BLKID_SAFEPROBE_ERROR)
                 return errno_or_else(EIO);
         if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
@@ -832,7 +835,7 @@ static int dissect_image(
 
                 /* If flags permit this, also allow using non-partitioned single-filesystem images */
 
-                (void) blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
+                (void) sym_blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
                 if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
                         _cleanup_free_ char *t = NULL, *n = NULL, *o = NULL;
                         const char *fstype = NULL, *options = NULL, *suuid = NULL;
@@ -852,8 +855,8 @@ static int dissect_image(
                         if (r == 0) /* policy says ignore this, so we ignore it */
                                 return -ENOPKG;
 
-                        (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
-                        (void) blkid_probe_lookup_value(b, "UUID", &suuid, NULL);
+                        (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+                        (void) sym_blkid_probe_lookup_value(b, "UUID", &suuid, NULL);
 
                         encrypted = streq_ptr(fstype, "crypto_LUKS");
 
@@ -931,7 +934,7 @@ static int dissect_image(
                 }
         }
 
-        (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
         if (!pttype)
                 return -ENOPKG;
 
@@ -955,7 +958,7 @@ static int dissect_image(
                         return -EPROTONOSUPPORT;
         }
 
-        (void) blkid_probe_lookup_value(b, "PTUUID", &sptuuid, NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PTUUID", &sptuuid, NULL);
         if (sptuuid) {
                 r = sd_id128_from_string(sptuuid, &m->image_uuid);
                 if (r < 0)
@@ -963,12 +966,12 @@ static int dissect_image(
         }
 
         errno = 0;
-        pl = blkid_probe_get_partitions(b);
+        pl = sym_blkid_probe_get_partitions(b);
         if (!pl)
                 return errno_or_else(ENOMEM);
 
         errno = 0;
-        n_partitions = blkid_partlist_numof_partitions(pl);
+        n_partitions = sym_blkid_partlist_numof_partitions(pl);
         if (n_partitions < 0)
                 return errno_or_else(EIO);
 
@@ -980,26 +983,26 @@ static int dissect_image(
                 int nr;
 
                 errno = 0;
-                pp = blkid_partlist_get_partition(pl, i);
+                pp = sym_blkid_partlist_get_partition(pl, i);
                 if (!pp)
                         return errno_or_else(EIO);
 
-                pflags = blkid_partition_get_flags(pp);
+                pflags = sym_blkid_partition_get_flags(pp);
 
                 errno = 0;
-                nr = blkid_partition_get_partno(pp);
+                nr = sym_blkid_partition_get_partno(pp);
                 if (nr < 0)
                         return errno_or_else(EIO);
 
                 errno = 0;
-                start = blkid_partition_get_start(pp);
+                start = sym_blkid_partition_get_start(pp);
                 if (start < 0)
                         return errno_or_else(EIO);
 
                 assert((uint64_t) start < UINT64_MAX/512);
 
                 errno = 0;
-                size = blkid_partition_get_size(pp);
+                size = sym_blkid_partition_get_size(pp);
                 if (size < 0)
                         return errno_or_else(EIO);
 
@@ -1054,7 +1057,7 @@ static int dissect_image(
 
                         type = gpt_partition_type_from_uuid(type_id);
 
-                        label = blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
+                        label = sym_blkid_partition_get_name(pp); /* libblkid returns NULL here if empty */
 
                         /* systemd-sysupdate expects empty partitions to be marked with an "_empty" label, hence ignore them here. */
                         if (streq_ptr(label, "_empty"))
@@ -1360,7 +1363,7 @@ static int dissect_image(
 
                 } else if (is_mbr) {
 
-                        switch (blkid_partition_get_type(pp)) {
+                        switch (sym_blkid_partition_get_type(pp)) {
 
                         case 0x83: /* Linux partition */
 
@@ -3052,8 +3055,8 @@ int dissected_image_decrypt(
 
 #if HAVE_LIBCRYPTSETUP
         _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
-        int r;
 #endif
+        int r;
 
         assert(m);
         assert(!verity || verity->root_hash || verity->root_hash_size == 0);
@@ -3072,6 +3075,10 @@ int dissected_image_decrypt(
 
         if (!m->encrypted && !m->verity_ready)
                 return 0;
+
+        r = dlopen_libblkid();
+        if (r < 0)
+                return r;
 
 #if HAVE_LIBCRYPTSETUP
         r = decrypted_image_new(&d);
