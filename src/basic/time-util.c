@@ -629,11 +629,75 @@ int parse_gmtoff(const char *t, long *ret) {
 
         struct tm tm;
         const char *k = strptime(t, "%z", &tm);
-        if (!k || *k != '\0')
+        if (k && *k == '\0') {
+                /* Success! */
+                if (ret)
+                        *ret = tm.tm_gmtoff;
+                return 0;
+        }
+
+        /* musl v1.2.5 does not support %z specifier in strptime(). Since
+         * https://github.com/kraj/musl/commit/fced99e93daeefb0192fd16304f978d4401d1d77
+         * %z is supported, but it only supports strict RFC-822/ISO 8601 format, that is, 4 digits with sign
+         * (e.g. +0900 or -1400), but does not support extended format: 2 digits or colon separated 4 digits
+         * (e.g. +09 or -14:00). Let's add fallback logic to make it support the extended timezone spec. */
+
+        bool positive;
+        switch (*t) {
+        case '+':
+                positive = true;
+                break;
+        case '-':
+                positive = false;
+                break;
+        default:
+                return -EINVAL;
+        }
+
+        t++;
+
+        if (!ascii_isdigit(*t))
+                return -EINVAL;
+        usec_t u = (*t - '0') * 10 * USEC_PER_HOUR;
+
+        t++;
+
+        if (!ascii_isdigit(*t))
+                return -EINVAL;
+        u += (*t - '0') * USEC_PER_HOUR;
+
+        t++;
+
+        if (*t == '\0') /* 2 digits case */
+                goto finalize;
+
+        if (*t == ':') /* skip colon */
+                t++;
+
+        if (!ascii_isdigit(*t) || *t >= '6') /* refuse minutes equal to or larger than 60 */
+                return -EINVAL;
+        u += (*t - '0') * 10 * USEC_PER_MINUTE;
+
+        t++;
+
+        if (!ascii_isdigit(*t))
+                return -EINVAL;
+        u += (*t - '0') * USEC_PER_MINUTE;
+
+        t++;
+
+        if (*t != '\0')
                 return -EINVAL;
 
-        if (ret)
-                *ret = tm.tm_gmtoff;
+finalize:
+        if (u > USEC_PER_DAY) /* refuse larger than one day */
+                return -EINVAL;
+
+        if (ret) {
+                long gmtoff = u / USEC_PER_SEC;
+                *ret = positive ? gmtoff : -gmtoff;
+        }
+
         return 0;
 }
 
