@@ -287,8 +287,9 @@ executables += [
         test_template + {
                 'sources' : files('test-dlopen-so.c'),
                 'dependencies' : [
-                        libp11kit_cflags,
+                        libblkid_cflags,
                         libkmod_cflags,
+                        libp11kit_cflags,
                 ],
         },
         test_template + {
