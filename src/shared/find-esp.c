@@ -132,13 +132,9 @@ static int verify_esp_blkid(
                                        SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                        "File system \"%s\" has wrong type for an EFI System Partition (ESP).", node);
 
-        errno = 0;
-        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition entry UUID of \"%s\": %m", node);
-        r = sd_id128_from_string(v, &uuid);
+        r = blkid_probe_lookup_value_id128(b, "PART_ENTRY_UUID", &uuid);
         if (r < 0)
-                return log_error_errno(r, "Partition \"%s\" has invalid UUID \"%s\".", node, v);
+                return log_error_errno(r, "Failed to probe partition entry UUID of \"%s\": %m", node);
 
         errno = 0;
         r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_NUMBER", &v, NULL);
@@ -148,21 +144,13 @@ static int verify_esp_blkid(
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PART_ENTRY_NUMBER field.");
 
-        errno = 0;
-        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_OFFSET", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition offset of \"%s\": %m", node);
-        r = safe_atou64(v, &pstart);
+        r = blkid_probe_lookup_value_u64(b, "PART_ENTRY_OFFSET", &pstart);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_OFFSET field.");
+                return log_error_errno(r, "Failed to probe partition offset of \"%s\": %m", node);
 
-        errno = 0;
-        r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_SIZE", &v, NULL);
-        if (r != 0)
-                return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe partition size of \"%s\": %m", node);
-        r = safe_atou64(v, &psize);
+        r = blkid_probe_lookup_value_u64(b, "PART_ENTRY_SIZE", &psize);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse PART_ENTRY_SIZE field.");
+                return log_error_errno(r, "Failed to probe partition size of \"%s\": %m", node);
 #endif
 
         if (ret_part)
@@ -651,13 +639,9 @@ static int verify_xbootldr_blkid(
                                               searching ? SYNTHETIC_ERRNO(EADDRNOTAVAIL) : SYNTHETIC_ERRNO(ENODEV),
                                               "%s: Partition has wrong PART_ENTRY_TYPE=%s for XBOOTLDR partition.", node, v);
 
-                errno = 0;
-                r = sym_blkid_probe_lookup_value(b, "PART_ENTRY_UUID", &v, NULL);
+                r = blkid_probe_lookup_value_id128(b, "PART_ENTRY_UUID", &uuid);
                 if (r != 0)
                         return log_error_errno(errno_or_else(EIO), "%s: Failed to probe PART_ENTRY_UUID: %m", node);
-                r = sd_id128_from_string(v, &uuid);
-                if (r < 0)
-                        return log_error_errno(r, "%s: Partition has invalid UUID PART_ENTRY_TYPE=%s: %m", node, v);
 
         } else if (streq(type, "dos")) {
 

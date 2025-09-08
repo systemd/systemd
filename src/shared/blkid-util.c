@@ -4,6 +4,7 @@
 
 #include "blkid-util.h"
 #include "log.h"
+#include "parse-util.h"
 #include "string-util.h"
 
 #if HAVE_BLKID
@@ -118,4 +119,27 @@ int blkid_partition_get_type_id128(blkid_partition p, sd_id128_t *ret) {
         return sd_id128_from_string(s, ret);
 }
 
+int blkid_probe_lookup_value_id128(blkid_probe b, const char *field, sd_id128_t *ret) {
+        assert(b);
+        assert(field);
+
+        const char *u = NULL;
+        (void) sym_blkid_probe_lookup_value(b, field, &u, /* ret_size= */ NULL);
+        if (!u)
+                return -ENXIO;
+
+        return sd_id128_from_string(u, ret);
+}
+
+int blkid_probe_lookup_value_u64(blkid_probe b, const char *field, uint64_t *ret) {
+        assert(b);
+        assert(field);
+
+        const char *u = NULL;
+        (void) sym_blkid_probe_lookup_value(b, field, &u, /* ret_size= */ NULL);
+        if (!u)
+                return -ENXIO;
+
+        return safe_atou64(u, ret);
+}
 #endif
