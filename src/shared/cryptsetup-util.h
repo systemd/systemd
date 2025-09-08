@@ -19,6 +19,7 @@ extern DLSYM_PROTOTYPE(crypt_activate_by_passphrase);
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
 extern DLSYM_PROTOTYPE(crypt_activate_by_signed_key);
 #endif
+extern DLSYM_PROTOTYPE(crypt_activate_by_token_pin);
 extern DLSYM_PROTOTYPE(crypt_activate_by_volume_key);
 extern DLSYM_PROTOTYPE(crypt_deactivate_by_name);
 extern DLSYM_PROTOTYPE(crypt_format);
