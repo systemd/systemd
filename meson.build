@@ -1219,6 +1219,7 @@ if not libpam_misc.found()
         libpam_misc = cc.find_library('pam_misc', required : feature)
 endif
 conf.set10('HAVE_PAM', libpam.found() and libpam_misc.found())
+libpam_cflags = libpam.partial_dependency(includes: true, compile_args: true)
 
 libmicrohttpd = dependency('libmicrohttpd',
                            version : '>= 0.9.33',
