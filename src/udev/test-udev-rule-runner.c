@@ -103,7 +103,7 @@ static int run(int argc, char *argv[]) {
 
         /* Let's make sure the test runs with selinux assumed disabled. */
 #if HAVE_SELINUX
-        fini_selinuxmnt();
+        sym_fini_selinuxmnt();
 #endif
         mac_selinux_retest();
 
