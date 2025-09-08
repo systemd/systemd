@@ -5,5 +5,6 @@ integration_tests += [
                 'name' : fs.name(meson.current_source_dir()),
                 'vm' : true,
                 'firmware' : 'auto',
+                'tpm' : true,
         },
 ]
