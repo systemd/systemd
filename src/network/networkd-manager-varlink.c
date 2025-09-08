@@ -12,6 +12,7 @@
 #include "lldp-rx-internal.h"
 #include "network-util.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-varlink.h"
@@ -19,6 +20,25 @@
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
+
+static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(parameters);
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
+        if (r != 0)
+                return r;
+
+        r = manager_build_json(m, &v);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format JSON data: %m");
+
+        return sd_varlink_reply(link, v);
+}
 
 static int vl_method_get_states(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
@@ -288,6 +308,7 @@ int manager_connect_varlink(Manager *m, int fd) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
+                        "io.systemd.Network.Describe",             vl_method_describe,
                         "io.systemd.Network.GetStates",            vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
