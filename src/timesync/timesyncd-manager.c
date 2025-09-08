@@ -535,6 +535,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         struct ntp_msg ntpmsg = packet.ntpmsg;
 
+        const char *security = "insecure";
 #if ENABLE_TIMESYNC_NTS
         if (m->nts_cookies->data) {
                 /* verify the NTS extension fields and unique identifier */
@@ -579,6 +580,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                 }
 
                 log_debug("NTP packet is authentic.");
+                security = "secure";
         } else
 #endif
                 /* check the transmit request nonce was properly returned in the origin_time field */
@@ -733,7 +735,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
                 (void) server_address_pretty(m->current_server_address, &pretty);
 
-                log_info("Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
+                log_info("Contacted %s time server %s (%s).", security, strna(pretty), m->current_server_name->string);
                 (void) sd_notifyf(false, "STATUS=Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
         }
 
