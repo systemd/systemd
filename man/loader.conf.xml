@@ -70,7 +70,8 @@
       <varlistentry>
         <term>default</term>
 
-        <listitem><para>A glob pattern to select the default entry. The default entry
+        <listitem><para>A glob pattern to select the default entry by id, which is the
+        file name including literal suffix <literal>.conf</literal>. The default entry
         may be changed in the boot menu itself, in which case the name of the
         selected entry will be stored as an EFI variable, overriding this option.
         </para>
