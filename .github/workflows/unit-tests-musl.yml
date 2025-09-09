@@ -1,0 +1,112 @@
+---
+# vi: ts=2 sw=2 et:
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+name: Unit tests (musl)
+on:
+  pull_request:
+    paths:
+      - '**/meson.build'
+      - '.github/workflows/**'
+      - 'meson_options.txt'
+      - 'src/**'
+      - 'test/fuzz/**'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Install build dependencies
+        uses: jirutka/setup-alpine@v1
+        with:
+          arch: x86_64
+          branch: edge
+          packages: >
+            acl
+            acl-dev
+            audit-dev
+            bash
+            bash-completion-dev
+            bpftool
+            build-base
+            bzip2-dev
+            coreutils
+            cryptsetup-dev
+            curl-dev
+            dbus
+            dbus-dev
+            elfutils-dev
+            gettext-dev
+            git
+            glib-dev
+            gnutls-dev
+            gperf
+            grep
+            iproute2
+            iptables-dev
+            kbd
+            kexec-tools
+            kmod
+            kmod-dev
+            libapparmor-dev
+            libarchive-dev
+            libbpf-dev
+            libcap-dev
+            libcap-utils
+            libfido2-dev
+            libgcrypt-dev
+            libidn2-dev
+            libmicrohttpd-dev
+            libpwquality-dev
+            libqrencode-dev
+            libseccomp-dev
+            libselinux-dev
+            libxkbcommon-dev
+            linux-pam-dev
+            lz4-dev
+            meson
+            openssl
+            openssl-dev
+            p11-kit-dev
+            pcre2-dev
+            pkgconf
+            polkit-dev
+            py3-elftools
+            py3-jinja2
+            py3-pefile
+            py3-pytest
+            py3-lxml
+            quota-tools
+            rsync
+            sfdisk
+            tpm2-tss-dev
+            tpm2-tss-esys
+            tpm2-tss-rc
+            tpm2-tss-tcti-device
+            tzdata
+            util-linux-dev
+            util-linux-login
+            util-linux-misc
+            valgrind-dev
+            xen-dev
+            zlib-dev
+            zstd-dev
+
+      - name: Setup
+        run: .github/workflows/unit-tests-musl.sh SETUP
+        shell: alpine.sh --root {0}
+      - name: Build
+        run: .github/workflows/unit-tests-musl.sh BUILD
+        shell: alpine.sh {0}
+      - name: Run
+        run: .github/workflows/unit-tests-musl.sh RUN
+        shell: alpine.sh --root {0}
+      - name: Cleanup
+        run: .github/workflows/unit-tests-musl.sh CLEANUP
+        shell: alpine.sh --root {0}
