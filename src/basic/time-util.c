@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -1590,6 +1591,26 @@ int verify_timezone(const char *name, int log_level) {
                                       "Timezone file '%s' has wrong magic bytes", t);
 
         return 0;
+}
+
+void reset_timezonep(char **p) {
+        assert(p);
+
+        (void) set_unset_env("TZ", *p, /* overwrite = */ true);
+        tzset();
+        *p = mfree(*p);
+}
+
+char* save_timezone(void) {
+        const char *e = getenv("TZ");
+        if (!e)
+                return NULL;
+
+        char *s = strdup(e);
+        if (!s)
+                log_debug("Failed to save $TZ=%s, unsetting the environment variable.", e);
+
+        return s;
 }
 
 bool clock_supported(clockid_t clock) {
