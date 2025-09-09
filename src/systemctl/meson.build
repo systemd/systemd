@@ -58,7 +58,6 @@ executables += [
                 'dependencies' : [
                         libcap,
                         liblz4_cflags,
-                        libselinux,
                         libxz_cflags,
                         libzstd_cflags,
                         threads,

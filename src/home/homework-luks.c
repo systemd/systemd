@@ -135,7 +135,7 @@ static int probe_file_system_by_fd(
                 sd_id128_t *ret_uuid) {
 
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        const char *fstype = NULL, *uuid = NULL;
+        const char *fstype = NULL;
         sd_id128_t id;
         int r;
 
@@ -143,20 +143,24 @@ static int probe_file_system_by_fd(
         assert(ret_fstype);
         assert(ret_uuid);
 
-        b = blkid_new_probe();
+        r = dlopen_libblkid();
+        if (r < 0)
+                return r;
+
+        b = sym_blkid_new_probe();
         if (!b)
                 return -ENOMEM;
 
         errno = 0;
-        r = blkid_probe_set_device(b, fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
-        (void) blkid_probe_enable_superblocks(b, 1);
-        (void) blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_UUID);
+        (void) sym_blkid_probe_enable_superblocks(b, 1);
+        (void) sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_UUID);
 
         errno = 0;
-        r = blkid_do_safeprobe(b);
+        r = sym_blkid_do_safeprobe(b);
         if (r == _BLKID_SAFEPROBE_ERROR)
                 return errno_or_else(EIO);
         if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
@@ -164,15 +168,13 @@ static int probe_file_system_by_fd(
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+        (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
         if (!fstype)
                 return -ENOPKG;
 
-        (void) blkid_probe_lookup_value(b, "UUID", &uuid, NULL);
-        if (!uuid)
+        r = blkid_probe_lookup_value_id128(b, "UUID", &id);
+        if (r == -ENXIO)
                 return -ENOPKG;
-
-        r = sd_id128_from_string(uuid, &id);
         if (r < 0)
                 return r;
 
@@ -674,22 +676,26 @@ static int luks_validate(
         assert(ret_offset);
         assert(ret_size);
 
-        b = blkid_new_probe();
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
+        b = sym_blkid_new_probe();
         if (!b)
                 return -ENOMEM;
 
         errno = 0;
-        r = blkid_probe_set_device(b, fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
-        (void) blkid_probe_enable_superblocks(b, 1);
-        (void) blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
-        (void) blkid_probe_enable_partitions(b, 1);
-        (void) blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+        (void) sym_blkid_probe_enable_superblocks(b, 1);
+        (void) sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE);
+        (void) sym_blkid_probe_enable_partitions(b, 1);
+        (void) sym_blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
 
         errno = 0;
-        r = blkid_do_safeprobe(b);
+        r = sym_blkid_do_safeprobe(b);
         if (r == _BLKID_SAFEPROBE_ERROR)
                 return errno_or_else(EIO);
         if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
@@ -697,7 +703,7 @@ static int luks_validate(
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        (void) blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
+        (void) sym_blkid_probe_lookup_value(b, "TYPE", &fstype, NULL);
         if (streq_ptr(fstype, "crypto_LUKS")) {
                 /* Directly a LUKS image */
                 *ret_offset = 0;
@@ -707,17 +713,17 @@ static int luks_validate(
         } else if (fstype)
                 return -ENOPKG;
 
-        (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
         if (!streq_ptr(pttype, "gpt"))
                 return -ENOPKG;
 
         errno = 0;
-        pl = blkid_probe_get_partitions(b);
+        pl = sym_blkid_probe_get_partitions(b);
         if (!pl)
                 return errno_or_else(ENOMEM);
 
         errno = 0;
-        n = blkid_partlist_numof_partitions(pl);
+        n = sym_blkid_partlist_numof_partitions(pl);
         if (n < 0)
                 return errno_or_else(EIO);
 
@@ -726,14 +732,14 @@ static int luks_validate(
                 blkid_partition pp;
 
                 errno = 0;
-                pp = blkid_partlist_get_partition(pl, i);
+                pp = sym_blkid_partlist_get_partition(pl, i);
                 if (!pp)
                         return errno_or_else(EIO);
 
-                if (sd_id128_string_equal(blkid_partition_get_type_string(pp), SD_GPT_USER_HOME) <= 0)
+                if (sd_id128_string_equal(sym_blkid_partition_get_type_string(pp), SD_GPT_USER_HOME) <= 0)
                         continue;
 
-                if (!streq_ptr(blkid_partition_get_name(pp), label))
+                if (!streq_ptr(sym_blkid_partition_get_name(pp), label))
                         continue;
 
                 r = blkid_partition_get_uuid_id128(pp, &id);
@@ -745,8 +751,8 @@ static int luks_validate(
                 if (found)
                         return -ENOPKG;
 
-                offset = blkid_partition_get_start(pp);
-                size = blkid_partition_get_size(pp);
+                offset = sym_blkid_partition_get_start(pp);
+                size = sym_blkid_partition_get_size(pp);
                 found_partition_uuid = id;
 
                 found = true;

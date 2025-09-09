@@ -115,7 +115,7 @@ endif
 
 udev_dependencies = [
         libacl,
-        libblkid,
+        libblkid_cflags,
         libkmod,
         threads,
 ]
@@ -132,7 +132,7 @@ udev_common_template = {
         'objects' : ['udevadm'],
         'dependencies' : [
                 libacl,
-                libblkid,
+                libblkid_cflags,
                 threads,
         ],
 }
@@ -231,7 +231,7 @@ executables += [
         udev_test_template + {
                 'sources' : files('test-udev-rule-runner.c'),
                 'dependencies' : udev_dependencies + [
-                        libselinux,
+                        libselinux_cflags,
                 ],
                 'type' : 'manual',
         },
