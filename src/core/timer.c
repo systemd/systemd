@@ -664,8 +664,6 @@ static int timer_start(Unit *u) {
         if (r < 0)
                 return r;
 
-        t->last_trigger = DUAL_TIMESTAMP_NULL;
-
         /* Reenable all timers that depend on unit activation time */
         LIST_FOREACH(value, v, t->values)
                 if (v->base == TIMER_ACTIVE)
