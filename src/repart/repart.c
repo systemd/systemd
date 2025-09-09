@@ -5376,7 +5376,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         return 0;
 }
 
-static int progress_bytes(uint64_t n_bytes, void *userdata) {
+static int progress_bytes(uint64_t n_bytes, uint64_t bps, void *userdata) {
         Partition *p = ASSERT_PTR(userdata);
         unsigned percent;
 
@@ -5394,14 +5394,25 @@ static int progress_bytes(uint64_t n_bytes, void *userdata) {
         if (!ratelimit_below(&p->progress_ratelimit))
                 return 0;
 
-        (void) draw_progress_barf(
-                        percent,
-                        "%s %s %s %s/%s",
-                        strna(p->copy_blocks_path),
-                        glyph(GLYPH_ARROW_RIGHT),
-                        strna(p->definition_path),
-                        FORMAT_BYTES(p->copy_blocks_done),
-                        FORMAT_BYTES(p->copy_blocks_size));
+        if (bps != UINT64_MAX)
+                (void) draw_progress_barf(
+                                percent,
+                                "%s %s %s %s/%s %s/s",
+                                strna(p->copy_blocks_path),
+                                glyph(GLYPH_ARROW_RIGHT),
+                                strna(p->definition_path),
+                                FORMAT_BYTES(p->copy_blocks_done),
+                                FORMAT_BYTES(p->copy_blocks_size),
+                                FORMAT_BYTES(bps));
+        else
+                (void) draw_progress_barf(
+                                percent,
+                                "%s %s %s %s/%s",
+                                strna(p->copy_blocks_path),
+                                glyph(GLYPH_ARROW_RIGHT),
+                                strna(p->definition_path),
+                                FORMAT_BYTES(p->copy_blocks_done),
+                                FORMAT_BYTES(p->copy_blocks_size));
 
         p->last_percent = percent;
 
