@@ -5449,9 +5449,9 @@ static int progress_bytes(uint64_t n_bytes, uint64_t bps, void *userdata) {
                                 strna(p->copy_blocks_path),
                                 glyph(GLYPH_ARROW_RIGHT),
                                 strna(p->definition_path),
-                                FORMAT_BYTES(p->copy_blocks_done),
-                                FORMAT_BYTES(p->copy_blocks_size),
-                                FORMAT_BYTES(bps));
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_done),
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_size),
+                                FORMAT_BYTES_WITH_POINT(bps));
         else
                 (void) draw_progress_barf(
                                 percent,
@@ -5459,8 +5459,8 @@ static int progress_bytes(uint64_t n_bytes, uint64_t bps, void *userdata) {
                                 strna(p->copy_blocks_path),
                                 glyph(GLYPH_ARROW_RIGHT),
                                 strna(p->definition_path),
-                                FORMAT_BYTES(p->copy_blocks_done),
-                                FORMAT_BYTES(p->copy_blocks_size));
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_done),
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_size));
 
         p->last_percent = percent;
 
