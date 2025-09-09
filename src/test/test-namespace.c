@@ -416,7 +416,11 @@ TEST(namespace_get_leader) {
                         ASSERT_TRUE(!pidref_equal(&pid2, &leader));
                         ASSERT_TRUE(!pidref_equal(&original, &leader));
                         ASSERT_TRUE(!pidref_equal(&grandparent, &leader));
+
+                        _exit(EXIT_SUCCESS);
                 }
+
+                _exit(EXIT_SUCCESS);
         }
 }
 
