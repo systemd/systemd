@@ -236,7 +236,7 @@ typedef struct sd_hwdb sd_hwdb;
 
 /* shared/ forward declarations */
 
-typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);
+typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, uint64_t bytes_per_second, void *userdata);
 typedef int (*copy_progress_path_t)(const char *path, const struct stat *st, void *userdata);
 
 struct local_address;
