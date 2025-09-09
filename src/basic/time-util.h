@@ -163,6 +163,11 @@ static inline bool timezone_is_valid(const char *name, int log_level) {
         return verify_timezone(name, log_level) >= 0;
 }
 
+void reset_timezone(char **p);
+char* save_timezone(void);
+#define SAVE_TIMEZONE                                                   \
+        _unused_ _cleanup_(reset_timezone) char *_saved_timzeone_ = save_timezone()
+
 bool clock_supported(clockid_t clock);
 
 usec_t usec_shift_clock(usec_t, clockid_t from, clockid_t to);

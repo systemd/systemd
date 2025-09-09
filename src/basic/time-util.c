@@ -1592,6 +1592,30 @@ int verify_timezone(const char *name, int log_level) {
         return 0;
 }
 
+void reset_timezone(char **p) {
+        assert(p);
+
+        if (!*p)
+                return;
+
+        if (*p == POINTER_MAX) {
+                (void) unsetenv("TZ");
+                tzset();
+                return;
+        }
+
+        (void) setenv("TZ", *p, /* overwrite = */ true);
+        tzset();
+
+        *p = mfree(*p);
+        return;
+}
+
+char* save_timezone(void) {
+        const char *e = getenv("TZ");
+        return e ? strdup(e) : POINTER_MAX;
+}
+
 bool clock_supported(clockid_t clock) {
         struct timespec ts;
 
