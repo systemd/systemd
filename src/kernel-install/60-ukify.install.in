@@ -238,7 +238,7 @@ def call_ukify(opts) -> None:
     opts2.uname = opts.kernel_version
     opts2.linux = opts.kernel_image
     opts2.initrd = initrd_list(opts)
-    # Note that 'uki.efi' is the name required by 90-uki-copy.install.
+    # Note that 'uki.efi' is the name required by 90-uki-copy.rinstall.
     opts2.output = opts.staging_area / 'uki.efi'
 
     if devicetree := devicetree_file_location(opts):

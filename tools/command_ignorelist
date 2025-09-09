@@ -17,10 +17,10 @@ journald.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="Fo
 kernel-command-line.xml ./refsect1[title="History"]/
 kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD-FILE ...]]"]/listitem/variablelist/varlistentry[term="50-depmod.install"]
 kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD-FILE ...]]"]/listitem/variablelist/varlistentry[term="90-loaderentry.install"]
-kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD-FILE ...]]"]/listitem/variablelist/varlistentry[term="90-uki-copy.install"]
+kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="add [[[KERNEL-VERSION] KERNEL-IMAGE] [INITRD-FILE ...]]"]/listitem/variablelist/varlistentry[term="90-uki-copy.rinstall"]
 kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="remove KERNEL-VERSION"]/listitem/variablelist/varlistentry[term="50-depmod.install"]
 kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="remove KERNEL-VERSION"]/listitem/variablelist/varlistentry[term="90-loaderentry.install"]
-kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="remove KERNEL-VERSION"]/listitem/variablelist/varlistentry[term="90-uki-copy.install"]
+kernel-install.xml ./refsect1[title="Commands"]/variablelist/varlistentry[term="remove KERNEL-VERSION"]/listitem/variablelist/varlistentry[term="90-uki-copy.rinstall"]
 loginctl.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="-p"]
 loginctl.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="-a"]
 loginctl.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="--no-ask-password"]
