@@ -232,7 +232,13 @@ TEST(sd_bus_error_set_errnof) {
         errno = EACCES;
         assert_se(asprintf(&str, "%m") >= 0);
         assert_se(streq(error.message, str));
+#ifdef __GLIBC__
         assert_se(error._need_free == 0);
+#else
+        /* musl's strerror_l() always writes error message in the given buffer, hence the we need to
+         * free it. */
+        assert_se(error._need_free == 1);
+#endif
 
         str = mfree(str);
         sd_bus_error_free(&error);
