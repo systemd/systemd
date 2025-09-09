@@ -663,6 +663,35 @@ TEST(format_timestamp_range) {
         test_format_timestamp_one(USEC_INFINITY, TIMESTAMP_UTC, NULL);
 }
 
+TEST(parse_gmtoff) {
+        long t;
+
+        ASSERT_OK(parse_gmtoff("+14", &t));
+        ASSERT_EQ(t, (long) (14 * USEC_PER_HOUR / USEC_PER_SEC));
+        ASSERT_OK(parse_gmtoff("-09", &t));
+        ASSERT_EQ(t, - (long) (9 * USEC_PER_HOUR / USEC_PER_SEC));
+        ASSERT_OK(parse_gmtoff("+1400", &t));
+        ASSERT_EQ(t, (long) (14 * USEC_PER_HOUR / USEC_PER_SEC));
+        ASSERT_OK(parse_gmtoff("-0900", &t));
+        ASSERT_EQ(t, - (long) (9 * USEC_PER_HOUR / USEC_PER_SEC));
+        ASSERT_OK(parse_gmtoff("+14:00", &t));
+        ASSERT_EQ(t, (long) (14 * USEC_PER_HOUR / USEC_PER_SEC));
+        ASSERT_OK(parse_gmtoff("-09:00", &t));
+        ASSERT_EQ(t, - (long) (9 * USEC_PER_HOUR / USEC_PER_SEC));
+
+        ASSERT_ERROR(parse_gmtoff("", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("UTC", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("09", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("0900", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("?0900", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("?0900", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("+0900abc", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("+0900 ", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("+090000", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("+0900:00", &t), EINVAL);
+        ASSERT_ERROR(parse_gmtoff("+0900.00", &t), EINVAL);
+}
+
 static void test_parse_timestamp_one(const char *str, usec_t max_diff, usec_t expected) {
         usec_t usec = USEC_INFINITY;
         int r;
