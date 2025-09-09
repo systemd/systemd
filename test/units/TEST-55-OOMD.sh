@@ -125,6 +125,9 @@ test_basic() {
     if systemctl "$@" status TEST-55-OOMD-testbloat.service; then exit 42; fi
     if ! systemctl "$@" status TEST-55-OOMD-testchill.service; then exit 24; fi
 
+    # Ensure ExecStopPost= runs on oom-kill.
+    test -f /run/testbloat-exec-stop-post
+
     systemctl "$@" kill --signal=KILL TEST-55-OOMD-testbloat.service || :
     systemctl "$@" stop TEST-55-OOMD-testbloat.service
     systemctl "$@" stop TEST-55-OOMD-testchill.service
