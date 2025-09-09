@@ -1592,6 +1592,26 @@ int verify_timezone(const char *name, int log_level) {
         return 0;
 }
 
+void reset_timezonep(char **p) {
+        assert(p);
+
+        (void) set_unset_env("TZ", *p, /* overwrite = */ true);
+        tzset();
+        *p = mfree(*p);
+}
+
+char* save_timezone(void) {
+        const char *e = getenv("TZ");
+        if (!e)
+                return NULL;
+
+        char *s = strdup(e);
+        if (!s)
+                log_debug("Failed to save $TZ=%s, unsetting the environment variable.");
+
+        return s;
+}
+
 bool clock_supported(clockid_t clock) {
         struct timespec ts;
 
