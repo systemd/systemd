@@ -425,7 +425,7 @@ TEST(namespace_get_leader) {
 }
 
 TEST(detach_mount_namespace_harder) {
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int p[2] = EBADF_PAIR;
         char x = 0;
         int r;
