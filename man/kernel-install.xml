@@ -168,7 +168,7 @@
             </varlistentry>
 
             <varlistentry>
-              <term><filename>90-uki-copy.install</filename></term>
+              <term><filename>90-uki-copy.rinstall</filename></term>
               <listitem>
                 <para>If <varname>$KERNEL_INSTALL_STAGING_AREA/uki.efi</varname> exists, the plugin copies it
                 to
@@ -242,7 +242,7 @@
             </varlistentry>
 
             <varlistentry>
-              <term><filename>90-uki-copy.install</filename></term>
+              <term><filename>90-uki-copy.rinstall</filename></term>
               <listitem>
                 <para>The plugin removes the file
                 <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>.efi</filename> and
@@ -540,7 +540,7 @@
             <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>:
             unified kernel images under <filename>$BOOT/EFI/Linux</filename> as
             <filename>$BOOT/EFI/Linux/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>[+<replaceable>TRIES</replaceable>].efi</filename>.</para>
-            <para>Implemented by <filename>90-uki-copy.install</filename>.</para>
+            <para>Implemented by <filename>90-uki-copy.rinstall</filename>.</para>
 
             <xi:include href="version-info.xml" xpointer="v253"/>
           </listitem>
@@ -665,7 +665,7 @@
         <term><filename>/etc/kernel/tries</filename></term>
         <listitem>
           <para>Read by <filename>90-loaderentry.install</filename> and
-          <filename>90-uki-copy.install</filename>. If this file exists, a numeric value is read from it and
+          <filename>90-uki-copy.rinstall</filename>. If this file exists, a numeric value is read from it and
           the naming of the generated entry file or UKI is altered to include it as
           <filename>$BOOT/loader/entries/<replaceable>ENTRY-TOKEN</replaceable>-<replaceable>KERNEL-VERSION</replaceable>+<replaceable>TRIES</replaceable>.conf</filename>
           or
