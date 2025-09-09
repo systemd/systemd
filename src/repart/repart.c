@@ -5517,6 +5517,11 @@ static int context_copy_blocks(Context *context) {
                                 return r;
                 }
 
+                if (posix_fadvise(p->copy_blocks_fd, 0, 0, POSIX_FADV_DONTNEED) < 0)
+                        log_warning_errno(errno, "Failed to POSIX_FADV_DONTNEED source");
+                if (posix_fadvise(partition_target_fd(t), 0, 0, POSIX_FADV_DONTNEED) < 0)
+                        log_warning_errno(errno, "Failed to POSIX_FADV_DONTNEED target");
+
                 if (p->copy_blocks_offset == UINT64_MAX)
                         log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
                                  p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
