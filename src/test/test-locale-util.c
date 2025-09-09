@@ -50,7 +50,12 @@ TEST(locale_is_installed) {
         assert_se(locale_is_installed("\x01gar\x02 bage\x03") == 0);
 
         /* Definitely not installed */
-        assert_se(locale_is_installed("zz_ZZ") == 0);
+#ifdef __GLIBC__
+        ASSERT_OK_ZERO(locale_is_installed("zz_ZZ"));
+#else
+        /* musl seems to return a non-null locale object even if it is not installed. */
+        ASSERT_OK_POSITIVE(locale_is_installed("zz_ZZ"));
+#endif
 }
 
 TEST(keymaps) {
