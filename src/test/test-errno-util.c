@@ -26,18 +26,28 @@ TEST(STRERROR) {
         log_info("STRERROR(%d), STRERROR(%d) → %s, %s", 200, 201, STRERROR(200), STRERROR(201));
 
         const char *a = STRERROR(200), *b = STRERROR(201);
+#ifdef __GLIBC__
         ASSERT_NOT_NULL(strstr(a, "200"));
         ASSERT_NOT_NULL(strstr(b, "201"));
+#else
+        /* musl provides catch all error message for unknown error number. */
+        ASSERT_STREQ(a, "No error information");
+        ASSERT_STREQ(b, "No error information");
+#endif
 
         /* Check with negative values */
         ASSERT_STREQ(a, STRERROR(-200));
         ASSERT_STREQ(b, STRERROR(-201));
 
         const char *c = STRERROR(INT_MAX);
+        log_info("STRERROR(%d) → %s", INT_MAX, c);
+#ifdef __GLIBC__
         char buf[DECIMAL_STR_MAX(int)];
         xsprintf(buf, "%d", INT_MAX);  /* INT_MAX is hexadecimal, use printf to convert to decimal */
-        log_info("STRERROR(%d) → %s", INT_MAX, c);
         ASSERT_NOT_NULL(strstr(c, buf));
+#else
+        ASSERT_STREQ(c, "No error information");
+#endif
 }
 
 TEST(STRERROR_OR_ELSE) {
