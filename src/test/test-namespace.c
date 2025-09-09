@@ -448,6 +448,9 @@ TEST(detach_mount_namespace_harder) {
 
         ASSERT_OK_POSITIVE(pidref_in_same_namespace(NULL, &pid, NAMESPACE_USER));
         ASSERT_OK_ZERO(pidref_in_same_namespace(NULL, &pid, NAMESPACE_MOUNT));
+
+        ASSERT_OK(pidref_kill(&pid, SIGKILL));
+        ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
 }
 
 static int intro(void) {
