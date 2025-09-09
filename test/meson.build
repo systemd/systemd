@@ -13,6 +13,7 @@ if conf.get('ENABLE_SYSUSERS') == 1
                      # https://github.com/mesonbuild/meson/issues/2681
                      args : exe.full_path(),
                      depends : exe,
+                     env : test_env,
                      suite : 'sysusers')
 
                 if have_standalone_binaries
@@ -22,6 +23,7 @@ if conf.get('ENABLE_SYSUSERS') == 1
                              # https://github.com/mesonbuild/meson/issues/2681
                              args : exe.full_path(),
                              depends : exe,
+                             env : test_env,
                              suite : 'sysusers')
                 endif
         endif
