@@ -1866,8 +1866,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
       <para><command>debootstrap</command> supports
       <ulink url="https://www.debian.org">Debian</ulink>,
-      <ulink url="https://www.ubuntu.com">Ubuntu</ulink>,
-      and <ulink url="https://www.tanglu.org">Tanglu</ulink>
+      and <ulink url="https://www.ubuntu.com">Ubuntu</ulink>
       out of the box, so the same command can be used to install any of those. For other
       distributions from the Debian family, a mirror has to be specified, see
       <citerefentry project='die-net'><refentrytitle>debootstrap</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
