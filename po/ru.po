@@ -9,12 +9,12 @@
 # Olga Smirnova <mistresssilvara@hotmail.com>, 2022.
 # Andrei Stepanov <adem4ik@gmail.com>, 2023.
 # "Sergey A." <sw@atrus.ru>, 2023, 2024.
-# "Sergey A." <Ser82-png@yandex.ru>, 2024.
+# "Sergey A." <Ser82-png@yandex.ru>, 2024, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2024-12-06 08:19+0000\n"
+"PO-Revision-Date: 2025-09-03 09:14+0000\n"
 "Last-Translator: \"Sergey A.\" <Ser82-png@yandex.ru>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
@@ -24,7 +24,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.8.4\n"
+"X-Generator: Weblate 5.13\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -171,14 +171,12 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Управление ключами подписи домашних каталогов"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Для управления системными службами и юнитами, необходимо пройти "
+"Для управления ключами подписи домашних каталогов, необходимо пройти "
 "аутентификацию."
 
 #: src/home/pam_systemd_home.c:336
@@ -974,20 +972,15 @@ msgstr ""
 "аутентификацию."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "Создание виртуальной машины или контейнера"
+msgstr "Регистрация локальной виртуальной машины или контейнера"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
-"Для создания виртуальной машины или контейнера, необходимо пройти "
-"аутентификацию."
+"Для регистрации локальной виртуальной машины или контейнера, необходимо "
+"пройти аутентификацию."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -1231,14 +1224,12 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Подписка на конфигурацию DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
 msgstr ""
-"Чтобы подписаться на результаты запроса, необходимо пройти аутентификацию."
+"Чтобы подписаться на конфигурацию DNS, необходимо пройти аутентификацию."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1388,15 +1379,11 @@ msgstr ""
 "аутентификацию."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
-"Чтобы отправить сигнал UNIX процессам юнита «$(unit)», необходимо пройти "
+"Чтобы отправить сигнал UNIX процессам подгруппы «$(unit)», необходимо пройти "
 "аутентификацию."
 
 #: src/core/dbus-unit.c:648

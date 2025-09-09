@@ -15,6 +15,7 @@
 #include "strv.h"
 #include "transaction.h"
 
+static bool job_matters_to_anchor(Job *job);
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 
 static void transaction_delete_job(Transaction *tr, Job *j, bool delete_dependencies) {
@@ -171,6 +172,7 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *job) {
                                  * another unit in which case we
                                  * rather remove the start. */
 
+                                /* Update test/units/TEST-87-AUX-UTILS-VM.sh when logs below are changed. */
                                 log_unit_debug(j->unit,
                                                "Looking at job %s/%s conflicted_by=%s",
                                                j->unit->id, job_type_to_string(j->type),
@@ -216,16 +218,17 @@ static int delete_one_unmergeable_job(Transaction *tr, Job *job) {
         return -EINVAL;
 }
 
-static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
+static int transaction_ensure_mergeable(Transaction *tr, bool matters_to_anchor, sd_bus_error *e) {
         Job *j;
         int r;
 
         assert(tr);
 
-        /* First step, check whether any of the jobs for one specific
-         * task conflict. If so, try to drop one of them. */
         HASHMAP_FOREACH(j, tr->jobs) {
                 JobType t;
+
+                if (job_matters_to_anchor(j) != matters_to_anchor)
+                        continue;
 
                 t = j->type;
                 LIST_FOREACH(transaction, k, j->transaction_next) {
@@ -253,7 +256,26 @@ static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
                 }
         }
 
-        /* Second step, merge the jobs. */
+        return 0;
+}
+
+static int transaction_merge_jobs(Transaction *tr, sd_bus_error *e) {
+        Job *j;
+        int r;
+
+        assert(tr);
+
+        /* First step, try to drop unmergeable jobs for jobs that matter to anchor. */
+        r = transaction_ensure_mergeable(tr, /* matters_to_anchor = */ true, e);
+        if (r < 0)
+                return r;
+
+        /* Second step, do the same for jobs that not matter to anchor. */
+        r = transaction_ensure_mergeable(tr, /* matters_to_anchor = */ false, e);
+        if (r < 0)
+                return r;
+
+        /* Third step, merge the jobs. */
         HASHMAP_FOREACH(j, tr->jobs) {
                 JobType t = j->type;
 

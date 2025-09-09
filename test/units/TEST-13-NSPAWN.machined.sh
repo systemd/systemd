@@ -379,7 +379,7 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.List 
 
 # test io.systemd.Machine.Open
 
-# Reducing log level here is to work-around check in end.service (end.sh). Read https://github.com/systemd/systemd/pull/34867 for more details
+# Reducing log level here is to work-around check in post.sh. Read https://github.com/systemd/systemd/pull/34867 for more details
 systemctl service-log-level systemd-machined info
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host"}')
 (! varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": ""}')

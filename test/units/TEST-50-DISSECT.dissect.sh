@@ -771,6 +771,8 @@ rm -rf "$VDIR" "$VDIR2" /tmp/vpickminimg /tmp/markers/
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
 ln -s /tmp/app-nodistro.raw /var/lib/extensions/app-nodistro.raw
+systemd-sysext status
+systemd-sysext list
 systemd-sysext merge
 grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
 systemd-sysext unmerge

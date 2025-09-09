@@ -70,7 +70,8 @@
       <varlistentry>
         <term>default</term>
 
-        <listitem><para>A glob pattern to select the default entry. The default entry
+        <listitem><para>A glob pattern to select the default entry by id, which is the
+        file name including literal suffix <literal>.conf</literal>. The default entry
         may be changed in the boot menu itself, in which case the name of the
         selected entry will be stored as an EFI variable, overriding this option.
         </para>
@@ -252,6 +253,26 @@
         be reached by using the <keycap>f</keycap> key.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>auto-reboot</term>
+
+        <listitem><para>A boolean controlling the presence of the <literal>Reboot The System</literal>
+        entry (disabled by default). Even if this is disabled, the system may still be rebooted by pressing
+        <keycombo><keycap>Shift</keycap><keycap>b</keycap></keycombo>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>auto-poweroff</term>
+
+        <listitem><para>A boolean controlling the presence of the <literal>Power Off The System</literal>
+        entry (disabled by default). Even if this is disabled, the system may still be powered off by
+        pressing <keycombo><keycap>Shift</keycap><keycap>o</keycap></keycombo>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
       <varlistentry>
