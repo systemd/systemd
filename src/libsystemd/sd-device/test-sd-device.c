@@ -5,6 +5,7 @@
 
 #include "sd-event.h"
 
+#include "capability-util.h"
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -25,14 +26,17 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
+#include "virt.h"
 
 TEST(mdio_bus) {
         int r;
 
         /* For issue #37711 */
 
-        if (getuid() != 0)
-                return (void) log_tests_skipped("not running as root");
+        if (getuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("Not privileged");
+        if (running_in_chroot() > 0)
+                return (void) log_tests_skipped("Running in chroot");
 
         ASSERT_OK(r = safe_fork("(mdio_bus)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL));
         if (r == 0) {
