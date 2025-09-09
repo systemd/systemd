@@ -15,7 +15,7 @@
  * 2.3. Check if MM service is yet available: for that call /org/freedesktop/DBus, org.freedesktop.DBus
  *      ListNames method and see if MM is available. If it is not, then wait for the NameOwnerChanged
  *      signal and see when it is; finish initialization phase.
- * 2.4. If MM is available - enumerate modems, see #4.
+ * 2.4. If MM is available - enumerate modems, see p.4.
  * 2.5. Finish initialization phase.
  *
  * 3. Run-time
@@ -28,13 +28,10 @@
  *      we start an automatic reconnect.
  *
  * 4. Modem enumeration proces
- * 4.1. Modem enumeration is done by introspecting modems available with /org/freedesktop/ModemManager1/Modem,
- *      org.freedesktop.DBus.Introspectable Introspect method call.
- * 4.2. By receiving modem objects we try to instantiate all new modems found.
- * 4.3. For that we inspect all bearers available for that modem with org.freedesktop.ModemManager1.Modem
- *      Bearers method call and add all new bearers found.
- * 4.4. We also read modem ports to detect WWAN interface name assigned to this modem, e.g. "wwan0" etc:
- *      this is done by reading  org.freedesktop.ModemManager1.Modem Ports property for each modem.
+ * 4.1. Modem enumeration is done by calling GetManagedObjects.
+ * 4.2. By receiving managed objects we try to instantiate all new modems found.
+ * 4.3. For that we inspect all bearers available for that modem and add all new bearers found.
+ * 4.4. We also read modem ports to detect WWAN interface name assigned to this modem, e.g. "wwan0" etc.
  *      N.B. As we only get the interface name known that late and the corresponding .network file was
  *      already used by the networkd to match interfaces etc. it is not possible
  *      to do things like matching APN to .network and so on.
@@ -279,9 +276,8 @@ static int bus_message_check_properties(
         *found_cnt = 0;
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
-        if (r < 0) {
+        if (r < 0)
                 return bus_log_parse_error_debug(r);
-        }
 
         while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
                 const struct bus_properties_map *prop;
@@ -647,7 +643,7 @@ static void modem_simple_connect(Modem *modem) {
         log_info("ModemManager: starting simple connect on %s %s interface %s",
                  modem->manufacturer, modem->model, modem->port_name);
         r = sd_bus_call_method_async_props(modem->manager->bus,
-                                           &modem->slot_getall,
+                                           &modem->slot_connect,
                                            "org.freedesktop.ModemManager1",
                                            modem->path,
                                            "org.freedesktop.ModemManager1.Modem.Simple",
@@ -684,9 +680,11 @@ static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) 
                  * (connecting->registered). To rate limit such a case we set
                  * MODEM_RECONNECT_WAITING state, so using this timer we can
                  * limit the requests and wait, for example, for
-                 * network reconfigure wwanX.
+                 * network reconfigure wwanX. Still do not try to reconnect
+                 * modems in failed state yet.
                  */
-                if (modem->reconnect_state == MODEM_RECONNECT_WAITING)
+                if ((modem->reconnect_state == MODEM_RECONNECT_WAITING) &&
+                    (modem->state_fail_reason == MM_MODEM_STATE_FAILED_REASON_NONE))
                         modem->reconnect_state = MODEM_RECONNECT_SCHEDULED;
                 modem_simple_connect(modem);
         }
@@ -767,74 +765,6 @@ static int modem_on_state_change(
         return 0;
 }
 
-static int modem_get_all_handler(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
-        static const struct bus_properties_map map[] = {
-                { "State",             "i", NULL, offsetof(Modem, state)             },
-                { "StateFailedReason", "u", NULL, offsetof(Modem, state_fail_reason) },
-                { "Manufacturer",      "s", NULL, offsetof(Modem, manufacturer)      },
-                { "Model",             "s", NULL, offsetof(Modem, model)             },
-                {}
-        };
-
-        Modem *modem = ASSERT_PTR(userdata);
-        const sd_bus_error *e;
-        MMModemState old_state;
-        MMModemStateFailedReason old_fail_reason;
-        int r;
-
-        assert(message);
-
-        modem->slot_getall = sd_bus_slot_unref(modem->slot_getall);
-
-        e = sd_bus_message_get_error(message);
-        if (e) {
-                r = sd_bus_error_get_errno(e);
-                log_full_errno(LOG_ERR, r, "Could not get properties of modem \"%s\": %s",
-                               modem->path, bus_error_message(e, r));
-
-                modem_drop(modem);
-                return 0;
-        }
-
-        old_state = modem->state;
-        old_fail_reason = modem->state_fail_reason;
-
-        /* skip name: string "org.freedesktop.ModemManager1.Modem" */
-        sd_bus_message_skip(message, "s");
-
-        r = bus_message_map_all_properties(message, map,
-                                           BUS_MAP_BOOLEAN_AS_BOOL | BUS_MAP_STRDUP,
-                                           ret_error, modem);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to parse properties of modem \"%s\": %s",
-                                         modem->path, bus_error_message(ret_error, r));
-
-        return modem_on_state_change(modem, old_state, old_fail_reason);
-}
-
-static int modem_initialize(Modem *modem) {
-        assert(modem);
-        assert(modem->manager);
-        assert(sd_bus_is_ready(modem->manager->bus) > 0);
-        assert(modem->path);
-        int r;
-
-        modem->slot_getall = sd_bus_slot_unref(modem->slot_getall);
-
-        r = sd_bus_call_method_async(modem->manager->bus,
-                                     &modem->slot_getall,
-                                     "org.freedesktop.ModemManager1",
-                                     modem->path,
-                                     "org.freedesktop.DBus.Properties",
-                                     "GetAll",
-                                     modem_get_all_handler,
-                                     modem, "s", "org.freedesktop.ModemManager1.Modem");
-        if (r < 0)
-                return log_warning_errno(r, "Could not get properties of modem \"%s\": %m", modem->path);
-
-        return 0;
-}
-
 static int modem_new_and_initialize(Manager *manager, const char *path, Modem **ret) {
         Modem *modem = NULL;
         int r;
@@ -845,10 +775,6 @@ static int modem_new_and_initialize(Manager *manager, const char *path, Modem **
         r = modem_new(manager, path, &modem);
         if (r < 0)
                 return log_warning_errno(r, "Failed to allocate new modem \"%s\": %m", path);
-
-        r = modem_initialize(modem);
-        if (r < 0)
-                return r;
 
         if (ret)
                 *ret = modem;
@@ -894,14 +820,14 @@ static int bearer_properties_changed_handler(
         return 0;
 }
 
-static int modem_map_bearers(
+static int modem_map_bearers_on_props(
                 sd_bus *bus,
                 const char *member,
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
         Modem *modem = ASSERT_PTR(userdata);
-        char **paths = NULL, **path;
+        _cleanup_strv_free_ char **paths = NULL;
         int r;
 
         log_info("ModemManager: bearers created at path %s", sd_bus_message_get_path(m));
@@ -910,34 +836,32 @@ static int modem_map_bearers(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        for (path = paths; *path != NULL; path++)
+        STRV_FOREACH(path, paths)
                 (void) bearer_new_and_initialize(modem, *path);
 
         return 0;
 }
 
-static int modem_parse_ports(sd_bus_message *m, Modem *modem) {
+static int modem_map_bearers_initial(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata) {
+        Modem *modem = ASSERT_PTR(userdata);
         int r;
 
-        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "(su)");
-        if (r < 0)
-                return bus_log_parse_error(r);
+        while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "o")) > 0) {
+                const char *path;
 
-        for (;;) {
-                const char *port_name;
-                uint32_t port_type;
-
-                r = sd_bus_message_read(m, "(su)", &port_name, &port_type);
+                r = sd_bus_message_read_basic(m, SD_BUS_TYPE_OBJECT_PATH, &path);
                 if (r < 0)
                         return bus_log_parse_error(r);
-                if (r == 0)
-                        break;
+                if (!path)
+                        continue;
 
-                if (port_type == MM_MODEM_PORT_TYPE_NET) {
-                        free(modem->port_name);
-                        modem->port_name = strdup(port_name);
-                        break;
-                }
+                log_info("ModemManager: bearer found at %s", path);
+                (void) bearer_new_and_initialize(modem, path);
         }
 
         r = sd_bus_message_exit_container(m);
@@ -954,8 +878,27 @@ static int modem_map_ports(
                 sd_bus_error *error,
                 void *userdata) {
         Modem *modem = ASSERT_PTR(userdata);
+        const char *port_name;
+        uint32_t port_type;
+        int r;
 
-        return modem_parse_ports(m, modem);
+        r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, NULL);
+        if (r < 0)
+                return bus_log_parse_error_debug(r);
+
+        while ((r = sd_bus_message_read(m, "(su)", &port_name, &port_type)) > 0) {
+                if (port_type == MM_MODEM_PORT_TYPE_NET) {
+                        free(modem->port_name);
+                        modem->port_name = strdup(port_name);
+                        break;
+                }
+        }
+
+        r = sd_bus_message_exit_container(m);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
 }
 
 static int modem_properties_changed_signal(
@@ -963,12 +906,12 @@ static int modem_properties_changed_signal(
                 void *userdata,
                 sd_bus_error *ret_error) {
         static const struct bus_properties_map map[] = {
-                { "Bearers",       "a{sv}", modem_map_bearers, 0, },
-                { "State",             "i", NULL,            offsetof(Modem, state)             },
-                { "StateFailedReason", "u", NULL,            offsetof(Modem, state_fail_reason) },
-                { "Manufacturer",      "s", NULL,            offsetof(Modem, manufacturer)      },
-                { "Model",             "s", NULL,            offsetof(Modem, model)             },
-                { "Ports",         "a{su}", modem_map_ports, 0,                                 },
+                { "Bearers",       "a{sv}", modem_map_bearers_on_props, 0,                                 },
+                { "State",             "i", NULL,                       offsetof(Modem, state)             },
+                { "StateFailedReason", "u", NULL,                       offsetof(Modem, state_fail_reason) },
+                { "Manufacturer",      "s", NULL,                       offsetof(Modem, manufacturer)      },
+                { "Model",             "s", NULL,                       offsetof(Modem, model)             },
+                { "Ports",         "a{su}", modem_map_ports,            0,                                 },
                 {}
         };
         Modem *modem = ASSERT_PTR(userdata);
@@ -1040,65 +983,42 @@ static int modem_match_properties_changed(Modem *modem, const char *path) {
         return 0;
 }
 
-static int modems_save_path(const char *path, void *userdata) {
-        Set **set = ASSERT_PTR(userdata);
-
-        return set_put_strdup(set, path);
-}
-
-static int enumerate_modem(Manager *m, const char *path) {
-        _cleanup_strv_free_ char **bearers = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+static int modem_add(Manager *m, const char *path, sd_bus_message *message, sd_bus_error *ret_error) {
+        static const struct bus_properties_map map[] = {
+                { "Bearers",           "ao",    modem_map_bearers_initial, 0,                                 },
+                { "State",             "i",     NULL,                      offsetof(Modem, state)             },
+                { "StateFailedReason", "u",     NULL,                      offsetof(Modem, state_fail_reason) },
+                { "Manufacturer",      "s",     NULL,                      offsetof(Modem, manufacturer)      },
+                { "Model",             "s",     NULL,                      offsetof(Modem, model)             },
+                { "Ports",             "a{su}", modem_map_ports,           0,                                 },
+                {}
+        };
         Modem *modem;
         int r;
 
-        if (streq(path, "/org/freedesktop/ModemManager1"))
-                return 0;
-        if (streq(path, "/org/freedesktop/ModemManager1/Modem"))
-                return 0;
-
         r = modem_get_by_path(m, path, &modem);
         if (r != -ENOENT)
-                return 0;
+                return sd_bus_message_skip(message, "a{sv}");
 
         log_info("ModemManager: modem found at %s\n", path);
 
         r = modem_new_and_initialize(m, path, &modem);
         if (r < 0)
                 return log_warning_errno(r, "Failed to initialize modem at %s, ignoring", path);
-        /* Get existing bearers if any. */
-        r = sd_bus_get_property_strv(m->bus,
-                                     "org.freedesktop.ModemManager1",
-                                     path,
-                                     "org.freedesktop.ModemManager1.Modem",
-                                     "Bearers",
-                                     NULL, &bearers);
+
+        r = modem_match_properties_changed(modem, path);
         if (r < 0)
-                return log_warning_errno(r, "Failed to get bearers for modem %s", path);
+                return log_warning_errno(r, "Failed to match on properties changed at %s, ignoring", path);
 
-        STRV_FOREACH(bearer, bearers) {
-                log_info("ModemManager: bearer found %s", *bearer);
-                (void) bearer_new_and_initialize(modem, *bearer);
-        }
-
-        /* Get existing ports if any: we need wwanX net interface name */
-        r = sd_bus_get_property(m->bus,
-                                "org.freedesktop.ModemManager1",
-                                path,
-                                "org.freedesktop.ModemManager1.Modem",
-                                "Ports",
-                                NULL, &reply, "a(su)");
+        r = bus_message_map_all_properties(message, map, BUS_MAP_STRDUP, ret_error, modem);
         if (r < 0)
-                return log_warning_errno(r, "Failed to get ports property for modem %s", path);
+                return log_warning_errno(r, "Failed to map properties at %s, ignoring", path);
 
-        r = modem_parse_ports(reply, modem);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to map ports property for modem %s", path);
-
-        return modem_match_properties_changed(modem, path);
+        modem->reconnect_state = MODEM_RECONNECT_SCHEDULED;
+        return modem_on_state_change(modem, MM_MODEM_STATE_UNKNOWN, MM_MODEM_STATE_FAILED_REASON_UNKNOWN);
 }
 
-static int remove_modem(Manager *m, const char *path) {
+static int modem_remove(Manager *m, const char *path) {
         Modem *modem;
         int r;
 
@@ -1111,14 +1031,10 @@ static int remove_modem(Manager *m, const char *path) {
 }
 
 static int enumerate_modems_handler(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
-        static const XMLIntrospectOps ops = {
-                .on_path = modems_save_path,
-        };
-
         Manager *manager = ASSERT_PTR(userdata);
         _cleanup_set_free_ Set *paths = NULL;
         const sd_bus_error *e;
-        const char *xml, *path;
+        const char *modem_path;
         int r;
 
         assert(message);
@@ -1126,25 +1042,57 @@ static int enumerate_modems_handler(sd_bus_message *message, void *userdata, sd_
         e = sd_bus_message_get_error(message);
         if (e) {
                 r = sd_bus_error_get_errno(e);
-                log_warning_errno(r, "Could not get modems: %s", bus_error_message(e, r));
+                log_warning_errno(r, "Could not get managed objects: %s", bus_error_message(e, r));
                 return 0;
         }
 
-        r = sd_bus_message_read(message, "s", &xml);
+        r = sd_bus_message_enter_container(message, SD_BUS_TYPE_ARRAY, "{oa{sa{sv}}}");
+        if (r < 0)
+                return bus_log_parse_error_debug(r);
+
+        while ((r = sd_bus_message_enter_container(message, SD_BUS_TYPE_DICT_ENTRY, "oa{sa{sv}}")) > 0) {
+                r = sd_bus_message_read_basic(message, SD_BUS_TYPE_OBJECT_PATH, &modem_path);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_enter_container(message, SD_BUS_TYPE_ARRAY, "{sa{sv}}");
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                while ((r = sd_bus_message_enter_container(message, SD_BUS_TYPE_DICT_ENTRY, "sa{sv}")) > 0) {
+                        const char *interface_name = NULL;
+
+                        r = sd_bus_message_read_basic(message, 's', &interface_name);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        if (streq("org.freedesktop.ModemManager1.Modem", interface_name)) {
+                                r = modem_add(manager, modem_path, message, ret_error);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to add modem at %s: %m", modem_path);
+                        } else {
+                                r = sd_bus_message_skip(message, "a{sv}");
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+                        }
+
+                        r = sd_bus_message_exit_container(message);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+                }
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = sd_bus_message_exit_container(message);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+        }
+
+        r = sd_bus_message_exit_container(message);
         if (r < 0)
                 return bus_log_parse_error(r);
-
-        r = parse_xml_introspect("/org/freedesktop/ModemManager1/Modem", xml, &ops, &paths);
-        if (r < 0) {
-                log_warning_errno(r, "Failed to parse DBus introspect XML, ignoring: %m");
-                return 0;
-        }
-
-        SET_FOREACH(path, paths) {
-                r = enumerate_modem(manager, path);
-                if (r < 0)
-                        continue;
-        }
 
         return 0;
 }
@@ -1161,12 +1109,12 @@ static int enumerate_modems(Manager *manager) {
         r = sd_bus_call_method_async(manager->bus,
                                      NULL,
                                      "org.freedesktop.ModemManager1",
-                                     "/org/freedesktop/ModemManager1/Modem",
-                                     "org.freedesktop.DBus.Introspectable",
-                                     "Introspect",
+                                     "/org/freedesktop/ModemManager1",
+                                     "org.freedesktop.DBus.ObjectManager",
+                                     "GetManagedObjects",
                                      enumerate_modems_handler, manager, NULL);
         if (r < 0)
-                return log_error_errno(r, "Could not get modems: %m");
+                return log_error_errno(r, "Could not get managed objects: %m");
 
         return 0;
 }
@@ -1181,7 +1129,6 @@ static int interface_add_remove_signal(sd_bus_message *message, void *userdata, 
 
         if (streq(message->member, "InterfacesAdded")) {
                 log_info("ModemManager: %s modem added", sd_bus_message_get_path(message));
-                enumerate_modem(manager, sd_bus_message_get_path(message));
         } else {
                 const char *path;
                 int r;
@@ -1191,7 +1138,7 @@ static int interface_add_remove_signal(sd_bus_message *message, void *userdata, 
                         return r;
 
                 log_error("ModemManager: %s modem removed", path);
-                return remove_modem(manager, path);
+                return modem_remove(manager, path);
         }
 
         return enumerate_modems(manager);

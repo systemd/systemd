@@ -44,7 +44,6 @@ typedef struct Bearer {
 typedef struct Modem {
         Manager *manager;
 
-        sd_bus_slot *slot_getall;
         sd_bus_slot *slot_propertieschanged;
         sd_bus_slot *slot_statechanged;
         sd_bus_slot *slot_connect;
