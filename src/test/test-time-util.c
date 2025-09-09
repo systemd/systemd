@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+
 #include "env-util.h"
 #include "random-util.h"
 #include "serialize.h"
@@ -10,6 +11,18 @@
 #include "time-util.h"
 
 #define TRIAL 100u
+
+static void set_timezone(const char *tz) {
+        if (!tz)
+                ASSERT_OK_ERRNO(unsetenv("TZ"));
+        if (isempty(tz))
+                ASSERT_OK_ERRNO(setenv("TZ", tz, /* overwrite = */ true));
+        else
+                ASSERT_OK_ERRNO(setenv("TZ", strjoina(":", tz), /* overwrite = */ true));
+
+        tzset();
+        log_info("TZ=%s, tzname[0]=%s, tzname[1]=%s", strna(getenv("TZ")), strempty(tzname[0]), strempty(tzname[1]));
+}
 
 TEST(parse_sec) {
         usec_t u;
@@ -445,24 +458,13 @@ TEST(FORMAT_TIMESTAMP) {
 }
 
 static void test_format_timestamp_with_tz_one(const char *tz) {
-        const char *saved_tz, *colon_tz;
-
         if (!timezone_is_valid(tz, LOG_DEBUG))
                 return;
 
-        log_info("/* %s(%s) */", __func__, tz);
-
-        saved_tz = getenv("TZ");
-
-        assert_se(colon_tz = strjoina(":", tz));
-        assert_se(setenv("TZ", colon_tz, 1) >= 0);
-        tzset();
-        log_debug("%s: tzname[0]=%s, tzname[1]=%s", tz, strempty(tzname[0]), strempty(tzname[1]));
+        SAVE_TIMEZONE;
+        set_timezone(tz);
 
         test_format_timestamp_loop();
-
-        assert_se(set_unset_env("TZ", saved_tz, true) == 0);
-        tzset();
 }
 
 TEST(FORMAT_TIMESTAMP_with_tz) {
@@ -984,24 +986,13 @@ TEST(parse_timestamp) {
 }
 
 static void test_parse_timestamp_with_tz_one(const char *tz) {
-        const char *saved_tz, *colon_tz;
-
         if (!timezone_is_valid(tz, LOG_DEBUG))
                 return;
 
-        log_info("/* %s(%s) */", __func__, tz);
-
-        saved_tz = getenv("TZ");
-
-        assert_se(colon_tz = strjoina(":", tz));
-        assert_se(setenv("TZ", colon_tz, 1) >= 0);
-        tzset();
-        log_debug("%s: tzname[0]=%s, tzname[1]=%s", tz, strempty(tzname[0]), strempty(tzname[1]));
+        SAVE_TIMEZONE;
+        set_timezone(tz);
 
         test_parse_timestamp_impl(tz);
-
-        assert_se(set_unset_env("TZ", saved_tz, true) == 0);
-        tzset();
 }
 
 TEST(parse_timestamp_with_tz) {
@@ -1093,7 +1084,7 @@ TEST(usec_shift_clock) {
 }
 
 TEST(in_utc_timezone) {
-        const char *tz = getenv("TZ");
+        SAVE_TIMEZONE;
 
         assert_se(setenv("TZ", ":UTC", 1) >= 0);
         assert_se(in_utc_timezone());
@@ -1106,9 +1097,6 @@ TEST(in_utc_timezone) {
         assert_se(!in_utc_timezone());
         ASSERT_STREQ(tzname[0], "CET");
         ASSERT_STREQ(tzname[1], "CEST");
-
-        assert_se(set_unset_env("TZ", tz, true) == 0);
-        tzset();
 }
 
 TEST(map_clock_usec) {
@@ -1162,14 +1150,12 @@ static void test_timezone_offset_change_one(const char *utc, const char *pretty)
 }
 
 TEST(timezone_offset_change) {
-        const char *tz = getenv("TZ");
+        SAVE_TIMEZONE;
 
         /* See issue #26370. */
 
         if (timezone_is_valid("Africa/Casablanca", LOG_DEBUG)) {
-                assert_se(setenv("TZ", ":Africa/Casablanca", 1) >= 0);
-                tzset();
-                log_debug("Africa/Casablanca: tzname[0]=%s, tzname[1]=%s", strempty(tzname[0]), strempty(tzname[1]));
+                set_timezone("Africa/Casablanca");
 
                 test_timezone_offset_change_one("Sun 2015-10-25 01:59:59 UTC", "Sun 2015-10-25 02:59:59 +01");
                 test_timezone_offset_change_one("Sun 2015-10-25 02:00:00 UTC", "Sun 2015-10-25 02:00:00 +00");
@@ -1180,9 +1166,7 @@ TEST(timezone_offset_change) {
         }
 
         if (timezone_is_valid("Asia/Atyrau", LOG_DEBUG)) {
-                assert_se(setenv("TZ", ":Asia/Atyrau", 1) >= 0);
-                tzset();
-                log_debug("Asia/Atyrau: tzname[0]=%s, tzname[1]=%s", strempty(tzname[0]), strempty(tzname[1]));
+                set_timezone("Asia/Atyrau");
 
                 test_timezone_offset_change_one("Sat 2004-03-27 21:59:59 UTC", "Sun 2004-03-28 01:59:59 +04");
                 test_timezone_offset_change_one("Sat 2004-03-27 22:00:00 UTC", "Sun 2004-03-28 03:00:00 +05");
@@ -1191,18 +1175,13 @@ TEST(timezone_offset_change) {
         }
 
         if (timezone_is_valid("Chile/EasterIsland", LOG_DEBUG)) {
-                assert_se(setenv("TZ", ":Chile/EasterIsland", 1) >= 0);
-                tzset();
-                log_debug("Chile/EasterIsland: tzname[0]=%s, tzname[1]=%s", strempty(tzname[0]), strempty(tzname[1]));
+                set_timezone("Chile/EasterIsland");
 
                 test_timezone_offset_change_one("Sun 1981-10-11 03:59:59 UTC", "Sat 1981-10-10 20:59:59 -07");
                 test_timezone_offset_change_one("Sun 1981-10-11 04:00:00 UTC", "Sat 1981-10-10 22:00:00 -06");
                 test_timezone_offset_change_one("Sun 1982-03-14 02:59:59 UTC", "Sat 1982-03-13 20:59:59 -06");
                 test_timezone_offset_change_one("Sun 1982-03-14 03:00:00 UTC", "Sat 1982-03-13 21:00:00 -06");
         }
-
-        assert_se(set_unset_env("TZ", tz, true) == 0);
-        tzset();
 }
 
 static usec_t absdiff(usec_t a, usec_t b) {
