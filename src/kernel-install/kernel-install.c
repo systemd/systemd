@@ -1662,7 +1662,7 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
                            TABLE_FIELD, "Entry Directory",
                            TABLE_STRING, c.entry_dir,
                            TABLE_FIELD, "Kernel Version",
-                           TABLE_STRING, c.version,
+                           TABLE_VERSION, c.version,
                            TABLE_FIELD, "Kernel",
                            TABLE_STRING, c.kernel,
                            TABLE_FIELD, "Initrds",
@@ -1728,6 +1728,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
         table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        (void) table_set_sort(table, (size_t) 0);
 
         FOREACH_ARRAY(d, de->entries, de->n_entries) {
                 _cleanup_free_ char *j = path_join("/usr/lib/modules/", (*d)->d_name);
@@ -1758,7 +1759,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                         exists = true;
 
                 r = table_add_many(table,
-                                   TABLE_STRING, (*d)->d_name,
+                                   TABLE_VERSION, (*d)->d_name,
                                    TABLE_BOOLEAN_CHECKMARK, exists,
                                    TABLE_SET_COLOR, ansi_highlight_green_red(exists),
                                    TABLE_PATH, j);
