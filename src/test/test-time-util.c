@@ -403,35 +403,33 @@ TEST(format_timestamp) {
 }
 
 static void test_format_timestamp_impl(usec_t x) {
-        bool success, override;
-        const char *xx, *yy;
-        usec_t y, x_sec, y_sec;
-
-        xx = FORMAT_TIMESTAMP(x);
+        const char *xx = FORMAT_TIMESTAMP(x);
         ASSERT_NOT_NULL(xx);
+
+        usec_t y;
         ASSERT_OK(parse_timestamp(xx, &y));
-        yy = FORMAT_TIMESTAMP(y);
+        const char *yy = FORMAT_TIMESTAMP(y);
         ASSERT_NOT_NULL(yy);
 
-        x_sec = x / USEC_PER_SEC;
-        y_sec = y / USEC_PER_SEC;
-        success = (x_sec == y_sec) && streq(xx, yy);
-        /* Workaround for https://github.com/systemd/systemd/issues/28472
-         * and https://github.com/systemd/systemd/pull/35471. */
-        override = !success &&
-                   (STRPTR_IN_SET(tzname[0], "CAT", "EAT", "WET") ||
-                    STRPTR_IN_SET(tzname[1], "CAT", "EAT", "WET")) &&
-                   (x_sec > y_sec ? x_sec - y_sec : y_sec - x_sec) == 3600; /* 1 hour, ignore fractional second */
-        log_full(success ? LOG_DEBUG : override ? LOG_WARNING : LOG_ERR,
+        usec_t x_sec = x / USEC_PER_SEC;
+        usec_t y_sec = y / USEC_PER_SEC;
+
+        if (x_sec == y_sec && streq(xx, yy))
+                return; /* Yay!*/
+
+        /* When the timezone is built with rearguard being enabled (e.g. old Ubuntu and RHEL), the following
+         * timezone may provide time shifted 1 hour from the original. See
+         * https://github.com/systemd/systemd/issues/28472 and https://github.com/systemd/systemd/pull/35471 */
+        bool ignore =
+                streq_ptr(getenv("TZ"), ":Africa/Windhoek") &&
+                (x_sec > y_sec ? x_sec - y_sec : y_sec - x_sec) == 3600;
+
+        log_full(ignore ? LOG_WARNING : LOG_ERR,
                  "@" USEC_FMT " → %s → @" USEC_FMT " → %s%s",
                  x, xx, y, yy,
-                 override ? ", ignoring." : "");
-        if (!override) {
-                if (!success)
-                        log_warning("tzname[0]=\"%s\", tzname[1]=\"%s\"", tzname[0], tzname[1]);
-                ASSERT_EQ(x_sec, y_sec);
-                ASSERT_STREQ(xx, yy);
-        }
+                 ignore ? ", ignoring." : "");
+
+        ASSERT_TRUE(ignore);
 }
 
 static void test_format_timestamp_loop(void) {
