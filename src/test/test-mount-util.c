@@ -23,6 +23,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "virt.h"
 
 #define FORK_COMMON_FLAGS                       \
         (FORK_CLOSE_ALL_FDS |                   \
@@ -36,7 +37,9 @@
 
 #define CHECK_PRIV                                                      \
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)   \
-                return (void) log_tests_skipped("Not privileged");
+                return (void) log_tests_skipped("Not privileged");      \
+        if (running_in_chroot() > 0)                                    \
+                return (void) log_tests_skipped("running in chroot");
 
 TEST(mount_option_mangle) {
         char *opts = NULL;
