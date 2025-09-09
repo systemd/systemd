@@ -268,6 +268,44 @@ int json_dispatch_filename(const char *name, sd_json_variant *variant, sd_json_d
         return 0;
 }
 
+int json_dispatch_const_version(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **n = ASSERT_PTR(userdata);
+
+        assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                *n = NULL;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        const char *version = sd_json_variant_string(variant);
+        if (!version_is_valid(version))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid version string.", strna(name));
+
+        *n = version;
+        return 0;
+}
+
+int json_dispatch_version(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **n = ASSERT_PTR(userdata);
+        const char *version;
+        int r;
+
+        assert(variant);
+
+        r = json_dispatch_const_version(name, variant, flags, &version);
+        if (r < 0)
+                return r;
+
+        if (free_and_strdup(n, version) < 0)
+                return json_log_oom(variant, flags);
+
+        return 0;
+}
+
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref) {
         sd_id128_t boot_id = SD_ID128_NULL;
         int r;
