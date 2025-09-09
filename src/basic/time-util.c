@@ -624,6 +624,19 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         return buf;
 }
 
+int parse_gmtoff(const char *t, long *ret) {
+        assert(t);
+
+        struct tm tm;
+        const char *k = strptime(t, "%z", &tm);
+        if (!k || *k != '\0')
+                return -EINVAL;
+
+        if (ret)
+                *ret = tm.tm_gmtoff;
+        return 0;
+}
+
 static int parse_timestamp_impl(
                 const char *t,
                 size_t max_len,
