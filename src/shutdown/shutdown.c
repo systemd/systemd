@@ -575,7 +575,15 @@ int main(int argc, char *argv[]) {
                 arg_verb,
                 NULL,
         };
-        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, (char**) arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        (void) execute_directories(
+                        "system-shutdown",
+                        dirs,
+                        DEFAULT_TIMEOUT_USEC,
+                        /* callbacks= */ NULL,
+                        /* callback_args= */ NULL,
+                        (char**) arguments,
+                        /* envp= */ NULL,
+                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         (void) rlimit_nofile_safe();
 

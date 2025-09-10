@@ -208,12 +208,6 @@ static int mount_one(const MountPoint *p, bool relabel) {
                 }
         }
 
-        log_debug("Mounting %s to %s of type %s with options %s.",
-                  p->what,
-                  p->where,
-                  p->type,
-                  o ?: "''");
-
         r = mount_verbose_full(priority, p->what, p->where, p->type, p->flags, o, FLAGS_SET(p->mode, MNT_FOLLOW_SYMLINK));
         if (r < 0)
                 return FLAGS_SET(p->mode, MNT_FATAL) ? r : 0;

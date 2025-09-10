@@ -3953,6 +3953,7 @@ static int manager_run_environment_generators(Manager *m) {
 
         WITH_UMASK(0022)
                 r = execute_directories(
+                                "environment-generators",
                                 (const char* const*) paths,
                                 DEFAULT_TIMEOUT_USEC,
                                 gather_environment,
@@ -4070,6 +4071,7 @@ static int manager_execute_generators(Manager *m, char * const *paths, bool remo
 
         BLOCK_WITH_UMASK(0022);
         return execute_directories(
+                        "generators",
                         (const char* const*) paths,
                         DEFAULT_TIMEOUT_USEC,
                         /* callbacks= */ NULL, /* callback_args= */ NULL,
