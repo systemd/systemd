@@ -74,33 +74,47 @@
 /* how many times to wait for the device nodes to appear */
 #define N_DEVICE_NODE_LIST_ATTEMPTS 10
 
-int dissect_fstype_ok(const char *fstype) {
+static int allowed_fstypes(char ***ret_strv) {
+        _cleanup_strv_free_ char **l = NULL;
         const char *e;
-        bool b;
+
+        assert(ret_strv);
+
+        e = secure_getenv("SYSTEMD_DISSECT_FILE_SYSTEMS");
+        if (e) {
+                l = strv_split(e, ":");
+                if (!l)
+                        return -ENOMEM;
+        } else {
+                l = strv_new("btrfs",
+                             "erofs",
+                             "ext4",
+                             "f2fs",
+                             "squashfs",
+                             "vfat",
+                             "xfs");
+                if (!l)
+                        return -ENOMEM;
+        }
+
+        *ret_strv = TAKE_PTR(l);
+
+        return 0;
+}
+
+int dissect_fstype_ok(const char *fstype) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
 
         /* When we automatically mount file systems, be a bit conservative by default what we are willing to
          * mount, just as an extra safety net to not mount with badly maintained legacy file system
          * drivers. */
 
-        e = secure_getenv("SYSTEMD_DISSECT_FILE_SYSTEMS");
-        if (e) {
-                _cleanup_strv_free_ char **l = NULL;
+        r = allowed_fstypes(&l);
+        if (r < 0)
+                return r;
 
-                l = strv_split(e, ":");
-                if (!l)
-                        return -ENOMEM;
-
-                b = strv_contains(l, fstype);
-        } else
-                b = STR_IN_SET(fstype,
-                               "btrfs",
-                               "erofs",
-                               "ext4",
-                               "f2fs",
-                               "squashfs",
-                               "vfat",
-                               "xfs");
-        if (b)
+        if (strv_contains(l, fstype))
                 return true;
 
         log_debug("File system type '%s' is not allowed to be mounted as result of automatic dissection.", fstype);
@@ -182,6 +196,7 @@ int probe_filesystem_full(
                 const char *path,
                 uint64_t offset,
                 uint64_t size,
+                bool restrict_fstypes,
                 char **ret_fstype) {
 
         /* Try to find device content type and return it in *ret_fstype. If nothing is found,
@@ -220,6 +235,24 @@ int probe_filesystem_full(
         b = blkid_new_probe();
         if (!b)
                 return -ENOMEM;
+
+        if (restrict_fstypes) {
+                _cleanup_strv_free_ char **fstypes = NULL;
+
+                r = allowed_fstypes(&fstypes);
+                if (r < 0)
+                        return r;
+
+                errno = 0;
+                r = blkid_probe_filter_superblocks_type(b, BLKID_FLTR_ONLYIN, fstypes);
+                if (r != 0)
+                        return errno_or_else(EINVAL);
+
+                errno = 0;
+                r = blkid_probe_filter_superblocks_usage(b, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
+                if (r != 0)
+                        return errno_or_else(EINVAL);
+        }
 
         /* The Linux kernel maintains separate block device caches for main ("whole") and partition block
          * devices, which means making a change to one might not be reflected immediately when reading via
@@ -387,9 +420,9 @@ static int dissected_image_probe_filesystems(
                         /* If we have an fd referring to the partition block device, use that. Otherwise go
                          * via the whole block device or backing regular file, and read via offset. */
                         if (p->mount_node_fd >= 0)
-                                r = probe_filesystem_full(p->mount_node_fd, p->node, 0, UINT64_MAX, &p->fstype);
+                                r = probe_filesystem_full(p->mount_node_fd, p->node, 0, UINT64_MAX, /* bool restrict_fstypes= */ true, &p->fstype);
                         else
-                                r = probe_filesystem_full(fd, p->node, p->offset, p->size, &p->fstype);
+                                r = probe_filesystem_full(fd, p->node, p->offset, p->size, /* bool restrict_fstypes= */ true, &p->fstype);
                         if (r < 0)
                                 return r;
                 }
@@ -687,6 +720,7 @@ static int dissect_image(
                 generic_rw = false,  /* initialize to appease gcc */
                 generic_growfs = false;
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_strv_free_ char **fstypes = NULL;
         _cleanup_free_ char *generic_node = NULL;
         sd_id128_t generic_uuid = SD_ID128_NULL;
         const char *pttype = NULL, *sptuuid = NULL;
@@ -750,6 +784,20 @@ static int dissect_image(
         b = blkid_new_probe();
         if (!b)
                 return -ENOMEM;
+
+        r = allowed_fstypes(&fstypes);
+        if (r < 0)
+                return r;
+
+        errno = 0;
+        r = blkid_probe_filter_superblocks_type(b, BLKID_FLTR_ONLYIN, fstypes);
+        if (r != 0)
+                return errno_or_else(EINVAL);
+
+        errno = 0;
+        r = blkid_probe_filter_superblocks_usage(b, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
+        if (r != 0)
+                return errno_or_else(EINVAL);
 
         errno = 0;
         r = blkid_probe_set_device(b, fd, 0, 0);
@@ -3053,7 +3101,7 @@ int dissected_image_decrypt(
                 }
 
                 if (!p->decrypted_fstype && p->mount_node_fd >= 0 && p->decrypted_node) {
-                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, &p->decrypted_fstype);
+                        r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, /* bool restrict_fstypes= */ true, &p->decrypted_fstype);
                         if (r < 0 && r != -EUCLEAN)
                                 return r;
                 }
