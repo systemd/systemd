@@ -750,7 +750,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         r = RET_NERRNO(bind(fd, addr, addrlen));
 
         if (context_changed)
-                (void) setfscreatecon_raw(NULL);
+                mac_selinux_create_file_clear();
 
         return r;
 
