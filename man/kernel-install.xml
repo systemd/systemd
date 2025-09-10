@@ -473,6 +473,22 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--extra=</option></term>
+        <listitem>
+          <para>Expects a path to a regular file. When installing a UKI image in the target, the specified
+          file is copied into a <filename>….efi.extra.d/</filename> directory next to it. This may be used to
+          install a UKI together with companion "side-car" EFI add-ons (<filename>*.addon.efi</filename>),
+          system credentials files (<filename>*.cred</filename>), system extension images
+          (<filename>*.sysext.raw</filename>) and configuration images
+          (<filename>*.confext.raw</filename>). For details about these companion files see
+          <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>. This
+          option may be used multiple times, in order to copy in multiple companion files.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager"/>
