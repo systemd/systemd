@@ -1000,7 +1000,7 @@ static int context_ensure_layout(Context *c) {
 }
 
 static int context_set_up_staging_area(Context *c) {
-        static const char *template = "/tmp/kernel-install.staging.XXXXXX";
+        static const char template[] = "/var/tmp/kernel-install.staging.XXXXXX";
 
         assert(c);
 
