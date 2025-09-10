@@ -14,6 +14,7 @@
 #include "manager.h"
 #include "parse-util.h"
 #include "serialize.h"
+#include "sort-util.h"
 #include "syslog-util.h"
 #include "unit-serialize.h"
 #include "user-util.h"
@@ -71,6 +72,13 @@ static void manager_serialize_uid_refs(Manager *m, FILE *f) {
 
 static void manager_serialize_gid_refs(Manager *m, FILE *f) {
         manager_serialize_uid_refs_internal(f, m->gid_refs, "destroy-ipc-gid");
+}
+
+static int unit_compare_id(Unit * const *a, Unit * const *b) {
+        assert(a);
+        assert(b);
+
+        return strcmp((*a)->id, (*b)->id);
 }
 
 int manager_serialize(
@@ -177,11 +185,23 @@ int manager_serialize(
 
         (void) fputc('\n', f);
 
+        _cleanup_free_ Unit **units = NULL;
+        size_t n_units = 0;
+
         HASHMAP_FOREACH_KEY(u, t, m->units) {
                 if (u->id != t)
                         continue;
 
-                r = unit_serialize_state(u, f, fds, switching_root);
+                if (!GREEDY_REALLOC(units, n_units + 1))
+                        return -ENOMEM;
+
+                units[n_units++] = u;
+        }
+
+        typesafe_qsort(units, n_units, unit_compare_id);
+
+        FOREACH_ARRAY(unit, units, n_units) {
+                r = unit_serialize_state(*unit, f, fds, switching_root);
                 if (r < 0)
                         return r;
         }
