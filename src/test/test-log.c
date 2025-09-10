@@ -45,6 +45,22 @@ static void test_file(void) {
         assert_se(startswith(__FILE__, RELATIVE_SOURCE_PATH "/"));
 }
 
+static void test_log_once_impl(void) {
+        log_once(LOG_INFO, "This should be logged in LOG_INFO at first, then in LOG_DEBUG later.");
+        log_once(LOG_DEBUG, "This should be logged only once in LOG_DEBUG.");
+        ASSERT_ERROR(log_once_errno(LOG_INFO, SYNTHETIC_ERRNO(ENOANO),
+                                 "This should be logged with errno in LOG_INFO at first, then in LOG_DEBUG later: %m"),
+                     ENOANO);
+        ASSERT_ERROR(log_once_errno(LOG_DEBUG, SYNTHETIC_ERRNO(EBADMSG),
+                                    "This should be logged only once with errno in LOG_DEBUG: %m"),
+                     EBADMSG);
+}
+
+static void test_log_once(void) {
+        for (unsigned i = 0; i < 4; i++)
+                test_log_once_impl();
+}
+
 static void test_log_struct(void) {
         log_struct(LOG_INFO,
                    "MESSAGE=Waldo PID="PID_FMT" (no errno)", getpid_cached(),
@@ -235,6 +251,8 @@ int main(int argc, char* argv[]) {
         test_file();
 
         assert_se(log_info_errno(SYNTHETIC_ERRNO(EUCLEAN), "foo") == -EUCLEAN);
+
+        test_log_once();
 
         for (int target = 0; target < _LOG_TARGET_MAX; target++) {
                 log_set_target(target);
