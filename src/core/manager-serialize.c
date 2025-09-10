@@ -201,7 +201,7 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
         Unit *u;
         int r;
 
-        r = manager_load_unit(m, name, NULL, NULL, &u);
+        r = manager_load_unit_for_deserialize(m, name, NULL, NULL, &u);
         if (r < 0) {
                 if (r == -ENOMEM)
                         return r;

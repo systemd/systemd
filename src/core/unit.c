@@ -1514,6 +1514,7 @@ static int unit_add_mount_dependencies(Unit *u) {
                                                         u->manager,
                                                         p,
                                                         /* path= */NULL,
+                                                        /* alias_lookup= */ true,
                                                         /* e= */NULL,
                                                         &m);
                                         continue;
