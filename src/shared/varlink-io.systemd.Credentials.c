@@ -10,6 +10,25 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Generate a system and user bound credential"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(user));
 
+static SD_VARLINK_DEFINE_ENUM_TYPE(
+                WithKey,
+                SD_VARLINK_FIELD_COMMENT("Automatically pick the key to bind the credential to"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(auto),
+                SD_VARLINK_FIELD_COMMENT("Automatically pick the key to bind the credential to, but ensure it is accessible in the initrd, thus potentially leaving it unencrypted."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(auto_initrd),
+                SD_VARLINK_FIELD_COMMENT("Bind to the host key only, i.e. not the TPM"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(host),
+                SD_VARLINK_FIELD_COMMENT("Bind to the TPM only, not the host key"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(tpm2),
+                SD_VARLINK_FIELD_COMMENT("Bind to the TPM only (using a public key identifying the UKI), not the host key"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(tpm2_with_public_key),
+                SD_VARLINK_FIELD_COMMENT("Bind to both the TPM and the host key"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(host_tpm2),
+                SD_VARLINK_FIELD_COMMENT("Bind to both the TPM (using a public key identifying the UKI) and the host key"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(host_tpm2_with_public_key),
+                SD_VARLINK_FIELD_COMMENT("Do not bind to either host key nor the TPM, thus using null encryption (this provides not authenticity nor confidentiality guarantees)"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(null));
+
 static SD_VARLINK_DEFINE_METHOD(
                 Encrypt,
                 SD_VARLINK_FIELD_COMMENT("The name for the encrypted credential, a string suitable for inclusion in a file name. If not specified no name is encoded in the credential. Typically, if this credential is stored on disk, this is how the file should be called, and permits authentication of the filename."),
@@ -24,6 +43,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(notAfter, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The intended scope for the credential. One of 'system' or 'user'. If not specified defaults to 'system', unless an uid is specified (see below), in which case it default to 'user'."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(scope, Scope, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Selects the type of key to encrypt this with"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(withKey, WithKey, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The numeric UNIX UID of the user the credential shall be scoped to. Only relevant if 'user' scope is selected (see above). If not specified and 'user' scope is selected defaults to the UID of the calling user, if that can be determined."),
                 SD_VARLINK_DEFINE_INPUT(uid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
@@ -63,6 +84,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_INTERFACE_COMMENT("APIs for encrypting and decrypting service credentials."),
                 SD_VARLINK_SYMBOL_COMMENT("The intended scope for the credential."),
                 &vl_type_Scope,
+                SD_VARLINK_SYMBOL_COMMENT("Selects the key(s) to encrypt the credentials with."),
+                &vl_type_WithKey,
                 SD_VARLINK_SYMBOL_COMMENT("Encrypts some plaintext data, returns an encrypted credential."),
                 &vl_method_Encrypt,
                 SD_VARLINK_SYMBOL_COMMENT("Decrypts an encrypted credential, returns plaintext data."),
