@@ -1167,6 +1167,7 @@ typedef struct MethodEncryptParameters {
         uint64_t timestamp;
         uint64_t not_after;
         CredentialScope scope;
+        sd_id128_t with_key;
         uid_t uid;
 } MethodEncryptParameters;
 
@@ -1220,6 +1221,62 @@ static int settle_scope(
         return 0;
 }
 
+static bool normalize_separator(char c) {
+        if (IN_SET(c, '-', '+', '_'))
+                return '_';
+
+        return c;
+}
+
+static bool enum_name_equal(const char *x, const char *y) {
+        if (x == y)
+                return true;
+        if (!x || !y)
+                return false;
+
+        for (;; x++, y++) {
+                char a = normalize_separator(*x), b = normalize_separator(*y);
+                if (a != b)
+                        return false;
+                if (a == 0)
+                        return true;
+        }
+}
+
+static int dispatch_credential_key_type(
+                const char *name,
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                void *userdata) {
+
+        sd_id128_t *id = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant)) {
+                *id = SD_ID128_NULL;
+                return 0;
+        }
+
+        const char *s = sd_json_variant_string(variant);
+        if (isempty(s)) {
+                *id = SD_ID128_NULL;
+                return 0;
+        }
+
+        CredKeyType t = cred_key_type_from_string(s);
+        if (t < 0) {
+                /* Varlink doesn't like dashes and plusses in enum names. Try to match when considering them equal to underscores */
+                for (t = 0; t < _CRED_KEY_TYPE_MAX; t++)
+                        if (enum_name_equal(cred_key_type_table[t], s))
+                                break;
+
+                if (t >= _CRED_KEY_TYPE_MAX)
+                        return json_log(variant, flags, t, "JSON field '%s' is not a valid key type.", strna(name));
+        }
+
+        *id = cred_key_id[t];
+        return 0;
+}
+
 static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
@@ -1229,6 +1286,7 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 { "timestamp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodEncryptParameters, timestamp), 0 },
                 { "notAfter",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodEncryptParameters, not_after), 0 },
                 { "scope",     SD_JSON_VARIANT_STRING,        dispatch_credential_scope,     offsetof(MethodEncryptParameters, scope),     0 },
+                { "withKey",   SD_JSON_VARIANT_STRING,        dispatch_credential_key_type,  offsetof(MethodEncryptParameters, with_key),  SD_JSON_NULLABLE },
                 { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MethodEncryptParameters, uid),       0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
@@ -1289,7 +1347,7 @@ static int vl_method_encrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         }
 
         r = encrypt_credential_and_warn(
-                        p.scope == CREDENTIAL_USER ? _CRED_AUTO_SCOPED : _CRED_AUTO,
+                        sd_id128_is_null(p.with_key) ? (p.scope == CREDENTIAL_USER ? _CRED_AUTO_SCOPED : _CRED_AUTO) : p.with_key,
                         p.name,
                         p.timestamp,
                         p.not_after,
