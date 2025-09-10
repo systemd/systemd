@@ -3474,6 +3474,17 @@ _public_ int sd_json_parse_file(
         return sd_json_parse_file_at(f, AT_FDCWD, path, flags, ret, reterr_line, reterr_column);
 }
 
+static char *underscorify(char *p) {
+        assert(p);
+
+        /* Replaces "-", "+" by "_", to deal with the usual enum naming rules we have. */
+
+        for (char *q = p; *q; q++)
+                *q = IN_SET(*q, '_', '-', '+') ? '_' : *q;
+
+        return p;
+}
+
 _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
         JsonStack *stack = NULL;
         size_t n_stack = 1;
@@ -3521,13 +3532,13 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 _cleanup_free_ char *c = NULL;
 
                                 if (command == _JSON_BUILD_STRING_UNDERSCORIFY) {
-                                        c = strreplace(p, "-", "_");
+                                        c = strdup(p);
                                         if (!c) {
                                                 r = -ENOMEM;
                                                 goto finish;
                                         }
 
-                                        p = c;
+                                        p = underscorify(c);
                                 }
 
                                 r = sd_json_variant_new_string(&add, p);
