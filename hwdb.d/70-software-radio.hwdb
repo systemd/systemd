@@ -64,6 +64,35 @@ usb:v3923p7814*
  ID_SOFTWARE_RADIO=1
 
 ##########################################
+# FUNcube
+##########################################
+# FUNcube Dongle Pro
+usb:v04D8pFB56*
+ ID_SOFTWARE_RADIO=1
+
+# FUNcube Dongle Pro+
+usb:v04D8pFB31*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# Great Scott Gadgets
+##########################################
+# HackRF Jawbreaker
+usb:v1D50p604B*
+ ID_SOFTWARE_RADIO=1
+
+# HackRF One
+usb:v1D50p6089*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# Microtelecom
+##########################################
+# Perseus
+usb:v04B4p325C*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
 # Nuand
 ##########################################
 # bladeRF 1.x
