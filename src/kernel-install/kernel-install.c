@@ -28,11 +28,13 @@
 #include "fs-util.h"
 #include "id128-util.h"
 #include "image-policy.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "kernel-config.h"
 #include "kernel-image.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "memfd-util.h"
 #include "mount-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
@@ -80,6 +82,7 @@ static char *arg_entry_token = NULL;
 static BootEntryType arg_boot_entry_type = _BOOT_ENTRY_TYPE_INVALID;
 static KernelSearch arg_kernel_search = _KERNEL_SEARCH_INVALID;
 static InstallSource arg_install_source = INSTALL_SOURCE_AUTO;
+static char **arg_extra_files = NULL;
 static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
@@ -88,6 +91,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_extra_files, strv_freep);
 
 typedef enum Action {
         ACTION_ADD,
@@ -131,6 +135,12 @@ static const char* const install_source_table[_INSTALL_SOURCE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(install_source, InstallSource);
 
+typedef struct ExtraFile {
+        char *name;
+        int fd;
+        struct iovec data;
+} ExtraFile;
+
 typedef struct Context {
         int rfd;
         Action action;
@@ -152,10 +162,13 @@ typedef struct Context {
         char *initrd_generator;
         char *uki_generator;
         char *staging_area;
+        int staging_area_fd;
         char **plugins;
         char **argv;
         char **envp;
         InstallSource install_source;
+        ExtraFile *extra_files;
+        size_t n_extra_files;
 } Context;
 
 #define CONTEXT_NULL                                                    \
@@ -167,8 +180,17 @@ typedef struct Context {
                 .entry_type = _BOOT_ENTRY_TYPE_INVALID,                 \
                 .entry_token_type = _BOOT_ENTRY_TOKEN_TYPE_INVALID,     \
                 .kernel_search = _KERNEL_SEARCH_INVALID,                \
+                .staging_area_fd = -EBADF,                              \
                 .install_source = _INSTALL_SOURCE_INVALID,              \
         }
+
+static void extra_file_done(ExtraFile *x) {
+        assert(x);
+
+        x->name = mfree(x->name);
+        x->fd = safe_close(x->fd);
+        iovec_done(&x->data);
+}
 
 static void context_done(Context *c) {
         assert(c);
@@ -183,15 +205,19 @@ static void context_done(Context *c) {
         strv_free(c->initrds);
         free(c->initrd_generator);
         free(c->uki_generator);
-        if (c->action == ACTION_INSPECT)
-                free(c->staging_area);
-        else
+        if (c->staging_area_fd >= 0) {
+                c->staging_area_fd = safe_close(c->staging_area_fd);
                 rm_rf_physical_and_free(c->staging_area);
+        } else
+                free(c->staging_area);
         strv_free(c->plugins);
         strv_free(c->argv);
         strv_free(c->envp);
 
         safe_close(c->rfd);
+
+        FOREACH_ARRAY(x, c->extra_files, c->n_extra_files)
+                extra_file_done(x);
 }
 
 static int context_copy(const Context *source, Context *ret) {
@@ -210,6 +236,7 @@ static int context_copy(const Context *source, Context *ret) {
                 .layout = source->layout,
                 .entry_token_type = source->entry_token_type,
                 .kernel_search = source->kernel_search,
+                .staging_area_fd = -EBADF,
                 .install_source = source->install_source,
         };
 
@@ -219,6 +246,13 @@ static int context_copy(const Context *source, Context *ret) {
                         return copy.rfd;
         } else
                 copy.rfd = source->rfd;
+
+        if (source->staging_area_fd >= 0) {
+                copy.staging_area_fd = fcntl(source->staging_area_fd, F_DUPFD_CLOEXEC, 3);
+                if (copy.staging_area_fd < 0)
+                        return -errno;
+        } else
+                copy.staging_area_fd = source->staging_area_fd;
 
         r = strdup_to(&copy.layout_other, source->layout_other);
         if (r < 0)
@@ -834,6 +868,49 @@ static int context_open_root(Context *c) {
         return 0;
 }
 
+static ExtraFile* context_find_extra_file(Context *c, const char *name) {
+        assert(c);
+        assert(name);
+
+        FOREACH_ARRAY(i, c->extra_files, c->n_extra_files)
+                if (streq_ptr(i->name, name))
+                        return i;
+
+        return NULL;
+}
+
+static int context_open_extra_files(Context *c) {
+        int r;
+
+        assert(c);
+
+        STRV_FOREACH(i, arg_extra_files) {
+                _cleanup_free_ char *fn = NULL;
+                r = path_extract_filename(*i, &fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from extra file path '%s': %m", *i);
+                if (r == O_DIRECTORY)
+                        return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Extra file path '%s' refers to directory, refusing.", *i);
+
+                if (context_find_extra_file(c, fn))
+                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate extra file '%s' specified, refusing.", *i);
+
+                _cleanup_close_ int fd = xopenat_full(AT_FDCWD, *i, O_RDONLY|O_CLOEXEC, XO_REGULAR, MODE_INVALID);
+                if (fd < 0)
+                        return log_error_errno(fd, "Failed to open extra file '%s': %m", *i);
+
+                if (!GREEDY_REALLOC(c->extra_files, c->n_extra_files+1))
+                        return log_oom();
+
+                c->extra_files[c->n_extra_files++] = (ExtraFile) {
+                        .name = TAKE_PTR(fn),
+                        .fd = TAKE_FD(fd),
+                };
+        }
+
+        return 0;
+}
+
 static int context_from_cmdline(Context *c, Action action) {
         int r;
 
@@ -851,6 +928,10 @@ static int context_from_cmdline(Context *c, Action action) {
         c->install_source = arg_install_source;
 
         r = context_open_root(c);
+        if (r < 0)
+                return r;
+
+        r = context_open_extra_files(c);
         if (r < 0)
                 return r;
 
@@ -950,6 +1031,8 @@ static int context_set_up_staging_area(Context *c) {
         if (c->staging_area)
                 return 0;
 
+        assert(c->staging_area_fd < 0);
+
         const char *d;
         r = var_tmp_dir(&d);
         if (r < 0)
@@ -959,13 +1042,51 @@ static int context_set_up_staging_area(Context *c) {
         if (!template)
                 return log_oom();
 
-        if (c->action == ACTION_INSPECT)
+        if (c->action == ACTION_INSPECT) {
                 /* This is only used for display. The directory will not be created. */
                 c->staging_area = TAKE_PTR(template);
-        else {
-                r = mkdtemp_malloc(template, &c->staging_area);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create staging area: %m");
+
+                /* we'll leave c->staging_area_fd invalidated, as it is an indication that the staging area
+                 * is not actually realized. */
+                return 0;
+        }
+
+        c->staging_area_fd = mkdtemp_open(template, O_CLOEXEC, &c->staging_area);
+        if (c->staging_area_fd < 0)
+                return log_error_errno(c->staging_area_fd, "Failed to create staging area: %m");
+
+        return 0;
+}
+
+static int context_write_extra_symlinks(Context *c) {
+        assert(c);
+
+        if (c->staging_area_fd < 0)
+                return 0;
+
+        /* For each extra file to associate with entry, create a symlink in the uki.efi.extra.d/ subdir in the staging tree */
+        _cleanup_close_ int extra_fd = -EBADF;
+        FOREACH_ARRAY(i, c->extra_files, c->n_extra_files) {
+                if (extra_fd < 0) {
+                        extra_fd = open_mkdir_at(c->staging_area_fd, "uki.efi.extra.d", O_DIRECTORY, 0755);
+                        if (extra_fd < 0)
+                                return log_error_errno(extra_fd, "Failed to create uki.efi.extra.d/ directory: %m");
+                }
+
+                if (i->fd < 0) {
+                        i->fd = memfd_new_and_seal(i->name, i->data.iov_base, i->data.iov_len);
+                        if (i->fd < 0)
+                                return log_error_errno(i->fd, "Failed to allocate memfd for '%s': %m", i->name);
+                }
+
+                _cleanup_free_ char *fdpath = NULL;
+                if (asprintf(&fdpath, "/proc/" PID_FMT "/fd/%i", getpid_cached(), i->fd) < 0)
+                        return log_oom();
+
+                if (symlinkat(fdpath, extra_fd, i->name) < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(errno), "Failed to create symlink for extra file '%s': %m", i->name);
+
+                log_debug("Linked '%s/uki.efi.extra.d/%s' → '%s'.", c->staging_area, i->name, fdpath);
         }
 
         return 0;
@@ -1202,6 +1323,10 @@ static int context_prepare_execution(Context *c) {
                 return r;
 
         r = context_set_up_staging_area(c);
+        if (r < 0)
+                return r;
+
+        r = context_write_extra_symlinks(c);
         if (r < 0)
                 return r;
 
@@ -1840,6 +1965,8 @@ static int help(void) {
                "     --install-source=auto|image|host\n"
                "                               Where to take files from when using\n"
                "                               --root=/--image=\n"
+               "     --extra=PATH              Specify additional file to drop into UKI's\n"
+               "                               .extra.d/ directory\n"
                "\n"
                "This program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
@@ -1872,6 +1999,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BOOT_ENTRY_TYPE,
                 ARG_KERNEL_SEARCH,
                 ARG_INSTALL_SOURCE,
+                ARG_EXTRA,
         };
         static const struct option options[] = {
                 { "help",                 no_argument,       NULL, 'h'                      },
@@ -1890,6 +2018,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "entry-type",           required_argument, NULL, ARG_BOOT_ENTRY_TYPE      },
                 { "kernel-search",        required_argument, NULL, ARG_KERNEL_SEARCH        },
                 { "install-source",       required_argument, NULL, ARG_INSTALL_SOURCE       },
+                { "extra",                required_argument, NULL, ARG_EXTRA                },
                 {}
         };
         int t, r;
@@ -2003,6 +2132,19 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_EXTRA: {
+                        _cleanup_free_ char *path = NULL;
+
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &path);
+                        if (r < 0)
+                                return log_oom();
+
+                        if (strv_consume(&arg_extra_files, TAKE_PTR(path)) < 0)
+                                return log_oom();
+
+                        break;
+                }
+
                 case '?':
                         return -EINVAL;
 
@@ -2028,6 +2170,41 @@ static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_boot_entry_type, BootEntryType, b
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_boot_entry_token_type, BootEntryTokenType, boot_entry_token_type_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_kernel_search, KernelSearch, kernel_search_from_string);
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_install_source, InstallSource, install_source_from_string);
+
+static int json_dispatch_extra_files(
+                const char *name,
+                sd_json_variant *variant,
+                sd_json_dispatch_flags_t flags,
+                void *userdata) {
+
+        Context *c = ASSERT_PTR(userdata);
+        int r;
+
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                _cleanup_(extra_file_done) ExtraFile xf = {
+                        .fd = -EBADF,
+                };
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "name", SD_JSON_VARIANT_STRING, json_dispatch_filename,       voffsetof(xf, name), SD_JSON_MANDATORY },
+                        { "data", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, voffsetof(xf, data), SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(i, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &xf);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(c->extra_files, c->n_extra_files+1))
+                        return -ENOMEM;
+
+                c->extra_files[c->n_extra_files++] = xf;
+                xf = (ExtraFile) { .fd = -EBADF };
+        }
+
+        return 0;
+}
 
 typedef struct AddParameters {
         Context context;
@@ -2059,14 +2236,15 @@ static int vl_method_add(
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "rootFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),           0 },
-                { "rootDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_const_path,            voffsetof(p, root),                    0 },
-                { "version",            SD_JSON_VARIANT_STRING,        json_dispatch_const_version,         voffsetof(p, version),                 0 },
-                { "kernel",             SD_JSON_VARIANT_STRING,        json_dispatch_const_path,            voffsetof(p, kernel),                  0 },
-                { "bootEntryType",      SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_type,       voffsetof(p, context.entry_type),      0 },
-                { "kernelSearch",       SD_JSON_VARIANT_STRING,        json_dispatch_kernel_search,         voffsetof(p, context.kernel_search),   0 },
-                { "installSource",      SD_JSON_VARIANT_STRING,        json_dispatch_install_source,        voffsetof(p, context.install_source),  0 },
-                { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0                 },
+                { "rootFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,               voffsetof(p, root_fd_index),            0 },
+                { "rootDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_const_path,            voffsetof(p, root),                     0 },
+                { "version",            SD_JSON_VARIANT_STRING,        json_dispatch_const_version,         voffsetof(p, version),                  0 },
+                { "kernel",             SD_JSON_VARIANT_STRING,        json_dispatch_const_path,            voffsetof(p, kernel),                   0 },
+                { "bootEntryType",      SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_type,       voffsetof(p, context.entry_type),       0 },
+                { "kernelSearch",       SD_JSON_VARIANT_STRING,        json_dispatch_kernel_search,         voffsetof(p, context.kernel_search),    0 },
+                { "installSource",      SD_JSON_VARIANT_STRING,        json_dispatch_install_source,        voffsetof(p, context.install_source),   0 },
+                { "bootEntryTokenType", SD_JSON_VARIANT_STRING,        json_dispatch_boot_entry_token_type, voffsetof(p, context.entry_token_type), 0 },
+                { "extraFiles",         SD_JSON_VARIANT_ARRAY,         json_dispatch_extra_files,           voffsetof(p, context),                  0 },
                 {},
         };
 
