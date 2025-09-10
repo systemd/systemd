@@ -22,6 +22,17 @@
 #   ID_SOFTWARE_RADIO=0|1
 
 ##########################################
+# Airspy
+##########################################
+# Airspy R2
+usb:v1D50p60A1*
+ ID_SOFTWARE_RADIO=1
+
+# Airspy HF+
+usb:v03EBp800C*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
 # Analog Devices
 ##########################################
 # ADI pluto SDR
