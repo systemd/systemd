@@ -42,7 +42,7 @@ ColorMode parse_systemd_colors(void) {
 
         ColorMode m = color_mode_from_string(e);
         if (m < 0)
-                return log_debug_errno(m, "Failed to parse $SYSTEMD_COLORS value '%s', ignoring: %m", e);
+                return log_trace_errno(m, "Failed to parse $SYSTEMD_COLORS value '%s', ignoring: %m", e);
 
         return m;
 }
