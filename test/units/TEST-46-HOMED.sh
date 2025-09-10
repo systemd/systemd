@@ -537,7 +537,7 @@ for opt in json multiplexer output synthesize with-dropin with-nss with-varlink;
 done
 
 # FIXME: sshd seems to crash inside asan currently, skip the actual ssh test hence
-if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPTIONS ]]; then
+if command -v ssh >/dev/null && command -v sshd >/dev/null && ! [[ -v ASAN_OPTIONS ]]; then
     at_exit() {
         set +e
 

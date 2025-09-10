@@ -7,7 +7,7 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-08-25 23:45+0000\n"
+"PO-Revision-Date: 2025-09-07 19:28+0000\n"
 "Last-Translator: kanitha chim <kchim@redhat.com>\n"
 "Language-Team: Khmer (Central) <https://translate.fedoraproject.org/projects/"
 "systemd/main/km/>\n"
@@ -16,7 +16,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.13\n"
+"X-Generator: Weblate 5.13.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -541,196 +541,210 @@ msgstr "អនុញ្ញាតឱ្យអ្នកប្រើប្រាស
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យដំណើរការកម្មវិធីជាអ្នកប្រើប្រាស់ non-logged-in។"
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
-msgstr ""
+msgstr "អនុញ្ញាតឱ្យភ្ជាប់ឧបករណ៍ទៅ seats"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យភ្ជាប់ឧបករណ៍ទៅ seat។"
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
-msgstr ""
+msgstr "Flash ឧបករណ៍ទៅនឹង seat attachments"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យកំណត់ឡើងវិញពីរបៀបដែលឧបករណ៍ត្រូវបានភ្ជាប់ទៅ seats។"
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
-msgstr ""
+msgstr "បិទប្រព័ន្ធ"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យបិទប្រព័ន្ធ។"
 
 #: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
-msgstr ""
+msgstr "បិទប្រព័ន្ធខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
+"Authentication តម្រូវឱ្យបិទប្រព័ន្ធ ខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល។"
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr ""
+msgstr "បិទប្រព័ន្ធខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យបិទប្រព័ន្ធ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា។"
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
-msgstr ""
+msgstr "ចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ។"
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
-msgstr ""
+msgstr "ចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ ខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ ខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល។"
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
-msgstr ""
+msgstr "ចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យចាប់ផ្ដើមប្រព័ន្ធឡើងវិញ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា។"
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
-msgstr ""
+msgstr "បញ្ឈប់ប្រព័ន្ធ"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យបញ្ឈប់ប្រព័ន្ធ។"
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
-msgstr ""
+msgstr "បញ្ឈប់ប្រព័ន្ធខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យបញ្ឈប់ប្រព័ន្ធ ខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល។"
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
+msgstr "បញ្ឈប់ប្រព័ន្ធខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យបញ្ឈប់ប្រព័ន្ធ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា។"
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
-msgstr ""
+msgstr "ផ្អាកប្រព័ន្ធ"
 
 #: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យផ្អាកប្រព័ន្ធ។"
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr ""
+msgstr "ផ្អាកប្រព័ន្ធខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យផ្អាកប្រព័ន្ធ ខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល។"
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr ""
+msgstr "ផ្អាកប្រព័ន្ធ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា"
 
 #: src/login/org.freedesktop.login1.policy:290
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យផ្អាកប្រព័ន្ធ ខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា។"
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
-msgstr ""
+msgstr "Hibernate ប្រព័ន្ធ"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យ hibernate ប្រព័ន្ធ។"
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr ""
+msgstr "Hibernate ប្រព័ន្ធខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យ hibernate ប្រព័ន្ធខណៈពេលដែលអ្នកប្រើប្រាស់ផ្សេងទៀតបានចូល។"
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
+msgstr "Hibernate ប្រព័ន្ធខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
 msgstr ""
+"Authentication ត្រូវបានទាមទារដើម្បីលាក់ប្រព័ន្ធខណៈពេលដែលកម្មវិធីមួយកំពុងរារាំងវា។"
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
-msgstr ""
+msgstr "គ្រប់គ្រង active sessions, អ្នកប្រើប្រាស់ និង seats"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
+"Authentication ត្រូវបានទាមទារដើម្បីគ្រប់គ្រង active sessions  អ្នកប្រើប្រាស់ និង seats។"
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
-msgstr ""
+msgstr "ចាក់សោ ឬដោះសោ active sessions"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យចាក់សោ ឬដោះសោ active sessions។"
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
-msgstr ""
+msgstr "កំណត់ reboot \"reason\" នៅក្នុង kernel"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr ""
+msgstr "Authentication គឺតម្រូវឱ្យកំណត់ reboot \"reason\" នៅក្នុង kernel។"
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
+msgstr "ចង្អុលទៅ firmware ដើម្បីចាប់ផ្ដើមដំឡើង interface"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
+"Authentication គឺតម្រូវឱ្យចង្អុលបង្ហាញទៅ firmware ដើម្បីចាប់ផ្ដើមទៅកាន់ interface។"
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"

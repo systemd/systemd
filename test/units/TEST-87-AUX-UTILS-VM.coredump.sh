@@ -177,6 +177,10 @@ rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_UNPRIV_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
 
+# Sync and rotate journal again to make the coredump stored in an archived journal.
+journalctl --sync
+journalctl --rotate
+
 # root should see coredumps from both binaries
 coredumpctl info "$CORE_TEST_UNPRIV_BIN"
 coredumpctl info "${CORE_TEST_UNPRIV_BIN##*/}"

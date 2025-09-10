@@ -31,8 +31,8 @@ busctl call \
     org.freedesktop.systemd1.Manager StartTransientUnit \
     "ssa(sv)a(sa(sv))" "$TEST_UNIT" replace 4 \
       ExecStart "a(sasb)" 1 \
-        /usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-ExtraFileDescriptors-child.sh \
-        5 /usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-ExtraFileDescriptors-child.sh 2 "test:other" "Hello" "Extra" \
+        /usr/lib/systemd/tests/testdata/TEST-23-UNIT-FILE.units/TEST-23-UNIT-FILE-ExtraFileDescriptors-child.sh \
+        5 /usr/lib/systemd/tests/testdata/TEST-23-UNIT-FILE.units/TEST-23-UNIT-FILE-ExtraFileDescriptors-child.sh 2 "test:other" "Hello" "Extra" \
         true \
       RemainAfterExit "b" true \
       Type "s" oneshot \
