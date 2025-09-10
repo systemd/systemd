@@ -1295,7 +1295,7 @@ testcase_mdadm_lvm() {
     printf 'y\ny\n' | mdadm --create "$raid_dev" --name "$raid_name" --uuid "$uuid" /dev/disk/by-id/scsi-0systemd_foobar_deadbeefmdadmlvm{0..3} -v -f --level=10 --raid-devices=4
     udevadm wait --settle --timeout=30 "$raid_dev"
     # Create an LVM on the MD
-    lvm pvcreate -y "$raid_dev"
+    lvm pvcreate -y -ff "$raid_dev"
     lvm pvs
     lvm vgcreate "$vgroup" -y "$raid_dev"
     lvm vgs
