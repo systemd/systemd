@@ -1584,6 +1584,13 @@ homectl update lafcadio --pkcs11-token-uri=auto</programlisting>
       <programlisting># Allow a FIDO2 security token to unlock the account of user 'nihilbaxter'.
 homectl update nihilbaxter --fido2-device=auto</programlisting>
     </example>
+
+    <example>
+      <title>Add a recovery key to an existing user account:</title>
+
+      <programlisting># Generate and add a recovery key for user 'emily'.
+homectl update emily --recovery-key=yes</programlisting>
+    </example>
   </refsect1>
 
   <refsect1>
