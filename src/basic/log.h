@@ -233,8 +233,8 @@ int log_emergency_level(void);
  * time it is called. */
 #define log_once(level, ...)                                             \
         ({                                                               \
-                if (ONCE)                                                \
-                        log_full(level, __VA_ARGS__);                    \
+                if (!ONCE)                                                \
+                        log_full(level, __VA_ARGS__);                   \
                 else if (LOG_PRI(level) != LOG_DEBUG)                    \
                         log_debug(__VA_ARGS__);                          \
         })
@@ -242,7 +242,7 @@ int log_emergency_level(void);
 #define log_once_errno(level, error, ...)                                \
         ({                                                               \
                 int _err = (error);                                      \
-                if (ONCE)                                                \
+                if (!ONCE)                                              \
                         _err = log_full_errno(level, _err, __VA_ARGS__); \
                 else if (LOG_PRI(level) != LOG_DEBUG)                    \
                         _err = log_debug_errno(_err, __VA_ARGS__);       \
