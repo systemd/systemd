@@ -133,7 +133,7 @@ Manager* manager_free(Manager *m);
 int manager_setup(Manager *m);
 int manager_start(Manager *m);
 
-int manager_load_config(Manager *m);
+int manager_config_load(Manager *m);
 
 int manager_enumerate_internal(
                 Manager *m,
