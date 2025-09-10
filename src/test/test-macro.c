@@ -1102,4 +1102,20 @@ TEST(u64_multiply_safe) {
         assert_se(u64_multiply_safe(UINT64_MAX, UINT64_MAX) == 0);
 }
 
+static void test_once_impl(void) {
+        static unsigned count = 0;
+
+        if (ONCE) {
+                log_info("This should be logged only once.");
+                count++;
+        }
+
+        ASSERT_EQ(count, 1u);
+}
+
+TEST(once) {
+        for (unsigned i = 0; i < 20; i++)
+                test_once_impl();
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
