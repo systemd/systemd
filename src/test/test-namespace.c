@@ -286,6 +286,7 @@ TEST(userns_get_base_uid) {
 }
 
 TEST(process_is_owned_by_uid) {
+        _cleanup_close_pair_ int pp[2] = EBADF_PAIR;
         int r;
 
         /* Test our own PID */
@@ -317,20 +318,41 @@ TEST(process_is_owned_by_uid) {
         }
 
         p[1] = safe_close(p[1]);
+
+        /* Do not assert here, otherwise the child process will remain hanging, as PR_DEATHSIG is not sent
+         * on abort() */
+
         char x = 0;
-        ASSERT_OK_EQ_ERRNO(read(p[0], &x, 1), 1);
-        ASSERT_EQ(x, 'x');
+        r = read(p[0], &x, 1);
+        if (r < 0) {
+                log_error_errno(errno, "Failed to read from pipe: %m");
+                goto fail;
+        }
+        if (r != 1) {
+                log_error("Failed to read from pipe: expected 1 byte, got %d", r);
+                goto fail;
+        }
+        if (x != 'x') {
+                log_error("Failed to read from pipe: expected 'x', got '%c' (0x%02x)", x, (unsigned) x);
+                goto fail;
+        }
         p[0] = safe_close(p[0]);
 
-        ASSERT_OK_ZERO(process_is_owned_by_uid(&pid, getuid()));
+        r = process_is_owned_by_uid(&pid, getuid());
+        if (r < 0) {
+                log_error_errno(r, "process_is_owned_by_uid() failed: %m");
+                goto fail;
+        }
+        if (r != 0) {
+                log_error("process_is_owned_by_uid() returned %d, expected 0", r);
+                goto fail;
+        }
 
         ASSERT_OK(pidref_kill(&pid, SIGKILL));
         ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
 
         /* Test a child that runs in a userns as uid 1, but the userns is owned by us */
         ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
-
-        _cleanup_close_pair_ int pp[2] = EBADF_PAIR;
         ASSERT_OK_ERRNO(pipe2(pp, O_CLOEXEC));
 
         r = pidref_safe_fork("(child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
@@ -354,22 +376,72 @@ TEST(process_is_owned_by_uid) {
         p[1] = safe_close(p[1]);
         pp[0] = safe_close(pp[0]);
 
-        ASSERT_OK(write_string_file(procfs_file_alloca(pid.pid, "uid_map"), "0 1 1\n", 0));
-        ASSERT_OK(write_string_file(procfs_file_alloca(pid.pid, "setgroups"), "deny", 0));
-        ASSERT_OK(write_string_file(procfs_file_alloca(pid.pid, "gid_map"), "0 1 1\n", 0));
+        /* Do not assert here, otherwise the child process will remain hanging, as PR_DEATHSIG is not sent
+         * on abort() */
 
-        ASSERT_OK_EQ_ERRNO(write(pp[1], &(const char[]) { 'x' }, 1), 1);
+        r = write_string_file(procfs_file_alloca(pid.pid, "uid_map"), "0 1 1\n", 0);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write uid_map: %m");
+                goto fail;
+        }
+        r = write_string_file(procfs_file_alloca(pid.pid, "setgroups"), "deny", 0);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write setgroups: %m");
+                goto fail;
+        }
+
+        r = write_string_file(procfs_file_alloca(pid.pid, "gid_map"), "0 1 1\n", 0);
+        if (r < 0) {
+                log_error_errno(r, "Failed to write gid_map: %m");
+                goto fail;
+        }
+
+        r = write(pp[1], &(const char[]) { 'x' }, 1);
+        if (r < 0) {
+                log_error_errno(errno, "Failed to write to pipe: %m");
+                goto fail;
+        }
+        if (r != 1) {
+                log_error("Failed to write to pipe: expected to write 1 byte, wrote %d", r);
+                goto fail;
+        }
         pp[1] = safe_close(pp[1]);
 
         x = 0;
-        ASSERT_OK_EQ_ERRNO(read(p[0], &x, 1), 1);
-        ASSERT_EQ(x, 'x');
+        r = read(p[0], &x, 1);
+        if (r < 0) {
+                log_error_errno(errno, "Failed to read from pipe: %m");
+                goto fail;
+        }
+        if (r != 1) {
+                log_error("Failed to read from pipe: expected to read 1 byte, read %d", r);
+                goto fail;
+        }
+        if (x != 'x') {
+                log_error("Failed to read from pipe: expected 'x', got '%c' (0x%02x)", x, (unsigned) x);
+                goto fail;
+        }
         p[0] = safe_close(p[0]);
 
-        ASSERT_OK_POSITIVE(process_is_owned_by_uid(&pid, getuid()));
+        r = process_is_owned_by_uid(&pid, getuid());
+        if (r < 0) {
+                log_error_errno(r, "process_is_owned_by_uid() failed: %m");
+                goto fail;
+        }
+        if (r != 1) {
+                log_error("process_is_owned_by_uid() returned %d, expected 1", r);
+                goto fail;
+        }
 
         ASSERT_OK(pidref_kill(&pid, SIGKILL));
         ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
+
+        return;
+
+fail:
+        ASSERT_OK(pidref_kill(&pid, SIGKILL));
+        ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
+        assert_not_reached();
 }
 
 TEST(namespace_get_leader) {
@@ -442,12 +514,53 @@ TEST(detach_mount_namespace_harder) {
                 freeze();
         }
 
-        p[1] = safe_close(p[1]);
-        ASSERT_OK_EQ_ERRNO(read(p[0], &x, 1), 1);
-        ASSERT_EQ(x, 'x');
+        /* Do not assert here, otherwise the child process will remain hanging, as PR_DEATHSIG is not sent
+         * on abort() */
 
-        ASSERT_OK_POSITIVE(pidref_in_same_namespace(NULL, &pid, NAMESPACE_USER));
-        ASSERT_OK_ZERO(pidref_in_same_namespace(NULL, &pid, NAMESPACE_MOUNT));
+        p[1] = safe_close(p[1]);
+        r = read(p[0], &x, 1);
+        if (r < 0) {
+                log_error_errno(errno, "Failed to read from pipe: %m");
+                goto fail;
+        }
+        if (r != 1) {
+                log_error("Failed to read from pipe: expected 1 byte, got %d", r);
+                goto fail;
+        }
+        if (x != 'x') {
+                log_error("Failed to read from pipe: expected 'x', got '%c' (0x%02x)", x, (unsigned) x);
+                goto fail;
+        }
+
+        r = pidref_in_same_namespace(NULL, &pid, NAMESPACE_USER);
+        if (r < 0) {
+                log_error_errno(r, "pidref_in_same_namespace() failed: %m");
+                goto fail;
+        }
+        if (r == 0) {
+                log_error("pidref_in_same_namespace() returned %d, expected > 0", r);
+                goto fail;
+        }
+
+        r = pidref_in_same_namespace(NULL, &pid, NAMESPACE_MOUNT);
+        if (r < 0) {
+                log_error_errno(r, "pidref_in_same_namespace() failed: %m");
+                goto fail;
+        }
+        if (r != 0) {
+                log_error("pidref_in_same_namespace() returned %d, expected 0", r);
+                goto fail;
+        }
+
+        ASSERT_OK(pidref_kill(&pid, SIGKILL));
+        ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
+
+        return;
+
+fail:
+        ASSERT_OK(pidref_kill(&pid, SIGKILL));
+        ASSERT_OK(pidref_wait_for_terminate(&pid, /* ret= */ NULL));
+        assert_not_reached();
 }
 
 static int intro(void) {
