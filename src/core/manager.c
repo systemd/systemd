@@ -2433,6 +2433,7 @@ int manager_load_unit_prepare(
                 Manager *m,
                 const char *name,
                 const char *path,
+                bool alias_lookup,
                 sd_bus_error *e,
                 Unit **ret) {
 
@@ -2470,6 +2471,9 @@ int manager_load_unit_prepare(
 
         Unit *unit = manager_get_unit(m, name);
         if (unit) {
+                if (!alias_lookup && !streq(unit->id, name))
+                        log_warning("Looked up unit '%s' via alias '%s'! This is a dangerous behaivour potentially leading to https://github.com/systemd/systemd/issues/38817", unit->id, name);
+
                 /* The time-based cache allows new units to be started without daemon-reload,
                  * but if they are already referenced (because of dependencies or ordering)
                  * then we have to force a load of the fragment. As an optimization, check
@@ -2511,10 +2515,11 @@ int manager_load_unit_prepare(
         return 1;  /* The unit was added the load queue */
 }
 
-int manager_load_unit(
+static int manager_load_unit_internal(
                 Manager *m,
                 const char *name,
                 const char *path,
+                bool alias_lookup,
                 sd_bus_error *e,
                 Unit **ret) {
         int r;
@@ -2524,7 +2529,7 @@ int manager_load_unit(
 
         /* This will load the unit config, but not actually start any services or anything. */
 
-        r = manager_load_unit_prepare(m, name, path, e, ret);
+        r = manager_load_unit_prepare(m, name, path, alias_lookup, e, ret);
         if (r <= 0)
                 return r;
 
@@ -2532,6 +2537,14 @@ int manager_load_unit(
         manager_dispatch_load_queue(m);
         *ret = unit_follow_merge(*ret);
         return 0;
+}
+
+int manager_load_unit(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **ret) {
+        return manager_load_unit_internal(m, name, path, /* alias_lookup= */ true, e, ret);
+}
+
+int manager_load_unit_for_deserialize(Manager *m, const char *name, const char *path, sd_bus_error *e, Unit **ret) {
+        return manager_load_unit_internal(m, name, path, /* alias_lookup= */ false, e, ret);
 }
 
 int manager_load_startable_unit_or_warn(

@@ -2338,7 +2338,7 @@ static int bus_unit_set_transient_property(
                 /* Note that we do not dispatch the load queue here yet, as we don't want our own transient unit to be
                  * loaded while we are still setting it up. Or in other words, we use manager_load_unit_prepare()
                  * instead of manager_load_unit() on purpose, here. */
-                r = manager_load_unit_prepare(u->manager, s, NULL, error, &slice);
+                r = manager_load_unit_prepare(u->manager, s, NULL, /* alias_lookup= */ true, error, &slice);
                 if (r < 0)
                         return r;
 
