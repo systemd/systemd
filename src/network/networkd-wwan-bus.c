@@ -1033,7 +1033,6 @@ static int modem_remove(Manager *m, const char *path) {
 
 static int enumerate_modems_handler(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_set_free_ Set *paths = NULL;
         const sd_bus_error *e;
         const char *modem_path;
         int r;
