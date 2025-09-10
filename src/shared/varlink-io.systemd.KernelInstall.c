@@ -44,6 +44,13 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Copy installation files from the image into the image's boot file system if they exist, otherwise from the host"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(auto));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                ExtraFile,
+                SD_VARLINK_FIELD_COMMENT("Filename for the extra file to place next to the UKI when installing"),
+                SD_VARLINK_DEFINE_FIELD(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Contents for the extra file (Base64 encoded)"),
+                SD_VARLINK_DEFINE_FIELD(data, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_METHOD(
                 Add,
                 SD_VARLINK_FIELD_COMMENT("Index into file descriptor array associated with this message, referencing the root directory to operate in."),
@@ -61,7 +68,9 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Where to copy kernels from, when operating relative to a root directory"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(installSource, InstallSource, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Entry token type selection"),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(bootEntryTokenType, BootEntryTokenType, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(bootEntryTokenType, BootEntryTokenType, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Additional files to place next to the installed UKI in the .extra.d/ directory"),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(extraFiles, ExtraFile, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_KernelInstall,
@@ -75,5 +84,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_KernelSearch,
                 SD_VARLINK_SYMBOL_COMMENT("Which source to install the kernel image from"),
                 &vl_type_InstallSource,
+                SD_VARLINK_SYMBOL_COMMENT("Information about an extra file to install along with an UKI"),
+                &vl_type_ExtraFile,
                 SD_VARLINK_SYMBOL_COMMENT("Install a kernel image"),
                 &vl_method_Add);
