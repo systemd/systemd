@@ -606,6 +606,10 @@ foreach ident : [
         ['pivot_root',        '''#include <unistd.h>'''],       # no known header declares pivot_root
 ]
 
+        if ident.length() >= 3 and not ident[2]
+                continue
+        endif
+
         have = cc.has_function(ident[0], prefix : ident[1], args : '-D_GNU_SOURCE')
         conf.set10('HAVE_' + ident[0].to_upper(), have)
 endforeach
