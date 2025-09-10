@@ -480,6 +480,28 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>log-level</term>
+
+        <listitem><para>Controls the log level used by
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
+
+        <para>Valid values are <literal>emerg</literal>, <literal>alert</literal>, <literal>crit</literal>,
+        <literal>err</literal>, <literal>warning</literal>, <literal>notice</literal>,
+        <literal>info</literal>, and <literal>debug</literal>.</para>
+
+        <para>If unspecified, <literal>info</literal> will be used, unless one has already been configured
+        via an SMBIOS Type 11 string, see
+        <citerefentry><refentrytitle>smbios-type-11</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
+
+        <para>Note that the configured level will only be used after <filename>loader.conf</filename> has
+        been parsed, so log messages generated before that point may be unaffected by this setting.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
