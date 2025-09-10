@@ -228,6 +228,10 @@ static int manager_deserialize_one_unit(Manager *m, const char *name, FILE *f, F
                 return log_notice_errno(r, "Failed to load unit \"%s\", skipping deserialization: %m", name);
         }
 
+        if (!streq(u->id, name))
+                log_warning("Loaded unit '%s' via alias '%s'! This is a dangerous behaivour potentially leading to https://github.com/systemd/systemd/issues/38817", u->id, name);
+
+
         r = unit_deserialize_state(u, f, fds);
         if (r < 0) {
                 if (r == -ENOMEM)
