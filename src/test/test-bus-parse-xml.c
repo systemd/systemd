@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
-#include "busctl-introspect.h"
+#include "bus-parse-xml.h"
 #include "set.h"
 #include "strv.h"
 #include "tests.h"
