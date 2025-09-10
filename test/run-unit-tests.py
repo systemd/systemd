@@ -35,6 +35,12 @@ def argument_parser():
 
 opts = argument_parser().parse_args()
 
+env = {}
+if 'SYSTEMD_LOG_LEVEL' in os.environ:
+    env['SYSTEMD_LOG_LEVEL'] = os.environ['SYSTEMD_LOG_LEVEL']
+if 'SYSTEMD_LOG_TARGET' in os.environ:
+    env['SYSTEMD_LOG_TARGET'] = os.environ['SYSTEMD_LOG_TARGET']
+
 unittestdir = pathlib.Path(__file__).parent.absolute() / 'unit-tests'
 
 tests = list(unittestdir.glob('test-*'))
@@ -53,7 +59,7 @@ for test in sorted(tests):
         total.skip += 1
         continue
 
-    ex = subprocess.run(test, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    ex = subprocess.run(test, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
     if ex.returncode == 0:
         print(f'{GREEN}PASS: {name}{RESET_ALL}')
         total.good += 1
