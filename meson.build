@@ -485,6 +485,7 @@ possible_link_flags = [
         '-Wl,--fatal-warnings',
         '-Wl,-z,now',
         '-Wl,-z,relro',
+        '-Wl,-z,gcs-report-dynamic=none',
         '-Wl,--gc-sections',
 ]
 
