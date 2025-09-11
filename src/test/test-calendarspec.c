@@ -185,6 +185,7 @@ TEST(calendar_spec_one) {
         test_one("@0 UTC", "1970-01-01 00:00:00 UTC");
         test_one("*:05..05", "*-*-* *:05:00");
         test_one("*:05..10/6", "*-*-* *:05:00");
+        test_one("2025-3-1 10:0 UTC   and   every  14d", "2025-03-01 10:00:00 UTC and every 2w");
 }
 
 TEST(calendar_spec_next) {
