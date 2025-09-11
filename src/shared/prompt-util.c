@@ -215,7 +215,7 @@ int chrome_show(
                 return 0;
 
         unsigned n = lines();
-        if (n < 12) /* Do not bother with the chrom on tiny screens */
+        if (n < 12) /* Do not bother with the chrome on tiny screens */
                 return 0;
 
         _cleanup_free_ char *b = NULL, *ansi_color_reverse = NULL;
@@ -319,7 +319,7 @@ void chrome_hide(void) {
         printf("\x1B[%u;1H"
                ANSI_NORMAL ANSI_ERASE_TO_END_OF_LINE "\n"
                ANSI_NORMAL ANSI_ERASE_TO_END_OF_LINE "\n"
-               ANSI_NORMAL ANSI_ERASE_TO_END_OF_LINE ANSI_NORMAL,
+               ANSI_NORMAL ANSI_ERASE_TO_END_OF_LINE,
                n - 2);
 
         /* Reset scrolling area (DECSTBM) */
