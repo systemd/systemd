@@ -92,3 +92,6 @@ static inline void fflush_and_disable_bufferingp(FILE **p) {
 
 #define WITH_BUFFERED_STDERR                                            \
         _WITH_BUFFERED_STREAM(stderr, LONG_LINE_MAX, UNIQ_T(p, UNIQ))
+
+#define WITH_BUFFERED_STDOUT                                            \
+        _WITH_BUFFERED_STREAM(stdout, LONG_LINE_MAX, UNIQ_T(p, UNIQ))

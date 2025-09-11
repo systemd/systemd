@@ -393,6 +393,8 @@ static int make_credential_host_secret(
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to create temporary file for credential host secret: %m");
 
+        CLEANUP_TMPFILE_AT(dfd, t);
+
         r = chattr_secret(fd, 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to set file attributes for secrets file, ignoring: %m");
@@ -405,29 +407,22 @@ static int make_credential_host_secret(
 
         r = crypto_random_bytes(buf.data, sizeof(buf.data));
         if (r < 0)
-                goto fail;
+                return r;
 
         r = loop_write(fd, &buf, sizeof(buf));
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (fchmod(fd, 0400) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        if (fsync(fd) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (fchmod(fd, 0400) < 0)
+                return -errno;
 
         warn_not_encrypted(fd, flags, dirname, fn);
 
         r = link_tmpfile_at(fd, dfd, t, fn, LINK_TMPFILE_SYNC);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to link host key into place: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to link host key into place: %m");
+
+        t = mfree(t); /* disarm CLEANUP_ERASE() */
 
         if (ret) {
                 void *copy;
@@ -440,12 +435,6 @@ static int make_credential_host_secret(
         }
 
         return 0;
-
-fail:
-        if (t && unlinkat(dfd, t, 0) < 0)
-                log_debug_errno(errno, "Failed to remove temporary credential key: %m");
-
-        return r;
 }
 
 int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {

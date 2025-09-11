@@ -405,6 +405,7 @@ possible_common_cc_flags = [
         '-Werror=shift-overflow=2',
         '-Werror=strict-flex-arrays',
         '-Werror=undef',
+        '-Werror=unused-variable',
         '-Wfloat-equal',
         # gperf prevents us from enabling this because it does not emit fallthrough
         # attribute with clang.
@@ -1629,6 +1630,7 @@ foreach term : ['analyze',
                 'rfkill',
                 'smack',
                 'sysext',
+                'sysinstall',
                 'sysusers',
                 'timedated',
                 'timesyncd',
@@ -2360,9 +2362,9 @@ subdir('src/login')
 subdir('src/machine')
 subdir('src/machine-id-setup')
 subdir('src/measure')
-subdir('src/mountfsd')
 subdir('src/modules-load')
 subdir('src/mount')
+subdir('src/mountfsd')
 subdir('src/network')
 subdir('src/notify')
 subdir('src/nspawn')
@@ -2396,15 +2398,16 @@ subdir('src/socket-activate')
 subdir('src/socket-proxy')
 subdir('src/ssh-generator')
 subdir('src/stdio-bridge')
+subdir('src/storagetm')
 subdir('src/sulogin-shell')
 subdir('src/sysctl')
 subdir('src/sysext')
+subdir('src/sysinstall')
 subdir('src/system-update-generator')
 subdir('src/systemctl')
 subdir('src/sysupdate')
 subdir('src/sysusers')
 subdir('src/sysv-generator')
-subdir('src/storagetm')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/tmpfiles')
@@ -3104,6 +3107,7 @@ foreach tuple : [
         ['sysupdate'],
         ['sysupdated'],
         ['sysusers'],
+        ['sysinstall'],
         ['storagetm'],
         ['timedated'],
         ['timesyncd'],

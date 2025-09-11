@@ -59,6 +59,7 @@ static int prepare_dirs(const char *root, char * const *dirs, int *ret_rfd, char
                         return log_oom();
         }
 
+        _cleanup_close_ int rfd = XAT_FDROOT;
         if (root) {
                 /* When a non-trivial root is specified, we will prefix the result later. Hence, it is not
                  * necessary to modify each config directories here. but needs to normalize the root directory. */
@@ -67,6 +68,11 @@ static int prepare_dirs(const char *root, char * const *dirs, int *ret_rfd, char
                         return log_debug_errno(r, "Failed to make '%s' absolute: %m", root);
 
                 path_simplify(root_abs);
+
+                rfd = open(root_abs, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (rfd < 0)
+                        return log_debug_errno(errno, "Failed to open '%s': %m", root_abs);
+
         } else if (ret_dirs) {
                 /* When an empty root or "/" is specified, we will open "/" below, hence we need to make
                  * each config directory absolute if relative. */
@@ -74,10 +80,6 @@ static int prepare_dirs(const char *root, char * const *dirs, int *ret_rfd, char
                 if (r < 0)
                         return log_debug_errno(r, "Failed to make directories absolute: %m");
         }
-
-        _cleanup_close_ int rfd = open(empty_to_root(root_abs), O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (rfd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", empty_to_root(root_abs));
 
         *ret_rfd = TAKE_FD(rfd);
         *ret_root = TAKE_PTR(root_abs);
@@ -116,11 +118,11 @@ int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile
         int r;
 
         assert(path);
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(ret);
 
         _cleanup_free_ char *root = NULL;
-        if (rfd >= 0 && DEBUG_LOGGING)
+        if (DEBUG_LOGGING)
                 (void) fd_get_path(rfd, &root);
 
         _cleanup_(conf_file_freep) ConfFile *c = new(ConfFile, 1);
@@ -224,7 +226,7 @@ static int files_add(
         assert(dir);
         assert(original_dirpath);
         assert(resolved_dirpath);
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(files);
         assert(masked);
 
@@ -499,7 +501,7 @@ static int conf_files_list_impl(
         const ConfFile *inserted = NULL;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(ret);
 
         if (replacement) {
@@ -609,10 +611,10 @@ int conf_files_list_strv_at(
         _cleanup_free_ char *root = NULL;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(ret);
 
-        if (rfd >= 0 && DEBUG_LOGGING)
+        if (DEBUG_LOGGING)
                 (void) fd_get_path(rfd, &root); /* for logging */
 
         r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
@@ -634,11 +636,11 @@ int conf_files_list_strv_at_full(
         _cleanup_free_ char *root = NULL;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(ret_files);
         assert(ret_n_files);
 
-        if (rfd >= 0 && DEBUG_LOGGING)
+        if (DEBUG_LOGGING)
                 (void) fd_get_path(rfd, &root); /* for logging */
 
         r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
@@ -760,6 +762,7 @@ int conf_files_list_dropins(
                 char ***ret,
                 const char *dropin_dirname,
                 const char *root,
+                int root_fd,
                 const char * const *dirs) {
 
         _cleanup_strv_free_ char **dropin_dirs = NULL;
@@ -775,7 +778,7 @@ int conf_files_list_dropins(
         if (r < 0)
                 return r;
 
-        return conf_files_list_strv(ret, ".conf", root, 0, (const char* const*) dropin_dirs);
+        return conf_files_list_strv_at(ret, ".conf", root_fd, 0, (const char* const*) dropin_dirs);
 }
 
 /**
