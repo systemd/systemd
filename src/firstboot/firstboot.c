@@ -1218,8 +1218,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...]\n\n"
-               "Configures basic settings of the system.\n\n"
+        printf("%1$s [OPTIONS...]\n"
+               "\n%3$sConfigures basic settings of the system.%4$s\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --root=PATH                  Operate on an alternate filesystem root\n"
@@ -1257,9 +1257,11 @@ static int help(void) {
                "     --chrome=no                  Don't show colour bar at top and bottom of\n"
                "                                  terminal\n"
                "     --reset                      Remove existing files\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               link);
+               link,
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
