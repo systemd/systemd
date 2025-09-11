@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=First Boot Wizard
+Description=Initial Setup
 Documentation=man:systemd-firstboot(1)
 
 ConditionPathIsReadWrite=/etc
