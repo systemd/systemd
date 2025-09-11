@@ -29,6 +29,8 @@ shared_sources = files(
         'bus-map-properties.c',
         'bus-message-util.c',
         'bus-object.c',
+        'bus-parse-xml.c',
+        'bus-parse-xml.h',
         'bus-polkit.c',
         'bus-print-properties.c',
         'bus-unit-procs.c',
