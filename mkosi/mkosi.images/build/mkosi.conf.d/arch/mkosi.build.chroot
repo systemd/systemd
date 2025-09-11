@@ -36,8 +36,8 @@ fi
 # instead. The rootfs is overlaid with a writable tmpfs during the build script so these changes don't end up
 # in the image itself.
 tee --append /etc/makepkg.conf >/dev/null <<EOF
-export CC="$( ((LLVM)) && echo clang || echo gcc)"
-export CXX="$( ((LLVM)) && echo clang++ || echo g++)"
+export CC="$( ((LLVM)) && echo clang || ((CC)) && echo $CC || echo gcc)"
+export CXX="$( ((LLVM)) && echo clang++ || ((CXX)) && echo $CXX || echo g++)"
 export CC_LD="$( ((LLVM)) && echo lld)"
 export CXX_LD="$( ((LLVM)) && echo lld)"
 export CFLAGS="\$CFLAGS $MKOSI_CFLAGS $CFLAGS"
