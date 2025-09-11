@@ -86,10 +86,10 @@ build() {
     --unset CFLAGS \
     --unset CXXFLAGS \
     --unset LDFLAGS \
-    CC="$( ((LLVM)) && echo clang || echo gcc)" \
-    CXX="$( ((LLVM)) && echo clang++ || echo g++)" \
-    CC_LD="$( ((LLVM)) && echo lld)" \
-    CXX_LD="$( ((LLVM)) && echo lld)" \
+    CC="$( ((CC)) && echo "$CC" || ((LLVM)) && echo clang || echo gcc)" \
+    CXX="$( ((CXX)) && echo "$CXX" || ((LLVM)) && echo clang++ || echo g++)" \
+    CC_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)" \
+    CXX_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)" \
     rpmbuild \
         -bb \
         --noprep \
