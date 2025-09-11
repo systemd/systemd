@@ -17,7 +17,7 @@
 #include "bus-signature.h"
 #include "bus-type.h"
 #include "bus-util.h"
-#include "busctl-introspect.h"
+#include "bus-parse-xml.h"
 #include "capsule-util.h"
 #include "errno-util.h"
 #include "escape.h"
