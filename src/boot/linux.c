@@ -20,9 +20,6 @@
 #include "shim.h"
 #include "util.h"
 
-#define STUB_PAYLOAD_GUID \
-        { 0x55c5d1f8, 0x04cd, 0x46b5, { 0x8a, 0x20, 0xe5, 0x6c, 0xbb, 0x30, 0x52, 0xd0 } }
-
 typedef struct {
         MEMMAP_DEVICE_PATH memmap_path;
         EFI_DEVICE_PATH end_path;
@@ -56,21 +53,11 @@ static EFI_STATUS load_via_boot_services(
                 uint32_t compat_entry_point,
                 const char16_t *cmdline,
                 const struct iovec *kernel,
-                const struct iovec *initrd) {
+                const struct iovec *initrd,
+                KERNEL_FILE_PATH *kernel_file_path) {
         _cleanup_(unload_imagep) EFI_HANDLE kernel_image = NULL;
         EFI_LOADED_IMAGE_PROTOCOL* loaded_image = NULL;
         EFI_STATUS err;
-
-        VENDOR_DEVICE_PATH device_node = {
-                .Header = {
-                        .Type = MEDIA_DEVICE_PATH,
-                        .SubType = MEDIA_VENDOR_DP,
-                        .Length = sizeof(device_node),
-                },
-                .Guid = STUB_PAYLOAD_GUID,
-        };
-
-        _cleanup_free_ EFI_DEVICE_PATH* file_path = device_path_replace_node(parent_loaded_image->FilePath, NULL, &device_node.Header);
 
         /* When running with shim < v16 and booting a UKI directly from it, without a second stage loader,
          * the shim verify protocol needs to be called or it will raise a security violation when starting
@@ -81,13 +68,13 @@ static EFI_STATUS load_via_boot_services(
                                 &(ValidationContext) {
                                         .addr = kernel->iov_base,
                                         .len = kernel->iov_len,
-                                        .device_path = file_path,
+                                        .device_path = &kernel_file_path->memmap_path.Header,
                                 });
 
 
         err = BS->LoadImage(/* BootPolicy= */false,
                             parent,
-                            file_path,
+                            &kernel_file_path->memmap_path.Header,
                             kernel->iov_base,
                             kernel->iov_len,
                             &kernel_image);
@@ -204,16 +191,26 @@ EFI_STATUS linux_exec(
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Bad kernel image: %m");
 
-        /* Re-use the parent_image(_handle) and parent_loaded_image for the kernel image we are about to execute.
-         * We have to do this, because if kernel stub code passes its own handle to certain firmware functions,
-         * the firmware could cast EFI_LOADED_IMAGE_PROTOCOL * to a larger struct to access its own private data,
-         * and if we allocated a smaller struct, that could cause problems.
-         * This is modeled exactly after GRUB behaviour, which has proven to be functional. */
         EFI_LOADED_IMAGE_PROTOCOL *parent_loaded_image;
         err = BS->HandleProtocol(
                         parent_image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &parent_loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot get parent loaded image: %m");
+
+        _cleanup_free_ KERNEL_FILE_PATH *kernel_file_path = xnew(KERNEL_FILE_PATH, 1);
+        *kernel_file_path = (KERNEL_FILE_PATH) {
+                .memmap_path = {
+                        .Header = {
+                                .Type = HARDWARE_DEVICE_PATH,
+                                .SubType = HW_MEMMAP_DP,
+                                .Length = sizeof(MEMMAP_DEVICE_PATH),
+                        },
+                        .MemoryType = EfiLoaderData,
+                        .StartingAddress = POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base),
+                        .EndingAddress = POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base) + kernel->iov_len,
+                },
+                .end_path = DEVICE_PATH_END_NODE,
+        };
 
         /* If shim provides LoadImage, it comes from the new SHIM_IMAGE_LOADER interface added in shim 16,
          * and implements the following:
@@ -241,7 +238,8 @@ EFI_STATUS linux_exec(
                                 compat_entry_point,
                                 cmdline,
                                 kernel,
-                                initrd);
+                                initrd,
+                                kernel_file_path);
 
         err = pe_kernel_check_no_relocation(kernel->iov_base);
         if (err != EFI_SUCCESS)
@@ -300,26 +298,13 @@ EFI_STATUS linux_exec(
                 }
         }
 
-        _cleanup_free_ KERNEL_FILE_PATH *kernel_file_path = xnew(KERNEL_FILE_PATH, 1);
-
-        *kernel_file_path = (KERNEL_FILE_PATH) {
-                .memmap_path = {
-                        .Header = {
-                                .Type = HARDWARE_DEVICE_PATH,
-                                .SubType = HW_MEMMAP_DP,
-                                .Length = sizeof(MEMMAP_DEVICE_PATH),
-                        },
-                        .MemoryType = EfiLoaderData,
-                        .StartingAddress = POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base),
-                        .EndingAddress = POINTER_TO_PHYSICAL_ADDRESS(kernel->iov_base) + kernel->iov_len,
-                },
-                .end_path = {
-                        .Type = END_DEVICE_PATH_TYPE,
-                        .SubType = END_ENTIRE_DEVICE_PATH_SUBTYPE,
-                        .Length = sizeof(EFI_DEVICE_PATH),
-                },
-        };
-
+        /* Patch the parent_image(_handle) and parent_loaded_image for the kernel image we are about to execute.
+         * We have to do this, because if kernel stub code passes its own handle to certain firmware functions,
+         * the firmware could cast EFI_LOADED_IMAGE_PROTOCOL * to a larger struct to access its own private data,
+         * and if we allocated a smaller struct, that could cause problems.
+         * This is modeled exactly after GRUB behaviour, which has proven to be functional. */
+        EFI_LOADED_IMAGE_PROTOCOL original_parent_loaded_image = *parent_loaded_image;
+        parent_loaded_image->FilePath = &kernel_file_path->memmap_path.Header;
         parent_loaded_image->ImageBase = loaded_kernel;
         parent_loaded_image->ImageSize = kernel_size_in_memory;
 
@@ -345,6 +330,9 @@ EFI_STATUS linux_exec(
                                 (EFI_IMAGE_ENTRY_POINT) ((const uint8_t *) parent_loaded_image->ImageBase + compat_entry_point);
                 err = compat_entry(parent_image, ST);
         }
+
+        /* Restore */
+        *parent_loaded_image = original_parent_loaded_image;
 
         /* On failure we'll free the buffers. EDK2 requires the memory buffers to be writable and
          * non-executable, as in some configurations it will overwrite them with a fixed pattern, so if the
