@@ -1226,7 +1226,7 @@ int manager_match_modemmanager_signals(Manager *manager) {
 
 static int list_names_handler(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *manager = ASSERT_PTR(userdata);
-        char **names = NULL, **p;
+        _cleanup_strv_free_ char **names = NULL;
         int r;
         bool found;
 
@@ -1241,12 +1241,11 @@ static int list_names_handler(sd_bus_message *message, void *userdata, sd_bus_er
                 return bus_log_parse_error(r);
 
         found = false;
-        for (p = names; *p != NULL; p++) {
-                if (streq(*p, "org.freedesktop.ModemManager1")) {
+        STRV_FOREACH(name, names)
+                if (streq(*name, "org.freedesktop.ModemManager1")) {
                         found = true;
                         break;
                 }
-        }
 
         /* If not found yet then wait for NameOwnerChanged signal. */
         if (!found)
