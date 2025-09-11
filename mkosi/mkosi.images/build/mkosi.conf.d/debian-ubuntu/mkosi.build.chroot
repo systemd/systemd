@@ -69,8 +69,8 @@ DEB_BUILD_PROFILES="$(awk '$1=$1' <<<"\
 # TODO: Drop GENSYMBOLS_LEVEL once https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=986746 is fixed.
 build() {
     env \
-    CC="$( ((LLVM)) && echo clang || echo gcc)" \
-    CXX="$( ((LLVM)) && echo clang++ || echo g++)" \
+    CC="$( ((LLVM)) && echo clang || ((CC)) && echo "$CC" || echo gcc)" \
+    CXX="$( ((LLVM)) && echo clang++ || ((CXX)) && echo "$CXX" || echo g++)" \
     CC_LD="$( ((LLVM)) && echo lld)" \
     CXX_LD="$( ((LLVM)) && echo lld)" \
     DEB_BUILD_OPTIONS="$(awk '$1=$1' <<<"\
@@ -84,6 +84,7 @@ build() {
     DEB_BUILD_PROFILES="$DEB_BUILD_PROFILES" \
     DEB_CFLAGS_APPEND="$MKOSI_CFLAGS $CFLAGS" \
     DEB_CXXFLAGS_APPEND="$MKOSI_CFLAGS $CFLAGS" \
+    DEB_CPPFLAGS_APPEND="$CPPFLAGS" \
     DEB_LDFLAGS_APPEND="$MKOSI_LDFLAGS $LDFLAGS" \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
