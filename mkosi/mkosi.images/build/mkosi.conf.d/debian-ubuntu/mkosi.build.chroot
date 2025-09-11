@@ -67,12 +67,14 @@ DEB_BUILD_PROFILES="$(awk '$1=$1' <<<"\
 ")"
 
 # TODO: Drop GENSYMBOLS_LEVEL once https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=986746 is fixed.
+# Note that CXXFLAGS is for the C++ compiler, and CPPFLAGS is for the C/C++ preprocessor, they are not the same:
+# https://en.wikipedia.org/wiki/CFLAGS
 build() {
     env \
-    CC="$( ((LLVM)) && echo clang || echo gcc)" \
-    CXX="$( ((LLVM)) && echo clang++ || echo g++)" \
-    CC_LD="$( ((LLVM)) && echo lld)" \
-    CXX_LD="$( ((LLVM)) && echo lld)" \
+    CC="$( ((CC)) && echo "$CC" || ((LLVM)) && echo clang || echo gcc)" \
+    CXX="$( ((CXX)) && echo "$CXX" || ((LLVM)) && echo clang++ || echo g++)" \
+    CC_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)" \
+    CXX_LD="$( ((LD)) && echo "$LD" || ((LLVM)) && echo lld)" \
     DEB_BUILD_OPTIONS="$(awk '$1=$1' <<<"\
         $( ((WITH_TESTS)) || echo nocheck) \
         $( ((WITH_DOCS)) || echo nodoc) \
@@ -84,6 +86,7 @@ build() {
     DEB_BUILD_PROFILES="$DEB_BUILD_PROFILES" \
     DEB_CFLAGS_APPEND="$MKOSI_CFLAGS $CFLAGS" \
     DEB_CXXFLAGS_APPEND="$MKOSI_CFLAGS $CFLAGS" \
+    DEB_CPPFLAGS_APPEND="$CPPFLAGS" \
     DEB_LDFLAGS_APPEND="$MKOSI_LDFLAGS $LDFLAGS" \
     DPKG_FORCE="unsafe-io" \
     DPKG_DEB_COMPRESSOR_TYPE="none" \
