@@ -85,6 +85,7 @@ static bool arg_root_password_is_hashed = false;
 static bool arg_welcome = true;
 static bool arg_reset = false;
 static ImagePolicy *arg_image_policy = NULL;
+static bool arg_chrome = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -114,6 +115,11 @@ static void print_welcome(int rfd) {
                 return;
         }
 
+        (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
+
+        if (arg_chrome)
+                chrome_show("Initial Setup", /* bottom= */ NULL);
+
         r = parse_os_release_at(rfd,
                                 "PRETTY_NAME", &pretty_name,
                                 "NAME", &os_name,
@@ -128,10 +134,9 @@ static void print_welcome(int rfd) {
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
 
         if (colors_enabled())
-                printf("\n"
-                       ANSI_HIGHLIGHT "Welcome to your new installation of " ANSI_NORMAL "\x1B[%sm%s" ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n", ac, pn);
+                printf(ANSI_HIGHLIGHT "Welcome to your new installation of " ANSI_NORMAL "\x1B[%sm%s" ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n", ac, pn);
         else
-                printf("\nWelcome to your new installation of %s!\n", pn);
+                printf("Welcome to your new installation of %s!\n", pn);
 
         putchar('\n');
         if (emoji_enabled()) {
@@ -1693,6 +1698,7 @@ static int run(int argc, char *argv[]) {
         }
 
         LOG_SET_PREFIX(arg_image ?: arg_root);
+        DEFER_VOID_CALL(chrome_hide);
 
         /* We check these conditions here instead of in parse_argv() so that we can take the root directory
          * into account. */
