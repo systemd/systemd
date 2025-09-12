@@ -2414,12 +2414,14 @@ static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, boo
         return 0;
 }
 
-static int status_delegates(sd_bus *bus, StatusMode mode, bool *empty_line) {
+static int bus_list_delegates(sd_bus *bus, char ***ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r, ret = 0;
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
 
         assert(bus);
+        assert(ret);
 
         r = bus_call_method(bus, bus_resolve_mgr, "ListDelegates", &error, &reply, NULL);
         if (r < 0) {
@@ -2434,7 +2436,6 @@ static int status_delegates(sd_bus *bus, StatusMode mode, bool *empty_line) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        _cleanup_strv_free_ char **l = NULL;
         for (;;) {
                 const char *id;
 
@@ -2453,6 +2454,21 @@ static int status_delegates(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 return bus_log_parse_error(r);
 
         strv_sort(l);
+
+        *ret = TAKE_PTR(l);
+
+        return 0;
+}
+
+static int status_delegates(sd_bus *bus, StatusMode mode, bool *empty_line) {
+        _cleanup_strv_free_ char **l = NULL;
+        int ret = 0, r;
+
+        assert(bus);
+
+        r = bus_list_delegates(bus, &l);
+        if (r < 0)
+                return r;
 
         STRV_FOREACH(i, l)
                 RET_GATHER(ret, status_delegate_one(bus, *i, mode, empty_line));
