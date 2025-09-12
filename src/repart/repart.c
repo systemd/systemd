@@ -310,9 +310,9 @@ static void copy_files_free_many(CopyFiles *f, size_t n) {
 }
 
 typedef enum SubvolumeFlags {
-        SUBVOLUME_RO               = 1 << 0,
-        SUBVOLUME_NODATACOW        = 1 << 1,
-        SUBVOLUME_NODATASUM        = 1 << 2,
+        SUBVOLUME_RO               = BTRFS_SUBVOL_RO,
+        SUBVOLUME_NODATACOW        = BTRFS_SUBVOL_NODATACOW,
+        SUBVOLUME_NODATASUM        = BTRFS_SUBVOL_NODATASUM,
         _SUBVOLUME_FLAGS_MASK      = SUBVOLUME_NODATASUM|SUBVOLUME_NODATACOW|SUBVOLUME_RO,
         _SUBVOLUME_FLAGS_INVALID   = -EINVAL,
         _SUBVOLUME_FLAGS_ERRNO_MAX = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
@@ -5859,6 +5859,36 @@ static int make_subvolumes_strv(const Partition *p, char ***ret) {
         return 0;
 }
 
+static int make_subvolumes_hashmap(const Partition *p, Hashmap **ret) {
+        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
+        _cleanup_free_ char *path = NULL;
+        Subvolume *subvolume;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        ORDERED_HASHMAP_FOREACH(subvolume, p->subvolumes) {
+                path = strdup(subvolume->path);
+                if (!path)
+                        return log_oom();
+
+                r = hashmap_ensure_put(&hashmap, &string_hash_ops_free, path, UINT_TO_PTR(subvolume->flags));
+                if (r < 0)
+                        return log_oom();
+                if (r == 0)
+                        log_debug("Found duplicate subvolume path %s for the same partition", path);
+                TAKE_PTR(path);
+        }
+
+        if (p->suppressing)
+                if (make_subvolumes_hashmap(p->suppressing, &hashmap) < 0)
+                        return r;
+
+        *ret = TAKE_PTR(hashmap);
+        return 0;
+}
+
 static int make_subvolumes_set(
                 const Partition *p,
                 const char *source,
@@ -5961,13 +5991,13 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
 }
 
 static int do_copy_files(Context *context, Partition *p, const char *root) {
-        _cleanup_strv_free_ char **subvolumes = NULL;
+        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
         int r;
 
         assert(p);
         assert(root);
 
-        r = make_subvolumes_strv(p, &subvolumes);
+        r = make_subvolumes_hashmap(p, &subvolumes);
         if (r < 0)
                 return r;
 
@@ -6014,6 +6044,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 _cleanup_set_free_ Set *subvolumes_by_source_inode = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
                 usec_t ts = epoch_or_infinity();
+                BtrfsSubvolFlags flags;
 
                 r = make_copy_files_denylist(context, p, line->source, line->target, &denylist);
                 if (r < 0)
@@ -6062,19 +6093,20 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
+                                flags = PTR_TO_UINT(hashmap_get(subvolumes, line->target));
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
                                                 line->flags,
-                                                denylist, subvolumes_by_source_inode);
+                                                denylist, subvolumes_by_source_inode, flags);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
                                                 line->flags,
-                                                denylist, subvolumes_by_source_inode);
+                                                denylist, subvolumes_by_source_inode, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
                                                        strempty(arg_copy_source), line->source, strempty(root), line->target);
@@ -6136,14 +6168,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 }
 
 static int do_make_directories(Partition *p, const char *root) {
-        _cleanup_strv_free_ char **subvolumes = NULL;
+        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
         _cleanup_free_ char **override_dirs = NULL;
         int r;
 
         assert(p);
         assert(root);
 
-        r = make_subvolumes_strv(p, &subvolumes);
+        r = make_subvolumes_hashmap(p, &subvolumes);
         if (r < 0)
                 return r;
 
@@ -6501,39 +6533,39 @@ static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
 }
 
 static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
-        _cleanup_strv_free_ char **ops = NULL;
+        _cleanup_strv_free_ char **sv = NULL;
         int r;
 
         assert(p);
         assert(ret);
 
-        r = mkfs_options_from_env("REPART", p->format, &ops);
+        r = mkfs_options_from_env("REPART", p->format, &sv);
         if (r < 0)
                 return log_error_errno(r,
                                        "Failed to determine mkfs command line options for '%s': %m",
                                        p->format);
 
         if (partition_needs_populate(p) && root && streq(p->format, "btrfs")) {
-                r = append_btrfs_subvols(&ops, p->subvolumes, p->default_subvolume);
+                r = append_btrfs_subvols(&sv, p->subvolumes, p->default_subvolume);
                 if (r < 0)
                         return r;
 
-                r = append_btrfs_inode_flags(&ops, p->subvolumes);
+                r = append_btrfs_inode_flags(&sv, p->subvolumes);
                 if (r < 0)
                         return r;
 
                 if (p->suppressing) {
-                        r = append_btrfs_subvols(&ops, p->suppressing->subvolumes, NULL);
+                        r = append_btrfs_subvols(&sv, p->suppressing->subvolumes, NULL);
                         if (r < 0)
                                 return r;
 
-                        r = append_btrfs_inode_flags(&ops, p->suppressing->subvolumes);
+                        r = append_btrfs_inode_flags(&sv, p->suppressing->subvolumes);
                         if (r < 0)
                                 return r;
                 }
         }
 
-        *ret = TAKE_PTR(ops);
+        *ret = TAKE_PTR(sv);
         return 0;
 }
 

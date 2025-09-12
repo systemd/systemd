@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "btrfs.h"
 #include "shared-forward.h"
 
 typedef enum CopyFlags {
@@ -79,12 +80,12 @@ static inline int copy_file_atomic(const char *from, const char *to, mode_t mode
         return copy_file_atomic_full(from, to, mode, 0, 0, copy_flags, NULL, NULL);
 }
 
-int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
-static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes) {
-        return copy_tree_at_full(fdf, from, fdt, to, override_uid, override_gid, copy_flags, denylist, subvolumes, NULL, NULL, NULL);
+int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes, BtrfsSubvolFlags subvolume_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes, BtrfsSubvolFlags subvolume_flags) {
+        return copy_tree_at_full(fdf, from, fdt, to, override_uid, override_gid, copy_flags, denylist, subvolumes, subvolume_flags, NULL, NULL, NULL);
 }
-static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes) {
-        return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, denylist, subvolumes, NULL, NULL, NULL);
+static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes, BtrfsSubvolFlags subvolume_flags) {
+        return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, denylist, subvolumes, subvolume_flags, NULL, NULL, NULL);
 }
 
 int copy_directory_at_full(int dir_fdf, const char *from, int dir_fdt, const char *to, CopyFlags copy_flags, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
