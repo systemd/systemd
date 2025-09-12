@@ -155,6 +155,35 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                Pref64,
+                SD_VARLINK_DEFINE_FIELD(Prefix, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(PrefixLength, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(LifetimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ConfigProvider, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                NDisc,
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PREF64, Pref64, SD_VARLINK_ARRAY| SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                Address,
+                SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(Address, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(Peer, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(PrefixLength, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ConfigProvider, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(Broadcast, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(Scope, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ScopeString, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(Flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(FlagsString, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(Label, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(PreferredLifetimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ValidLifetimeUsec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ConfigState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Neighbor,
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(Destination, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
@@ -168,25 +197,70 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Timeout1USec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(Timeout2USec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SixRdPrefix,
+                SD_VARLINK_DEFINE_FIELD(Prefix, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(PrefixLength, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(IPv4MaskLength, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                // it's an array of byte arrays
+                SD_VARLINK_DEFINE_FIELD(BorderRouters, SD_VARLINK_STRING, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                PrivateOption,
+                SD_VARLINK_DEFINE_FIELD(Option, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(PrivateOptionData, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPv4Client,
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Lease, DHCPLease, SD_VARLINK_NULLABLE),
-                // CONTINUE: WIP
-                // SD_VARLINK_DEFINE_FIELD(6RdPrefix, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE),
-                // SD_VARLINK_DEFINE_FIELD(PrivateOptions, SD_VARLINK_OBJECT, SD_VARLINK_ARRAY | SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(ClientIdentifier, SD_VARLINK_INT, SD_VARLINK_ARRAY | SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(6RdPrefix, SixRdPrefix, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(PrivateOptions, PrivateOption, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ClientIdentifier, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DHCPv6ClientPD,
+                SD_VARLINK_DEFINE_FIELD(Prefix, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(PrefixLength, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(PreferredLifetimeUsec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ValidLifetimeUsec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DHCPv6ClientVendorOption,
+                SD_VARLINK_DEFINE_FIELD(EnterpriseId, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(SubOptionCode, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(SubOptionData, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPv6Client,
-                // WIP TODO here
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Lease, DHCPLease, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Lease, DHCPLease, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Prefixes, DHCPv6ClientPD, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(VendorSpecificOptions,DHCPv6ClientVendorOption, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(DUID, SD_VARLINK_INT, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DHCPServerLease,
+                SD_VARLINK_DEFINE_FIELD(ClientId, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(Address, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(Hostname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(HardwareAddressType, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(HardwareAddressLength, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(HardwareAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ExpirationUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(ExpirationRealtimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DHCPServer,
+                SD_VARLINK_DEFINE_FIELD(PoolOffset, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(PoolSize, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Leases, DHCPServerLease, SD_VARLINK_ARRAY| SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(StaticLeases, DHCPServerLease, SD_VARLINK_ARRAY| SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Interface,
                 SD_VARLINK_DEFINE_FIELD(Index, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(Name, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(
-                                AlternativeNames, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(AlternativeNames, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(MasterInterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(Kind, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(Type, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -199,11 +273,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(MinimumMTU, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(MaximumMTU, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(HardwareAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(
-                                PermanentHardwareAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(PermanentHardwareAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(BroadcastAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(
-                                IPv6LinkLocalAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(IPv6LinkLocalAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(WirelessLanInterfaceType, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(WirelessLanInterfaceTypeString, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(SSID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -216,21 +288,15 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(IPv6AddressState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(OnlineState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(NetworkFile, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(
-                                NetworkFileDropins, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(NetworkFileDropins, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(RequiredForOnline, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(
-                                RequiredOperationalStateForOnline,
-                                SD_VARLINK_STRING,
-                                SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(RequiredOperationalStateForOnline, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(RequiredFamilyForOnline, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(ActivationPolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(NetDevFile, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(
-                                NetDevFileDropins, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(NetDevFileDropins, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(LinkFile, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(
-                                LinkFileDropins, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(LinkFileDropins, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(Path, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(Vendor, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(Model, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -240,18 +306,15 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(SIP, SIP, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(SearchDomains, Domain, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(RouteDomains, Domain, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(
-                                DNSSECNegativeTrustAnchors,
-                                DNSSECNegativeTrustAnchor,
-                                SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DNSSECNegativeTrustAnchors, DNSSECNegativeTrustAnchor, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DNSSettings, DNSSetting, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(CaptivePortal, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(NDisc, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(Addresses, SD_VARLINK_OBJECT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(NDisc, NDisc, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Addresses, Address, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Neighbors, Neighbor, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(NextHops, NextHop, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Routes, Route, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(DHCPServer, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(DHCPServer, DHCPServer, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DHCPv4Client, DHCPv4Client, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DHCPv6Client, DHCPv6Client, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_ARRAY));
@@ -282,10 +345,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 LLDPNeighborsByInterface,
                 SD_VARLINK_DEFINE_FIELD(InterfaceIndex, SD_VARLINK_INT, 0),
                 SD_VARLINK_DEFINE_FIELD(InterfaceName, SD_VARLINK_STRING, 0),
-                SD_VARLINK_DEFINE_FIELD(
-                                InterfaceAlternativeNames,
-                                SD_VARLINK_STRING,
-                                SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(InterfaceAlternativeNames, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Neighbors, LLDPNeighbor, SD_VARLINK_ARRAY));
 
 static SD_VARLINK_DEFINE_METHOD(
@@ -294,7 +354,9 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Neighbors, LLDPNeighborsByInterface, SD_VARLINK_ARRAY));
 
-static SD_VARLINK_DEFINE_METHOD(SetPersistentStorage, SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0));
+static SD_VARLINK_DEFINE_METHOD(
+                SetPersistentStorage,
+                SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0));
 
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 
@@ -306,22 +368,31 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_GetNamespaceId,
                 &vl_method_GetLLDPNeighbors,
                 &vl_method_SetPersistentStorage,
-                &vl_type_DNS,
-                &vl_type_DNR,
-                &vl_type_NTP,
-                &vl_type_SIP,
-                &vl_type_Domain,
-                &vl_type_DNSSECNegativeTrustAnchor,
-                &vl_type_DNSSetting,
-                &vl_type_Group,
-                &vl_type_Interface,
-                &vl_type_NextHop,
-                &vl_type_Route,
-                &vl_type_RoutingPolicyRule,
-                &vl_type_Neighbor,
+                &vl_type_Address,
                 &vl_type_DHCPLease,
+                &vl_type_DHCPServer,
+                &vl_type_DHCPServerLease,
                 &vl_type_DHCPv4Client,
                 &vl_type_DHCPv6Client,
+                &vl_type_DHCPv6ClientPD,
+                &vl_type_DHCPv6ClientVendorOption,
+                &vl_type_DNR,
+                &vl_type_DNS,
+                &vl_type_DNSSECNegativeTrustAnchor,
+                &vl_type_DNSSetting,
+                &vl_type_Domain,
+                &vl_type_Group,
+                &vl_type_Interface,
                 &vl_type_LLDPNeighbor,
                 &vl_type_LLDPNeighborsByInterface,
+                &vl_type_NDisc,
+                &vl_type_Neighbor,
+                &vl_type_NextHop,
+                &vl_type_NTP,
+                &vl_type_Pref64,
+                &vl_type_PrivateOption,
+                &vl_type_Route,
+                &vl_type_RoutingPolicyRule,
+                &vl_type_SIP,
+                &vl_type_SixRdPrefix,
                 &vl_error_StorageReadOnly);
