@@ -1015,7 +1015,6 @@ static int modem_add(Manager *m, const char *path, sd_bus_message *message, sd_b
         if (r < 0)
                 return log_warning_errno(r, "Failed to map properties at %s, ignoring", path);
 
-        modem->reconnect_state = MODEM_RECONNECT_SCHEDULED;
         return modem_on_state_change(modem, MM_MODEM_STATE_UNKNOWN, MM_MODEM_STATE_FAILED_REASON_UNKNOWN);
 }
 
