@@ -329,7 +329,7 @@ static int link_request_bearer_address(
         else
                 address_unmark(existing);
 
-        r = link_request_address(link, TAKE_PTR(address), &link->bearer_messages,
+        r = link_request_address(link, address, &link->bearer_messages,
                                  bearer_address_handler, NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request address provided by bearer: %m");
@@ -408,7 +408,7 @@ static int link_request_bearer_route(
         else
                 route_unmark(existing);
 
-        r = link_request_route(link, TAKE_PTR(route), &link->bearer_messages, bearer_route_handler);
+        r = link_request_route(link, route, &link->bearer_messages, bearer_route_handler);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request gateway provided by bearer: %m");
 
