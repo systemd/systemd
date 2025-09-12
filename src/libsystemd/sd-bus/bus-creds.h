@@ -75,6 +75,7 @@ typedef struct sd_bus_creds {
         .audit_login_uid = UID_INVALID
 
 sd_bus_creds* bus_creds_new(void);
+int bus_creds_new_from_pidref(sd_bus_creds **ret, PidRef *pidref, uint64_t mask);
 
 void bus_creds_done(sd_bus_creds *c);
 

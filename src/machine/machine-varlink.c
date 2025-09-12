@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-bus.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "bus-creds.h"
 #include "bus-polkit.h"
 #include "copy.h"
 #include "errno-util.h"
@@ -185,6 +187,22 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         r = sd_varlink_get_peer_uid(link, &machine->uid);
         if (r < 0)
                 return r;
+
+        /* Ensure an unprivileged user cannot claim any process he doesn't control as its own machine */
+        if (machine->uid != 0) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *leader_creds = NULL;
+                r = bus_creds_new_from_pidref(&leader_creds, &machine->leader, SD_BUS_CREDS_EUID);
+                if (r < 0)
+                        return r;
+
+                uid_t leader_uid;
+                r = sd_bus_creds_get_euid(leader_creds, &leader_uid);
+                if (r < 0)
+                        return r;
+
+                if (machine->uid != leader_uid)
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+        }
 
         r = machine_link(manager, machine);
         if (r == -EEXIST)

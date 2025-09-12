@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "btrfs-util.h"
 #include "bus-common-errors.h"
+#include "bus-creds.h"
 #include "bus-get-properties.h"
 #include "bus-locator.h"
 #include "bus-message-util.h"
@@ -320,6 +321,22 @@ static int method_create_or_register_machine(
         r = sd_bus_creds_get_euid(creds, &uid);
         if (r < 0)
                 return r;
+
+        /* Ensure an unprivileged user cannot claim any process he doesn't control as its own machine */
+        if (uid != 0) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *leader_creds = NULL;
+                r = bus_creds_new_from_pidref(&leader_creds, &leader_pidref, SD_BUS_CREDS_EUID);
+                if (r < 0)
+                        return r;
+
+                uid_t leader_uid;
+                r = sd_bus_creds_get_euid(leader_creds, &leader_uid);
+                if (r < 0)
+                        return r;
+
+                if (uid != leader_uid)
+                        return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "Only root may register machines for other users");
+        }
 
         const char *details[] = {
                 "name",  name,
