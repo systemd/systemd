@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "btrfs.h"
+#include "chattr-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "path-util.h"
