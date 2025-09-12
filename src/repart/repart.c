@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-id128.h"
 #include "sd-json.h"
 #include "sd-varlink.h"
@@ -233,6 +234,24 @@ STATIC_DESTRUCTOR_REGISTER(arg_generate_fstab, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_generate_crypttab, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, set_freep);
 
+typedef enum ProgressPhase {
+        PROGRESS_LOADING_DEFINITIONS,
+        PROGRESS_LOADING_TABLE,
+        PROGRESS_OPENING_COPY_BLOCK_SOURCES,
+        PROGRESS_ACQUIRING_PARTITION_LABELS,
+        PROGRESS_MINIMIZING,
+        PROGRESS_PLACING,
+        PROGRESS_WIPING_DISK,
+        PROGRESS_WIPING_PARTITION,
+        PROGRESS_COPYING_PARTITION,
+        PROGRESS_FORMATTING_PARTITION,
+        PROGRESS_ADJUSTING_PARTITION,
+        PROGRESS_WRITING_TABLE,
+        PROGRESS_REREADING_TABLE,
+        _PROGRESS_PHASE_MAX,
+        _PROGRESS_PHASE_INVALID = -EINVAL,
+} ProgressPhase;
+
 typedef struct FreeArea FreeArea;
 
 typedef enum EncryptMode {
@@ -370,7 +389,11 @@ static Subvolume* subvolume_free(Subvolume *s) {
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(subvolume_hash_ops, char, path_hash_func, path_compare, Subvolume, subvolume_free);
 
+typedef struct Context Context;
+
 typedef struct Partition {
+        Context *context;
+
         char *definition_path;
         char **drop_in_files;
 
@@ -471,7 +494,7 @@ struct FreeArea {
         uint64_t allocated;
 };
 
-typedef struct Context {
+struct Context {
         char **definitions;
 
         LIST_HEAD(Partition, partitions);
@@ -498,7 +521,9 @@ typedef struct Context {
 
         X509 *certificate;
         EVP_PKEY *private_key;
-} Context;
+
+        sd_varlink *link; /* If 'more' is used on the Varlink call, we'll send progress info over this link */
+};
 
 static const char *empty_mode_table[_EMPTY_MODE_MAX] = {
         [EMPTY_UNSET]   = "unset",
@@ -535,11 +560,28 @@ static const char *minimize_mode_table[_MINIMIZE_MODE_MAX] = {
         [MINIMIZE_GUESS] = "guess",
 };
 
+static const char *progress_phase_table[_PROGRESS_PHASE_MAX] = {
+        [PROGRESS_LOADING_DEFINITIONS]        = "loading-definitions",
+        [PROGRESS_LOADING_TABLE]              = "loading-table",
+        [PROGRESS_OPENING_COPY_BLOCK_SOURCES] = "opening-copy-block-sources",
+        [PROGRESS_ACQUIRING_PARTITION_LABELS] = "acquiring-partition-labels",
+        [PROGRESS_MINIMIZING]                 = "minimizing",
+        [PROGRESS_PLACING]                    = "placing",
+        [PROGRESS_WIPING_DISK]                = "wiping-disk",
+        [PROGRESS_WIPING_PARTITION]           = "wiping-partition",
+        [PROGRESS_COPYING_PARTITION]          = "copying-partition",
+        [PROGRESS_FORMATTING_PARTITION]       = "formatting-partition",
+        [PROGRESS_ADJUSTING_PARTITION]        = "adjusting-partition",
+        [PROGRESS_WRITING_TABLE]              = "writing-table",
+        [PROGRESS_REREADING_TABLE]            = "rereading-table",
+};
+
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(empty_mode, EmptyMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(append_mode, AppendMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
 
 static uint64_t round_down_size(uint64_t v, uint64_t p) {
         return (v / p) * p;
@@ -603,7 +645,7 @@ static int calculate_verity_hash_size(
         return 0;
 }
 
-static Partition *partition_new(void) {
+static Partition *partition_new(Context *c) {
         Partition *p;
 
         p = new(Partition, 1);
@@ -611,6 +653,7 @@ static Partition *partition_new(void) {
                 return NULL;
 
         *p = (Partition) {
+                .context = c,
                 .weight = 1000,
                 .padding_weight = 0,
                 .current_size = UINT64_MAX,
@@ -870,6 +913,8 @@ static Context* context_free(Context *context) {
 
         X509_free(context->certificate);
         EVP_PKEY_free(context->private_key);
+
+        context->link = sd_varlink_unref(context->link);
 
         return mfree(context);
 }
@@ -2655,6 +2700,46 @@ static MakeFileSystemFlags partition_mkfs_flags(const Partition *p) {
         return flags;
 }
 
+static int context_notify(
+                Context *c,
+                ProgressPhase phase,
+                const char *object,
+                unsigned percent) {
+        int r;
+        assert(c);
+        assert(phase >= 0);
+        assert(phase < _PROGRESS_PHASE_MAX);
+
+        /* Send progress information, via sd_notify() and via varlink (if client asked for it by setting "more" flag) */
+
+        _cleanup_free_ char *n = NULL;
+        if (asprintf(&n,
+                     "STATUS=Phase %1$s\n"
+                     "X_SYSTEMD_PHASE=%1$s",
+                     progress_phase_to_string(phase)) < 0)
+                return log_oom_debug();
+
+        if (percent != UINT_MAX)
+                if (strextendf(&n, "\nX_SYSTEMD_PHASE_PROGRESS=%u", percent) < 0)
+                        return log_oom_debug();
+
+        r = sd_notify(/* unset_environment= */ false, n);
+        if (r < 0)
+                log_debug_errno(r, "Failed to send sd_notify() progress notification, ignoring: %m");
+
+        if (c->link) {
+                r = sd_varlink_notifybo(
+                                c->link,
+                                SD_JSON_BUILD_PAIR("phase", JSON_BUILD_STRING_UNDERSCORIFY(progress_phase_to_string(phase))),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("object", object),
+                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("progress", percent, UINT_MAX));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to send varlink notify progress notification, ignoring: %m");
+        }
+
+        return 0;
+}
+
 static int partition_read_definition(
                 Context *c,
                 Partition *p,
@@ -3110,7 +3195,7 @@ static int context_copy_from_one(Context *context, const char *src) {
                 if (partition_type_exclude(&type))
                         continue;
 
-                np = partition_new();
+                np = partition_new(context);
                 if (!np)
                         return log_oom();
 
@@ -3231,6 +3316,8 @@ static int context_read_definitions(Context *context) {
 
         assert(context);
 
+        (void) context_notify(context, PROGRESS_LOADING_DEFINITIONS, /* object= */ NULL, UINT_MAX);
+
         dirs = (const char* const*) (context->definitions ?: CONF_PATHS_STRV("repart.d"));
 
         r = conf_files_list_strv(
@@ -3245,7 +3332,7 @@ static int context_read_definitions(Context *context) {
         STRV_FOREACH(f, files) {
                 _cleanup_(partition_freep) Partition *p = NULL;
 
-                p = partition_new();
+                p = partition_new(context);
                 if (!p)
                         return log_oom();
 
@@ -3439,6 +3526,8 @@ static int context_load_partition_table(Context *context) {
         assert(context->start == UINT64_MAX);
         assert(context->end == UINT64_MAX);
         assert(context->total == UINT64_MAX);
+
+        context_notify(context, PROGRESS_LOADING_TABLE, /* object= */ NULL, UINT_MAX);
 
         c = fdisk_new_context();
         if (!c)
@@ -3709,7 +3798,7 @@ static int context_load_partition_table(Context *context) {
                 if (!found) {
                         _cleanup_(partition_freep) Partition *np = NULL;
 
-                        np = partition_new();
+                        np = partition_new(context);
                         if (!np)
                                 return log_oom();
 
@@ -4575,6 +4664,8 @@ static int context_wipe_and_discard(Context *context) {
                         return r;
 
                 if (!context->from_scratch) {
+                        (void) context_notify(context, PROGRESS_WIPING_PARTITION, p->definition_path, UINT_MAX);
+
                         r = context_discard_partition(context, p);
                         if (r < 0)
                                 return r;
@@ -5577,6 +5668,8 @@ static int progress_bytes(uint64_t n_bytes, uint64_t bps, void *userdata) {
 
         p->last_percent = percent;
 
+        (void) context_notify(p->context, PROGRESS_COPYING_PARTITION, p->definition_path, percent);
+
         return 0;
 }
 
@@ -5605,6 +5698,8 @@ static int context_copy_blocks(Context *context) {
 
                 if (p->copy_blocks_fd < 0)
                         continue;
+
+                (void) context_notify(context, PROGRESS_COPYING_PARTITION, p->definition_path, UINT_MAX);
 
                 assert(p->new_size != UINT64_MAX);
 
@@ -6580,6 +6675,8 @@ static int context_mkfs(Context *context) {
                 if (p->copy_blocks_fd >= 0)
                         continue;
 
+                (void) context_notify(context, PROGRESS_FORMATTING_PARTITION, p->definition_path, UINT_MAX);
+
                 assert(p->offset != UINT64_MAX);
                 assert(p->new_size != UINT64_MAX);
                 assert(p->new_size >= (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0));
@@ -6824,6 +6921,9 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
 
         assert(context);
 
+        if (!context->partitions)
+                return 0;
+
         LIST_FOREACH(partitions, p, context->partitions) {
                 sd_id128_t uuid;
 
@@ -6839,6 +6939,8 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
 
                         continue;
                 }
+
+                (void) context_notify(context, PROGRESS_ACQUIRING_PARTITION_LABELS, p->definition_path, UINT_MAX);
 
                 if (!sd_id128_is_null(p->current_uuid))
                         p->new_uuid = uuid = p->current_uuid; /* Never change initialized UUIDs */
@@ -6966,6 +7068,8 @@ static int context_mangle_partitions(Context *context) {
 
                 if (partition_type_defer(&p->type))
                         continue;
+
+                (void) context_notify(context, PROGRESS_ADJUSTING_PARTITION, p->definition_path, UINT_MAX);
 
                 assert(p->new_size != UINT64_MAX);
                 assert(p->offset != UINT64_MAX);
@@ -7264,6 +7368,9 @@ static int context_write_partition_table(Context *context) {
         log_info("Applying changes to %s.", context->node);
 
         if (context->from_scratch && context->empty != EMPTY_CREATE) {
+
+                (void) context_notify(context, PROGRESS_WIPING_DISK, /* object= */ NULL, UINT_MAX);
+
                 /* Erase everything if we operate from scratch, except if the image was just created anyway, and thus is definitely empty. */
                 r = context_wipe_range(context, 0, context->total);
                 if (r < 0)
@@ -7306,6 +7413,8 @@ static int context_write_partition_table(Context *context) {
 
         log_info("Writing new partition table.");
 
+        (void) context_notify(context, PROGRESS_WRITING_TABLE, /* object= */ NULL, UINT_MAX);
+
         r = fdisk_write_disklabel(context->fdisk_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write partition table: %m");
@@ -7317,6 +7426,8 @@ static int context_write_partition_table(Context *context) {
                 return log_error_errno(capable, "Failed to check if block device supports partition scanning: %m");
         else if (capable > 0) {
                 log_info("Informing kernel about changed partitions...");
+                (void) context_notify(context, PROGRESS_REREADING_TABLE, /* object= */ NULL, UINT_MAX);
+
                 r = reread_partition_table_fd(fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to reread partition table: %m");
@@ -7809,6 +7920,11 @@ static int context_open_copy_block_paths(
 
         assert(context);
 
+        if (!context->partitions)
+                return 0;
+
+        (void) context_notify(context, PROGRESS_OPENING_COPY_BLOCK_SOURCES, /* object= */ NULL, UINT_MAX);
+
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_close_ int source_fd = -EBADF;
                 _cleanup_free_ char *opened = NULL;
@@ -8255,6 +8371,8 @@ static int context_minimize(Context *context) {
         int r;
 
         assert(context);
+
+        (void) context_notify(context, PROGRESS_MINIMIZING, /* object= */ NULL, UINT_MAX);
 
         if (context->backing_fd >= 0) {
                 r = read_attr_fd(context->backing_fd, &attrs);
@@ -9879,6 +9997,8 @@ static int context_ponder(Context *context) {
 
         assert(context);
 
+        (void) context_notify(context, PROGRESS_PLACING, /* object= */ NULL, UINT_MAX);
+
         /* First try to fit new partitions in, dropping by priority until it fits */
         for (;;) {
                 uint64_t largest_free_area;
@@ -10055,6 +10175,9 @@ static int vl_method_run(
                         /* private_key= */ NULL);
         if (!context)
                 return log_oom();
+
+        if (FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                context->link = sd_varlink_ref(link);
 
         r = context_read_seed(context, arg_root);
         if (r < 0)
