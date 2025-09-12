@@ -29,6 +29,7 @@
 #include "machine-dbus.h"
 #include "machine-pool.h"
 #include "machined.h"
+#include "namespace-util.h"
 #include "operation.h"
 #include "os-util.h"
 #include "path-util.h"
@@ -285,8 +286,8 @@ static int method_create_or_register_machine(
         if (leader == 1)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
-        if (!isempty(root_directory) && (!path_is_absolute(root_directory) || !path_is_valid(root_directory)))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
+        if (!isempty(root_directory) && (!path_is_absolute(root_directory) || !path_is_valid(root_directory) || path_is_os_tree(root_directory) <= 0))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path to an OS tree");
 
         if (leader == 0) {
                 /* If no PID is specified, the client is the leader */
@@ -320,6 +321,15 @@ static int method_create_or_register_machine(
         r = sd_bus_creds_get_euid(creds, &uid);
         if (r < 0)
                 return r;
+
+        /* Ensure an unprivileged user cannot claim any process he doesn't control as its own machine */
+        if (uid != 0) {
+                r = process_is_owned_by_uid(&leader_pidref, uid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "Only root may register machines for other users");
+        }
 
         const char *details[] = {
                 "name",  name,
