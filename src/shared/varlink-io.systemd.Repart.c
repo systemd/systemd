@@ -5,6 +5,22 @@
 #include "varlink-io.systemd.Repart.h"
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
+                ProgressPhase,
+                SD_VARLINK_DEFINE_ENUM_VALUE(loading_definitions),
+                SD_VARLINK_DEFINE_ENUM_VALUE(loading_table),
+                SD_VARLINK_DEFINE_ENUM_VALUE(opening_copy_block_sources),
+                SD_VARLINK_DEFINE_ENUM_VALUE(acquiring_partition_labels),
+                SD_VARLINK_DEFINE_ENUM_VALUE(minimizing),
+                SD_VARLINK_DEFINE_ENUM_VALUE(placing),
+                SD_VARLINK_DEFINE_ENUM_VALUE(wiping_disk),
+                SD_VARLINK_DEFINE_ENUM_VALUE(wiping_partition),
+                SD_VARLINK_DEFINE_ENUM_VALUE(copying_partition),
+                SD_VARLINK_DEFINE_ENUM_VALUE(formatting_partition),
+                SD_VARLINK_DEFINE_ENUM_VALUE(adjusting_partition),
+                SD_VARLINK_DEFINE_ENUM_VALUE(writing_table),
+                SD_VARLINK_DEFINE_ENUM_VALUE(rereading_table));
+
+static SD_VARLINK_DEFINE_ENUM_TYPE(
                 EmptyMode,
                 SD_VARLINK_FIELD_COMMENT("Refuse to operate on disks without an existing partition table"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(refuse),
@@ -31,7 +47,13 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("In dry-run mode returns the minimal disk size required."),
                 SD_VARLINK_DEFINE_OUTPUT(minimalSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("In dry-run mode returns the size of the selected block device."),
-                SD_VARLINK_DEFINE_OUTPUT(currentSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_OUTPUT(currentSizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, a phase identifier is sent in progress updates."),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(phase, ProgressPhase, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, an object identifier string is sent in progress updates."),
+                SD_VARLINK_DEFINE_OUTPUT(object, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If used with the 'more' flag, a progress percentrage (specific to the work done for the specified phase+object is sent in progress updates."),
+                SD_VARLINK_DEFINE_OUTPUT(progress, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 ListCandidateDevices,
@@ -72,6 +94,8 @@ SD_VARLINK_DEFINE_INTERFACE(
 
                 SD_VARLINK_SYMBOL_COMMENT("Behaviors for disks that are completely empty (i.e. don't have a partition table yet)"),
                 &vl_type_EmptyMode,
+                SD_VARLINK_SYMBOL_COMMENT("Progress phase identifiers. Note that we might add more phases here, and thus identifiers. Frontends can choose to display the phase to the user in some human readable form, or not do that, but if they do it and they receive a notification for a so far unknown phase, they should just ignore it."),
+                &vl_type_ProgressPhase,
 
                 SD_VARLINK_SYMBOL_COMMENT("Invoke the actual repartitioning operation, either in dry-run mode or for real. If invoked with 'more' enabled will report progress, otherwise will just report completion."),
                 &vl_method_Run,
