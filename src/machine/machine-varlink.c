@@ -17,6 +17,7 @@
 #include "mount-util.h"
 #include "namespace-util.h"
 #include "operation.h"
+#include "os-util.h"
 #include "pidref.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -137,7 +138,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 { "leaderProcessId",     SD_JSON_VARIANT_OBJECT,        machine_pidref,           offsetof(Machine, leader),               SD_JSON_STRICT    },
                 { "supervisor",          _SD_JSON_VARIANT_TYPE_INVALID, machine_pidref,           offsetof(Machine, supervisor),           SD_JSON_STRICT    },
                 { "supervisorProcessId", SD_JSON_VARIANT_OBJECT,        machine_pidref,           offsetof(Machine, supervisor),           SD_JSON_STRICT    },
-                { "rootDirectory",       SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, root_directory),       0                 },
+                { "rootDirectory",       SD_JSON_VARIANT_STRING,        json_dispatch_path,       offsetof(Machine, root_directory),       SD_JSON_STRICT    },
                 { "ifIndices",           SD_JSON_VARIANT_ARRAY,         machine_ifindices,        0,                                       0                 },
                 { "vSockCid",            _SD_JSON_VARIANT_TYPE_INVALID, machine_cid,              offsetof(Machine, vsock_cid),            0                 },
                 { "sshAddress",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,  offsetof(Machine, ssh_address),          SD_JSON_STRICT    },
@@ -195,6 +196,9 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 if (r == 0)
                         return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
         }
+
+        if (!isempty(machine->root_directory) && path_is_os_tree(machine->root_directory) <= 0)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_INVALID_PARAMETER, NULL);
 
         r = machine_link(manager, machine);
         if (r == -EEXIST)

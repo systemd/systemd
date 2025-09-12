@@ -286,8 +286,8 @@ static int method_create_or_register_machine(
         if (leader == 1)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
-        if (!isempty(root_directory) && (!path_is_absolute(root_directory) || !path_is_valid(root_directory)))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
+        if (!isempty(root_directory) && (!path_is_absolute(root_directory) || !path_is_valid(root_directory) || path_is_os_tree(root_directory) <= 0))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path to an OS tree");
 
         if (leader == 0) {
                 /* If no PID is specified, the client is the leader */
