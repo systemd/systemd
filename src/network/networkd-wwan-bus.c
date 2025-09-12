@@ -950,6 +950,19 @@ static int modem_properties_changed_signal(
         return modem_on_state_change(modem, old_state, old_fail_reason);
 }
 
+static int modem_properties_changed_installed(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *ret_error) {
+        Modem *modem = ASSERT_PTR(userdata);
+
+        /*
+         * As soon as the signal handler installed we can start reconnect
+         * so we don't miss any property changed.
+         */
+        return modem_on_state_change(modem, MM_MODEM_STATE_UNKNOWN, MM_MODEM_STATE_FAILED_REASON_UNKNOWN);
+}
+
 static int modem_match_properties_changed(Modem *modem, const char *path) {
         int r;
 
@@ -960,7 +973,7 @@ static int modem_match_properties_changed(Modem *modem, const char *path) {
         r = sd_bus_match_signal_async(modem->manager->bus, &modem->slot_propertieschanged,
                                       "org.freedesktop.ModemManager1", path,
                                       "org.freedesktop.DBus.Properties", "PropertiesChanged",
-                                      modem_properties_changed_signal, NULL, modem);
+                                      modem_properties_changed_signal, modem_properties_changed_installed, modem);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for PropertiesChanged for modem %s: %m", path);
 
@@ -998,7 +1011,7 @@ static int modem_add(Manager *m, const char *path, sd_bus_message *message, sd_b
         if (r < 0)
                 return log_warning_errno(r, "Failed to map properties at %s, ignoring", path);
 
-        return modem_on_state_change(modem, MM_MODEM_STATE_UNKNOWN, MM_MODEM_STATE_FAILED_REASON_UNKNOWN);
+        return 0;
 }
 
 static int modem_remove(Manager *m, const char *path) {
