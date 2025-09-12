@@ -613,6 +613,10 @@ static void modem_simple_connect(Modem *modem) {
         Link *link;
         int r;
 
+        /* Already have simple connect in progress? */
+        if (modem->slot_connect)
+                return;
+
         if (modem->reconnect_state != MODEM_RECONNECT_SCHEDULED)
                 return;
 
@@ -1258,6 +1262,8 @@ int manager_notify_mm_bus_connected(Manager *m) {
          */
         assert(m);
         assert(sd_bus_is_ready(m->bus) > 0);
+
+        m->slot = sd_bus_slot_unref(m->slot);
 
         r = sd_bus_call_method_async(m->bus, &m->slot,
                                      "org.freedesktop.DBus",
