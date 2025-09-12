@@ -284,7 +284,6 @@ typedef struct ConfigTableItem ConfigTableItem;
 typedef struct CPUSet CPUSet;
 typedef struct FDSet FDSet;
 typedef struct Fido2HmacSalt Fido2HmacSalt;
-typedef struct FirewallContext FirewallContext;
 typedef struct GroupRecord GroupRecord;
 typedef struct Image Image;
 typedef struct ImagePolicy ImagePolicy;

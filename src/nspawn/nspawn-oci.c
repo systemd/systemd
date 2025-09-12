@@ -1581,15 +1581,9 @@ static int oci_seccomp_action_from_string(const char *name, uint32_t *ret) {
                 { "SCMP_ACT_ALLOW",         SCMP_ACT_ALLOW        },
                 { "SCMP_ACT_ERRNO",         SCMP_ACT_ERRNO(EPERM) }, /* the OCI spec doesn't document the error, but it appears EPERM is supposed to be used */
                 { "SCMP_ACT_KILL",          SCMP_ACT_KILL         },
-#ifdef SCMP_ACT_KILL_PROCESS
                 { "SCMP_ACT_KILL_PROCESS",  SCMP_ACT_KILL_PROCESS },
-#endif
-#ifdef SCMP_ACT_KILL_THREAD
                 { "SCMP_ACT_KILL_THREAD",   SCMP_ACT_KILL_THREAD  },
-#endif
-#ifdef SCMP_ACT_LOG
                 { "SCMP_ACT_LOG",           SCMP_ACT_LOG          },
-#endif
                 { "SCMP_ACT_TRAP",          SCMP_ACT_TRAP         },
 
                 /* We don't support SCMP_ACT_TRACE because that requires a tracer, and that doesn't really make sense
@@ -1623,12 +1617,8 @@ static int oci_seccomp_arch_from_string(const char *name, uint32_t *ret) {
                 { "SCMP_ARCH_MIPSEL64",    SCMP_ARCH_MIPSEL64    },
                 { "SCMP_ARCH_MIPSEL64N32", SCMP_ARCH_MIPSEL64N32 },
                 { "SCMP_ARCH_NATIVE",      SCMP_ARCH_NATIVE      },
-#ifdef SCMP_ARCH_PARISC
                 { "SCMP_ARCH_PARISC",      SCMP_ARCH_PARISC      },
-#endif
-#ifdef SCMP_ARCH_PARISC64
                 { "SCMP_ARCH_PARISC64",    SCMP_ARCH_PARISC64    },
-#endif
                 { "SCMP_ARCH_PPC",         SCMP_ARCH_PPC         },
                 { "SCMP_ARCH_PPC64",       SCMP_ARCH_PPC64       },
                 { "SCMP_ARCH_PPC64LE",     SCMP_ARCH_PPC64LE     },

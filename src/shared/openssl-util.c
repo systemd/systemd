@@ -97,21 +97,13 @@ int openssl_digest_size(const char *digest_alg, size_t *ret_digest_size) {
         assert(digest_alg);
         assert(ret_digest_size);
 
-#if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, digest_alg, NULL);
-#else
-        const EVP_MD *md = EVP_get_digestbyname(digest_alg);
-#endif
         if (!md)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Digest algorithm '%s' not supported.", digest_alg);
 
         size_t digest_size;
-#if OPENSSL_VERSION_MAJOR >= 3
         digest_size = EVP_MD_get_size(md);
-#else
-        digest_size = EVP_MD_size(md);
-#endif
         if (digest_size == 0)
                 return log_openssl_errors("Failed to get Digest size");
 
@@ -136,11 +128,7 @@ int openssl_digest_many(
         assert(ret_digest);
         /* ret_digest_size is optional, as caller may already know the digest size */
 
-#if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, digest_alg, NULL);
-#else
-        const EVP_MD *md = EVP_get_digestbyname(digest_alg);
-#endif
         if (!md)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Digest algorithm '%s' not supported.", digest_alg);
@@ -196,16 +184,11 @@ int openssl_hmac_many(
         assert(ret_digest);
         /* ret_digest_size is optional, as caller may already know the digest size */
 
-#if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, digest_alg, NULL);
-#else
-        const EVP_MD *md = EVP_get_digestbyname(digest_alg);
-#endif
         if (!md)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Digest algorithm '%s' not supported.", digest_alg);
 
-#if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(EVP_MAC_freep) EVP_MAC *mac = EVP_MAC_fetch(NULL, "HMAC", NULL);
         if (!mac)
                 return log_openssl_errors("Failed to create new EVP_MAC");
@@ -227,29 +210,13 @@ int openssl_hmac_many(
 
         if (!EVP_MAC_init(ctx, key, key_size, params))
                 return log_openssl_errors("Failed to initialize EVP_MAC_CTX");
-#else
-        _cleanup_(HMAC_CTX_freep) HMAC_CTX *ctx = HMAC_CTX_new();
-        if (!ctx)
-                return log_openssl_errors("Failed to create new HMAC_CTX");
-
-        if (!HMAC_Init_ex(ctx, key, key_size, md, NULL))
-                return log_openssl_errors("Failed to initialize HMAC_CTX");
-#endif
 
         for (size_t i = 0; i < n_data; i++)
-#if OPENSSL_VERSION_MAJOR >= 3
                 if (!EVP_MAC_update(ctx, data[i].iov_base, data[i].iov_len))
-#else
-                if (!HMAC_Update(ctx, data[i].iov_base, data[i].iov_len))
-#endif
                         return log_openssl_errors("Failed to update HMAC");
 
         size_t digest_size;
-#if OPENSSL_VERSION_MAJOR >= 3
         digest_size = EVP_MAC_CTX_get_mac_size(ctx);
-#else
-        digest_size = HMAC_size(ctx);
-#endif
         if (digest_size == 0)
                 return log_openssl_errors("Failed to get HMAC digest size");
 
@@ -257,13 +224,8 @@ int openssl_hmac_many(
         if (!buf)
                 return log_oom_debug();
 
-#if OPENSSL_VERSION_MAJOR >= 3
         size_t size;
         if (!EVP_MAC_final(ctx, buf, &size, digest_size))
-#else
-        unsigned size;
-        if (!HMAC_Final(ctx, buf, &size))
-#endif
                 return log_openssl_errors("Failed to finalize HMAC");
 
         assert(size == digest_size);
@@ -306,11 +268,7 @@ int openssl_cipher_many(
         if (asprintf(&cipher_alg, "%s-%zu-%s", alg, bits, mode) < 0)
                 return log_oom_debug();
 
-#if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(EVP_CIPHER_freep) EVP_CIPHER *cipher = EVP_CIPHER_fetch(NULL, cipher_alg, NULL);
-#else
-        const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_alg);
-#endif
         if (!cipher)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Cipher algorithm '%s' not supported.", cipher_alg);
@@ -391,7 +349,6 @@ int kdf_ss_derive(
                 size_t derive_size,
                 void **ret) {
 
-#if OPENSSL_VERSION_MAJOR >= 3
         assert(digest);
         assert(key);
         assert(derive_size > 0);
@@ -437,9 +394,6 @@ int kdf_ss_derive(
         *ret = TAKE_PTR(buf);
 
         return 0;
-#else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "KDF-SS requires OpenSSL >= 3.");
-#endif
 }
 
 /* Perform Key-Based HMAC KDF. The mode must be "COUNTER" or "FEEDBACK". The parameter naming is from the
@@ -461,7 +415,6 @@ int kdf_kb_hmac_derive(
                 size_t derive_size,
                 void **ret) {
 
-#if OPENSSL_VERSION_MAJOR >= 3
         assert(mode);
         assert(strcaseeq(mode, "COUNTER") || strcaseeq(mode, "FEEDBACK"));
         assert(digest);
@@ -523,9 +476,6 @@ int kdf_kb_hmac_derive(
         *ret = TAKE_PTR(buf);
 
         return 0;
-#else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "KDF-KB requires OpenSSL >= 3.");
-#endif
 }
 
 int rsa_encrypt_bytes(
@@ -583,11 +533,7 @@ int rsa_oaep_encrypt_bytes(
         assert(ret_encrypt_key);
         assert(ret_encrypt_key_size);
 
-#if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, digest_alg, NULL);
-#else
-        const EVP_MD *md = EVP_get_digestbyname(digest_alg);
-#endif
         if (!md)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                        "Digest algorithm '%s' not supported.", digest_alg);
@@ -672,7 +618,6 @@ int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size
         assert(e_size != 0);
         assert(ret);
 
-#if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
         if (!ctx)
                 return log_openssl_errors("Failed to create new EVP_PKEY_CTX");
@@ -701,34 +646,6 @@ int rsa_pkey_from_n_e(const void *n, size_t n_size, const void *e, size_t e_size
 
         if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
                 return log_openssl_errors("Failed to create RSA EVP_PKEY");
-#else
-        _cleanup_(BN_freep) BIGNUM *bn_n = BN_bin2bn(n, n_size, NULL);
-        if (!bn_n)
-                return log_openssl_errors("Failed to create BIGNUM for RSA n");
-
-        _cleanup_(BN_freep) BIGNUM *bn_e = BN_bin2bn(e, e_size, NULL);
-        if (!bn_e)
-                return log_openssl_errors("Failed to create BIGNUM for RSA e");
-
-        _cleanup_(RSA_freep) RSA *rsa_key = RSA_new();
-        if (!rsa_key)
-                return log_openssl_errors("Failed to create new RSA");
-
-        if (!RSA_set0_key(rsa_key, bn_n, bn_e, NULL))
-                return log_openssl_errors("Failed to set RSA n/e");
-        /* rsa_key owns these now, don't free */
-        TAKE_PTR(bn_n);
-        TAKE_PTR(bn_e);
-
-        pkey = EVP_PKEY_new();
-        if (!pkey)
-                return log_openssl_errors("Failed to create new EVP_PKEY");
-
-        if (!EVP_PKEY_assign_RSA(pkey, rsa_key))
-                return log_openssl_errors("Failed to assign RSA key");
-        /* pkey owns this now, don't free */
-        TAKE_PTR(rsa_key);
-#endif
 
         *ret = TAKE_PTR(pkey);
 
@@ -749,7 +666,6 @@ int rsa_pkey_to_n_e(
         assert(ret_e);
         assert(ret_e_size);
 
-#if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_(BN_freep) BIGNUM *bn_n = NULL;
         if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_N, &bn_n))
                 return log_openssl_errors("Failed to get RSA n");
@@ -757,19 +673,6 @@ int rsa_pkey_to_n_e(
         _cleanup_(BN_freep) BIGNUM *bn_e = NULL;
         if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_RSA_E, &bn_e))
                 return log_openssl_errors("Failed to get RSA e");
-#else
-        const RSA *rsa = EVP_PKEY_get0_RSA((EVP_PKEY*) pkey);
-        if (!rsa)
-                return log_openssl_errors("Failed to get RSA key from public key");
-
-        const BIGNUM *bn_n = RSA_get0_n(rsa);
-        if (!bn_n)
-                return log_openssl_errors("Failed to get RSA n");
-
-        const BIGNUM *bn_e = RSA_get0_e(rsa);
-        if (!bn_e)
-                return log_openssl_errors("Failed to get RSA e");
-#endif
 
         size_t n_size = BN_num_bytes(bn_n), e_size = BN_num_bytes(bn_e);
         _cleanup_free_ void *n = malloc(n_size), *e = malloc(e_size);
@@ -823,7 +726,6 @@ int ecc_pkey_from_curve_x_y(
         if (!EC_POINT_set_affine_coordinates(group, point, bn_x, bn_y, NULL))
                 return log_openssl_errors("Failed to set ECC coordinates");
 
-#if OPENSSL_VERSION_MAJOR >= 3
         if (EVP_PKEY_fromdata_init(ctx) <= 0)
                 return log_openssl_errors("Failed to initialize EVP_PKEY_CTX");
 
@@ -850,26 +752,6 @@ int ecc_pkey_from_curve_x_y(
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         if (EVP_PKEY_fromdata(ctx, &pkey, EVP_PKEY_PUBLIC_KEY, params) <= 0)
                 return log_openssl_errors("Failed to create ECC EVP_PKEY");
-#else
-        _cleanup_(EC_KEY_freep) EC_KEY *eckey = EC_KEY_new();
-        if (!eckey)
-                return log_openssl_errors("Failed to create new EC_KEY");
-
-        if (!EC_KEY_set_group(eckey, group))
-                return log_openssl_errors("Failed to set ECC group");
-
-        if (!EC_KEY_set_public_key(eckey, point))
-                return log_openssl_errors("Failed to set ECC point");
-
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = EVP_PKEY_new();
-        if (!pkey)
-                return log_openssl_errors("Failed to create new EVP_PKEY");
-
-        if (!EVP_PKEY_assign_EC_KEY(pkey, eckey))
-                return log_openssl_errors("Failed to assign ECC key");
-        /* pkey owns this now, don't free */
-        TAKE_PTR(eckey);
-#endif
 
     *ret = TAKE_PTR(pkey);
 
@@ -889,7 +771,6 @@ int ecc_pkey_to_curve_x_y(
 
         assert(pkey);
 
-#if OPENSSL_VERSION_MAJOR >= 3
         size_t name_size;
         if (!EVP_PKEY_get_utf8_string_param(pkey, OSSL_PKEY_PARAM_GROUP_NAME, NULL, 0, &name_size))
                 return log_openssl_errors("Failed to get ECC group name size");
@@ -910,31 +791,6 @@ int ecc_pkey_to_curve_x_y(
 
         if (!EVP_PKEY_get_bn_param(pkey, OSSL_PKEY_PARAM_EC_PUB_Y, &bn_y))
                 return log_openssl_errors("Failed to get ECC point y");
-#else
-        const EC_KEY *eckey = EVP_PKEY_get0_EC_KEY((EVP_PKEY*) pkey);
-        if (!eckey)
-                return log_openssl_errors("Failed to get EC_KEY");
-
-        const EC_GROUP *group = EC_KEY_get0_group(eckey);
-        if (!group)
-                return log_openssl_errors("Failed to get EC_GROUP");
-
-        curve_id = EC_GROUP_get_curve_name(group);
-        if (curve_id == NID_undef)
-                return log_openssl_errors("Failed to get ECC curve id");
-
-        const EC_POINT *point = EC_KEY_get0_public_key(eckey);
-        if (!point)
-                return log_openssl_errors("Failed to get EC_POINT");
-
-        bn_x = BN_new();
-        bn_y = BN_new();
-        if (!bn_x || !bn_y)
-                return log_openssl_errors("Failed to create new BIGNUM");
-
-        if (!EC_POINT_get_affine_coordinates(group, point, bn_x, bn_y, NULL))
-                return log_openssl_errors("Failed to get ECC x/y.");
-#endif
 
         size_t x_size = BN_num_bytes(bn_x), y_size = BN_num_bytes(bn_y);
         _cleanup_free_ void *x = malloc(x_size), *y = malloc(y_size);
@@ -1251,7 +1107,6 @@ static int ecc_pkey_generate_volume_keys(
         int nid = NID_undef;
         int r;
 
-#if OPENSSL_VERSION_MAJOR >= 3
         _cleanup_free_ char *curve_name = NULL;
         size_t len = 0;
 
@@ -1267,16 +1122,6 @@ static int ecc_pkey_generate_volume_keys(
                 return log_openssl_errors("Failed to get PKEY group name");
 
         nid = OBJ_sn2nid(curve_name);
-#else
-        EC_KEY *ec_key = EVP_PKEY_get0_EC_KEY(pkey);
-        if (!ec_key)
-                return log_openssl_errors("PKEY doesn't have EC_KEY associated");
-
-        if (EC_KEY_check_key(ec_key) != 1)
-                return log_openssl_errors("EC_KEY associated with PKEY is not valid");
-
-        nid = EC_GROUP_get_curve_name(EC_KEY_get0_group(ec_key));
-#endif
 
         r = ecc_pkey_new(nid, &pkey_new);
         if (r < 0)
@@ -1286,38 +1131,11 @@ static int ecc_pkey_generate_volume_keys(
         if (r < 0)
                 return log_debug_errno(r, "Failed to derive shared secret: %m");
 
-#if OPENSSL_VERSION_MAJOR >= 3
         /* EVP_PKEY_get1_encoded_public_key() always returns uncompressed format of EC points.
            See https://github.com/openssl/openssl/discussions/22835 */
         saved_key_size = EVP_PKEY_get1_encoded_public_key(pkey_new, &saved_key);
         if (saved_key_size == 0)
                 return log_openssl_errors("Failed to convert the generated public key to SEC1 format");
-#else
-        EC_KEY *ec_key_new = EVP_PKEY_get0_EC_KEY(pkey_new);
-        if (!ec_key_new)
-                return log_openssl_errors("The generated key doesn't have associated EC_KEY");
-
-        if (EC_KEY_check_key(ec_key_new) != 1)
-                return log_openssl_errors("EC_KEY associated with the generated key is not valid");
-
-        saved_key_size = EC_POINT_point2oct(EC_KEY_get0_group(ec_key_new),
-                                            EC_KEY_get0_public_key(ec_key_new),
-                                            POINT_CONVERSION_UNCOMPRESSED,
-                                            NULL, 0, NULL);
-        if (saved_key_size == 0)
-                return log_openssl_errors("Failed to determine size of the generated public key");
-
-        saved_key = malloc(saved_key_size);
-        if (!saved_key)
-                return log_oom_debug();
-
-        saved_key_size = EC_POINT_point2oct(EC_KEY_get0_group(ec_key_new),
-                                            EC_KEY_get0_public_key(ec_key_new),
-                                            POINT_CONVERSION_UNCOMPRESSED,
-                                            saved_key, saved_key_size, NULL);
-        if (saved_key_size == 0)
-                return log_openssl_errors("Failed to convert the generated public key to SEC1 format");
-#endif
 
         *ret_decrypted_key = TAKE_PTR(decrypted_key);
         *ret_decrypted_key_size = decrypted_key_size;
@@ -1376,11 +1194,7 @@ int pkey_generate_volume_keys(
         assert(ret_saved_key);
         assert(ret_saved_key_size);
 
-#if OPENSSL_VERSION_MAJOR >= 3
         int type = EVP_PKEY_get_base_id(pkey);
-#else
-        int type = EVP_PKEY_base_id(pkey);
-#endif
         switch (type) {
 
         case EVP_PKEY_RSA:
@@ -1406,7 +1220,6 @@ static int load_key_from_provider(
         assert(private_key_uri);
         assert(ret);
 
-#if OPENSSL_VERSION_MAJOR >= 3
         /* Load the provider so that this can work without any custom written configuration in /etc/.
          * Also load the 'default' as that seems to be the recommendation. */
         if (!OSSL_PROVIDER_try_load(/* ctx= */ NULL, provider, /* retain_fallbacks= */ true))
@@ -1437,9 +1250,6 @@ static int load_key_from_provider(
         *ret = TAKE_PTR(private_key);
 
         return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
 
 static int load_key_from_engine(const char *engine, const char *private_key_uri, EVP_PKEY **ret) {
@@ -1610,7 +1420,6 @@ static int load_x509_certificate_from_provider(const char *provider, const char 
         assert(certificate_uri);
         assert(ret);
 
-#if OPENSSL_VERSION_MAJOR >= 3
         /* Load the provider so that this can work without any custom written configuration in /etc/.
          * Also load the 'default' as that seems to be the recommendation. */
         if (!OSSL_PROVIDER_try_load(/* ctx= */ NULL, provider, /* retain_fallbacks= */ true))
@@ -1641,9 +1450,6 @@ static int load_x509_certificate_from_provider(const char *provider, const char 
         *ret = TAKE_PTR(cert);
 
         return 0;
-#else
-        return -EOPNOTSUPP;
-#endif
 }
 #endif
 
