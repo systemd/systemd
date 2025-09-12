@@ -1635,6 +1635,17 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionRTC=</varname></term>
+
+          <listitem><para>Check whether the system has a working RTC with valid time set. If set to
+          <literal>default</literal>, the default system rtc will be checked, otherwise a valid path to the
+          RTC device node must be specified.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionNeedsUpdate=</varname></term>
 
           <listitem><para>Takes one of <filename>/var/</filename> or <filename>/etc/</filename> as argument,
