@@ -73,9 +73,7 @@ static int address_append_json(Address *address, bool serializing, sd_json_varia
                                 SD_JSON_BUILD_PAIR_UNSIGNED("Flags", address->flags),
                                 SD_JSON_BUILD_PAIR_STRING("FlagsString", flags),
                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("Label", address->label),
-                                JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUSec", address->lifetime_preferred_usec),
                                 JSON_BUILD_PAIR_FINITE_USEC("PreferredLifetimeUsec", address->lifetime_preferred_usec), /* for backward compat */
-                                JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUSec", address->lifetime_valid_usec),
                                 JSON_BUILD_PAIR_FINITE_USEC("ValidLifetimeUsec", address->lifetime_valid_usec), /* for backward compat */
                                 SD_JSON_BUILD_PAIR_STRING("ConfigState", state));
                 if (r < 0)
