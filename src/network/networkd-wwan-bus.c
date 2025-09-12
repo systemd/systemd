@@ -546,7 +546,8 @@ static int sd_bus_call_method_async_props(
 
         STRV_FOREACH(prop, link->network->modem_simple_connect_props) {
                 const char *type;
-                char *left, *right;
+                _cleanup_free_ char *left = NULL;
+                _cleanup_free_ char *right = NULL;
                 signed int right_i;
                 unsigned int right_u;
 
