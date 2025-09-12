@@ -1818,24 +1818,16 @@ static int bus_map_link_info(sd_bus *bus, int ifindex, sd_bus_message **ret_repl
         return 0;
 }
 
-static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
+static int status_ifindex_print(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(link_info_done) LinkInfo link_info = {};
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_strv_free_ char **pstatus = NULL;
-        char ifname[IF_NAMESIZE];
         int r;
 
         assert(bus);
         assert(ifindex > 0);
-
-        if (!name) {
-                r = format_ifname(ifindex, ifname);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to resolve interface name for %i: %m", ifindex);
-
-                name = ifname;
-        }
+        assert(name);
 
         r = bus_map_link_info(bus, ifindex, &m, &link_info);
         if (r < 0)
@@ -1975,6 +1967,179 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
                 *empty_line = true;
 
         return 0;
+}
+
+static int status_ifindex_json(sd_bus *bus, int ifindex, const char *name, StatusMode mode, sd_json_variant **ret_status) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_strv_free_ char **current_scopes = NULL;
+        _cleanup_(link_info_done) LinkInfo link_info = {};
+        int r;
+
+        assert(bus);
+        assert(ifindex > 0);
+        assert(name);
+        assert(ret_status);
+
+        r = bus_map_link_info(bus, ifindex, &m, &link_info);
+        if (r < 0)
+                return r;
+
+        switch (mode) {
+
+        case STATUS_ALL:
+                if (link_info.scopes_mask & SD_RESOLVED_DNS) {
+                        r = strv_extend(&current_scopes, "DNS");
+                        if (r < 0)
+                                return r;
+                }
+
+                if (link_info.scopes_mask & SD_RESOLVED_LLMNR_IPV4) {
+                        r = strv_extend(&current_scopes, "LLMNR/IPv4");
+                        if (r < 0)
+                                return r;
+                }
+
+                if (link_info.scopes_mask & SD_RESOLVED_LLMNR_IPV6) {
+                        r = strv_extend(&current_scopes, "LLMNR/IPv6");
+                        if (r < 0)
+                                return r;
+                }
+
+                if (link_info.scopes_mask & SD_RESOLVED_MDNS_IPV4) {
+                        r = strv_extend(&current_scopes, "mDNS/IPv4");
+                        if (r < 0)
+                                return r;
+                }
+
+                if (link_info.scopes_mask & SD_RESOLVED_MDNS_IPV6) {
+                        r = strv_extend(&current_scopes, "mDNS/IPv6");
+                        if (r < 0)
+                                return r;
+                }
+
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", name),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("InterfaceIndex", ifindex),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("CurrentDNS", link_info.current_dns_ex ?: link_info.current_dns),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("CurrentScopes", current_scopes),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("DNS", link_info.dns_ex ?: link_info.dns),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("Domains", link_info.domains),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRoute", link_info.default_route),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("LLMNR", link_info.llmnr),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("mDNS", link_info.mdns),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("DNSOverTLS", link_info.dns_over_tls),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("DNSSEC", link_info.dnssec),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("NegativeTrustAnchors", link_info.ntas));
+
+        case STATUS_DEFAULT_ROUTE:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", name),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("InterfaceIndex", ifindex),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRoute", link_info.default_route));
+
+        case STATUS_DNS:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", name),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("InterfaceIndex", ifindex),
+                                SD_JSON_BUILD_PAIR_STRV("DNS", link_info.dns_ex ?: link_info.dns));
+
+        case STATUS_DOMAIN:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", name),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("InterfaceIndex", ifindex),
+                                SD_JSON_BUILD_PAIR_STRV("Domains", link_info.domains));
+
+        case STATUS_NTA:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", name),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("InterfaceIndex", ifindex),
+                                SD_JSON_BUILD_PAIR_STRV("NegativeTrustAnchors", link_info.ntas));
+
+        case STATUS_LLMNR:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", name),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("InterfaceIndex", ifindex),
+                                SD_JSON_BUILD_PAIR_STRING("LLMNR", link_info.llmnr));
+
+        case STATUS_MDNS:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", name),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("InterfaceIndex", ifindex),
+                                SD_JSON_BUILD_PAIR_STRING("mDNS", link_info.mdns));
+
+        case STATUS_PRIVATE:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", name),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("InterfaceIndex", ifindex),
+                                SD_JSON_BUILD_PAIR_STRING("DNSOverTLS", link_info.dns_over_tls));
+
+        case STATUS_DNSSEC:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("InterfaceName", name),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("InterfaceIndex", ifindex),
+                                SD_JSON_BUILD_PAIR_STRING("DNSSEC", link_info.dnssec));
+
+        default:
+                return 0;
+        }
+}
+
+static int status_ifindex_json_append(sd_bus *bus, int ifindex, const char *name, StatusMode mode, sd_json_variant **status) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(bus);
+        assert(name);
+        assert(ifindex > 0);
+        assert(status);
+
+        r = status_ifindex_json(bus, ifindex, name, mode, &v);
+        if (r < 0)
+                return r;
+
+        if (!v || sd_json_variant_is_null(v))
+                return 0;
+
+        return sd_json_variant_append_array(status, v);
+}
+
+static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode) {
+        char ifname[IF_NAMESIZE];
+        int r;
+
+        assert(bus);
+        assert(ifindex > 0);
+
+        if (!name) {
+                r = format_ifname(ifindex, ifname);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resolve interface name for %i: %m", ifindex);
+
+                name = ifname;
+        }
+
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *status = NULL;
+
+                r = status_ifindex_json(bus, ifindex, name, mode, &status);
+                if (r < 0)
+                        return r;
+
+                sd_json_variant_dump(status, arg_json_format_flags, NULL, NULL);
+
+                return 0;
+        }
+
+        return status_ifindex_print(bus, ifindex, name, mode, NULL);
 }
 
 static int map_global_dns_servers_internal(
@@ -2191,6 +2356,74 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
         return 0;
 }
 
+static int status_global_json(sd_bus *bus, StatusMode mode, sd_json_variant **ret_status) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(global_info_done) GlobalInfo info = {};
+        int r;
+
+        assert(bus);
+        assert(ret_status);
+
+        r = bus_map_global_info(bus, &m, &info);
+        if (r < 0)
+                return r;
+
+        switch (mode) {
+
+        case STATUS_ALL:
+                return sd_json_buildo(
+                                ret_status,
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("ResolvConfMode", info.resolv_conf_mode),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("CurrentDNS", info.current_dns_ex ?: info.current_dns),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("FallbackDNSServers", info.fallback_dns_ex ?: info.fallback_dns),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("DNS", info.dns_ex ?: info.dns),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("Domains", info.domains),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("mDNS", info.mdns),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("LLMNR", info.llmnr),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("DNSOverTLS", info.dns_over_tls),
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("DNSSEC", info.dnssec),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("NegativeTrustAnchors", info.ntas));
+
+        case STATUS_DNS:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRV("DNS", info.dns_ex ?: info.dns));
+
+        case STATUS_DOMAIN:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRV("Domains", info.domains));
+
+        case STATUS_NTA:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRV("NegativeTrustAnchors", info.ntas));
+
+        case STATUS_LLMNR:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("LLMNR", info.llmnr));
+
+        case STATUS_MDNS:
+                return sd_json_buildo(
+                                ret_status,
+                                JSON_BUILD_PAIR_STRING_NON_EMPTY("mDNS", info.mdns));
+
+        case STATUS_PRIVATE:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("DNSOverTLS", info.dns_over_tls));
+
+        case STATUS_DNSSEC:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("DNSSEC", info.dnssec));
+
+        default:
+                return 0;
+        }
+}
+
 static int rtnl_get_interface_infos(sd_bus *bus, InterfaceInfo **ret_infos, size_t *ret_num_infos) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
@@ -2267,7 +2500,25 @@ static int status_links(sd_bus *bus, StatusMode mode, bool *empty_line) {
                 return r;
 
         FOREACH_ARRAY(info, infos, n_infos)
-                RET_GATHER(ret, status_ifindex(bus, info->index, info->name, mode, empty_line));
+                RET_GATHER(ret, status_ifindex_print(bus, info->index, info->name, mode, empty_line));
+
+        return ret;
+}
+
+static int status_links_json(sd_bus *bus, StatusMode mode, sd_json_variant **ret_status) {
+        _cleanup_free_ InterfaceInfo *infos = NULL;
+        size_t n_infos = 0;
+        int ret = 0, r;
+
+        assert(bus);
+        assert(ret_status);
+
+        r = rtnl_get_interface_infos(bus, &infos, &n_infos);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(info, infos, n_infos)
+                RET_GATHER(ret, status_ifindex_json_append(bus, info->index, info->name, mode, ret_status));
 
         return ret;
 }
@@ -2414,6 +2665,73 @@ static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, boo
         return 0;
 }
 
+static int status_delegates_one_json(sd_bus *bus, const char *id, StatusMode mode, sd_json_variant **ret_status) {
+        _cleanup_(delegate_info_done) DelegateInfo delegate_info = {};
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(bus);
+        assert(id);
+        assert(ret_status);
+
+        if (!IN_SET(mode, STATUS_ALL, STATUS_DNS, STATUS_DOMAIN, STATUS_DEFAULT_ROUTE))
+                return 0;
+
+        r = bus_map_delegate_info(bus, id, &m, &delegate_info);
+        if (r < 0)
+                return r;
+
+        switch (mode) {
+
+        case STATUS_ALL:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("Delegate", id),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("DNS", delegate_info.dns),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("Domains", delegate_info.domains),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRoute", delegate_info.default_route));
+
+        case STATUS_DNS:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("Delegate", id),
+                                SD_JSON_BUILD_PAIR_STRV("DNS", delegate_info.dns));
+
+        case STATUS_DOMAIN:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("Delegate", id),
+                                SD_JSON_BUILD_PAIR_STRV("Domains", delegate_info.domains));
+
+        case STATUS_DEFAULT_ROUTE:
+                return sd_json_buildo(
+                                ret_status,
+                                SD_JSON_BUILD_PAIR_STRING("Delegate", id),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRoute", delegate_info.default_route));
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static int status_delegates_json_append(sd_bus *bus, const char *id, StatusMode mode, sd_json_variant **status) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(bus);
+        assert(id);
+        assert(status);
+
+        r = status_delegates_one_json(bus, id, mode, &v);
+        if (r < 0)
+                return r;
+
+        if (!v || sd_json_variant_is_null(v))
+                return 0;
+
+        return sd_json_variant_append_array(status, v);
+}
+
 static int bus_list_delegates(sd_bus *bus, char ***ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2476,11 +2794,69 @@ static int status_delegates(sd_bus *bus, StatusMode mode, bool *empty_line) {
         return ret;
 }
 
+static int status_delegates_json(sd_bus *bus, StatusMode mode, sd_json_variant **ret_status) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        int ret = 0, r;
+
+        assert(bus);
+        assert(ret_status);
+
+        r = bus_list_delegates(bus, &l);
+        if (r < 0)
+                return r;
+
+        if (strv_isempty(l))
+                return 0;
+
+        STRV_FOREACH(i, l)
+                RET_GATHER(ret, status_delegates_json_append(bus, *i, mode, ret_status));
+
+        return ret;
+}
+
+static int status_all_json(sd_bus *bus, StatusMode mode) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *status = NULL,
+                                                          *global = NULL,
+                                                          *links = NULL,
+                                                          *delegates = NULL;
+        int r;
+
+        assert(bus);
+
+        r = status_global_json(bus, mode, &global);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get global JSON: %m");
+
+        r = status_links_json(bus, mode, &links);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get links JSON: %m");
+
+        r = status_delegates_json(bus, mode, &delegates);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get delegates JSON: %m");
+
+        r = sd_json_buildo(
+                        &status,
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("Global", global),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("Links", links),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("Delegates", delegates));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build status JSON: %m");
+
+        sd_json_variant_dump(status, arg_json_format_flags, NULL, NULL);
+
+        return 0;
+}
+
 static int status_all(sd_bus *bus, StatusMode mode) {
         bool empty_line = false;
         int r;
 
         assert(bus);
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                return status_all_json(bus, mode);
 
         r = status_global(bus, mode, &empty_line);
         if (r < 0)
@@ -2500,6 +2876,7 @@ static int status_all(sd_bus *bus, StatusMode mode) {
 static int verb_status(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *status = NULL;
         bool empty_line = false;
         int r, ret = 0;
 
@@ -2511,16 +2888,28 @@ static int verb_status(int argc, char **argv, void *userdata) {
                 return status_all(bus, STATUS_ALL);
 
         STRV_FOREACH(ifname, strv_skip(argv, 1)) {
+                _cleanup_free_ char *main_ifname = NULL;
                 int ifindex;
 
-                ifindex = rtnl_resolve_interface(&rtnl, *ifname);
+                ifindex = rtnl_resolve_ifname_full(
+                                &rtnl,
+                                RESOLVE_IFNAME_ALTERNATIVE | RESOLVE_IFNAME_NUMERIC,
+                                *ifname,
+                                &main_ifname,
+                                NULL);
                 if (ifindex < 0) {
                         log_warning_errno(ifindex, "Failed to resolve interface \"%s\", ignoring: %m", *ifname);
                         continue;
                 }
 
-                RET_GATHER(ret, status_ifindex(bus, ifindex, NULL, STATUS_ALL, &empty_line));
+                if (sd_json_format_enabled(arg_json_format_flags))
+                        RET_GATHER(ret, status_ifindex_json_append(bus, ifindex, main_ifname, STATUS_ALL, &status));
+                else
+                        RET_GATHER(ret, status_ifindex_print(bus, ifindex, main_ifname, STATUS_ALL, &empty_line));
         }
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                sd_json_variant_dump(status, arg_json_format_flags, NULL, NULL);
 
         return ret;
 }
@@ -2617,7 +3006,7 @@ static int verb_dns(int argc, char **argv, void *userdata) {
                 return status_all(bus, STATUS_DNS);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS);
 
         char **args = strv_skip(argv, 2);
         r = call_dns(bus, args, bus_resolve_mgr, &error, true);
@@ -2702,7 +3091,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
                 return status_all(bus, STATUS_DOMAIN);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DOMAIN, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DOMAIN);
 
         char **args = strv_skip(argv, 2);
         r = call_domain(bus, args, bus_resolve_mgr, &error);
@@ -2741,7 +3130,7 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
                 return status_all(bus, STATUS_DEFAULT_ROUTE);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DEFAULT_ROUTE, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DEFAULT_ROUTE);
 
         b = parse_boolean(argv[2]);
         if (b < 0)
@@ -2787,7 +3176,7 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
                 return status_all(bus, STATUS_LLMNR);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_LLMNR, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_LLMNR);
 
         llmnr_support = resolve_support_from_string(argv[2]);
         if (llmnr_support < 0)
@@ -2845,7 +3234,7 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
                 return status_all(bus, STATUS_MDNS);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_MDNS, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_MDNS);
 
         mdns_support = resolve_support_from_string(argv[2]);
         if (mdns_support < 0)
@@ -2907,7 +3296,7 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
                 return status_all(bus, STATUS_PRIVATE);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_PRIVATE, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_PRIVATE);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
@@ -2953,7 +3342,7 @@ static int verb_dnssec(int argc, char **argv, void *userdata) {
                 return status_all(bus, STATUS_DNSSEC);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNSSEC, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNSSEC);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
@@ -3016,7 +3405,7 @@ static int verb_nta(int argc, char **argv, void *userdata) {
                 return status_all(bus, STATUS_NTA);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_NTA, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_NTA);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
