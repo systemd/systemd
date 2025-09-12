@@ -15,6 +15,7 @@
 #include "machine-varlink.h"
 #include "machined.h"
 #include "mount-util.h"
+#include "namespace-util.h"
 #include "operation.h"
 #include "pidref.h"
 #include "socket-util.h"
@@ -185,6 +186,15 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         r = sd_varlink_get_peer_uid(link, &machine->uid);
         if (r < 0)
                 return r;
+
+        /* Ensure an unprivileged user cannot claim any process he doesn't control as its own machine */
+        if (machine->uid != 0) {
+                r = process_is_owned_by_uid(&machine->leader, machine->uid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+        }
 
         r = machine_link(manager, machine);
         if (r == -EEXIST)
