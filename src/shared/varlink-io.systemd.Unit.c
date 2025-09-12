@@ -455,7 +455,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The total number of bytes written to block devices by the cgroup"),
                 SD_VARLINK_DEFINE_FIELD(IOWriteBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The total number of write operations performed on block devices by the cgroup"),
-                SD_VARLINK_DEFINE_FIELD(IOWriteOperations, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(IOWriteOperations, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+
+                /* OOM */
+                SD_VARLINK_FIELD_COMMENT("The number of processes of this unit killed by the kernel OOM killer"),
+                SD_VARLINK_DEFINE_FIELD(OOMKills, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The number of processes of this unit killed by systemd-oomd"),
+                SD_VARLINK_DEFINE_FIELD(ManagedOOMKills, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitRuntime,
