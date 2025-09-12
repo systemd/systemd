@@ -90,8 +90,12 @@ modulesloaddir=${modules_load_dir}
 catalog_dir=${prefix}/lib/systemd/catalog
 catalogdir=${catalog_dir}
 
+system_alloc_uid_min={{SYSTEM_ALLOC_UID_MIN}}
+systemallocuidmin=${system_alloc_uid_min}
 system_uid_max={{SYSTEM_UID_MAX}}
 systemuidmax=${system_uid_max}
+system_alloc_gid_min={{SYSTEM_ALLOC_GID_MIN}}
+systemallocgidmin=${system_alloc_gid_min}
 system_gid_max={{SYSTEM_GID_MAX}}
 systemgidmax=${system_gid_max}
 
