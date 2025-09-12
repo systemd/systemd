@@ -310,41 +310,32 @@ static void copy_files_free_many(CopyFiles *f, size_t n) {
         free(f);
 }
 
-typedef enum SubvolumeFlags {
-        SUBVOLUME_RO               = 1 << 0,
-        SUBVOLUME_NODATACOW        = 1 << 1,
-        SUBVOLUME_NODATASUM        = 1 << 2,
-        _SUBVOLUME_FLAGS_MASK      = SUBVOLUME_NODATASUM|SUBVOLUME_NODATACOW|SUBVOLUME_RO,
-        _SUBVOLUME_FLAGS_INVALID   = -EINVAL,
-        _SUBVOLUME_FLAGS_ERRNO_MAX = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
-} SubvolumeFlags;
-
-static SubvolumeFlags subvolume_flags_from_string_one(const char *s) {
+static BtrfsSubvolFlags subvolume_flags_from_string_one(const char *s) {
         /* This is a bitmask (i.e. not dense), hence we don't use the "string-table.h" stuff here. */
 
         assert(s);
 
         if (streq(s, "ro"))
-                return SUBVOLUME_RO;
+                return BTRFS_SUBVOL_RO;
 
         if (streq(s, "nodatacow"))
-                return SUBVOLUME_NODATACOW;
+                return BTRFS_SUBVOL_NODATACOW;
 
         if (streq(s, "nodatasum"))
-                return SUBVOLUME_NODATASUM;
+                return BTRFS_SUBVOL_NODATASUM;
 
-        return _SUBVOLUME_FLAGS_INVALID;
+        return _BTRFS_SUBVOL_FLAGS_INVALID;
 }
 
-static SubvolumeFlags subvolume_flags_from_string(const char *s) {
-        SubvolumeFlags flags = 0;
+static BtrfsSubvolFlags subvolume_flags_from_string(const char *s) {
+        BtrfsSubvolFlags flags = 0;
         int r;
 
         assert(s);
 
         for (;;) {
                 _cleanup_free_ char *f = NULL;
-                SubvolumeFlags ff;
+                BtrfsSubvolFlags ff;
 
                 r = extract_first_word(&s, &f, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
                 if (r < 0)
@@ -364,7 +355,7 @@ static SubvolumeFlags subvolume_flags_from_string(const char *s) {
 
 typedef struct Subvolume {
         char *path;
-        SubvolumeFlags flags;
+        BtrfsSubvolFlags flags;
 } Subvolume;
 
 static Subvolume* subvolume_free(Subvolume *s) {
@@ -2265,7 +2256,7 @@ static int config_parse_subvolumes(
                 }
 
                 if (f) {
-                        SubvolumeFlags flags = subvolume_flags_from_string(f);
+                        BtrfsSubvolFlags flags = subvolume_flags_from_string(f);
                         if (flags == -EBADRQC) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r, "Unknown subvolume flag in subvolume, ignoring: %s", f);
                                 continue;
@@ -5818,7 +5809,7 @@ static int make_copy_files_denylist(
         return 0;
 }
 
-static int add_subvolume_path(const char *path, Set **subvolumes) {
+static int add_subvolume_path(const char *path, BtrfsSubvolFlags flags, Hashmap **subvolumes) {
         _cleanup_free_ struct stat *st = NULL;
         int r;
 
@@ -5835,63 +5826,73 @@ static int add_subvolume_path(const char *path, Set **subvolumes) {
         if (r < 0)
                 return log_error_errno(r, "Failed to stat source file '%s/%s': %m", strempty(arg_copy_source), path);
 
-        r = set_ensure_consume(subvolumes, &inode_hash_ops, TAKE_PTR(st));
+        r = hashmap_ensure_put(subvolumes, &inode_hash_ops, st, UINT_TO_PTR(flags));
         if (r < 0)
                 return log_oom();
+        if (r == 0)
+                log_debug("Found duplicate subvolume path %s for the same partition", path);
+
+        TAKE_PTR(st);
 
         return 0;
 }
 
-static int make_subvolumes_strv(const Partition *p, char ***ret) {
-        _cleanup_strv_free_ char **subvolumes = NULL;
+static int make_subvolumes_hashmap(const Partition *p, Hashmap **ret) {
+        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
         Subvolume *subvolume;
         int r;
 
         assert(p);
         assert(ret);
 
-        ORDERED_HASHMAP_FOREACH(subvolume, p->subvolumes)
-                if (strv_extend(&subvolumes, subvolume->path) < 0)
+        ORDERED_HASHMAP_FOREACH(subvolume, p->subvolumes) {
+                _cleanup_free_ char *path = NULL;
+
+                path = strdup(subvolume->path);
+                if (!path)
                         return log_oom();
 
-        if (p->suppressing) {
-                char **suppressing;
-
-                r = make_subvolumes_strv(p->suppressing, &suppressing);
+                r = hashmap_ensure_put(&hashmap, &string_hash_ops_free, path, UINT_TO_PTR(subvolume->flags));
                 if (r < 0)
+                        return log_oom();
+                if (r == 0)
+                        log_debug("Found duplicate subvolume path %s for the same partition", path);
+                TAKE_PTR(path);
+        }
+
+        if (p->suppressing) {
+                Hashmap *suppressing;
+
+                if (make_subvolumes_hashmap(p->suppressing, &suppressing) < 0)
                         return r;
 
-                r = strv_extend_strv_consume(&subvolumes, suppressing, /* filter_duplicates= */ true);
+                r = hashmap_merge(hashmap, suppressing);
                 if (r < 0)
                         return log_oom();
         }
 
-        *ret = TAKE_PTR(subvolumes);
+        *ret = TAKE_PTR(hashmap);
         return 0;
 }
 
-static int make_subvolumes_set(
+static int make_subvolumes_by_source_inode_hashmap(
                 const Partition *p,
                 const char *source,
                 const char *target,
-                Set **ret) {
+                Hashmap **ret) {
 
-        _cleanup_strv_free_ char **paths = NULL;
-        _cleanup_set_free_ Set *subvolumes = NULL;
+        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
+        Subvolume *subvolume;
         int r;
 
         assert(p);
         assert(target);
         assert(ret);
 
-        r = make_subvolumes_strv(p, &paths);
-        if (r < 0)
-                return r;
-
-        STRV_FOREACH(subvolume, paths) {
+        ORDERED_HASHMAP_FOREACH(subvolume, p->subvolumes) {
                 _cleanup_free_ char *path = NULL;
 
-                const char *s = path_startswith(*subvolume, target);
+                const char *s = path_startswith(subvolume->path, target);
                 if (!s)
                         continue;
 
@@ -5899,12 +5900,23 @@ static int make_subvolumes_set(
                 if (!path)
                         return log_oom();
 
-                r = add_subvolume_path(path, &subvolumes);
+                r = add_subvolume_path(path, subvolume->flags, &hashmap);
                 if (r < 0)
                         return r;
         }
 
-        *ret = TAKE_PTR(subvolumes);
+        if (p->suppressing) {
+                Hashmap *suppressing;
+
+                if (make_subvolumes_by_source_inode_hashmap(p->suppressing, source, target, &suppressing) < 0)
+                        return r;
+
+                r = hashmap_merge(hashmap, suppressing);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(hashmap);
         return 0;
 }
 
@@ -5972,13 +5984,13 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
 }
 
 static int do_copy_files(Context *context, Partition *p, const char *root) {
-        _cleanup_strv_free_ char **subvolumes = NULL;
+        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
         int r;
 
         assert(p);
         assert(root);
 
-        r = make_subvolumes_strv(p, &subvolumes);
+        r = make_subvolumes_hashmap(p, &subvolumes);
         if (r < 0)
                 return r;
 
@@ -6022,7 +6034,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 
         FOREACH_ARRAY(line, copy_files, n_copy_files) {
                 _cleanup_hashmap_free_ Hashmap *denylist = NULL;
-                _cleanup_set_free_ Set *subvolumes_by_source_inode = NULL;
+                _cleanup_hashmap_free_ Hashmap *subvolumes_by_source_inode = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
                 usec_t ts = epoch_or_infinity();
 
@@ -6032,7 +6044,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 if (r > 0)
                         continue;
 
-                r = make_subvolumes_set(p, line->source, line->target, &subvolumes_by_source_inode);
+                r = make_subvolumes_by_source_inode_hashmap(p, line->source, line->target, &subvolumes_by_source_inode);
                 if (r < 0)
                         return r;
 
@@ -6147,14 +6159,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 }
 
 static int do_make_directories(Partition *p, const char *root) {
-        _cleanup_strv_free_ char **subvolumes = NULL;
+        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
         _cleanup_free_ char **override_dirs = NULL;
         int r;
 
         assert(p);
         assert(root);
 
-        r = make_subvolumes_strv(p, &subvolumes);
+        r = make_subvolumes_hashmap(p, &subvolumes);
         if (r < 0)
                 return r;
 
@@ -6200,7 +6212,7 @@ static int make_subvolumes_read_only(Partition *p, const char *root) {
         int r;
 
         ORDERED_HASHMAP_FOREACH(subvolume, p->subvolumes) {
-                if (!FLAGS_SET(subvolume->flags, SUBVOLUME_RO))
+                if (!FLAGS_SET(subvolume->flags, BTRFS_SUBVOL_RO))
                         continue;
 
                 path = path_join(root, subvolume->path);
@@ -6468,7 +6480,7 @@ static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const cha
                 if (streq_ptr(subvolume->path, default_subvolume) && !strextend(&s, "default"))
                         return log_oom();
 
-                if (FLAGS_SET(subvolume->flags, SUBVOLUME_RO) && !strextend_with_separator(&s, "-", "ro"))
+                if (FLAGS_SET(subvolume->flags, BTRFS_SUBVOL_RO) && !strextend_with_separator(&s, "-", "ro"))
                         return log_oom();
 
                 if (!strextend_with_separator(&s, ":", subvolume->path))
@@ -6491,10 +6503,10 @@ static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
         ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
                 _cleanup_free_ char *s = NULL;
 
-                if (FLAGS_SET(subvolume->flags, SUBVOLUME_NODATACOW) && !strextend_with_separator(&s, ",", "nodatacow"))
+                if (FLAGS_SET(subvolume->flags, BTRFS_SUBVOL_NODATACOW) && !strextend_with_separator(&s, ",", "nodatacow"))
                         return log_oom();
 
-                if (FLAGS_SET(subvolume->flags, SUBVOLUME_NODATASUM) && !strextend_with_separator(&s, ",", "nodatasum"))
+                if (FLAGS_SET(subvolume->flags, BTRFS_SUBVOL_NODATASUM) && !strextend_with_separator(&s, ",", "nodatasum"))
                         return log_oom();
 
                 if (!s)
@@ -6518,7 +6530,7 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
         assert(p);
         assert(ret);
 
-        r = mkfs_options_from_env("REPART", p->format, &ops);
+        r = mkfs_options_from_env("REPART", p->format, &sv);
         if (r < 0)
                 return log_error_errno(r,
                                        "Failed to determine mkfs command line options for '%s': %m",
