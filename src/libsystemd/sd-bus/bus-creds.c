@@ -146,12 +146,13 @@ sd_bus_creds* bus_creds_new(void) {
         return c;
 }
 
-static int bus_creds_new_from_pidref(sd_bus_creds **ret, PidRef *pidref, uint64_t mask) {
+int bus_creds_new_from_pidref(sd_bus_creds **ret, PidRef *pidref, uint64_t mask) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         int r;
 
         assert_return(mask <= _SD_BUS_CREDS_ALL, -EOPNOTSUPP);
         assert_return(ret, -EINVAL);
+        assert_return(pidref, -EINVAL);
 
         c = bus_creds_new();
         if (!c)
