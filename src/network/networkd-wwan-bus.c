@@ -951,33 +951,16 @@ static int modem_properties_changed_signal(
 }
 
 static int modem_match_properties_changed(Modem *modem, const char *path) {
-        static const char *expr_prefix =
-                "type='signal',"
-                "sender='org.freedesktop.ModemManager1',"
-                "path_namespace='";
-        static const char *expr_suffix =
-                "',"
-                "interface='org.freedesktop.DBus.Properties',"
-                "member='PropertiesChanged'";
-        _cleanup_free_ char *buf;
-        size_t len;
         int r;
 
         assert(modem);
         assert(modem->manager);
         assert(modem->manager->bus);
 
-        len = strlen(expr_prefix) + strlen(path) + strlen(expr_suffix) + 1;
-        buf = malloc(len);
-        if (!buf) {
-                log_oom();
-                return 0;
-        }
-
-        snprintf(buf, len, "%s%s%s", expr_prefix, path, expr_suffix);
-
-        r = sd_bus_add_match_async(modem->manager->bus, &modem->slot_propertieschanged,
-                                   buf, modem_properties_changed_signal, NULL, modem);
+        r = sd_bus_match_signal_async(modem->manager->bus, &modem->slot_propertieschanged,
+                                      "org.freedesktop.ModemManager1", path,
+                                      "org.freedesktop.DBus.Properties", "PropertiesChanged",
+                                      modem_properties_changed_signal, NULL, modem);
         if (r < 0)
                 return log_error_errno(r, "Failed to request match for PropertiesChanged for modem %s: %m", path);
 
@@ -1172,24 +1155,6 @@ static int name_owner_changed_signal(sd_bus_message *message, void *userdata, sd
 }
 
 int manager_match_modemmanager_signals(Manager *manager) {
-        static const char *expr_modemmanager =
-                "type='signal',"
-                "sender='org.freedesktop.DBus',"
-                "path_namespace='/org/freedesktop/DBus',"
-                "interface='org.freedesktop.DBus',"
-                "member='NameOwnerChanged'";
-        static const char *expr_iface_added =
-                "type='signal',"
-                "sender='org.freedesktop.ModemManager1',"
-                "path_namespace='/org/freedesktop/ModemManager1',"
-                "interface='org.freedesktop.DBus.ObjectManager',"
-                "member='InterfacesAdded'";
-        static const char *expr_iface_removed =
-                "type='signal',"
-                "sender='org.freedesktop.ModemManager1',"
-                "path_namespace='/org/freedesktop/ModemManager1',"
-                "interface='org.freedesktop.DBus.ObjectManager',"
-                "member='InterfacesRemoved'";
         static const char *expr_bearer_properties =
                 "type='signal',"
                 "sender='org.freedesktop.ModemManager1',"
@@ -1201,23 +1166,37 @@ int manager_match_modemmanager_signals(Manager *manager) {
         assert(manager);
         assert(manager->bus);
 
-        r = sd_bus_add_match_async(manager->bus, NULL, expr_modemmanager, name_owner_changed_signal,
-                                   NULL, manager);
+        r = sd_bus_match_signal_async(manager->bus, NULL,
+                                      "org.freedesktop.DBus",
+                                      "/org/freedesktop/DBus",
+                                      "org.freedesktop.DBus",
+                                      "NameOwnerChanged",
+                                      name_owner_changed_signal, NULL, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to request signal for NameOwnerChanged");
 
-        r = sd_bus_add_match_async(manager->bus, NULL, expr_iface_added, interface_add_remove_signal,
-                                   NULL, manager);
+        r = sd_bus_match_signal_async(manager->bus, NULL,
+                                      "org.freedesktop.ModemManager1",
+                                      "/org/freedesktop/ModemManager1",
+                                      "org.freedesktop.DBus.ObjectManager",
+                                      "InterfacesAdded",
+                                      interface_add_remove_signal, NULL, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to request signal for IntefaceAdded");
 
-        r = sd_bus_add_match_async(manager->bus, NULL, expr_iface_removed, interface_add_remove_signal,
-                                   NULL, manager);
+        r = sd_bus_match_signal_async(manager->bus, NULL,
+                                      "org.freedesktop.ModemManager1",
+                                      "/org/freedesktop/ModemManager1",
+                                      "org.freedesktop.DBus.ObjectManager",
+                                      "InterfacesRemoved",
+                                      interface_add_remove_signal, NULL, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to request signal for IntefaceRemoved");
 
+        /* N.B. We need "path_namespace" for bearers, not "path", */
         r = sd_bus_add_match_async(manager->bus, NULL, expr_bearer_properties, bearer_properties_changed_handler,
                                    NULL, manager);
+
         if (r < 0)
                 return log_error_errno(r, "Failed to request signal for PropertiesChanged in ModemManager bearers");
 
