@@ -67,6 +67,7 @@ simple_tests += files(
         'test-build-path.c',
         'test-bus-unit-util.c',
         'test-bus-util.c',
+        'test-bus-parse-xml.c',
         'test-calendarspec.c',
         'test-cgroup-util.c',
         'test-cgroup.c',
