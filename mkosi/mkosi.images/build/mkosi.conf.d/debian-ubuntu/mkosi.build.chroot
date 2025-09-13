@@ -32,7 +32,24 @@ if ((COVERAGE)); then
 fi
 
 # We transplant the debian/ folder from the deb package sources into the upstream sources.
-mount --mkdir --bind "$SRCDIR/pkg/$PKG_SUBDIR/debian" "$SRCDIR"/debian
+#
+# NOTE: Using a direct bind-mount for debian/ can cause ownership-preservation failures in
+# debhelper (cp -a) on some backends/userns setups. To avoid this, copy the directory into
+# a writable in-container location first, then bind-mount that copy.
+if [[ -d "$SRCDIR/pkg/$PKG_SUBDIR/debian" ]]; then
+    mkdir -p /tmp/debian.src
+    # Use rsync to retain attributes where possible but tolerate filesystems without chown support.
+    if command -v rsync >/dev/null 2>&1; then
+        rsync -a --no-owner --no-group "$SRCDIR/pkg/$PKG_SUBDIR/debian/" /tmp/debian.src/
+    else
+        # Use cp without ownership preservation to avoid chown errors
+        cp -r --no-preserve=ownership "$SRCDIR/pkg/$PKG_SUBDIR/debian/." /tmp/debian.src/
+    fi
+    mount --mkdir --bind /tmp/debian.src "$SRCDIR/debian"
+else
+    echo "deb rules not found at $SRCDIR/pkg/$PKG_SUBDIR/debian" >&2
+    exit 1
+fi
 
 # We hide the patches so they don't get applied.
 if [[ -d "$SRCDIR/debian/patches" ]]; then
