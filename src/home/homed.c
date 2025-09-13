@@ -25,6 +25,7 @@ static int run(int argc, char *argv[]) {
                                "A service to create, remove, change or inspect home areas.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

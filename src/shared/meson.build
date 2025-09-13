@@ -176,6 +176,7 @@ shared_sources = files(
         'socket-netlink.c',
         'specifier.c',
         'switch-root.c',
+        'tar-util.c',
         'tmpfile-util-label.c',
         'tomoyo-util.c',
         'tpm2-util.c',

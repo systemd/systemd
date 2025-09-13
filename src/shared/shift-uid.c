@@ -161,7 +161,7 @@ static int patch_acls(int fd, const char *name, const struct stat *st, uid_t shi
         assert(st);
 
         /* ACLs are not supported on symlinks, there's no point in trying */
-        if (S_ISLNK(st->st_mode))
+        if (!inode_type_can_acl(st->st_mode))
                 return 0;
 
         r = get_acl(fd, name, ACL_TYPE_ACCESS, &acl);

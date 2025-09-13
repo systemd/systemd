@@ -842,7 +842,7 @@ int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags
                 return r;
         assert(path_fd >= 0);
 
-        d = xopendirat(path_fd, ".", O_NOFOLLOW);
+        d = xopendirat(path_fd, /* path= */ NULL, /* flags= */ 0);
         if (!d)
                 return -errno;
 
@@ -1045,7 +1045,7 @@ int chase_and_opendirat(int dir_fd, const char *path, ChaseFlags chase_flags, ch
                 return r;
         assert(path_fd >= 0);
 
-        d = xopendirat(path_fd, ".", O_NOFOLLOW);
+        d = xopendirat(path_fd, /* path= */ ".", /* flags= */ 0);
         if (!d)
                 return -errno;
 

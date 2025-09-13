@@ -1459,7 +1459,7 @@ static int fd_set_acls(
                                        "Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
                                        path);
 
-        if (S_ISLNK(st->st_mode)) {
+        if (!inode_type_can_acl(st->st_mode)) {
                 log_debug("Skipping ACL fix for symlink %s.", path);
                 return 0;
         }

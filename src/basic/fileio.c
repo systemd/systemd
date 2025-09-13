@@ -929,17 +929,22 @@ int get_proc_field(const char *path, const char *key, char **ret) {
         }
 }
 
-DIR* xopendirat(int dir_fd, const char *name, int flags) {
+DIR* xopendirat(int dir_fd, const char *path, int flags) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(name);
         assert(!(flags & (O_CREAT|O_TMPFILE)));
 
-        if (dir_fd == AT_FDCWD && flags == 0)
-                return opendir(name);
+        if ((dir_fd == AT_FDCWD || path_is_absolute(path)) &&
+            (flags &~ O_DIRECTORY) == 0)
+                return opendir(path);
 
-        fd = openat(dir_fd, name, O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
+        if (isempty(path)) {
+                path = ".";
+                flags |= O_NOFOLLOW;
+        }
+
+        fd = openat(dir_fd, path, O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
         if (fd < 0)
                 return NULL;
 
