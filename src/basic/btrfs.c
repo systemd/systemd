@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "btrfs.h"
+#include "chattr-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "path-util.h"
@@ -98,4 +99,23 @@ int btrfs_subvol_make_fallback(int dir_fd, const char *path, mode_t mode) {
                 return -errno;
 
         return 0; /* plain directory */
+}
+
+int btrfs_subvol_set_nodatacow_at(int dir_fd, const char *path, bool b) {
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        return chattr_at(dir_fd, path, b ? FS_NOCOW_FL : 0, FS_NOCOW_FL);
+}
+
+int btrfs_subvol_get_nodatacow_fd(int fd) {
+        unsigned attrs = 0;
+        int r;
+
+        assert(fd >= 0);
+
+        r = read_attr_fd(fd, &attrs);
+        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return r;
+
+        return !!(attrs & FS_NOCOW_FL);
 }
