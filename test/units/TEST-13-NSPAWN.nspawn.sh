@@ -1454,20 +1454,21 @@ testcase_link_journal_host() {
 
     systemd-id128 new > "$root"/etc/machine-id
 
-    mkdir -p /var/log/journal
-
-    hoge="/var/log/journal/$(cat "$root"/etc/machine-id)/hoge"
+    hoge="/var/log/journal/$(cat "$root"/etc/machine-id)/"
+    mkdir -p "$hoge"
+    # The systemd-journal group is not mapped, so ensure the directory is owned by root:root
+    chown root:root "$hoge"
 
     for i in no yes pick; do
         systemd-nspawn \
             --directory="$root" --private-users="$i" --link-journal=host \
             bash -xec 'p="/var/log/journal/$(cat /etc/machine-id)"; mountpoint "$p"; [[ "$(stat "$p" --format=%u)" == 0 ]]; touch "$p/hoge"'
 
-        [[ "$(stat "$hoge" --format=%u)" == 0 ]]
-        rm "$hoge"
+        [[ "$(stat "${hoge}/hoge" --format=%u)" == 0 ]]
+        rm "${hoge}/hoge"
     done
 
-    rm -fr "$root"
+    rm -fr "$root" "$hoge"
 }
 
 testcase_cap_net_bind_service() {
