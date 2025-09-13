@@ -615,5 +615,9 @@ int unit_cgroup_runtime_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOReadBytes", get_io_counter_build_json, u),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOReadOperations", get_io_counter_build_json, u),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOWriteBytes", get_io_counter_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOWriteOperations", get_io_counter_build_json, u));
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("IOWriteOperations", get_io_counter_build_json, u),
+
+                        /* OOM */
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("OOMKills", crt->oom_kill_last),
+                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("ManagedOOMKills", crt->managed_oom_kill_last));
 }
