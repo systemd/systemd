@@ -7,12 +7,7 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-if [[ ! -f /usr/lib/systemd/system/systemd-mountfsd.socket ]] ||
-   [[ ! -f /usr/lib/systemd/system/systemd-nsresourced.socket ]] ||
-   ! grep -q bpf /sys/kernel/security/lsm ||
-   ! find /usr/lib* -name libbpf.so.1 2>/dev/null | grep . ||
-   systemd-analyze compare-versions "$(uname -r)" lt 6.5 ||
-   systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" lt 124; then
+if ! can_do_rootless_nspawn; then
     echo "Skipping unpriv nspawn test"
     exit 0
 fi
@@ -24,8 +19,6 @@ at_exit() {
 }
 
 trap at_exit EXIT
-
-systemctl start systemd-mountfsd.socket systemd-nsresourced.socket
 
 run0 -u testuser mkdir -p .local/state/machines
 
