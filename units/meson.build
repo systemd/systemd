@@ -446,6 +446,15 @@ units = [
         },
         { 'file' : 'systemd-journald@.service.in' },
         { 'file' : 'systemd-journald@.socket' },
+        {
+          'file' : 'systemd-kernel-install@.service',
+          'conditions' : ['ENABLE_KERNEL_INSTALL'],
+        },
+        {
+          'file' : 'systemd-kernel-install.socket',
+          'conditions' : ['ENABLE_KERNEL_INSTALL'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'systemd-kexec.service' },
         {
           'file' : 'systemd-localed.service.in',
@@ -650,6 +659,15 @@ units = [
           'file' : 'systemd-repart.service',
           'conditions' : ['ENABLE_REPART'],
           'symlinks' : ['sysinit.target.wants/', 'initrd-root-fs.target.wants/'],
+        },
+        {
+          'file' : 'systemd-repart.socket',
+          'conditions' : ['ENABLE_REPART'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-repart@.service',
+          'conditions' : ['ENABLE_REPART'],
         },
         {
           'file' : 'systemd-resolved.service.in',

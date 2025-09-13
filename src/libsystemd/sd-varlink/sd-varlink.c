@@ -2911,9 +2911,9 @@ _public_ int sd_varlink_get_peer_pidfd(sd_varlink *v) {
 
 _public_ int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout) {
         assert_return(v, -EINVAL);
-        assert_return(timeout > 0, -EINVAL);
 
-        v->timeout = timeout;
+        /* If set to 0, reset to default value */
+        v->timeout = timeout == 0 ? VARLINK_DEFAULT_TIMEOUT_USEC : timeout;
         return 0;
 }
 

@@ -444,7 +444,9 @@ TEST(config_parse_standard_file_with_dropins_full) {
         };
 
         r = config_parse_standard_file_with_dropins_full(
-                        root, "kernel/install.conf",
+                        root,
+                        /* root_fd= */ -EBADF,
+                        "kernel/install.conf",
                         /* sections= */ NULL,
                         config_item_table_lookup, items,
                         CONFIG_PARSE_WARN,
@@ -483,7 +485,9 @@ TEST(config_parse_standard_file_with_dropins_full) {
         assert_se(symlinkat("/etc/kernel/install.conf.d/drop4.conf", rfd, "etc/kernel/install2.conf.d/drop4.conf") == 0);
 
         r = config_parse_standard_file_with_dropins_full(
-                        root, "kernel/install2.conf",
+                        root,
+                        /* root_fd= */ -EBADF,
+                        "kernel/install2.conf",
                         /* sections= */ NULL,
                         config_item_table_lookup, items,
                         CONFIG_PARSE_WARN,

@@ -55,6 +55,7 @@ int conf_files_list_dropins(
                 char ***ret,
                 const char *dropin_dirname,
                 const char *root,
+                int root_fd,
                 const char * const *dirs);
 
 typedef int parse_line_t(
