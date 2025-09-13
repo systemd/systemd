@@ -1208,28 +1208,6 @@ EOF
     rm -fr "$root"
 }
 
-can_do_rootless_nspawn() {
-    # Our create_dummy_ddi() uses squashfs and openssl.
-    command -v mksquashfs &&
-    command -v openssl &&
-
-    # mountfsd must be enabled...
-    [[ -S /run/systemd/io.systemd.MountFileSystem ]] &&
-    # ...and have pidfd support for unprivileged operation.
-    systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
-    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124 &&
-
-    # nsresourced must be enabled...
-    [[ -S /run/systemd/userdb/io.systemd.NamespaceResource ]] &&
-    # ...and must support the UserNamespaceInterface.
-    ! (SYSTEMD_LOG_TARGET=console varlinkctl call \
-           /run/systemd/userdb/io.systemd.NamespaceResource \
-           io.systemd.NamespaceResource.AllocateUserRange \
-           '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' \
-           2>&1 || true) |
-        grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"
-}
-
 create_dummy_ddi() {
     local outdir="${1:?}"
     local container_name="${2:?}"
