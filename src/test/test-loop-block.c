@@ -266,6 +266,7 @@ static int run(int argc, char *argv[]) {
         }
         assert_se(r >= 0);
 
+        system("ls -l /usr/sbin/mkfs.vfat; ls -l /usr/sbin/mkfs.fat; env | grep PATH");
         assert_se(sd_id128_randomize(&id) >= 0);
         assert_se(make_filesystem(dissected->partitions[PARTITION_ESP].node, "vfat", "EFI", NULL, id, MKFS_DISCARD, 0, NULL, NULL, NULL) >= 0);
 
