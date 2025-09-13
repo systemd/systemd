@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -322,13 +323,27 @@ static int method_create_or_register_machine(
         if (r < 0)
                 return r;
 
-        /* Ensure an unprivileged user cannot claim any process they don't control as their own machine */
+        /* Ensure an unprivileged user cannot claim any process or directory they don't control as their own machine */
         if (uid != 0) {
                 r = process_is_owned_by_uid(&leader_pidref, uid);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "Only root may register machines for other users");
+
+                if (!isempty(root_directory)) {
+                        _cleanup_free_ char *parent = NULL;
+
+                        r = path_extract_directory(root_directory, &parent);
+                        if (r < 0)
+                                return sd_bus_error_set_errnof(error, r, "Failed to extract parent directory of '%s': %m", root_directory);
+
+                        struct stat st;
+                        if (stat(parent, &st) < 0)
+                                return sd_bus_error_set_errnof(error, errno, "Failed to stat parent directory '%s': %m", parent);
+                        if (st.st_uid != uid && !(st.st_mode & S_IWOTH))
+                                return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "Root directory is not owned by the caller nor world writable");
+                }
         }
 
         const char *details[] = {
