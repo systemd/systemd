@@ -17,6 +17,7 @@
 #include "mount-util.h"
 #include "namespace-util.h"
 #include "operation.h"
+#include "os-util.h"
 #include "pidref.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -186,6 +187,9 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         r = sd_varlink_get_peer_uid(link, &machine->uid);
         if (r < 0)
                 return r;
+
+        if (!isempty(machine->root_directory) && path_is_os_tree(machine->root_directory) <= 0)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_INVALID_PARAMETER, NULL);
 
         /* Ensure an unprivileged user cannot claim any process they don't control as their own machine */
         if (machine->uid != 0) {
