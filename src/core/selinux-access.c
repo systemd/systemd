@@ -4,8 +4,6 @@
 
 #if HAVE_SELINUX
 
-#include <selinux/avc.h>
-#include <selinux/selinux.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -121,9 +119,9 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 
                 if (r >= 0) {
                         if (type == SELINUX_AVC)
-                                audit_log_user_avc_message(fd, AUDIT_USER_AVC, buf, NULL, NULL, NULL, getuid());
+                                sym_audit_log_user_avc_message(fd, AUDIT_USER_AVC, buf, NULL, NULL, NULL, getuid());
                         else if (type == SELINUX_ERROR)
-                                audit_log_user_avc_message(fd, AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, getuid());
+                                sym_audit_log_user_avc_message(fd, AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, getuid());
 
                         return 0;
                 }
@@ -153,7 +151,7 @@ static int access_init(sd_bus_error *error) {
         if (initialized)
                 return 1;
 
-        if (avc_open(NULL, 0) != 0) {
+        if (sym_avc_open(NULL, 0) != 0) {
                 /* Passing errno to save original value for later */
                 r = log_selinux_enforcing_errno(errno, "Failed to open the SELinux AVC: %m");
                 if (r == 0)
@@ -168,8 +166,8 @@ static int access_init(sd_bus_error *error) {
                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Failed to open the SELinux AVC: %m");
         }
 
-        selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) { .func_audit = audit_callback });
-        selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) { .func_log = log_callback });
+        sym_selinux_set_callback(SELINUX_CB_AUDIT, (union selinux_callback) { .func_audit = audit_callback });
+        sym_selinux_set_callback(SELINUX_CB_LOG, (union selinux_callback) { .func_log = log_callback });
 
         initialized = true;
         return 1;
@@ -196,7 +194,7 @@ static int get_our_contexts(const Unit *unit, const char **ret_acon, const char 
          * does exactly the same - call getcon_raw(). However, it involves
          * selinux_init() which opens label DB. It was not part of the
          * original code. I don't want to change it for now. */
-        if (getcon_raw(&fcon) < 0)
+        if (sym_getcon_raw(&fcon) < 0)
                 return log_debug_errno(errno, "SELinux getcon_raw() failed: %m");
 
         if (!fcon)
@@ -226,7 +224,7 @@ static int check_access(
         assert(audit_info);
         assert(audit_info->function);
 
-        r = selinux_check_access(scon, tcon, tclass, permission, audit_info);
+        r = sym_selinux_check_access(scon, tcon, tclass, permission, audit_info);
         if (r < 0) {
                 errno = -(r = errno_or_else(EPERM));
 
@@ -357,7 +355,7 @@ int mac_selinux_access_check_varlink_internal(
 
         /* We should call mac_selinux_get_peer_label() here similarly to get_our_contexts().
          * See the explanation there why not. */
-        if (getpeercon_raw(fd, &scon) < 0)
+        if (sym_getpeercon_raw(fd, &scon) < 0)
                 return log_selinux_enforcing_errno(
                                 errno,
                                 "Failed to get peer SELinux context%s: %m",

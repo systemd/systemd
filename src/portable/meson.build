@@ -29,7 +29,7 @@ executables += [
                 'sources' : systemd_portabled_sources,
                 'link_with' : portabled_link_with,
                 'dependencies' : [
-                        libselinux,
+                        libselinux_cflags,
                         threads,
                 ],
         },

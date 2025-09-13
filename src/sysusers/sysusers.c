@@ -202,7 +202,7 @@ static void log_audit_accounts(Context *c, ItemType what) {
          */
 
         ORDERED_HASHMAP_FOREACH(i, what == ADD_USER ? c->todo_uids : c->todo_gids)
-                audit_log_acct_message(
+                sym_audit_log_acct_message(
                                 c->audit_fd,
                                 type,
                                 program_invocation_short_name,

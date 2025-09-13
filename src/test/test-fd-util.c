@@ -344,7 +344,7 @@ static int seccomp_prohibit_close_range(void) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to acquire seccomp context, ignoring: %m");
 
-        r = seccomp_rule_add_exact(
+        r = sym_seccomp_rule_add_exact(
                         seccomp,
                         SCMP_ACT_ERRNO(EPERM),
                         SCMP_SYS(close_range),
@@ -352,7 +352,7 @@ static int seccomp_prohibit_close_range(void) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to add close_range() rule, ignoring: %m");
 
-        r = seccomp_load(seccomp);
+        r = sym_seccomp_load(seccomp);
         if (r < 0)
                 return log_warning_errno(r, "Failed to apply close_range() restrictions, ignoring: %m");
 

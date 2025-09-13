@@ -405,6 +405,7 @@ possible_common_cc_flags = [
         '-Werror=shift-overflow=2',
         '-Werror=strict-flex-arrays',
         '-Werror=undef',
+        '-Werror=unused-variable',
         '-Wfloat-equal',
         # gperf prevents us from enabling this because it does not emit fallthrough
         # attribute with clang.
@@ -1142,11 +1143,13 @@ libseccomp = dependency('libseccomp',
                         version : '>= 2.3.1',
                         required : get_option('seccomp'))
 conf.set10('HAVE_SECCOMP', libseccomp.found())
+libseccomp_cflags = libseccomp.partial_dependency(includes: true, compile_args: true)
 
 libselinux = dependency('libselinux',
                         version : '>= 2.1.9',
                         required : get_option('selinux'))
 conf.set10('HAVE_SELINUX', libselinux.found())
+libselinux_cflags = libselinux.partial_dependency(includes: true, compile_args: true)
 
 libapparmor = dependency('libapparmor',
                          version : '>= 2.13',
@@ -1182,12 +1185,14 @@ conf.set10('HAVE_ACL', libacl.found())
 libaudit = dependency('audit',
                       required : get_option('audit'))
 conf.set10('HAVE_AUDIT', libaudit.found())
+libaudit_cflags = libaudit.partial_dependency(includes: true, compile_args: true)
 
 libblkid = dependency('blkid',
                       required : get_option('blkid'))
 conf.set10('HAVE_BLKID', libblkid.found())
 conf.set10('HAVE_BLKID_PROBE_SET_HINT',
            libblkid.found() and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
+libblkid_cflags = libblkid.partial_dependency(includes: true, compile_args: true)
 
 libkmod = dependency('libkmod',
                      version : '>= 15',
@@ -1214,6 +1219,7 @@ if not libpam_misc.found()
         libpam_misc = cc.find_library('pam_misc', required : feature)
 endif
 conf.set10('HAVE_PAM', libpam.found() and libpam_misc.found())
+libpam_cflags = libpam.partial_dependency(includes: true, compile_args: true)
 
 libmicrohttpd = dependency('libmicrohttpd',
                            version : '>= 0.9.33',

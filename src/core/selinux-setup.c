@@ -18,13 +18,17 @@ int mac_selinux_setup(bool *loaded_policy) {
 #if HAVE_SELINUX
         int r;
 
+        r = dlopen_libselinux();
+        if (r < 0)
+                return log_debug_errno(r, "No SELinux library available, skipping setup: %m");
+
         mac_selinux_disable_logging();
 
         /* Don't load policy in the initrd if we don't appear to have it.  For the real root, we check below
          * if we've already loaded policy, and return gracefully. */
-        if (in_initrd() && access(selinux_path(), F_OK) < 0) {
+        if (in_initrd() && access(sym_selinux_path(), F_OK) < 0) {
                 if (errno != ENOENT)
-                        log_warning_errno(errno, "Unable to check if %s exists, assuming it does not: %m", selinux_path());
+                        log_warning_errno(errno, "Unable to check if %s exists, assuming it does not: %m", sym_selinux_path());
 
                 return 0;
         }
@@ -37,7 +41,7 @@ int mac_selinux_setup(bool *loaded_policy) {
          * empty. SELinux guarantees this won't happen, but that file isn't specific to SELinux, and may be
          * provided by some other arbitrary LSM with different semantics. */
         _cleanup_freecon_ char *con = NULL;
-        if (getcon_raw(&con) < 0)
+        if (sym_getcon_raw(&con) < 0)
                 log_debug_errno(errno, "getcon_raw() failed, assuming SELinux is not initialized: %m");
         else if (con) {
                 initialized = !streq(con, "kernel");
@@ -50,7 +54,7 @@ int mac_selinux_setup(bool *loaded_policy) {
         /* Now load the policy */
         usec_t before_load = now(CLOCK_MONOTONIC);
         int enforce = 0;
-        if (selinux_init_load_policy(&enforce) == 0) { /* NB: Apparently doesn't set useful errno! */
+        if (sym_selinux_init_load_policy(&enforce) == 0) { /* NB: Apparently doesn't set useful errno! */
                 mac_selinux_retest();
 
                 /* Transition to the new context */
@@ -60,7 +64,7 @@ int mac_selinux_setup(bool *loaded_policy) {
                         log_open();
                         log_warning_errno(r, "Failed to compute init label, ignoring: %m");
                 } else {
-                        r = RET_NERRNO(setcon_raw(label));
+                        r = RET_NERRNO(sym_setcon_raw(label));
                         log_open();
                         if (r < 0)
                                 log_warning_errno(r, "Failed to transition into init label '%s', ignoring: %m", label);

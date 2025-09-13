@@ -53,7 +53,7 @@ executables += [
                         libcore,
                         libshared,
                 ],
-                'dependencies' : libseccomp,
+                'dependencies' : libseccomp_cflags,
                 'install' : conf.get('ENABLE_ANALYZE') == 1,
         },
         core_test_template + {
