@@ -35,10 +35,8 @@ static int track_pid(Hashmap **h, const char *path, pid_t pid) {
                 return log_oom();
 
         r = hashmap_ensure_put(h, &trivial_hash_ops_value_free, PID_TO_PTR(pid), c);
-        if (r == -ENOMEM)
-                return log_oom();
         if (r < 0)
-                return log_error_errno(r, "Failed to store pid " PID_FMT, pid);
+                return log_error_errno(r, "Failed to store pid " PID_FMT " for mount '%s': %m", pid, path);
 
         TAKE_PTR(c);
         return 0;
@@ -47,6 +45,8 @@ static int track_pid(Hashmap **h, const char *path, pid_t pid) {
 static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
         pid_t pid;
         int r;
+
+        assert(path);
 
         log_debug("Remounting %s...", path);
 
@@ -98,7 +98,7 @@ static int remount_by_fstab(Hashmap **ret_pids) {
                 if (path_equal(me->mnt_dir, "/"))
                         has_root = true;
 
-                r = do_remount(me->mnt_dir, false, &pids);
+                r = do_remount(me->mnt_dir, /* force_rw = */ false, &pids);
                 if (r < 0)
                         return r;
         }
@@ -132,7 +132,7 @@ static int run(int argc, char *argv[]) {
                         log_warning_errno(r, "Failed to parse $SYSTEMD_REMOUNT_ROOT_RW, ignoring: %m");
 
                 if (r > 0) {
-                        r = do_remount("/", true, &pids);
+                        r = do_remount("/", /* force_rw = */ true, &pids);
                         if (r < 0)
                                 return r;
                 }
