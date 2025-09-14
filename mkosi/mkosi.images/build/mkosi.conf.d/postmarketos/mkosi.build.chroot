@@ -1,0 +1,77 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [[ "$1" == "clangd" ]]; then
+    exit 0
+fi
+
+if [[ ! -f "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/APKBUILD" ]]; then
+    echo "APKBUILD not found at pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}/APKBUILD, run mkosi once with -ff to make sure the APKBUILD is cloned" >&2
+    exit 1
+fi
+
+. mkosi/mkosi.functions
+
+mkdir -p "$HOME/.abuild"
+cat >"$HOME/.abuild/abuild.conf" <<EOF
+PACKAGER="mkosi <mkosi@localhost>"
+CBUILD=$DISTRIBUTION_ARCHITECTURE
+EOF
+
+# shellcheck disable=SC2046
+abuild-keygen \
+    $( ((MESON_VERBOSE)) || echo "--quiet") \
+    -n --append
+
+DOWNSTREAM_SRCDIR="$(mktemp -d)/$DISTRIBUTION/systemd"
+mkdir -p "$DOWNSTREAM_SRCDIR"
+
+# Copy downstream files.
+cp -vr "$SRCDIR/pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}"/* "$DOWNSTREAM_SRCDIR/."
+
+# Before RC1, the version in meson.version ends with "~devel", e.g. "261-devel".
+# After RC1, the RC number prefixed with "~rc" is suffixed, e.g. "261~rc1".
+# After the final release, the version in meson.version has only number, e.g. "261" or "261.1".
+VERSION="$(sed -e 's/~/_/; s/devel/rc0/' meson.version)"
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
+RELEASE="$(date "+%Y%m%d%H%M%S" --date "@$TS")"
+
+# abuild-meson internally sets -Dwerror=false, hence we cannot override it with --werror.
+MESON_OPTIONS="${MESON_OPTIONS//--werror/-D werror=true}"
+
+# Patch version number.
+sed -i \
+    -e "/^pkgver=/ s|=.*|=$VERSION|" \
+    -e "/^pkgrel=/ s|=.*|=$RELEASE|" \
+    "$DOWNSTREAM_SRCDIR/APKBUILD"
+
+# Drop systemd-dbg package when WITH_DEBUG is unset.
+if ! ((WITH_DEBUG)); then
+    sed -i \
+        -e '/pkgname-dbg/ d' \
+        "$DOWNSTREAM_SRCDIR/APKBUILD"
+fi
+
+# Remove previously built packages.
+rm -rf "${BUILDDIR:?}/$DISTRIBUTION"
+
+# shellcheck disable=SC2046
+env \
+    srcdir="$DOWNSTREAM_SRCDIR" \
+    APKBUILD="$DOWNSTREAM_SRCDIR/APKBUILD" \
+    CFLAGS="$MKOSI_CFLAGS $CFLAGS" \
+    CXXFLAGS="$MKOSI_CFLAGS $CFLAGS" \
+    LDFLAGS="$MKOSI_LDFLAGS $LDFLAGS" \
+    REPODEST="$BUILDDIR" \
+    _systemd_upstream=1 \
+    _meson_extra_configure_options="$MKOSI_MESON_OPTIONS $MESON_OPTIONS" \
+    _meson_builddir="$BUILDDIR" \
+    _upstream_srcdir="$SRCDIR" \
+    abuild -F \
+    $( ((MESON_VERBOSE)) && echo "-v") \
+    build \
+    $( ((WITH_TESTS)) && echo "check") \
+    rootpkg
+
+cp -vr "$BUILDDIR/$DISTRIBUTION/$DISTRIBUTION_ARCHITECTURE"/*.apk "$PACKAGEDIR/."
