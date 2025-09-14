@@ -25,6 +25,9 @@ enable systemd-resolved.service
 # systemd-userdbd.socket is disabled by default on OpenSUSE
 enable systemd-userdbd.socket
 
+# systemd-homed.service is disabled by default on postmarketOS
+enable systemd-homed.service
+
 # We install dnf in some images but it's only going to be used rarely,
 # so let's not have dnf create its cache.
 disable dnf-makecache.*
@@ -64,3 +67,12 @@ disable multipathd.service
 # The socket unit is disabled by default in the upstream:
 # https://github.com/opensvc/multipath-tools/commit/346e9adda4e5f0ccfcbb7a3eccf5f96001d95027
 disable multipathd.socket
+
+# rtkit-daemon.service randomly fails with the following error on postmarketOS:
+# rtkit-daemon[54]: pthread_create failed: Resource temporarily unavailable
+# The service is not necessary on our test suites, let's disable it.
+disable rtkit-daemon.service
+
+# Disable postmarketOS specific zram swap service.
+# Maybe better to replace it with zram-generator?
+disable zram_swap.service
