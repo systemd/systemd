@@ -1,0 +1,68 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eu
+
+MKOSI_DEBUG=${MKOSI_DEBUG:-0}
+WITH_TESTS=${WITH_TESTS:-0}
+
+if ((MKOSI_DEBUG)); then
+    set -x
+fi
+
+if [[ "${1:-}" == "clangd" ]]; then
+    exit 0
+fi
+
+mkdir "$HOME/.abuild"
+cat >"$HOME/.abuild/abuild.conf" <<EOF
+PACKAGER="mkosi <mkosi@localhost>"
+CBUILD=$DISTRIBUTION_ARCHITECTURE
+EOF
+
+# shellcheck disable=SC2046
+abuild-keygen \
+    $( ((MKOSI_DEBUG)) || echo "--quiet") \
+    -n --append
+
+TMPDIR="$(mktemp -d)/$DISTRIBUTION"
+mkdir -p "$TMPDIR"
+
+# Copy downstream files.
+cp -r "$SRCDIR/pkg/$PKG_SUBDIR/extra-repos/systemd/systemd" "$TMPDIR/."
+
+# Until the downstream APKBUILD file supports upstream build,
+# tentatively overwrite it with the upstream one.
+cp "$SRCDIR/mkosi/mkosi.images/build/mkosi.conf.d/$DISTRIBUTION/APKBUILD" "$TMPDIR/systemd/."
+
+# Before RC1, the version in meson.version ends with "~devel", e.g. "259-devel".
+# After RC1, the RC number prefixed with "~rc" is suffixed, e.g. "259~rc1".
+VERSION="$(sed -e 's/~.*//' meson.version)"
+SUFFIX="$(sed -e 's/.*~//; s/devel/rc0/' meson.version)"
+
+TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
+
+# Patch version number.
+sed -i \
+    -e "/^pkgver=/ s|=.*|=${VERSION}_${SUFFIX}|" \
+    -e "/^pkgrel=/ s|=.*|=$TS|" \
+    -e '/systemd-.*\.tar\.gz/ d' \
+    "$TMPDIR/systemd/APKBUILD"
+
+# Remove previously built packages.
+rm -rf "${BUILDDIR:?}/$DISTRIBUTION"
+
+# shellcheck disable=SC2046
+env \
+    APKBUILD="$TMPDIR/systemd/APKBUILD" \
+    SRCDIR="$SRCDIR" \
+    BUILDDIR="$BUILDDIR" \
+    REPODEST="$BUILDDIR" \
+    SYSTEMD_UPSTREAM=1 \
+    abuild -F \
+    $( ((MKOSI_DEBUG)) && echo "-v") \
+    validate \
+    build \
+    $( ((WITH_TESTS)) && echo "check") \
+    rootpkg
+
+cp -r "$BUILDDIR/$DISTRIBUTION/$DISTRIBUTION_ARCHITECTURE"/*.apk "$PACKAGEDIR/."
