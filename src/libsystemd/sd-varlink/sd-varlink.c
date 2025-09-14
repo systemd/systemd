@@ -1061,9 +1061,6 @@ static int varlink_dispatch_disconnect(sd_varlink *v) {
         return 1;
 }
 
-static bool varlink_parameters_is_empty(sd_json_variant *v) {
-        return !v || sd_json_variant_is_null(v) || (sd_json_variant_is_object(v) && sd_json_variant_elements(v) == 0);
-}
 
 static int varlink_sanitize_parameters(sd_json_variant **v) {
         int r;
@@ -2033,7 +2030,7 @@ _public_ int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant 
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!varlink_parameters_is_empty(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)),
                         SD_JSON_BUILD_PAIR("oneway", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
@@ -2085,7 +2082,7 @@ _public_ int sd_varlink_invoke(sd_varlink *v, const char *method, sd_json_varian
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!varlink_parameters_is_empty(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)));
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2139,7 +2136,7 @@ _public_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_varia
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!varlink_parameters_is_empty(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)),
                         SD_JSON_BUILD_PAIR("more", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
@@ -2204,7 +2201,7 @@ _public_ int sd_varlink_call_full(
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!varlink_parameters_is_empty(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)));
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2362,7 +2359,7 @@ _public_ int sd_varlink_collect_full(
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!varlink_parameters_is_empty(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)),
                         SD_JSON_BUILD_PAIR("more", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
@@ -2507,7 +2504,7 @@ _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
 
-        r = sd_json_buildo(&m, SD_JSON_BUILD_PAIR_CONDITION(!varlink_parameters_is_empty(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)));
+        r = sd_json_buildo(&m, SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2597,7 +2594,7 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("error", SD_JSON_BUILD_STRING(error_id)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!varlink_parameters_is_empty(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)));
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2734,7 +2731,7 @@ _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
 
         r = sd_json_buildo(
                         &m,
-                        SD_JSON_BUILD_PAIR_CONDITION(!varlink_parameters_is_empty(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(parameters), "parameters", SD_JSON_BUILD_VARIANT(parameters)),
                         SD_JSON_BUILD_PAIR("continues", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
