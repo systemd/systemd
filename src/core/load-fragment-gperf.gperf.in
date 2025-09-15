@@ -195,6 +195,7 @@
 {% endif %}
 {{type}}.ProtectHostname,                     config_parse_protect_hostname,                      0,                                  offsetof({{type}}, exec_context)
 {{type}}.MemoryKSM,                           config_parse_tristate,                              0,                                  offsetof({{type}}, exec_context.memory_ksm)
+{{type}}.MemoryTHP,                           config_parse_memory_thp,                            0,                                  offsetof({{type}}, exec_context.memory_thp)
 {%- endmacro -%}
 
 {%- macro KILL_CONTEXT_CONFIG_ITEMS(type) -%}
