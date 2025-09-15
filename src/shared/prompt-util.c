@@ -2,6 +2,8 @@
 
 #include <unistd.h>
 
+#include <sd-varlink.h>
+
 #include "alloc-util.h"
 #include "glyph-util.h"
 #include "log.h"
@@ -321,4 +323,57 @@ void chrome_hide(void) {
         printf("\x1B[%u;1H", k);
 
         fflush(stdout);
+}
+
+static int vl_on_reply(sd_varlink *link, sd_json_variant *parameters, const char *error_id, sd_varlink_reply_flags_t flags, void *userdata) {
+        assert(link);
+
+        /* We want to keep the link around (since its lifetime defines the lifetime of the console muting),
+         * hence let's detach it from the event loop now, and then exit the event loop. */
+
+        _cleanup_(sd_event_unrefp) sd_event *e = sd_event_ref(ASSERT_PTR(sd_varlink_get_event(link)));
+        sd_varlink_detach_event(link);
+        (void) sd_event_exit(e, (error_id || !FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) ? -EBADR : 0);
+
+        return 0;
+}
+
+int mute_console(sd_varlink **ret_link) {
+        int r;
+
+        assert(ret_link);
+
+        /* Talks to the MuteConsole service, and asks for output to the console to be muted, as long as the
+         * connection is retained */
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
+        r = sd_varlink_connect_address(&link, "/run/systemd/io.systemd.MuteConsole");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to connect to console muting service: %m");
+
+        _cleanup_(sd_event_unrefp) sd_event* event = NULL;
+        r = sd_event_new(&event);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_attach_event(link, event, /* priority= */ 0);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_bind_reply(link, vl_on_reply);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_observe(link, "io.systemd.MuteConsole.Mute", /* parameters= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to issue Mute() call to io.systemd.MuteConsole: %m");
+
+        /* Now run the event loop, it will exit on the first reply, which is when we know the console output
+         * is now muted. */
+        r = sd_event_loop(event);
+        if (r < 0)
+                return r;
+
+        *ret_link = TAKE_PTR(link);
+        return 0;
 }
