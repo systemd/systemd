@@ -14,16 +14,18 @@
 #include "varlink-util.h"
 
 static int dump_manager_description(sd_varlink *vl) {
-        sd_json_variant *v;
+        sd_json_variant *v = NULL;
         int r;
 
         assert(vl);
 
-        r = varlink_call_and_log(vl, "io.systemd.Network.Describe", NULL, &v);
+        r = varlink_call_and_log(vl, "io.systemd.Network.Describe", /* parameters = */ NULL, &v);
         if (r < 0)
                 return r;
 
-        sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+        r = sd_json_variant_dump(v, arg_json_format_flags, /* f = */ NULL, /* prefix = */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump json object: %m");
         return 0;
 }
 
