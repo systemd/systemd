@@ -133,6 +133,9 @@ test_basic() {
 
 testcase_basic_system() {
     test_basic /TEST.slice/TEST-55.slice/TEST-55-OOMD.slice/TEST-55-OOMD-workload.slice
+
+    # Ensure ExecStopPost= runs on oom-kill.
+    test -f /run/testbloat-exec-stop-post
 }
 
 testcase_basic_user() {
