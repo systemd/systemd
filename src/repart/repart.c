@@ -3227,7 +3227,12 @@ static int context_read_definitions(Context *context) {
 
         dirs = (const char* const*) (context->definitions ?: CONF_PATHS_STRV("repart.d"));
 
-        r = conf_files_list_strv(&files, ".conf", context->definitions ? NULL : arg_root, CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED, dirs);
+        r = conf_files_list_strv(
+                        &files,
+                        ".conf",
+                        context->definitions ? NULL : arg_root,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_DONT_PREFIX_ROOT,
+                        dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate *.conf files: %m");
 

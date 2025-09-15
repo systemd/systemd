@@ -13,6 +13,7 @@ typedef enum ConfFilesFlags {
         CONF_FILES_FILTER_MASKED_BY_SYMLINK = 1 << 4,
         CONF_FILES_FILTER_MASKED_BY_EMPTY   = 1 << 5,
         CONF_FILES_FILTER_MASKED            = CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_FILTER_MASKED_BY_EMPTY,
+        CONF_FILES_DONT_PREFIX_ROOT         = 1 << 6,
 } ConfFilesFlags;
 
 typedef struct ConfFile {
