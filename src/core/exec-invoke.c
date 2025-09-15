@@ -4866,6 +4866,32 @@ static int exec_fd_mark_hot(
         return 1;
 }
 
+static int set_memory_thp(MemoryTHP thp) {
+        switch (thp) {
+
+        case MEMORY_THP_INHERIT:
+                return 0;
+
+        case MEMORY_THP_DISABLE:
+                if (prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0) < 0)
+                        return errno == EINVAL ? -EOPNOTSUPP : -errno;
+                return 0;
+
+        case MEMORY_THP_MADVISE:
+                if (prctl(PR_SET_THP_DISABLE, 1, PR_THP_DISABLE_EXCEPT_ADVISED, 0, 0) < 0)
+                        return errno == EINVAL ? -EOPNOTSUPP : -errno;
+                return 0;
+
+        case MEMORY_THP_SYSTEM:
+                if (prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0) < 0)
+                        return errno == EINVAL ? -EOPNOTSUPP : -errno;
+                return 0;
+
+        default:
+                assert_not_reached();
+        }
+}
+
 static int send_handoff_timestamp(
                 const ExecContext *c,
                 ExecParameters *p,
@@ -5549,6 +5575,16 @@ int exec_invoke(
                                 return log_error_errno(errno, "Failed to set KSM: %m");
                         }
                 }
+
+        r = set_memory_thp(context->memory_thp);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Setting MemoryTHP=%s is not supported, ignoring: %m",
+                                memory_thp_to_string(context->memory_thp));
+        else if (r < 0) {
+                *exit_status = EXIT_MEMORY_THP;
+                return log_error_errno(r, "Failed to set MemoryTHP=%s: %m",
+                                       memory_thp_to_string(context->memory_thp));
+        }
 
 #if ENABLE_UTMP
         if (context->utmp_id) {
