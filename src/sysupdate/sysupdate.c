@@ -1568,12 +1568,12 @@ static int verb_components(int argc, char **argv, void *userdata) {
         FOREACH_ARRAY(i, directories, n_directories) {
                 ConfFile *e = *i;
 
-                if (streq(e->name, "sysupdate.d")) {
+                if (streq(e->filename, "sysupdate.d")) {
                         has_default_component = true;
                         continue;
                 }
 
-                const char *s = startswith(e->name, "sysupdate.");
+                const char *s = startswith(e->filename, "sysupdate.");
                 if (!s)
                         continue;
 
