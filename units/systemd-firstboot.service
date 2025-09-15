@@ -22,6 +22,7 @@ After=systemd-remount-fs.service
 After=systemd-sysusers.service systemd-tmpfiles-setup.service
 # Let vconsole-setup do its setup before starting user interaction:
 After=systemd-vconsole-setup.service
+After=systemd-mute-console.socket
 
 Wants=first-boot-complete.target
 Before=first-boot-complete.target sysinit.target

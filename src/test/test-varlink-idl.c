@@ -26,6 +26,7 @@
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.Manager.h"
 #include "varlink-io.systemd.MountFileSystem.h"
+#include "varlink-io.systemd.MuteConsole.h"
 #include "varlink-io.systemd.NamespaceResource.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.PCRExtend.h"
@@ -194,6 +195,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_Manager);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_MountFileSystem);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_MuteConsole);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_NamespaceResource);
         print_separator();
