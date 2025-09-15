@@ -1117,7 +1117,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectHostname: %s%s%s\n"
                 "%sProtectProc: %s\n"
                 "%sProcSubset: %s\n"
-                "%sPrivateBPF: %s\n",
+                "%sPrivateBPF: %s\n"
+                "%sMemoryTHP: %s\n",
                 prefix, c->umask,
                 prefix, empty_to_root(c->working_directory),
                 prefix, empty_to_root(c->root_directory),
@@ -1145,7 +1146,8 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset),
-                prefix, private_bpf_to_string(c->private_bpf));
+                prefix, private_bpf_to_string(c->private_bpf),
+                prefix, memory_thp_to_string(c->memory_thp));
 
         if (c->private_bpf == PRIVATE_BPF_YES) {
                 _cleanup_free_ char
