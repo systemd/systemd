@@ -437,7 +437,7 @@ static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfF
 
                 if (FLAGS_SET(flags, CONF_FILES_BASENAME))
                         r = strv_extend_with_size(&results, &n_results, c->filename);
-                else if (root) {
+                else if (root && !FLAGS_SET(flags, CONF_FILES_DONT_PREFIX_ROOT)) {
                         char *p;
 
                         r = chaseat_prefix_root(c->result, root, &p);
