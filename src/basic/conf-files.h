@@ -18,11 +18,11 @@ typedef enum ConfFilesFlags {
 } ConfFilesFlags;
 
 typedef struct ConfFile {
-        char *name;          /* name of a file found in config directories */
-        char *result;        /* resolved config directory with the original file name found in the directory */
-        char *original_path; /* original config directory with the original file name found in the directory */
-        char *resolved_path; /* fully resolved path, where the filename part of the path may be different from the original name */
-        int fd;              /* O_PATH fd to resolved_path, -EBADF if the resolved_path does not exist */
+        char *filename;      /* filename of the discovered file (i.e. without any directory prefix) */
+        char *result;        /* full path to the file (with the directory prefix fully resolved, but the filename part left as is) */
+        char *original_path; /* full path to the file (original – non-resolved – directory prefix + filename part left as is) */
+        char *resolved_path; /* fully resolved path to the file with both directory prefix and filename fully resolved */
+        int fd;              /* O_PATH fd to resolved_path, -EBADF if resolved_path does not exist */
         struct stat st;      /* stat of the file. */
 } ConfFile;
 
