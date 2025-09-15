@@ -143,6 +143,11 @@ units = [
         },
         { 'file' : 'modprobe@.service' },
         { 'file' : 'multi-user.target' },
+        {
+          'file' : 'systemd-mute-console.socket',
+          'symlinks' : ['sockets.target.wants/']
+        },
+        { 'file' : 'systemd-mute-console@.service' },
         { 'file' : 'network-online.target' },
         { 'file' : 'network-pre.target' },
         { 'file' : 'network.target' },
