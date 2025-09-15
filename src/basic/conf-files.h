@@ -16,7 +16,7 @@ typedef enum ConfFilesFlags {
 } ConfFilesFlags;
 
 typedef struct ConfFile {
-        char *name;          /* name of a file found in config directories */
+        char *filename;      /* name of a file found in config directories */
         char *result;        /* resolved config directory with the original file name found in the directory */
         char *original_path; /* original config directory with the original file name found in the directory */
         char *resolved_path; /* fully resolved path, where the filename part of the path may be different from the original name */
