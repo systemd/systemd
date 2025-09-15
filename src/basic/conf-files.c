@@ -24,7 +24,7 @@ ConfFile* conf_file_free(ConfFile *c) {
         if (!c)
                 return NULL;
 
-        free(c->name);
+        free(c->filename);
         free(c->result);
         free(c->original_path);
         free(c->resolved_path);
@@ -295,7 +295,7 @@ int conf_file_new_at(const char *path, int rfd, ConfFilesFlags flags, ConfFile *
         if (!c->original_path)
                 return log_oom_full(log_level);
 
-        r = path_extract_filename(path, &c->name);
+        r = path_extract_filename(path, &c->filename);
         if (r < 0)
                 return log_full_errno(log_level, r, "Failed to extract filename from '%s': %m", path);
 
@@ -311,7 +311,7 @@ int conf_file_new_at(const char *path, int rfd, ConfFilesFlags flags, ConfFile *
                         return log_full_errno(log_level, r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(dirpath));
         }
 
-        c->result = path_join(resolved_dirpath, c->name);
+        c->result = path_join(resolved_dirpath, c->filename);
         if (!c->result)
                 return log_oom_full(log_level);
 
@@ -320,7 +320,7 @@ int conf_file_new_at(const char *path, int rfd, ConfFilesFlags flags, ConfFile *
                         rfd,
                         c->original_path,
                         c->result,
-                        c->name,
+                        c->filename,
                         /* masked= */ NULL,
                         flags,
                         &c->resolved_path,
@@ -449,7 +449,7 @@ static int files_add(
                         return log_oom_full(log_level);
 
                 *c = (ConfFile) {
-                        .name = strdup(de->d_name),
+                        .filename = strdup(de->d_name),
                         .result = TAKE_PTR(p),
                         .original_path = TAKE_PTR(original_path),
                         .resolved_path = TAKE_PTR(resolved_path),
@@ -457,10 +457,10 @@ static int files_add(
                         .st = st,
                 };
 
-                if (!c->name)
+                if (!c->filename)
                         return log_oom_full(log_level);
 
-                r = hashmap_ensure_put(files, &conf_file_hash_ops, c->name, c);
+                r = hashmap_ensure_put(files, &conf_file_hash_ops, c->filename, c);
                 if (r < 0) {
                         assert(r == -ENOMEM);
                         return log_oom_full(log_level);
@@ -490,7 +490,7 @@ static int dump_files(Hashmap *fh, const char *root, ConfFilesFlags flags, ConfF
 
         /* Hence, we need to remove them from the hashmap. */
         FOREACH_ARRAY(i, files, n_files)
-                assert_se(hashmap_remove(fh, (*i)->name) == *i);
+                assert_se(hashmap_remove(fh, (*i)->filename) == *i);
 
         if (root)
                 FOREACH_ARRAY(i, files, n_files) {
@@ -531,7 +531,7 @@ static int copy_and_sort_files_from_hashmap(
                 const char *add = NULL;
 
                 if (FLAGS_SET(flags, CONF_FILES_BASENAME))
-                        add = c->name;
+                        add = c->filename;
                 else if (root) {
                         _cleanup_free_ char *p = NULL;
 
@@ -583,22 +583,22 @@ static int insert_replacement(Hashmap **fh, ConfFile *replacement, ConfFilesFlag
 
         /* This consumes the input ConfFile. */
 
-        ConfFile *existing = hashmap_get(*fh, c->name);
+        ConfFile *existing = hashmap_get(*fh, c->filename);
         if (existing) {
                 log_debug("An entry with higher priority '%s' -> '%s' already exists, ignoring the replacement: %s",
-                          existing->name, existing->result, c->original_path);
+                          existing->filename, existing->result, c->original_path);
                 *ret = NULL;
                 return 0;
         }
 
-        r = hashmap_ensure_put(fh, &conf_file_hash_ops, c->name, c);
+        r = hashmap_ensure_put(fh, &conf_file_hash_ops, c->filename, c);
         if (r < 0) {
                 assert(r == -ENOMEM);
                 return log_oom_full(conf_files_log_level(flags));
         }
         assert(r > 0);
 
-        log_debug("Inserted replacement: '%s' -> '%s'", c->name, c->result);
+        log_debug("Inserted replacement: '%s' -> '%s'", c->filename, c->result);
 
         *ret = TAKE_PTR(c);
         return 0;
@@ -644,7 +644,7 @@ static int conf_files_list_impl(
                         continue;
                 }
 
-                if (c && streq_ptr(path_startswith(c->result, path), c->name)) {
+                if (c && streq_ptr(path_startswith(c->result, path), c->filename)) {
                         r = insert_replacement(&fh, TAKE_PTR(c), flags, &inserted);
                         if (r < 0)
                                 return r;
