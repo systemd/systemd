@@ -626,6 +626,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(PrivateMounts, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MountFlags="),
                 SD_VARLINK_DEFINE_FIELD(MountFlags, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MemoryTHP="),
+                SD_VARLINK_DEFINE_FIELD(MemoryTHP, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
 
                 /* System Call Filtering
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#System%20Call%20Filtering */
