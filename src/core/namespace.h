@@ -91,6 +91,14 @@ typedef enum PrivatePIDs {
         _PRIVATE_PIDS_INVALID = -EINVAL,
 } PrivatePIDs;
 
+typedef enum MemoryTHP {
+        MEMORY_THP_NO,
+        MEMORY_THP_DISABLE,
+        MEMORY_THP_MADVISE,
+        _MEMORY_THP_MAX,
+        _MEMORY_THP_INVALID = -EINVAL,
+} MemoryTHP;
+
 typedef struct BindMount {
         char *source;
         char *destination;
@@ -234,6 +242,9 @@ ProtectProc protect_proc_from_string(const char *s) _pure_;
 
 const char* proc_subset_to_string(ProcSubset i) _const_;
 ProcSubset proc_subset_from_string(const char *s) _pure_;
+
+const char* memory_thp_to_string(MemoryTHP i) _const_;
+MemoryTHP memory_thp_from_string(const char *s) _pure_;
 
 const char* private_bpf_to_string(PrivateBPF i) _const_;
 PrivateBPF private_bpf_from_string(const char *s) _pure_;
