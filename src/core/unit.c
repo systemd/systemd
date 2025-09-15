@@ -5526,6 +5526,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
                 return -ENOMEM;
 
         p->debug_invocation = u->debug_invocation;
+        p->debug_wait = u->debug_wait;
 
         return 0;
 }
@@ -5980,6 +5981,17 @@ int unit_set_debug_invocation(Unit *u, bool enable) {
                                 return r;
                 }
         }
+
+        return 1;
+}
+
+int unit_set_debug_wait(Unit *u, bool enable) {
+        assert(u);
+
+        if (u->debug_wait == enable)
+                return 0; /* Nothing to do */
+
+        u->debug_wait = enable;
 
         return 1;
 }
