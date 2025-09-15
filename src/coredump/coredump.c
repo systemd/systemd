@@ -1483,7 +1483,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         if (cg_pidref_get_unit(&context->pidref, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_UNIT=", t);
 
-        if (cg_pid_get_user_unit(pid, &t) >= 0)
+        if (cg_pidref_get_user_unit(&context->pidref, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_USER_UNIT=", t);
 
         if (cg_pidref_get_session(&context->pidref, &t) >= 0)
