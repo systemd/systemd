@@ -532,7 +532,7 @@ static int copy_and_sort_files_from_hashmap(
 
                 if (FLAGS_SET(flags, CONF_FILES_BASENAME))
                         add = c->filename;
-                else if (root) {
+                else if (root && !FLAGS_SET(flags, CONF_FILES_DONT_PREFIX_ROOT)) {
                         _cleanup_free_ char *p = NULL;
 
                         r = chaseat_prefix_root(c->result, root, &p);
