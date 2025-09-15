@@ -108,13 +108,6 @@ usb:v04B4p325C*
  ID_SOFTWARE_RADIO=1
 
 ##########################################
-# MiriSDR
-##########################################
-# Mirics MSi2500 default (e.g. VTX3D card)
-usb:v1DF7p2500*
- ID_SOFTWARE_RADIO=1
-
-##########################################
 # Nuand
 ##########################################
 # bladeRF 1.x
@@ -298,4 +291,35 @@ usb:v1F4DpD286*
 
 # PROlectrix DV107669 (FC0012)
 usb:v1F4DpD803*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# SDRplay
+##########################################
+# RSP1
+usb:v1DF7p2500*
+ ID_SOFTWARE_RADIO=1
+
+# RSP1A
+usb:v1DF7p3000*
+ ID_SOFTWARE_RADIO=1
+
+# RSP2/RSP2pro
+usb:v1DF7p3010*
+ ID_SOFTWARE_RADIO=1
+
+# RSPduo
+usb:v1DF7p3020*
+ ID_SOFTWARE_RADIO=1
+
+# RSPdx
+usb:v1DF7p3030*
+ ID_SOFTWARE_RADIO=1
+
+# RSP1B
+usb:v1DF7p3050*
+ ID_SOFTWARE_RADIO=1
+
+# RSPdxR2
+usb:v1DF7p3060*
  ID_SOFTWARE_RADIO=1
