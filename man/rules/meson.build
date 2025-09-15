@@ -916,6 +916,7 @@ manpages = [
   'HAVE_PAM'],
  ['sd_varlink_push_fd', '3', ['sd_varlink_push_dup_fd'], ''],
  ['sd_varlink_send', '3', ['sd_varlink_sendb', 'sd_varlink_sendbo'], ''],
+ ['sd_varlink_server_new', '3', [], ''],
  ['sd_varlink_set_description', '3', ['sd_varlink_get_description'], ''],
  ['sd_varlink_set_relative_timeout', '3', [], ''],
  ['sd_watchdog_enabled', '3', [], ''],
