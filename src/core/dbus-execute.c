@@ -58,6 +58,7 @@ static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_private_bpf, private_bpf, Priva
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_home, protect_home, ProtectHome);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_protect_system, protect_system, ProtectSystem);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_personality, personality, unsigned long);
+static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_memory_thp, memory_thp, MemoryTHP);
 static BUS_DEFINE_PROPERTY_GET(property_get_ioprio, "i", ExecContext, exec_context_get_effective_ioprio);
 static BUS_DEFINE_PROPERTY_GET(property_get_mount_apivfs, "b", ExecContext, exec_context_get_effective_mount_apivfs);
 static BUS_DEFINE_PROPERTY_GET(property_get_bind_log_sockets, "b", ExecContext, exec_context_get_effective_bind_log_sockets);
@@ -1412,6 +1413,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, root_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, mount_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExtensionImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, extension_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MemoryTHP", "s", property_get_memory_thp, offsetof(ExecContext, memory_thp), SD_BUS_VTABLE_PROPERTY_CONST),
 
         /* Obsolete/redundant properties: */
         SD_BUS_PROPERTY("Capabilities", "s", property_get_empty_string, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -1844,6 +1846,7 @@ static BUS_DEFINE_SET_TRANSIENT_PARSE(keyring_mode, ExecKeyringMode, exec_keyrin
 static BUS_DEFINE_SET_TRANSIENT_PARSE(protect_proc, ProtectProc, protect_proc_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(proc_subset, ProcSubset, proc_subset_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE(private_bpf, PrivateBPF, private_bpf_from_string);
+static BUS_DEFINE_SET_TRANSIENT_PARSE(memory_thp, MemoryTHP, memory_thp_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_commands, uint64_t, bpf_delegate_commands_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_maps, uint64_t, bpf_delegate_maps_from_string);
 static BUS_DEFINE_SET_TRANSIENT_PARSE_PTR(bpf_delegate_programs, uint64_t, bpf_delegate_programs_from_string);
@@ -2346,6 +2349,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "MemoryKSM"))
                 return bus_set_transient_tristate(u, name, &c->memory_ksm, message, flags, error);
+
+        if (streq(name, "MemoryTHP"))
+                return bus_set_transient_memory_thp(u, name, &c->memory_thp, message, flags, error);
 
         if (streq(name, "UtmpIdentifier"))
                 return bus_set_transient_string(u, name, &c->utmp_id, message, flags, error);
