@@ -2121,6 +2121,28 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MemoryTHP=</varname></term>
+
+        <listitem><para>Transparent Hugepages (THP) is a Linux kernel feature that manages memory
+        using larger pages (2MB on x86, compared to the default 4KB). The main goal is to improve memory management
+        efficiency and system performance, especially for memory-intensive applications.
+        However, it can cause drawbacks in some scenarios, such as memory regression and latency spikes.
+        THP policy is governed for the entire system via <filename>/sys/kernel/mm/transparent_hugepage/enabled</filename>.
+        However, it can be overridden for individual workloads via prctl(2) call.
+        MemoryTHP is used to disable THPs at exec-invoke to stop providing THPs for workloads where the
+        drawbacks outweigh the advantages.
+        When set to "disable", MemoryTHP disables THPs completely for the process, irrespecitive of global THP controls.
+        For details, see
+        <ulink url="https://docs.kernel.org/admin-guide/mm/transhuge.html">Transparent Hugepage Support</ulink>
+        in the kernel documentation.</para>
+        <para>Note that this functionality might not be available, for example if THP is disabled in the
+        kernel, or the kernel does not support controlling THP at the process level through
+        <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
+
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivatePIDs=</varname></term>
 
         <listitem><para>Takes a boolean argument. Defaults to false. If enabled, sets up a new PID namespace
