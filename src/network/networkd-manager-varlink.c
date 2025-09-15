@@ -23,10 +23,10 @@
 
 static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
+        assert(parameters);
         assert(link);
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table = */ NULL, /* userdata = */ NULL);
