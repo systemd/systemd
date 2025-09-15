@@ -155,6 +155,7 @@ shared_sources = files(
         'polkit-agent.c',
         'portable-util.c',
         'pretty-print.c',
+        'printk-util.c',
         'prompt-util.c',
         'ptyfwd.c',
         'qrcode-util.c',
