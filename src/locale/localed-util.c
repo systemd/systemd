@@ -326,6 +326,55 @@ int vconsole_write_data(Context *c) {
         return 0;
 }
 
+static int write_xkb_env_file(const X11Context *xc) {
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        int r;
+
+        assert(xc);
+
+        if (x11_context_isempty(xc)) {
+                if (unlink("/etc/environment.d/90-xkb.conf") < 0)
+                        return errno == ENOENT ? 0 : -errno;
+                return 0;
+        }
+
+        (void) mkdir_p_label("/etc/environment.d", 0755);
+        r = fopen_temporary("/etc/environment.d/90-xkb.conf", &f, &temp_path);
+        if (r < 0)
+                return r;
+
+        (void) fchmod(fileno(f), 0644);
+
+        fputs("# Written by systemd-localed(8), read by systemd --user and Wayland compositors.\n"
+              "# It's probably wise not to edit this file manually. Use localectl(1) to\n"
+              "# update this file.\n"
+              "#\n"
+              "# This file provides XKB configuration as environment variables for\n"
+              "# Wayland compositors that use libxkbcommon.\n\n", f);
+
+        if (!isempty(xc->layout))
+                fprintf(f, "XKB_DEFAULT_LAYOUT=\"%s\"\n", xc->layout);
+
+        if (!isempty(xc->model))
+                fprintf(f, "XKB_DEFAULT_MODEL=\"%s\"\n", xc->model);
+
+        if (!isempty(xc->variant))
+                fprintf(f, "XKB_DEFAULT_VARIANT=\"%s\"\n", xc->variant);
+
+        if (!isempty(xc->options))
+                fprintf(f, "XKB_DEFAULT_OPTIONS=\"%s\"\n", xc->options);
+
+        r = fflush_sync_and_check(f);
+        if (r < 0)
+                return r;
+
+        if (rename(temp_path, "/etc/environment.d/90-xkb.conf") < 0)
+                return -errno;
+
+        return 0;
+}
+
 int x11_write_data(Context *c) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
@@ -338,6 +387,9 @@ int x11_write_data(Context *c) {
         if (x11_context_isempty(xc)) {
                 if (unlink("/etc/X11/xorg.conf.d/00-keyboard.conf") < 0)
                         return errno == ENOENT ? 0 : -errno;
+
+                /* Also remove Wayland environment file */
+                (void) write_xkb_env_file(xc);
 
                 c->x11_stat = (struct stat) {};
                 return 0;
@@ -380,6 +432,11 @@ int x11_write_data(Context *c) {
 
         if (stat("/etc/X11/xorg.conf.d/00-keyboard.conf", &c->x11_stat) < 0)
                 return -errno;
+
+        /* Also write Wayland-compatible environment file for libxkbcommon */
+        r = write_xkb_env_file(xc);
+        if (r < 0)
+                log_warning_errno(r, "Failed to write XKB environment configuration, ignoring: %m");
 
         return 0;
 }
