@@ -29,3 +29,5 @@ int prompt_loop(const char *text,
 
 int chrome_show(const char *top, const char *bottom);
 void chrome_hide(void);
+
+int mute_console(sd_varlink **ret_link);
