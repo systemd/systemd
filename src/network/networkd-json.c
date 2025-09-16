@@ -444,14 +444,15 @@ static int network_append_json(Network *network, sd_json_variant **v) {
                         v,
                         SD_JSON_BUILD_PAIR_STRING("NetworkFile", network->filename),
                         SD_JSON_BUILD_PAIR_STRV("NetworkFileDropins", network->dropins),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("RequiredForOnline", network->required_for_online),
-                        SD_JSON_BUILD_PAIR("RequiredOperationalStateForOnline",
-                                           SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(link_operstate_to_string(network->required_operstate_for_online.min)),
-                                                               SD_JSON_BUILD_STRING(link_operstate_to_string(network->required_operstate_for_online.max)))),
-                        SD_JSON_BUILD_PAIR_STRING("RequiredFamilyForOnline",
-                                                  link_required_address_family_to_string(network->required_family_for_online)),
-                        SD_JSON_BUILD_PAIR_STRING("ActivationPolicy",
-                                                  activation_policy_to_string(network->activation_policy)));
+                        SD_JSON_BUILD_PAIR_BOOLEAN("RequiredForOnline", network->required_for_online > 0),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        operational_state_range_is_valid(&network->required_operstate_for_online),
+                                        "RequiredOperationalStateForOnline",
+                                        SD_JSON_BUILD_ARRAY(
+                                                SD_JSON_BUILD_STRING(link_operstate_to_string(network->required_operstate_for_online.min)),
+                                                SD_JSON_BUILD_STRING(link_operstate_to_string(network->required_operstate_for_online.max)))),
+                        SD_JSON_BUILD_PAIR_STRING("RequiredFamilyForOnline", link_required_address_family_to_string(network->required_family_for_online)),
+                        SD_JSON_BUILD_PAIR_STRING("ActivationPolicy", activation_policy_to_string(network->activation_policy)));
 }
 
 static int netdev_append_json(NetDev *netdev, sd_json_variant **v) {
