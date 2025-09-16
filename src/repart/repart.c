@@ -196,6 +196,8 @@ static size_t arg_n_filter_partitions = 0;
 static FilterPartitionsType arg_filter_partitions_type = FILTER_PARTITIONS_NONE;
 static GptPartitionType *arg_defer_partitions = NULL;
 static size_t arg_n_defer_partitions = 0;
+static bool arg_defer_partitions_empty = false;
+static bool arg_defer_partitions_factory_reset = false;
 static uint64_t arg_sector_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
@@ -521,6 +523,9 @@ struct Context {
 
         X509 *certificate;
         EVP_PKEY *private_key;
+
+        bool defer_partitions_empty;
+        bool defer_partitions_factory_reset;
 
         sd_varlink *link; /* If 'more' is used on the Varlink call, we'll send progress info over this link */
 };
@@ -4639,6 +4644,22 @@ static int context_discard_gap_after(Context *context, Partition *p) {
         return 0;
 }
 
+static bool partition_defer(Context *c, const Partition *p) {
+        assert(c);
+        assert(p);
+
+        if (partition_type_defer(&p->type))
+                return true;
+
+        if (c->defer_partitions_empty && streq_ptr(p->new_label, "_empty"))
+                return true;
+
+        if (c->defer_partitions_factory_reset && p->factory_reset)
+                return true;
+
+        return false;
+}
+
 static int context_wipe_and_discard(Context *context) {
         int r;
 
@@ -4656,7 +4677,7 @@ static int context_wipe_and_discard(Context *context) {
                 if (!p->allocated_to_area)
                         continue;
 
-                if (partition_type_defer(&p->type))
+                if (partition_defer(context, p))
                         continue;
 
                 r = context_wipe_partition(context, p);
@@ -5689,7 +5710,7 @@ static int context_copy_blocks(Context *context) {
                 if (PARTITION_EXISTS(p)) /* Never copy over existing partitions */
                         continue;
 
-                if (partition_type_defer(&p->type))
+                if (partition_defer(context, p))
                         continue;
 
                 /* For offline signing case */
@@ -5760,14 +5781,14 @@ static int context_copy_blocks(Context *context) {
                         log_info("Block level copying and synchronization of partition %" PRIu64 " complete in %s.",
                                  p->partno, FORMAT_TIMESPAN(time_spent, 0));
 
-                if (p->siblings[VERITY_HASH] && !partition_type_defer(&p->siblings[VERITY_HASH]->type)) {
+                if (p->siblings[VERITY_HASH] && !partition_defer(context, p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
                                                          /* node = */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->siblings[VERITY_SIG] && !partition_type_defer(&p->siblings[VERITY_SIG]->type)) {
+                if (p->siblings[VERITY_SIG] && !partition_defer(context, p->siblings[VERITY_SIG])) {
                         r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
@@ -6664,7 +6685,7 @@ static int context_mkfs(Context *context) {
                 if (!p->format)
                         continue;
 
-                if (partition_type_defer(&p->type))
+                if (partition_defer(context, p))
                         continue;
 
                 /* For offline signing case */
@@ -6775,14 +6796,14 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (p->siblings[VERITY_HASH] && !partition_type_defer(&p->siblings[VERITY_HASH]->type)) {
+                if (p->siblings[VERITY_HASH] && !partition_defer(context, p->siblings[VERITY_HASH])) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
                                                          /* node = */ NULL, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->siblings[VERITY_SIG] && !partition_type_defer(&p->siblings[VERITY_SIG]->type)) {
+                if (p->siblings[VERITY_SIG] && !partition_defer(context, p->siblings[VERITY_SIG])) {
                         r = partition_format_verity_sig(context, p->siblings[VERITY_SIG]);
                         if (r < 0)
                                 return r;
@@ -7066,7 +7087,7 @@ static int context_mangle_partitions(Context *context) {
                 if (p->dropped)
                         continue;
 
-                if (partition_type_defer(&p->type))
+                if (partition_defer(context, p))
                         continue;
 
                 (void) context_notify(context, PROGRESS_ADJUSTING_PARTITION, p->definition_path, UINT_MAX);
@@ -7318,7 +7339,7 @@ static int context_split(Context *context) {
                 if (!p->split_path)
                         continue;
 
-                if (partition_type_defer(&p->type))
+                if (partition_defer(context, p))
                         continue;
 
                 if (fd < 0) {
@@ -8839,6 +8860,10 @@ static int help(void) {
                "     --defer-partitions=PARTITION1,PARTITION2,PARTITION3,…\n"
                "                          Take partitions of the specified types into account\n"
                "                          but don't populate them yet\n"
+               "     --defer-partitions-empty=yes\n"
+               "                          Defer all partitions marked for formatting as empty\n"
+               "     --defer-partitions-factory-reset=yes\n"
+               "                          Defer all partitions marked for factory reset\n"
                "\n%3$sCopying:%4$s\n"
                "  -s --copy-source=PATH   Specify the primary source tree to copy files from\n"
                "     --copy-from=IMAGE    Copy partitions from the given image(s)\n"
@@ -8904,6 +8929,8 @@ static int parse_argv(
                 ARG_INCLUDE_PARTITIONS,
                 ARG_EXCLUDE_PARTITIONS,
                 ARG_DEFER_PARTITIONS,
+                ARG_DEFER_PARTITIONS_EMPTY,
+                ARG_DEFER_PARTITIONS_FACTORY_RESET,
                 ARG_SECTOR_SIZE,
                 ARG_SKIP_PARTITIONS,
                 ARG_ARCHITECTURE,
@@ -8918,50 +8945,52 @@ static int parse_argv(
         };
 
         static const struct option options[] = {
-                { "help",                 no_argument,       NULL, 'h'                      },
-                { "version",              no_argument,       NULL, ARG_VERSION              },
-                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
-                { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
-                { "dry-run",              required_argument, NULL, ARG_DRY_RUN              },
-                { "empty",                required_argument, NULL, ARG_EMPTY                },
-                { "discard",              required_argument, NULL, ARG_DISCARD              },
-                { "factory-reset",        required_argument, NULL, ARG_FACTORY_RESET        },
-                { "can-factory-reset",    no_argument,       NULL, ARG_CAN_FACTORY_RESET    },
-                { "root",                 required_argument, NULL, ARG_ROOT                 },
-                { "image",                required_argument, NULL, ARG_IMAGE                },
-                { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
-                { "seed",                 required_argument, NULL, ARG_SEED                 },
-                { "pretty",               required_argument, NULL, ARG_PRETTY               },
-                { "definitions",          required_argument, NULL, ARG_DEFINITIONS          },
-                { "size",                 required_argument, NULL, ARG_SIZE                 },
-                { "json",                 required_argument, NULL, ARG_JSON                 },
-                { "key-file",             required_argument, NULL, ARG_KEY_FILE             },
-                { "private-key",          required_argument, NULL, ARG_PRIVATE_KEY          },
-                { "private-key-source",   required_argument, NULL, ARG_PRIVATE_KEY_SOURCE   },
-                { "certificate",          required_argument, NULL, ARG_CERTIFICATE          },
-                { "certificate-source",   required_argument, NULL, ARG_CERTIFICATE_SOURCE   },
-                { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
-                { "tpm2-device-key",      required_argument, NULL, ARG_TPM2_DEVICE_KEY      },
-                { "tpm2-seal-key-handle", required_argument, NULL, ARG_TPM2_SEAL_KEY_HANDLE },
-                { "tpm2-pcrs",            required_argument, NULL, ARG_TPM2_PCRS            },
-                { "tpm2-public-key",      required_argument, NULL, ARG_TPM2_PUBLIC_KEY      },
-                { "tpm2-public-key-pcrs", required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS },
-                { "tpm2-pcrlock",         required_argument, NULL, ARG_TPM2_PCRLOCK         },
-                { "split",                required_argument, NULL, ARG_SPLIT                },
-                { "include-partitions",   required_argument, NULL, ARG_INCLUDE_PARTITIONS   },
-                { "exclude-partitions",   required_argument, NULL, ARG_EXCLUDE_PARTITIONS   },
-                { "defer-partitions",     required_argument, NULL, ARG_DEFER_PARTITIONS     },
-                { "sector-size",          required_argument, NULL, ARG_SECTOR_SIZE          },
-                { "architecture",         required_argument, NULL, ARG_ARCHITECTURE         },
-                { "offline",              required_argument, NULL, ARG_OFFLINE              },
-                { "copy-from",            required_argument, NULL, ARG_COPY_FROM            },
-                { "copy-source",          required_argument, NULL, 's'                      },
-                { "make-ddi",             required_argument, NULL, ARG_MAKE_DDI             },
-                { "append-fstab",         required_argument, NULL, ARG_APPEND_FSTAB         },
-                { "generate-fstab",       required_argument, NULL, ARG_GENERATE_FSTAB       },
-                { "generate-crypttab",    required_argument, NULL, ARG_GENERATE_CRYPTTAB    },
-                { "list-devices",         no_argument,       NULL, ARG_LIST_DEVICES         },
-                { "join-signature",       required_argument, NULL, ARG_JOIN_SIGNATURE       },
+                { "help",                           no_argument,       NULL, 'h'                                },
+                { "version",                        no_argument,       NULL, ARG_VERSION                        },
+                { "no-pager",                       no_argument,       NULL, ARG_NO_PAGER                       },
+                { "no-legend",                      no_argument,       NULL, ARG_NO_LEGEND                      },
+                { "dry-run",                        required_argument, NULL, ARG_DRY_RUN                        },
+                { "empty",                          required_argument, NULL, ARG_EMPTY                          },
+                { "discard",                        required_argument, NULL, ARG_DISCARD                        },
+                { "factory-reset",                  required_argument, NULL, ARG_FACTORY_RESET                  },
+                { "can-factory-reset",              no_argument,       NULL, ARG_CAN_FACTORY_RESET              },
+                { "root",                           required_argument, NULL, ARG_ROOT                           },
+                { "image",                          required_argument, NULL, ARG_IMAGE                          },
+                { "image-policy",                   required_argument, NULL, ARG_IMAGE_POLICY                   },
+                { "seed",                           required_argument, NULL, ARG_SEED                           },
+                { "pretty",                         required_argument, NULL, ARG_PRETTY                         },
+                { "definitions",                    required_argument, NULL, ARG_DEFINITIONS                    },
+                { "size",                           required_argument, NULL, ARG_SIZE                           },
+                { "json",                           required_argument, NULL, ARG_JSON                           },
+                { "key-file",                       required_argument, NULL, ARG_KEY_FILE                       },
+                { "private-key",                    required_argument, NULL, ARG_PRIVATE_KEY                    },
+                { "private-key-source",             required_argument, NULL, ARG_PRIVATE_KEY_SOURCE             },
+                { "certificate",                    required_argument, NULL, ARG_CERTIFICATE                    },
+                { "certificate-source",             required_argument, NULL, ARG_CERTIFICATE_SOURCE             },
+                { "tpm2-device",                    required_argument, NULL, ARG_TPM2_DEVICE                    },
+                { "tpm2-device-key",                required_argument, NULL, ARG_TPM2_DEVICE_KEY                },
+                { "tpm2-seal-key-handle",           required_argument, NULL, ARG_TPM2_SEAL_KEY_HANDLE           },
+                { "tpm2-pcrs",                      required_argument, NULL, ARG_TPM2_PCRS                      },
+                { "tpm2-public-key",                required_argument, NULL, ARG_TPM2_PUBLIC_KEY                },
+                { "tpm2-public-key-pcrs",           required_argument, NULL, ARG_TPM2_PUBLIC_KEY_PCRS           },
+                { "tpm2-pcrlock",                   required_argument, NULL, ARG_TPM2_PCRLOCK                   },
+                { "split",                          required_argument, NULL, ARG_SPLIT                          },
+                { "include-partitions",             required_argument, NULL, ARG_INCLUDE_PARTITIONS             },
+                { "exclude-partitions",             required_argument, NULL, ARG_EXCLUDE_PARTITIONS             },
+                { "defer-partitions",               required_argument, NULL, ARG_DEFER_PARTITIONS               },
+                { "defer-partitions-empty",         required_argument, NULL, ARG_DEFER_PARTITIONS_EMPTY         },
+                { "defer-partitions-factory-reset", required_argument, NULL, ARG_DEFER_PARTITIONS_FACTORY_RESET },
+                { "sector-size",                    required_argument, NULL, ARG_SECTOR_SIZE                    },
+                { "architecture",                   required_argument, NULL, ARG_ARCHITECTURE                   },
+                { "offline",                        required_argument, NULL, ARG_OFFLINE                        },
+                { "copy-from",                      required_argument, NULL, ARG_COPY_FROM                      },
+                { "copy-source",                    required_argument, NULL, 's'                                },
+                { "make-ddi",                       required_argument, NULL, ARG_MAKE_DDI                       },
+                { "append-fstab",                   required_argument, NULL, ARG_APPEND_FSTAB                   },
+                { "generate-fstab",                 required_argument, NULL, ARG_GENERATE_FSTAB                 },
+                { "generate-crypttab",              required_argument, NULL, ARG_GENERATE_CRYPTTAB              },
+                { "list-devices",                   no_argument,       NULL, ARG_LIST_DEVICES                   },
+                { "join-signature",                 required_argument, NULL, ARG_JOIN_SIGNATURE                 },
                 {}
         };
 
@@ -9254,6 +9283,20 @@ static int parse_argv(
 
                 case ARG_DEFER_PARTITIONS:
                         r = parse_partition_types(optarg, &arg_defer_partitions, &arg_n_defer_partitions);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_DEFER_PARTITIONS_EMPTY:
+                        r = parse_boolean_argument("--defer-partitions-empty=", optarg, &arg_defer_partitions_empty);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_DEFER_PARTITIONS_FACTORY_RESET:
+                        r = parse_boolean_argument("--defer-partitions-factory-reset=", optarg, &arg_defer_partitions_factory_reset);
                         if (r < 0)
                                 return r;
 
@@ -10126,6 +10169,8 @@ typedef struct RunParameters {
         bool dry_run;
         sd_id128_t seed;
         char **definitions;
+        bool defer_partitions_empty;
+        bool defer_partitions_factory_reset;
 } RunParameters;
 
 static void run_parameters_done(RunParameters *p) {
@@ -10142,11 +10187,13 @@ static int vl_method_run(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "node",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(RunParameters, node),        SD_JSON_NULLABLE                 },
-                { "empty",       SD_JSON_VARIANT_STRING,  json_dispatch_empty_mode, offsetof(RunParameters, empty),       SD_JSON_MANDATORY                },
-                { "seed",        SD_JSON_VARIANT_STRING,  sd_json_dispatch_id128,   offsetof(RunParameters, seed),        SD_JSON_NULLABLE                 },
-                { "dryRun",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, dry_run),     SD_JSON_MANDATORY                },
-                { "definitions", SD_JSON_VARIANT_ARRAY,   json_dispatch_strv_path,  offsetof(RunParameters, definitions), SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "node",                        SD_JSON_VARIANT_STRING,  sd_json_dispatch_string,  offsetof(RunParameters, node),                           SD_JSON_NULLABLE                 },
+                { "empty",                       SD_JSON_VARIANT_STRING,  json_dispatch_empty_mode, offsetof(RunParameters, empty),                          SD_JSON_MANDATORY                },
+                { "seed",                        SD_JSON_VARIANT_STRING,  sd_json_dispatch_id128,   offsetof(RunParameters, seed),                           SD_JSON_NULLABLE                 },
+                { "dryRun",                      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, dry_run),                        SD_JSON_MANDATORY                },
+                { "definitions",                 SD_JSON_VARIANT_ARRAY,   json_dispatch_strv_path,  offsetof(RunParameters, definitions),                    SD_JSON_MANDATORY|SD_JSON_STRICT },
+                { "deferPartitionsEmpty",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, defer_partitions_empty),         0                                },
+                { "deferPartitionsFactoryReset", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(RunParameters, defer_partitions_factory_reset), 0                                },
                 {}
         };
 
@@ -10176,6 +10223,9 @@ static int vl_method_run(
                         /* private_key= */ NULL);
         if (!context)
                 return log_oom();
+
+        context->defer_partitions_empty = p.defer_partitions_empty;
+        context->defer_partitions_factory_reset = p.defer_partitions_factory_reset;
 
         if (FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 context->link = sd_varlink_ref(link);
@@ -10394,6 +10444,9 @@ static int run(int argc, char *argv[]) {
 
         TAKE_PTR(certificate);
         TAKE_PTR(private_key);
+
+        context->defer_partitions_empty = arg_defer_partitions_empty;
+        context->defer_partitions_factory_reset = arg_defer_partitions_factory_reset;
 
         r = context_read_seed(context, arg_root);
         if (r < 0)
