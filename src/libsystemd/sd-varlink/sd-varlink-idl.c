@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
 #include "sd-varlink-idl.h"
 
 #include "alloc-util.h"
@@ -1694,6 +1695,9 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
 
 static int varlink_idl_validate_field_element_type(const sd_varlink_field *field, sd_json_variant *v) {
         assert(field);
+        _cleanup_free_ char* j = NULL;
+        sd_json_variant_format(v, SD_JSON_FORMAT_PRETTY, &j);
+        (void) varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "'%s'  %s", strna(field->name), j);
 
         switch (field->field_type) {
 
