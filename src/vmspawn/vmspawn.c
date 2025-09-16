@@ -2094,24 +2094,30 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (arg_image) {
-                _cleanup_free_ char *escaped_image = NULL;
-
                 assert(!arg_directory);
 
-                r = strv_extend(&cmdline, "-drive");
-                if (r < 0)
+                if (strv_extend(&cmdline, "-drive") < 0)
                         return log_oom();
 
-                escaped_image = escape_qemu_value(arg_image);
+                _cleanup_free_ char *escaped_image = escape_qemu_value(arg_image);
                 if (!escaped_image)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=raw,discard=%s", escaped_image, on_off(arg_discard_disk));
-                if (r < 0)
+                if (strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=raw,discard=%s", escaped_image, on_off(arg_discard_disk)) < 0)
                         return log_oom();
 
-                r = strv_extend_many(&cmdline, "-device", "virtio-blk-pci,drive=vmspawn,bootindex=1");
-                if (r < 0)
+                _cleanup_free_ char *image_fn = NULL;
+                if (path_extract_filename(arg_image, &image_fn) < 0)
+                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", image_fn);
+
+                _cleanup_free_ char *escaped_image_fn = escape_qemu_value(image_fn);
+                if (!escaped_image_fn)
+                        return log_oom();
+
+                if (strv_extend(&cmdline, "-device") < 0)
+                        return log_oom();
+
+                if (strv_extendf(&cmdline, "virtio-blk-pci,drive=vmspawn,bootindex=1,serial=%s", escaped_image_fn) < 0)
                         return log_oom();
 
                 r = grow_image(arg_image, arg_grow_image);
@@ -2186,21 +2192,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         size_t i = 0;
         STRV_FOREACH(drive, arg_extra_drives) {
-                _cleanup_free_ char *escaped_drive = NULL;
-                const char *driver = NULL;
-                struct stat st;
-
-                r = strv_extend(&cmdline, "-blockdev");
-                if (r < 0)
+                if (strv_extend(&cmdline, "-blockdev") < 0)
                         return log_oom();
 
-                escaped_drive = escape_qemu_value(*drive);
+                _cleanup_free_ char *escaped_drive = escape_qemu_value(*drive);
                 if (!escaped_drive)
                         return log_oom();
 
+                struct stat st;
                 if (stat(*drive, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", *drive);
 
+                const char *driver = NULL;
                 if (S_ISREG(st.st_mode))
                         driver = "file";
                 else if (S_ISBLK(st.st_mode))
@@ -2208,16 +2211,22 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", *drive);
 
-                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", driver, escaped_drive, i);
-                if (r < 0)
+                if (strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", driver, escaped_drive, i) < 0)
                         return log_oom();
 
-                r = strv_extend(&cmdline, "-device");
+                _cleanup_free_ char *drive_fn = NULL;
+                r = path_extract_filename(*drive, &drive_fn);
                 if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", *drive);
+
+                _cleanup_free_ char *escaped_drive_fn = escape_qemu_value(drive_fn);
+                if (!escaped_drive_fn)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "scsi-hd,drive=vmspawn_extra_%zu", i++);
-                if (r < 0)
+                if (strv_extend(&cmdline, "-device") < 0)
+                        return log_oom();
+
+                if (strv_extendf(&cmdline, "scsi-hd,drive=vmspawn_extra_%zu,serial=%s", i++, escaped_drive_fn) < 0)
                         return log_oom();
         }
 
