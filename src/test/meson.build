@@ -16,6 +16,7 @@ test_env = {
         'PROJECT_BUILD_ROOT' : meson.project_build_root(),
         'SYSTEMD_SLOW_TESTS' : want_slow_tests ? '1' : '0',
         'PYTHONDONTWRITEBYTECODE' : '1',
+        'SYSTEMD_LIBC' : get_option('libc'),
 }
 if conf.get('ENABLE_LOCALED') == 1
         test_env += {'SYSTEMD_LANGUAGE_FALLBACK_MAP' : language_fallback_map}
@@ -68,8 +69,8 @@ simple_tests += files(
         'test-bus-unit-util.c',
         'test-bus-util.c',
         'test-calendarspec.c',
+        'test-cgroup-setup.c',
         'test-cgroup-util.c',
-        'test-cgroup.c',
         'test-chase.c',
         'test-chid.c',
         'test-clock.c',
@@ -402,6 +403,12 @@ executables += [
                 'sources' : files('test-shift-uid.c'),
                 'dependencies' : libacl,
                 'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files(
+                        'test-printf.c',
+                        '../libc/musl/printf.c'
+                ),
         },
         test_template + {
                 'sources' : files('test-process-util.c'),

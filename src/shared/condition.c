@@ -255,8 +255,13 @@ static int condition_test_version(Condition *c, char **env) {
         if (streq(word, "systemd"))
                 return condition_test_version_cmp(p, STRINGIFY(PROJECT_VERSION));
 
-        if (streq(word, "glibc"))
-                return condition_test_version_cmp(p, gnu_get_libc_version());
+        if (streq(word, "glibc")) {
+                const char *v = gnu_get_libc_version();
+                if (!v)
+                        return false; /* built with musl */
+
+                return condition_test_version_cmp(p, v);
+        }
 
         /* if no predicate has been set, default to "kernel" and use the whole parameter as condition */
         if (!streq(word, "kernel"))
@@ -1091,7 +1096,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         return log_debug_errno(r, "Cannot determine slice \"%s\" cgroup path: %m", slice);
 
                 /* We might be running under the user manager, so get the root path and prefix it accordingly. */
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &root_scope);
+                r = cg_pid_get_path(getpid_cached(), &root_scope);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get root cgroup path: %m");
 
@@ -1110,7 +1115,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         free_and_replace(slice_path, slice_joined);
                 }
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, slice_path, controller, &pressure_path);
+                r = cg_get_path(slice_path, controller, &pressure_path);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting cgroup pressure path from %s: %m", slice_path);
 
