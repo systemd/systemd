@@ -1,8 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <mntent.h>
-
 #include "forward.h"
 
 typedef struct SubMount {
@@ -36,9 +34,6 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
 static inline int mount_switch_root(const char *path, unsigned long mount_propagation_flag) {
         return mount_switch_root_full(path, mount_propagation_flag, false);
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, endmntent, NULL);
-#define _cleanup_endmntent_ _cleanup_(endmntentp)
 
 int mount_verbose_full(
                 int error_log_level,
