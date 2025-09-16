@@ -4588,6 +4588,32 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
+                case _JSON_BUILD_PAIR_VARIANT_NON_EMPTY: {
+                        sd_json_variant *v;
+                        const char *n;
+
+                        if (current->expect != EXPECT_OBJECT_KEY) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        n = va_arg(ap, const char *);
+                        v = va_arg(ap, sd_json_variant *);
+
+                        if (v && !sd_json_variant_is_blank_object(v) && current->n_suppress == 0) {
+                                r = sd_json_variant_new_string(&add, n);
+                                if (r < 0)
+                                        goto finish;
+
+                                add_more = sd_json_variant_ref(v);
+                        }
+
+                        n_subtract = 2; /* we generated two item */
+
+                        current->expect = EXPECT_OBJECT_KEY;
+                        break;
+                }
+
                 case _JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY: {
                         const void *array;
                         size_t sz;
