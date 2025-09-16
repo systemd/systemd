@@ -36,7 +36,8 @@ _systemd-confext() {
         [ARG]='--root
                --json
                --noexec
-               --image-policy'
+               --image-policy
+               --mutable'
     )
 
     local -A VERBS=(
@@ -63,6 +64,9 @@ _systemd-confext() {
                 ;;
             --image-policy)
                 comps=''
+                ;;
+            --mutable)
+                comps='no yes auto import ephemeral ephemeral-import'
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
