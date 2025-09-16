@@ -52,6 +52,12 @@ predicate potentiallyDangerousFunction(Function f, string message) {
   ) or (
     f.getQualifiedName() = "basename" and
     message = "Call basename() is icky. Use path_extract_filename() instead."
+  ) or (
+    f.getQualifiedName() = "setmntent" and
+    message = "Libmount parser is used instead, specifically libmount_parse_fstab()."
+  ) or (
+    f.getQualifiedName() = "getmntent" and
+    message = "Libmount parser is used instead, specifically mnt_table_next_fs()."
   )
 }
 
