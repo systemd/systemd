@@ -29,6 +29,7 @@
 #include "machine-dbus.h"
 #include "machine-pool.h"
 #include "machined.h"
+#include "namespace-util.h"
 #include "operation.h"
 #include "os-util.h"
 #include "path-util.h"
@@ -320,6 +321,15 @@ static int method_create_or_register_machine(
         r = sd_bus_creds_get_euid(creds, &uid);
         if (r < 0)
                 return r;
+
+        /* Ensure an unprivileged user cannot claim any process they don't control as their own machine */
+        if (uid != 0) {
+                r = process_is_owned_by_uid(&leader_pidref, uid);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Only root may register machines for other users");
+        }
 
         const char *details[] = {
                 "name",  name,
