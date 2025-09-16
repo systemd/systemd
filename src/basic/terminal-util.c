@@ -2669,3 +2669,112 @@ int pty_open_peer(int fd, int mode) {
                 (void) usleep_safe(50 * USEC_PER_MSEC);
         }
 }
+
+int terminal_get_cursor_position(
+                int input_fd,
+                int output_fd,
+                unsigned *ret_row,
+                unsigned *ret_column) {
+
+        _cleanup_close_ int nonblock_input_fd = -EBADF;
+        int r;
+
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+
+        if (terminal_is_dumb())
+                return -EOPNOTSUPP;
+
+        r = terminal_verify_same(input_fd, output_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Called with distinct input/output fds: %m");
+
+        struct termios old_termios;
+        if (tcgetattr(input_fd, &old_termios) < 0)
+                return log_debug_errno(errno, "Failed to get terminal settings: %m");
+
+        struct termios new_termios = old_termios;
+        termios_disable_echo(&new_termios);
+
+        if (tcsetattr(input_fd, TCSANOW, &new_termios) < 0)
+                return log_debug_errno(errno, "Failed to set new terminal settings: %m");
+
+        /* Request cursor position (DSR/CPR) */
+        r = loop_write(output_fd, "\x1B[6n", SIZE_MAX);
+        if (r < 0)
+                goto finish;
+
+        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
+         * else process the POLLIN. */
+
+        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                goto finish;
+
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */
+        size_t buf_full = 0;
+        CursorPositionContext context = {};
+
+        for (bool first = true;; first = false) {
+                if (buf_full == 0) {
+                        usec_t n = now(CLOCK_MONOTONIC);
+                        if (n >= end) {
+                                r = -EOPNOTSUPP;
+                                goto finish;
+                        }
+
+                        r = fd_wait_for_event(nonblock_input_fd, POLLIN, usec_sub_unsigned(end, n));
+                        if (r < 0)
+                                goto finish;
+                        if (r == 0) {
+                                r = -EOPNOTSUPP;
+                                goto finish;
+                        }
+
+                        /* On the first try, read multiple characters, i.e. the shortest valid
+                         * reply. Afterwards read byte-wise, since we don't want to read too much, and
+                         * unnecessarily drop too many characters from the input queue. */
+                        ssize_t l = read(nonblock_input_fd, buf, first ? sizeof(buf) : 1);
+                        if (l < 0) {
+                                if (errno == EAGAIN)
+                                        continue;
+
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        assert((size_t) l <= sizeof(buf));
+                        buf_full = l;
+                }
+
+                size_t processed;
+                r = scan_cursor_position_response(&context, buf, buf_full, &processed);
+                if (r < 0)
+                        goto finish;
+
+                assert(processed <= buf_full);
+                buf_full -= processed;
+                memmove(buf, buf + processed, buf_full);
+
+                if (r > 0) {
+                        /* Superficial validity check */
+                        if (context.row >= 32766 || context.column >= 32766) {
+                                r = -ENODATA;
+                                goto finish;
+                        }
+
+                        if (ret_row)
+                                *ret_row = context.row;
+                        if (ret_column)
+                                *ret_column = context.column;
+
+                        r = 0;
+                        goto finish;
+                }
+        }
+
+finish:
+        RET_GATHER(r, RET_NERRNO(tcsetattr(input_fd, TCSANOW, &old_termios)));
+        return r;
+}

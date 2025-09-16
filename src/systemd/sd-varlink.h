@@ -69,6 +69,8 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_server_flags_t) {
         SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT  = 1 << 5, /* Allow receiving fds over all connections */
         SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT = 1 << 6, /* Allow sending fds over all connections */
         SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT = 1 << 7, /* Reject input messages with fds if fd passing is disabled (needs kernel v6.16+) */
+        SD_VARLINK_SERVER_HANDLE_SIGINT           = 1 << 8,
+        SD_VARLINK_SERVER_HANDLE_SIGTERM          = 1 << 9,
         _SD_ENUM_FORCE_S64(SD_VARLINK_SERVER)
 } sd_varlink_server_flags_t;
 

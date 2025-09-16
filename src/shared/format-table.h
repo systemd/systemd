@@ -16,6 +16,7 @@ typedef enum TableDataType {
         TABLE_STRV_WRAPPED,
         TABLE_PATH,
         TABLE_PATH_BASENAME,       /* like TABLE_PATH, but display only last path element (i.e. the "basename") in regular output */
+        TABLE_VERSION,             /* just like TABLE_STRING, but uses version comparison when sorting */
         TABLE_BOOLEAN,
         TABLE_BOOLEAN_CHECKMARK,
         TABLE_TIMESTAMP,

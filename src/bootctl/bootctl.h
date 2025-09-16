@@ -4,9 +4,11 @@
 #include "forward.h"
 
 typedef enum InstallSource {
-        ARG_INSTALL_SOURCE_IMAGE,
-        ARG_INSTALL_SOURCE_HOST,
-        ARG_INSTALL_SOURCE_AUTO,
+        INSTALL_SOURCE_IMAGE,
+        INSTALL_SOURCE_HOST,
+        INSTALL_SOURCE_AUTO,
+        _INSTALL_SOURCE_MAX,
+        _INSTALL_SOURCE_INVALID = -EINVAL,
 } InstallSource;
 
 typedef enum GracefulMode {
