@@ -6,6 +6,7 @@
 
 #include "sd-bus.h"
 #include "sd-id128.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
@@ -86,6 +87,7 @@ static bool arg_welcome = true;
 static bool arg_reset = false;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_chrome = true;
+static bool arg_mute_console = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -99,13 +101,17 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
-static void print_welcome(int rfd) {
+static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         _cleanup_free_ char *pretty_name = NULL, *os_name = NULL, *ansi_color = NULL;
         static bool done = false;
         const char *pn, *ac;
         int r;
 
         assert(rfd >= 0);
+        assert(mute_console_link);
+
+        if (!*mute_console_link && arg_mute_console)
+                (void) mute_console(mute_console_link);
 
         if (!arg_welcome)
                 return;
@@ -228,7 +234,7 @@ static int locale_is_ok(const char *name, void *userdata) {
         return r != 0 ? locale_is_installed(name) > 0 : locale_is_valid(name);
 }
 
-static int prompt_locale(int rfd) {
+static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
         _cleanup_strv_free_ char **locales = NULL;
         bool acquired_from_creds = false;
         int r;
@@ -280,7 +286,7 @@ static int prompt_locale(int rfd) {
                         /* Not setting arg_locale_message here, since it defaults to LANG anyway */
                 }
         } else {
-                print_welcome(rfd);
+                print_welcome(rfd, mute_console_link);
 
                 r = prompt_loop("Please enter the new system locale name or number",
                                 GLYPH_WORLD,
@@ -322,7 +328,7 @@ static int prompt_locale(int rfd) {
         return 0;
 }
 
-static int process_locale(int rfd) {
+static int process_locale(int rfd, sd_varlink **mute_console_link) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
         char* locales[3];
@@ -358,7 +364,7 @@ static int process_locale(int rfd) {
                 }
         }
 
-        r = prompt_locale(rfd);
+        r = prompt_locale(rfd, mute_console_link);
         if (r < 0)
                 return r;
 
@@ -397,7 +403,7 @@ static int keymap_is_ok(const char* name, void *userdata) {
         return r != 0 ? keymap_exists(name) > 0 : keymap_is_valid(name);
 }
 
-static int prompt_keymap(int rfd) {
+static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
         _cleanup_strv_free_ char **kmaps = NULL;
         int r;
 
@@ -425,7 +431,7 @@ static int prompt_keymap(int rfd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read keymaps: %m");
 
-        print_welcome(rfd);
+        print_welcome(rfd, mute_console_link);
 
         return prompt_loop(
                         "Please enter the new keymap name or number",
@@ -442,7 +448,7 @@ static int prompt_keymap(int rfd) {
                         &arg_keymap);
 }
 
-static int process_keymap(int rfd) {
+static int process_keymap(int rfd, sd_varlink **mute_console_link) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
         _cleanup_strv_free_ char **keymap = NULL;
@@ -477,7 +483,7 @@ static int process_keymap(int rfd) {
                 }
         }
 
-        r = prompt_keymap(rfd);
+        r = prompt_keymap(rfd, mute_console_link);
         if (r == -ENOENT)
                 return 0; /* don't fail if no keymaps are installed */
         if (r < 0)
@@ -514,7 +520,7 @@ static int timezone_is_ok(const char *name, void *userdata) {
         return timezone_is_valid(name, LOG_DEBUG);
 }
 
-static int prompt_timezone(int rfd) {
+static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
         _cleanup_strv_free_ char **zones = NULL;
         int r;
 
@@ -540,7 +546,7 @@ static int prompt_timezone(int rfd) {
         if (r < 0)
                 return log_error_errno(r, "Cannot query timezone list: %m");
 
-        print_welcome(rfd);
+        print_welcome(rfd, mute_console_link);
 
         return prompt_loop(
                         "Please enter the new timezone name or number",
@@ -557,7 +563,7 @@ static int prompt_timezone(int rfd) {
                         &arg_timezone);
 }
 
-static int process_timezone(int rfd) {
+static int process_timezone(int rfd, sd_varlink **mute_console_link) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL, *relpath = NULL;
         const char *e;
@@ -598,7 +604,7 @@ static int process_timezone(int rfd) {
                 }
         }
 
-        r = prompt_timezone(rfd);
+        r = prompt_timezone(rfd, mute_console_link);
         if (r < 0)
                 return r;
 
@@ -625,7 +631,7 @@ static int hostname_is_ok(const char *name, void *userdata) {
         return hostname_is_valid(name, VALID_HOSTNAME_TRAILING_DOT);
 }
 
-static int prompt_hostname(int rfd) {
+static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
         int r;
 
         assert(rfd >= 0);
@@ -638,7 +644,7 @@ static int prompt_hostname(int rfd) {
                 return 0;
         }
 
-        print_welcome(rfd);
+        print_welcome(rfd, mute_console_link);
 
         r = prompt_loop("Please enter the new hostname",
                         GLYPH_LABEL,
@@ -661,7 +667,7 @@ static int prompt_hostname(int rfd) {
         return 0;
 }
 
-static int process_hostname(int rfd) {
+static int process_hostname(int rfd, sd_varlink **mute_console_link) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
         int r;
@@ -680,7 +686,7 @@ static int process_hostname(int rfd) {
         if (r <= 0)
                 return r;
 
-        r = prompt_hostname(rfd);
+        r = prompt_hostname(rfd, mute_console_link);
         if (r < 0)
                 return r;
 
@@ -729,7 +735,7 @@ static int process_machine_id(int rfd) {
         return 0;
 }
 
-static int prompt_root_password(int rfd) {
+static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
         const char *msg1, *msg2;
         int r;
 
@@ -746,7 +752,7 @@ static int prompt_root_password(int rfd) {
                 return 0;
         }
 
-        print_welcome(rfd);
+        print_welcome(rfd, mute_console_link);
 
         msg1 = strjoina("Please enter the new root password (empty to skip):");
         msg2 = strjoina("Please enter the new root password again:");
@@ -827,7 +833,7 @@ static int shell_is_ok(const char *path, void *userdata) {
         return find_shell(rfd, path) >= 0;
 }
 
-static int prompt_root_shell(int rfd) {
+static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
         int r;
 
         assert(rfd >= 0);
@@ -848,7 +854,7 @@ static int prompt_root_shell(int rfd) {
                 return 0;
         }
 
-        print_welcome(rfd);
+        print_welcome(rfd, mute_console_link);
 
         return prompt_loop(
                         "Please enter the new root shell",
@@ -1015,7 +1021,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
         return 0;
 }
 
-static int process_root_account(int rfd) {
+static int process_root_account(int rfd, sd_varlink **mute_console_link) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_(release_lock_file) LockFile lock = LOCK_FILE_INIT;
         _cleanup_(erase_and_freep) char *_hashed_password = NULL;
@@ -1069,7 +1075,7 @@ static int process_root_account(int rfd) {
                         return log_oom();
         }
 
-        r = prompt_root_shell(rfd);
+        r = prompt_root_shell(rfd, mute_console_link);
         if (r < 0)
                 return r;
 
@@ -1088,7 +1094,7 @@ static int process_root_account(int rfd) {
                 arg_root_password_is_hashed = true;
         }
 
-        r = prompt_root_password(rfd);
+        r = prompt_root_password(rfd, mute_console_link);
         if (r < 0)
                 return r;
 
@@ -1255,6 +1261,7 @@ static int help(void) {
                "     --delete-root-password       Delete root password\n"
                "     --welcome=no                 Disable the welcome text\n"
                "     --chrome=no                  Don't show colour bar at top and bottom of terminal\n"
+               "     --mute-console=yes           Tell kernel/PID 1 to not write to the console while running\n"
                "     --reset                      Remove existing files\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -1302,6 +1309,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WELCOME,
                 ARG_CHROME,
                 ARG_RESET,
+                ARG_MUTE_CONSOLE,
         };
 
         static const struct option options[] = {
@@ -1340,6 +1348,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "welcome",                 required_argument, NULL, ARG_WELCOME                 },
                 { "chrome",                  required_argument, NULL, ARG_CHROME                  },
                 { "reset",                   no_argument,       NULL, ARG_RESET                   },
+                { "mute-console",            required_argument, NULL, ARG_MUTE_CONSOLE            },
                 {}
         };
 
@@ -1559,6 +1568,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_reset = true;
                         break;
 
+                case ARG_MUTE_CONSOLE:
+                        r = parse_boolean_argument("--mute-console=", optarg, &arg_mute_console);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1721,27 +1737,28 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = process_locale(rfd);
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *mute_console_link = NULL;
+        r = process_locale(rfd, &mute_console_link);
         if (r < 0)
                 return r;
         if (r > 0 && !offline)
                 (void) reload_system_manager(&bus);
 
-        r = process_keymap(rfd);
+        r = process_keymap(rfd, &mute_console_link);
         if (r < 0)
                 return r;
         if (r > 0 && !offline)
                 (void) reload_vconsole(&bus);
 
-        r = process_timezone(rfd);
+        r = process_timezone(rfd, &mute_console_link);
         if (r < 0)
                 return r;
 
-        r = process_hostname(rfd);
+        r = process_hostname(rfd, &mute_console_link);
         if (r < 0)
                 return r;
 
-        r = process_root_account(rfd);
+        r = process_root_account(rfd, &mute_console_link);
         if (r < 0)
                 return r;
 
