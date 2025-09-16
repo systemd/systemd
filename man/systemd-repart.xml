@@ -501,6 +501,30 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--defer-partitions-empty=yes</option></term>
+
+        <listitem><para>This is very similar to <option>--defer-partitions=</option> but automatically
+        selects all partitions for deferral that have <option>Format=empty</option> set. It may be used in
+        conjunction with <option>--defer-partitions=</option> or
+        <option>--defer-partitions-factory-reset=yes</option>, in which case all matching partitions are
+        deferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--defer-partitions-factory-reset=yes</option></term>
+
+        <listitem><para>This is very similar to <option>--defer-partitions=</option> but automatically
+        selects all partitions for deferral that have <option>FactoryReset=yes</option> set. It may be used
+        in conjunction with <option>--defer-partitions=</option> or
+        <option>--defer-partitions-empty=yes</option>, in which case all matching partitions are
+        deferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--sector-size=<replaceable>BYTES</replaceable></option></term>
 
         <listitem><para>This option allows configuring the sector size of the image produced by
