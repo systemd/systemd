@@ -1061,7 +1061,6 @@ static int varlink_dispatch_disconnect(sd_varlink *v) {
         return 1;
 }
 
-
 static int varlink_sanitize_parameters(sd_json_variant **v) {
         int r;
         assert(v);
