@@ -26,11 +26,11 @@
 #include "tmpfile-util.h"
 #include "unit-name.h"
 
-static int symlink_unless_exists(const char *to, const char *from) {
-        (void) mkdir_parents(from, 0755);
+static int symlink_unless_exists(const char *from, const char *to) {
+        (void) mkdir_parents(to, 0755);
 
-        if (symlink(to, from) < 0 && errno != EEXIST)
-                return log_error_errno(errno, "Failed to create symlink %s: %m", from);
+        if (symlink(from, to) < 0 && errno != EEXIST)
+                return log_error_errno(errno, "Failed to create symlink %s: %m", to);
         return 0;
 }
 
