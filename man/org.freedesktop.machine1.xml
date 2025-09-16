@@ -341,7 +341,8 @@ node /org/freedesktop/machine1 {
       be either <literal>container</literal> or <literal>vm</literal> indicating whether the machine to
       register is of the respective class. The leader PID should be the host PID of the init process of the
       container or the encapsulating process of the VM. If the root directory of the container is known and
-      available in the host's hierarchy, it should be passed. Otherwise, pass the empty string instead. Finally, the
+      available in the host's hierarchy, it should be passed (note that this is for informational purposes
+      only, and will not be used otherwise). Otherwise, pass the empty string instead. Finally, the
       scope properties are passed as array in the same way as to PID1's
       <function>StartTransientUnit()</function> method. Calling this method will internally register a transient scope
       unit for the calling client (utilizing the passed scope_properties) and move the leader PID into
