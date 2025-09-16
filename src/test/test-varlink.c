@@ -207,7 +207,7 @@ static int overload_reply(sd_varlink *link, sd_json_variant *parameters, const c
         ASSERT_STREQ(error_id, SD_VARLINK_ERROR_DISCONNECTED);
         /* Local disconnect errors carry no parameters. Ensure we propagate
          * absence as NULL rather than an empty object. */
-        ASSERT_TRUE(parameters == NULL);
+        ASSERT_TRUE(!parameters);
         sd_event_exit(sd_varlink_get_event(link), 0);
 
         return 0;
