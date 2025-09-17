@@ -1062,19 +1062,16 @@ static int varlink_dispatch_disconnect(sd_varlink *v) {
 }
 
 static int varlink_sanitize_parameters(sd_json_variant **v) {
-        int r;
-
         assert(v);
 
-        /* Convert NULL or JSON null to empty object for method handlers */
-        if (!*v || sd_json_variant_is_null(*v)) {
+        /* Convert JSON null to NULL pointer - let sd_json_dispatch_full() handle it */
+        if (*v && sd_json_variant_is_null(*v)) {
                 sd_json_variant_unref(*v);
-                r = sd_json_variant_new_object(v, NULL, 0);
-                if (r < 0)
-                        return r;
-                return 0;
+                *v = NULL;
         }
-        if (!sd_json_variant_is_object(*v))
+
+        /* Ensure we have either NULL or an object */
+        if (*v && !sd_json_variant_is_object(*v))
                 return -EINVAL;
 
         return 0;
@@ -2776,14 +2773,7 @@ _public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, con
 
         /* A wrapper around json_dispatch_full() that returns a nice InvalidParameter error if we hit a problem with some field. */
 
-        /* Parameters should never be NULL here due to varlink_sanitize_parameters(),
-         * but handle gracefully just in case */
-        if (!parameters) {
-                if (!dispatch_table)
-                        return 0;
-                return -EINVAL;
-        }
-
+        /* sd_json_dispatch_full() now handles NULL parameters gracefully */
         r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
         if (r < 0) {
                 if (bad_field)
