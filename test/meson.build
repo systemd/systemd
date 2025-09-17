@@ -60,6 +60,10 @@ if want_tests != 'false'
              depends : [systemctl, systemd_id128],
              suite : 'systemctl')
 endif
+if install_tests
+        install_data(unittests,
+                     install_dir : unittestsdir)
+endif
 
 ############################################################
 
