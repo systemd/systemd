@@ -968,12 +968,6 @@ C00000-CFFFFF     (base 16)		BlueEyes Technology
 				Suresnes    92150
 				FR
 
-6C-93-08   (hex)		Shenzhen C & D Electronics Co., Ltd.
-500000-5FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 6C-93-08   (hex)		WATERFORD CONSULTANTS LLC
 100000-1FFFFF     (base 16)		WATERFORD CONSULTANTS LLC
 				7430 NEW TECHNOLOGY WAY, Suite 150
@@ -1632,12 +1626,6 @@ A4-53-EE   (hex)		Stellamore
 100000-1FFFFF     (base 16)		Stellamore
 				Room 1519, 15th Floor, Block A, Economic Building, Baoyuan Huafeng Headquarters, No. 288, Xixiang Avenue, Bao'an District
 				Shenzhen  Guangdong  518100
-				CN
-
-8C-AE-49   (hex)		Shenzhen C & D Electronics Co., Ltd.
-E00000-EFFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
 				CN
 
 88-5F-E8   (hex)		Apoidea Technology Co., Ltd.
@@ -5969,12 +5957,6 @@ A00000-AFFFFF     (base 16)		Fancom
 				Panningen  Limburg  5981 XW
 				NL
 
-78-39-2D   (hex)		Shenzhen C & D Electronics Co., Ltd.
-700000-7FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 C8-98-DB   (hex)		Quantum Co., Ltd.
 600000-6FFFFF     (base 16)		Quantum Co., Ltd.
 				909-15, Ganam-ro, Ganam-eup
@@ -6200,12 +6182,6 @@ C00000-CFFFFF     (base 16)		Huizhou KDT Intelligent Display Technology Co. Ltd
 				Huizhou  Guangdong  516006
 				CN
 
-34-C8-D6   (hex)		Shenzhen C & D Electronics Co., Ltd.
-E00000-EFFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 34-C8-D6   (hex)		Illumina
 800000-8FFFFF     (base 16)		Illumina
 				5200 Illumina Way
@@ -6384,12 +6360,6 @@ D00000-DFFFFF     (base 16)		Triton Sensors
 B00000-BFFFFF     (base 16)		Shen zhen shi shang mei dian zi shang wu you xian gong si
 				Room 621,Building 1,D area,Huamei ju Business Center,Xinhu Road,Baoan District
 				Shenzhen  Guangdong Province  518100
-				CN
-
-10-63-A3   (hex)		Shenzhen C & D Electronics Co., Ltd.
-800000-8FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
 				CN
 
 5C-87-D8   (hex)		Shenzhen Beiens Import and Export Co.,Ltd
@@ -7028,12 +6998,6 @@ F8-2B-E6   (hex)		ViewSonic Corp
 				LA  CA  92821
 				US
 
-F8-2B-E6   (hex)		Shenzhen C & D Electronics Co., Ltd.
-B00000-BFFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 F8-2B-E6   (hex)		Flextronics Computing（SuZhou)Co.,LTD.
 200000-2FFFFF     (base 16)		Flextronics Computing（SuZhou)Co.,LTD.
 				No.1 Guanpu Road, Guoxiang Street, Wuzhong District,Suzhou, Jiangsu, China
@@ -7205,12 +7169,6 @@ B00000-BFFFFF     (base 16)		Chengdu Juxun Electronic Technology Co.,Ltd
 				Chengdu  Sichuan  610500
 				CN
 
-04-58-5D   (hex)		Shenzhen C & D Electronics Co., Ltd.
-E00000-EFFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 B0-CC-CE   (hex)		Steelco SpA
 000000-0FFFFF     (base 16)		Steelco SpA
 				via Balegante 27
@@ -7366,6 +7324,66 @@ F4-97-9D   (hex)		Smart Access Designs, LLC
 				58 Mackenzie Willow Ter
 				Cheshire  CT  06410
 				US
+
+F8-2B-E6   (hex)		Shanghai Kanghai Information System CO.,LTD.
+B00000-BFFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+04-58-5D   (hex)		Shanghai Kanghai Information System CO.,LTD.
+E00000-EFFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+78-39-2D   (hex)		Shanghai Kanghai Information System CO.,LTD.
+700000-7FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+34-C8-D6   (hex)		Shanghai Kanghai Information System CO.,LTD.
+E00000-EFFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+10-63-A3   (hex)		Shanghai Kanghai Information System CO.,LTD.
+800000-8FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+8C-AE-49   (hex)		Shanghai Kanghai Information System CO.,LTD.
+E00000-EFFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+6C-93-08   (hex)		Shanghai Kanghai Information System CO.,LTD.
+500000-5FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+9C-E4-50   (hex)		Strato Automation Inc.
+400000-4FFFFF     (base 16)		Strato Automation Inc.
+				1550-B Rue de Coulomb
+				Boucherville  Quebec  J4B 7Z7
+				CA
+
+9C-E4-50   (hex)		Neways Advanced Applications
+500000-5FFFFF     (base 16)		Neways Advanced Applications
+				Science Park Eindhoven 5004
+				Son    5692EA
+				NL
+
+24-A1-0D   (hex)		Lobaro GmbH
+000000-0FFFFF     (base 16)		Lobaro GmbH
+				Stadtdeich 7
+				Hamburg      20097
+				DE
 
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
@@ -8662,12 +8680,6 @@ C00000-CFFFFF     (base 16)		Beijing Aumiwalker technology CO.,LTD
 				118 Aljunied AVE 2
 				SINGAPORE  SINGAPORE  380118
 				SG
-
-38-A8-CD   (hex)		Shenzhen C & D Electronics Co., Ltd.
-700000-7FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
 
 38-A8-CD   (hex)		ACiiST Smart Networks Ltd.
 000000-0FFFFF     (base 16)		ACiiST Smart Networks Ltd.
@@ -13463,12 +13475,6 @@ EC-5B-CD   (hex)		Doosan Bobcat North America
 				Minatoku  Tokyo  1080073
 				JP
 
-F4-20-55   (hex)		Shenzhen C & D Electronics Co., Ltd.
-A00000-AFFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 24-86-25   (hex)		Shanghai Xizhi Technology Co., Ltd.
 000000-0FFFFF     (base 16)		Shanghai Xizhi Technology Co., Ltd.
 				Room 401, Building A, Lenovo Innovation And Technology Park, No. 696, Songtao Road
@@ -13622,12 +13628,6 @@ B0-47-5E   (hex)		MIVO Technology AB
 				Stockholm    11419
 				SE
 
-B0-47-5E   (hex)		Shenzhen C & D Electronics Co., Ltd.
-000000-0FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 AC-EF-92   (hex)		PROGNOST Systems GmbH
 500000-5FFFFF     (base 16)		PROGNOST Systems GmbH
 				Daimlerstrasse 10
@@ -13734,12 +13734,6 @@ A4-59-D3   (hex)		FrontAct Co., Ltd.
 800000-8FFFFF     (base 16)		Wuhan Rayoptek Co.,Ltd
 				G3-201, New Energy Building No.999Gao Xin Road, Wuhan, China
 				wuhan  hubei  430206
-				CN
-
-58-23-BC   (hex)		Shenzhen C & D Electronics Co., Ltd.
-400000-4FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
 				CN
 
 BC-DF-E1   (hex)		Shenzhen Valley Ventures Co.,Ltd.
@@ -14066,12 +14060,6 @@ B00000-BFFFFF     (base 16)		GIGA Copper Networks GmbH
 				Düsseldorf    40470
 				DE
 
-FC-E4-98   (hex)		Shenzhen C & D Electronics Co., Ltd.
-300000-3FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 FC-E4-98   (hex)		TScale Electronics Mfg. (Kunshan) Co., Ltd
 400000-4FFFFF     (base 16)		TScale Electronics Mfg. (Kunshan) Co., Ltd
 				No. 99 Jingwei Road, Zhoushi
@@ -14222,11 +14210,83 @@ E00000-EFFFFF     (base 16)		Advant sp. z o.o.
 				Shenzhen  Guangdong  518101
 				CN
 
+F4-20-55   (hex)		Shanghai Kanghai Information System CO.,LTD.
+A00000-AFFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+B0-47-5E   (hex)		Shanghai Kanghai Information System CO.,LTD.
+000000-0FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+58-23-BC   (hex)		Shanghai Kanghai Information System CO.,LTD.
+400000-4FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+38-A8-CD   (hex)		Shanghai Kanghai Information System CO.,LTD.
+700000-7FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
 9C-E4-50   (hex)		AIO SYSTEMS
 100000-1FFFFF     (base 16)		AIO SYSTEMS
 				158 Jan smuts drive,Walter streetRosebank quarter 
 				Johannesburg    2196
 				ZA
+
+9C-E4-50   (hex)		Shenzhen Lixun Technology Co., Ltd.
+200000-2FFFFF     (base 16)		Shenzhen Lixun Technology Co., Ltd.
+				Room 209, Building D, Xinda Creative Park, Qianjin 2nd Road and Baotian 2nd Road, Bao'an District
+				Shenzhen    518102
+				CN
+
+24-A1-0D   (hex)		REVUPTECH PRIVATE LIMITED 
+C00000-CFFFFF     (base 16)		REVUPTECH PRIVATE LIMITED 
+				G 232, G.B. NAGAR SECTOR 63 NOIDA 
+				NOIDA   UTTAR PRADESH  201301
+				IN
+
+9C-E4-50   (hex)		Marelli AL&S ALIT-TZ
+300000-3FFFFF     (base 16)		Marelli AL&S ALIT-TZ
+				Via dell'industria 17
+				Tolmezzo  Italy/Udine  33028
+				IT
+
+FC-E4-98   (hex)		Shanghai Kanghai Information System CO.,LTD.
+300000-3FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+9C-E4-50   (hex)		BCD SRL
+D00000-DFFFFF     (base 16)		BCD SRL
+				Galvez 1060
+				Rosario  FOREIGN  2000
+				AR
+
+24-A1-0D   (hex)		Tecnojest SrL
+900000-9FFFFF     (base 16)		Tecnojest SrL
+				Viale Europa, 128 Spoltore
+				Spoltore    65010
+				IT
+
+24-A1-0D   (hex)		Detroit Defense Inc.
+A00000-AFFFFF     (base 16)		Detroit Defense Inc.
+				300 E Big Beaver Rd Suite 100
+				Troy  MI  48083
+				US
+
+24-A1-0D   (hex)		Goertek Inc.
+600000-6FFFFF     (base 16)		Goertek Inc.
+				No. 999 Liyuan Street, High-Tech Industrial Development District
+				Weifang  Shandong  261000
+				CN
 
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
@@ -15086,12 +15146,6 @@ A00000-AFFFFF     (base 16)		Shenzhen Yunlianxin Technology Co., Ltd.
 				Mail box 15123  Haifa  3508409
 				IL
 
-18-C3-F4   (hex)		Shenzhen C & D Electronics Co., Ltd.
-D00000-DFFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 18-C3-F4   (hex)		Shenzhen Yecon-Tech Co.,Ltd.
 700000-7FFFFF     (base 16)		Shenzhen Yecon-Tech Co.,Ltd.
 				Building 2,Cuigang Industrial Zone 6,Huaide Community,Fuyong Town,Baoan District, Shenzhen City, Guangdong province, China
@@ -15252,12 +15306,6 @@ B00000-BFFFFF     (base 16)		Beijing Shannoncyber Technology Co.,Ltd
 500000-5FFFFF     (base 16)		Sichuan Fanyi Technology Co. Ltd.
 				No. 1707, Unit 1, Building 1, 888, Middle Section of Yizhou Avenue, Gaoxin District
 				Chengdu  Sichuan  650000
-				CN
-
-70-50-E7   (hex)		Shenzhen C & D Electronics Co., Ltd.
-000000-0FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
 				CN
 
 80-02-F4   (hex)		Jiangsu Vedkang Medicl Sclence and Technology Co.,Ltd
@@ -16082,12 +16130,6 @@ C00000-CFFFFF     (base 16)		Ariston Thermo s.p.a.
 				Fabriano  Ancona  60044
 				IT
 
-0C-5C-B5   (hex)		Shenzhen C & D Electronics Co., Ltd.
-800000-8FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 0C-5C-B5   (hex)		iH&S Technology Limited
 300000-3FFFFF     (base 16)		iH&S Technology Limited
 				iH&S Technology Limited
@@ -16411,12 +16453,6 @@ DC-4A-9E   (hex)		Advanced Electronics Ltd
 				Balliol Business Park
 				Newcastle    NE12 8EW
 				GB
-
-58-95-D8   (hex)		Shenzhen C & D Electronics Co., Ltd.
-800000-8FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
 
 FC-CD-2F   (hex)		Eltek brojila d.o.o.
 E00000-EFFFFF     (base 16)		Eltek brojila d.o.o.
@@ -16873,12 +16909,6 @@ B00000-BFFFFF     (base 16)		Signal Hound
 				1315 Hot Springs Way
 				Vista  CA  92081
 				US
-
-64-62-66   (hex)		Shenzhen C & D Electronics Co., Ltd.
-700000-7FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
 
 14-AE-85   (hex)		Trimble LEM
 800000-8FFFFF     (base 16)		Trimble LEM
@@ -18168,12 +18198,6 @@ C00000-CFFFFF     (base 16)		AndroVideo Inc.
 900000-9FFFFF     (base 16)		FlashForge Corporation
 				 No.518, Xianyuan Road
 				Jinhua  Zhejiang  321000
-				CN
-
-C4-FF-BC   (hex)		Shenzhen C & D Electronics Co., Ltd.
-600000-6FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
 				CN
 
 C4-FF-BC   (hex)		ShenZhen ZYT Technology co., Ltd
@@ -20777,12 +20801,6 @@ B00000-BFFFFF     (base 16)		Vital Oricraft Flows Technology Co., Ltd.
 				Qingyuan  Guangdong  511500
 				CN
 
-48-5E-0E   (hex)		Shenzhen C & D Electronics Co., Ltd.
-000000-0FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 48-5E-0E   (hex)		MHE Electronics
 400000-4FFFFF     (base 16)		MHE Electronics
 				49Alexander Rd, Westmead
@@ -21040,12 +21058,6 @@ B00000-BFFFFF     (base 16)		Hitachi Rail GTS Austria GmbH
 				Handelskai 92
 				Vienna    1200
 				AT
-
-EC-74-CD   (hex)		Shenzhen C & D Electronics Co., Ltd.
-100000-1FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
 
 EC-74-CD   (hex)		Standard Backhaul Communications
 500000-5FFFFF     (base 16)		Standard Backhaul Communications
@@ -21341,12 +21353,6 @@ FC-A2-DF   (hex)		Beijing KSL Electromechanical Technology Development Co.,Ltd
 				Beijing    100071
 				CN
 
-60-A4-34   (hex)		Hangzhou Zhongxinhui lntelligent Technology Co.,Ltd.
-200000-2FFFFF     (base 16)		Hangzhou Zhongxinhui lntelligent Technology Co.,Ltd.
-				Room 809, Building B, No. 567 Yueming Road, Xixing Street,
-				Hangzhou  Binjiang Distric  310000
-				CN
-
 FC-A2-DF   (hex)		Orion Power Systems, Inc.
 E00000-EFFFFF     (base 16)		Orion Power Systems, Inc.
 				2939 W. Beaver Street
@@ -21569,10 +21575,58 @@ E0-23-3B   (hex)		PluralFusion INC
 				Hochiminh  Hochiminh  70000
 				VN
 
+64-62-66   (hex)		Shanghai Kanghai Information System CO.,LTD.
+700000-7FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+58-95-D8   (hex)		Shanghai Kanghai Information System CO.,LTD.
+800000-8FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+0C-5C-B5   (hex)		Shanghai Kanghai Information System CO.,LTD.
+800000-8FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+70-50-E7   (hex)		Shanghai Kanghai Information System CO.,LTD.
+000000-0FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+18-C3-F4   (hex)		Shanghai Kanghai Information System CO.,LTD.
+D00000-DFFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
 50-FA-CB   (hex)		Darveen Technology Limited
 400000-4FFFFF     (base 16)		Darveen Technology Limited
 				3/F, 2nd Building Hui Sheng Da industrial park, Qingcui road, Longhua district, Shenzhen
 				Shenzhen  Guangdong  518000
+				CN
+
+48-5E-0E   (hex)		Shanghai Kanghai Information System CO.,LTD.
+000000-0FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+EC-74-CD   (hex)		Shanghai Kanghai Information System CO.,LTD.
+100000-1FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+C4-FF-BC   (hex)		Shanghai Kanghai Information System CO.,LTD.
+600000-6FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
 				CN
 
 50-FA-CB   (hex)		Shenzhen Evertones Quantum Technology Co., Ltd.
@@ -21580,6 +21634,51 @@ E0-23-3B   (hex)		PluralFusion INC
 				Room 3907, Tower B, Digital Innovation Center, Beizhan Community, Minzhi Sub-district, Longhua District
 				Shenzhen  Guangdong  518131
 				CN
+
+24-A1-0D   (hex)		Shenzhen Star Instrument Co., Ltd. 
+100000-1FFFFF     (base 16)		Shenzhen Star Instrument Co., Ltd. 
+				23/F., Coastal Building(west), Haide 3rd Road, Nanshan District
+				Shenzhen   GuangDong   518054
+				CN
+
+24-A1-0D   (hex)		Private
+B00000-BFFFFF     (base 16)		Private
+
+60-A4-34   (hex)		Hangzhou Zhongxinghui Intelligent Technology Co., Ltd.
+200000-2FFFFF     (base 16)		Hangzhou Zhongxinghui Intelligent Technology Co., Ltd.
+				Room 809, Building B, No. 567 Yueming Road, Xixing Street,
+				Hangzhou  Binjiang Distric  310000
+				CN
+
+9C-E4-50   (hex)		BEIJING TRANSTREAMS TECHNOLOGY CO.,LTD
+700000-7FFFFF     (base 16)		BEIJING TRANSTREAMS TECHNOLOGY CO.,LTD
+				Room 1401, 14th Floor, Building 8, No. 8 Kegu 1st Street, Beijing Economic and Technological Development Zone
+				Beijing  Beijing  100176
+				CN
+
+9C-E4-50   (hex)		Shenzhen Kuki Electric Co., Ltd.
+E00000-EFFFFF     (base 16)		Shenzhen Kuki Electric Co., Ltd.
+				No.6 Shichang Road,Xinqiao Street Baoan District,Shenzhen,Guangdong
+				Shenzhen  Guangdong  518125
+				CN
+
+9C-E4-50   (hex)		Shenzhen HQVT TECHNOLOGY Co.,LTD
+900000-9FFFFF     (base 16)		Shenzhen HQVT TECHNOLOGY Co.,LTD
+				3/F,Building 8 ,Taihua Wutong Island,Xixiang,Bao'an District
+				China  Guang Dong  518000
+				CN
+
+9C-E4-50   (hex)		Shenzhen Coslight Technology Co.,Ltd.
+B00000-BFFFFF     (base 16)		Shenzhen Coslight Technology Co.,Ltd.
+				Room 101, Factory Building, No. 2 Guangtian Road, Luotian Community, Yanluo Sub-district, Bao'an District, Shenzhen
+				Shenzhen    518000
+				CN
+
+24-A1-0D   (hex)		Sony Honda Mobility Inc.
+200000-2FFFFF     (base 16)		Sony Honda Mobility Inc.
+				Midtown-East 9th floor, 9-7-2 Akasaka
+				Minato-ku  Tokyo  107-0052
+				JP
 
 D0-14-11   (hex)		P.B. Elettronica srl
 100000-1FFFFF     (base 16)		P.B. Elettronica srl
@@ -21669,12 +21768,6 @@ D00000-DFFFFF     (base 16)		NACON LIMITED (HK) LTD
 B00000-BFFFFF     (base 16)		Beijing ThinRedline Technology Co.,Ltd.
 				012, Ground Floor, Building 69, Jiuxianqiao North Road, Chaoyang District
 				Beijing  Beijing  100015
-				CN
-
-88-A6-EF   (hex)		Shenzhen C & D Electronics Co., Ltd.
-C00000-CFFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
 				CN
 
 D0-15-BB   (hex)		Beijing Guangshu Zhiying Technology Development Co., Ltd.
@@ -22656,12 +22749,6 @@ DC-36-43   (hex)		Hefei EA Excelsior Information Security Co., Ltd.
 600000-6FFFFF     (base 16)		Autel lntelligent Technology Corp.,Ltd
 				7th, 8th, 10th Floor, Building B1, Zhiyuan Road, No. 1001 Xueyuan Avenue, Xili Street, Nanshan District, Shenzhen
 				Shenzhen    518000
-				CN
-
-04-EE-E8   (hex)		Shenzhen C & D Electronics Co., Ltd.
-700000-7FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
 				CN
 
 DC-36-43   (hex)		Hangzhou Chingan Tech Co., Ltd.
@@ -24085,12 +24172,6 @@ D00000-DFFFFF     (base 16)		OMNISENSE SYSTEMS PRIVATE LIMITED TAIWAN BRANCH
 				Szentendrei út 1-3.
 				Budakalasz    2011
 				HU
-
-54-A4-93   (hex)		Shenzhen C & D Electronics Co., Ltd.
-400000-4FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
 
 54-A4-93   (hex)		ShenZhen Smart&Aspiration Co.,LTD
 100000-1FFFFF     (base 16)		ShenZhen Smart&Aspiration Co.,LTD
@@ -28055,12 +28136,6 @@ C0-48-2F   (hex)		Chengdu Dingfeng Huizhi Technology Co., Ltd
 				Chengdu  Sichuan  610213
 				CN
 
-C0-48-2F   (hex)		Shenzhen C & D Electronics Co., Ltd.
-B00000-BFFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 24-A3-F0   (hex)		P4S
 E00000-EFFFFF     (base 16)		P4S
 				27 bis rue des Plantes 
@@ -28658,17 +28733,47 @@ B00000-BFFFFF     (base 16)		Combined Public Communications, LLC
 				Guro-gu  Seoul  08394
 				KR
 
+50-FA-CB   (hex)		Vortex Infotech Private Limited
+D00000-DFFFFF     (base 16)		Vortex Infotech Private Limited
+				101, Corporate Arena, Sitaram Patkar Marg, Behind Mahindra Eminente Society, Goregaon west.
+				Mumbai  Maharashtra  400104
+				IN
+
+54-A4-93   (hex)		Shanghai Kanghai Information System CO.,LTD.
+400000-4FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+04-EE-E8   (hex)		Shanghai Kanghai Information System CO.,LTD.
+700000-7FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
 50-FA-CB   (hex)		1208815047
 600000-6FFFFF     (base 16)		1208815047
 				5F, 547, SAMSEONG-RO, GANGNAM-GU,SEOUL, SOUTH KOREA
 				seoul    06156
 				KR
 
-50-FA-CB   (hex)		Vortex Infotech Private Limited
-D00000-DFFFFF     (base 16)		Vortex Infotech Private Limited
-				101, Corporate Arena, Sitaram Patkar Marg, Behind Mahindra Eminente Society, Goregaon west.
-				Mumbai  Maharashtra  400104
-				IN
+24-A1-0D   (hex)		Amina Distribution AS
+D00000-DFFFFF     (base 16)		Amina Distribution AS
+				Strandsvingen 14A
+				Stavanger    4032
+				NO
+
+88-A6-EF   (hex)		Shanghai Kanghai Information System CO.,LTD.
+C00000-CFFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+C0-48-2F   (hex)		Shanghai Kanghai Information System CO.,LTD.
+B00000-BFFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
 
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
@@ -29369,12 +29474,6 @@ D00000-DFFFFF     (base 16)		Jiangsu AIDriving Co.,Ltd.
 D0-96-86   (hex)		Private
 700000-7FFFFF     (base 16)		Private
 
-C4-98-94   (hex)		Shenzhen C & D Electronics Co., Ltd.
-700000-7FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 C4-98-94   (hex)		shenzhen lanodo technology Co., Ltd
 500000-5FFFFF     (base 16)		shenzhen lanodo technology Co., Ltd
 				Room 501 Building D, Qiaoan Industry park, No 308 Wuhe Road, Guanlan, Longhua District
@@ -29427,12 +29526,6 @@ A00000-AFFFFF     (base 16)		VIE STYLE,INC,
 300000-3FFFFF     (base 16)		Fujian Helios Technologies Co., Ltd.
 				4/F, Helios Building, No. 12 Xiangyue Road, Xiangan District, 
 				Xiamen  Fujian  361100
-				CN
-
-58-47-CA   (hex)		Shenzhen C & D Electronics Co., Ltd.
-600000-6FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
 				CN
 
 58-47-CA   (hex)		Kingnuo Intelligent Technology (Jiaxing) Co., Ltd.
@@ -30225,12 +30318,6 @@ D00000-DFFFFF     (base 16)		Adam Hall GmbH
 E00000-EFFFFF     (base 16)		Dongguan zhenxing electronic technology co.,limited
 				GuangMingGang JinJun road 8#
 				DonggUAN    523768
-				CN
-
-78-13-05   (hex)		Shenzhen C & D Electronics Co., Ltd.
-900000-9FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
 				CN
 
 E8-78-29   (hex)		Galcon
@@ -35081,12 +35168,6 @@ EC-5B-CD   (hex)		Sfera Labs S.r.l.
 				Rillieux-La-Pape  FRANCE  69140
 				FR
 
-34-46-63   (hex)		Shenzhen C & D Electronics Co., Ltd.
-900000-9FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 34-46-63   (hex)		Bluesoo Tech (HongKong) Co.,Limited
 800000-8FFFFF     (base 16)		Bluesoo Tech (HongKong) Co.,Limited
 				Room 05, 28 / F, good view business centre, 2-16 Garden Street, Mong Kok, Kowloon, Hongkong.
@@ -35543,12 +35624,6 @@ D00000-DFFFFF     (base 16)		Annapurna labs
 				Mail box 15123  Haifa  3508409
 				IL
 
-04-A1-6F   (hex)		Shenzhen C & D Electronics Co., Ltd.
-000000-0FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 04-A1-6F   (hex)		Xiamen Akubela Innovation Technology CO., Ltd.
 400000-4FFFFF     (base 16)		Xiamen Akubela Innovation Technology CO., Ltd.
 				9/F, No.56 Guanri Road, Software Park II, Xiamen 361009, China
@@ -35631,12 +35706,6 @@ DC-76-C3   (hex)		Bangyan Technology Co., Ltd
 100000-1FFFFF     (base 16)		Bangyan Technology Co., Ltd
 				No. 100 Zhihe Road, Dakang Community, Yuanshan Street, Longgang District
 				Shenzhen  Guangdong  518100
-				CN
-
-DC-76-C3   (hex)		Shenzhen C & D Electronics Co., Ltd.
-300000-3FFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
 				CN
 
 C0-83-59   (hex)		UNA Digital Inc.
@@ -35837,12 +35906,6 @@ FC-E4-98   (hex)		E Haute Intelligent Technology Co., Ltd
 				shanwei  guangdong  516600
 				CN
 
-E0-23-3B   (hex)		Shenzhen C & D Electronics Co., Ltd.
-B00000-BFFFFF     (base 16)		Shenzhen C & D Electronics Co., Ltd.
-				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
-				ShenZhen  GuangDong  518000
-				CN
-
 48-08-EB   (hex)		Guangdong Three Link Technology Co., Ltd
 200000-2FFFFF     (base 16)		Guangdong Three Link Technology Co., Ltd
 				3 floor, A1 Building, No. 75 Jianshe Road, Nankeng Village, Qishi Town
@@ -35890,3 +35953,75 @@ A00000-AFFFFF     (base 16)		AUO DISPLAY PLUS CORPORATION
 				No. 1, Gongye E. 3rd Rd., East Dist., Hsinchu Science Park
 				Hsinchu  Taiwan  30075
 				TW
+
+9C-E4-50   (hex)		Shenzhen Chengzhao Technology Co., Ltd.
+000000-0FFFFF     (base 16)		Shenzhen Chengzhao Technology Co., Ltd.
+				Building A, No. 13 Huayin Road, Hualang Community, Dalang Subdistrict, Longhua District
+				Shenzhen  Guangdong  518000
+				CN
+
+C4-98-94   (hex)		Shanghai Kanghai Information System CO.,LTD.
+700000-7FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+34-46-63   (hex)		Shanghai Kanghai Information System CO.,LTD.
+900000-9FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+04-A1-6F   (hex)		Shanghai Kanghai Information System CO.,LTD.
+000000-0FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+78-13-05   (hex)		Shanghai Kanghai Information System CO.,LTD.
+900000-9FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+58-47-CA   (hex)		Shanghai Kanghai Information System CO.,LTD.
+600000-6FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+DC-76-C3   (hex)		Shanghai Kanghai Information System CO.,LTD.
+300000-3FFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+E0-23-3B   (hex)		Shanghai Kanghai Information System CO.,LTD.
+B00000-BFFFFF     (base 16)		Shanghai Kanghai Information System CO.,LTD.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park, Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
+
+24-A1-0D   (hex)		Avantel Limited
+500000-5FFFFF     (base 16)		Avantel Limited
+				Plot No. S-119M, E-CITYMaheshwaram Mandal, Raviryal, Rangareddy
+				HYDERABAD   Telangana  501510
+				IN
+
+24-A1-0D   (hex)		Rhymebus corporation
+300000-3FFFFF     (base 16)		Rhymebus corporation
+				No. 17, 33rd Road, Taichung Industrial Park
+				Taichung    40768
+				TW
+
+24-A1-0D   (hex)		Dongguan Taijie Electronics Technology Co.,Ltd
+400000-4FFFFF     (base 16)		Dongguan Taijie Electronics Technology Co.,Ltd
+				5F, 6# Building, Sanjia Industrial Park, Dongkeng Town
+				Dongguan  Guangdong  523000
+				CN
+
+24-A1-0D   (hex)		Luxvisions lnnovation TechnologyCorp.Limited
+800000-8FFFFF     (base 16)		Luxvisions lnnovation TechnologyCorp.Limited
+				No. 69, Yongsheng Road, Huangpu District, Guangzhou
+				Guangzhou  Guangdong Province  510000
+				CN

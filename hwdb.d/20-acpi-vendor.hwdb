@@ -396,6 +396,9 @@ acpi:UBLX*:
 acpi:UBOO*:
  ID_VENDOR_FROM_DATABASE=Das U-Boot
 
+acpi:ULRV*:
+ ID_VENDOR_FROM_DATABASE=UltraRISC Technology (Shanghai) Co., Ltd
+
 acpi:VAIO*:
  ID_VENDOR_FROM_DATABASE=VAIO Corporation
 
