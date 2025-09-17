@@ -1419,6 +1419,16 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 return sd_varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
         if (r == -EMEDIUMTYPE)
                 return sd_varlink_error(link, "io.systemd.Credentials.BadScope", NULL);
+        if (r == -EHOSTDOWN)
+                return sd_varlink_error(link, "io.systemd.Credentials.CantFindPCRSignature", NULL);
+        if (r == -EHWPOISON)
+                return sd_varlink_error(link, "io.systemd.Credentials.NullKeyNotAllowed", NULL);
+        if (r == -EREMOTE)
+                return sd_varlink_error(link, "io.systemd.Credentials.KeyBelongsToOtherTPM", NULL);
+        if (r == -ENOLCK)
+                return sd_varlink_error(link, "io.systemd.Credentials.TPMInDictionaryLockout", NULL);
+        if (IN_SET(r, -EREMCHG, -ENOANO, -EUCLEAN, -EPERM))
+                return sd_varlink_error(link, "io.systemd.Credentials.UnexpectedPCRState", NULL);
         if (r < 0)
                 return r;
 

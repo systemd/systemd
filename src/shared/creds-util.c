@@ -1652,16 +1652,26 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
         if (r < 0)
                 return log_error_errno(r, "Failed to call Decrypt() varlink call.");
         if (!isempty(error_id))  {
-                if (streq(error_id, "io.systemd.Credentials.BadFormat"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Bad credential format.");
-                if (streq(error_id, "io.systemd.Credentials.NameMismatch"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EDESTADDRREQ), "Name in credential doesn't match expectations.");
-                if (streq(error_id, "io.systemd.Credentials.TimeMismatch"))
-                        return log_error_errno(SYNTHETIC_ERRNO(ESTALE), "Outside of credential validity time window.");
-                if (streq(error_id, "io.systemd.Credentials.NoSuchUser"))
-                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "No such user.");
-                if (streq(error_id, "io.systemd.Credentials.BadScope"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Scope mismtach.");
+                static struct {
+                        const char *id;
+                        int errnum;
+                        const char *msg;
+                } table[] = {
+                        { "io.systemd.Credentials.BadFormat",              EBADMSG,      "Bad credential format." },
+                        { "io.systemd.Credentials.NameMismatch",           EDESTADDRREQ, "Name in credential doesn't match expectations." },
+                        { "io.systemd.Credentials.TimeMismatch",           ESTALE,       "Outside of credential validity time window." },
+                        { "io.systemd.Credentials.NoSuchUser",             ESRCH,        "No such user." },
+                        { "io.systemd.Credentials.BadScope",               EMEDIUMTYPE,  "Scope mismatch." },
+                        { "io.systemd.Credentials.CantFindPCRSignature",   EHOSTDOWN,    "PCR signature required for decryption, but could not be found." },
+                        { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's now allowed during decryption." },
+                        { "io.systemd.Credentials.KeyBelongsToOtherTPM",   EREMOTE,      "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted." },
+                        { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
+                        { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },
+                };
+
+                FOREACH_ELEMENT(i, table)
+                        if (streq(i->id, error_id))
+                                return log_error_errno(SYNTHETIC_ERRNO(i->errnum), "%s", i->msg);
 
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to decrypt: %s", error_id);
         }
