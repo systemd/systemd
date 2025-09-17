@@ -2107,7 +2107,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 _cleanup_free_ char *image_fn = NULL;
-                if (path_extract_filename(arg_image, &image_fn) < 0)
+                r = path_extract_filename(arg_image, &image_fn);
+                if (r < 0)
                         return log_error_errno(r, "Failed to extract filename from path '%s': %m", image_fn);
 
                 _cleanup_free_ char *escaped_image_fn = escape_qemu_value(image_fn);
