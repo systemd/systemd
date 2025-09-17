@@ -219,10 +219,10 @@ static int efi_verify_variable(const char *variable, uint32_t attr, const void *
 int efi_set_variable(const char *variable, const void *value, size_t size) {
         static const uint32_t attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
 
-        struct var {
+        _cleanup_free_ struct var {
                 uint32_t attr;
                 char buf[];
-        } _packed_ * _cleanup_free_ buf = NULL;
+        } _packed_ *buf = NULL;
         _cleanup_close_ int fd = -EBADF;
         bool saved_flags_valid = false;
         unsigned saved_flags;
