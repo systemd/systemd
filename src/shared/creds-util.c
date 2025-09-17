@@ -1208,8 +1208,8 @@ int decrypt_credential_and_warn(
          *   -EHOSTDOWN    → Need PCR signature file, but couldn't find it
          *   -EHWPOISON    → Attempt to decode NULL key (and CREDENTIAL_ALLOW_NULL is off), but the system has a TPM and SecureBoot is on
          *   -EMEDIUMTYPE  → File has unexpected scope, i.e. user-scoped credential is attempted to be unlocked in system scope, or vice versa
-         *   -EDESTADDRREQ → Credential is incorrectly named (i.e. the authenticated name does not match the actual name)
-         *   -ESTALE       → Credential's validity has passed
+         *   -EDESTADDRREQ → Credential is incorrecly named (i.e. the authenticated name does not match the actual name)
+         *   -ESTALE       → Credential's valdity has passed
          *   -ESRCH        → User specified for scope does not exist on this system
          *
          *   (plus the various error codes tpm2_unseal() returns) */
