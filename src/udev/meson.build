@@ -149,6 +149,7 @@ executables += [
                 'sources' : udevadm_sources,
                 'link_with' : [libudevd_core],
                 'dependencies' : udev_dependencies,
+                'link_with' : udev_link_with,
                 'install_rpath' : udev_rpath,
         },
         udev_plugin_template + {
