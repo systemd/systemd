@@ -678,7 +678,6 @@ static const char* const user_env_generator_paths[] = {
 };
 
 char** generator_binary_paths_internal(RuntimeScope scope, bool env_generator) {
-
         static const struct {
                 const char *env_name;
                 const char * const *paths[_RUNTIME_SCOPE_MAX];
