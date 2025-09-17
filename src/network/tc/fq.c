@@ -103,7 +103,7 @@ static int fair_queueing_fill_message(Link *link, QDisc *qdisc, sd_netlink_messa
         return 0;
 }
 
-int config_parse_fair_queueing_u32(
+int config_parse_fq_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -167,7 +167,7 @@ int config_parse_fair_queueing_u32(
         return 0;
 }
 
-int config_parse_fair_queueing_size(
+int config_parse_fq_size(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -235,7 +235,7 @@ int config_parse_fair_queueing_size(
         return 0;
 }
 
-int config_parse_fair_queueing_bool(
+int config_parse_fq_bool(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -281,7 +281,7 @@ int config_parse_fair_queueing_bool(
         return 0;
 }
 
-int config_parse_fair_queueing_usec(
+int config_parse_fq_usec(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -341,7 +341,7 @@ int config_parse_fair_queueing_usec(
         return 0;
 }
 
-int config_parse_fair_queueing_max_rate(
+int config_parse_fq_max_rate(
                 const char *unit,
                 const char *filename,
                 unsigned line,
