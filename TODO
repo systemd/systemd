@@ -245,7 +245,6 @@ Features:
   - io.systemd.Hostname
   - io.systemd.ManagedOOM
   - io.systemd.Network
-  - io.systemd.PCRExtend
   - io.systemd.PCRLock
   - io.systemd.Resolve.Monitor
   - io.systemd.Resolve
