@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "apparmor-util.h"
+#include "blkid-util.h"
 #include "bpf-dlopen.h"
 #include "compress.h"
 #include "cryptsetup-util.h"
@@ -8,14 +9,18 @@
 #include "gcrypt-util.h"
 #include "idn-util.h"
 #include "libarchive-util.h"
+#include "libaudit-util.h"
 #include "libfido2-util.h"
 #include "main-func.h"
 #include "module-util.h"
+#include "pam-util.h"
 #include "password-quality-util-passwdqc.h"
 #include "password-quality-util-pwquality.h"
 #include "pcre2-util.h"
 #include "pkcs11-util.h"
 #include "qrcode-util.h"
+#include "seccomp-util.h"
+#include "selinux-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
 
@@ -97,6 +102,26 @@ static int run(int argc, char **argv) {
 
 #if HAVE_APPARMOR
         assert_se(dlopen_libapparmor() >= 0);
+#endif
+
+#if HAVE_AUDIT
+        assert_se(dlopen_libaudit() >= 0);
+#endif
+
+#if HAVE_PAM
+        assert_se(dlopen_libpam() >= 0);
+#endif
+
+#if HAVE_SECCOMP
+        assert_se(dlopen_libseccomp() >= 0);
+#endif
+
+#if HAVE_SELINUX
+        assert_se(dlopen_libselinux() >= 0);
+#endif
+
+#if HAVE_BLKID
+        assert_se(dlopen_libblkid() >= 0);
 #endif
 
         return 0;

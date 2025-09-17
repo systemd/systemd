@@ -1,11 +1,19 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "forward.h"
+
 #if HAVE_AUDIT
 #  include <libaudit.h>         /* IWYU pragma: export */
-#endif
 
-#include "forward.h"
+#  include "dlfcn-util.h"
+
+extern DLSYM_PROTOTYPE(audit_log_acct_message);
+extern DLSYM_PROTOTYPE(audit_log_user_avc_message);
+extern DLSYM_PROTOTYPE(audit_log_user_comm_message);
+
+int dlopen_libaudit(void);
+#endif
 
 bool use_audit(void);
 
