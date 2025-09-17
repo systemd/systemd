@@ -468,7 +468,8 @@ static int maybe_decrypt_and_write_credential(
                 struct load_cred_args *args,
                 const char *id,
                 const char *data,
-                size_t size) {
+                size_t size,
+                bool graceful) {
 
         _cleanup_(iovec_done_erase) struct iovec plaintext = {};
         size_t add;
@@ -522,8 +523,14 @@ static int maybe_decrypt_and_write_credential(
                 default:
                         assert_not_reached();
                 }
-                if (r < 0)
+                if (r < 0) {
+                        if (graceful) {
+                                log_warning_errno(r, "Unable to decrypt credential '%s', skipping.", id);
+                                return 0;
+                        }
+
                         return r;
+                }
 
                 data = plaintext.iov_base;
                 size = plaintext.iov_len;
@@ -612,7 +619,7 @@ static int load_credential_glob(
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to read credential '%s': %m", *p);
 
-                        r = maybe_decrypt_and_write_credential(args, fn, data, size);
+                        r = maybe_decrypt_and_write_credential(args, fn, data, size, /* graceful= */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -737,7 +744,7 @@ static int load_credential(
         if (r < 0)
                 return log_debug_errno(r, "Failed to read credential '%s': %m", path);
 
-        return maybe_decrypt_and_write_credential(args, id, data, size);
+        return maybe_decrypt_and_write_credential(args, id, data, size, /* graceful= */ true);
 }
 
 static int load_cred_recurse_dir_cb(
@@ -874,10 +881,11 @@ static int acquire_credentials(
 
                 args.encrypted = false;
 
-                r = load_credential_glob(&args,
-                                         ic,
-                                         search_path,
-                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER);
+                r = load_credential_glob(
+                                &args,
+                                ic,
+                                search_path,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER);
                 if (r < 0)
                         return r;
 
@@ -889,10 +897,11 @@ static int acquire_credentials(
 
                 args.encrypted = true;
 
-                r = load_credential_glob(&args,
-                                         ic,
-                                         search_path,
-                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_UNBASE64);
+                r = load_credential_glob(
+                                &args,
+                                ic,
+                                search_path,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_UNBASE64);
                 if (r < 0)
                         return r;
         }
@@ -910,7 +919,7 @@ static int acquire_credentials(
                 if (errno != ENOENT)
                         return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sc->id);
 
-                r = maybe_decrypt_and_write_credential(&args, sc->id, sc->data, sc->size);
+                r = maybe_decrypt_and_write_credential(&args, sc->id, sc->data, sc->size, /* graceful= */ false);
                 if (r < 0)
                         return r;
         }
