@@ -31,6 +31,7 @@
 #include "hexdecoct.h"
 #include "initrd-util.h"
 #include "json-util.h"
+#include "label-util.h"
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "openssl-util.h"
@@ -4407,7 +4408,7 @@ static int write_boot_policy_file(const char *json_text) {
                         AT_FDCWD,
                         boot_policy_file,
                         &encoded,
-                        WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755);
+                        WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot policy file to '%s': %m", boot_policy_file);
 
@@ -4820,7 +4821,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                 return log_error_errno(r, "Failed to format new configuration to JSON: %m");
 
         const char *path = arg_policy_path ?: (in_initrd() ? "/run/systemd/pcrlock.json" : "/var/lib/systemd/pcrlock.json");
-        r = write_string_file(path, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755);
+        r = write_string_file(path, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return log_error_errno(r, "Failed to write new configuration to '%s': %m", path);
 
@@ -5346,6 +5347,10 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
+
+        r = mac_init();
+        if (r < 0)
+                return r;
 
         r = parse_argv(argc, argv);
         if (r <= 0)
