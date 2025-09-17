@@ -1411,7 +1411,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
 
         if (r == -EBADMSG)
                 return sd_varlink_error(link, "io.systemd.Credentials.BadFormat", NULL);
-        if (r == -EREMOTE)
+        if (r == -EDESTADDRREQ)
                 return sd_varlink_error(link, "io.systemd.Credentials.NameMismatch", NULL);
         if (r == -ESTALE)
                 return sd_varlink_error(link, "io.systemd.Credentials.TimeMismatch", NULL);
