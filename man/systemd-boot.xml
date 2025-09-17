@@ -640,6 +640,16 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.boot.loglevel</varname></term>
+        <listitem><para>If set, the value of this string is used as log level. Valid values (from most to
+        least critical) are <literal>emerg</literal>, <literal>alert</literal>, <literal>crit</literal>,
+        <literal>err</literal>, <literal>warning</literal>, <literal>notice</literal>, <literal>info</literal>,
+        and <literal>debug</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
