@@ -38,15 +38,6 @@ int efi_get_variable(
 
         const char *p = strjoina("/sys/firmware/efi/efivars/", variable);
 
-        if (!ret_value && !ret_size && !ret_attribute) {
-                /* If caller is not interested in anything, just check if the variable exists and is
-                 * readable. */
-                if (access(p, R_OK) < 0)
-                        return -errno;
-
-                return 0;
-        }
-
         if (DEBUG_LOGGING) {
                 log_debug("Reading EFI variable %s.", p);
                 begin = now(CLOCK_MONOTONIC);
