@@ -5111,6 +5111,10 @@ _public_ int sd_json_dispatch_full(
         int r, done = 0;
         bool *found;
 
+        /* Consider a NULL pointer equivalent to an empty object */
+        if (!v)
+                v = JSON_VARIANT_MAGIC_EMPTY_OBJECT;
+
         if (!sd_json_variant_is_object(v)) {
                 json_log(v, flags, 0, "JSON variant is not an object.");
 
