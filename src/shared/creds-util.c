@@ -422,7 +422,7 @@ static int make_credential_host_secret(
         if (r < 0)
                 return log_debug_errno(r, "Failed to link host key into place: %m");
 
-        t = mfree(t); /* disarm CLEANUP_ERASE() */
+        t = mfree(t); /* disarm CLEANUP_TMPFILE_AT() */
 
         if (ret) {
                 void *copy;
