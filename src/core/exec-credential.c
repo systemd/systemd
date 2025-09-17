@@ -336,40 +336,30 @@ static int write_credential(
         if (fd < 0)
                 return -errno;
 
+        CLEANUP_TMPFILE_AT(dfd, tmp);
+
         r = loop_write(fd, data, size);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = RET_NERRNO(fchmod(fd, 0400)); /* Take away "w" bit */
         if (r < 0)
-                goto fail;
+                return r;
 
         if (uid_is_valid(uid) && uid != getuid()) {
                 r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
-                if (r < 0) {
-                        /* Ideally we use ACLs, since we can neatly express what we want to express:
-                         * the user gets read access and nothing else. But if the backing fs can't
-                         * support that (e.g. ramfs), then we can use file ownership instead. But that's
-                         * only safe if we can then re-mount the whole thing read-only, so that the user
-                         * can no longer chmod() the file to gain write access. */
-                        if (!ownership_ok || (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r)))
-                                goto fail;
-
+                /* Ideally we use ACLs, since we can neatly express what we want to express:
+                 * the user gets read access and nothing else. But if the backing fs can't
+                 * support that (e.g. ramfs), then we can use file ownership instead. But that's
+                 * only safe if we can then re-mount the whole thing read-only, so that the user
+                 * can no longer chmod() the file to gain write access. */
+                if ((ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r)) && ownership_ok)
                         r = RET_NERRNO(fchown(fd, uid, gid));
-                        if (r < 0)
-                                goto fail;
-                }
+                if (r < 0)
+                        return r;
         }
 
-        r = RET_NERRNO(renameat(dfd, tmp, dfd, id));
-        if (r < 0)
-                goto fail;
-
-        return 0;
-
-fail:
-        (void) unlinkat(dfd, tmp, /* flags = */ 0);
-        return r;
+        return RET_NERRNO(renameat(dfd, tmp, dfd, id));
 }
 
 typedef enum CredentialSearchPath {
