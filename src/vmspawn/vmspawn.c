@@ -628,7 +628,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM_STATE:
-                        if (path_is_absolute(optarg) && path_is_valid(optarg)) {
+                        if (path_is_valid(optarg) && (path_is_absolute(optarg) || path_startswith(optarg, "./"))) {
                                 r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm_state_path);
                                 if (r < 0)
                                         return r;
