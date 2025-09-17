@@ -16,6 +16,7 @@ atomic_barrier
 atomic_cmpxchg_32
 bind	353
 bpf	349
+breakpoint
 brk	17
 cachectl
 cacheflush
@@ -113,6 +114,7 @@ futimesat	288
 get_mempolicy	304
 get_robust_list	301
 get_thread_area
+get_tls
 getcpu	308
 getcwd	119
 getdents	174
@@ -404,6 +406,7 @@ set_mempolicy_home_node	450
 set_robust_list	300
 set_thread_area
 set_tid_address	166
+set_tls
 setdomainname	163
 setfsgid	229
 setfsgid32	94
@@ -512,6 +515,8 @@ unlinkat	290
 unshare	299
 uretprobe
 userfaultfd	352
+usr26
+usr32
 ustat	168
 utime	30
 utimensat	310

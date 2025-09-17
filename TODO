@@ -128,10 +128,13 @@ Deprecations and removals:
 
 Features:
 
+* journald: log pidfid as another field, i.e. _PIDFDID=
+
 * systemd-nspawn: something like --volatile= but that isn't volatile, but
   stores the data in some separate dir on disk. Usecase: keep always up-to-date
   DDIs of some OS in your home dir, but combine its /usr/ with a locally
-  maintained root fs in a regular dir to maintain local state.
+  maintained root fs in a regular dir to maintain local state. (idea: call it
+  --mutable= and take dir or DDI and merge in)
 
 * maybe rework systemd-modules-load to be a generator that just instantiates
   modprobe@.service a bunch of times
@@ -242,7 +245,6 @@ Features:
   - io.systemd.Hostname
   - io.systemd.ManagedOOM
   - io.systemd.Network
-  - io.systemd.PCRExtend
   - io.systemd.PCRLock
   - io.systemd.Resolve.Monitor
   - io.systemd.Resolve
@@ -1629,13 +1631,6 @@ Features:
   with the privkey, then use that as luks key to unlock the home dir. Will not
   work for ECDSA keys since their signatures contain a random component, but
   will work for RSA and Ed25519 keys.
-
-* add tiny service that decrypts encrypted user records passed via initrd
-  credential logic and drops them into /run where nss-systemd can pick them up,
-  similar to /run/host/userdb/. Use case: drop a root user JSON record there,
-  and use it in the initrd to log in as root with locally selected password,
-  for debugging purposes. Other use case: boot into qemu with regular user
-  mounted from host. maybe put this in systemd-user-sessions.service?
 
 * drop dependency on libcap, replace by direct syscalls based on
   CapabilityQuintet we already have. (This likely allows us to drop libcap

@@ -45,6 +45,8 @@ typedef struct Machine {
 
         char *state_file;
         char *service;
+        /* Note that the root directory is accepted as-is from the caller, including unprivileged users, so
+         * do not use it for anything but informational purposes. */
         char *root_directory;
 
         char *unit;

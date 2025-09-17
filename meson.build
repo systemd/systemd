@@ -485,6 +485,7 @@ possible_link_flags = [
         '-Wl,--fatal-warnings',
         '-Wl,-z,now',
         '-Wl,-z,relro',
+        '-Wl,-z,gcs-report-dynamic=none',
         '-Wl,--gc-sections',
 ]
 
@@ -634,6 +635,9 @@ progs = [['quotaon',    '/usr/sbin/quotaon'    ],
          ['kmod',       '/usr/bin/kmod'        ],
          ['kexec',      '/usr/sbin/kexec'      ],
          ['sulogin',    '/usr/sbin/sulogin'    ],
+         ['swapon',     '/usr/sbin/swapon'     ],
+         ['swapoff',    '/usr/sbin/swapoff'    ],
+         ['agetty',     '/usr/sbin/agetty'     ],
          ['mount',      '/usr/bin/mount',      'MOUNT_PATH'],
          ['umount',     '/usr/bin/umount',     'UMOUNT_PATH'],
          ['loadkeys',   '/usr/bin/loadkeys',   'KBD_LOADKEYS'],

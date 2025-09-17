@@ -1138,6 +1138,7 @@ manpages = [
    'systemd-sysext-initrd.service',
    'systemd-sysext.service'],
   'ENABLE_SYSEXT'],
+ ['sysext.conf', '5', ['confext.conf'], 'ENABLE_SYSEXT'],
  ['systemd-system-update-generator', '8', [], ''],
  ['systemd-system.conf',
   '5',

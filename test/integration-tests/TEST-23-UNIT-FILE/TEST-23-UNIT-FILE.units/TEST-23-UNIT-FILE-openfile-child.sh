@@ -4,11 +4,12 @@ set -eux
 set -o pipefail
 
 # shellcheck source=test/units/util.sh
-. "$(dirname "$0")"/util.sh
+. "$(dirname "$0")"/../units/util.sh
 
 assert_eq "$LISTEN_FDS" "$1"
 assert_eq "$LISTEN_FDNAMES" "$2"
 
 for ((i = 3; i < 3 + LISTEN_FDS; i++)); do
-    assert_eq "$(cat /proc/self/fd/"$i")" "${!i}" # Dereference $i to get i'th arg
+    read -r -u "$i" text
+    assert_eq "$text" "${!i}" # Dereference $i to get i'th arg
 done

@@ -79,7 +79,7 @@ typedef enum LoaderType {
 #define LOADER_TYPE_PROCESS_RANDOM_SEED(t) IN_SET(t, LOADER_LINUX, LOADER_UKI, LOADER_TYPE2_UKI)
 
 /* Whether to persistently save the selected entry in an EFI variable, if that's requested. */
-#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+#define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
 
 typedef enum {
         REBOOT_NO,
@@ -116,7 +116,7 @@ typedef struct BootEntry {
         EFI_STATUS (*call)(const struct BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
         int tries_done;
         int tries_left;
-        char16_t *path;
+        char16_t *directory;
         char16_t *current_name;
         char16_t *next_name;
         unsigned profile;
@@ -409,8 +409,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                 printf("counting boots: %ls\n", yes_no(entry->tries_left >= 0));
                 if (entry->tries_left >= 0) {
                         printf("         tries: %i left, %i done\n", entry->tries_left, entry->tries_done);
-                        printf("  current path: %ls\\%ls\n", entry->path, entry->current_name);
-                        printf("     next path: %ls\\%ls\n", entry->path, entry->next_name);
+                        printf("  current path: %ls\\%ls\n", entry->directory, entry->current_name);
+                        printf("     next path: %ls\\%ls\n", entry->directory, entry->next_name);
                 }
 
                 if (!ps_continue())
@@ -991,7 +991,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->devicetree);
         free(entry->options);
         strv_free(entry->initrd);
-        free(entry->path);
+        free(entry->directory);
         free(entry->current_name);
         free(entry->next_name);
 
@@ -1116,12 +1116,12 @@ static void config_defaults_load_from_file(Config *config, char *content) {
 
 static void boot_entry_parse_tries(
                 BootEntry *entry,
-                const char16_t *path,
+                const char16_t *directory,
                 const char16_t *file,
                 const char16_t *suffix) {
 
         assert(entry);
-        assert(path);
+        assert(directory);
         assert(file);
         assert(suffix);
 
@@ -1165,9 +1165,13 @@ static void boot_entry_parse_tries(
         if (!strcaseeq16(counter, suffix))
                 return;
 
+        entry->id = xasprintf("%.*ls%ls",
+                        (int) prefix_len - 1,
+                        file,
+                        suffix);
         entry->tries_left = tries_left;
         entry->tries_done = tries_done;
-        entry->path = xstrdup16(path);
+        entry->directory = xstrdup16(directory);
         entry->current_name = xstrdup16(file);
         entry->next_name = xasprintf(
                         "%.*ls%" PRIu64 "-%" PRIu64 "%ls",
@@ -1193,7 +1197,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         if (entry->tries_left < 0)
                 return EFI_SUCCESS;
 
-        if (!entry->path || !entry->current_name || !entry->next_name)
+        if (!entry->directory || !entry->current_name || !entry->next_name)
                 return EFI_SUCCESS;
 
         _cleanup_file_close_ EFI_FILE *root = NULL;
@@ -1201,7 +1205,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error opening entry root path: %m");
 
-        old_path = xasprintf("%ls\\%ls", entry->path, entry->current_name);
+        old_path = xasprintf("%ls\\%ls", entry->directory, entry->current_name);
 
         err = root->Open(root, &handle, old_path, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (err != EFI_SUCCESS)
@@ -1225,7 +1229,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
 
         /* Let's tell the OS that we renamed this file, so that it knows what to rename to the counter-less name on
          * success */
-        new_path = xasprintf("%ls\\%ls", entry->path, entry->next_name);
+        new_path = xasprintf("%ls\\%ls", entry->directory, entry->next_name);
         efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderBootCountPath", new_path, 0);
 
         /* If the file we just renamed is the loader path, then let's update that. */
@@ -1395,13 +1399,16 @@ static void boot_entry_add_type1(
         }
 
         entry->device = device;
-        entry->id = xstrdup16(file);
-        strtolower16(entry->id);
-
-        config_add_entry(config, entry);
 
         if (path)
                 boot_entry_parse_tries(entry, path, file, u".conf");
+
+        if (!entry->id)
+                entry->id = xstrdup16(file);
+
+        strtolower16(entry->id);
+
+        config_add_entry(config, entry);
         TAKE_PTR(entry);
 }
 
@@ -2769,7 +2776,7 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
 static EFI_STATUS call_secure_boot_enroll(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
         assert(entry);
 
-        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true, /* action= */ ENROLL_ACTION_REBOOT);
+        return secure_boot_enroll_at(root_dir, entry->directory, /* force= */ true, /* action= */ ENROLL_ACTION_REBOOT);
 }
 
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
@@ -2808,7 +2815,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                 *entry = (BootEntry) {
                         .id = xasprintf("secure-boot-keys-%ls", dirent->FileName),
                         .title = xasprintf("Enroll Secure Boot keys: %ls", dirent->FileName),
-                        .path = xasprintf("\\loader\\keys\\%ls", dirent->FileName),
+                        .directory = xasprintf("\\loader\\keys\\%ls", dirent->FileName),
                         .type = LOADER_SECURE_BOOT_KEYS,
                         .tries_done = -1,
                         .tries_left = -1,
@@ -2820,7 +2827,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                     strcaseeq16(dirent->FileName, u"auto"))
                         /* If we auto enroll successfully this call does not return.
                          * If it fails we still want to add other potential entries to the menu. */
-                        secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE, config->secure_boot_enroll_action);
+                        secure_boot_enroll_at(root_dir, entry->directory, config->secure_boot_enroll == ENROLL_FORCE, config->secure_boot_enroll_action);
         }
 
         return EFI_SUCCESS;

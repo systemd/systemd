@@ -1152,7 +1152,7 @@ static int register_session(
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", c->remote_host));
                         if (r < 0)
                                 return pam_syslog_errno(handle, LOG_ERR, r,
-                                                        "Failed to register session: %s", error_id);
+                                                        "Failed to issue io.systemd.Login.CreateSession varlink call: %m");
                         if (streq_ptr(error_id, "io.systemd.Login.AlreadySessionMember")) {
                                 /* We are already in a session, don't do anything */
                                 pam_debug_syslog(handle, debug, "Not creating session: %s", error_id);
@@ -1161,7 +1161,7 @@ static int register_session(
                         }
                         if (error_id)
                                 return pam_syslog_errno(handle, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
-                                                        "Failed to issue CreateSession() varlink call: %s", error_id);
+                                                        "Varlink call io.systemd.Login.CreateSession failed: %s", error_id);
 
                         struct {
                                 const char *id;
@@ -1859,10 +1859,11 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                                         &error_id,
                                         SD_JSON_BUILD_PAIR_STRING("Id", id));
                         if (r < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to register session: %s", error_id);
+                                return pam_syslog_errno(handle, LOG_ERR, r,
+                                                        "Failed to issue io.systemd.Login.ReleaseSession varlink call: %m");
                         if (error_id)
                                 return pam_syslog_errno(handle, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
-                                                        "Failed to issue ReleaseSession() varlink call: %s", error_id);
+                                                        "Varlink call io.systemd.Login.ReleaseSession failed: %s", error_id);
 
                         done = true;
                 }

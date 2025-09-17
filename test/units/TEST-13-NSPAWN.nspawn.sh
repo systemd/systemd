@@ -1208,28 +1208,6 @@ EOF
     rm -fr "$root"
 }
 
-can_do_rootless_nspawn() {
-    # Our create_dummy_ddi() uses squashfs and openssl.
-    command -v mksquashfs &&
-    command -v openssl &&
-
-    # mountfsd must be enabled...
-    [[ -S /run/systemd/io.systemd.MountFileSystem ]] &&
-    # ...and have pidfd support for unprivileged operation.
-    systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
-    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124 &&
-
-    # nsresourced must be enabled...
-    [[ -S /run/systemd/userdb/io.systemd.NamespaceResource ]] &&
-    # ...and must support the UserNamespaceInterface.
-    ! (SYSTEMD_LOG_TARGET=console varlinkctl call \
-           /run/systemd/userdb/io.systemd.NamespaceResource \
-           io.systemd.NamespaceResource.AllocateUserRange \
-           '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' \
-           2>&1 || true) |
-        grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"
-}
-
 create_dummy_ddi() {
     local outdir="${1:?}"
     local container_name="${2:?}"
@@ -1446,7 +1424,7 @@ testcase_unpriv_dir() {
     rm -rf "$root"
 }
 
-testcase_link_journa_hostl() {
+testcase_link_journal_host() {
     local root hoge i
 
     root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.link-journal.XXX)"
@@ -1454,18 +1432,37 @@ testcase_link_journa_hostl() {
 
     systemd-id128 new > "$root"/etc/machine-id
 
-    mkdir -p /var/log/journal
-
-    hoge="/var/log/journal/$(cat "$root"/etc/machine-id)/hoge"
+    hoge="/var/log/journal/$(cat "$root"/etc/machine-id)/"
+    mkdir -p "$hoge"
+    # The systemd-journal group is not mapped, so ensure the directory is owned by root:root
+    chown root:root "$hoge"
 
     for i in no yes pick; do
         systemd-nspawn \
             --directory="$root" --private-users="$i" --link-journal=host \
             bash -xec 'p="/var/log/journal/$(cat /etc/machine-id)"; mountpoint "$p"; [[ "$(stat "$p" --format=%u)" == 0 ]]; touch "$p/hoge"'
 
-        [[ "$(stat "$hoge" --format=%u)" == 0 ]]
-        rm "$hoge"
+        [[ "$(stat "${hoge}/hoge" --format=%u)" == 0 ]]
+        rm "${hoge}/hoge"
     done
+
+    rm -fr "$root" "$hoge"
+}
+
+testcase_cap_net_bind_service() {
+    local root
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.cap-net-bind-service.XXX)"
+    create_dummy_container "$root"
+
+    # Check that CAP_NET_BIND_SERVICE is available without --private-users
+    systemd-nspawn --register=no --directory="$root" capsh --has-p=cap_net_bind_service
+
+    # Check that CAP_NET_BIND_SERVICE is not available with --private-users=identity
+    (! systemd-nspawn --register=no --directory="$root" --private-users=identity capsh --has-p=cap_net_bind_service)
+
+    # Check that CAP_NET_BIND_SERVICE is not available with --private-users=pick
+    (! systemd-nspawn --register=no --directory="$root" --private-users=pick capsh --has-p=cap_net_bind_service)
 
     rm -fr "$root"
 }

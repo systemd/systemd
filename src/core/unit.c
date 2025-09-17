@@ -1422,6 +1422,9 @@ int unit_load_fragment_and_dropin(Unit *u, bool fragment_required) {
         if (r < 0)
                 return r;
 
+        if (u->load_state == UNIT_MASKED)
+                return 0;
+
         if (u->load_state == UNIT_STUB) {
                 if (fragment_required)
                         return -ENOENT;
@@ -2276,17 +2279,17 @@ static void retroactively_start_dependencies(Unit *u) {
         assert(u);
         assert(UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(u)));
 
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_START_REPLACE) /* Requires= + BindsTo= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         (void) manager_add_job(u->manager, JOB_START, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_START_FAIL) /* Wants= */
                 if (!unit_has_dependency(u, UNIT_ATOM_AFTER, other) &&
                     !UNIT_IS_ACTIVE_OR_ACTIVATING(unit_active_state(other)))
                         (void) manager_add_job(u->manager, JOB_START, other, JOB_FAIL, /* error = */ NULL, /* ret = */ NULL);
 
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_START) /* Conflicts= (and inverse) */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 }
@@ -2298,7 +2301,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         assert(UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)));
 
         /* Pull down units which are bound to us recursively if enabled */
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 }
@@ -2325,7 +2328,7 @@ void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
         assert(dependency_name);
 
         Unit *other;
-        UNIT_FOREACH_DEPENDENCY(other, u, atom) {
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, atom) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (n_jobs == 0)
@@ -2348,7 +2351,7 @@ void unit_trigger_notify(Unit *u) {
 
         assert(u);
 
-        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_TRIGGERED_BY)
+        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_TRIGGERED_BY)
                 if (UNIT_VTABLE(other)->trigger_notify)
                         UNIT_VTABLE(other)->trigger_notify(other, u);
 }
@@ -2408,10 +2411,20 @@ static int unit_log_resources(Unit *u) {
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
 
                 /* Format the CPU time for inclusion in the human language message string */
-                if (strextendf_with_separator(&message, ", ",
-                                              "Consumed %s CPU time",
-                                              FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC)) < 0)
-                        return log_oom();
+                if (dual_timestamp_is_set(&u->inactive_exit_timestamp) &&
+                    dual_timestamp_is_set(&u->inactive_enter_timestamp)) {
+                        usec_t wall_clock_usec = usec_sub_unsigned(u->inactive_enter_timestamp.monotonic, u->inactive_exit_timestamp.monotonic);
+                        if (strextendf_with_separator(&message, ", ",
+                                                      "Consumed %s CPU time over %s wall clock time",
+                                                      FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC),
+                                                      FORMAT_TIMESPAN(wall_clock_usec, USEC_PER_MSEC)) < 0)
+                                return log_oom();
+                } else {
+                        if (strextendf_with_separator(&message, ", ",
+                                                      "Consumed %s CPU time",
+                                                      FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC)) < 0)
+                                return log_oom();
+                }
 
                 log_level = raise_level(log_level,
                                         cpu_nsec > MENTIONWORTHY_CPU_NSEC,

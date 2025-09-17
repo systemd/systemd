@@ -151,6 +151,7 @@ udev_binaries_dict = [
                         include_directories('.', 'net'),
                 ],
                 'dependencies' : udev_dependencies,
+                'link_with' : udev_link_with,
                 'install_rpath' : udev_rpath,
                 'install_tag' : 'udev',
                 'extract' : udevadm_extract_sources,

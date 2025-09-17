@@ -371,7 +371,7 @@ systemctl start testservice-50d.service
 
 # Mount twice to exercise mount-beneath (on kernel 6.5+, on older kernels it will just overmount)
 mkdir -p /tmp/wrong/foo
-mksquashfs /tmp/wrong/foo /tmp/wrong.raw
+mksquashfs /tmp/wrong/foo /tmp/wrong.raw -noappend
 systemctl mount-image --mkdir testservice-50d.service /tmp/wrong.raw /tmp/img
 test "$(systemctl show -P SubState testservice-50d.service)" = "running"
 systemctl mount-image --mkdir testservice-50d.service "$MINIMAL_IMAGE.raw" /tmp/img root:nosuid
@@ -638,14 +638,14 @@ ExecStart=bash -x -c ' \\
     while true; do sleep 1; done; \\
 '
 EOF
-mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw"
+mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw" -noappend
 systemctl start testservice-50h.service
 systemctl is-active testservice-50h.service
 # First reload should pick up the v1 marker
 systemctl reload testservice-50h.service
 grep -q -F "${VBASE}_1.marker" /tmp/markers/50h
 # Second reload should pick up the v2 marker
-mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw"
+mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw" -noappend
 systemctl reload testservice-50h.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50h
 # Test that removing all the extensions don't cause any issues
@@ -750,11 +750,11 @@ if [ "$verity_sig_supported" -eq 1 ]; then
     veritysetup status "$(cat "$MINIMAL_IMAGE.roothash")-verity" | grep -q "verified (with signature)"
 fi
 # First reload should pick up the v1 marker
-mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw"
+mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw" -noappend
 systemctl reload testservice-50k.service
 grep -q -F "${VBASE}_1.marker" /tmp/markers/50k
 # Second reload should pick up the v2 marker
-mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw"
+mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw" -noappend
 systemctl reload testservice-50k.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50k
 # Test that removing all the extensions don't cause any issues
@@ -771,6 +771,8 @@ rm -rf "$VDIR" "$VDIR2" /tmp/vpickminimg /tmp/markers/
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
 ln -s /tmp/app-nodistro.raw /var/lib/extensions/app-nodistro.raw
+systemd-sysext status
+systemd-sysext list
 systemd-sysext merge
 grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
 systemd-sysext unmerge
@@ -915,7 +917,7 @@ mkdir -p /run/extensions/ testkit/usr/lib/extension-release.d/
 echo "ID=_any" >testkit/usr/lib/extension-release.d/extension-release.testkit
 echo "ARCHITECTURE=_any" >>testkit/usr/lib/extension-release.d/extension-release.testkit
 echo "MARKER_SYSEXT_123" >testkit/usr/lib/testfile
-mksquashfs testkit/ testkit.raw
+mksquashfs testkit/ testkit.raw -noappend
 cp testkit.raw /run/extensions/
 unsquashfs -l /run/extensions/testkit.raw
 systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for portable service'
@@ -931,7 +933,7 @@ mkdir -p /run/confexts/ testjob/etc/extension-release.d/
 echo "ID=_any" >testjob/etc/extension-release.d/extension-release.testjob
 echo "ARCHITECTURE=_any" >>testjob/etc/extension-release.d/extension-release.testjob
 echo "MARKER_CONFEXT_123" >testjob/etc/testfile
-mksquashfs testjob/ testjob.raw
+mksquashfs testjob/ testjob.raw -noappend
 cp testjob.raw /run/confexts/
 unsquashfs -l /run/confexts/testjob.raw
 systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for system'

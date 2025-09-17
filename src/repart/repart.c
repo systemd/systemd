@@ -202,6 +202,7 @@ static AppendMode arg_append_fstab = APPEND_NO;
 static char *arg_generate_fstab = NULL;
 static char *arg_generate_crypttab = NULL;
 static Set *arg_verity_settings = NULL;
+static bool arg_relax_copy_block_security = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -5376,7 +5377,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         return 0;
 }
 
-static int progress_bytes(uint64_t n_bytes, void *userdata) {
+static int progress_bytes(uint64_t n_bytes, uint64_t bps, void *userdata) {
         Partition *p = ASSERT_PTR(userdata);
         unsigned percent;
 
@@ -5394,14 +5395,25 @@ static int progress_bytes(uint64_t n_bytes, void *userdata) {
         if (!ratelimit_below(&p->progress_ratelimit))
                 return 0;
 
-        (void) draw_progress_barf(
-                        percent,
-                        "%s %s %s %s/%s",
-                        strna(p->copy_blocks_path),
-                        glyph(GLYPH_ARROW_RIGHT),
-                        strna(p->definition_path),
-                        FORMAT_BYTES(p->copy_blocks_done),
-                        FORMAT_BYTES(p->copy_blocks_size));
+        if (bps != UINT64_MAX)
+                (void) draw_progress_barf(
+                                percent,
+                                "%s %s %s %s/%s %s/s",
+                                strna(p->copy_blocks_path),
+                                glyph(GLYPH_ARROW_RIGHT),
+                                strna(p->definition_path),
+                                FORMAT_BYTES(p->copy_blocks_done),
+                                FORMAT_BYTES(p->copy_blocks_size),
+                                FORMAT_BYTES(bps));
+        else
+                (void) draw_progress_barf(
+                                percent,
+                                "%s %s %s %s/%s",
+                                strna(p->copy_blocks_path),
+                                glyph(GLYPH_ARROW_RIGHT),
+                                strna(p->definition_path),
+                                FORMAT_BYTES(p->copy_blocks_done),
+                                FORMAT_BYTES(p->copy_blocks_size));
 
         p->last_percent = percent;
 
@@ -7859,7 +7871,7 @@ static int context_fstab(Context *context) {
         fputs(AUTOMATIC_FSTAB_HEADER_START "\n", f);
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_free_ char *what = NULL, *options = NULL;
+                _cleanup_free_ char *what = NULL;
 
                 if (!need_fstab_one(p))
                         continue;
@@ -7869,6 +7881,8 @@ static int context_fstab(Context *context) {
                         return r;
 
                 FOREACH_ARRAY(mountpoint, p->mountpoints, p->n_mountpoints) {
+                        _cleanup_free_ char *options = NULL;
+
                         r = partition_pick_mount_options(
                                         p->type.designator,
                                         p->format,
@@ -8735,6 +8749,9 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
+
+                        arg_relax_copy_block_security = false;
+
                         break;
 
                 case ARG_IMAGE_POLICY:
@@ -9155,6 +9172,8 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         arg_root = strdup("/sysusr");
                 if (!arg_root)
                         return log_oom();
+
+                arg_relax_copy_block_security = true;
         }
 
         if (argc > optind) {
@@ -9829,7 +9848,9 @@ static int run(int argc, char *argv[]) {
         r = context_open_copy_block_paths(
                         context,
                         loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
-                                      arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
+                                      /* if --root= is specified, don't accept any block device, unless it
+                                       * was set automatically because we are in the initrd  */
+                                      arg_root && !arg_image && !arg_relax_copy_block_security ? 0 :
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
         if (r < 0)
                 return r;

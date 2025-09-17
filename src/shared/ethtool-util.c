@@ -687,9 +687,18 @@ static int get_glinksettings(int fd, struct ifreq *ifr, union ethtool_link_usett
         if (ecmd.base.link_mode_masks_nwords <= 0 || ecmd.base.cmd != ETHTOOL_GLINKSETTINGS)
                 return -EOPNOTSUPP;
 
-        union ethtool_link_usettings *u = newdup(union ethtool_link_usettings, &ecmd, 1);
+        union ethtool_link_usettings *u = new0(union ethtool_link_usettings, 1);
         if (!u)
                 return -ENOMEM;
+
+        u->base = ecmd.base;
+
+        uint32_t *p = ecmd.base.link_mode_masks;
+        memcpy(u->link_modes.supported, p, sizeof(uint32_t) * ecmd.base.link_mode_masks_nwords);
+        p += ecmd.base.link_mode_masks_nwords;
+        memcpy(u->link_modes.advertising, p, sizeof(uint32_t) * ecmd.base.link_mode_masks_nwords);
+        p += ecmd.base.link_mode_masks_nwords;
+        memcpy(u->link_modes.lp_advertising, p, sizeof(uint32_t) * ecmd.base.link_mode_masks_nwords);
 
         *ret = u;
         return 0;
@@ -742,8 +751,14 @@ static int set_slinksettings(int fd, struct ifreq *ifr, const union ethtool_link
         if (u->base.cmd != ETHTOOL_GLINKSETTINGS || u->base.link_mode_masks_nwords <= 0)
                 return -EINVAL;
 
-        union ethtool_link_usettings ecmd = *u;
+        union ethtool_link_usettings ecmd = { .base = u->base };
         ecmd.base.cmd = ETHTOOL_SLINKSETTINGS;
+
+        uint32_t *p = ecmd.base.link_mode_masks;
+        p = mempcpy(p, u->link_modes.supported, sizeof(uint32_t) * ecmd.base.link_mode_masks_nwords);
+        p = mempcpy(p, u->link_modes.advertising, sizeof(uint32_t) * ecmd.base.link_mode_masks_nwords);
+        memcpy(p, u->link_modes.lp_advertising, sizeof(uint32_t) * ecmd.base.link_mode_masks_nwords);
+
         ifr->ifr_data = (void *) &ecmd;
 
         return RET_NERRNO(ioctl(fd, SIOCETHTOOL, ifr));
