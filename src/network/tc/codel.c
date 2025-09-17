@@ -74,7 +74,7 @@ static int controlled_delay_fill_message(Link *link, QDisc *qdisc, sd_netlink_me
         return 0;
 }
 
-int config_parse_controlled_delay_u32(
+int config_parse_codel_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -126,7 +126,7 @@ int config_parse_controlled_delay_u32(
         return 0;
 }
 
-int config_parse_controlled_delay_usec(
+int config_parse_codel_usec(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -191,7 +191,7 @@ int config_parse_controlled_delay_usec(
         return 0;
 }
 
-int config_parse_controlled_delay_bool(
+int config_parse_codel_bool(
                 const char *unit,
                 const char *filename,
                 unsigned line,

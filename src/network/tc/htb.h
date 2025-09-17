@@ -15,8 +15,8 @@ typedef struct HierarchyTokenBucket {
 DEFINE_QDISC_CAST(HTB, HierarchyTokenBucket);
 extern const QDiscVTable htb_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_hierarchy_token_bucket_default_class);
-CONFIG_PARSER_PROTOTYPE(config_parse_hierarchy_token_bucket_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_htb_default_class);
+CONFIG_PARSER_PROTOTYPE(config_parse_htb_u32);
 
 typedef struct HierarchyTokenBucketClass {
         TClass meta;
@@ -34,6 +34,6 @@ typedef struct HierarchyTokenBucketClass {
 DEFINE_TCLASS_CAST(HTB, HierarchyTokenBucketClass);
 extern const TClassVTable htb_tclass_vtable;
 
-CONFIG_PARSER_PROTOTYPE(config_parse_hierarchy_token_bucket_class_u32);
-CONFIG_PARSER_PROTOTYPE(config_parse_hierarchy_token_bucket_class_size);
-CONFIG_PARSER_PROTOTYPE(config_parse_hierarchy_token_bucket_class_rate);
+CONFIG_PARSER_PROTOTYPE(config_parse_htb_class_u32);
+CONFIG_PARSER_PROTOTYPE(config_parse_htb_class_size);
+CONFIG_PARSER_PROTOTYPE(config_parse_htb_class_rate);

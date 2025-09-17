@@ -65,7 +65,7 @@ static int generic_random_early_detection_verify(QDisc *qdisc) {
         return 0;
 }
 
-int config_parse_generic_random_early_detection_u32(
+int config_parse_gred_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -131,7 +131,7 @@ int config_parse_generic_random_early_detection_u32(
 
         return 0;
 }
-int config_parse_generic_random_early_detection_bool(
+int config_parse_gred_bool(
                 const char *unit,
                 const char *filename,
                 unsigned line,
