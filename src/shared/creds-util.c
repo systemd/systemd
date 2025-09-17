@@ -1661,7 +1661,17 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
                 if (streq(error_id, "io.systemd.Credentials.NoSuchUser"))
                         return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "No such user.");
                 if (streq(error_id, "io.systemd.Credentials.BadScope"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Scope mismtach.");
+                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Scope mismatch.");
+                if (streq(error_id, "io.systemd.Credentials.CantFindPCRSignature"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "PCR signature required for decryption, but could not be found.");
+                if (streq(error_id, "io.systemd.Credentials.NullKeyNotAllowed"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "The key was encrypted with a null key, but that's now allowed during decryption.");
+                if (streq(error_id, "io.systemd.Credentials.KeyBelongsToOtherTPM"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted.");
+                if (streq(error_id, "io.systemd.Credentials.TPMInDictionaryLockout"))
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOLCK), "The TPM is in dictionary lockout mode, cannot operate.");
+                if (streq(error_id, "io.systemd.Credentials.UnexpectedPCRState"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "Unexpected TPM PCR state of the system.");
 
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to decrypt: %s", error_id);
         }
