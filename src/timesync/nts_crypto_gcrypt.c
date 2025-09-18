@@ -7,8 +7,6 @@
 #    error Your gcrypt version is too old, need at least version 1.10
 #endif
 
-int x = GCRYPT_VERSION_NUMBER; // GCRYPT_VERSION_NUMBER
-
 static const struct NTS_AEADParam supported_algos[] = {
         { NTS_AEAD_AES_SIV_CMAC_256, 256/8, 16, 16, true, false, "AES-128-SIV" },
         { NTS_AEAD_AES_SIV_CMAC_512, 512/8, 16, 16, true, false, "AES-256-SIV" },
