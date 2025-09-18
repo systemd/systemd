@@ -62,6 +62,8 @@ static int gcrypt_mode(const struct NTS_AEADParam *aead) {
         default:
                 assert(!"unreachable");
         }
+        /* this is never reached */
+        return -1;
 }
 
 int NTS_encrypt(uint8_t *ctxt,
