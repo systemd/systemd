@@ -22,4 +22,5 @@ const char *NTS_error_string(enum NTS_ErrorType error) {
 
         /* this is unreachable code */
         assert(!"Unknown error");
+        return NULL;
 }
