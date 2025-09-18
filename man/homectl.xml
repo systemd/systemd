@@ -216,6 +216,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--prompt-shell=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to interactively query for a login shell,
+        if <command>firstboot --prompt-new-user</command> is used. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--prompt-groups=</option></term>
+
+        <listitem><para>Takes a boolean argument. Controls whether to interactively query for auxiliary
+        groups to add the new user to, if <command>firstboot --prompt-new-user</command> is used. Defaults to
+        true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--match=</option></term>
         <term><option>-A</option></term>
         <term><option>-N</option></term>
