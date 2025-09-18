@@ -9,6 +9,7 @@
 
 [Unit]
 Description=Switch Root
+Documentation=man:bootup(7)
 AssertPathExists=/etc/initrd-release
 DefaultDependencies=no
 Wants=initrd-switch-root.service
