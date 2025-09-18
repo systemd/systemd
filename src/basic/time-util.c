@@ -1435,6 +1435,10 @@ static int get_timezones_from_zone1970_tab(char ***ret) {
                 if (*cc == '#')
                         continue;
 
+                if (!timezone_is_valid(tz, LOG_DEBUG))
+                        /* Don't list unusable timezones. */
+                        continue;
+
                 r = strv_extend(&zones, tz);
                 if (r < 0)
                         return r;
@@ -1485,6 +1489,10 @@ static int get_timezones_from_tzdata_zi(char ***ret) {
                         tz = f2;
                 else
                         /* Not a line we care about. */
+                        continue;
+
+                if (!timezone_is_valid(tz, LOG_DEBUG))
+                        /* Don't list unusable timezones. */
                         continue;
 
                 r = strv_extend(&zones, tz);
