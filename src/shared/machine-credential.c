@@ -28,15 +28,15 @@ void machine_credential_context_done(MachineCredentialContext *ctx) {
         free(ctx->credentials);
 }
 
-bool machine_credentials_contains(const MachineCredentialContext *ctx, const char *id) {
+MachineCredential *machine_credential_find(MachineCredentialContext *ctx, const char *id) {
         assert(ctx);
         assert(id);
 
         FOREACH_ARRAY(cred, ctx->credentials, ctx->n_credentials)
                 if (streq(cred->id, id))
-                        return true;
+                        return cred;
 
-        return false;
+        return NULL;
 }
 
 int machine_credential_set(MachineCredentialContext *ctx, const char *cred_str) {
@@ -58,7 +58,7 @@ int machine_credential_set(MachineCredentialContext *ctx, const char *cred_str) 
         if (!credential_name_valid(cred.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", cred.id);
 
-        if (machine_credentials_contains(ctx, cred.id))
+        if (machine_credential_find(ctx, cred.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate credential '%s', refusing.", cred.id);
 
         l = cunescape(p, UNESCAPE_ACCEPT_NUL, &cred.data);
@@ -93,7 +93,7 @@ int machine_credential_load(MachineCredentialContext *ctx, const char *cred_path
         if (!credential_name_valid(cred.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", cred.id);
 
-        if (machine_credentials_contains(ctx, cred.id))
+        if (machine_credential_find(ctx, cred.id))
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate credential '%s', refusing.", cred.id);
 
         if (is_path(p) && path_is_valid(p))
