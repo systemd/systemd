@@ -3,13 +3,8 @@
 #include <endian.h>
 #include <fcntl.h>
 #include <pwd.h>
-#include <security/_pam_macros.h>
-#include <security/pam_ext.h>
 #include <security/pam_misc.h>
-#include <security/pam_modules.h>
-#include <security/pam_modutil.h>
 #include <sys/file.h>
-#include "time-util.h"
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
@@ -52,6 +47,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -1727,6 +1723,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         int r;
 
         assert(handle);
+
+        r = dlopen_libpam();
+        if (r < 0)
+                return PAM_SERVICE_ERR;
 
         pam_log_setup();
 

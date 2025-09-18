@@ -213,7 +213,7 @@ executables += [
                 'link_with' : executor_libs,
                 'dependencies' : [
                         libapparmor_cflags,
-                        libpam,
+                        libpam_cflags,
                         libseccomp,
                         libselinux,
                 ],
