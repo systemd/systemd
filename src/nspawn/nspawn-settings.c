@@ -168,7 +168,8 @@ Settings* settings_free(Settings *s) {
         strv_free(s->sysctl);
 
 #if HAVE_SECCOMP
-        seccomp_release(s->seccomp);
+        if (s->seccomp)
+                sym_seccomp_release(s->seccomp);
 #endif
 
         return mfree(s);
