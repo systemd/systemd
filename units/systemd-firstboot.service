@@ -35,6 +35,7 @@ ExecStart=systemd-firstboot --prompt-locale --prompt-keymap --prompt-timezone --
 StandardOutput=tty
 StandardInput=tty
 StandardError=tty
+TTYReset=yes
 
 # Optionally, pick up basic fields from credentials passed to the service
 # manager. This is useful for importing this data from nspawn's
