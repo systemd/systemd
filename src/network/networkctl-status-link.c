@@ -768,7 +768,7 @@ static int link_status_one(
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_add_cell_stringf(table, NULL, "%sbps/%sbps",
+                r = table_add_cell_stringf(table, NULL, "%sBps/%sBps",
                                            FORMAT_BYTES_FULL(info->tx_bitrate, 0),
                                            FORMAT_BYTES_FULL(info->rx_bitrate, 0));
                 if (r < 0)
