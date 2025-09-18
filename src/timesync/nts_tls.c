@@ -26,7 +26,7 @@ int NTS_TLS_extract_keys(
 #endif
 
         uint8_t *keys[] = { c2s, s2c };
-        const char label[30] = { "EXPORTER-network-time-security" }; /* note: this does not include the zero byte */
+        const char label[] = "EXPORTER-network-time-security";
 
         const struct NTS_AEADParam *info = NTS_get_param(aead);
         if (!info)
@@ -39,7 +39,7 @@ int NTS_TLS_extract_keys(
 #ifdef USE_GNUTLS
                 if (gnutls_prf_rfc5705(
                                         session,
-                                        sizeof(label), label,
+                                        strlen(label), label,
                                         sizeof(context), context,
                                         info->key_size,
                                         (char *)keys[i]
@@ -48,7 +48,7 @@ int NTS_TLS_extract_keys(
                 if (SSL_export_keying_material(
                                         session,
                                         keys[i], info->key_size,
-                                        label, sizeof label,
+                                        label, strlen(label),
                                         (uint8_t *)context, sizeof context, 1)
                                 != 1)
 #endif
@@ -179,11 +179,11 @@ NTS_TLS* NTS_TLS_setup(
 
         CHECK(gnutls_server_name_set(tls, GNUTLS_NAME_DNS, hostname, strlen(hostname)) == GNUTLS_E_SUCCESS);
 
-        unsigned char alpn[7] = "ntske/1";
+        unsigned char alpn[] = "ntske/1";
         CHECK(
                 gnutls_alpn_set_protocols(
                         tls,
-                        &(gnutls_datum_t){ .data = alpn, .size = sizeof(alpn) },
+                        &(gnutls_datum_t){ .data = alpn, .size = strlen((char*)alpn) },
                         1,
                         GNUTLS_ALPN_MANDATORY
                 ) == GNUTLS_E_SUCCESS
@@ -226,8 +226,8 @@ NTS_TLS* NTS_TLS_setup(
         CHECK(SSL_set1_host(tls, hostname) == 1);
         CHECK(SSL_set_tlsext_host_name(tls, hostname) == 1);
 
-        unsigned char alpn[8] = "\x07ntske/1";
-        CHECK(SSL_set_alpn_protos(tls, alpn, sizeof(alpn)) == 0);
+        unsigned char alpn[] = "\x07ntske/1";
+        CHECK(SSL_set_alpn_protos(tls, alpn, strlen((char*)alpn)) == 0);
 
         BIO *bio = BIO_new(BIO_s_socket());
         CHECK(bio);
