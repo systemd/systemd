@@ -70,7 +70,7 @@
 
     <para><command>kernel-install</command> will run the executable files ("plugins") located in the
     directory <filename>/usr/lib/kernel/install.d/</filename> and the local administration directory
-    <filename>/etc/kernel/install.d/</filename>.  All files are collectively sorted and executed in lexical
+    <filename>/etc/kernel/install.d/</filename>.  All files are collectively sorted and executed in lexicographic
     order, regardless of the directory in which they live. However, files with identical filenames replace
     each other.  Files in <filename>/etc/kernel/install.d/</filename> take precedence over files with the
     same name in <filename>/usr/lib/kernel/install.d/</filename>. This can be used to override a
@@ -82,7 +82,7 @@
 
     <para>An executable placed in these directories should return <constant>0</constant> on success. It may
     also return <constant>77</constant> to cause the whole operation to terminate (executables later in
-    lexical order will be skipped).</para>
+    lexicographic order will be skipped).</para>
   </refsect1>
 
   <refsect1>
