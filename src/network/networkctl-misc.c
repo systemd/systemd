@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 #include "sd-netlink.h"
+#include "sd-varlink.h"
 
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -9,6 +10,8 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-ifname.h"
+#include "json-util.h"
+#include "stdio-util.h"
 #include "log.h"
 #include "netlink-util.h"
 #include "networkctl.h"
@@ -18,66 +21,65 @@
 #include "polkit-agent.h"
 #include "set.h"
 #include "string-util.h"
+#include "strv.h"
 #include "varlink-util.h"
 
-static int link_up_down_send_message(sd_netlink *rtnl, char *command, int index) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(rtnl);
-        assert(index >= 0);
-
-        r = sd_rtnl_message_new_link(rtnl, &req, RTM_SETLINK, index);
-        if (r < 0)
-                return rtnl_log_create_error(r);
-
-        if (streq(command, "up"))
-                r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
-        else
-                r = sd_rtnl_message_link_set_flags(req, 0, IFF_UP);
-        if (r < 0)
-                return log_error_errno(r, "Could not set link flags: %m");
-
-        r = sd_netlink_call(rtnl, req, 0, NULL);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 int link_up_down(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_set_free_ Set *indexes = NULL;
-        int index, r;
-        void *p;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        _cleanup_set_free_ Set *unique = NULL;
+        int r, ret = 0;
+        const char *method = streq(argv[0], "up") ? "io.systemd.Network.SetLinkUp" : "io.systemd.Network.SetLinkDown";
 
-        r = sd_netlink_open(&rtnl);
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        r = varlink_connect_networkd(&vl);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
+                return log_error_errno(r, "Failed to connect to systemd-networkd via varlink: %m");
 
-        indexes = set_new(NULL);
-        if (!indexes)
-                return log_oom();
+        /* unique will be auto-created by set_put_strdup() */
 
-        for (int i = 1; i < argc; i++) {
-                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
-                if (index < 0)
-                        return index;
+        /* Deduplicate identical arguments to avoid redundant operations. */
+        STRV_FOREACH(s, strv_skip(argv, 1)) {
+                _cleanup_free_ char *key = NULL;
 
-                r = set_put(indexes, INT_TO_PTR(index));
-                if (r < 0)
+                r = parse_ifindex(*s);
+                if (r >= 0) {
+                        if (asprintf(&key, "#%i", r) < 0)
+                                return log_oom();
+                } else
+                        key = strdup(*s);
+                if (!key)
                         return log_oom();
+
+                (void) set_put_strdup(&unique, key);
         }
 
-        SET_FOREACH(p, indexes) {
-                index = PTR_TO_INT(p);
-                r = link_up_down_send_message(rtnl, argv[0], index);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bring %s interface %s: %m",
-                                               argv[0], FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX));
+        const char *k;
+        SET_FOREACH(k, unique) {
+                if (k[0] == '#') {
+                        int ifindex;
+
+                        if (safe_atoi(k + 1, &ifindex) < 0)
+                                continue;
+
+                        r = varlink_callbo_and_log(
+                                        vl,
+                                        method,
+                                        /* reply = */ NULL,
+                                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+                } else {
+                        r = varlink_callbo_and_log(
+                                        vl,
+                                        method,
+                                        /* reply = */ NULL,
+                                        SD_JSON_BUILD_PAIR_STRING("InterfaceName", k),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+                }
+                RET_GATHER(ret, r);
         }
 
-        return r;
+        return ret;
 }
 
 static int link_delete_send_message(sd_netlink *rtnl, int index) {
