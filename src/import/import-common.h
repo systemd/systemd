@@ -41,3 +41,5 @@ int import_mangle_os_tree(const char *path);
 bool import_validate_local(const char *name, ImportFlags flags);
 
 int import_allocate_event_with_signals(sd_event **ret);
+
+#define IMPORT_BUFFER_SIZE (128U*1024U)
