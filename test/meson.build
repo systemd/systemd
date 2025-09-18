@@ -61,26 +61,15 @@ if want_tests != 'false'
              suite : 'systemctl')
 
         journalctl = executables_by_name.get('journalctl')
-        test('test-completion-bash',
-             files('test-completion-bash.sh'),
-             # https://github.com/mesonbuild/meson/issues/2681
-             args : [systemctl.full_path(),
-                     journalctl.full_path()],
-             depends : [systemctl, journalctl],
-             suite : 'completion')
-        test('test-completion-zsh',
-             files('test-completion-zsh.sh'),
-             # https://github.com/mesonbuild/meson/issues/2681
+        test('test-completion',
+             files('test-completion.sh'),
              args : [systemctl.full_path(),
                      journalctl.full_path()],
              depends : [systemctl, journalctl],
              suite : 'completion')
 endif
 if install_tests
-        install_data(files('test-completion-bash.sh'),
-                     install_mode : 'rwxr-xr-x',
-                     install_dir : unittestsdir)
-        install_data(files('test-completion-zsh.sh'),
+        install_data(files('test-completion.sh'),
                      install_mode : 'rwxr-xr-x',
                      install_dir : unittestsdir)
 endif
