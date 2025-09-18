@@ -1184,15 +1184,15 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
 static int load_credential_one(
                 int credential_dir_fd,
                 const char *name,
-                int userdb_dir_persist_fd,
-                int userdb_dir_transient_fd) {
+                int *userdb_dir_persist_fd,
+                int *userdb_dir_transient_fd) {
 
         int r;
 
         assert(credential_dir_fd >= 0);
         assert(name);
-        assert(userdb_dir_persist_fd >= 0);
-        assert(userdb_dir_transient_fd >= 0);
+        assert(userdb_dir_persist_fd);
+        assert(userdb_dir_transient_fd);
 
         const char *suffix = startswith(name, "userdb.");
         if (!suffix)
@@ -1205,7 +1205,17 @@ static int load_credential_one(
                 return 0;
 
         const char *userdb_dir = transient ? "/run/userdb" : "/etc/userdb";
-        int userdb_dir_fd = transient ? userdb_dir_transient_fd : userdb_dir_persist_fd;
+
+        int *userdb_dir_fd = transient ? userdb_dir_transient_fd : userdb_dir_persist_fd;
+        if (*userdb_dir_fd == -EBADF) {
+                *userdb_dir_fd = xopenat_full(AT_FDCWD, userdb_dir,
+                                              /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
+                                              /* xopen_flags= */ XO_LABEL,
+                                              /* mode= */ 0755);
+                if (*userdb_dir_fd < 0)
+                        return log_error_errno(*userdb_dir_fd, "Failed to open '%s/': %m", userdb_dir);
+        } else if (*userdb_dir_fd < 0)
+                return log_debug_errno(*userdb_dir_fd, "Previous attempt to open '%s/' failed, skipping.", userdb_dir);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
@@ -1362,11 +1372,11 @@ static int load_credential_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to format JSON record: %m");
 
-        r = write_string_file_at(userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
+        r = write_string_file_at(*userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC);
         if (r < 0)
                 return log_error_errno(r, "Failed to write JSON record to %s/%s: %m", userdb_dir, fn);
 
-        if (symlinkat(fn, userdb_dir_fd, link) < 0)
+        if (symlinkat(fn, *userdb_dir_fd, link) < 0)
                 return log_error_errno(errno, "Failed to create symlink from %s to %s: %m", link, fn);
 
         log_info("Installed %s/%s from credential.", userdb_dir, fn);
@@ -1383,7 +1393,7 @@ static int load_credential_one(
                 if (r < 0)
                         return log_error_errno(r, "Failed to format JSON record: %m");
 
-                r = write_string_file_at(userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
+                r = write_string_file_at(*userdb_dir_fd, fn, formatted, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_MODE_0600);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write JSON record to %s/%s: %m", userdb_dir, fn);
 
@@ -1397,7 +1407,7 @@ static int load_credential_one(
                                 return log_oom();
                 }
 
-                if (symlinkat(fn, userdb_dir_fd, link) < 0)
+                if (symlinkat(fn, *userdb_dir_fd, link) < 0)
                         return log_error_errno(errno, "Failed to create symlink from %s to %s: %m", link, fn);
 
                 log_info("Installed %s/%s from credential.", userdb_dir, fn);
@@ -1409,7 +1419,7 @@ static int load_credential_one(
                         if (!membership)
                                 return log_oom();
 
-                        _cleanup_close_ int fd = openat(userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+                        _cleanup_close_ int fd = openat(*userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to create %s: %m", membership);
 
@@ -1421,7 +1431,7 @@ static int load_credential_one(
                         if (!membership)
                                 return log_oom();
 
-                        _cleanup_close_ int fd = openat(userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+                        _cleanup_close_ int fd = openat(*userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to create %s: %m", membership);
 
@@ -1475,21 +1485,7 @@ static int load_credentials(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate credentials: %m");
 
-        _cleanup_close_ int userdb_persist_dir_fd = xopenat_full(
-                        AT_FDCWD, "/etc/userdb",
-                        /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
-                        /* xopen_flags= */ XO_LABEL,
-                        /* mode= */ 0755);
-        if (userdb_persist_dir_fd < 0)
-                return log_error_errno(userdb_persist_dir_fd, "Failed to open /etc/userdb/: %m");
-
-        _cleanup_close_ int userdb_transient_dir_fd = xopenat_full(
-                        AT_FDCWD, "/run/userdb",
-                        /* open_flags= */ O_DIRECTORY|O_CREAT|O_CLOEXEC,
-                        /* xopen_flags= */ XO_LABEL,
-                        /* mode= */ 0755);
-        if (userdb_transient_dir_fd < 0)
-                return log_error_errno(userdb_transient_dir_fd, "Failed to open /run/userdb/: %m");
+        _cleanup_close_ int userdb_persist_dir_fd = -EBADF, userdb_transient_dir_fd = -EBADF;
 
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
                 struct dirent *de = *i;
@@ -1500,8 +1496,8 @@ static int load_credentials(int argc, char *argv[], void *userdata) {
                 RET_GATHER(r, load_credential_one(
                                 credential_dir_fd,
                                 de->d_name,
-                                userdb_persist_dir_fd,
-                                userdb_transient_dir_fd));
+                                &userdb_persist_dir_fd,
+                                &userdb_transient_dir_fd));
         }
 
         return r;
