@@ -211,7 +211,7 @@ REQUIREMENTS:
         newer though. TL;DR: turn audit off, still.
 
         glibc >= 2.31
-        libxcrypt or glibc (<= 2.38 built with --enable-crypt)
+        libxcrypt >= 4.4.0
         libcap
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
