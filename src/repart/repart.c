@@ -789,7 +789,11 @@ static Partition* partition_unlink_and_free(Context *context, Partition *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Partition*, partition_free);
 
-static Context* context_new(sd_id128_t seed, X509 *certificate, EVP_PKEY *private_key) {
+static Context* context_new(
+                sd_id128_t seed,
+                X509 *certificate,
+                EVP_PKEY *private_key) {
+
         Context *context;
 
         /* Note: This function takes ownership of the certificate and private_key arguments. */
@@ -3445,7 +3449,7 @@ static int context_load_partition_table(Context *context) {
                         /* Use the fallback values if we have no better idea */
                         context->sector_size = fdisk_get_sector_size(c);
                         context->default_fs_sector_size = fs_secsz;
-                        context->grain_size = 4096;
+                        context->grain_size = MAX(context->sector_size, 4096U);
                         return /* from_scratch = */ true;
                 }
 
@@ -5489,9 +5493,9 @@ static int progress_bytes(uint64_t n_bytes, uint64_t bps, void *userdata) {
                                 strna(p->copy_blocks_path),
                                 glyph(GLYPH_ARROW_RIGHT),
                                 strna(p->definition_path),
-                                FORMAT_BYTES(p->copy_blocks_done),
-                                FORMAT_BYTES(p->copy_blocks_size),
-                                FORMAT_BYTES(bps));
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_done),
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_size),
+                                FORMAT_BYTES_WITH_POINT(bps));
         else
                 (void) draw_progress_barf(
                                 percent,
@@ -5499,8 +5503,8 @@ static int progress_bytes(uint64_t n_bytes, uint64_t bps, void *userdata) {
                                 strna(p->copy_blocks_path),
                                 glyph(GLYPH_ARROW_RIGHT),
                                 strna(p->definition_path),
-                                FORMAT_BYTES(p->copy_blocks_done),
-                                FORMAT_BYTES(p->copy_blocks_size));
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_done),
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_size));
 
         p->last_percent = percent;
 
@@ -8666,7 +8670,13 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY **ret_private_key, OpenSSLAskPasswordUI **ret_ui) {
+static int parse_argv(
+                int argc,
+                char *argv[],
+                X509 **ret_certificate,
+                EVP_PKEY **ret_private_key,
+                OpenSSLAskPasswordUI **ret_ui) {
+
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
