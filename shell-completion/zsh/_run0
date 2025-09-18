@@ -30,7 +30,7 @@ _run0_unit_properties() {
 (( $+functions[_run0_slices] )) ||
 _run0_slices() {
     local -a slices=(
-        ${(@f)"$(_call_program slice-units systemctl --no-pager --legend=no --plain list-units --all -t slice 2>/dev/null)"}
+        ${(@f)"$(_call_program slice-units systemctl list-units --completion-names --all -t slice 2>/dev/null)"}
     )
     slices=( ${slices%% *} )
     _describe -t slice-units 'slice unit' slices
