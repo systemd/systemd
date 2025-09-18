@@ -1411,7 +1411,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
 
         if (r == -EBADMSG)
                 return sd_varlink_error(link, "io.systemd.Credentials.BadFormat", NULL);
-        if (r == -EREMOTE)
+        if (r == -EDESTADDRREQ)
                 return sd_varlink_error(link, "io.systemd.Credentials.NameMismatch", NULL);
         if (r == -ESTALE)
                 return sd_varlink_error(link, "io.systemd.Credentials.TimeMismatch", NULL);
@@ -1419,6 +1419,16 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 return sd_varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
         if (r == -EMEDIUMTYPE)
                 return sd_varlink_error(link, "io.systemd.Credentials.BadScope", NULL);
+        if (r == -EHOSTDOWN)
+                return sd_varlink_error(link, "io.systemd.Credentials.CantFindPCRSignature", NULL);
+        if (r == -EHWPOISON)
+                return sd_varlink_error(link, "io.systemd.Credentials.NullKeyNotAllowed", NULL);
+        if (r == -EREMOTE)
+                return sd_varlink_error(link, "io.systemd.Credentials.KeyBelongsToOtherTPM", NULL);
+        if (r == -ENOLCK)
+                return sd_varlink_error(link, "io.systemd.Credentials.TPMInDictionaryLockout", NULL);
+        if (IN_SET(r, -EREMCHG, -ENOANO, -EUCLEAN, -EPERM))
+                return sd_varlink_error(link, "io.systemd.Credentials.UnexpectedPCRState", NULL);
         if (r < 0)
                 return r;
 
@@ -1433,6 +1443,38 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         return sd_varlink_reply(link, reply);
 }
 
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
+        int r;
+
+        /* Invocation as Varlink service */
+
+        r = varlink_server_new(
+                        &varlink_server,
+                        SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_INPUT_SENSITIVE,
+                        &polkit_registry);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Credentials);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server,
+                        "io.systemd.Credentials.Encrypt", vl_method_encrypt,
+                        "io.systemd.Credentials.Decrypt", vl_method_decrypt);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -1442,38 +1484,8 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_varlink) {
-                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-                _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
-
-                /* Invocation as Varlink service */
-
-                r = varlink_server_new(
-                                &varlink_server,
-                                SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA|SD_VARLINK_SERVER_INPUT_SENSITIVE,
-                                NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
-
-                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Credentials);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add Varlink interface: %m");
-
-                r = sd_varlink_server_bind_method_many(
-                                varlink_server,
-                                "io.systemd.Credentials.Encrypt", vl_method_encrypt,
-                                "io.systemd.Credentials.Decrypt", vl_method_decrypt);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind Varlink methods: %m");
-
-                sd_varlink_server_set_userdata(varlink_server, &polkit_registry);
-
-                r = sd_varlink_server_loop_auto(varlink_server);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
-
-                return 0;
-        }
+        if (arg_varlink)
+                return vl_server();
 
         return creds_main(argc, argv);
 }

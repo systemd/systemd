@@ -164,7 +164,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
                         &encrypted,
                         CREDENTIAL_ALLOW_NULL,
                         &decrypted);
-        ASSERT_ERROR(r, EREMOTE); /* name didn't match */
+        ASSERT_ERROR(r, EDESTADDRREQ); /* name didn't match */
 
         r = decrypt_credential_and_warn(
                         "foo",
