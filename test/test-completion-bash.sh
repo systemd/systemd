@@ -53,7 +53,6 @@ fi
 
 # Test with specific state filter
 failed_output=$("$systemctl" list-units --completion-names --state=failed --no-pager 2>/dev/null || true)
-echo "✓ systemctl list-units --completion-names --state=failed executes without error"
 
 # Test systemctl list-unit-files --completion-names
 echo "=== Testing systemctl list-unit-files --completion-names ==="
@@ -93,7 +92,6 @@ fi
 
 # Test with state filter
 enabled_output=$("$systemctl" list-unit-files --completion-names --state=enabled --no-pager 2>/dev/null || true)
-echo "✓ systemctl list-unit-files --completion-names --state=enabled executes without error"
 
 # Test journalctl --completion-names
 echo "=== Testing journalctl --completion-names ==="
@@ -136,8 +134,6 @@ fi
 if "$journalctl" --completion-names --no-pager 2>/dev/null; then
     echo "✗ journalctl --completion-names should only work with -F"
     exit 1
-else
-    echo "✓ journalctl --completion-names correctly requires -F flag"
 fi
 
 # Test flag interaction - verify that --completion-names implies other flags
@@ -149,9 +145,7 @@ plain_output=$("$systemctl" list-units --completion-names 2>/dev/null || true)
 formatted_output=$("$systemctl" list-units --completion-names --legend --no-plain 2>/dev/null || true)
 
 # The outputs should be identical because --completion-names should override other formatting
-if [ "$plain_output" = "$formatted_output" ]; then
-    echo "✓ systemctl --completion-names properly overrides formatting flags"
-else
+if [ "$plain_output" != "$formatted_output" ]; then
     echo "! systemctl --completion-names formatting behavior may vary"
 fi
 
@@ -179,10 +173,8 @@ echo "=== Testing edge cases ==="
 
 # Test with empty pattern
 empty_pattern_output=$("$systemctl" list-units --completion-names 'nonexistent-*' --no-pager 2>/dev/null || true)
-echo "✓ systemctl --completion-names handles non-matching patterns gracefully"
 
 # Test with user mode
 user_output=$("$systemctl" --user list-units --completion-names --no-pager 2>/dev/null || true)
-echo "✓ systemctl --user --completion-names executes without error"
 
 echo "=== All completion tests passed! ==="
