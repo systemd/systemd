@@ -3915,6 +3915,13 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <varname>LoadCredential=</varname> and <varname>LoadCredentialEncrypted=</varname> take priority over
         credentials found by <varname>ImportCredential=</varname>.</para>
 
+        <para>Note that if decryption or authentication of a credential picked up as result of
+        <varname>ImportCredential=</varname> fails it will be skipped gracefully (a warning is generated, but
+        the credential will not be made available to the invoked service). This is different for those
+        configured via
+        <varname>SetCredentialEncrypted=</varname>/<varname>LoadCredentialEncrypted=</varname>, where failed
+        decryption/authentication will result in service failure.</para>
+
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
 
