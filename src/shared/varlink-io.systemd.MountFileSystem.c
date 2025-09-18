@@ -115,6 +115,9 @@ static SD_VARLINK_DEFINE_ERROR(RootPartitionNotFound);
 static SD_VARLINK_DEFINE_ERROR(DeniedByImagePolicy);
 static SD_VARLINK_DEFINE_ERROR(KeyNotFound);
 static SD_VARLINK_DEFINE_ERROR(VerityFailure);
+static SD_VARLINK_DEFINE_ERROR(BadFileDescriptorFlags,
+                               SD_VARLINK_FIELD_COMMENT("Name of the parameter referencing the file descriptor with one or more bad flag."),
+                               SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_MountFileSystem,
@@ -143,4 +146,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("The authentication key for this image is not available."),
                 &vl_error_KeyNotFound,
                 SD_VARLINK_SYMBOL_COMMENT("Verity could not be set up."),
-                &vl_error_VerityFailure);
+                &vl_error_VerityFailure,
+                SD_VARLINK_SYMBOL_COMMENT("A passed file descriptor has unexpected/forbidden flags set."),
+                &vl_error_BadFileDescriptorFlags);
