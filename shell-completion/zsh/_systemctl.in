@@ -177,7 +177,7 @@ __systemctl()
     local -a really_all_units
     if _cache_invalid SYS_REALLY_ALL_UNITS$_sys_service_mgr || ! _retrieve_cache SYS_REALLY_ALL_UNITS$_sys_service_mgr
     then
-        all_unit_files=( ${${(f)"$(__systemctl list-unit-files)"}%% *} )
+        all_unit_files=( ${${(f)"$(__systemctl list-unit-files --completion-names)"}%% *} )
         _systemctl_all_units
         really_all_units=($_sys_all_units $all_unit_files)
         _sys_really_all_units=(${(u)really_all_units})
@@ -223,7 +223,7 @@ __systemctl()
         fi
         _sys_startable_units=( $( _filter_units_by_property ActiveState inactive $(
                                       _filter_units_by_property CanStart yes ${${${(f)"$(
-      __systemctl list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient $pattern
+      __systemctl list-unit-files --completion-names --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient $pattern
       __systemctl list-units --completion-names --state inactive,failed $pattern
     )"}:#*@.*}%%[[:space:]]*}
                                                             )) )
@@ -236,7 +236,7 @@ __systemctl()
             pattern="$PREFIX*$SUFFIX"
         fi
         _sys_restartable_units=( $( _filter_units_by_property CanStart yes ${${${(f)"$(
-    __systemctl list-unit-files --state enabled,disabled,static $pattern
+    __systemctl list-unit-files --completion-names --state enabled,disabled,static $pattern
     __systemctl list-units --completion-names $pattern
   )"}:#*@.*}%%[[:space:]]*} ) )
     }
@@ -252,7 +252,7 @@ __systemctl()
             pattern="$PREFIX*$SUFFIX"
         fi
         typeset -gA _sys_unit_state
-        _sys_unit_state=( ${=${${(f)"$(__systemctl list-unit-files $pattern)"}%%[[:space:]]#}% *} )
+        _sys_unit_state=( ${=${${(f)"$(__systemctl list-unit-files --completion-names $pattern)"}%%[[:space:]]#}% *} )
     }
 
 local fun
@@ -399,7 +399,7 @@ done
 (( $+functions[_systemctl_set-default] )) || _systemctl_set-default()
 {
     _wanted systemd-targets expl target \
-            compadd "$@" - ${${(f)"$(__systemctl list-unit-files --type target --all)"}%% *} ||
+            compadd "$@" - ${${(f)"$(__systemctl list-unit-files --completion-names --type target --all)"}%% *} ||
         _message "no targets found"
 }
 
