@@ -2900,6 +2900,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWriteOperations = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t OOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
@@ -3568,6 +3572,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property IOWriteBytes is not documented!-->
 
     <!--property IOWriteOperations is not documented!-->
+
+    <!--property OOMKills is not documented!-->
+
+    <!--property ManagedOOMKills is not documented!-->
 
     <!--property Delegate is not documented!-->
 
@@ -4246,6 +4254,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteBytes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteOperations"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMKills"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMKills"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Delegate"/>
 
@@ -5139,6 +5151,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWriteOperations = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t OOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
@@ -5828,6 +5844,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
 
     <!--property IOWriteOperations is not documented!-->
 
+    <!--property OOMKills is not documented!-->
+
+    <!--property ManagedOOMKills is not documented!-->
+
     <!--property Delegate is not documented!-->
 
     <!--property DelegateControllers is not documented!-->
@@ -6485,6 +6505,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteBytes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteOperations"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMKills"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMKills"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Delegate"/>
 
@@ -7202,6 +7226,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWriteOperations = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t OOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
@@ -7813,6 +7841,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 
     <!--property IOWriteOperations is not documented!-->
 
+    <!--property OOMKills is not documented!-->
+
+    <!--property ManagedOOMKills is not documented!-->
+
     <!--property Delegate is not documented!-->
 
     <!--property DelegateControllers is not documented!-->
@@ -8378,6 +8410,10 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteBytes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteOperations"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMKills"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMKills"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Delegate"/>
 
@@ -9228,6 +9264,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWriteOperations = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t OOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
@@ -9821,6 +9861,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
 
     <!--property IOWriteOperations is not documented!-->
 
+    <!--property OOMKills is not documented!-->
+
+    <!--property ManagedOOMKills is not documented!-->
+
     <!--property Delegate is not documented!-->
 
     <!--property DelegateControllers is not documented!-->
@@ -10368,6 +10412,10 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteBytes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteOperations"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMKills"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMKills"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Delegate"/>
 
@@ -11071,6 +11119,10 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWriteOperations = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t OOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
@@ -11251,6 +11303,10 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <!--property IOWriteBytes is not documented!-->
 
     <!--property IOWriteOperations is not documented!-->
+
+    <!--property OOMKills is not documented!-->
+
+    <!--property ManagedOOMKills is not documented!-->
 
     <!--property Delegate is not documented!-->
 
@@ -11435,6 +11491,10 @@ node /org/freedesktop/systemd1/unit/system_2eslice {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteBytes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteOperations"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMKills"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMKills"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Delegate"/>
 
@@ -11647,6 +11707,10 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t IOWriteOperations = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t OOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t ManagedOOMKills = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Delegate = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as DelegateControllers = ['...', ...];
@@ -11841,6 +11905,10 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <!--property IOWriteBytes is not documented!-->
 
     <!--property IOWriteOperations is not documented!-->
+
+    <!--property OOMKills is not documented!-->
+
+    <!--property ManagedOOMKills is not documented!-->
 
     <!--property Delegate is not documented!-->
 
@@ -12049,6 +12117,10 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteBytes"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="IOWriteOperations"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OOMKills"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ManagedOOMKills"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Delegate"/>
 
@@ -12459,6 +12531,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
+      <para><varname>OOMKills</varname>, and
+      <varname>ManagedOOMKills</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12524,6 +12598,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
+      <para><varname>OOMKills</varname>, and
+      <varname>ManagedOOMKills</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12584,6 +12660,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
+      <para><varname>OOMKills</varname>, and
+      <varname>ManagedOOMKills</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12642,6 +12720,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryQuotaUsage</varname>,
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
+      <para><varname>OOMKills</varname>, and
+      <varname>ManagedOOMKills</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12672,6 +12752,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>NCurrentlyActive</varname>,
       <function>RemoveSubgroup()</function>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
+      <para><varname>OOMKills</varname>, and
+      <varname>ManagedOOMKills</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -12700,6 +12782,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>ManagedOOMMemoryPressureDurationUSec</varname> was added in version 257.</para>
       <para><function>RemoveSubgroup()</function> and
       <function>KillSubgroup()</function> were added in version 258.</para>
+      <para><varname>OOMKills</varname>, and
+      <varname>ManagedOOMKills</varname> were added in 259.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
