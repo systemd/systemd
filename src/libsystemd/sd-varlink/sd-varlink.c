@@ -2911,9 +2911,9 @@ _public_ int sd_varlink_get_peer_pidfd(sd_varlink *v) {
 
 _public_ int sd_varlink_set_relative_timeout(sd_varlink *v, uint64_t timeout) {
         assert_return(v, -EINVAL);
-        assert_return(timeout > 0, -EINVAL);
 
-        v->timeout = timeout;
+        /* If set to 0, reset to default value */
+        v->timeout = timeout == 0 ? VARLINK_DEFAULT_TIMEOUT_USEC : timeout;
         return 0;
 }
 
@@ -3309,7 +3309,9 @@ _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_fl
                                  SD_VARLINK_SERVER_INPUT_SENSITIVE|
                                  SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT|
                                  SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT|
-                                 SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT)) == 0, -EINVAL);
+                                 SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT|
+                                 SD_VARLINK_SERVER_HANDLE_SIGINT|
+                                 SD_VARLINK_SERVER_HANDLE_SIGTERM)) == 0, -EINVAL);
 
         s = new(sd_varlink_server, 1);
         if (!s)
@@ -3881,6 +3883,18 @@ _public_ int sd_varlink_server_loop_auto(sd_varlink_server *server) {
         r = sd_varlink_server_set_exit_on_idle(server, true);
         if (r < 0)
                 return r;
+
+        if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_HANDLE_SIGINT)) {
+                r = sd_event_add_signal(event, /* ret= */ NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        if (FLAGS_SET(server->flags, SD_VARLINK_SERVER_HANDLE_SIGTERM)) {
+                r = sd_event_add_signal(event, /* ret= */ NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, /* callback= */ NULL, /* userdata= */ NULL);
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_varlink_server_attach_event(server, event, 0);
         if (r < 0)
