@@ -48,6 +48,7 @@ node /org/freedesktop/timesync1 {
       readonly as SystemNTPServers = ['...', ...];
       readonly as RuntimeNTPServers = ['...', ...];
       readonly as FallbackNTPServers = ['...', ...];
+      readonly as NTSKeyExchangeServers = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s ServerName = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
@@ -80,6 +81,8 @@ node /org/freedesktop/timesync1 {
 
     <!--property FallbackNTPServers is not documented!-->
 
+    <!--property NTSKeyExchangeServers is not documented!-->
+
     <!--property ServerName is not documented!-->
 
     <!--property ServerAddress is not documented!-->
@@ -111,6 +114,8 @@ node /org/freedesktop/timesync1 {
     <variablelist class="dbus-property" generated="True" extra-ref="RuntimeNTPServers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FallbackNTPServers"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="NTSKeyExchangeServers"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ServerName"/>
 
