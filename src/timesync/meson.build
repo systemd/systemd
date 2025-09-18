@@ -14,6 +14,14 @@ timesyncd_extract_sources = files(
         'timesyncd-server.c',
 )
 
+nts_sources = files(
+        'tcp_connect.c',
+        'nts_packet.c',
+        'nts_extfields.c',
+        'nts_error.c',
+        'nts_tls.c',
+)
+
 timesyncd_gperf_c = custom_target(
         input : 'timesyncd-gperf.gperf',
         output : 'timesyncd-gperf.c',
@@ -29,12 +37,64 @@ else
                                libshared_static]
 endif
 
+# Select the TLS dependency
+if conf.get('NTS_USE_OPENSSL') == 1
+        crypto_deps = [libopenssl]
+        tls_c_args = ''
+elif conf.get('NTS_USE_GNUTLS') == 1
+        crypto_deps = [libgnutls]
+        tls_c_args = '-DUSE_GNUTLS'
+else
+        crypto_deps = []
+endif
+
+# Select the cryptographic library; prefer Nettle if GnuTLS is used
+opt = get_option('timesync-cryptolib')
+if crypto_deps != []
+        if opt == 'gcrypt' or (opt == 'auto' and conf.get('HAVE_GCRYPT') == 1)
+                if conf.get('HAVE_GCRYPT') != 1
+                        error('cryptolib(gcrypt) was selected but gcrypt is not available')
+                endif
+                nts_sources += files('nts_crypto_gcrypt.c')
+                crypto_deps += [libgcrypt]
+        elif opt == 'nettle' or (opt == 'auto' and conf.get('NTS_USE_GNUTLS') == 1)
+                nts_sources += files('nts_crypto_nettle.c')
+                libnettle = dependency('nettle',
+                                       version : '>= 3.8',
+                                       required : true)
+                crypto_deps += [libnettle]
+        elif opt == 'openssl' or (opt == 'auto' and conf.get('PREFER_OPENSSL') == 1)
+                if libopenssl.version().version_compare('< 3.5')
+                        error('OpenSSL @0@ does not work well for NTS; need at least OpenSSL 3.5, or use timesync-nts=gnutls and/or cryptolib=gcrypt.'.format(libopenssl.version()))
+                endif
+                nts_sources += files('nts_crypto_openssl.c')
+                crypto_deps += [libopenssl]
+        else
+                error('No cryptographic solution for NTS available')
+        endif
+
+        libtimesyncd_nts = static_library(
+                'timesyncd-nts',
+                nts_sources,
+                include_directories : includes,
+                dependencies : crypto_deps,
+                c_args : tls_c_args,
+                build_by_default : false)
+
+        timesyncd_link_with += [libtimesyncd_nts]
+else
+        if opt != 'auto'
+                error('Cannot set NTS crypto without having a TLS solution')
+        endif
+endif
+
 executables += [
         libexec_template + {
                 'name' : 'systemd-timesyncd',
                 'sources' : timesyncd_sources + timesyncd_extract_sources,
                 'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'extract' : timesyncd_extract_sources,
+                'c_args' : c_args,
                 'link_with' : timesyncd_link_with,
                 'dependencies' : [
                         libm,
@@ -45,14 +105,43 @@ executables += [
                 'name' : 'systemd-time-wait-sync',
                 'sources' : files('wait-sync.c'),
                 'objects' : ['systemd-timesyncd'],
+                'link_with' : timesyncd_link_with,
                 'dependencies' : libm,
         },
         test_template + {
                 'sources' : files('test-timesync.c'),
                 'objects' : ['systemd-timesyncd'],
+                'c_args' : c_args,
+                'link_with' : timesyncd_link_with,
                 'dependencies' : libm,
         },
 ]
+
+if conf.get('ENABLE_TIMESYNC_NTS') == 1
+
+executables += [
+        test_template + {
+                'sources' : files('test-nts.c'),
+                'link_with' : timesyncd_link_with,
+                'dependencies' : conf.get('HAVE_OPENSSL') == 1? libopenssl : [],
+        },
+        fuzz_template + {
+                'sources' : files('fuzz-nts.c'),
+                'link_with' : [
+                        libshared,
+                        libtimesyncd_nts,
+                ],
+        },
+        fuzz_template + {
+                'sources' : files('fuzz-nts-extfields.c'),
+                'link_with' : [
+                        libshared,
+                        libtimesyncd_nts,
+                ],
+        },
+]
+
+endif
 
 custom_target(
         input : 'timesyncd.conf.in',
