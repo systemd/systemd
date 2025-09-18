@@ -9,7 +9,7 @@
 #include "machine-credential.h"
 #include "memory-util.h"
 #include "path-util.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 
 static void machine_credential_done(MachineCredential *cred) {
         assert(cred);
