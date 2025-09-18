@@ -138,6 +138,7 @@ void NTS_TLS_close(NTS_TLS *opaque) {
         void *certs = NULL;
         int r = gnutls_credentials_get(session, GNUTLS_CRD_CERTIFICATE, &certs);
         assert(r == GNUTLS_E_SUCCESS);
+        (void) r;
 
         int sock = gnutls_transport_get_int(session);
         gnutls_deinit(session);
