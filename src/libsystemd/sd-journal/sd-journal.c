@@ -1580,6 +1580,7 @@ static int add_any_file(
                 const char *path) {
 
         _cleanup_close_ int our_fd = -EBADF;
+        _cleanup_free_ char *resolved_path = NULL;
         JournalFile *f;
         struct stat st;
         int r;
@@ -1606,6 +1607,14 @@ static int add_any_file(
                         r = log_debug_errno(errno, "Failed to turn off O_NONBLOCK for %s: %m", path);
                         goto error;
                 }
+
+                r = fd_get_path(fd, &resolved_path);
+                if (r < 0) {
+                        r = log_debug_errno(r, "Failed to resolve path '%s': %m", path);
+                        goto error;
+                }
+
+                path = resolved_path;
         }
 
         if (fstat(fd, &st) < 0) {
@@ -1740,7 +1749,7 @@ static int add_file_by_name(
         if (!path)
                 return -ENOMEM;
 
-        return add_any_file(j, -1, path);
+        return add_any_file(j, /* fd = */ -EBADF, path);
 }
 
 static int remove_file_by_name(
@@ -2427,7 +2436,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
                 return -ENOMEM;
 
         STRV_FOREACH(path, paths) {
-                r = add_any_file(j, -1, *path);
+                r = add_any_file(j, /* fd = */ -EBADF, *path);
                 if (r < 0)
                         return r;
         }
@@ -2514,7 +2523,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
                 if (r < 0)
                         goto fail;
 
-                r = add_any_file(j, fds[i], NULL);
+                r = add_any_file(j, fds[i], /* path = */ NULL);
                 if (r < 0)
                         goto fail;
         }
