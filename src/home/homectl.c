@@ -101,13 +101,15 @@ static enum {
 } arg_export_format = EXPORT_FORMAT_FULL;
 static uint64_t arg_capability_bounding_set = UINT64_MAX;
 static uint64_t arg_capability_ambient_set = UINT64_MAX;
-static bool arg_prompt_new_user = false;
 static char *arg_blob_dir = NULL;
 static bool arg_blob_clear = false;
 static Hashmap *arg_blob_files = NULL;
 static char *arg_key_name = NULL;
 static bool arg_dry_run = false;
 static bool arg_seize = true;
+static bool arg_prompt_new_user = false;
+static bool arg_prompt_shell = true;
+static bool arg_prompt_groups = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unrefp);
@@ -2680,77 +2682,19 @@ static int group_completion_callback(const char *key, char ***ret_list, void *us
         return 0;
 }
 
-static int create_interactively(void) {
-        _cleanup_free_ char *username = NULL;
+static int prompt_groups(const char *username, char ***ret_groups) {
         int r;
 
-        if (!arg_prompt_new_user) {
-                log_debug("Prompting for user creation was not requested.");
+        assert(username);
+        assert(ret_groups);
+
+        if (!arg_prompt_groups) {
+                *ret_groups = NULL;
                 return 0;
         }
-
-        putchar('\n');
-        if (emoji_enabled()) {
-                fputs(glyph(GLYPH_HOME), stdout);
-                putchar(' ');
-        }
-        printf("Please create your user account!\n");
-
-        if (!any_key_to_proceed()) {
-                log_notice("Skipping.");
-                return 0;
-        }
-
-        (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
-
-        for (;;) {
-                username = mfree(username);
-
-                r = ask_string(&username,
-                               "%s Please enter user name to create (empty to skip): ",
-                               glyph(GLYPH_TRIANGULAR_BULLET));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query user for username: %m");
-
-                if (isempty(username)) {
-                        log_info("No data entered, skipping.");
-                        return 0;
-                }
-
-                if (!valid_user_group_name(username, /* flags= */ 0)) {
-                        log_notice("Specified user name is not a valid UNIX user name, try again: %s", username);
-                        continue;
-                }
-
-                r = userdb_by_name(username, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
-                if (r == -ESRCH)
-                        break;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check if specified user '%s' already exists: %m", username);
-
-                log_notice("Specified user '%s' exists already, try again.", username);
-        }
-
-        r = sd_json_variant_set_field_string(&arg_identity_extra, "userName", username);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set userName field: %m");
-
-        /* Let's not insist on a strong password in the firstboot interactive interface. Insisting on this is
-         * really annoying, as the user cannot just invoke the tool again with "--enforce-password-policy=no"
-         * because after all the tool is called from the boot process, and not from an interactive
-         * shell. Moreover, when setting up an initial system we can assume the user owns it, and hence we
-         * don't need to hard enforce some policy on password strength some organization or OS vendor
-         * requires. Note that this just disables the *strict* enforcement of the password policy. Even with
-         * this disabled we'll still tell the user in the UI that the password is too weak and suggest better
-         * ones, even if we then accept the weak ones if the user insists, by repeating it. */
-        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "enforcePasswordPolicy", false);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set enforcePasswordPolicy field: %m");
 
         _cleanup_strv_free_ char **available = NULL, **groups = NULL;
         for (;;) {
-                _cleanup_free_ char *s = NULL;
-
                 strv_sort_uniq(groups);
 
                 if (!strv_isempty(groups)) {
@@ -2761,6 +2705,7 @@ static int create_interactively(void) {
                         log_info("Currently selected groups: %s", j);
                 }
 
+                _cleanup_free_ char *s = NULL;
                 r = ask_string_full(&s,
                                group_completion_callback, &available,
                                "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
@@ -2834,16 +2779,22 @@ static int create_interactively(void) {
                         return log_oom();
         }
 
-        if (!strv_isempty(groups)) {
-                strv_sort_uniq(groups);
+        *ret_groups = TAKE_PTR(groups);
+        return 0;
+}
 
-                r = sd_json_variant_set_field_strv(&arg_identity_extra, "memberOf", groups);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set memberOf field: %m");
+static int prompt_shell(const char *username, char **ret_shell) {
+        int r;
+
+        assert(username);
+        assert(ret_shell);
+
+        if (!arg_prompt_shell) {
+                *ret_shell = NULL;
+                return 0;
         }
 
         _cleanup_free_ char *shell = NULL;
-
         for (;;) {
                 shell = mfree(shell);
 
@@ -2872,6 +2823,95 @@ static int create_interactively(void) {
 
                 log_notice("Specified shell '%s' is not installed, try another one.", shell);
         }
+
+        *ret_shell = TAKE_PTR(shell);
+        return 0;
+}
+
+static int create_interactively(void) {
+        _cleanup_free_ char *username = NULL;
+        int r;
+
+        if (!arg_prompt_new_user) {
+                log_debug("Prompting for user creation was not requested.");
+                return 0;
+        }
+
+        putchar('\n');
+        if (emoji_enabled()) {
+                fputs(glyph(GLYPH_HOME), stdout);
+                putchar(' ');
+        }
+        printf("Please create your user account!\n");
+
+        if (!any_key_to_proceed()) {
+                log_notice("Skipping.");
+                return 0;
+        }
+
+        (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
+
+        for (;;) {
+                username = mfree(username);
+
+                r = ask_string(&username,
+                               "%s Please enter user name to create (empty to skip): ",
+                               glyph(GLYPH_TRIANGULAR_BULLET));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to query user for username: %m");
+
+                if (isempty(username)) {
+                        log_info("No data entered, skipping.");
+                        return 0;
+                }
+
+                if (!valid_user_group_name(username, /* flags= */ 0)) {
+                        log_notice("Specified user name is not a valid UNIX user name, try again: %s", username);
+                        continue;
+                }
+
+                r = userdb_by_name(username, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
+                if (r == -ESRCH)
+                        break;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if specified user '%s' already exists: %m", username);
+
+                log_notice("Specified user '%s' exists already, try again.", username);
+        }
+
+        r = sd_json_variant_set_field_string(&arg_identity_extra, "userName", username);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set userName field: %m");
+
+        /* Let's not insist on a strong password in the firstboot interactive interface. Insisting on this is
+         * really annoying, as the user cannot just invoke the tool again with "--enforce-password-policy=no"
+         * because after all the tool is called from the boot process, and not from an interactive
+         * shell. Moreover, when setting up an initial system we can assume the user owns it, and hence we
+         * don't need to hard enforce some policy on password strength some organization or OS vendor
+         * requires. Note that this just disables the *strict* enforcement of the password policy. Even with
+         * this disabled we'll still tell the user in the UI that the password is too weak and suggest better
+         * ones, even if we then accept the weak ones if the user insists, by repeating it. */
+        r = sd_json_variant_set_field_boolean(&arg_identity_extra, "enforcePasswordPolicy", false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set enforcePasswordPolicy field: %m");
+
+        _cleanup_strv_free_ char **groups = NULL;
+        r = prompt_groups(username, &groups);
+        if (r < 0)
+                return r;
+
+        if (!strv_isempty(groups)) {
+                strv_sort_uniq(groups);
+
+                r = sd_json_variant_set_field_strv(&arg_identity_extra, "memberOf", groups);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set memberOf field: %m");
+        }
+
+        _cleanup_free_ char *shell = NULL;
+        r = prompt_shell(username, &shell);
+        if (r < 0)
+                return r;
 
         if (!isempty(shell)) {
                 log_info("Selected %s as the shell for user %s", shell, username);
@@ -3021,11 +3061,14 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -E                           When specified once equals -j --export-format=\n"
                "                               stripped, when specified twice equals\n"
                "                               -j --export-format=minimal\n"
-               "     --prompt-new-user         firstboot: Query user interactively for user\n"
-               "                               to create\n"
                "     --key-name=NAME           Key name when adding a signing key\n"
                "     --seize=no                Do not strip existing signatures of user record\n"
                "                               when creating\n"
+               "     --prompt-new-user         firstboot: Query user interactively for user\n"
+               "                               to create\n"
+               "     --prompt-groups=no        In first-boot mode, don't prompt for auxiliary\n"
+               "                               group memberships\n"
+               "     --prompt-shell=no         In first-boot mode, don't prompt for shells\n"
                "\n%4$sGeneral User Record Properties:%5$s\n"
                "  -c --real-name=REALNAME      Real name for user\n"
                "     --realm=REALM             Realm to create user in\n"
@@ -3262,6 +3305,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KEY_NAME,
                 ARG_SEIZE,
                 ARG_MATCH,
+                ARG_PROMPT_SHELL,
+                ARG_PROMPT_GROUPS,
         };
 
         static const struct option options[] = {
@@ -3368,6 +3413,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "key-name",                     required_argument, NULL, ARG_KEY_NAME                    },
                 { "seize",                        required_argument, NULL, ARG_SEIZE                       },
                 { "match",                        required_argument, NULL, ARG_MATCH                       },
+                { "prompt-shell",                 required_argument, NULL, ARG_PROMPT_SHELL                },
+                { "prompt-groups",                required_argument, NULL, ARG_PROMPT_GROUPS               },
                 {}
         };
 
@@ -4925,6 +4972,20 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 case 'N':
                         match_identity = &arg_identity_extra_other_machines;
+                        break;
+
+                case ARG_PROMPT_SHELL:
+                        r = parse_boolean_argument("--prompt-shell=", optarg, &arg_prompt_shell);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_PROMPT_GROUPS:
+                        r = parse_boolean_argument("--prompt-groups=", optarg, &arg_prompt_groups);
+                        if (r < 0)
+                                return r;
+
                         break;
 
                 case '?':
