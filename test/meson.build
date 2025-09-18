@@ -73,8 +73,6 @@ if install_tests
         install_data(files('test-completion-names.sh'),
                      install_mode : 'rwxr-xr-x',
                      install_dir : unittestsdir)
-        install_data(unittests,
-                     install_dir : unittestsdir)
 endif
 
 ############################################################
