@@ -41,7 +41,7 @@
     <filename>/usr/local/lib/systemd/dnssd</filename>, the volatile runtime network directory
     <filename>/run/systemd/dnssd</filename> and the local administration network directory
     <filename>/etc/systemd/dnssd</filename>. All configuration files are collectively sorted and processed in
-    lexical order, regardless of the directories in which they live. However, files with identical filenames
+    lexicographic order, regardless of the directories in which they live. However, files with identical filenames
     replace each other. Files in <filename>/etc/</filename> have the highest priority, files in
     <filename>/run/</filename> take precedence over files with the same name in
     <filename>/usr/lib/</filename>. This can be used to override a system-supplied configuration file with a

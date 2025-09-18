@@ -72,9 +72,9 @@
 
     <para>The link file contains a [Match] section, which determines if a given link file may be applied to a
     given device, as well as a [Link] section specifying how the device should be configured. The first (in
-    lexical order) of the link files that matches a given device is applied. Note that a default file
+    lexicographic order) of the link files that matches a given device is applied. Note that a default file
     <filename>99-default.link</filename> is shipped by the system. Any user-supplied
-    <filename>.link</filename> should hence have a lexically earlier name to be considered at all.</para>
+    <filename>.link</filename> should hence have a lexicographically earlier name to be considered at all.</para>
 
     <para>See <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
     diagnosing problems with <filename>.link</filename> files.</para>
