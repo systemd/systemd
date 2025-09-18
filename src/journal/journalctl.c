@@ -1061,6 +1061,10 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Using --boot or --list-boots with --merge is not supported.");
 
+        if (arg_completion_names && arg_action != ACTION_LIST_FIELDS)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--completion-names can only be used with -F/--field.");
+
         if (!strv_isempty(arg_system_units) && arg_journal_type == SD_JOURNAL_CURRENT_USER) {
                 /* Specifying --user and --unit= at the same time makes no sense (as the former excludes the user
                  * journal, but the latter excludes the system journal, thus resulting in empty output). Let's be nice
