@@ -138,7 +138,7 @@ libcore_static = static_library(
                         libm,
                         libmount,
                         librt,
-                        libseccomp,
+                        libseccomp_cflags,
                         libselinux,
                         threads,
                         userspace],
@@ -201,7 +201,7 @@ executables += [
                 'dependencies' : [
                         libapparmor_cflags,
                         libkmod_cflags,
-                        libseccomp,
+                        libseccomp_cflags,
                         libselinux,
                 ],
         },
@@ -214,7 +214,7 @@ executables += [
                 'dependencies' : [
                         libapparmor_cflags,
                         libpam,
-                        libseccomp,
+                        libseccomp_cflags,
                         libselinux,
                 ],
         },
