@@ -1825,7 +1825,15 @@ static bool unit_test_assert(Unit *u) {
         return u->assert_result;
 }
 
-void unit_status_printf(Unit *u, StatusType status_type, const char *status, const char *format, const char *ident) {
+void unit_status_printf(
+                Unit *u,
+                StatusType status_type,
+                const char *status,
+                const char *format,
+                const char *ident) {
+
+        assert(u);
+
         if (log_get_show_color()) {
                 if (u->manager->status_unit_format == STATUS_UNIT_FORMAT_COMBINED && strchr(ident, ' '))
                         ident = strjoina(ANSI_HIGHLIGHT, u->id, ANSI_NORMAL, " - ", u->description);
