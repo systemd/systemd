@@ -139,16 +139,16 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
         ac = isempty(ansi_color) ? "0" : ansi_color;
 
         if (colors_enabled())
-                printf(ANSI_HIGHLIGHT "Welcome to your new installation of " ANSI_NORMAL "\x1B[%sm%s" ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n", ac, pn);
+                printf(ANSI_HIGHLIGHT "Welcome to " ANSI_NORMAL "\x1B[%sm%s" ANSI_HIGHLIGHT "!" ANSI_NORMAL "\n", ac, pn);
         else
-                printf("Welcome to your new installation of %s!\n", pn);
+                printf("Welcome to %s!\n", pn);
 
         putchar('\n');
         if (emoji_enabled()) {
                 fputs(glyph(GLYPH_SPARKLES), stdout);
                 putchar(' ');
         }
-        printf("Please configure your new system!\n\n");
+        printf("Please configure the system!\n\n");
 
         done = true;
 }
