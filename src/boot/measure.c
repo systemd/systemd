@@ -150,7 +150,7 @@ static EFI_CC_MEASUREMENT_PROTOCOL *cc_interface_check(void) {
         return cc;
 }
 
-static EFI_TCG2_PROTOCOL *tcg2_interface_check(void) {
+static EFI_TCG2_PROTOCOL *tcg2_interface_check(EFI_TCG2_BOOT_SERVICE_CAPABILITY *ret_capability) {
         EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
                 .Size = sizeof(capability),
         };
@@ -169,27 +169,40 @@ static EFI_TCG2_PROTOCOL *tcg2_interface_check(void) {
             capability.StructureVersion.Minor == 0) {
                 EFI_TCG_BOOT_SERVICE_CAPABILITY *caps_1_0 =
                         (EFI_TCG_BOOT_SERVICE_CAPABILITY*) &capability;
-                if (caps_1_0->TPMPresentFlag)
+                if (caps_1_0->TPMPresentFlag) {
+                        if (ret_capability)
+                                *ret_capability = capability;
                         return tcg;
+                }
         }
 
         if (!capability.TPMPresentFlag)
                 return NULL;
 
+        if (ret_capability)
+                *ret_capability = capability;
+
         return tcg;
 }
 
 bool tpm_present(void) {
-        return tcg2_interface_check();
+        return tcg2_interface_check(/* ret_capability= */ NULL);
 }
 
 uint32_t tpm_get_active_pcr_banks(void) {
+        EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = { };
         uint32_t active_pcr_banks = 0;
         EFI_TCG2_PROTOCOL *tpm2;
         EFI_STATUS err;
 
-        tpm2 = tcg2_interface_check();
+        tpm2 = tcg2_interface_check(&capability);
         if (!tpm2)
+                return 0;
+
+        /* PCR banks info was added only in version 1.1 of the spec */
+        if (capability.StructureVersion.Major < 1 ||
+            (capability.StructureVersion.Major == 1 &&
+             capability.StructureVersion.Minor < 1))
                 return 0;
 
         err = tpm2->GetActivePcrBanks(tpm2, &active_pcr_banks);
@@ -207,7 +220,7 @@ static EFI_STATUS tcg2_log_ipl_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buf
 
         assert(ret_measured);
 
-        tpm2 = tcg2_interface_check();
+        tpm2 = tcg2_interface_check(/* ret_capability= */ NULL);
         if (!tpm2) {
                 *ret_measured = false;
                 return EFI_SUCCESS;
@@ -289,7 +302,7 @@ EFI_STATUS tpm_log_tagged_event(
         /* If EFI_SUCCESS is returned, will initialize ret_measured to true if we actually measured
          * something, or false if measurement was turned off. */
 
-        tpm2 = tcg2_interface_check();
+        tpm2 = tcg2_interface_check(/* ret_capability= */ NULL);
         if (!tpm2 || pcrindex == UINT32_MAX) { /* PCR disabled? */
                 if (ret_measured)
                         *ret_measured = false;
