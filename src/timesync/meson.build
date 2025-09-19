@@ -73,15 +73,7 @@ if crypto_deps != []
                 error('No cryptographic solution for NTS available')
         endif
 
-        libtimesyncd_nts = static_library(
-                'timesyncd-nts',
-                nts_sources,
-                include_directories : includes,
-                dependencies : crypto_deps,
-                c_args : tls_c_args,
-                build_by_default : false)
-
-        timesyncd_link_with += [libtimesyncd_nts]
+        timesyncd_extract_sources += nts_sources
 else
         if opt != 'auto'
                 error('Cannot set NTS crypto without having a TLS solution')
@@ -99,6 +91,7 @@ executables += [
                 'dependencies' : [
                         libm,
                         threads,
+                        crypto_deps,
                 ],
         },
         libexec_template + {
@@ -106,14 +99,14 @@ executables += [
                 'sources' : files('wait-sync.c'),
                 'objects' : ['systemd-timesyncd'],
                 'link_with' : timesyncd_link_with,
-                'dependencies' : libm,
+                'dependencies' : [libm, crypto_deps],
         },
         test_template + {
                 'sources' : files('test-timesync.c'),
                 'objects' : ['systemd-timesyncd'],
                 'c_args' : c_args,
                 'link_with' : timesyncd_link_with,
-                'dependencies' : libm,
+                'dependencies' : [libm, crypto_deps],
         },
 ]
 
@@ -121,23 +114,19 @@ if conf.get('ENABLE_TIMESYNC_NTS') == 1
 
 executables += [
         test_template + {
-                'sources' : files('test-nts.c'),
+                'sources' : files('test-nts.c') + nts_sources,
                 'link_with' : timesyncd_link_with,
-                'dependencies' : conf.get('HAVE_OPENSSL') == 1? libopenssl : [],
+                'dependencies' : crypto_deps,
         },
         fuzz_template + {
-                'sources' : files('fuzz-nts.c'),
-                'link_with' : [
-                        libshared,
-                        libtimesyncd_nts,
-                ],
+                'sources' : files('fuzz-nts.c', 'nts_packet.c'),
+                'link_with' : libshared,
+                'dependencies' : crypto_deps,
         },
         fuzz_template + {
-                'sources' : files('fuzz-nts-extfields.c'),
-                'link_with' : [
-                        libshared,
-                        libtimesyncd_nts,
-                ],
+                'sources' : files('fuzz-nts-extfields.c', 'nts_extfields.c'),
+                'link_with' : libshared,
+                'dependencies' : crypto_deps,
         },
 ]
 

@@ -24,9 +24,9 @@ static const struct NTS_AEADParam supported_algos[] = {
 };
 
 const struct NTS_AEADParam* NTS_get_param(NTS_AEADAlgorithmType id) {
-        for (size_t i=0; i < ELEMENTSOF(supported_algos); i++)
-                if (supported_algos[i].aead_id == id)
-                        return &supported_algos[i];
+        FOREACH_ELEMENT(algo, supported_algos)
+                if (algo->aead_id == id)
+                        return algo;
 
         return NULL;
 }
