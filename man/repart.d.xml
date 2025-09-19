@@ -874,7 +874,7 @@
 
         <listitem><para>Configures the list of PCRs to use for LUKS2 volumes configured with
         the <varname>Encrypt=tpm2</varname> setting in partition files.
-        This option take the same parameters as the similary named options to
+        This option take the same parameters as the similarly named options to
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         and have the same effect on partitions where TPM2 enrollment is requested.
         This option will be overridden by the global <varname>--tpm2-pcrs=</varname> option.</para>
