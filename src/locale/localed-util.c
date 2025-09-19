@@ -6,7 +6,6 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "copy.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -19,7 +18,6 @@
 #include "localed-util.h"
 #include "log.h"
 #include "mkdir-label.h"
-#include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"

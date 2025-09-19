@@ -7,7 +7,6 @@
 #include "dns-domain.h"
 #include "dns-type.h"
 #include "errno-util.h"
-#include "glyph-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
