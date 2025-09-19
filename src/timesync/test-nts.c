@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #ifndef NTS_STANDALONE_TEST
 #    include "tests.h"
 #    include "timesyncd-conf.h"
