@@ -2589,6 +2589,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                         dissected_image,
                                         NULL,
                                         p->verity,
+                                        p->root_image_policy,
                                         dissect_image_flags);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
