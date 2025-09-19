@@ -8,6 +8,7 @@
 #include "gcrypt-util.h"
 #include "idn-util.h"
 #include "libarchive-util.h"
+#include "libaudit-util.h"
 #include "libfido2-util.h"
 #include "main-func.h"
 #include "module-util.h"
@@ -48,6 +49,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_gcrypt, HAVE_GCRYPT);
         ASSERT_DLOPEN(dlopen_libkmod, HAVE_KMOD);
         ASSERT_DLOPEN(dlopen_libapparmor, HAVE_APPARMOR);
+        ASSERT_DLOPEN(dlopen_libaudit, HAVE_AUDIT);
 
         return 0;
 }
