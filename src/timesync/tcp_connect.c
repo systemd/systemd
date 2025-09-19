@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
