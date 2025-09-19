@@ -308,7 +308,7 @@ int start_upload(Uploader *u,
                 }
 
                 if (STRPTR_IN_SET(arg_trust, "-", "all"))
-                        easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0,
+                        easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L,
                                     LOG_ERR, return -EUCLEAN);
                 else if (arg_trust || startswith(u->url, "https://"))
                         easy_setopt(curl, CURLOPT_CAINFO, arg_trust ?: TRUST_FILE,
