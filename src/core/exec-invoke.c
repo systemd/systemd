@@ -905,8 +905,16 @@ static int get_supplementary_groups(
         bool keep_groups = false;
         if (user && gid_is_valid(gid) && gid != 0) {
                 /* First step, initialize groups from /etc/groups */
-                if (initgroups(user, gid) < 0)
-                        return -errno;
+                if (initgroups(user, gid) < 0) {
+                        /* If our primary gid is already the one specified in Group= (i.e. we're running in
+                         * user mode), gracefully handle the case where we have no privilege to re-initgroups().
+                         *
+                         * Note that group memberships of the current user might have been modified, but
+                         * the change will only take effect after re-login. It's better to continue on with
+                         * existing credentials rather than erroring out. */
+                        if (!ERRNO_IS_PRIVILEGE(errno) || gid != getgid())
+                                return -errno;
+                }
 
                 keep_groups = true;
         }
