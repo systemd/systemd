@@ -11,16 +11,24 @@
 #include "timesyncd-server.h"
 
 int manager_parse_server_string(Manager *m, ServerType type, const char *string) {
-        ServerName *first;
+        ServerName *first = NULL;
         int r;
 
         assert(m);
         assert(string);
 
-        first = type == SERVER_FALLBACK ? m->fallback_servers : m->system_servers;
-
-        if (type == SERVER_FALLBACK)
-                 m->have_fallbacks = true;
+        switch (type) {
+        case SERVER_FALLBACK:
+                m->have_fallbacks = true;
+                first = m->fallback_servers;
+                break;
+        case SERVER_NTSKE:
+                first = m->nts_ke_servers;
+                break;
+        default:
+                first = m->system_servers;
+                break;
+        }
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
@@ -125,6 +133,11 @@ int manager_parse_config_file(Manager *m) {
         if (m->connection_retry_usec < 1 * USEC_PER_SEC) {
                 log_warning("Invalid ConnectionRetrySec=. Using default value.");
                 m->connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC;
+        }
+
+        if (m->nts_keyexchange_timeout_usec < 1 * USEC_PER_SEC) {
+                log_warning("Invalid KeyExchangeTimeoutSec=. Using default value.");
+                m->nts_keyexchange_timeout_usec = NTP_POLL_INTERVAL_MIN_USEC;
         }
 
         return r;
