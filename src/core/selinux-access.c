@@ -121,9 +121,9 @@ _printf_(2, 3) static int log_callback(int type, const char *fmt, ...) {
 
                 if (r >= 0) {
                         if (type == SELINUX_AVC)
-                                audit_log_user_avc_message(fd, AUDIT_USER_AVC, buf, NULL, NULL, NULL, getuid());
+                                sym_audit_log_user_avc_message(fd, AUDIT_USER_AVC, buf, NULL, NULL, NULL, getuid());
                         else if (type == SELINUX_ERROR)
-                                audit_log_user_avc_message(fd, AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, getuid());
+                                sym_audit_log_user_avc_message(fd, AUDIT_USER_SELINUX_ERR, buf, NULL, NULL, NULL, getuid());
 
                         return 0;
                 }

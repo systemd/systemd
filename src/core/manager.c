@@ -3417,7 +3417,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         }
 
         msg = strjoina("unit=", p);
-        if (audit_log_user_comm_message(audit_fd, type, msg, "systemd", NULL, NULL, NULL, success) < 0) {
+        if (sym_audit_log_user_comm_message(audit_fd, type, msg, "systemd", NULL, NULL, NULL, success) < 0) {
                 if (ERRNO_IS_PRIVILEGE(errno)) {
                         /* We aren't allowed to send audit messages?  Then let's not retry again. */
                         log_debug_errno(errno, "Failed to send audit message, closing audit socket: %m");

@@ -1187,6 +1187,7 @@ conf.set10('HAVE_ACL', libacl.found())
 libaudit = dependency('audit',
                       required : get_option('audit'))
 conf.set10('HAVE_AUDIT', libaudit.found())
+libaudit_cflags = libaudit.partial_dependency(includes: true, compile_args: true)
 
 libblkid = dependency('blkid',
                       required : get_option('blkid'))

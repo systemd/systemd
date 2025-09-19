@@ -312,7 +312,7 @@ libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
 libshared_deps = [threads,
                   libacl,
-                  libaudit,
+                  libaudit_cflags,
                   libblkid,
                   libcap,
                   libcrypt,
