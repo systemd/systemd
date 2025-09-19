@@ -221,6 +221,10 @@ grep -q "LC_MESSAGES=bar" "$ROOT$LOCALE_PATH"
 if [ -d "/usr/share/keymaps/" ] || [ -d "/usr/share/kbd/keymaps/" ] || [ -d "/usr/lib/kbd/keymaps/" ] ; then
    echo -ne "foo\n" | systemd-firstboot --root="$ROOT" --prompt-keymap
    grep -q "KEYMAP=foo" "$ROOT/etc/vconsole.conf"
+
+   rm "$ROOT/etc/vconsole.conf"
+   # this should be a NOP, given that stdout is connected to /dev/null, and hence not a VT
+   systemd-firstboot --root="$ROOT" --prompt-keymap-auto > /dev/null
 fi
 echo -ne "Europe/Berlin\n" | systemd-firstboot --root="$ROOT" --prompt-timezone
 readlink "$ROOT/etc/localtime" | grep -q "Europe/Berlin$"
