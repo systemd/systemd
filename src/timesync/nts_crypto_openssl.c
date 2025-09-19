@@ -42,6 +42,10 @@ static int process_assoc_data(
         init_f EVP_CryptInit_ex,
         upd_f EVP_CryptUpdate
 ) {
+        assert(state);
+        assert(info);
+        assert(aead);
+
         /* process the associated data and nonce first */
         const AssociatedData *last = NULL;
         if (aead->nonce_is_iv) {
@@ -74,6 +78,13 @@ int NTS_encrypt(uint8_t *ctxt,
                 const AssociatedData *info,
                 const struct NTS_AEADParam *aead,
                 const uint8_t *key) {
+
+        assert(ctxt);
+        assert(ptxt);
+        assert(ptxt_len >= 0); /* passed as an int since OpenSSL expects an int */
+        assert(info);
+        assert(aead);
+        assert(key);
 
         int result = -1;
         int len;
@@ -121,6 +132,13 @@ int NTS_decrypt(uint8_t *ptxt,
                 const AssociatedData *info,
                 const struct NTS_AEADParam *aead,
                 const uint8_t *key) {
+
+        assert(ptxt);
+        assert(ctxt);
+        assert(ctxt_len >= 0); /* passed as an int since OpenSSL expects an int */
+        assert(info);
+        assert(aead);
+        assert(key);
 
         int result = -1;
         int len;
