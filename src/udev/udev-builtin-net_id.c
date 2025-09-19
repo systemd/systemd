@@ -788,20 +788,16 @@ static int names_platform(UdevEvent *event, const char *prefix) {
         return 0;
 }
 
-static int names_devicetree(UdevEvent *event, const char *prefix) {
+/* Returns 1 if found, 0 if not found, negative if error */
+static int names_devicetree_alias_prefix(UdevEvent *event, const char *prefix, const char *alias_prefix) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_(sd_device_unrefp) sd_device *aliases_dev = NULL, *ofnode_dev = NULL, *devicetree_dev = NULL;
         const char *ofnode_path, *ofnode_syspath, *devicetree_syspath;
         int r;
 
-        assert(prefix);
-
-        if (!naming_scheme_has(NAMING_DEVICETREE_ALIASES))
-                return 0;
-
-        /* only ethernet supported for now */
-        if (!streq(prefix, "en"))
-                return -EOPNOTSUPP;
+        _cleanup_free_ char *alias_prefix_0 = strjoin(alias_prefix, "0");
+        if (!alias_prefix_0)
+                return log_oom();
 
         /* check if the device itself has an of_node */
         if (naming_scheme_has(NAMING_DEVICETREE_PORT_ALIASES)) {
@@ -860,7 +856,7 @@ static int names_devicetree(UdevEvent *event, const char *prefix) {
                 const char *alias_path, *alias_index, *conflict;
                 unsigned i;
 
-                alias_index = startswith(alias, "ethernet");
+                alias_index = startswith(alias, alias_prefix);
                 if (!alias_index)
                         continue;
 
@@ -873,30 +869,52 @@ static int names_devicetree(UdevEvent *event, const char *prefix) {
                 /* If there's no index, we default to 0... */
                 if (isempty(alias_index)) {
                         i = 0;
-                        conflict = "ethernet0";
+                        conflict = alias_prefix_0;
                 } else {
                         r = safe_atou(alias_index, &i);
                         if (r < 0)
                                 return log_device_debug_errno(dev, r,
                                                 "Could not get index of alias %s: %m", alias);
-                        conflict = "ethernet";
+                        conflict = alias_prefix;
                 }
 
                 /* ...but make sure we don't have an alias conflict */
                 if (i == 0 && device_get_sysattr_value_filtered(aliases_dev, conflict, NULL) >= 0)
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
-                                        "Ethernet alias conflict: ethernet and ethernet0 both exist.");
+                                        "DeviceTree alias conflict: %1$s and %1$s0 both exist.",
+                                        alias_prefix);
 
                 char str[ALTIFNAMSIZ];
                 if (snprintf_ok(str, sizeof str, "%sd%u", prefix, i))
                         udev_builtin_add_property(event, "ID_NET_NAME_ONBOARD", str);
                 log_device_debug(dev, "DeviceTree identifier: alias_index=%u %s \"%s\"",
                                  i, glyph(GLYPH_ARROW_RIGHT), str + strlen(prefix));
-                return 0;
+                return 1;
         }
 
-        return -ENOENT;
+        return 0;
 }
+
+static int names_devicetree(UdevEvent *event, const char *prefix) {
+        int r;
+
+        if (!naming_scheme_has(NAMING_DEVICETREE_ALIASES))
+                return 0;
+
+        assert(prefix);
+
+        if (streq(prefix, "en"))
+                r = names_devicetree_alias_prefix(event, prefix, "ethernet");
+        else
+                return -EOPNOTSUPP; /* Unsupported interface type */
+
+        if (r < 0)
+                return r; /* Error */
+        else if (r > 0)
+                return 0; /* Found */
+        else
+                return -ENOENT; /* Not found */
+};
 
 static int names_pci(UdevEvent *event, const char *prefix) {
         sd_device *parent, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
