@@ -90,6 +90,7 @@ wrap=(
     socat
     sshd
     stat
+    stress-ng
     su
     tar
     tgtd

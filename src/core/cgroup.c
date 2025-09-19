@@ -3034,20 +3034,43 @@ int unit_check_oom(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return 0;
 
-        r = cg_get_keyed_attribute(
+        CGroupContext *ctx = unit_get_cgroup_context(u);
+        if (!ctx)
+                return 0;
+
+        /* If memory.oom.group=1, then look up the oom_group_kill field, which reports how many times the
+         * kernel killed every process recursively in this cgroup and its descendants, similar to
+         * systemd-oomd. Because the memory.events.local file was only introduced in kernel 5.12, we fall
+         * back to reading oom_kill if we can't find the file or field. */
+
+        if (ctx->memory_oom_group) {
+                r = cg_get_keyed_attribute(
+                        "memory",
+                        crt->cgroup_path,
+                        "memory.events.local",
+                        STRV_MAKE("oom_group_kill"),
+                        &oom_kill);
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
+                        return log_unit_debug_errno(u, r, "Failed to read oom_group_kill field of memory.events.local cgroup attribute, ignoring: %m");
+        }
+
+        if (isempty(oom_kill)) {
+                r = cg_get_keyed_attribute(
                         "memory",
                         crt->cgroup_path,
                         "memory.events",
                         STRV_MAKE("oom_kill"),
                         &oom_kill);
-        if (IN_SET(r, -ENOENT, -ENXIO)) /* Handle gracefully if cgroup or oom_kill attribute don't exist */
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
+                        return log_unit_debug_errno(u, r, "Failed to read oom_kill field of memory.events cgroup attribute: %m");
+        }
+
+        if (!oom_kill)
                 c = 0;
-        else if (r < 0)
-                return log_unit_debug_errno(u, r, "Failed to read oom_kill field of memory.events cgroup attribute: %m");
         else {
                 r = safe_atou64(oom_kill, &c);
                 if (r < 0)
-                        return log_unit_debug_errno(u, r, "Failed to parse oom_kill field: %m");
+                        return log_unit_debug_errno(u, r, "Failed to parse memory.events cgroup oom field: %m");
         }
 
         increased = c > crt->oom_kill_last;
@@ -3059,7 +3082,7 @@ int unit_check_oom(Unit *u) {
         log_unit_struct(u, LOG_NOTICE,
                         LOG_MESSAGE_ID(SD_MESSAGE_UNIT_OUT_OF_MEMORY_STR),
                         LOG_UNIT_INVOCATION_ID(u),
-                        LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
+                        LOG_UNIT_MESSAGE(u, "The kernel OOM killer killed some processes in this unit."));
 
         unit_notify_cgroup_oom(u, /* managed_oom= */ false);
 
