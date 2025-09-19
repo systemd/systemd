@@ -3,7 +3,6 @@
 #include "sd-varlink.h"
 
 #include "dynamic-user.h"
-#include "errno-util.h"
 #include "hashmap.h"
 #include "json-util.h"
 #include "manager.h"

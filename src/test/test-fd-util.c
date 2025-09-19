@@ -17,7 +17,6 @@
 #include "random-util.h"
 #include "rlimit-util.h"
 #include "rm-rf.h"
-#include "seccomp-util.h"
 #include "serialize.h"
 #include "stat-util.h"
 #include "tests.h"

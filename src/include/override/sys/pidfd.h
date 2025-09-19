@@ -3,7 +3,7 @@
 
 /* since glibc-2.36 */
 #if HAVE_PIDFD_OPEN
-#include_next <sys/pidfd.h>
+#include_next <sys/pidfd.h>     /* IWYU pragma: export */
 #endif
 
 #include <linux/types.h>

@@ -6,7 +6,7 @@
  * Note, this must be included before sched.h, otherwise the headers conflict with each other. */
 #include <linux/sched/types.h>
 
-#include_next <sched.h>
+#include_next <sched.h>         /* IWYU pragma: export */
 
 #include <assert.h>
 

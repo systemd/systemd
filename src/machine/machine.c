@@ -15,7 +15,6 @@
 #include "bus-unit-util.h"
 #include "env-file.h"
 #include "errno-util.h"
-#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"

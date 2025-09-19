@@ -20,7 +20,6 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
-#include "socket-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
