@@ -412,7 +412,8 @@ static int vl_method_mount_image(
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         polkit_flags,
-                        polkit_registry);
+                        polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -450,7 +451,7 @@ static int vl_method_mount_image(
 
         /* Let's see if we have acquired the privilege to mount untrusted images already */
         bool polkit_have_untrusted_action =
-                varlink_has_polkit_action(link, polkit_untrusted_action, polkit_details, polkit_registry);
+                varlink_has_polkit_action(link, polkit_untrusted_action, polkit_details, polkit_registry, /* ret_admin= */ NULL);
 
         for (;;) {
                 use_policy = image_policy_free(use_policy);
@@ -503,7 +504,8 @@ static int vl_method_mount_image(
                                                 polkit_details,
                                                 /* good_user= */ UID_INVALID,
                                                 /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
-                                                polkit_registry);
+                                                polkit_registry,
+                                                /* ret_admin= */ NULL);
                                 if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
                                         return r;
                                 if (r > 0) {
@@ -882,7 +884,8 @@ static int vl_method_mount_directory(
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         trusted_directory ? polkit_flags : 0,
-                        polkit_registry);
+                        polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1080,7 +1083,8 @@ static int vl_method_make_directory(
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         polkit_flags,
-                        polkit_registry);
+                        polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
