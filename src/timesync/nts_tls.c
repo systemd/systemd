@@ -19,6 +19,10 @@ int NTS_TLS_extract_keys(
                 uint8_t *s2c,
                 int key_capacity) {
 
+        assert(opaque);
+        assert(c2s);
+        assert(s2c);
+
 #ifdef USE_GNUTLS
         gnutls_session_t session = (void *)opaque;
 #else
@@ -59,6 +63,7 @@ int NTS_TLS_extract_keys(
 }
 
 int NTS_TLS_handshake(NTS_TLS *opaque) {
+        assert(opaque);
 #ifdef USE_GNUTLS
         gnutls_session_t session = (void *)opaque;
 
@@ -87,6 +92,9 @@ int NTS_TLS_handshake(NTS_TLS *opaque) {
 }
 
 ssize_t NTS_TLS_write(NTS_TLS *opaque, const void *buffer, size_t size) {
+        assert(opaque);
+        assert(buffer);
+
 #ifdef USE_GNUTLS
         gnutls_session_t session = (void *)opaque;
         ssize_t result = gnutls_record_send(session, buffer, size);
@@ -108,6 +116,9 @@ ssize_t NTS_TLS_write(NTS_TLS *opaque, const void *buffer, size_t size) {
 }
 
 ssize_t NTS_TLS_read(NTS_TLS *opaque, void *buffer, size_t size) {
+        assert(opaque);
+        assert(buffer);
+
 #ifdef USE_GNUTLS
         gnutls_session_t session = (void *)opaque;
         ssize_t result = gnutls_record_recv(session, buffer, size);
@@ -129,6 +140,8 @@ ssize_t NTS_TLS_read(NTS_TLS *opaque, void *buffer, size_t size) {
 }
 
 void NTS_TLS_close(NTS_TLS *opaque) {
+        assert(opaque);
+
 #ifdef USE_GNUTLS
         gnutls_session_t session = (void *)opaque;
 
@@ -161,6 +174,8 @@ void NTS_TLS_close(NTS_TLS *opaque) {
 NTS_TLS* NTS_TLS_setup(
                 const char *hostname,
                 int socket) {
+
+        assert(hostname);
 
         gnutls_certificate_credentials_t certs = NULL;
         gnutls_session_t tls = NULL;
@@ -209,6 +224,8 @@ exit:
 NTS_TLS* NTS_TLS_setup(
                 const char *hostname,
                 int socket) {
+
+        assert(hostname);
 
         SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
         CHECK(ctx);

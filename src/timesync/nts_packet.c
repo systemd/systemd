@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
@@ -60,6 +61,8 @@ struct NTS_Record {
 };
 
 static int32_t NTS_decode_u16(struct NTS_Record *record) {
+        assert(record);
+
         if (capacity(&record->body) < 2)
                 return -NTS_INSUFFICIENT_DATA;
 
@@ -69,6 +72,9 @@ static int32_t NTS_decode_u16(struct NTS_Record *record) {
 }
 
 static int NTS_decode_record(slice *message, struct NTS_Record *record) {
+        assert(message);
+        assert(record);
+
         size_t bytes_remaining = capacity(message);
         if (bytes_remaining < 4)
                 /* not enough bytes to decode a header */
@@ -120,6 +126,9 @@ static int NTS_encode_record_u16(
                 enum NTS_RecordType type,
                 const uint16_t *data, size_t num_words) {
 
+        assert(message);
+        assert(num_words == 0 || data);
+
         size_t bytes_remaining = capacity(message);
         if (num_words >= 0x8000 || bytes_remaining < 4 + num_words*2)
                 /* not enough space */
@@ -141,6 +150,8 @@ int NTS_encode_request(
                 uint8_t *buffer,
                 size_t buf_size,
                 const NTS_AEADAlgorithmType *preferred_crypto) {
+
+        assert(buffer);
 
         slice request = { buffer, buffer + buf_size };
 
@@ -169,6 +180,9 @@ int NTS_encode_request(
 }
 
 int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *response) {
+        assert(buffer);
+        assert(response);
+
         slice raw_response = { buffer, buffer+buf_size };
         struct NTS_Record rec;
 
