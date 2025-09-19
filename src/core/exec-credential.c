@@ -739,7 +739,7 @@ static int load_credential(
         if (r < 0)
                 return log_debug_errno(r, "Failed to read credential '%s': %m", path);
 
-        return maybe_decrypt_and_write_credential(args, id, data, size, /* graceful= */ true);
+        return maybe_decrypt_and_write_credential(args, id, data, size, /* graceful= */ false);
 }
 
 static int load_cred_recurse_dir_cb(
