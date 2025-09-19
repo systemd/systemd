@@ -314,7 +314,8 @@ int vl_method_unregister_internal(sd_varlink *link, sd_json_variant *parameters,
                                                  "verb", "unregister"),
                         machine->uid,
                         /* flags= */ 0,
-                        &manager->polkit_registry);
+                        &manager->polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -338,7 +339,8 @@ int vl_method_terminate_internal(sd_varlink *link, sd_json_variant *parameters, 
                                                  "verb", "terminate"),
                         machine->uid,
                         /* flags= */ 0,
-                        &manager->polkit_registry);
+                        &manager->polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -408,7 +410,8 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                                                  "verb", "kill"),
                         machine->uid,
                         /* flags= */ 0,
-                        &manager->polkit_registry);
+                        &manager->polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -551,7 +554,8 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                         (const char**) polkit_details,
                         machine->uid,
                         /* flags= */ 0,
-                        &manager->polkit_registry);
+                        &manager->polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
