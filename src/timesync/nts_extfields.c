@@ -137,9 +137,10 @@ int NTS_add_extension_fields(
         int ptxt_len = ptxt.data - buf.data;
         assert((int)sizeof(EF) - (EF_payload - EF) >= ptxt_len + nts->cipher.block_size);
 
-        int ctxt_len = NTS_encrypt(EF_payload, buf.data, ptxt_len, info, &nts->cipher, nts->c2s_key);
+        int EF_capacity = sizeof(EF) - (EF_payload - EF);
+        int ctxt_len = NTS_encrypt(EF_payload, EF_capacity, buf.data, ptxt_len, info, &nts->cipher, nts->c2s_key);
         CHECK(ctxt_len >= 0);
-        assert((unsigned)ctxt_len <= sizeof(EF) - (EF_payload - EF)); /* this would be a serious error */
+        assert(ctxt_len <= EF_capacity); /* failing this would be a serious error */
 
         /* add padding if we used a too-short nonce */
         int ef_len = 4 + ctxt_len + nonce_len + (nonce_len < req_nonce_len)*(req_nonce_len - nonce_len);
@@ -201,7 +202,7 @@ int NTS_parse_extension_fields(
                         };
 
                         uint8_t *plaintext = content;
-                        int plain_len = NTS_decrypt(plaintext, content, ciph_len, info, &nts->cipher, nts->s2c_key);
+                        int plain_len = NTS_decrypt(plaintext, ciph_len, content, ciph_len, info, &nts->cipher, nts->s2c_key);
                         assert(plain_len < ciph_len);
                         CHECK(plain_len >= 0);
 
