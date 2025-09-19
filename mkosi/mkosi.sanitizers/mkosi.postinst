@@ -75,6 +75,7 @@ wrap=(
     setpriv
     sshd
     stat
+    stress-ng
     su
     tar
     tgtd
