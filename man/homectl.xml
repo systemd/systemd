@@ -246,6 +246,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--mute-console=</option></term>
+
+        <listitem><para>Takes a boolean argument. If true kernel log output and service manager status output
+        to the system console is temporarily disabled while <command>firstboot --prompt-new-user</command> is
+        running, so that its own output is not interrupted. Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--match=</option></term>
         <term><option>-A</option></term>
         <term><option>-N</option></term>

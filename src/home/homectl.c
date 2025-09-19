@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "ask-password-api.h"
 #include "bitfield.h"
@@ -112,6 +113,7 @@ static bool arg_prompt_new_user = false;
 static bool arg_prompt_shell = true;
 static bool arg_prompt_groups = true;
 static bool arg_chrome = true;
+static bool arg_mute_console = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unrefp);
@@ -2839,6 +2841,9 @@ static int create_interactively(void) {
                 return 0;
         }
 
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *mute_console_link = NULL;
+        (void) mute_console(&mute_console_link);
+
         (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
 
         if (arg_chrome)
@@ -3077,6 +3082,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --prompt-shell=no         In first-boot mode, don't prompt for shells\n"
                "     --chrome=no               In first-boot mode, don't show colour bar at top\n"
                "                               and bottom of terminal\n"
+               "     --mute-console=yes        In first-boot mode, tell kernel/PID 1 to not\n"
+               "                               write to the console while running\n"
                "\n%4$sGeneral User Record Properties:%5$s\n"
                "  -c --real-name=REALNAME      Real name for user\n"
                "     --realm=REALM             Realm to create user in\n"
@@ -3316,6 +3323,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PROMPT_SHELL,
                 ARG_PROMPT_GROUPS,
                 ARG_CHROME,
+                ARG_MUTE_CONSOLE,
         };
 
         static const struct option options[] = {
@@ -3425,6 +3433,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "prompt-shell",                 required_argument, NULL, ARG_PROMPT_SHELL                },
                 { "prompt-groups",                required_argument, NULL, ARG_PROMPT_GROUPS               },
                 { "chrome",                       required_argument, NULL, ARG_CHROME                      },
+                { "mute-console",                 required_argument, NULL, ARG_MUTE_CONSOLE                },
                 {}
         };
 
@@ -5000,6 +5009,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CHROME:
                         r = parse_boolean_argument("--chrome=", optarg, &arg_chrome);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_MUTE_CONSOLE:
+                        r = parse_boolean_argument("--mute-console=", optarg, &arg_mute_console);
                         if (r < 0)
                                 return r;
 
