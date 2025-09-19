@@ -1190,10 +1190,9 @@ conf.set10('HAVE_AUDIT', libaudit.found())
 libaudit_cflags = libaudit.partial_dependency(includes: true, compile_args: true)
 
 libblkid = dependency('blkid',
+                      version : '>=2.37.0',
                       required : get_option('blkid'))
 conf.set10('HAVE_BLKID', libblkid.found())
-conf.set10('HAVE_BLKID_PROBE_SET_HINT',
-           libblkid.found() and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
 
 libkmod = dependency('libkmod',
                      version : '>= 15',
