@@ -147,9 +147,7 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
                 fputs(glyph(GLYPH_SPARKLES), stdout);
                 putchar(' ');
         }
-        printf("Please configure your new system!\n");
-
-        any_key_to_proceed();
+        printf("Please configure your new system!\n\n");
 
         done = true;
 }
