@@ -16,6 +16,7 @@
 #include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
+#include "chase.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
@@ -2697,6 +2698,8 @@ static int prompt_groups(const char *username, char ***ret_groups) {
                 return 0;
         }
 
+        putchar('\n');
+
         _cleanup_strv_free_ char **available = NULL, **groups = NULL;
         for (;;) {
                 strv_sort_uniq(groups);
@@ -2713,7 +2716,7 @@ static int prompt_groups(const char *username, char ***ret_groups) {
                 r = ask_string_full(&s,
                                group_completion_callback, &available,
                                "%s Please enter an auxiliary group for user %s (empty to continue, \"list\" to list available groups): ",
-                               glyph(GLYPH_TRIANGULAR_BULLET), username);
+                               glyph(GLYPH_LABEL), username);
                 if (r < 0)
                         return log_error_errno(r, "Failed to query user for auxiliary group: %m");
 
@@ -2787,9 +2790,32 @@ static int prompt_groups(const char *username, char ***ret_groups) {
         return 0;
 }
 
-static int prompt_shell(const char *username, char **ret_shell) {
+static int shell_is_ok(const char *path, void *userdata) {
         int r;
 
+        assert(path);
+
+        if (!valid_shell(path)) {
+                log_error("String '%s' is not a valid path to a shell, refusing.", path);
+                return false;
+        }
+
+        r = chase_and_access(path, /* root= */ NULL, CHASE_MUST_BE_REGULAR, X_OK, /* ret_path= */ NULL) >= 0;
+        if (r == -ENOENT) {
+                log_error_errno(r, "Shell '%s' does not exist, try again.", path);
+                return false;
+        }
+        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                log_error_errno(r, "File '%s' is not executable, try again.", path);
+                return false;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if shell '%s' exists and is executable: %m", path);
+
+        return true;
+}
+
+static int prompt_shell(const char *username, char **ret_shell) {
         assert(username);
         assert(ret_shell);
 
@@ -2798,38 +2824,45 @@ static int prompt_shell(const char *username, char **ret_shell) {
                 return 0;
         }
 
-        _cleanup_free_ char *shell = NULL;
-        for (;;) {
-                shell = mfree(shell);
+        putchar('\n');
 
-                r = ask_string(&shell,
-                               "%s Please enter the shell to use for user %s (empty for default): ",
-                               glyph(GLYPH_TRIANGULAR_BULLET), username);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query user for username: %m");
+        _cleanup_free_ char *q = strjoin("Please enter the shell to use for user ", username);
+        if (!q)
+                return log_oom();
 
-                if (isempty(shell)) {
-                        log_info("No data entered, leaving at default.");
-                        break;
-                }
+        return prompt_loop(
+                        q,
+                        GLYPH_SHELL,
+                        /* menu= */ NULL,
+                        /* accepted= */ NULL,
+                        /* ellipsize_percentage= */ 0,
+                        /* n_columns= */ 3,
+                        /* column_width= */ 20,
+                        shell_is_ok,
+                        /* refresh= */ NULL,
+                        /* userdata= */ NULL,
+                        PROMPT_MAY_SKIP|PROMPT_SILENT_VALIDATE,
+                        ret_shell);
+}
 
-                if (!valid_shell(shell)) {
-                        log_notice("Specified shell is not a valid UNIX shell path, try again: %s", shell);
-                        continue;
-                }
+static int username_is_ok(const char *name, void *userdata) {
+        int r;
 
-                r = RET_NERRNO(access(shell, X_OK));
-                if (r >= 0)
-                        break;
+        assert(name);
 
-                if (r != -ENOENT)
-                        return log_error_errno(r, "Failed to check if shell %s exists: %m", shell);
-
-                log_notice("Specified shell '%s' is not installed, try another one.", shell);
+        if (!valid_user_group_name(name, /* flags= */ 0)) {
+                log_notice("Specified user name is not a valid UNIX user name, try again: %s", name);
+                return false;
         }
 
-        *ret_shell = TAKE_PTR(shell);
-        return 0;
+        r = userdb_by_name(name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
+        if (r == -ESRCH)
+                return true;
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if specified user '%s' already exists: %m", name);
+
+        log_notice("Specified user '%s' exists already, try again.", name);
+        return false;
 }
 
 static int create_interactively(void) {
@@ -2857,33 +2890,22 @@ static int create_interactively(void) {
         }
         printf("Please create your user account!\n\n");
 
-        for (;;) {
-                username = mfree(username);
-
-                r = ask_string(&username,
-                               "%s Please enter user name to create (empty to skip): ",
-                               glyph(GLYPH_TRIANGULAR_BULLET));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to query user for username: %m");
-
-                if (isempty(username)) {
-                        log_info("No data entered, skipping.");
-                        return 0;
-                }
-
-                if (!valid_user_group_name(username, /* flags= */ 0)) {
-                        log_notice("Specified user name is not a valid UNIX user name, try again: %s", username);
-                        continue;
-                }
-
-                r = userdb_by_name(username, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
-                if (r == -ESRCH)
-                        break;
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check if specified user '%s' already exists: %m", username);
-
-                log_notice("Specified user '%s' exists already, try again.", username);
-        }
+        r = prompt_loop("Please enter user name to create",
+                        GLYPH_IDCARD,
+                        /* menu= */ NULL,
+                        /* accepted= */ NULL,
+                        /* ellipsize_percentage= */ 60,
+                        /* n_colums= */ 3,
+                        /* column_width= */ 20,
+                        username_is_ok,
+                        /* refresh= */ NULL,
+                        /* userdata= */ NULL,
+                        PROMPT_MAY_SKIP|PROMPT_SILENT_VALIDATE,
+                        &username);
+        if (r < 0)
+                return r;
+        if (isempty(username))
+                return 0;
 
         r = sd_json_variant_set_field_string(&arg_identity_extra, "userName", username);
         if (r < 0)
@@ -2927,7 +2949,14 @@ static int create_interactively(void) {
                         return log_error_errno(r, "Failed to set shell field: %m");
         }
 
-        return create_home_common(/* input= */ NULL, /* show_enforce_password_policy_hint= */ false);
+        putchar('\n');
+
+        r = create_home_common(/* input= */ NULL, /* show_enforce_password_policy_hint= */ false);
+        if (r < 0)
+                return r;
+
+        log_info("Successfully created account '%s'.", username);
+        return 0;
 }
 
 static int add_signing_keys_from_credentials(void);
