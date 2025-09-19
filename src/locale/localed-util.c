@@ -6,7 +6,6 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "copy.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"

@@ -13,7 +13,6 @@
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"
