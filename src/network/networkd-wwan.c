@@ -414,6 +414,41 @@ static int link_request_bearer_route(
         return 0;
 }
 
+static int link_apply_bearer_dns(
+                Link *link,
+                size_t n_dns,
+                struct in_addr_data *dns) {
+        unsigned i;
+        int r;
+
+        assert(link);
+
+        if (!n_dns)
+                return 0;
+
+        if (link->n_dns != UINT_MAX)
+                for (i = 0; i < link->n_dns; i++)
+                        in_addr_full_free(link->dns[i]);
+        link->n_dns = UINT_MAX;
+
+        if (!GREEDY_REALLOC(link->dns, n_dns))
+                return log_oom();
+
+        for (i = 0; i < n_dns; i++) {
+                struct in_addr_full *a;
+
+                r = in_addr_full_new(dns[i].family, &dns[i].address, 0, link->ifindex, NULL, &a);
+                if (r <0)
+                        return log_link_error_errno(link, r, "Cannot create new DNS address: %m");
+
+                link->dns[i] = TAKE_PTR(a);
+        }
+
+        link->n_dns = n_dns;
+
+        return 0;
+}
+
 static int link_apply_bearer_impl(Link *link, Bearer *b) {
         Address *address;
         Route *route;
@@ -449,6 +484,10 @@ static int link_apply_bearer_impl(Link *link, Bearer *b) {
                         r = link_request_bearer_route(link, AF_INET, &b->ip4_gateway, &b->ip4_address);
                         if (r < 0)
                                 return r;
+
+                        r = link_apply_bearer_dns(link, b->n_dns, b->dns);
+                        if (r < 0)
+                                return r;
                 }
 
                 if (b->connected && b->ip4_method == MM_BEARER_IP_METHOD_DHCP) {
@@ -472,6 +511,10 @@ static int link_apply_bearer_impl(Link *link, Bearer *b) {
                                 return r;
 
                         r = link_request_bearer_route(link, AF_INET6, &b->ip6_gateway, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = link_apply_bearer_dns(link, b->n_dns, b->dns);
                         if (r < 0)
                                 return r;
                 }
