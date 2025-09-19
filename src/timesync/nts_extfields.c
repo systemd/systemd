@@ -27,6 +27,8 @@ static size_t capacity(const slice *p) {
 }
 
 static int write_ntp_ext_field(slice *buf, uint16_t type, void *contents, uint16_t len, uint16_t size) {
+        assert(buf);
+
         /* enforce minimum size */
         if (size < len+4) size = len+4;
         /* pad to a dword boundary */
@@ -65,6 +67,9 @@ int NTS_add_extension_fields(
                 uint8_t (*dest)[1280],
                 const struct NTS_Query *nts,
                 uint8_t (*uniq_id)[32]) {
+
+        assert(dest);
+        assert(nts);
 
         slice buf = { *dest, *dest + 1280 };
 
@@ -160,7 +165,11 @@ int NTS_parse_extension_fields(
                 const struct NTS_Query *nts,
                 struct NTS_Receipt *fields) {
 
+        assert(src);
         assert(src_len >= 48 && src_len <= sizeof(*src));
+        assert(nts);
+        assert(fields);
+
         slice buf = { *src + 48, *src + src_len };
         int processed = 0;
 
