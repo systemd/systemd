@@ -75,6 +75,7 @@ exit:
 }
 
 int NTS_encrypt(uint8_t *ctxt,
+                int ctxt_len,
                 const uint8_t *ptxt,
                 int ptxt_len,
                 const AssociatedData *info,
@@ -82,6 +83,7 @@ int NTS_encrypt(uint8_t *ctxt,
                 const uint8_t *key) {
 
         assert(ctxt);
+        assert(ctxt_len >= 0); /* see below */
         assert(ptxt);
         assert(ptxt_len >= 0); /* passed as an int since OpenSSL expects an int */
         assert(info);
@@ -96,6 +98,7 @@ int NTS_encrypt(uint8_t *ctxt,
         CHECK(state);
 
         CHECK((cipher = EVP_CIPHER_fetch(NULL, aead->cipher_name, NULL)));
+        CHECK(ctxt_len >= ptxt_len + aead->block_size);
 
         uint8_t *ctxt_start = ctxt;
         uint8_t *tag;
@@ -129,6 +132,7 @@ exit:
 }
 
 int NTS_decrypt(uint8_t *ptxt,
+                int ptxt_len,
                 const uint8_t *ctxt,
                 int ctxt_len,
                 const AssociatedData *info,
@@ -136,6 +140,7 @@ int NTS_decrypt(uint8_t *ptxt,
                 const uint8_t *key) {
 
         assert(ptxt);
+        assert(ptxt_len >= 0); /* see below */
         assert(ctxt);
         assert(ctxt_len >= 0); /* passed as an int since OpenSSL expects an int */
         assert(info);
@@ -149,6 +154,7 @@ int NTS_decrypt(uint8_t *ptxt,
         EVP_CIPHER_CTX *state = EVP_CIPHER_CTX_new();
         CHECK(state);
         CHECK(ctxt_len >= aead->block_size);
+        CHECK(ptxt_len >= ctxt_len - aead->block_size);
 
         CHECK((cipher = EVP_CIPHER_fetch(NULL, aead->cipher_name, NULL)));
 
