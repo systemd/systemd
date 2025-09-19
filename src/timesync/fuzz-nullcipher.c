@@ -13,6 +13,7 @@
 #define BLKSIZ 16
 
 int NTS_encrypt(uint8_t *ctxt,
+                int ctxt_len,
                 const uint8_t *ptxt,
                 int ptxt_len,
                 const AssociatedData *info,
@@ -23,12 +24,16 @@ int NTS_encrypt(uint8_t *ctxt,
         (void) info;
         (void) nts;
         (void) key;
+
+        assert(ctxt_len >= ptxt_len + BLKSIZ);
+
         memset(ctxt, 0xEE, BLKSIZ);
         memmove(ctxt+BLKSIZ, ptxt, ptxt_len);
         return ptxt_len + BLKSIZ;
 }
 
 int NTS_decrypt(uint8_t *ptxt,
+                int ptxt_len,
                 const uint8_t *ctxt,
                 int ctxt_len,
                 const AssociatedData *info,
@@ -39,8 +44,12 @@ int NTS_decrypt(uint8_t *ptxt,
         (void) info;
         (void) nts;
         (void) key;
+        (void) ptxt_len;
+
         if (ctxt_len < BLKSIZ)
                 return -1;
+
+        assert(ptxt_len >= ctxt_len - BLKSIZ);
 
         memmove(ptxt, ctxt+16, ctxt_len - BLKSIZ);
         return ctxt_len - BLKSIZ;
