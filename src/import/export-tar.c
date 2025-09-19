@@ -21,8 +21,6 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 
-#define COPY_BUFFER_SIZE (16*1024)
-
 typedef struct TarExport {
         sd_event *event;
 
@@ -185,7 +183,7 @@ static int tar_export_process(TarExport *e) {
 
         if (!e->tried_splice && e->compress.type == IMPORT_COMPRESS_UNCOMPRESSED) {
 
-                l = splice(e->tar_fd, NULL, e->output_fd, NULL, COPY_BUFFER_SIZE, 0);
+                l = splice(e->tar_fd, NULL, e->output_fd, NULL, IMPORT_BUFFER_SIZE, 0);
                 if (l < 0) {
                         if (errno == EAGAIN)
                                 return 0;
@@ -205,7 +203,7 @@ static int tar_export_process(TarExport *e) {
         }
 
         while (e->buffer_size <= 0) {
-                uint8_t input[COPY_BUFFER_SIZE];
+                uint8_t input[IMPORT_BUFFER_SIZE];
 
                 if (e->eof) {
                         r = tar_export_finish(e);

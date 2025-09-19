@@ -33,6 +33,8 @@ int import_fork_tar_x(const char *path, PidRef *ret) {
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
+        (void) fcntl(pipefd[0], F_SETPIPE_SZ, IMPORT_BUFFER_SIZE);
+
         use_selinux = mac_selinux_use();
 
         r = pidref_safe_fork_full(
@@ -103,6 +105,8 @@ int import_fork_tar_c(const char *path, PidRef *ret) {
 
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
+
+        (void) fcntl(pipefd[0], F_SETPIPE_SZ, IMPORT_BUFFER_SIZE);
 
         use_selinux = mac_selinux_use();
 
