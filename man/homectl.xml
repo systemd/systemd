@@ -235,6 +235,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--chrome=</option></term>
+
+        <listitem><para>Takes a boolean argument. By default the interactive user creation via
+        <command>firstboot --prompt-new-user</command> screen will show reverse color "chrome" bars at the
+        top and and the bottom of the terminal screen, which may be disabled by setting this option to
+        false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--match=</option></term>
         <term><option>-A</option></term>
         <term><option>-N</option></term>

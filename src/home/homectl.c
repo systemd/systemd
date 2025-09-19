@@ -49,6 +49,7 @@
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
+#include "prompt-util.h"
 #include "recurse-dir.h"
 #include "rlimit-util.h"
 #include "runtime-scope.h"
@@ -110,6 +111,7 @@ static bool arg_seize = true;
 static bool arg_prompt_new_user = false;
 static bool arg_prompt_shell = true;
 static bool arg_prompt_groups = true;
+static bool arg_chrome = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, sd_json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, sd_json_variant_unrefp);
@@ -2837,7 +2839,13 @@ static int create_interactively(void) {
                 return 0;
         }
 
-        putchar('\n');
+        (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
+
+        if (arg_chrome)
+                chrome_show("Create a User Account", /* bottom= */ NULL);
+
+        DEFER_VOID_CALL(chrome_hide);
+
         if (emoji_enabled()) {
                 fputs(glyph(GLYPH_HOME), stdout);
                 putchar(' ');
@@ -2848,8 +2856,6 @@ static int create_interactively(void) {
                 log_notice("Skipping.");
                 return 0;
         }
-
-        (void) terminal_reset_defensive_locked(STDOUT_FILENO, /* flags= */ 0);
 
         for (;;) {
                 username = mfree(username);
@@ -3069,6 +3075,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --prompt-groups=no        In first-boot mode, don't prompt for auxiliary\n"
                "                               group memberships\n"
                "     --prompt-shell=no         In first-boot mode, don't prompt for shells\n"
+               "     --chrome=no               In first-boot mode, don't show colour bar at top\n"
+               "                               and bottom of terminal\n"
                "\n%4$sGeneral User Record Properties:%5$s\n"
                "  -c --real-name=REALNAME      Real name for user\n"
                "     --realm=REALM             Realm to create user in\n"
@@ -3307,6 +3315,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MATCH,
                 ARG_PROMPT_SHELL,
                 ARG_PROMPT_GROUPS,
+                ARG_CHROME,
         };
 
         static const struct option options[] = {
@@ -3415,6 +3424,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "match",                        required_argument, NULL, ARG_MATCH                       },
                 { "prompt-shell",                 required_argument, NULL, ARG_PROMPT_SHELL                },
                 { "prompt-groups",                required_argument, NULL, ARG_PROMPT_GROUPS               },
+                { "chrome",                       required_argument, NULL, ARG_CHROME                      },
                 {}
         };
 
@@ -4983,6 +4993,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PROMPT_GROUPS:
                         r = parse_boolean_argument("--prompt-groups=", optarg, &arg_prompt_groups);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_CHROME:
+                        r = parse_boolean_argument("--chrome=", optarg, &arg_chrome);
                         if (r < 0)
                                 return r;
 
