@@ -79,7 +79,7 @@ TEST(nts_decoding) {
         struct NTS_Agreement rec;
 
         /* empty */
-        uint8_t value[2] = { 0, };
+        uint8_t value[2] = {};
         encode_record_raw((p = buffer, &p), 0, NULL, 0);
         assert_se(NTS_decode_response(buffer, sizeof buffer, &rec) != 0);
         assert_se(rec.error == NTS_BAD_RESPONSE);
@@ -160,7 +160,7 @@ TEST(nts_decoding) {
 TEST(ntp_field_encoding) {
         uint8_t buffer[1280];
 
-        uint8_t key[32] = { 0, };
+        uint8_t key[32] = {};
         char cookie[] = "PAD";
 
         struct NTS_Query nts = {
@@ -170,7 +170,7 @@ TEST(ntp_field_encoding) {
                 *NTS_get_param(NTS_AEAD_AES_SIV_CMAC_256),
         };
 
-        struct NTS_Receipt rcpt = { 0, };
+        struct NTS_Receipt rcpt = {};
         int len = NTS_add_extension_fields(&buffer, &nts, NULL);
         assert_se(len > 48);
         assert_se(NTS_parse_extension_fields(&buffer, len, &nts, &rcpt));
@@ -241,7 +241,7 @@ TEST(ntp_field_decoding) {
         uint8_t buffer[1280];
 
         char cookie[] = "COOKIE", cakey[] = "CAKEY";
-        uint8_t key[32] = { 0, };
+        uint8_t key[32] = {};
 
         struct NTS_Query nts = {
                 { (uint8_t*)cookie, strlen(cookie) },
@@ -258,7 +258,7 @@ TEST(ntp_field_decoding) {
         encode_record_raw_ext(&p, 0x0104, ident, 32);
         add_encrypted_server_hdr(buffer, &p, nts, (const char*[]){cookie, cakey, NULL}, NULL);
 
-        struct NTS_Receipt rcpt = { 0, };
+        struct NTS_Receipt rcpt = {};
         assert_se(NTS_parse_extension_fields(&buffer, p - buffer, &nts, &rcpt));
 
         assert_se(memcmp(rcpt.identifier, ident, 32) == 0);
