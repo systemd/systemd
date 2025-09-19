@@ -539,7 +539,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 #if ENABLE_TIMESYNC_NTS
         if (m->nts_cookies->data) {
                 /* verify the NTS extension fields and unique identifier */
-                NTS_Receipt rcpt = { 0, };
+                NTS_Receipt rcpt = {};
                 r = NTS_parse_extension_fields(&packet.raw_data, iov.iov_len,
                                                &(NTS_Query) {
                                                      .cookie = *m->nts_cookies,
