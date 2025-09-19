@@ -45,7 +45,7 @@
     raised as client-generated reply to the method call.</para>
 
     <para>This call is particularly useful for method calls issued via
-    <function>sd_varlink_observe()</function> that shall remain open continously for a long time.</para>
+    <function>sd_varlink_observe()</function> that shall remain open continuously for a long time.</para>
   </refsect1>
 
   <refsect1>
