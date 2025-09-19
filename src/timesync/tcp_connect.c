@@ -12,6 +12,8 @@
 #include <unistd.h>
 #include <endian.h>
 
+/* FIXME: this file is a temporary solution and will be removed later; https://github.com/pendulum-project/nts-timesyncd/issues/1 */
+
 int NTS_attach_socket(const char *host, int port, int type);
 
 int NTS_attach_socket(const char *host, int port, int type) {
