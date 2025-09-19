@@ -795,6 +795,9 @@ static int names_devicetree_alias_prefix(UdevEvent *event, const char *prefix, c
         const char *ofnode_path, *ofnode_syspath, *devicetree_syspath;
         int r;
 
+        assert(prefix);
+        assert(alias_prefix);
+
         _cleanup_free_ char *alias_prefix_0 = strjoin(alias_prefix, "0");
         if (!alias_prefix_0)
                 return log_oom();
@@ -898,22 +901,29 @@ static int names_devicetree_alias_prefix(UdevEvent *event, const char *prefix, c
 static int names_devicetree(UdevEvent *event, const char *prefix) {
         int r;
 
+        assert(event);
+        assert(prefix);
+
         if (!naming_scheme_has(NAMING_DEVICETREE_ALIASES))
                 return 0;
 
-        assert(prefix);
-
         if (streq(prefix, "en"))
                 r = names_devicetree_alias_prefix(event, prefix, "ethernet");
-        else
-                return -EOPNOTSUPP; /* Unsupported interface type */
+        else if (naming_scheme_has(NAMING_DEVICETREE_ALIASES_WLAN) &&
+                 streq(prefix, "wl")) {
+                r = names_devicetree_alias_prefix(event, prefix, "wifi");
 
+                /* Sometimes DeviceTrees have WLAN devices with alias ethernetN, fall back to those */
+                if (r == 0)
+                        r = names_devicetree_alias_prefix(event, prefix, "ethernet");
+        } else
+                return -EOPNOTSUPP; /* Unsupported interface type */
         if (r < 0)
-                return r; /* Error */
-        else if (r > 0)
-                return 0; /* Found */
-        else
-                return -ENOENT; /* Not found */
+                return r;
+        if (r == 0) /* Not found */
+                return -ENOENT;
+
+        return 0; /* Found */
 };
 
 static int names_pci(UdevEvent *event, const char *prefix) {
