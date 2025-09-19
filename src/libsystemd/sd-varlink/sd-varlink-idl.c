@@ -1794,6 +1794,12 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
         assert(!IN_SET(symbol->symbol_type, _SD_VARLINK_SYMBOL_COMMENT, _SD_VARLINK_INTERFACE_COMMENT));
 
         if (!v) {
+                /* If this symbol has no fields, NULL is acceptable (e.g., for errors with no parameters) */
+                if (symbol->fields[0].name == NULL) {
+                        if (reterr_bad_field)
+                                *reterr_bad_field = NULL;
+                        return 0;
+                }
                 if (reterr_bad_field)
                         *reterr_bad_field = NULL;
                 return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Null object passed, refusing.");
