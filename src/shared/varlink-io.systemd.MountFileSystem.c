@@ -116,7 +116,7 @@ static SD_VARLINK_DEFINE_ERROR(DeniedByImagePolicy);
 static SD_VARLINK_DEFINE_ERROR(KeyNotFound);
 static SD_VARLINK_DEFINE_ERROR(VerityFailure);
 static SD_VARLINK_DEFINE_ERROR(BadFileDescriptorFlags,
-                               SD_VARLINK_FIELD_COMMENT("Name of the parameter referencing the file descriptor with one or more bad flag."),
+                               SD_VARLINK_FIELD_COMMENT("Name of the parameter referencing the file descriptor with one or more bad flags."),
                                SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, 0));
 
 SD_VARLINK_DEFINE_INTERFACE(
