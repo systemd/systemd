@@ -1409,28 +1409,15 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 ask_polkit = true;
         }
 
-        if (r == -EBADMSG)
-                return sd_varlink_error(link, "io.systemd.Credentials.BadFormat", NULL);
-        if (r == -EDESTADDRREQ)
-                return sd_varlink_error(link, "io.systemd.Credentials.NameMismatch", NULL);
-        if (r == -ESTALE)
-                return sd_varlink_error(link, "io.systemd.Credentials.TimeMismatch", NULL);
-        if (r == -ESRCH)
-                return sd_varlink_error(link, "io.systemd.Credentials.NoSuchUser", NULL);
-        if (r == -EMEDIUMTYPE)
-                return sd_varlink_error(link, "io.systemd.Credentials.BadScope", NULL);
-        if (r == -EHOSTDOWN)
-                return sd_varlink_error(link, "io.systemd.Credentials.CantFindPCRSignature", NULL);
-        if (r == -EHWPOISON)
-                return sd_varlink_error(link, "io.systemd.Credentials.NullKeyNotAllowed", NULL);
-        if (r == -EREMOTE)
-                return sd_varlink_error(link, "io.systemd.Credentials.KeyBelongsToOtherTPM", NULL);
-        if (r == -ENOLCK)
-                return sd_varlink_error(link, "io.systemd.Credentials.TPMInDictionaryLockout", NULL);
         if (IN_SET(r, -EREMCHG, -ENOANO, -EUCLEAN, -EPERM))
                 return sd_varlink_error(link, "io.systemd.Credentials.UnexpectedPCRState", NULL);
-        if (r < 0)
+        if (r < 0) {
+                for (const CredentialsVarlinkError *e = credentials_varlink_error_table; e->id; e++)
+                        if (r == e->errnum)
+                                return sd_varlink_error(link, e->id, NULL);
+
                 return r;
+        }
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
 
