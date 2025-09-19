@@ -1464,7 +1464,8 @@ static int manager_nts_obtain_agreement(Manager *m) {
         log_debug("Performing key exchange with %s\n", m->current_server_name->string);
 
         NTS_TLS *nts_handshake = NTS_TLS_setup(m->current_server_name->string, socket);
-        assert_return(nts_handshake, -ENOMEM);
+        if (!nts_handshake)
+                return -ENOMEM;
 
         while ((r = NTS_TLS_handshake(nts_handshake)) > 0 && tls_patience_msec-- > 0)
                 usleep_safe(USEC_PER_MSEC);
