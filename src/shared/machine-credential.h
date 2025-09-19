@@ -16,7 +16,8 @@ typedef struct MachineCredentialContext {
 
 void machine_credential_context_done(MachineCredentialContext *ctx);
 
-bool machine_credentials_contains(const MachineCredentialContext *ctx, const char *id);
+MachineCredential* machine_credential_find(MachineCredentialContext *ctx, const char *id);
 
+int machine_credential_add(MachineCredentialContext *ctx, const char *id, const char *value, size_t size);
 int machine_credential_set(MachineCredentialContext *ctx, const char *cred_str);
 int machine_credential_load(MachineCredentialContext *ctx, const char *cred_path);
