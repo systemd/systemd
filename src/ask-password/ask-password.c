@@ -318,7 +318,8 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
                         /* details= */ NULL,
                         /* good_user= */ FLAGS_SET(arg_flags, ASK_PASSWORD_USER) ? getuid() : UID_INVALID,
                         /* flags= */ 0,
-                        polkit_registry);
+                        polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 

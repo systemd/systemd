@@ -67,6 +67,7 @@ int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bu
                         m->uid,
                         /* flags= */ 0,
                         &m->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -99,6 +100,7 @@ int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus
                         m->uid,
                         /* flags= */ 0,
                         &m->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -149,6 +151,7 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
                         m->uid,
                         /* flags= */ 0,
                         &m->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -271,6 +274,7 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
                         m->uid,
                         /* flags= */ 0,
                         &m->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -314,6 +318,7 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
                         m->uid,
                         /* flags= */ 0,
                         &m->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
@@ -400,6 +405,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                         m->uid,
                         /* flags= */ 0,
                         &m->manager->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;

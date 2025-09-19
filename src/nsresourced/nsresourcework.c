@@ -914,7 +914,8 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow unpriv userns namespace allocation */
-                        &c->polkit_registry);
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1127,7 +1128,8 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow unpriv userns namespace registration */
-                        &c->polkit_registry);
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1272,7 +1274,8 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
                         /* details= */ NULL,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of mounts to registered userns */
-                        &c->polkit_registry);
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1425,7 +1428,8 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
                         /* details= */ NULL,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of cgroups to registered userns */
-                        &c->polkit_registry);
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
@@ -1818,7 +1822,8 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         POLKIT_DEFAULT_ALLOW, /* If no polkit is installed, allow delegation of network interfaces to registered userns */
-                        &c->polkit_registry);
+                        &c->polkit_registry,
+                        /* ret_admin= */ NULL);
         if (r <= 0)
                 return r;
 
