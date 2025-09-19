@@ -79,6 +79,8 @@ const char* glyph_full(Glyph code, bool force_utf) {
                         [GLYPH_SPARKLES]                = "*",
                         [GLYPH_LOW_BATTERY]             = "!",
                         [GLYPH_WARNING_SIGN]            = "!",
+                        [GLYPH_COMPUTER_DISK]           = "o",
+                        [GLYPH_WORLD]                   = "W",
                         [GLYPH_RED_CIRCLE]              = "o",
                         [GLYPH_YELLOW_CIRCLE]           = "o",
                         [GLYPH_BLUE_CIRCLE]             = "o",
