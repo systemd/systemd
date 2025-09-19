@@ -3064,8 +3064,8 @@ int dissected_image_decrypt(
 
 #if HAVE_LIBCRYPTSETUP
         _cleanup_(decrypted_image_unrefp) DecryptedImage *d = NULL;
-        int r;
 #endif
+        int r;
 
         assert(m);
         assert(!verity || verity->root_hash || verity->root_hash_size == 0);
@@ -3085,6 +3085,10 @@ int dissected_image_decrypt(
         if (!m->encrypted && !m->verity_ready)
                 return 0;
 
+        r = secure_getenv_bool("SYSTEMD_VERITY_SHARING");
+        if (r >= 0)
+                SET_FLAG(flags, DISSECT_IMAGE_VERITY_SHARE, r);
+
 #if HAVE_LIBCRYPTSETUP
         r = decrypted_image_new(&d);
         if (r < 0)
@@ -3103,8 +3107,6 @@ int dissected_image_decrypt(
 
                 k = partition_verity_hash_of(i);
                 if (k >= 0) {
-                        flags |= getenv_bool("SYSTEMD_VERITY_SHARING") != 0 ? DISSECT_IMAGE_VERITY_SHARE : 0;
-
                         r = verity_partition(i, p, m->partitions + k, verity, flags, d);
                         if (r < 0)
                                 return r;
@@ -4379,7 +4381,8 @@ int verity_dissect_and_mount(
                 (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0) |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
-                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
+                DISSECT_IMAGE_VERITY_SHARE;
 
         /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
          * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
