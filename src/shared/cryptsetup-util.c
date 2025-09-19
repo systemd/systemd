@@ -19,6 +19,9 @@ DLSYM_PROTOTYPE(crypt_activate_by_passphrase) = NULL;
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
 DLSYM_PROTOTYPE(crypt_activate_by_signed_key) = NULL;
 #endif
+#if HAVE_CRYPT_ACTIVATE_BY_TOKEN_PIN
+DLSYM_PROTOTYPE(crypt_activate_by_token_pin) = NULL;
+#endif
 DLSYM_PROTOTYPE(crypt_activate_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_deactivate_by_name) = NULL;
 DLSYM_PROTOTYPE(crypt_format) = NULL;
@@ -239,6 +242,9 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_activate_by_passphrase),
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
                         DLSYM_ARG(crypt_activate_by_signed_key),
+#endif
+#if HAVE_CRYPT_ACTIVATE_BY_TOKEN_PIN
+                        DLSYM_ARG(crypt_activate_by_token_pin),
 #endif
                         DLSYM_ARG(crypt_activate_by_volume_key),
                         DLSYM_ARG(crypt_deactivate_by_name),
