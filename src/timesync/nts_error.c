@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <assert.h>
+
 #include "nts.h"
 
 #define ERROR(kind) case kind: return &#kind[4]

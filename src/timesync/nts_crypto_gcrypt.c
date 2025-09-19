@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "nts_crypto.h"
-
 #include <assert.h>
 #include <gcrypt.h>
+
+#include "nts_crypto.h"
 
 #if GCRYPT_VERSION_NUMBER < 0x010A00
 #    error Your gcrypt version is too old, need at least version 1.10
