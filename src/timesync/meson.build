@@ -16,9 +16,10 @@ timesyncd_extract_sources = files(
 
 nts_sources = files(
         'tcp_connect.c',
+        'nts_crypto_openssl.c',
         'nts_packet.c',
-        'nts_extfields.c',
         'nts_error.c',
+        'nts_extfields.c',
         'nts_tls.c',
 )
 
@@ -37,47 +38,12 @@ else
                                libshared_static]
 endif
 
-# Select the TLS dependency
-if conf.get('NTS_USE_OPENSSL') == 1
+# Add OpenSSL to the list of dependencies if NTS is enabled
+if conf.get('ENABLE_TIMESYNC_NTS') == 1
         crypto_deps = [libopenssl]
-        tls_c_args = ''
-elif conf.get('NTS_USE_GNUTLS') == 1
-        crypto_deps = [libgnutls]
-        tls_c_args = '-DUSE_GNUTLS'
-else
-        crypto_deps = []
-endif
-
-# Select the cryptographic library; prefer Nettle if GnuTLS is used
-opt = get_option('timesync-cryptolib')
-if crypto_deps != []
-        if opt == 'gcrypt' or (opt == 'auto' and conf.get('HAVE_GCRYPT') == 1)
-                if conf.get('HAVE_GCRYPT') != 1
-                        error('cryptolib(gcrypt) was selected but gcrypt is not available')
-                endif
-                nts_sources += files('nts_crypto_gcrypt.c')
-                crypto_deps += [libgcrypt]
-        elif opt == 'nettle' or (opt == 'auto' and conf.get('NTS_USE_GNUTLS') == 1)
-                nts_sources += files('nts_crypto_nettle.c')
-                libnettle = dependency('nettle',
-                                       version : '>= 3.8',
-                                       required : true)
-                crypto_deps += [libnettle]
-        elif opt == 'openssl' or (opt == 'auto' and conf.get('PREFER_OPENSSL') == 1)
-                if libopenssl.version().version_compare('< 3.5')
-                        error('OpenSSL @0@ does not work well for NTS; need at least OpenSSL 3.5, or use timesync-nts=gnutls and/or cryptolib=gcrypt.'.format(libopenssl.version()))
-                endif
-                nts_sources += files('nts_crypto_openssl.c')
-                crypto_deps += [libopenssl]
-        else
-                error('No cryptographic solution for NTS available')
-        endif
-
         timesyncd_extract_sources += nts_sources
 else
-        if opt != 'auto'
-                error('Cannot set NTS crypto without having a TLS solution')
-        endif
+        crypto_deps = []
 endif
 
 executables += [
