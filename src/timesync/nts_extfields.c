@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
 #include <sys/types.h>
 #include <sys/random.h>
 #include <arpa/inet.h>
