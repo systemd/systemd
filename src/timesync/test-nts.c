@@ -251,7 +251,8 @@ TEST(ntp_field_decoding) {
 
         uint8_t *p =  buffer + 48;
 
-        char ident[32] = "Silence speaks louder than words";
+        char ident[] = "Silence speaks louder than words";
+        assert(strlen(ident) == 32);
 
         /* this deliberately breaks padding rules and sneaks an encrypted identifier */
         encode_record_raw_ext(&p, 0x0104, ident, 32);
