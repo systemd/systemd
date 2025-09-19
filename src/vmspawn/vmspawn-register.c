@@ -13,7 +13,6 @@
 #include "json-util.h"
 #include "log.h"
 #include "pidref.h"
-#include "process-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 #include "terminal-util.h"

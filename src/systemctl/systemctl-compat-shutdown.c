@@ -11,7 +11,6 @@
 #include "strv.h"
 #include "systemctl.h"
 #include "systemctl-compat-shutdown.h"
-#include "systemctl-logind.h"
 #include "time-util.h"
 
 static int shutdown_help(void) {
