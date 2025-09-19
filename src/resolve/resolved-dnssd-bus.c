@@ -31,6 +31,7 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
                         /* good_user= */ s->originator,
                         /* flags= */ 0,
                         &m->polkit_registry,
+                        /* ret_admin= */ NULL,
                         error);
         if (r < 0)
                 return r;
