@@ -60,8 +60,16 @@ if (SYSTEMD_LOG_TARGET=console varlinkctl call \
     exit 0
 fi
 
+# This should fail before we install the key
+(! systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null)
+
 # Install key in keychain
 cp /tmp/test-50-unpriv-cert.crt /run/verity.d
+
+# This should work now
+systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null
+systemd-dissect --image-policy='root=verity:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null
+systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null
 
 # Now run unpriv again, should be OK now.
 runas testuser systemd-dissect /var/tmp/unpriv.raw

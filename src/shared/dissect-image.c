@@ -2547,6 +2547,7 @@ static int decrypt_partition(
                 DissectedPartition *m,
                 const char *passphrase,
                 DissectImageFlags flags,
+                PartitionPolicyFlags policy_flags,
                 DecryptedImage *d) {
 
         _cleanup_free_ char *node = NULL, *name = NULL;
@@ -2565,6 +2566,9 @@ static int decrypt_partition(
 
         if (!passphrase)
                 return -ENOKEY;
+
+        if (!FLAGS_SET(policy_flags, PARTITION_POLICY_ENCRYPTED))
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL), "Attempted to unlock partition via LUKS, but it's prohibited.");
 
         r = dlopen_cryptsetup();
         if (r < 0)
@@ -2672,6 +2676,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(char *, dm_deferred_remove_clean);
 static int validate_signature_userspace(const VeritySettings *verity, DissectImageFlags flags) {
         int r;
 
+        /* Returns > 0 if signature checks out, == 0 if not, < 0 on unexpected errors */
+
         if (!FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_USERSPACE_VERITY)) {
                 log_debug("Userspace dm-verity signature authentication disabled via flag.");
                 return 0;
@@ -2778,7 +2784,8 @@ static int do_crypt_activate_verity(
                 struct crypt_device *cd,
                 const char *name,
                 const VeritySettings *verity,
-                DissectImageFlags flags) {
+                DissectImageFlags flags,
+                PartitionPolicyFlags policy_flags) {
 
         bool check_signature;
         int r, k;
@@ -2787,7 +2794,7 @@ static int do_crypt_activate_verity(
         assert(name);
         assert(verity);
 
-        if (verity->root_hash_sig) {
+        if (verity->root_hash_sig && FLAGS_SET(policy_flags, PARTITION_POLICY_SIGNED)) {
                 r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_SIGNATURE");
                 if (r < 0 && r != -ENXIO)
                         log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIGNATURE");
@@ -2797,7 +2804,6 @@ static int do_crypt_activate_verity(
                 check_signature = false;
 
         if (check_signature) {
-
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
                 /* First, if we have support for signed keys in the kernel, then try that first. */
                 r = sym_crypt_activate_by_signed_key(
@@ -2808,10 +2814,18 @@ static int do_crypt_activate_verity(
                                 verity->root_hash_sig,
                                 verity->root_hash_sig_size,
                                 CRYPT_ACTIVATE_READONLY);
-                if (r >= 0)
-                        return r;
+                if (r >= 0) {
+                        log_debug("Verity activation via kernel signature logic worked.");
+                        return 0;
+                }
 
                 log_debug_errno(r, "Validation of dm-verity signature failed via the kernel, trying userspace validation instead: %m");
+
+                /* Let's mangle ENOKEY → EDESTADDRREQ, so that we return a clear, recognizable error if
+                 * there's a signature we don't recognize, that is distinct from the LUKS/encryption
+                 * -ENOKEY, which means "password required, but I have none". */
+                if (r == -ENOKEY)
+                        r = -EDESTADDRREQ;
 #else
                 log_debug("Activation of verity device with signature requested, but not supported via the kernel by %s due to missing crypt_activate_by_signed_key(), trying userspace validation instead.",
                           program_invocation_short_name);
@@ -2825,18 +2839,36 @@ static int do_crypt_activate_verity(
                  * as the device-mapper is finicky around concurrent activations of the same volume */
                 k = validate_signature_userspace(verity, flags);
                 if (k < 0)
-                        return r < 0 ? r : k;
-                if (k == 0)
-                        return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENOKEY),
-                                               "Activation of signed Verity volume worked neither via the kernel nor in userspace, can't activate.");
-        }
+                        return k;
+                if (k == 0) {
+                        log_debug("Activation of signed Verity volume worked neither via the kernel nor in userspace, can't activate.");
 
-        return sym_crypt_activate_by_volume_key(
+                        /* So if we had a signature and we're supposed to exclusively allow
+                         * signature-based activation, then return the error now */
+                        if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
+                                return r < 0 ? r : -EDESTADDRREQ;
+
+                        log_debug("Activation of signed Verity volume without validating signature is permitted by policy. Continuing.");
+                } else
+                        log_debug("Verity activation via userspace signature logic worked, activating by root hash.");
+
+                /* Otherwise let's see what signature-less activation results in. */
+
+        } else if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
+                return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
+                                       "No-signature activation of Verity volume not allowed by policy, refusing.");
+
+        r = sym_crypt_activate_by_volume_key(
                         cd,
                         name,
                         verity->root_hash,
                         verity->root_hash_size,
                         CRYPT_ACTIVATE_READONLY);
+        if (r < 0)
+                return log_debug_errno(r, "Activation of Verity via root hash failed: %m");
+
+        log_debug("Activation of Verity via root hash succeeded.");
+        return 0;
 }
 
 static usec_t verity_timeout(void) {
@@ -2863,10 +2895,11 @@ static usec_t verity_timeout(void) {
 
 static int verity_partition(
                 PartitionDesignator designator,
-                DissectedPartition *m,
-                DissectedPartition *v,
+                DissectedPartition *m, /* data partition */
+                DissectedPartition *v, /* verity partition */
                 const VeritySettings *verity,
                 DissectImageFlags flags,
+                PartitionPolicyFlags policy_flags,
                 DecryptedImage *d) {
 
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
@@ -2891,6 +2924,11 @@ static int verity_partition(
 
                 if (!streq(v->fstype, "DM_verity_hash"))
                         return 0;
+        }
+
+        if (!(policy_flags & (PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED))) {
+                log_debug("Attempted to unlock partition via Verity, but it's prohibited, skipping.");
+                return 0;
         }
 
         r = dlopen_cryptsetup();
@@ -2944,7 +2982,7 @@ static int verity_partition(
                         goto check; /* The device already exists. Let's check it. */
 
                 /* The symlink to the device node does not exist yet. Assume not activated, and let's activate it. */
-                r = do_crypt_activate_verity(cd, name, verity, flags);
+                r = do_crypt_activate_verity(cd, name, verity, flags, policy_flags);
                 if (r >= 0)
                         goto try_open; /* The device is activated. Let's open it. */
                 /* libdevmapper can return EINVAL when the device is already in the activation stage.
@@ -3038,7 +3076,7 @@ static int verity_partition(
                  */
                 sym_crypt_free(cd);
                 cd = NULL;
-                return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, d);
+                return verity_partition(designator, m, v, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, policy_flags, d);
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "All attempts to activate verity device %s failed.", name);
@@ -3060,6 +3098,7 @@ int dissected_image_decrypt(
                 DissectedImage *m,
                 const char *passphrase,
                 const VeritySettings *verity,
+                const ImagePolicy *policy,
                 DissectImageFlags flags) {
 
 #if HAVE_LIBCRYPTSETUP
@@ -3072,11 +3111,13 @@ int dissected_image_decrypt(
 
         /* Returns:
          *
-         *      = 0           → There was nothing to decrypt
-         *      > 0           → Decrypted successfully
-         *      -ENOKEY       → There's something to decrypt but no key was supplied
-         *      -EKEYREJECTED → Passed key was not correct
-         *      -EBUSY        → Generic Verity error (kernel is not very explanatory)
+         *      = 0           → There was nothing to decrypt/setup
+         *      > 0           → Decrypted/setup successfully
+         *      -ENOKEY       → dm-crypt: there's something to decrypt but no decryption key was supplied
+         *      -EKEYREJECTED → dm-crypt: Passed key was not correct
+         *      -EDESTADDRREQ → dm-verity: there's something to setup but no signature was supplied
+         *      -EBUSY        → dm-verity: Generic Verity error (kernel is not very explanatory)
+         *      -ERFKILL      → image policy not compatible with request
          */
 
         if (verity && verity->root_hash && verity->root_hash_size < sizeof(sd_id128_t))
@@ -3101,13 +3142,15 @@ int dissected_image_decrypt(
                 if (!p->found)
                         continue;
 
-                r = decrypt_partition(p, passphrase, flags, d);
+                PartitionPolicyFlags fl = image_policy_get_exhaustively(policy, i);
+
+                r = decrypt_partition(p, passphrase, flags, fl, d);
                 if (r < 0)
                         return r;
 
                 k = partition_verity_hash_of(i);
                 if (k >= 0) {
-                        r = verity_partition(i, p, m->partitions + k, verity, flags, d);
+                        r = verity_partition(i, p, m->partitions + k, verity, flags, fl, d);
                         if (r < 0)
                                 return r;
                 }
@@ -3120,7 +3163,6 @@ int dissected_image_decrypt(
         }
 
         m->decrypted_image = TAKE_PTR(d);
-
         return 1;
 #else
         return -EOPNOTSUPP;
@@ -3131,6 +3173,7 @@ int dissected_image_decrypt_interactively(
                 DissectedImage *m,
                 const char *passphrase,
                 const VeritySettings *verity,
+                const ImagePolicy *image_policy,
                 DissectImageFlags flags) {
 
         _cleanup_strv_free_erase_ char **z = NULL;
@@ -3140,13 +3183,17 @@ int dissected_image_decrypt_interactively(
                 n--;
 
         for (;;) {
-                r = dissected_image_decrypt(m, passphrase, verity, flags);
+                r = dissected_image_decrypt(m, passphrase, verity, image_policy, flags);
                 if (r >= 0)
                         return r;
                 if (r == -EKEYREJECTED)
                         log_error_errno(r, "Incorrect passphrase, try again!");
+                else if (r == -EDESTADDRREQ)
+                        return log_error_errno(r, "Image lacks recognized signature.");
+                else if (r == -ERFKILL)
+                        return log_error_errno(r, "Unlocking of Verity/LUKS volumes not permitted by policy.");
                 else if (r != -ENOKEY)
-                        return log_error_errno(r, "Failed to decrypt image: %m");
+                        return log_error_errno(r, "Failed to decrypt/set up image: %m");
 
                 if (--n < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
@@ -4277,7 +4324,7 @@ int mount_image_privately_interactively(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, flags);
+        r = dissected_image_decrypt_interactively(dissected_image, NULL, &verity, image_policy, flags);
         if (r < 0)
                 return r;
 
@@ -4429,6 +4476,7 @@ int verity_dissect_and_mount(
                         dissected_image,
                         NULL,
                         verity,
+                        image_policy,
                         dissect_image_flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
