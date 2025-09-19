@@ -1351,7 +1351,6 @@ static int run(int argc, char *argv[]) {
                         DISSECT_IMAGE_GPT_ONLY |
                         DISSECT_IMAGE_FSCK |
                         DISSECT_IMAGE_USR_NO_ROOT |
-                        DISSECT_IMAGE_REQUIRE_ROOT |
                         DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                         DISSECT_IMAGE_PIN_PARTITION_DEVICES,
                         &root_dir,
