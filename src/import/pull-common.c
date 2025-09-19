@@ -6,7 +6,6 @@
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
-#include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"

@@ -3,7 +3,6 @@
 #include <stdlib.h>
 
 #include "ansi-color.h"
-#include "log.h"
 #include "process-util.h"
 #include "string-table.h"
 #include "string-util.h"

@@ -2,7 +2,6 @@
 
 #include <linux/audit.h>
 #include <linux/netlink.h>
-#include <stdio.h>
 #include <sys/socket.h>
 
 #include "errno-util.h"
