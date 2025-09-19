@@ -41,12 +41,12 @@ int NTS_TLS_extract_keys(
                 return -2;
 
         for (int i=0; i < 2; i++) {
-                const char context[5] = { 0, 0, (aead >> 8) & 0xFF, aead & 0xFF, i };
+                const uint8_t context[5] = { 0, 0, (aead >> 8) & 0xFF, aead & 0xFF, i };
 #ifdef USE_GNUTLS
                 if (gnutls_prf_rfc5705(
                                         session,
                                         strlen(label), label,
-                                        sizeof(context), context,
+                                        sizeof(context), (const char*)context,
                                         info->key_size,
                                         (char *)keys[i]
                                 ) != GNUTLS_E_SUCCESS)
@@ -55,7 +55,7 @@ int NTS_TLS_extract_keys(
                                         session,
                                         keys[i], info->key_size,
                                         label, strlen(label),
-                                        (uint8_t *)context, sizeof context, 1)
+                                        context, sizeof context, 1)
                                 != 1)
 #endif
                         return -1;
