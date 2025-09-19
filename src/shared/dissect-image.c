@@ -2845,7 +2845,7 @@ static int do_crypt_activate_verity(
                 if (k < 0)
                         return r < 0 ? r : k;
                 if (k == 0)
-                        return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENOKEY),
+                        return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(EDESTADDRREQ),
                                                "Activation of signed Verity volume worked neither via the kernel nor in userspace, can't activate.");
         }
 
@@ -3090,11 +3090,12 @@ int dissected_image_decrypt(
 
         /* Returns:
          *
-         *      = 0           → There was nothing to decrypt
-         *      > 0           → Decrypted successfully
-         *      -ENOKEY       → There's something to decrypt but no key was supplied
-         *      -EKEYREJECTED → Passed key was not correct
-         *      -EBUSY        → Generic Verity error (kernel is not very explanatory)
+         *      = 0           → There was nothing to decrypt/setup
+         *      > 0           → Decrypted/setup successfully
+         *      -ENOKEY       → dm-crypt: there's something to decrypt but no decryption key was supplied
+         *      -EKEYREJECTED → dm-crypt: Passed key was not correct
+         *      -EDESTADDRREQ → dm-verity: there's something to setup but no signature was supplied
+         *      -EBUSY        → dm-verity: Generic Verity error (kernel is not very explanatory)
          */
 
         if (verity && verity->root_hash && verity->root_hash_size < sizeof(sd_id128_t))
@@ -3163,8 +3164,10 @@ int dissected_image_decrypt_interactively(
                         return r;
                 if (r == -EKEYREJECTED)
                         log_error_errno(r, "Incorrect passphrase, try again!");
+                else if (r == -EDESTADDRREQ)
+                        return log_error_errno(r, "Image lacks recognized signature.");
                 else if (r != -ENOKEY)
-                        return log_error_errno(r, "Failed to decrypt image: %m");
+                        return log_error_errno(r, "Failed to decrypt/set up image: %m");
 
                 if (--n < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EKEYREJECTED),
