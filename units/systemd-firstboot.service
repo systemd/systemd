@@ -32,7 +32,7 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=systemd-firstboot --prompt-locale --prompt-keymap --prompt-timezone --prompt-root-password --mute-console=yes
+ExecStart=systemd-firstboot --prompt-locale --prompt-keymap-auto --prompt-timezone --prompt-root-password --mute-console=yes
 StandardOutput=tty
 StandardInput=tty
 StandardError=tty
