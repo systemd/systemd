@@ -23,7 +23,7 @@ typedef struct NTS_Receipt {
  *      contents of uniq_ident are unspecified)
  */
 int NTS_add_extension_fields(
-                uint8_t (*dest)[1280],
+                uint8_t dest[static 1280],
                 const struct NTS_Query *nts,
                 uint8_t (*identifier)[32]);
 
@@ -34,7 +34,7 @@ int NTS_add_extension_fields(
  *      The amount of data processed in bytes. Zero bytes encoded indicates an error.
  */
 int NTS_parse_extension_fields(
-                uint8_t (*src)[1280],
+                uint8_t src[static 1280],
                 size_t src_len,
                 const struct NTS_Query *,
                 struct NTS_Receipt *);
