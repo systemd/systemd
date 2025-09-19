@@ -71,6 +71,7 @@ static char *arg_root_shell = NULL;
 static char *arg_kernel_cmdline = NULL;
 static bool arg_prompt_locale = false;
 static bool arg_prompt_keymap = false;
+static bool arg_prompt_keymap_auto = false;
 static bool arg_prompt_timezone = false;
 static bool arg_prompt_hostname = false;
 static bool arg_prompt_root_password = false;
@@ -415,7 +416,21 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
                 return 0;
         }
 
-        if (!arg_prompt_keymap) {
+        bool b;
+        if (arg_prompt_keymap_auto) {
+                _cleanup_free_ char *ttyname = NULL;
+
+                r = getttyname_harder(STDOUT_FILENO, &ttyname);
+                if (r < 0) {
+                        log_debug_errno(r, "Cannot determine TTY we are connected, ignoring: %m");
+                        b = false; /* if we can't resolve this, it's probably not a VT */
+                } else {
+                        b = tty_is_vc_resolve(ttyname);
+                        log_debug("Detected connection to local console: %s", yes_no(b));
+                }
+        } else
+                b = arg_prompt_keymap;
+        if (!b) {
                 log_debug("Prompting for keymap was not requested.");
                 return 0;
         }
@@ -1234,6 +1249,7 @@ static int help(void) {
                "                                  Set kernel command line\n"
                "     --prompt-locale              Prompt the user for locale settings\n"
                "     --prompt-keymap              Prompt the user for keymap settings\n"
+               "     --prompt-keymap-auto         Prompt the user for keymap settings if invoked on local console\n"
                "     --prompt-timezone            Prompt the user for timezone\n"
                "     --prompt-hostname            Prompt the user for hostname\n"
                "     --prompt-root-password       Prompt the user for root password\n"
@@ -1283,6 +1299,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PROMPT,
                 ARG_PROMPT_LOCALE,
                 ARG_PROMPT_KEYMAP,
+                ARG_PROMPT_KEYMAP_AUTO,
                 ARG_PROMPT_TIMEZONE,
                 ARG_PROMPT_HOSTNAME,
                 ARG_PROMPT_ROOT_PASSWORD,
@@ -1322,6 +1339,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "prompt",                  no_argument,       NULL, ARG_PROMPT                  },
                 { "prompt-locale",           no_argument,       NULL, ARG_PROMPT_LOCALE           },
                 { "prompt-keymap",           no_argument,       NULL, ARG_PROMPT_KEYMAP           },
+                { "prompt-keymap-auto",      no_argument,       NULL, ARG_PROMPT_KEYMAP_AUTO      },
                 { "prompt-timezone",         no_argument,       NULL, ARG_PROMPT_TIMEZONE         },
                 { "prompt-hostname",         no_argument,       NULL, ARG_PROMPT_HOSTNAME         },
                 { "prompt-root-password",    no_argument,       NULL, ARG_PROMPT_ROOT_PASSWORD    },
@@ -1479,6 +1497,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PROMPT:
                         arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname =
                                 arg_prompt_root_password = arg_prompt_root_shell = true;
+                        arg_prompt_keymap_auto = false;
                         break;
 
                 case ARG_PROMPT_LOCALE:
@@ -1487,6 +1506,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PROMPT_KEYMAP:
                         arg_prompt_keymap = true;
+                        arg_prompt_keymap_auto = false;
+                        break;
+
+                case ARG_PROMPT_KEYMAP_AUTO:
+                        arg_prompt_keymap_auto = true;
                         break;
 
                 case ARG_PROMPT_TIMEZONE:
@@ -1667,7 +1691,7 @@ static int run(int argc, char *argv[]) {
                         return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
                 if (r > 0 && !enabled) {
                         log_debug("Found systemd.firstboot=no kernel command line argument, turning off all prompts.");
-                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = arg_prompt_root_shell = false;
+                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_keymap_auto = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = arg_prompt_root_shell = false;
                 }
         }
 
