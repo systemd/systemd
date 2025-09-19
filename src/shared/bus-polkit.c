@@ -178,6 +178,7 @@ int bus_test_polkit(
 typedef struct AsyncPolkitQueryAction {
         char *action;
         char **details;
+        bool admin;
 
         LIST_FIELDS(struct AsyncPolkitQueryAction, authorized);
 } AsyncPolkitQueryAction;
@@ -317,8 +318,37 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
         }
 
         r = sd_bus_message_enter_container(reply, 'r', "bba{ss}");
-        if (r >= 0)
-                r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
+        if (r < 0)
+                return r;
+        r = sd_bus_message_read(reply, "bb", &authorized, &challenge);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_enter_container(reply, 'a', "{ss}");
+        if (r < 0)
+                return r;
+
+        for (;;) {
+                const char *k, *v;
+
+                r = sd_bus_message_enter_container(reply, 'e', "ss");
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                r = sd_bus_message_read(reply, "ss", &k, &v);
+                if (r < 0)
+                        return r;
+                if (r > 0 && streq(k, "polkit.result") && STR_IN_SET(v, "auth_admin_keep", "auth_admin"))
+                        a->admin = true;
+
+                r = sd_bus_message_exit_container(reply);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return r;
 
@@ -416,14 +446,18 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
 static bool async_polkit_query_have_action(
                 AsyncPolkitQuery *q,
                 const char *action,
-                const char **details) {
+                const char **details,
+                bool *ret_admin) {
 
         assert(q);
         assert(action);
 
         LIST_FOREACH(authorized, a, q->authorized_actions)
-                if (streq(a->action, action) && strv_equal(a->details, (char**) details))
+                if (streq(a->action, action) && strv_equal(a->details, (char**) details)) {
+                        if (ret_admin)
+                                *ret_admin = a->admin;
                         return true;
+                }
 
         return false;
 }
@@ -433,12 +467,13 @@ static int async_polkit_query_check_action(
                 const char *action,
                 const char **details,
                 PolkitFlags flags,
+                bool *ret_admin,
                 sd_bus_error *reterr_error) {
 
         assert(q);
         assert(action);
 
-        if (async_polkit_query_have_action(q, action, details))
+        if (async_polkit_query_have_action(q, action, details, ret_admin))
                 return 1; /* Allow! */
 
         if (q->error_action && streq(q->error_action->action, action))
@@ -546,6 +581,7 @@ int bus_verify_polkit_async_full(
                 uid_t good_user,
                 PolkitFlags flags,
                 Hashmap **registry,
+                bool *ret_admin,
                 sd_bus_error *reterr_error) {
 
         int r;
@@ -567,7 +603,7 @@ int bus_verify_polkit_async_full(
         /* This is a repeated invocation of this function, hence let's check if we've already got
          * a response from polkit for this action */
         if (q) {
-                r = async_polkit_query_check_action(q, action, details, flags, reterr_error);
+                r = async_polkit_query_check_action(q, action, details, flags, ret_admin, reterr_error);
                 if (r != 0) {
                         log_debug("Found matching previous polkit authentication for '%s'.", action);
                         return r;
@@ -767,7 +803,8 @@ int varlink_verify_polkit_async_full(
                 const char **details,
                 uid_t good_user,
                 PolkitFlags flags,
-                Hashmap **registry) {
+                Hashmap **registry,
+                bool *ret_admin) {
 
         int r;
 
@@ -797,7 +834,7 @@ int varlink_verify_polkit_async_full(
          * a response from polkit for this action */
         if (q) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                r = async_polkit_query_check_action(q, action, details, flags, &error);
+                r = async_polkit_query_check_action(q, action, details, flags, ret_admin, &error);
                 if (r != 0)
                         log_debug("Found matching previous polkit authentication for '%s'.", action);
                 if (r < 0) {
@@ -880,7 +917,7 @@ int varlink_verify_polkit_async_full(
 #endif
 }
 
-bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char **details, Hashmap **registry) {
+bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char **details, Hashmap **registry, bool *ret_admin) {
         assert(link);
         assert(action);
         assert(registry);
@@ -892,7 +929,7 @@ bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char 
         if (!q)
                 return false;
 
-        return async_polkit_query_have_action(q, action, details);
+        return async_polkit_query_have_action(q, action, details, ret_admin);
 #else
         return false;
 #endif
