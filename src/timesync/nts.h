@@ -16,6 +16,8 @@ enum {
         NTS_AEAD_AES_SIV_CMAC_512 = 17,
         NTS_AEAD_AES_128_GCM_SIV  = 30,
         NTS_AEAD_AES_256_GCM_SIV  = 31,
+        _NTS_AEAD_MAX,
+        _NTS_AEAD_INVALID = -EINVAL,
 };
 
 typedef struct NTS_AEADParam {
@@ -37,7 +39,10 @@ typedef enum NTS_ErrorType {
         NTS_INSUFFICIENT_DATA = 0x10005,
         NTS_UNKNOWN_CRIT_RECORD = 0x10006,
 
-        NTS_SUCCESS = -1,
+        NTS_SUCCESS = 0x20000,
+
+        _NTS_ERROR_MAX,
+        _NTS_ERROR_INVALID = -EINVAL,
 } NTS_ErrorType;
 
 typedef struct NTS_Cookie {
