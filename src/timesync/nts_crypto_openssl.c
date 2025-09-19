@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "nts_crypto.h"
-
 #include <assert.h>
 #include <openssl/ssl.h>
+
+#include "nts_crypto.h"
 
 #if !OPENSSL_VERSION_PREREQ(3,0)
 #    error Your OpenSSL version does not support SIV modes, need at least version 3.0.

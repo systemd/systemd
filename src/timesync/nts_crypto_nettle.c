@@ -1,7 +1,4 @@
-#include "nts_crypto.h"
-
 #include <assert.h>
-#include <string.h>
 #include <nettle/version.h>
 #include <nettle/siv-cmac.h>
 #if NETTLE_VERSION_MAJOR > 3 || NETTLE_VERSION_MAJOR == 3 && NETTLE_VERSION_MINOR >= 9
@@ -9,6 +6,9 @@
 #elif NETTLE_VERSION_MAJOR == 3 && NETTLE_VERSION_MINOR < 8
 #  error Your Nettle version is too old, need at least version 3.8
 #endif
+#include <string.h>
+
+#include "nts_crypto.h"
 
 static const struct NTS_AEADParam supported_algos[] = {
         { NTS_AEAD_AES_SIV_CMAC_256, 256/8, 16, 16, true, false, "AES-128-SIV" },
