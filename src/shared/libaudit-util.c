@@ -22,7 +22,7 @@ static DLSYM_PROTOTYPE(audit_open) = NULL;
 
 int dlopen_libaudit(void) {
         ELF_NOTE_DLOPEN("libaudit",
-                        "Support for Audit loggging",
+                        "Support for Audit logging",
                         ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libaudit.so.1");
 
