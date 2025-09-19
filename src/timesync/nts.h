@@ -69,7 +69,7 @@ int NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgorithm
  *
  * RETURNS
  *      0 upon success
- *      -1 upon failure (writes the error code to NTS_Agreement->error)
+ *      negative upon failure (writes the error code to NTS_Agreement->error)
  */
 int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *);
 
@@ -90,6 +90,8 @@ typedef struct NTS_TLS NTS_TLS;
 /* Perform key extraction on the TLS session using the specified algorithm_type. C2S and S2C must point to
  * buffers that provide key_capacity amount of bytes.
  *
+ * FIXME: https://github.com/pendulum-project/nts-timesyncd/issues/6
+ *
  * RETURNS
  *      0 upon success
  *      a negative value upon failure:
@@ -107,6 +109,8 @@ int NTS_TLS_extract_keys(NTS_TLS *session, NTS_AEADAlgorithmType, uint8_t *c2s, 
 NTS_TLS* NTS_TLS_setup(const char *hostname, int socket);
 
 /* Perform a TLS handshake
+ *
+ * FIXME: https://github.com/pendulum-project/nts-timesyncd/issues/6
  *
  * RETURNS
  *      0 upon success
