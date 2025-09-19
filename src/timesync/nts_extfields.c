@@ -66,14 +66,14 @@ enum extfields {
 #define CHECK(expr) { if (expr); else goto exit; }
 
 int NTS_add_extension_fields(
-                uint8_t (*dest)[1280],
+                uint8_t dest[static 1280],
                 const struct NTS_Query *nts,
                 uint8_t (*uniq_id)[32]) {
 
         assert(dest);
         assert(nts);
 
-        slice buf = { *dest, *dest + 1280 };
+        slice buf = { dest, dest + 1280 };
 
         /* skip beyond regular ntp portion */
         buf.data += 48;
@@ -129,8 +129,8 @@ int NTS_add_extension_fields(
         CHECK(getrandom(EF_nonce, nonce_len, 0) == nonce_len);
 
         AssociatedData info[] = {
-                { *dest, buf.data - *dest },  /* aad */
-                { EF_nonce,  nonce_len },     /* nonce */
+                { dest, buf.data - dest },  /* aad */
+                { EF_nonce,  nonce_len },   /* nonce */
                 { NULL },
         };
 
@@ -150,7 +150,7 @@ int NTS_add_extension_fields(
 
         CHECK(write_ntp_ext_field(&buf, AuthEncExtFields, EF, ef_len, 28));
 
-        return buf.data - *dest;
+        return buf.data - dest;
 exit:
         return 0;
 }
@@ -162,17 +162,17 @@ static void decode_hdr(uint16_t *restrict a, uint16_t *restrict b, uint8_t *byte
 }
 
 int NTS_parse_extension_fields(
-                uint8_t (*src)[1280],
+                uint8_t src[static 1280],
                 size_t src_len,
                 const struct NTS_Query *nts,
                 struct NTS_Receipt *fields) {
 
         assert(src);
-        assert(src_len >= 48 && src_len <= sizeof(*src));
+        assert(src_len >= 48 && src_len <= 1280);
         assert(nts);
         assert(fields);
 
-        slice buf = { *src + 48, *src + src_len };
+        slice buf = { src + 48, src + src_len };
         int processed = 0;
 
         while (capacity(&buf) >= 4) {
@@ -195,8 +195,8 @@ int NTS_parse_extension_fields(
                         uint8_t *content = nonce + nonce_len;
 
                         AssociatedData info[] = {
-                                { *src, buf.data - *src }, /* aad */
-                                { nonce, nonce_len },      /* nonce */
+                                { src, buf.data - src }, /* aad */
+                                { nonce, nonce_len },    /* nonce */
                                 { NULL },
                         };
 
