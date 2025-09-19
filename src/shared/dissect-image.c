@@ -3103,6 +3103,10 @@ int dissected_image_decrypt(
         if (!m->encrypted && !m->verity_ready)
                 return 0;
 
+        r = secure_getenv_bool("SYSTEMD_VERITY_SHARING");
+        if (r >= 0)
+                SET_FLAG(flags, DISSECT_IMAGE_VERITY_SHARE, r);
+
 #if HAVE_LIBCRYPTSETUP
         r = decrypted_image_new(&d);
         if (r < 0)
@@ -3121,8 +3125,6 @@ int dissected_image_decrypt(
 
                 k = partition_verity_of(i);
                 if (k >= 0) {
-                        flags |= getenv_bool("SYSTEMD_VERITY_SHARING") != 0 ? DISSECT_IMAGE_VERITY_SHARE : 0;
-
                         r = verity_partition(i, p, m->partitions + k, verity, flags, d);
                         if (r < 0)
                                 return r;
