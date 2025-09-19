@@ -52,10 +52,12 @@ typedef enum OOMPolicy {
 } OOMPolicy;
 
 typedef enum StatusType {
-        STATUS_TYPE_EPHEMERAL,
+        STATUS_TYPE_EPHEMERAL,   /* ordered by severity! Do not break order */
         STATUS_TYPE_NORMAL,
         STATUS_TYPE_NOTICE,
         STATUS_TYPE_EMERGENCY,
+        _STATUS_TYPE_MAX,
+        _STATUS_TYPE_INVALID = -EINVAL,
 } StatusType;
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
