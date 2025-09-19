@@ -759,7 +759,7 @@ int pull_job_begin(PullJob *j) {
         if (curl_easy_setopt(j->curl, CURLOPT_XFERINFODATA, j) != CURLE_OK)
                 return -EIO;
 
-        if (curl_easy_setopt(j->curl, CURLOPT_NOPROGRESS, 0) != CURLE_OK)
+        if (curl_easy_setopt(j->curl, CURLOPT_NOPROGRESS, 0L) != CURLE_OK)
                 return -EIO;
 
         r = curl_glue_add(j->glue, j->curl);
