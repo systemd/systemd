@@ -2888,12 +2888,7 @@ static int create_interactively(void) {
                 fputs(glyph(GLYPH_HOME), stdout);
                 putchar(' ');
         }
-        printf("Please create your user account!\n");
-
-        if (!any_key_to_proceed()) {
-                log_notice("Skipping.");
-                return 0;
-        }
+        printf("Please create your user account!\n\n");
 
         r = prompt_loop("Please enter user name to create",
                         GLYPH_IDCARD,
