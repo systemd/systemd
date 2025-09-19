@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "memory-util.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -136,17 +138,6 @@ void NTS_TLS_close(NTS_TLS *session);
  */
 ssize_t NTS_TLS_write(NTS_TLS *session, const void *buffer, size_t size);
 ssize_t NTS_TLS_read(NTS_TLS *session, void *buffer, size_t size);
-
-#ifndef memzero
-#define memzero(x,l) (memset(x, 0, l))
-#endif
-#ifndef zero
-#define zero(x) (memzero(&(x), sizeof(x)))
-#endif
-
-#ifndef ELEMENTSOF
-#define ELEMENTSOF(array) (sizeof(array) / sizeof(*array))
-#endif
 
 /* Convenience function for creating a TCP connection
  *
