@@ -136,7 +136,7 @@ static usec_t manager_watch_jobs_next_time(Manager *m) {
                 /* Let the user manager without a timeout show status quickly, so the system manager can make
                  * use of it, if it wants to. */
                 timeout = JOBS_IN_PROGRESS_WAIT_USEC * 2 / 3;
-        else if (show_status_on(m->show_status))
+        else if (manager_get_show_status_on(m))
                 /* When status is on, just use the usual timeout. */
                 timeout = JOBS_IN_PROGRESS_WAIT_USEC;
         else
