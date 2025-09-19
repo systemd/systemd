@@ -85,12 +85,12 @@ executables += [
                 'dependencies' : crypto_deps,
         },
         fuzz_template + {
-                'sources' : files('fuzz-nts.c', 'nts_packet.c'),
+                'sources' : files('fuzz-nts.c', 'fuzz-nullcipher.c', 'nts_packet.c'),
                 'link_with' : libshared,
                 'dependencies' : crypto_deps,
         },
         fuzz_template + {
-                'sources' : files('fuzz-nts-extfields.c', 'nts_extfields.c'),
+                'sources' : files('fuzz-nts-extfields.c', 'fuzz-nullcipher.c', 'nts_extfields.c'),
                 'link_with' : libshared,
                 'dependencies' : crypto_deps,
         },
