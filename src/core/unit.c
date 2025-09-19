@@ -35,7 +35,6 @@
 #include "id128-util.h"
 #include "install.h"
 #include "iovec-util.h"
-#include "label-util.h"
 #include "load-dropin.h"
 #include "load-fragment.h"
 #include "log.h"

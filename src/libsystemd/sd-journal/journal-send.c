@@ -16,7 +16,6 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
-#include "log.h"
 #include "memfd-util.h"
 #include "process-util.h"
 #include "socket-util.h"

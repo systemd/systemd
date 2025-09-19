@@ -6,7 +6,6 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
-#include "cgroup-util.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"

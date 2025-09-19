@@ -3,7 +3,6 @@
 #include <linux/netfilter/nf_tables.h>
 #include <locale.h>
 #include <math.h>
-#include <stdlib.h>
 #include <sys/socket.h>
 
 #include "locale-util.h"

@@ -6,12 +6,9 @@
 #include "sd-daemon.h"
 
 #include "build.h"
-#include "chase.h"
 #include "conf-files.h"
 #include "constants.h"
-#include "dirent-util.h"
 #include "dissect-image.h"
-#include "fd-util.h"
 #include "format-table.h"
 #include "glyph-util.h"
 #include "hexdecoct.h"

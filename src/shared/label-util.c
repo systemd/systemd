@@ -5,7 +5,6 @@
 
 #include "btrfs-util.h"
 #include "errno-util.h"
-#include "fs-util.h"
 #include "label-util.h"
 #include "selinux-util.h"
 #include "smack-util.h"
