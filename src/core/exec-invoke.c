@@ -903,9 +903,10 @@ static int get_supplementary_groups(
          */
         bool keep_groups = false;
         if (user && gid_is_valid(gid) && gid != 0) {
-                /* First step, initialize groups from /etc/groups */
-                if (initgroups(user, gid) < 0)
-                        return -errno;
+                if (gid != getgid())
+                        /* First step, initialize groups from /etc/groups */
+                        if (initgroups(user, gid) < 0)
+                                return -errno;
 
                 keep_groups = true;
         }
