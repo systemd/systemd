@@ -9,7 +9,6 @@
 #include "in-addr-prefix-util.h"
 #include "load-fragment.h"
 #include "manager.h"
-#include "memory-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "service.h"
