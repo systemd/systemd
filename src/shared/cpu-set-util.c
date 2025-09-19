@@ -8,7 +8,6 @@
 #include "bitfield.h"
 #include "cpu-set-util.h"
 #include "extract-word.h"
-#include "hexdecoct.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-util.h"

@@ -4,7 +4,6 @@
 
 #include "constants.h"
 #include "errno-util.h"
-#include "json-util.h"
 #include "manager.h"
 #include "path-util.h"
 #include "pidref.h"

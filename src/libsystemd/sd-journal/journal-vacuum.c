@@ -16,7 +16,6 @@
 #include "journal-vacuum.h"
 #include "log.h"
 #include "log-ratelimit.h"
-#include "ratelimit.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "time-util.h"
