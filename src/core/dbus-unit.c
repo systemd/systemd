@@ -1295,6 +1295,42 @@ static int property_get_cgroup_id(
         return sd_bus_message_append(reply, "t", crt ? crt->cgroup_id : UINT64_C(0));
 }
 
+static int property_get_oom_kills(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        return sd_bus_message_append(reply, "t", crt ? crt->oom_kill_last : UINT64_MAX);
+}
+
+static int property_get_managed_oom_kills(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        return sd_bus_message_append(reply, "t", crt ? crt->managed_oom_kill_last : UINT64_MAX);
+}
+
 static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set *pids) {
         _cleanup_free_ char *buf = NULL, *cmdline = NULL;
         int r;
@@ -1715,6 +1751,8 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IOReadOperations", "t", property_get_io_counter, 0, 0),
         SD_BUS_PROPERTY("IOWriteBytes", "t", property_get_io_counter, 0, 0),
         SD_BUS_PROPERTY("IOWriteOperations", "t", property_get_io_counter, 0, 0),
+        SD_BUS_PROPERTY("OOMKills", "t", property_get_oom_kills, 0, 0),
+        SD_BUS_PROPERTY("ManagedOOMKills", "t", property_get_managed_oom_kills, 0, 0),
 
         SD_BUS_METHOD_WITH_ARGS("GetProcesses",
                                 SD_BUS_NO_ARGS,
