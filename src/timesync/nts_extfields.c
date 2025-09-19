@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/types.h>
-#include <sys/random.h>
 #include <arpa/inet.h>
 #include <assert.h>
-#include <stdlib.h>
+#include <endian.h>
+#include <sys/random.h>
+#include <sys/types.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
-#include <endian.h>
 
-#include "nts_extfields.h"
 #include "nts_crypto.h"
+#include "nts_extfields.h"
 
 #ifndef ENCRYPTED_PLACEHOLDERS
 #define ENCRYPTED_PLACEHOLDERS 0

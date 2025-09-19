@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <string.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/socket.h>
 #include <assert.h>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <string.h>
+#include <unistd.h>
 
 #ifdef USE_GNUTLS
 #include <gnutls/gnutls.h>
