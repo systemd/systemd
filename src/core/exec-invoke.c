@@ -20,7 +20,6 @@
 
 #include "sd-messages.h"
 
-#include "apparmor-util.h"
 #include "argv-util.h"
 #include "ask-password-api.h"
 #include "barrier.h"
@@ -62,7 +61,6 @@
 #include "open-file.h"
 #include "osc-context.h"
 #include "path-util.h"
-#include "percent-util.h"
 #include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"

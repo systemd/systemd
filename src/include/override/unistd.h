@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include_next <unistd.h>
+#include_next <unistd.h>        /* IWYU pragma: export */
 
 /* Defined since glibc-2.34.
  * Supported since kernel v5.9 (9b4feb630e8e9801603f3cab3a36369e3c1cf88d). */
