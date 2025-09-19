@@ -520,7 +520,7 @@ static int maybe_decrypt_and_write_credential(
                 }
                 if (r < 0) {
                         if (graceful) {
-                                log_warning_errno(r, "Unable to decrypt credential '%s', skipping.", id);
+                                log_warning_errno(r, "Unable to decrypt credential '%s', skipping: %m", id);
                                 return 0;
                         }
 
