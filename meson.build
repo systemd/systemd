@@ -1147,6 +1147,7 @@ libseccomp = dependency('libseccomp',
                         version : '>= 2.3.1',
                         required : get_option('seccomp'))
 conf.set10('HAVE_SECCOMP', libseccomp.found())
+libseccomp_cflags = libseccomp.partial_dependency(includes: true, compile_args: true)
 
 libselinux = dependency('libselinux',
                         version : '>= 2.1.9',
