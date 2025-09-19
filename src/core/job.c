@@ -772,8 +772,8 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                 /* No message on the console if the job did not actually do anything due to unmet condition. */
                 if (console_only)
                         return;
-                else
-                        do_console = false;
+
+                do_console = false;
         }
 
         if (!console_only) {  /* Skip printing if output goes to the console, and job_print_status_message()
