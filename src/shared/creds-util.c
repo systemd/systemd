@@ -1201,6 +1201,19 @@ int decrypt_credential_and_warn(
         assert(iovec_is_valid(input));
         assert(ret);
 
+        /* Relevant error codes:
+         *
+         *   -EBADMSG      → Corrupted file
+         *   -EOPNOTSUPP   → Unsupported file type (could be: requires TPM but we have no TPM)
+         *   -EHOSTDOWN    → Need PCR signature file, but couldn't find it
+         *   -EHWPOISON    → Attempt to decode NULL key (and CREDENTIAL_ALLOW_NULL is off), but the system has a TPM and SecureBoot is on
+         *   -EMEDIUMTYPE  → File has unexpected scope, i.e. user-scoped credential is attempted to be unlocked in system scope, or vice versa
+         *   -EDESTADDRREQ → Credential is incorrectly named (i.e. the authenticated name does not match the actual name)
+         *   -ESTALE       → Credential's valdity has passed
+         *   -ESRCH        → User specified for scope does not exist on this system
+         *
+         *   (plus the various error codes tpm2_unseal() returns) */
+
         h = (struct encrypted_credential_header*) input->iov_base;
 
         /* The ID must fit in, for the current and all future formats */
@@ -1218,8 +1231,10 @@ int decrypt_credential_and_warn(
 
         if (with_tpm2_pk) {
                 r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);
+                if (r == -ENOENT)
+                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Couldn't find PCR signature file: %m");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load pcr signature: %m");
+                        return log_error_errno(r, "Failed to load PCR signature: %m");
         }
 
         if (with_null && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL)) {
@@ -1234,7 +1249,7 @@ int decrypt_credential_and_warn(
 
                 if (efi_has_tpm2()) {
                         if (is_efi_secure_boot())
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
                                                        "Credential uses fixed key for fallback use when TPM2 is absent — but TPM2 is present, and SecureBoot is enabled, refusing.");
 
                         log_warning("Credential uses fixed key for use when TPM2 is absent, but TPM2 is present! Accepting anyway, since SecureBoot is disabled.");
@@ -1354,7 +1369,7 @@ int decrypt_credential_and_warn(
                                 /* srk= */ NULL,
                                 &tpm2_key);
                 if (r == -EREMOTE)
-                        return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
+                        return log_error_errno(r, "TPM key integrity check failed. Key most likely does not belong to this TPM.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
                         return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
                 if (r < 0)
@@ -1486,7 +1501,7 @@ int decrypt_credential_and_warn(
                         if (r < 0 && r != -ENXIO)
                                 log_debug_errno(r, "Failed to parse $SYSTEMD_CREDENTIAL_VALIDATE_NAME: %m");
                         if (r != 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Embedded credential name '%s' does not match filename '%s', refusing.", embedded_name, validate_name);
+                                return log_error_errno(SYNTHETIC_ERRNO(EDESTADDRREQ), "Embedded credential name '%s' does not match filename '%s', refusing.", embedded_name, validate_name);
 
                         log_debug("Embedded credential name '%s' does not match expected name '%s', but configured to use credential anyway.", embedded_name, validate_name);
                 }
@@ -1637,16 +1652,26 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
         if (r < 0)
                 return log_error_errno(r, "Failed to call Decrypt() varlink call.");
         if (!isempty(error_id))  {
-                if (streq(error_id, "io.systemd.Credentials.BadFormat"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Bad credential format.");
-                if (streq(error_id, "io.systemd.Credentials.NameMismatch"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Name in credential doesn't match expectations.");
-                if (streq(error_id, "io.systemd.Credentials.TimeMismatch"))
-                        return log_error_errno(SYNTHETIC_ERRNO(ESTALE), "Outside of credential validity time window.");
-                if (streq(error_id, "io.systemd.Credentials.NoSuchUser"))
-                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "No such user.");
-                if (streq(error_id, "io.systemd.Credentials.BadScope"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Scope mismtach.");
+                static struct {
+                        const char *id;
+                        int errnum;
+                        const char *msg;
+                } table[] = {
+                        { "io.systemd.Credentials.BadFormat",              EBADMSG,      "Bad credential format." },
+                        { "io.systemd.Credentials.NameMismatch",           EDESTADDRREQ, "Name in credential doesn't match expectations." },
+                        { "io.systemd.Credentials.TimeMismatch",           ESTALE,       "Outside of credential validity time window." },
+                        { "io.systemd.Credentials.NoSuchUser",             ESRCH,        "No such user." },
+                        { "io.systemd.Credentials.BadScope",               EMEDIUMTYPE,  "Scope mismatch." },
+                        { "io.systemd.Credentials.CantFindPCRSignature",   EHOSTDOWN,    "PCR signature required for decryption, but could not be found." },
+                        { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's now allowed during decryption." },
+                        { "io.systemd.Credentials.KeyBelongsToOtherTPM",   EREMOTE,      "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted." },
+                        { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
+                        { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },
+                };
+
+                FOREACH_ELEMENT(i, table)
+                        if (streq(i->id, error_id))
+                                return log_error_errno(SYNTHETIC_ERRNO(i->errnum), "%s", i->msg);
 
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to decrypt: %s", error_id);
         }

@@ -44,6 +44,11 @@ static SD_VARLINK_DEFINE_ERROR(NameMismatch);
 static SD_VARLINK_DEFINE_ERROR(TimeMismatch);
 static SD_VARLINK_DEFINE_ERROR(NoSuchUser);
 static SD_VARLINK_DEFINE_ERROR(BadScope);
+static SD_VARLINK_DEFINE_ERROR(CantFindPCRSignature);
+static SD_VARLINK_DEFINE_ERROR(NullKeyNotAllowed);
+static SD_VARLINK_DEFINE_ERROR(KeyBelongsToOtherTPM);
+static SD_VARLINK_DEFINE_ERROR(TPMInDictionaryLockout);
+static SD_VARLINK_DEFINE_ERROR(UnexpectedPCRState);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Credentials,
@@ -62,4 +67,14 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("The specified user does not exist."),
                 &vl_error_NoSuchUser,
                 SD_VARLINK_SYMBOL_COMMENT("The credential does not match the selected scope."),
-                &vl_error_BadScope);
+                &vl_error_BadScope,
+                SD_VARLINK_SYMBOL_COMMENT("PCR signature required for decryption, but not found."),
+                &vl_error_CantFindPCRSignature,
+                SD_VARLINK_SYMBOL_COMMENT("The key was encrypted with a null key, but that's now allowed during decryption."),
+                &vl_error_NullKeyNotAllowed,
+                SD_VARLINK_SYMBOL_COMMENT("The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted."),
+                &vl_error_KeyBelongsToOtherTPM,
+                SD_VARLINK_SYMBOL_COMMENT("The TPM is in dictionary lockout mode, cannot operate."),
+                &vl_error_TPMInDictionaryLockout,
+                SD_VARLINK_SYMBOL_COMMENT("Unexpected TPM PCR state of the system."),
+                &vl_error_UnexpectedPCRState);
