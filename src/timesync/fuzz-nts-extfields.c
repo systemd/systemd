@@ -37,7 +37,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         /* fuzz the NTS extension field parser */
         struct NTS_Receipt rcpt = {};
-        if (NTS_parse_extension_fields(&buffer, len, &nts, &rcpt)) {
+        if (NTS_parse_extension_fields(buffer, len, &nts, &rcpt)) {
                 FOREACH_ELEMENT(cookie, rcpt.new_cookie)
                         eat(cookie->data, cookie->length);
 
