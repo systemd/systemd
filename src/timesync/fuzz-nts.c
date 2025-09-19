@@ -12,23 +12,28 @@
 #include "nts_crypto.h"
 #include "nts_extfields.h"
 
-static void eat(volatile const uint8_t* buf, size_t size) {
-        if (buf) while (size) (void)buf[size--];
+static void eat(const uint8_t *buf, size_t size) {
+        if (!buf)
+                return;
+
+        while (size--)
+                DO_NOT_OPTIMIZE(buf[size]);
 }
 
 /* this program does no sanity checking as it is meant for fuzzing only */
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         uint8_t buffer[1280];
-        int len = size > sizeof(buffer)? sizeof(buffer) : size;
+        int len = MIN(size, sizeof(buffer));
 
         memcpy(buffer, data, len);
-        if (len < 48) return 0;
+        if (len < 48)
+                return 0;
 
         /* fuzz the nts ke routines */
         struct NTS_Agreement rec;
         if (NTS_decode_response(buffer, len, &rec) == 0) {
-                for (int i = 0; i < 8; i++)
-                        eat(rec.cookie[i].data, rec.cookie[i].length);
+                FOREACH_ELEMENT(cookie, rec.cookie)
+                        eat(cookie->data, cookie->length);
         }
 
         return 0;
@@ -61,7 +66,8 @@ int NTS_decrypt(uint8_t *ptxt,
         (void) info;
         (void) nts;
         (void) key;
-        if (ctxt_len < BLKSIZ) return -1;
+        if (ctxt_len < BLKSIZ)
+                return -1;
 
         memmove(ptxt, ctxt+16, ctxt_len - BLKSIZ);
         return ctxt_len - BLKSIZ;
