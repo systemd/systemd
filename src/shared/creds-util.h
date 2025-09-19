@@ -102,3 +102,9 @@ typedef struct PickUpCredential {
 } PickUpCredential;
 
 int pick_up_credentials(const PickUpCredential *table, size_t n_table_entry);
+
+extern const struct CredentialsVarlinkError {
+        const char *id;
+        int errnum;
+        const char *msg;
+} credentials_varlink_error_table[];
