@@ -34,6 +34,8 @@
 
 bool isatty_safe(int fd);
 
+int terminal_reset_ansi_seq(int fd);
+
 typedef enum TerminalResetFlags {
         TERMINAL_RESET_SWITCH_TO_TEXT = 1 << 0,
         TERMINAL_RESET_AVOID_ANSI_SEQ = 1 << 1,
