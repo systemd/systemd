@@ -494,7 +494,7 @@ static bool menu_run(
         ST->ConOut->EnableCursor(ST->ConOut, false);
 
         /* draw a single character to make ClearScreen work on some firmware */
-        ST->ConOut->OutputString(ST->ConOut, (char16_t *) u" ");
+        printf("\r \r");
 
         err = console_set_mode(config->console_mode_efivar != CONSOLE_MODE_KEEP ?
                                config->console_mode_efivar : config->console_mode);
