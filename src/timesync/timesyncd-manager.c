@@ -1452,6 +1452,8 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
 #if ENABLE_TIMESYNC_NTS
 
 static int manager_nts_obtain_agreement(Manager *m) {
+        assert(m);
+
         unsigned tls_patience_msec = m->nts_keyexchange_timeout_usec / USEC_PER_MSEC;
 
         int r;
