@@ -9,11 +9,13 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "mkdir.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "user-util.h"
 
@@ -202,12 +204,31 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
         return mkdir_p_internal(prefix, path, mode, uid, gid, flags, mkdirat_errno_wrapper);
 }
 
-int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, char **subvolumes) {
+static int make_subvolumes_strv(Hashmap *subvolumes, char ***ret) {
+        _cleanup_strv_free_ char **subvolumes_strv = NULL;
+        char *path;
+
+        assert(ret);
+
+        HASHMAP_FOREACH_KEY_ONLY(path, subvolumes)
+                if (strv_extend(&subvolumes_strv, path) < 0)
+                        return log_oom();
+
+        *ret = TAKE_PTR(subvolumes_strv);
+        return 0;
+}
+
+int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, Hashmap *subvolumes) {
+        _cleanup_strv_free_ char **subvolumes_strv = NULL;
         _cleanup_free_ char *pp = NULL, *bn = NULL;
         _cleanup_close_ int dfd = -EBADF;
         int r;
 
         assert(p);
+
+        r = make_subvolumes_strv(subvolumes, &subvolumes_strv);
+        if (r < 0)
+                return r;
 
         r = path_extract_directory(p, &pp);
         if (r == -EDESTADDRREQ) {
@@ -237,7 +258,7 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
         if (r < 0)
                 return r;
 
-        if (path_strv_contains(subvolumes, p))
+        if (path_strv_contains(subvolumes_strv, p))
                 r = btrfs_subvol_make_fallback(dfd, bn, m);
         else
                 r = RET_NERRNO(mkdirat(dfd, bn, m));
@@ -245,6 +266,12 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
                 return 0;
         if (r < 0)
                 return r;
+
+        if (path_strv_contains(subvolumes_strv, p)) {
+                r = btrfs_subvol_set_nodatacow_at(dfd, bn, !!(PTR_TO_UINT(hashmap_get(subvolumes, p)) & BTRFS_SUBVOL_NODATACOW));
+                if (r < 0)
+                        return r;
+        }
 
         if (ts == USEC_INFINITY && !uid_is_valid(uid) && !gid_is_valid(gid))
                 return 1;
