@@ -16,14 +16,14 @@ typedef enum PolkitFlags {
 
 int bus_test_polkit(sd_bus_message *call, const char *action, const char **details, uid_t good_user, bool *ret_challenge, sd_bus_error *reterr_error);
 
-int bus_verify_polkit_async_full(sd_bus_message *call, const char *action, const char **details, uid_t good_user, PolkitFlags flags, Hashmap **registry, sd_bus_error *reterr_error);
+int bus_verify_polkit_async_full(sd_bus_message *call, const char *action, const char **details, uid_t good_user, PolkitFlags flags, Hashmap **registry, bool *ret_admin, sd_bus_error *reterr_error);
 static inline int bus_verify_polkit_async(sd_bus_message *call, const char *action, const char **details, Hashmap **registry, sd_bus_error *reterr_error) {
-        return bus_verify_polkit_async_full(call, action, details, UID_INVALID, 0, registry, reterr_error);
+        return bus_verify_polkit_async_full(call, action, details, UID_INVALID, 0, registry, /* ret_admin= */ NULL, reterr_error);
 }
 
-int varlink_verify_polkit_async_full(sd_varlink *link, sd_bus *bus, const char *action, const char **details, uid_t good_user, PolkitFlags flags, Hashmap **registry);
+int varlink_verify_polkit_async_full(sd_varlink *link, sd_bus *bus, const char *action, const char **details, uid_t good_user, PolkitFlags flags, Hashmap **registry, bool *ret_admin);
 static inline int varlink_verify_polkit_async(sd_varlink *link, sd_bus *bus, const char *action, const char **details, Hashmap **registry) {
-        return varlink_verify_polkit_async_full(link, bus, action, details, UID_INVALID, 0, registry);
+        return varlink_verify_polkit_async_full(link, bus, action, details, UID_INVALID, 0, registry, /* ret_admin= */ NULL);
 }
 
 /* A sd_json_dispatch_field initializer that makes sure the allowInteractiveAuthentication boolean field we want for
@@ -43,4 +43,4 @@ extern const sd_json_dispatch_field dispatch_table_polkit_only[];
         SD_VARLINK_FIELD_COMMENT("Controls whether interactive authentication (via polkit) shall be allowed. If unspecified defaults to false."), \
         SD_VARLINK_DEFINE_INPUT(allowInteractiveAuthentication, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE)
 
-bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char **details, Hashmap **registry);
+bool varlink_has_polkit_action(sd_varlink *link, const char *action, const char **details, Hashmap **registry, bool *ret_admin);

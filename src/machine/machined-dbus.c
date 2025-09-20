@@ -236,6 +236,7 @@ static int method_create_or_register_machine(
 
         _cleanup_(pidref_done) PidRef leader_pidref = PIDREF_NULL, supervisor_pidref = PIDREF_NULL;
         const char *name, *service, *class, *root_directory;
+        bool leader_is_admin = false;
         const int32_t *netif = NULL;
         MachineClass c;
         uint32_t leader;
@@ -312,6 +313,26 @@ static int method_create_or_register_machine(
         if (hashmap_get(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
+        const char *details[] = {
+                "name",  name,
+                "class", machine_class_to_string(c),
+                NULL
+        };
+
+        r = bus_verify_polkit_async_full(
+                        message,
+                        polkit_action,
+                        details,
+                        /* good_user = */ UID_INVALID,
+                        /* flags= */ 0,
+                        &manager->polkit_registry,
+                        &leader_is_admin,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 0; /* Will call us back */
+
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
@@ -323,30 +344,13 @@ static int method_create_or_register_machine(
                 return r;
 
         /* Ensure an unprivileged user cannot claim any process they don't control as their own machine */
-        if (uid != 0) {
+        if (uid != 0 && !leader_is_admin) {
                 r = process_is_owned_by_uid(&leader_pidref, uid);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Only root may register machines for other users");
         }
-
-        const char *details[] = {
-                "name",  name,
-                "class", machine_class_to_string(c),
-                NULL
-        };
-
-        r = bus_verify_polkit_async(
-                        message,
-                        polkit_action,
-                        details,
-                        &manager->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 0; /* Will call us back */
 
         r = manager_add_machine(manager, name, &m);
         if (r < 0)
