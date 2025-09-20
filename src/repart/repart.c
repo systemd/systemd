@@ -2679,8 +2679,8 @@ static bool partition_needs_populate(const Partition *p) {
 static MakeFileSystemFlags partition_mkfs_flags(const Partition *p) {
         MakeFileSystemFlags flags = 0;
 
-        if (arg_discard)
-                flags |= MKFS_DISCARD;
+        /* NB: we don't ask mkfs to discard, because that is potentially quite slow, and we are doing it
+         * ourselves anyway */
 
         if (streq(p->format, "erofs") && !DEBUG_LOGGING)
                 flags |= MKFS_QUIET;
