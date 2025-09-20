@@ -3,9 +3,11 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "sd-device.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "boot-entry.h"
 #include "bootctl.h"
 #include "bootctl-install.h"
@@ -1244,8 +1246,55 @@ static int remove_from_order(uint16_t slot) {
         return 0;
 }
 
-static const char *pick_efi_boot_option_description(void) {
-        return arg_efi_boot_option_description ?: "Linux Boot Manager";
+static int pick_efi_boot_option_description(int esp_fd, char **ret) {
+        int r;
+
+        assert(esp_fd >= 0);
+        assert(ret);
+
+        /* early declarations, so that they are definitely initialized even if we follow any of the gotos */
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_free_ char *j = NULL;
+
+        const char *b = arg_efi_boot_option_description ?: "Linux Boot Manager";
+        if (!arg_efi_boot_option_description_with_device)
+                goto fallback;
+
+        r = block_device_new_from_fd(
+                        esp_fd,
+                        BLOCK_DEVICE_LOOKUP_WHOLE_DISK|BLOCK_DEVICE_LOOKUP_BACKING,
+                        &d);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to find backing device of ESP: %m");
+                goto fallback;
+        }
+
+        const char *serial;
+        r = sd_device_get_property_value(d, "ID_SERIAL", &serial);
+        if (r < 0) {
+                log_debug_errno(r, "Unable to read ID_SERIAL field of backing device of ESP: %m");
+                goto fallback;
+        }
+
+        j = strjoin(b, " (", serial, ")");
+        if (!j)
+                return log_oom();
+
+        if (strlen(j) > EFI_BOOT_OPTION_DESCRIPTION_MAX) {
+                log_debug("Boot option string suffixed with device serial would be too long, skipping: %s", j);
+                goto fallback;
+        }
+
+        *ret = TAKE_PTR(j);
+        return 0;
+
+fallback:
+        char *copy = strdup(b);
+        if (!copy)
+                return log_oom();
+
+        *ret = TAKE_PTR(copy);
+        return 0;
 }
 
 static int install_variables(
@@ -1287,9 +1336,15 @@ static int install_variables(
         bool existing = r > 0;
 
         if (c->operation == INSTALL_NEW || !existing) {
+                _cleanup_free_ char *description = NULL;
+
+                r = pick_efi_boot_option_description(esp_fd, &description);
+                if (r < 0)
+                        return r;
+
                 r = efi_add_boot_option(
                                 slot,
-                                pick_efi_boot_option_description(),
+                                description,
                                 part,
                                 pstart,
                                 psize,
@@ -1306,7 +1361,7 @@ static int install_variables(
 
                 log_info("%s EFI boot entry \"%s\".",
                          existing ? "Updated" : "Created",
-                         pick_efi_boot_option_description());
+                         description);
         }
 
         return insert_into_order(c, slot);
