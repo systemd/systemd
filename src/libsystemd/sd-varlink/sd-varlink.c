@@ -1073,10 +1073,12 @@ static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
                 return 0;
         }
         if (sd_json_variant_is_null(*v)) {
-                sd_json_variant_unref(*v);
-                r = sd_json_variant_new_object(v, NULL, 0);
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
+                r = sd_json_variant_new_object(&empty, NULL, 0);
                 if (r < 0)
                         return r;
+                sd_json_variant_unref(*v);
+                *v = TAKE_PTR(empty);
                 return 0;
         }
 
@@ -1092,6 +1094,12 @@ static int varlink_sanitize_outgoing_parameters(sd_json_variant **v) {
 
         /* Convert JSON null to NULL pointer for outgoing messages */
         if (*v && sd_json_variant_is_null(*v)) {
+                sd_json_variant_unref(*v);
+                *v = NULL;
+        }
+
+        /* Convert empty object to NULL to omit the field entirely (optimization) */
+        if (*v && sd_json_variant_is_blank_object(*v)) {
                 sd_json_variant_unref(*v);
                 *v = NULL;
         }
