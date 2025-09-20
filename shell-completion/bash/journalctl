@@ -96,9 +96,9 @@ _journalctl() {
                 ;;
             --unit|-u)
                 if __contains_word "--user" ${COMP_WORDS[*]}; then
-                    comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
+                    comps=$(journalctl -F '_SYSTEMD_USER_UNIT' --completion-names 2>/dev/null)
                 else
-                    comps=$(journalctl -F '_SYSTEMD_UNIT' 2>/dev/null)
+                    comps=$(journalctl -F '_SYSTEMD_UNIT' --completion-names 2>/dev/null)
                 fi
                 # Similarly to systemctl, we need to distinguish between
                 # escaped and unescaped names in order to be able to correctly
@@ -113,7 +113,7 @@ _journalctl() {
                 compopt -o filenames
                 ;;
             --user-unit)
-                comps=$(journalctl -F '_SYSTEMD_USER_UNIT' 2>/dev/null)
+                comps=$(journalctl -F '_SYSTEMD_USER_UNIT' --completion-names 2>/dev/null)
                 if ! [[ $cur =~ '\\' ]]; then
                     cur="$(printf '%q' $cur)"
                 fi
