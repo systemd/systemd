@@ -86,6 +86,7 @@ shared_sources = files(
         'group-record.c',
         'hibernate-util.c',
         'hostname-setup.c',
+        'hwclock-util.c',
         'hwdb-util.c',
         'id128-print.c',
         'idn-util.c',
