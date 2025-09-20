@@ -2296,7 +2296,7 @@ pam_template = {
         ],
         'dependencies' : [
                 # Note: our PAM modules also call dlopen_libpam() and use
-                # symbols aquired through that, hence the explicit dep here is
+                # symbols acquired through that, hence the explicit dep here is
                 # strictly speaking unnecessary. We put it in place anyway,
                 # since for the PAM modules we cannot avoid libpam anyway,
                 # after all they are loaded *by* libpam, and hence there's no
