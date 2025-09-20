@@ -1766,7 +1766,6 @@ static int vl_method_list_transfers(sd_varlink *link, sd_json_variant *parameter
         int r;
 
         assert(link);
-        assert(parameters);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)

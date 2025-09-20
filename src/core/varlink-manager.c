@@ -166,8 +166,6 @@ int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd
         Manager *manager = ASSERT_PTR(userdata);
         int r;
 
-        assert(parameters);
-
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
