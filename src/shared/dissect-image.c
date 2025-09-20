@@ -81,11 +81,9 @@ static int allowed_fstypes(char ***ret_strv) {
         assert(ret_strv);
 
         e = secure_getenv("SYSTEMD_DISSECT_FILE_SYSTEMS");
-        if (e) {
+        if (e)
                 l = strv_split(e, ":");
-                if (!l)
-                        return -ENOMEM;
-        } else {
+        else
                 l = strv_new("btrfs",
                              "erofs",
                              "ext4",
@@ -93,12 +91,10 @@ static int allowed_fstypes(char ***ret_strv) {
                              "squashfs",
                              "vfat",
                              "xfs");
-                if (!l)
-                        return -ENOMEM;
-        }
+        if (!l)
+                return -ENOMEM;
 
         *ret_strv = TAKE_PTR(l);
-
         return 0;
 }
 
