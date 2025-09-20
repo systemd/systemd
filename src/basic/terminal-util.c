@@ -955,7 +955,7 @@ finish:
         return r;
 }
 
-static int terminal_reset_ansi_seq(int fd) {
+int terminal_reset_ansi_seq(int fd) {
         int r, k;
 
         assert(fd >= 0);
