@@ -152,6 +152,7 @@ static inline void unload_imagep(EFI_HANDLE *image) {
 #define GUID_FORMAT_VAL(g) (g).Data1, (g).Data2, (g).Data3, (g).Data4[0], (g).Data4[1], \
         (g).Data4[2], (g).Data4[3], (g).Data4[4], (g).Data4[5], (g).Data4[6], (g).Data4[7]
 
+void set_attribute_safe(size_t attr);
 void print_at(size_t x, size_t y, size_t attr, const char16_t *str);
 void clear_screen(size_t attr);
 
