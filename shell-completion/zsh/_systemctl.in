@@ -35,6 +35,8 @@
         "reset-failed:Reset failed state for all, one, or more units"
         "list-dependencies:Show unit dependency tree"
         "clean:Remove configuration, state, cache, logs or runtime data of units"
+        "freeze:Freeze one or more units specified on the command line using cgroup freezer"
+        "thaw:Thaw (unfreeze) one or more units specified on the command line."
         "bind:Bind mount a path from the host into a unit's namespace"
         "mount-image:Mount an image from the host into a unit's namespace"
         "whoami:Determines as part of which unit the command is being invoked"
@@ -315,7 +317,7 @@ done
 }
 
 # Completion functions for STOPPABLE_UNITS
-for fun in stop kill try-restart condrestart ; do
+for fun in stop condstop kill try-restart condrestart freeze thaw; do
     (( $+functions[_systemctl_$fun] )) || _systemctl_$fun()
     {
         local _sys_active_units; _systemctl_active_units
