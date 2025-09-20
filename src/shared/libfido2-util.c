@@ -16,6 +16,11 @@
 #include "strv.h"
 #include "unistd.h"
 
+/* Added in version 1.5.0 */
+#ifndef FIDO_ERR_UV_BLOCKED
+#define FIDO_ERR_UV_BLOCKED 0x3c
+#endif
+
 static void *libfido2_dl = NULL;
 
 DLSYM_PROTOTYPE(fido_assert_allow_cred) = NULL;
