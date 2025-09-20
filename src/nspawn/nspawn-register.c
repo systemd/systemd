@@ -131,6 +131,126 @@ static int can_set_coredump_receive(sd_bus *bus) {
         return r >= 0;
 }
 
+static int create_or_register_machine_ex(
+                sd_bus *bus,
+                const char *machine_name,
+                const PidRef *pid,
+                const char *directory,
+                sd_id128_t uuid,
+                int local_ifindex,
+                const char *slice,
+                CustomMount *mounts,
+                unsigned n_mounts,
+                int kill_signal,
+                char **properties,
+                sd_bus_message *properties_message,
+                const char *service,
+                StartMode start_mode,
+                sd_bus_error *error,
+                bool keep_unit) {
+
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r;
+
+        assert(error);
+
+        r = bus_message_new_method_call(bus, &m,  bus_machine_mgr, keep_unit ? "RegisterMachineEx" : "CreateMachineEx");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(m, "s", machine_name);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "(sv)(sv)(sv)",
+                        "Id", "ay", SD_BUS_MESSAGE_APPEND_ID128(uuid),
+                        "Service", "s", service,
+                        "Class", "s", "container");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (pidref_is_set(pid)) {
+                if (pid->fd >= 0) {
+                        r = sd_bus_message_append(m, "(sv)", "LeaderPIDFD", "h", pid->fd);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                if (pid->fd_id > 0) {
+                        r = sd_bus_message_append(m, "(sv)", "LeaderPIDFDID", "t", pid->fd_id);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "(sv)", "LeaderPID", "u", pid->pid);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+        }
+
+        if (!isempty(directory)) {
+                r = sd_bus_message_append(m, "(sv)", "RootDirectory", "s", directory);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (local_ifindex > 0) {
+                r = sd_bus_message_append(m, "(sv)", "NetworkInterfaces", "ai", 1, local_ifindex);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        if (!keep_unit) {
+                r = sd_bus_message_open_container(m, 'a', "(sv)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                if (!isempty(slice)) {
+                        r = sd_bus_message_append(m, "(sv)", "Slice", "s", slice);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = append_controller_property(bus, m);
+                if (r < 0)
+                        return r;
+
+                r = append_machine_properties(
+                                m,
+                                mounts,
+                                n_mounts,
+                                kill_signal,
+                                start_mode == START_BOOT && can_set_coredump_receive(bus) > 0);
+                if (r < 0)
+                        return r;
+
+                if (properties_message) {
+                        r = sd_bus_message_copy(m, properties_message, true);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
+
+                r = bus_append_unit_property_assignment_many(m, UNIT_SERVICE, properties);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        return sd_bus_call(bus, m, 0, error, NULL);
+}
+
 int register_machine(
                 sd_bus *bus,
                 const char *machine_name,
@@ -153,6 +273,27 @@ int register_machine(
 
         assert(bus);
 
+        r = create_or_register_machine_ex(
+                        bus,
+                        machine_name,
+                        pid,
+                        directory,
+                        uuid,
+                        local_ifindex,
+                        slice,
+                        mounts,
+                        n_mounts,
+                        kill_signal,
+                        properties,
+                        properties_message,
+                        service,
+                        start_mode,
+                        &error,
+                        FLAGS_SET(flags, REGISTER_MACHINE_KEEP_UNIT));
+        if (r >= 0)
+                return 0;
+        if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
+                return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
         if (FLAGS_SET(flags, REGISTER_MACHINE_KEEP_UNIT)) {
                 r = bus_call_method(
                                 bus,
