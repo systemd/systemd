@@ -617,6 +617,13 @@ CHANGES WITH 258:
           convert the JSON variant type identifier into a string representation
           and back.
 
+        * Canonical encoding of empty parameters: sd-varlink now omits the
+          "parameters" member in replies, errors and notifications when there
+          are no parameters to transmit. Receivers remain tolerant and accept
+          all three encodings for the absence of parameters: omitted key
+          (preferred), JSON null, or an empty object {}. When decoding, JSON
+          null is treated equivalently to omission.
+
         * A pair of API calls sd_varlink_get_input_fd() and
           sd_varlink_get_output_fd() have been added that allow querying the
           connection file descriptors individually for each direction, in case
