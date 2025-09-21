@@ -35,7 +35,7 @@ cat << 'EOF' > /run/systemd/system/mqueue-ownership.service
 Description=Dummy service for the socket unit
 Requires=%N.socket
 [Service]
-ExecStart=/usr/bin/true
+ExecStart=true
 Type=oneshot
 EOF
 

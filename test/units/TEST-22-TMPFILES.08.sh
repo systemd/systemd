@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # Verify tmpfiles can run in a root directory under a path prefix that contains

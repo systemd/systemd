@@ -3,7 +3,7 @@
 set -eux
 set -o pipefail
 
-# Check that the /sbin/mount.ddi helper works
+# Check that the /usr/sbin/mount.ddi helper works
 dir="/tmp/mounthelper.$RANDOM"
 mount -t ddi "$MINIMAL_IMAGE.gpt" "$dir" -o ro,X-mount.mkdir,discard
 umount -R "$dir"
