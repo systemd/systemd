@@ -13,4 +13,4 @@ Environment=SERVICE=fail_stop extend_timeout_interval=5 sleep_interval=7 start_i
 ExecStart=/usr/lib/systemd/tests/testdata/TEST-16-EXTEND-TIMEOUT.units/extend-timeout.sh
 # Due to 6041a7ee2c1bbff6301082f192fc1b0882400d42 SIGTERM isn't sent as the service shuts down with STOPPING=1
 # This file makes the test assess.sh quicker by notifying it that this test has finished.
-ExecStopPost=/bin/bash -c '[[ $SERVICE_RESULT == timeout && $EXIT_CODE == killed ]] && touch /fail_runtime.terminated'
+ExecStopPost=bash -c '[[ $SERVICE_RESULT == timeout && $EXIT_CODE == killed ]] && touch /fail_runtime.terminated'

@@ -36,7 +36,7 @@ busctl -C foobar
 
 systemctl -C foobar
 
-systemd-run -C foobar -u sleepinfinity /bin/sleep infinity
+systemd-run -C foobar -u sleepinfinity sleep infinity
 
 systemctl -C foobar status sleepinfinity
 

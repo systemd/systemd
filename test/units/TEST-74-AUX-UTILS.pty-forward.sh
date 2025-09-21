@@ -7,7 +7,7 @@ systemd-pty-forward --background 41 --title test echo foobar
 
 # Test that signals are forwarded to the systemd-pty-forward child process.
 cat >/tmp/child <<\EOF
-#!/usr/bin/bash
+#!/usr/bin/env bash
 set -x
 
 trap 'touch /tmp/int' INT

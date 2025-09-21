@@ -5,4 +5,4 @@ After=test63-issue-24577-dep.service
 
 [Service]
 Type=oneshot
-ExecStart=bash -c 'sleep infinity'
+ExecStart=sleep infinity
