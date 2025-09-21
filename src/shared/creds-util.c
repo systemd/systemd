@@ -1652,26 +1652,9 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
         if (r < 0)
                 return log_error_errno(r, "Failed to call Decrypt() varlink call.");
         if (!isempty(error_id))  {
-                static struct {
-                        const char *id;
-                        int errnum;
-                        const char *msg;
-                } table[] = {
-                        { "io.systemd.Credentials.BadFormat",              EBADMSG,      "Bad credential format." },
-                        { "io.systemd.Credentials.NameMismatch",           EDESTADDRREQ, "Name in credential doesn't match expectations." },
-                        { "io.systemd.Credentials.TimeMismatch",           ESTALE,       "Outside of credential validity time window." },
-                        { "io.systemd.Credentials.NoSuchUser",             ESRCH,        "No such user." },
-                        { "io.systemd.Credentials.BadScope",               EMEDIUMTYPE,  "Scope mismatch." },
-                        { "io.systemd.Credentials.CantFindPCRSignature",   EHOSTDOWN,    "PCR signature required for decryption, but could not be found." },
-                        { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's now allowed during decryption." },
-                        { "io.systemd.Credentials.KeyBelongsToOtherTPM",   EREMOTE,      "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted." },
-                        { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
-                        { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },
-                };
-
-                FOREACH_ELEMENT(i, table)
-                        if (streq(i->id, error_id))
-                                return log_error_errno(SYNTHETIC_ERRNO(i->errnum), "%s", i->msg);
+                const CredentialsVarlinkError *e = credentials_varlink_error_by_id(error_id);
+                if (e)
+                        return log_error_errno(SYNTHETIC_ERRNO(e->errnum), "%s", e->msg);
 
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to decrypt: %s", error_id);
         }
@@ -1823,4 +1806,39 @@ int pick_up_credentials(const PickUpCredential *table, size_t n_table_entry) {
         }
 
         return ret;
+}
+
+static const CredentialsVarlinkError credentials_varlink_error_table[] = {
+        { "io.systemd.Credentials.BadFormat",              EBADMSG,      "Bad credential format." },
+        { "io.systemd.Credentials.NameMismatch",           EDESTADDRREQ, "Name in credential doesn't match expectations." },
+        { "io.systemd.Credentials.TimeMismatch",           ESTALE,       "Outside of credential validity time window." },
+        { "io.systemd.Credentials.NoSuchUser",             ESRCH,        "No such user." },
+        { "io.systemd.Credentials.BadScope",               EMEDIUMTYPE,  "Scope mismatch." },
+        { "io.systemd.Credentials.CantFindPCRSignature",   EHOSTDOWN,    "PCR signature required for decryption, but could not be found." },
+        { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's now allowed during decryption." },
+        { "io.systemd.Credentials.KeyBelongsToOtherTPM",   EREMOTE,      "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted." },
+        { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
+        { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },
+};
+
+const CredentialsVarlinkError* credentials_varlink_error_by_id(const char *id) {
+        assert(id);
+
+        FOREACH_ELEMENT(i, credentials_varlink_error_table)
+                if (streq(id, i->id))
+                        return i;
+
+        return NULL;
+}
+
+const CredentialsVarlinkError* credentials_varlink_error_by_errno(int errnum) {
+        assert(errnum != 0);
+
+        errnum = ABS(errnum);
+
+        FOREACH_ELEMENT(i, credentials_varlink_error_table)
+                if (errnum == i->errnum)
+                        return i;
+
+        return NULL;
 }
