@@ -93,7 +93,7 @@ EOF
 else
     # Ensure that we can start services even with a very low hard memory cap without oom-kills, but skip
     # under sanitizers as they balloon memory usage.
-    systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
+    systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 true
 fi
 
 test_basic() {
@@ -302,7 +302,7 @@ testcase_reload() {
 
 testcase_kernel_oom() {
     cat >/tmp/script.sh <<"EOF"
-#!/bin/bash
+#!/usr/bin/env bash
 choom --adjust '+1000' -- bash -c 'echo f >/proc/sysrq-trigger && exec sleep infinity'
 choom --adjust '+1000' -p $$
 echo f >/proc/sysrq-trigger
@@ -325,7 +325,7 @@ EOF
     systemctl reset-failed
 
     cat >/tmp/script.sh <<"EOF"
-#!/bin/bash
+#!/usr/bin/env bash
 echo '+memory' >/sys/fs/cgroup/system.slice/oom-kill.service/cgroup.subtree_control
 mkdir /sys/fs/cgroup/system.slice/oom-kill.service/sub
 echo 1 >/sys/fs/cgroup/system.slice/oom-kill.service/sub/memory.oom.group
