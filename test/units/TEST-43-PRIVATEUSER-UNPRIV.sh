@@ -93,7 +93,7 @@ runas testuser systemd-run --wait --user --unit=test-devices \
 # Same check as test/test-execute/exec-privatenetwork-yes.service
 runas testuser systemd-run --wait --user --unit=test-network \
     -p PrivateNetwork=yes \
-    /bin/sh -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
+    sh -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
 
 (! runas testuser systemd-run --wait --user --unit=test-hostname \
     -p ProtectHostname=yes \

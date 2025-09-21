@@ -23,7 +23,7 @@ trap cleanup EXIT
 
 cat > /run/systemd/system/"$UNIT" <<EOF
 [Service]
-ExecStart=/usr/bin/true
+ExecStart=true
 RemainAfterExit=yes
 EOF
 
