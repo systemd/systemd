@@ -133,13 +133,6 @@ static void pty_forward_disconnect(PTYForward *f) {
                 /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
                 (void) fd_nonblock(f->output_fd, false);
 
-                if (colors_enabled()) {
-                        (void) loop_write(f->output_fd, ANSI_NORMAL ANSI_ERASE_TO_END_OF_SCREEN, SIZE_MAX);
-
-                        if (f->title)
-                                (void) loop_write(f->output_fd, ANSI_WINDOW_TITLE_POP, SIZE_MAX);
-                }
-
                 if (f->last_char_set && f->last_char != '\n') {
                         const char *s;
 
@@ -151,6 +144,13 @@ static void pty_forward_disconnect(PTYForward *f) {
 
                         f->last_char_set = true;
                         f->last_char = '\n';
+                }
+
+                if (colors_enabled()) {
+                        if (f->title)
+                                (void) loop_write(f->output_fd, ANSI_WINDOW_TITLE_POP, SIZE_MAX);
+
+                        terminal_reset_ansi_seq(f->output_fd);
                 }
 
                 if (f->close_output_fd)
