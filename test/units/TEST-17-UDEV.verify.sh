@@ -160,13 +160,13 @@ echo "Failed to parse rules file $(pwd)/${rules}: No buffer space available" >"$
 assert_1 "${rules}"
 
 {
-    printf 'RUN+="/bin/true",%8174s\\\n' ' '
-    printf 'RUN+="/bin/false"%8174s\\\n' ' '
+    printf 'RUN+="/usr/bin/true",%8170s\\\n' ' '
+    printf 'RUN+="/usr/bin/false"%8170s\\\n' ' '
     echo
 } >"${rules}"
 assert_0 "${rules}"
 
-printf 'RUN+="/bin/true"%8176s\\\n #\n' ' ' ' ' >"${rules}"
+printf 'RUN+="/usr/bin/true"%8176s\\\n #\n' ' ' ' ' >"${rules}"
 echo >>"${rules}"
 cat >"${exp}" <<EOF
 $(pwd)/${rules}:1 Line is too long, ignored.

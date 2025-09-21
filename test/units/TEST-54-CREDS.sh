@@ -24,7 +24,7 @@ run_with_cred_compare() (
 )
 
 test_mount_with_credential() {
-    local credfile tmpdir unit
+    local credfile tmpdir unit mount_path mount_test
     credfile="/tmp/mount-cred"
     tmpdir="/tmp/test-54-mount"
     unit=$(systemd-escape --suffix mount --path "$tmpdir")
@@ -42,14 +42,16 @@ LoadCredential=loadcred:$credfile
 EOF
 
     # Set up test mount type
-    cat >/usr/sbin/mount.thisisatest <<EOF
+    mount_path="$(command -v mount 2>/dev/null)"
+    mount_test="${mount_path/\/bin/\/sbin}.thisisatest"
+    cat >"$mount_test" <<EOF
 #!/usr/bin/env bash
 # Mount after verifying credential file content
 if [ \$(cat \${CREDENTIALS_DIRECTORY}/loadcred) = "foo" ]; then
     mount -t tmpfs \$1 \$2
 fi
 EOF
-    chmod +x /usr/sbin/mount.thisisatest
+    chmod +x "$mount_test"
 
     # Verify mount succeeds
     systemctl daemon-reload
@@ -62,7 +64,7 @@ EOF
 
     # Stop unit and delete files
     systemctl stop "$unit"
-    rm -f "$credfile" /run/systemd/system/"$unit" /usr/sbin/mount.thisisatest
+    rm -f "$credfile" /run/systemd/system/"$unit" "$mount_test"
     rm -rf "$tmpdir"
 }
 
