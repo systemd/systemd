@@ -258,7 +258,7 @@ systemctl revert "$UNIT_NAME"
 (! grep -r "CPUQuota=" "/run/systemd/system.control/${UNIT_NAME}.d/")
 
 # Failed-unit related tests
-(! systemd-run --wait --unit "failed.service" /bin/false)
+(! systemd-run --wait --unit "failed.service" false)
 systemctl is-failed failed.service
 systemctl --state=failed | grep failed.service
 systemctl --failed | grep failed.service
@@ -405,7 +405,7 @@ if [[ -x /usr/lib/systemd/system-generators/systemd-sysv-generator ]]; then
 
     # invalid dependency
     cat >"${SYSVINIT_PATH:?}/issue-24990" <<\EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 ### BEGIN INIT INFO
 # Provides:test1 test2
@@ -459,7 +459,7 @@ EOF
 
     # valid dependency
     cat >"$SYSVINIT_PATH/issue-24990" <<\EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 ### BEGIN INIT INFO
 # Provides:test1 test2

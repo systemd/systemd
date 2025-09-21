@@ -180,7 +180,7 @@ PrivateUsers=yes
 TemporaryFileSystem=/run /var/opt /var/lib /vol
 UMask=0000
 StateDirectory=testidmapped:sampleservice
-ExecStart=/bin/bash -c ' \
+ExecStart=bash -c ' \
     set -eux; \
     set -o pipefail; \
     touch /var/lib/sampleservice/testfile; \
@@ -213,7 +213,7 @@ PrivateUsers=no
 TemporaryFileSystem=/run /var/opt /var/lib /vol
 UMask=0000
 StateDirectory=testidmapped:sampleservice
-ExecStart=/bin/bash -c ' \
+ExecStart=bash -c ' \
     set -eux; \
     set -o pipefail; \
     touch /var/lib/sampleservice/testfile; \

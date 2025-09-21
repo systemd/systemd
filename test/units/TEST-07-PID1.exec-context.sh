@@ -405,7 +405,7 @@ if [[ ! -v ASAN_OPTIONS ]]; then
     # Here, -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env does not work,
     # as sd-executor loads NSS module and fails before applying the environment:
     # (true)[660]: test-dynamicuser-fail.service: Changing to the requested working directory failed: No such file or directory
-    # (true)[660]: test-dynamicuser-fail.service: Failed at step CHDIR spawning /usr/bin/true: No such file or directory
+    # (true)[660]: test-dynamicuser-fail.service: Failed at step CHDIR spawning true: No such file or directory
     # TEST-07-PID1.sh[660]: ==660==LeakSanitizer has encountered a fatal error.
     # TEST-07-PID1.sh[660]: ==660==HINT: For debugging, try setting environment variable LSAN_OPTIONS=verbosity=1:log_threads=1
     # TEST-07-PID1.sh[660]: ==660==HINT: LeakSanitizer does not work under ptrace (strace, gdb, etc)

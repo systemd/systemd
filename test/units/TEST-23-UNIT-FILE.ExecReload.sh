@@ -15,7 +15,7 @@ echo "[#1] Failing ExecReload= should not kill the service"
 cat >"$SERVICE_PATH" <<EOF
 [Service]
 ExecStart=sleep infinity
-ExecReload=/bin/false
+ExecReload=false
 EOF
 
 systemctl daemon-reload
@@ -31,9 +31,9 @@ echo "[#2] Failing ExecReload= should not kill the service (multiple ExecReload=
 cat >"$SERVICE_PATH" <<EOF
 [Service]
 ExecStart=sleep infinity
-ExecReload=/bin/true
-ExecReload=/bin/false
-ExecReload=/bin/true
+ExecReload=true
+ExecReload=false
+ExecReload=true
 EOF
 
 systemctl daemon-reload
@@ -48,7 +48,7 @@ echo "[#3] Failing ExecReload=- should not affect reload's exit code"
 cat >"$SERVICE_PATH" <<EOF
 [Service]
 ExecStart=sleep infinity
-ExecReload=-/bin/false
+ExecReload=-false
 EOF
 
 systemctl daemon-reload

@@ -37,7 +37,8 @@ cp -vf /bin/sleep "${CORE_TEST_UNPRIV_BIN:?}"
 # Simple script that spawns given "fake" binary and then kills it with
 # given signal
 cat >"${MAKE_DUMP_SCRIPT:?}" <<\EOF
-#!/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 bin="${1:?}"
 sig="${2:?}"
@@ -98,12 +99,12 @@ EOF
     machinectl start "$CONTAINER"
     timeout "$TIMEOUT" bash -xec "until systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
 
-    [[ "$(systemd-run -M "$CONTAINER" -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l)" -eq 0 ]]
+    [[ "$(systemd-run -M "$CONTAINER" -q --wait --pipe coredumpctl list -q --no-legend sleep | wc -l)" -eq 0 ]]
     machinectl copy-to "$CONTAINER" "$MAKE_DUMP_SCRIPT"
-    systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGABRT"
-    systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGTRAP"
+    systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "sleep" "SIGABRT"
+    systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "sleep" "SIGTRAP"
     # Wait a bit for the coredumps to get processed
-    timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l) -lt 2 ]]; do sleep 1; done"
+    timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend sleep | wc -l) -lt 2 ]]; do sleep 1; done"
 
     machinectl stop "$CONTAINER"
     rm -rf "/var/lib/machines/$CONTAINER"
@@ -253,7 +254,7 @@ systemd-run -t --property CoredumpFilter=default ls /tmp
 if pkgconf --atleast-version 0.192 libdw ; then
     # dwfl_set_sysroot() is supported only in libdw-0.192 or newer.
     cat >"$MAKE_STACKTRACE_DUMP" <<END
-#!/bin/bash
+#!/usr/bin/env bash
 mount -t tmpfs tmpfs /tmp
 gcc -xc -O0 -g -o $CORE_STACKTRACE_TEST_BIN - <<EOF
 void baz(void) { int *x = 0; *x = 42; }
@@ -268,11 +269,11 @@ END
     mkdir -p /run/systemd/coredump.conf.d/
     printf '[Coredump]\nEnterNamespace=no' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
 
-    unshare --pid --fork --mount-proc --mount --uts --ipc --net /bin/bash -c "$MAKE_STACKTRACE_DUMP" || :
+    unshare --pid --fork --mount-proc --mount --uts --ipc --net bash -c "$MAKE_STACKTRACE_DUMP" || :
     timeout 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zvqE 'baz.*bar.*foo'; do sleep .2; done"
 
     printf '[Coredump]\nEnterNamespace=yes' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
-    unshare --pid --fork --mount-proc --mount --uts --ipc --net /bin/bash -c "$MAKE_STACKTRACE_DUMP" || :
+    unshare --pid --fork --mount-proc --mount --uts --ipc --net bash -c "$MAKE_STACKTRACE_DUMP" || :
     timeout 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zqE 'baz.*bar.*foo'; do sleep .2; done"
 else
     echo "libdw doesn't not support setting sysroot, skipping EnterNamespace= test"
