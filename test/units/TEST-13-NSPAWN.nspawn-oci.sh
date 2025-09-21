@@ -305,7 +305,7 @@ cat >"$OCI/config.json" <<EOF
     "hooks" : {
         "prestart" : [
             {
-                "path" : "/bin/sh",
+                "path" : "sh",
                 "args" : [
                     "-xec",
                     "echo \$PRESTART_FOO >/prestart"
@@ -317,7 +317,7 @@ cat >"$OCI/config.json" <<EOF
                 "timeout" : 666
             },
             {
-                "path" : "/bin/touch",
+                "path" : "touch",
                 "args" : [
                     "/tmp/also-prestart"
                 ]
@@ -325,7 +325,7 @@ cat >"$OCI/config.json" <<EOF
         ],
         "poststart" : [
             {
-                "path" : "/bin/sh",
+                "path" : "sh",
                 "args" : [
                     "touch",
                     "/poststart"
@@ -334,7 +334,7 @@ cat >"$OCI/config.json" <<EOF
         ],
         "poststop" : [
             {
-                "path" : "/bin/sh",
+                "path" : "sh",
                 "args" : [
                     "touch",
                     "/poststop"
@@ -351,7 +351,8 @@ EOF
 # Create a simple "entrypoint" script that validates that the container
 # is created correctly according to the OCI config
 cat >"$OCI/rootfs/entrypoint.sh" <<EOF
-#!/usr/bin/bash -e
+#!/usr/bin/env bash
+set -e
 
 # Mounts
 mountpoint /root
@@ -435,7 +436,7 @@ INVALID_SNIPPETS=(
     '"linux" : { "readonlyPaths" : [ "/foo", 1 ] }'
     '"linux" : { "readonlyPaths" : [ "/foo", "bar" ] }'
     # Invalid hooks
-    '"hooks" : { "prestart" : [ { "path" : "/bin/sh", "timeout" : 0 } ] }'
+    '"hooks" : { "prestart" : [ { "path" : "sh", "timeout" : 0 } ] }'
     # Invalid annotations
     '"annotations" : { "" : "bar" }'
     '"annotations" : { "foo" : 1 }'

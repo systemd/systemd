@@ -5,6 +5,6 @@ Description=Issue 22257 Repro with Restart=always
 [Service]
 Type=simple
 Restart=always
-ExecCondition=/bin/false
+ExecCondition=false
 ExecStart=sleep 100
 RestartSec=1

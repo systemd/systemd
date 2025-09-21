@@ -304,7 +304,7 @@ StateDirectory=app0
 RuntimeDirectory=app0
 EOF
         cat >"$initdir/opt/script0.sh" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 test -e /usr/lib/os-release
 echo bar >\${STATE_DIRECTORY}/foo
@@ -347,7 +347,7 @@ StateDirectory=app1
 RuntimeDirectory=app1
 EOF
         cat >"$initdir/opt/script1.sh" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 test -e /usr/lib/os-release
 echo baz >\${STATE_DIRECTORY}/foo
