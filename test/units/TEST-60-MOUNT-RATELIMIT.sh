@@ -68,7 +68,7 @@ testcase_issue_23796() {
     mount_path="$(command -v mount 2>/dev/null)"
     mount_mytmpfs="${mount_path/\/bin/\/sbin}.mytmpfs"
     cat >"$mount_mytmpfs" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 sleep ".\$RANDOM"
 exec -- $mount_path -t tmpfs tmpfs "\$2"
 EOF

@@ -4,4 +4,4 @@ Description=Sleep infinitely
 
 [Service]
 Type=simple
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity

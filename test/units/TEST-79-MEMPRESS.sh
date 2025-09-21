@@ -28,7 +28,7 @@ UNIT="test-mempress-$RANDOM.service"
 SCRIPT="/tmp/mempress-$RANDOM.sh"
 
 cat >"$SCRIPT" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -ex
 
