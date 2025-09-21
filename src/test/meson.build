@@ -523,6 +523,16 @@ executables += [
                 'type' : 'manual',
         },
         core_test_template + {
+                'sources' : files('test-thp-disable-completely.c'),
+                'dependencies' : common_test_dependencies,
+                'type' : 'manual',
+        },
+        core_test_template + {
+                'sources' : files('test-thp-no-disable.c'),
+                'dependencies' : common_test_dependencies,
+                'type' : 'manual',
+        },
+        core_test_template + {
                 'sources' : files('test-cgroup-cpu.c'),
         },
         core_test_template + {
