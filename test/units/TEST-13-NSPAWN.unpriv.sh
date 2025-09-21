@@ -24,7 +24,7 @@ run0 -u testuser mkdir -p .local/state/machines
 
 create_dummy_container /home/testuser/.local/state/machines/zurps
 cat >/home/testuser/.local/state/machines/zurps/sbin/init <<EOF
-#!/bin/sh
+#!/usr/bin/env bash
 echo "I am living in a container"
 exec sleep infinity
 EOF

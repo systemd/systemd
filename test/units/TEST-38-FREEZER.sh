@@ -339,7 +339,7 @@ testcase_watchdog() {
     local unit="wd.service"
 
     systemd-run --collect --unit "$unit" --property WatchdogSec=4s --property Type=notify \
-        /bin/bash -c 'systemd-notify --ready; while true; do systemd-notify WATCHDOG=1; sleep 1; done'
+        bash -c 'systemd-notify --ready; while true; do systemd-notify WATCHDOG=1; sleep 1; done'
 
     systemctl freeze "$unit"
     check_freezer_state "$unit" "frozen"

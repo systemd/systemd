@@ -69,7 +69,7 @@ EOF
 # Script to check that when an OnSuccess= dependency fires, the correct
 # MONITOR* env variables are passed.
 cat >/tmp/check_on_success.sh <<"EOF"
-#!/bin/sh
+#!/usr/bin/env bash
 
 set -ex
 env | sort
@@ -126,7 +126,7 @@ EOF
 # Script to check that when an OnFailure= dependency fires, the correct
 # MONITOR* env variables are passed.
 cat >/tmp/check_on_failure.sh <<"EOF"
-#!/bin/sh
+#!/usr/bin/env bash
 
 set -ex
 env | sort

@@ -973,7 +973,7 @@ testcase_11_nft() {
     } >/run/systemd/system/test-nft.socket
     {
         echo "[Service]"
-        echo "ExecStart=/usr/bin/sleep 10000"
+        echo "ExecStart=sleep 10000"
     } >/run/systemd/system/test-nft.service
     systemctl daemon-reload
     systemctl start test-nft.socket
