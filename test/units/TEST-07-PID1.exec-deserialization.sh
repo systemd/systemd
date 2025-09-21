@@ -193,7 +193,7 @@ testcase_issue_6533() {
     cat >"$unit_path" <<EOF
 [Service]
 Type=simple
-ExecStart=/bin/sleep 5
+ExecStart=sleep 5
 EOF
     systemctl daemon-reload
 
@@ -207,7 +207,7 @@ EOF
     cat >"$unit_path" <<EOF
 [Service]
 Type=simple
-ExecStart=/bin/sleep 5
+ExecStart=sleep 5
 ExecStart=bash -c "echo foo >>$log_file"
 EOF
     systemctl daemon-reload

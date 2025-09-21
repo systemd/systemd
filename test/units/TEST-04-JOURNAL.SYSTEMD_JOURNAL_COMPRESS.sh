@@ -26,7 +26,7 @@ EOF
     journalctl --rotate
 
     ID="$(systemd-id128 new)"
-    systemd-cat -t "$ID" /bin/bash -c "for ((i=0;i<100;i++)); do echo -n hoge with ${c}; done; echo"
+    systemd-cat -t "$ID" bash -c "for ((i=0;i<100;i++)); do echo -n hoge with ${c}; done; echo"
     journalctl --sync
     timeout 10 bash -c "until SYSTEMD_LOG_LEVEL=debug journalctl --verify --quiet --file /var/log/journal/$MACHINE_ID/system.journal 2>&1 | grep -q -F 'compress=${c}'; do sleep .5; done"
 
