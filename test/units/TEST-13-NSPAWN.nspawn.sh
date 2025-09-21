@@ -193,7 +193,7 @@ testcase_sanity() {
     # "Fake" getent passwd's bare minimum, so we don't have to pull it in
     # with all the DSO shenanigans
     cat >"$root/bin/getent" <<\EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ $# -eq 0 ]]; then
     :
@@ -456,7 +456,7 @@ Port=tcp:60
 Port=udp:60:61
 EOF
     cat >"$root/entrypoint.sh" <<\EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 
 env
@@ -844,7 +844,7 @@ testcase_owneridmap() {
     # "Fake" getent passwd's bare minimum, so we don't have to pull it in
     # with all the DSO shenanigans
     cat >"$root/bin/getent" <<\EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 if [[ $# -eq 0 ]]; then
     :
@@ -869,7 +869,7 @@ EOF
                            --user=testuser \
                            --bind=/tmp/owneridmap/bind:/home/testuser:owneridmap \
                            ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
-                           /usr/bin/bash -c "$cmd" |& tee nspawn.out; then
+                           bash -c "$cmd" |& tee nspawn.out; then
         if grep -q "Failed to map ids for bind mount.*: Function not implemented" nspawn.out; then
             echo "idmapped mounts are not supported, skipping the test..."
             return 0
@@ -906,7 +906,8 @@ testcase_os_release() {
     create_dummy_container "$root"
     entrypoint="$root/entrypoint.sh"
     cat >"$entrypoint" <<\EOF
-#!/usr/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 . /tmp/os-release
 [[ -n "${ID:-}" && "$ID" != "$container_host_id" ]] && exit 1
@@ -953,7 +954,7 @@ testcase_machinectl_bind() {
     cat >"$service_path" <<EOF
 [Service]
 Type=notify
-ExecStart=systemd-nspawn --directory="$root" --notify-ready=no /usr/bin/bash -xec "$cmd"
+ExecStart=systemd-nspawn --directory="$root" --notify-ready=no bash -xec "$cmd"
 EOF
 
     systemctl daemon-reload
