@@ -10,6 +10,7 @@
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -743,22 +744,16 @@ static int device_tag(sd_device *device, const char *tag, bool add) {
 }
 
 int device_tag_index(sd_device *device, sd_device *device_old, bool add) {
-        int r = 0, k;
+        int r = 0;
 
         if (add && device_old)
                 /* delete possible left-over tags */
                 FOREACH_DEVICE_TAG(device_old, tag)
-                        if (!sd_device_has_tag(device, tag)) {
-                                k = device_tag(device_old, tag, false);
-                                if (r >= 0 && k < 0)
-                                        r = k;
-                        }
+                        if (!sd_device_has_tag(device, tag))
+                                RET_GATHER(r, device_tag(device_old, tag, false));
 
-        FOREACH_DEVICE_TAG(device, tag) {
-                k = device_tag(device, tag, add);
-                if (r >= 0 && k < 0)
-                        r = k;
-        }
+        FOREACH_DEVICE_TAG(device, tag)
+                RET_GATHER(r, device_tag(device, tag, add));
 
         return r;
 }
