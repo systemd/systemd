@@ -29,6 +29,10 @@ extern DLSYM_PROTOTYPE(pam_syslog);
 extern DLSYM_PROTOTYPE(pam_vsyslog);
 
 int dlopen_libpam(void);
+#else
+static inline int dlopen_libpam(void) {
+        return -EOPNOTSUPP;
+}
 #endif
 
 void pam_log_setup(void);
