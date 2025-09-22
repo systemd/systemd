@@ -344,6 +344,16 @@
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--chrome=</option></term>
+
+        <listitem><para>Takes a boolean argument. By default the initial setup scren will show reverse color
+        "chrome" bars at the top and and the bottom, which may be disabled by setting this option to
+        false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

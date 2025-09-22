@@ -56,6 +56,12 @@ typedef enum Glyph {
         GLYPH_SUPERHERO,
         GLYPH_IDCARD,
         GLYPH_HOME,
+        GLYPH_ROCKET,
+        GLYPH_BROOM,
+        GLYPH_KEYBOARD,
+        GLYPH_CLOCK,
+        GLYPH_LABEL,
+        GLYPH_SHELL,
         _GLYPH_MAX,
         _GLYPH_INVALID = -EINVAL,
 } Glyph;
