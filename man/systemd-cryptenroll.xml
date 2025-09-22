@@ -486,6 +486,10 @@
 
         <programlisting>myvolume /dev/sda1 none fido2-device=auto</programlisting>
 
+        <para>If <option>--tpm2-device=</option> is also declared, the unlock mechanism will use the TPM2
+        together with the FIDO2. The TPM2 policy will include the FIDO2's <literal>hmac-secret</literal>
+        in the policy.</para>
+
         <para>See
         <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> for a
         more comprehensive example of a <command>systemd-cryptenroll</command> invocation and its matching
@@ -597,6 +601,10 @@
 
         <para>Use <option>--tpm2-pcrs=</option> (see below) to configure which TPM2 PCR indexes to bind the
         enrollment to.</para>
+
+        <para>If <option>--fido2-device=</option> is also declared, the unlock mechanism will use the TPM2
+        together with the FIDO2. The TPM2 policy will include the FIDO2's <literal>hmac-secret</literal>
+        in the policy.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
