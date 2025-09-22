@@ -7,6 +7,7 @@
 
 int acquire_tpm2_key(
                 const char *volume_name,
+                const char *friendly_name,
                 const char *device,
                 uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
@@ -26,6 +27,10 @@ int acquire_tpm2_key(
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
+                struct iovec *fido2_cid,
+                struct iovec *fido2_salt,
+                const char *fido2_rp,
+                Fido2EnrollFlags fido2_flags,
                 usec_t until,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
@@ -48,5 +53,9 @@ int find_tpm2_auto_data(
                 struct iovec *ret_srk,
                 struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags,
+                struct iovec *ret_fido2_cid,
+                struct iovec *ret_fido2_salt,
+                char **ret_fido2_rp,
+                Fido2EnrollFlags *ret_fido2_flags,
                 int *ret_keyslot,
                 int *ret_token);

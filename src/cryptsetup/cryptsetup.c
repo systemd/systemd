@@ -120,6 +120,7 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_signature = NULL;
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_pcrlock = NULL;
+static bool arg_tpm2_fido2 = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 static unsigned arg_tpm2_measure_pcr = UINT_MAX; /* This and the following field is about measuring the unlocked volume key to the local TPM */
 static char **arg_tpm2_measure_banks = NULL;
@@ -512,6 +513,20 @@ static int parse_one_option(const char *option) {
                 r = free_and_strdup(&arg_tpm2_pcrlock, val);
                 if (r < 0)
                         return log_oom();
+
+        } else if ((val = startswith(option, "tpm2-fido2="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_tpm2_fido2 = r;
+
+                /* Turn on FIDO2 as side-effect, if not turned on yet. */
+                if (!arg_fido2_device && !arg_fido2_device_auto)
+                        arg_fido2_device_auto = true;
 
         } else if ((val = startswith(option, "tpm2-measure-pcr="))) {
                 unsigned pcr;
@@ -1876,6 +1891,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                         r = acquire_tpm2_key(
                                         name,
+                                        friendly,
                                         arg_tpm2_device,
                                         arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT_LEGACY : arg_tpm2_pcr_mask,
                                         UINT16_MAX,
@@ -1981,6 +1997,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                                 r = acquire_tpm2_key(
                                                 name,
+                                                friendly,
                                                 arg_tpm2_device,
                                                 hash_pcr_mask,
                                                 pcr_bank,

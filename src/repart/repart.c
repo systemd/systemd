@@ -49,6 +49,7 @@
 #include "initrd-util.h"
 #include "io-util.h"
 #include "json-util.h"
+#include "libfido2-util.h"
 #include "list.h"
 #include "loop-util.h"
 #include "main-func.h"
@@ -5111,6 +5112,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 &srk,
                                 &pcrlock_policy.nv_handle,
                                 flags,
+                                /* fido2_cid= */ NULL,
+                                /* fido2_salt= */ NULL,
+                                /* fido2_flags= */ 0,
                                 &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");

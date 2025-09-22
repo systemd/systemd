@@ -10,7 +10,9 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "hexdecoct.h"
+#include "fido2-util.h"
 #include "json-util.h"
+#include "libfido2-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
@@ -161,8 +163,148 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                 }
         }
 
-        *ret_flags = flags;
+        *ret_flags |= flags;
         *ret_pin_str = TAKE_PTR(pin_str);
+
+        return 0;
+}
+
+static int get_fido2_secret(
+                struct crypt_device *cd,
+                const char *device,
+                Fido2EnrollFlags lock_with,
+                int cred_alg,
+                const char *salt_file,
+                /*bool parameters_in_header, */
+                struct iovec *ret_salt,
+                struct iovec *ret_cid,
+                char **ret_secret_str,
+                Fido2EnrollFlags *ret_lock_with,
+                TPM2Flags *ret_flags) {
+
+        _cleanup_(iovec_done_erase) struct iovec salt = {};
+        _cleanup_(erase_and_freep) void *cid = NULL;
+        _cleanup_(erase_and_freep) void *secret = NULL;
+        _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+        size_t cid_size, secret_size;
+        ssize_t base64_encoded_size;
+        const char *node, *un;
+        TPM2Flags flags = 0;
+        int r;
+
+        assert(ret_salt);
+        assert(ret_cid);
+        assert(ret_secret_str);
+        assert(ret_lock_with);
+        assert(ret_flags);
+
+        assert_se(cd);
+        assert_se(device);
+
+        assert_se(node = crypt_get_device_name(cd));
+
+        un = strempty(crypt_get_uuid(cd));
+
+        if (salt_file)
+                r = fido2_read_salt_file(
+                                salt_file,
+                                /* offset= */ UINT64_MAX,
+                                /* client= */ "cryptenroll",
+                                /* node= */ un,
+                                &salt);
+        else
+                r = fido2_generate_salt(&salt);
+        if (r < 0)
+                return r;
+
+        r = fido2_generate_hmac_hash(
+                        device,
+                        /* rp_id= */ "io.systemd.cryptsetup",
+                        /* rp_name= */ "Encrypted Volume",
+                        /* user_id= */ un, strlen(un), /* We pass the user ID and name as the same: the disk's UUID if we have it */
+                        /* user_name= */ un,
+                        /* user_display_name= */ node,
+                        /* user_icon= */ NULL,
+                        /* askpw_icon= */ "drive-harddisk",
+                        /* askpw_credential= */ "cryptenroll.fido2-pin",
+                        lock_with,
+                        cred_alg,
+                        &salt,
+                        &cid, &cid_size,
+                        &secret, &secret_size,
+                        NULL,
+                        &lock_with);
+        if (r < 0)
+                return r;
+
+        /* Before we use the secret, we base64 encode it, for compat with homed, and to make it easier to type in manually */
+        base64_encoded_size = base64mem(secret, secret_size, &base64_encoded);
+        if (base64_encoded_size < 0)
+                return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
+
+        /* if (/\*parameters_in_header*\/true) { */
+        /*         r = sd_json_buildo(&v, */
+        /*                         SD_JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-fido2")), */
+        /*                         SD_JSON_BUILD_PAIR("keyslots", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_STRING(keyslot_as_string))), */
+        /*                         SD_JSON_BUILD_PAIR("fido2-credential", SD_JSON_BUILD_BASE64(cid, cid_size)), */
+        /*                         SD_JSON_BUILD_PAIR("fido2-salt", JSON_BUILD_IOVEC_BASE64(&salt)), */
+        /*                         SD_JSON_BUILD_PAIR("fido2-rp", JSON_BUILD_CONST_STRING("io.systemd.cryptsetup")), */
+        /*                         SD_JSON_BUILD_PAIR("fido2-clientPin-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_PIN))), */
+        /*                         SD_JSON_BUILD_PAIR("fido2-up-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UP))), */
+        /*                         SD_JSON_BUILD_PAIR("fido2-uv-required", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(lock_with, FIDO2ENROLL_UV)))); */
+        /*         if (r < 0) */
+        /*                 return log_error_errno(r, "Failed to prepare FIDO2 JSON token object: %m"); */
+
+        /*         r = cryptsetup_add_token_json(cd, v); */
+        /*         if (r < 0) */
+        /*                 return log_error_errno(r, "Failed to add FIDO2 JSON token to LUKS2 header: %m"); */
+        /* } else { */
+        /*         _cleanup_free_ char *base64_encoded_cid = NULL, *link = NULL; */
+
+        /*         r = base64mem(cid, cid_size, &base64_encoded_cid); */
+        /*         if (r < 0) */
+        /*                 return log_error_errno(r, "Failed to base64 encode FIDO2 credential ID: %m"); */
+
+        /*         r = terminal_urlify_man("crypttab", "5", &link); */
+        /*         if (r < 0) */
+        /*                 return log_oom(); */
+
+        /*         fflush(stdout); */
+        /*         fprintf(stderr, */
+        /*                 "A FIDO2 credential has been registered for this volume:\n\n" */
+        /*                 "    %s%sfido2-cid=%s", */
+        /*                 emoji_enabled() ? glyph(GLYPH_LOCK_AND_KEY) : "", */
+        /*                 emoji_enabled() ? " " : "", */
+        /*                 ansi_highlight()); */
+        /*         fflush(stderr); */
+
+        /*         fputs(base64_encoded_cid, stdout); */
+        /*         fflush(stdout); */
+
+        /*         fputs(ansi_normal(), stderr); */
+        /*         fflush(stderr); */
+
+        /*         fputc('\n', stdout); */
+        /*         fflush(stdout); */
+
+        /*         fprintf(stderr, */
+        /*                 "\nPlease save this FIDO2 credential ID. It is required when unlocking the volume\n" */
+        /*                 "using the associated FIDO2 keyslot which we just created. To configure automatic\n" */
+        /*                 "unlocking using this FIDO2 token, add an appropriate entry to your /etc/crypttab\n" */
+        /*                 "file, see %s for details.\n", link); */
+        /*         fflush(stderr); */
+        /* } */
+
+        /* log_info("New FIDO2 token enrolled as key slot %i.", keyslot); */
+        /* return keyslot; */
+
+        flags |= TPM2_FLAGS_USE_FIDO2;
+
+        *ret_salt = TAKE_STRUCT(salt);
+        *ret_cid = IOVEC_MAKE(TAKE_PTR(cid), cid_size);
+        *ret_secret_str = TAKE_PTR(base64_encoded);
+        *ret_lock_with = lock_with;
+        *ret_flags |= flags;
 
         return 0;
 }
@@ -301,6 +443,12 @@ int enroll_tpm2(struct crypt_device *cd,
                 const char *signature_path,
                 bool use_pin,
                 const char *pcrlock_path,
+                bool use_fido2,
+                const char *fido2_device,
+                Fido2EnrollFlags fido2_lock_with,
+                int fido2_cred_alg,
+                const char *fido2_salt_file,
+                /*bool fido2_parameters_in_header, */
                 int *ret_slot_to_wipe) {
 
 #if HAVE_TPM2
@@ -308,8 +456,12 @@ int enroll_tpm2(struct crypt_device *cd,
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
         _cleanup_(iovec_done) struct iovec srk = {}, pubkey = {};
         _cleanup_(iovec_done_erase) struct iovec secret = {};
+        _cleanup_(iovec_done_erase) struct iovec fido2_salt = {};
+        _cleanup_(iovec_done_erase) struct iovec fido2_cid = {};
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
+        _cleanup_(erase_and_freep) char *fido2_secret_str = NULL;
+        _cleanup_(erase_and_freep) char *fido2_cid_str = NULL;
         ssize_t base64_encoded_size;
         int r, keyslot, slot_to_wipe = -1;
         TPM2Flags flags = 0;
@@ -350,6 +502,10 @@ int enroll_tpm2(struct crypt_device *cd,
                 base64_encoded_size = base64mem(salted_pin, sizeof(salted_pin), &pin_str);
                 if (base64_encoded_size < 0)
                         return log_error_errno(base64_encoded_size, "Failed to base64 encode salted pin: %m");
+        }
+
+        if (use_fido2) {
+                r = get_fido2_secret(cd, fido2_device, fido2_lock_with, fido2_cred_alg, fido2_salt_file, /*fido2_parameters_in_header, */&fido2_salt, &fido2_cid, &fido2_secret_str, &fido2_lock_with, &flags);
         }
 
         TPM2B_PUBLIC public = {};
@@ -462,6 +618,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         n_hash_pcr_values,
                         iovec_is_set(&pubkey) ? &public : NULL,
                         use_pin,
+                        use_fido2,
                         pcrlock_path && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
                         policy_hash + 0);
         if (r < 0)
@@ -473,6 +630,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 n_hash_pcr_values,
                                 /* public= */ NULL, /* This one is off now */
                                 use_pin,
+                                use_fido2,
                                 &pcrlock_policy,    /* And this one on instead. */
                                 policy_hash + 1);
                 if (r < 0)
@@ -503,6 +661,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 /* secret= */ NULL,
                                 policy_hash + 0,
                                 pin_str,
+                                fido2_secret_str,
                                 &secret,
                                 blobs + 0,
                                 &srk);
@@ -512,6 +671,7 @@ int enroll_tpm2(struct crypt_device *cd,
                               policy_hash,
                               n_policy_hash,
                               pin_str,
+                              fido2_secret_str,
                               &secret,
                               &blobs,
                               &n_blobs,
@@ -601,6 +761,9 @@ int enroll_tpm2(struct crypt_device *cd,
                         &srk,
                         pcrlock_path ? &pcrlock_policy.nv_handle : NULL,
                         flags,
+                        use_fido2 ? &fido2_cid : NULL,
+                        use_fido2 ? &fido2_salt : NULL,
+                        fido2_lock_with,
                         &v);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
