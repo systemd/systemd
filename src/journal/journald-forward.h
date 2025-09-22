@@ -6,6 +6,7 @@
 
 typedef enum Storage Storage;
 typedef enum SplitMode SplitMode;
+typedef enum AuditSetMode AuditSetMode;
 typedef struct JournalCompressOptions JournalCompressOptions;
 typedef struct JournalConfig JournalConfig;
 
