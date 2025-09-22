@@ -18,6 +18,7 @@
 #include "pcre2-util.h"
 #include "pkcs11-util.h"
 #include "qrcode-util.h"
+#include "seccomp-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
 
@@ -52,6 +53,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libapparmor, HAVE_APPARMOR);
         ASSERT_DLOPEN(dlopen_libaudit, HAVE_AUDIT);
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
+        ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SECCOMP);
 
         return 0;
 }

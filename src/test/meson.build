@@ -218,7 +218,7 @@ common_test_dependencies = [
         libblkid,
         libmount,
         librt,
-        libseccomp,
+        libseccomp_cflags,
         libselinux,
         threads,
 ]
@@ -288,8 +288,9 @@ executables += [
         test_template + {
                 'sources' : files('test-dlopen-so.c'),
                 'dependencies' : [
-                        libp11kit_cflags,
                         libkmod_cflags,
+                        libp11kit_cflags,
+                        libseccomp_cflags,
                 ],
         },
         test_template + {
@@ -310,7 +311,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-fd-util.c'),
-                'dependencies' : libseccomp,
+                'dependencies' : libseccomp_cflags,
         },
         test_template + {
                 'sources' : files(
@@ -378,7 +379,7 @@ executables += [
                 'extract' : files('nss-test-util.c'),
                 'dependencies' : [
                         libdl,
-                        libseccomp,
+                        libseccomp_cflags,
                 ],
                 'conditions' : ['ENABLE_NSS'],
                 'timeout' : 120,
@@ -426,7 +427,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-seccomp.c'),
-                'dependencies' : libseccomp,
+                'dependencies' : libseccomp_cflags,
                 'conditions' : ['HAVE_SECCOMP'],
         },
         test_template + {
