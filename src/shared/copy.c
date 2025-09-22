@@ -657,7 +657,10 @@ static int hardlink_context_setup(
                         return -errno;
         }
 
-        r = tempfn_random_child(to, "hardlink", &c->subdir);
+        if (to)
+                r = tempfn_random_child(to, "hardlink", &c->subdir);
+        else
+                r = tempfn_random("hardlink", /* extra= */ NULL, &c->subdir);
         if (r < 0)
                 return r;
 
@@ -1127,7 +1130,6 @@ static int fd_copy_directory(
         int r;
 
         assert(st);
-        assert(to);
 
         if (depth_left == 0)
                 return -ENAMETOOLONG;
@@ -1257,7 +1259,7 @@ static int fd_copy_directory(
         }
 
 finish:
-        if (!exists) {
+        if (FLAGS_SET(copy_flags, COPY_MERGE_APPLY_STAT) || !exists) {
                 if (fchown(fdt,
                            uid_is_valid(override_uid) ? override_uid : st->st_uid,
                            gid_is_valid(override_gid) ? override_gid : st->st_gid) < 0)
@@ -1345,6 +1347,10 @@ static int fd_copy_tree_generic(
                                          override_gid, copy_flags, denylist, subvolumes, hardlink_context,
                                          display_path, progress_path, progress_bytes, userdata);
 
+        /* Only if we are copying a directory we are fine if the target dir is referenced by fd only */
+        if (!to)
+                return -EBADF;
+
         DenyType t = PTR_TO_INT(hashmap_get(denylist, st));
         if (t == DENY_INODE) {
                 log_debug("%s is in the denylist, ignoring", from ?: "file to copy");
@@ -1382,7 +1388,6 @@ int copy_tree_at_full(
         struct stat st;
         int r;
 
-        assert(to);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
         if (fstatat(fdf, strempty(from), &st, AT_SYMLINK_NOFOLLOW | (isempty(from) ? AT_EMPTY_PATH : 0)) < 0)

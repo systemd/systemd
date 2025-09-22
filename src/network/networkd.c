@@ -29,6 +29,7 @@ static int run(int argc, char *argv[]) {
         r = service_parse_argv("systemd-networkd.service",
                                "Manage and configure network devices, create virtual network devices",
                                BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;
