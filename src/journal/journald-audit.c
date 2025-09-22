@@ -465,9 +465,13 @@ static int manager_set_kernel_audit(Manager *m) {
 
         assert(m);
         assert(m->audit_fd >= 0);
+        assert(m->config.set_audit >= 0);
 
-        if (m->config.set_audit < 0)
+        if (m->config.set_audit == AUDIT_KEEP)
                 return 0;
+
+        /* In the following, we can handle 'set_audit' as a boolean. */
+        assert(IN_SET(m->config.set_audit, AUDIT_NO, AUDIT_YES));
 
         struct {
                 union {
@@ -557,7 +561,7 @@ int manager_open_audit(Manager *m) {
         return 0;
 }
 
-void manager_reset_kernel_audit(Manager *m, int old_set_audit) {
+void manager_reset_kernel_audit(Manager *m, AuditSetMode old_set_audit) {
         assert(m);
 
         if (m->audit_fd < 0)
