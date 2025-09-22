@@ -6,6 +6,7 @@
 #include "ask-password-api.h"
 #include "env-util.h"
 #include "hexdecoct.h"
+#include "libfido2-util.h"
 #include "log.h"
 #include "luks2-tpm2.h"
 #include "parse-util.h"
@@ -32,11 +33,20 @@ int acquire_luks2_key(
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
+                const char *fido2_device,
+                const struct iovec *fido2_cid,
+                const struct iovec *fido2_salt,
+                const char *fido2_rp,
+                Fido2EnrollFlags fido2_flags,
                 struct iovec *ret_decrypted_key) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
         _cleanup_free_ char *auto_device = NULL;
         _cleanup_(erase_and_freep) char *b64_salted_pin = NULL;
+        _cleanup_(erase_and_freep) void *fido2_secret = NULL;
+        _cleanup_(erase_and_freep) char *b64_fido2_secret = NULL;
+        size_t fido2_secret_size;
+        ssize_t b64_fido2_secret_size;
         int r;
 
         assert(iovec_is_valid(salt));
@@ -52,7 +62,18 @@ int acquire_luks2_key(
                 device = auto_device;
         }
 
+        if ((flags & TPM2_FLAGS_USE_FIDO2) && !fido2_device) {
+                r = fido2_find_device_auto(&auto_device);
+                if (r < 0)
+                        return log_error_errno(r, "Could not find FIDO2 device: %m");
+
+                fido2_device = auto_device;
+        }
+
         if ((flags & TPM2_FLAGS_USE_PIN) && !pin)
+                return -ENOANO;
+
+        if ((flags & TPM2_FLAGS_USE_FIDO2) && (fido2_flags & FIDO2ENROLL_PIN))
                 return -ENOANO;
 
         if (pin && iovec_is_set(salt)) {
@@ -66,6 +87,26 @@ int acquire_luks2_key(
                 if (r < 0)
                         return log_error_errno(r, "Failed to base64 encode salted pin: %m");
                 pin = b64_salted_pin;
+        }
+
+        if (flags & TPM2_FLAGS_USE_FIDO2) {
+                r = fido2_use_hmac_hash(
+                        fido2_device,
+                        fido2_rp ?: "io.systemd.cryptsetup",
+                        fido2_salt->iov_base, fido2_salt->iov_len,
+                        fido2_cid->iov_base, fido2_cid->iov_len,
+                        NULL,
+                        fido2_flags,
+                        &fido2_secret,
+                        &fido2_secret_size);
+                if (r == -ENOLCK)
+                        r = -ENOANO;
+                if (r < 0)
+                        return r;
+
+                b64_fido2_secret_size = base64mem(fido2_secret, fido2_secret_size, &b64_fido2_secret);
+                if (b64_fido2_secret_size < 0)
+                        return log_error_errno((int)b64_fido2_secret_size, "Failed to base64 encode key: %m");
         }
 
         if (pubkey_pcr_mask != 0) {
@@ -101,6 +142,7 @@ int acquire_luks2_key(
                         pubkey_pcr_mask,
                         signature_json,
                         pin,
+                        b64_fido2_secret,
                         FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
                         primary_alg,
                         blobs,
@@ -116,7 +158,7 @@ int acquire_luks2_key(
         if (r == -ENOLCK)
                 return log_error_errno(r, "TPM is in dictionary attack lock-out mode.");
         if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
         if (r < 0)
                 return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
