@@ -50,6 +50,7 @@ static char *arg_tpm2_device_key = NULL;
 static Tpm2PCRValue *arg_tpm2_hash_pcr_values = NULL;
 static size_t arg_tpm2_n_hash_pcr_values = 0;
 static bool arg_tpm2_pin = false;
+static bool arg_tpm2_fido2 = false;
 static char *arg_tpm2_public_key = NULL;
 static bool arg_tpm2_load_public_key = true;
 static uint32_t arg_tpm2_public_key_pcr_mask = 0;
@@ -423,7 +424,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (streq(arg, "list"))
                                 return fido2_list_devices();
 
-                        if (arg_enroll_type >= 0 || arg_fido2_device)
+                        if ((arg_enroll_type >= 0 && !arg_tpm2_fido2) || arg_fido2_device)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Multiple operations specified at once, refusing.");
 
@@ -433,7 +434,8 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_oom();
                         }
 
-                        arg_enroll_type = ENROLL_FIDO2;
+                        if (!arg_tpm2_fido2)
+                                arg_enroll_type = ENROLL_FIDO2;
                         arg_fido2_device = TAKE_PTR(device);
                         break;
                 }
@@ -578,6 +580,13 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("tpm2-with-fido2", "BOOL",
+                            "Whether to require a FIDO2 key to unlock the volume"):
+                        r = parse_boolean_argument("--tpm2-with-fido2=", optarg, &arg_tpm2_fido2);
+                        if (r < 0)
+                                return r;
+                        break;
                 }
 
         char **args = option_parser_get_args(&state);
@@ -636,6 +645,18 @@ static int parse_argv(int argc, char *argv[]) {
                     !arg_tpm2_pcrlock)
                         log_notice("Notice: enrolling TPM2 with an empty policy, i.e. without any state or access restrictions.\n"
                                    "Use --tpm2-public-key=, --tpm2-pcrlock=, --tpm2-with-pin= or --tpm2-pcrs= to enable one or more restrictions.");
+
+                if (arg_tpm2_fido2) {
+                        if (!arg_fido2_parameters_in_header && !arg_fido2_salt_file)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "FIDO2 parameters' storage in the LUKS2 header was disabled, but no salt file provided, refusing.");
+
+                        if (!arg_fido2_device) {
+                                r = fido2_find_device_auto(&arg_fido2_device);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
         }
 
         return 1;
@@ -756,7 +777,7 @@ static int prepare_luks(
                 break;
 
         case UNLOCK_TPM2:
-                r = load_volume_key_tpm2(cd, arg_node, arg_unlock_tpm2_device, vk.iov_base, &vk.iov_len);
+                r = load_volume_key_tpm2(cd, arg_node, arg_unlock_tpm2_device, arg_unlock_fido2_device, vk.iov_base, &vk.iov_len);
                 break;
 
         default:
@@ -814,7 +835,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
+                slot = enroll_tpm2(cd, &vk, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_load_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, arg_tpm2_fido2, arg_fido2_device, arg_fido2_lock_with, arg_fido2_cred_alg, arg_fido2_salt_file, /*arg_fido2_parameters_in_header,*/ &slot_to_wipe);
 
                 if (slot >= 0 && slot_to_wipe >= 0) {
                         assert(slot != slot_to_wipe);

@@ -51,6 +51,7 @@
 #include "io-util.h"
 #include "iso9660.h"
 #include "json-util.h"
+#include "libfido2-util.h"
 #include "libmount-util.h"
 #include "list.h"
 #include "loop-util.h"
@@ -5480,6 +5481,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 n_pcr_values,
                                 iovec_is_set(&pubkey) ? &public : NULL,
                                 /* use_pin= */ false,
+                                /* use_fido2= */ false,
                                 arg_tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
                                 policy_hash + 0);
                 if (r < 0)
@@ -5491,6 +5493,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                         n_pcr_values,
                                         /* public= */ NULL,      /* Turn this one off for the 2nd shard */
                                         /* use_pin= */ false,
+                                        /* use_fido2= */ false,
                                         &pcrlock_policy,         /* But turn this one on */
                                         policy_hash + 1);
                         if (r < 0)
@@ -5521,6 +5524,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                         /* secret= */ NULL,
                                         policy_hash + 0,
                                         /* pin= */ NULL,
+                                        /* fido2_secret= */ NULL,
                                         &secret,
                                         blobs + 0,
                                         &srk);
@@ -5530,6 +5534,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                       policy_hash,
                                       n_policy_hash,
                                       /* pin= */ NULL,
+                                      /* fido2_secret= */ NULL,
                                       &secret,
                                       &blobs,
                                       &n_blobs,
@@ -5576,6 +5581,9 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 &srk,
                                 &pcrlock_policy.nv_handle,
                                 flags,
+                                /* fido2_cid= */ NULL,
+                                /* fido2_salt= */ NULL,
+                                /* fido2_flags= */ 0,
                                 &v);
                 if (r < 0)
                         return log_error_errno(r, "Failed to prepare TPM2 JSON token object: %m");
