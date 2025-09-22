@@ -59,6 +59,7 @@ void journal_config_set_defaults(JournalConfig *c) {
                 .max_level_console = -1,
                 .max_level_wall = -1,
                 .max_level_socket = -1,
+                .split_mode = _SPLIT_INVALID,
         };
 
         journal_reset_metrics(&c->system_storage_metrics);
