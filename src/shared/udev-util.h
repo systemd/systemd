@@ -4,6 +4,8 @@
 #include "conf-parser.h"
 #include "forward.h"
 
+#define UDEV_VARLINK_ADDRESS "/run/udev/io.systemd.Udev"
+
 int udev_parse_config_full(const ConfigTableItem config_table[]);
 int udev_parse_config(void);
 
@@ -32,3 +34,5 @@ int device_get_property_value_with_fallback(
                 const char *prop,
                 Hashmap *extra_props,
                 const char **ret);
+
+int udev_varlink_connect(sd_varlink **ret, usec_t timeout);

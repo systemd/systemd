@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "device-util.h"
@@ -211,6 +212,11 @@ static void seat_triggered_uevents_done(Seat *s) {
                 return;
         }
 
+        if (s->varlink) {
+                log_debug("%s: waiting for ACL on static device nodes being updated by udevd.", s->id);
+                return;
+        }
+
         Session *session = s->active;
 
         if (session) {
@@ -321,12 +327,65 @@ static int seat_trigger_devices(Seat *s) {
                         return r;
         }
 
+        return 0;
+}
+
+static int on_static_node_acl_reply(
+                sd_varlink *vl,
+                sd_json_variant *parameters,
+                const char *error_id,
+                sd_varlink_reply_flags_t flags,
+                void *userdata) {
+
+        Seat *s = ASSERT_PTR(userdata);
+
+        assert(vl);
+
+        if (error_id)
+                log_warning("Failed to update ACL on static nodes, ignoring: %s", error_id);
+
+        s->varlink = sd_varlink_unref(s->varlink);
         seat_triggered_uevents_done(s);
+        return 0;
+}
+
+static int seat_update_static_node_acl(Seat *s) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        assert(s);
+
+        /* This requests udevd to update ACL on static device nodes. */
+
+        s->varlink = sd_varlink_flush_close_unref(s->varlink);
+
+        r = udev_varlink_connect(&vl, /* timeout = */ USEC_INFINITY);
+        if (ERRNO_IS_NEG_DISCONNECT(r) || r == -ENOENT)
+                return 0; /* Not running yet? */
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_attach_event(vl, s->manager->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_bind_reply(vl, on_static_node_acl_reply);
+        if (r < 0)
+                return r;
+
+        (void) sd_varlink_set_userdata(vl, s);
+
+        r = sd_varlink_invokebo(vl, "io.systemd.Udev.SetStaticNodeACL", SD_JSON_BUILD_PAIR_STRING("seat", s->id));
+        if (r < 0)
+                return r;
+
+        s->varlink = TAKE_PTR(vl);
         return 0;
 }
 
 int seat_set_active(Seat *s, Session *session) {
         Session *old_active;
+        int r;
 
         assert(s);
         assert(!session || session->seat == s);
@@ -358,7 +417,16 @@ int seat_set_active(Seat *s, Session *session) {
                 session_send_changed(old_active, "Active");
         }
 
-        return seat_trigger_devices(s);
+        r = seat_trigger_devices(s);
+        if (r < 0)
+                return r;
+
+        r = seat_update_static_node_acl(s);
+        if (r < 0)
+                return r;
+
+        seat_triggered_uevents_done(s);
+        return 0;
 }
 
 static Session* seat_get_position(Seat *s, unsigned pos) {

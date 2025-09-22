@@ -21,7 +21,7 @@
 #include "strv.h"
 #include "udev-ctrl.h"
 #include "udev-rules.h"
-#include "udev-varlink.h"
+#include "udev-util.h"
 #include "udevadm-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
