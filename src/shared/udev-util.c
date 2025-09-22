@@ -6,6 +6,7 @@
 
 #include "sd-event.h"
 #include "sd-id128.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "device-nodes.h"
@@ -457,4 +458,24 @@ int device_get_property_value_with_fallback(
         *ret = value;
 
         return 1;
+}
+
+int udev_varlink_connect(sd_varlink **ret, usec_t timeout) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *link = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_varlink_connect_address(&link, UDEV_VARLINK_ADDRESS);
+        if (r < 0)
+                return r;
+
+        (void) sd_varlink_set_description(link, "udev");
+
+        r = sd_varlink_set_relative_timeout(link, timeout);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(link);
+        return 0;
 }
