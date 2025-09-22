@@ -3,6 +3,8 @@
 
 #include "forward.h"
 
+int dlopen_libaudit(void);
+
 #if HAVE_AUDIT
 #  include <libaudit.h>         /* IWYU pragma: export */
 
@@ -11,8 +13,6 @@
 extern DLSYM_PROTOTYPE(audit_log_acct_message);
 extern DLSYM_PROTOTYPE(audit_log_user_avc_message);
 extern DLSYM_PROTOTYPE(audit_log_user_comm_message);
-
-int dlopen_libaudit(void);
 #endif
 
 bool use_audit(void);
