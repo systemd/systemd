@@ -19,6 +19,7 @@ udevadm_sources = files(
 )
 udevadm_extract_sources = files(
         'net/link-config.c',
+        'udev-acl.c',
         'udev-builtin.c',
         'udev-builtin-btrfs.c',
         'udev-builtin-dissect_image.c',
