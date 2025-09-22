@@ -19,8 +19,10 @@ DLSYM_PROTOTYPE(audit_log_acct_message) = NULL;
 DLSYM_PROTOTYPE(audit_log_user_avc_message) = NULL;
 DLSYM_PROTOTYPE(audit_log_user_comm_message) = NULL;
 static DLSYM_PROTOTYPE(audit_open) = NULL;
+#endif
 
 int dlopen_libaudit(void) {
+#if HAVE_AUDIT
         ELF_NOTE_DLOPEN("libaudit",
                         "Support for Audit logging",
                         ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
@@ -35,8 +37,12 @@ int dlopen_libaudit(void) {
                         DLSYM_ARG(audit_log_user_avc_message),
                         DLSYM_ARG(audit_log_user_comm_message),
                         DLSYM_ARG(audit_open));
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
+#if HAVE_AUDIT
 static int try_audit_request(int fd) {
         struct iovec iov;
         struct msghdr mh;
