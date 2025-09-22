@@ -6,3 +6,5 @@
 #if HAVE_ACL
 int devnode_acl(int fd, uid_t uid);
 #endif
+
+int static_node_acl(const char *seat);

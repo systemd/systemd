@@ -25,6 +25,11 @@ static SD_VARLINK_DEFINE_METHOD(StopExecQueue);
 
 static SD_VARLINK_DEFINE_METHOD(Exit);
 
+static SD_VARLINK_DEFINE_METHOD(
+                SetStaticNodeACL,
+                SD_VARLINK_FIELD_COMMENT("logind seat name, defaults to seat0."),
+                SD_VARLINK_DEFINE_INPUT(seat, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Udev,
                 "io.systemd.Udev",
@@ -42,4 +47,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Stops processing of queued events."),
                 &vl_method_StopExecQueue,
                 SD_VARLINK_SYMBOL_COMMENT("Terminates systemd-udevd. This exists for backward compatibility. Please consider to use 'systemctl stop systemd-udevd.service'."),
-                &vl_method_Exit);
+                &vl_method_Exit,
+                SD_VARLINK_SYMBOL_COMMENT("Update ACL on static device nodes."),
+                &vl_method_SetStaticNodeACL);

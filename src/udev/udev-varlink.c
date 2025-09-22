@@ -5,6 +5,7 @@
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
+#include "udev-acl.h"
 #include "udev-manager.h"
 #include "udev-varlink.h"
 #include "varlink-io.systemd.Udev.h"
@@ -166,6 +167,29 @@ static int vl_method_exit(sd_varlink *link, sd_json_variant *parameters, sd_varl
         return sd_varlink_reply(link, NULL);
 }
 
+static int vl_method_set_static_node_acl(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "seat", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_const_string, 0, SD_JSON_STRICT },
+                {}
+        };
+
+        const char *seat = NULL;
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &seat);
+        if (r != 0)
+                return r;
+
+        log_debug("Received io.systemd.udev.SetStaticNodeACL(\"%s\")", strempty(seat));
+        r = static_node_acl(seat);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, NULL);
+}
+
 int manager_start_varlink_server(Manager *manager, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *v = NULL;
         _cleanup_close_ int fd_close = fd;
@@ -213,7 +237,8 @@ int manager_start_varlink_server(Manager *manager, int fd) {
                         "io.systemd.Udev.Revert",            vl_method_revert,
                         "io.systemd.Udev.StartExecQueue",    vl_method_start_stop_exec_queue,
                         "io.systemd.Udev.StopExecQueue",     vl_method_start_stop_exec_queue,
-                        "io.systemd.Udev.Exit",              vl_method_exit);
+                        "io.systemd.Udev.Exit",              vl_method_exit,
+                        "io.systemd.Udev.SetStaticNodeACL",  vl_method_set_static_node_acl);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink methods: %m");
 
