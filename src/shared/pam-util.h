@@ -1,14 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <syslog.h>
-
 #include "forward.h"
 
 #if HAVE_PAM
 #include <security/pam_appl.h>
 #include <security/pam_ext.h>
 #include <security/pam_modules.h> /* IWYU pragma: export */
+#include <syslog.h>
 
 #include "dlfcn-util.h"
 
@@ -29,7 +28,6 @@ extern DLSYM_PROTOTYPE(pam_syslog);
 extern DLSYM_PROTOTYPE(pam_vsyslog);
 
 int dlopen_libpam(void);
-#endif
 
 void pam_log_setup(void);
 
@@ -77,3 +75,11 @@ int pam_get_data_many_internal(pam_handle_t *handle, ...) _sentinel_;
 #define pam_get_data_many(handle, ...) pam_get_data_many_internal(handle, __VA_ARGS__, NULL)
 
 int pam_prompt_graceful(pam_handle_t *handle, int style, char **ret_response, const char *fmt, ...) _printf_(4,5);
+
+#else
+
+static inline int dlopen_libpam(void) {
+        return -EOPNOTSUPP;
+}
+
+#endif
