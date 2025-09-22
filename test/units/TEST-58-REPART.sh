@@ -1679,6 +1679,16 @@ EOF
     grep -q 'UUID=[0-9a-f-]* /home btrfs discard,rw,nodev,suid,exec,subvol=@home,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
 }
 
+testcase_varlink_list_devices() {
+    varlinkctl introspect $(which systemd-repart)
+    varlinkctl call $(which systemd-repart) --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{}'
+    varlinkctl call $(which systemd-repart) --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreRoot":true}'
+    varlinkctl call $(which systemd-repart) --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true}'
+    varlinkctl call $(which systemd-repart) --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
+
+    varlinkctl call /run/systemd/io.systemd.Repart --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
+}
+
 OFFLINE="yes"
 run_testcases
 
