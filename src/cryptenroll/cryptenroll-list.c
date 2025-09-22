@@ -60,7 +60,7 @@ int collect_enrolled_slots(struct crypt_device *cd, EnrolledSlot **ret, size_t *
                         continue;
                 }
 
-                et = luks2_token_type_from_string(sd_json_variant_string(w)); /* _ENROLL_TYPE_INVALID for unrecognized type */
+                et = luks2_token_type_from_json(v); /* _ENROLL_TYPE_INVALID for unrecognized type */
 
                 w = sd_json_variant_by_key(v, "keyslots");
                 if (!w || !sd_json_variant_is_array(w)) {
