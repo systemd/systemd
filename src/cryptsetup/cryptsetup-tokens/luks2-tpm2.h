@@ -24,4 +24,9 @@ int acquire_luks2_key(
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
+                const char *fido2_device,
+                const struct iovec *fido2_cid,
+                const struct iovec *fido2_salt,
+                const char *fido2_rp,
+                Fido2EnrollFlags fido2_flags,
                 struct iovec *decrypted_key);

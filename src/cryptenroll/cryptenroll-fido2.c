@@ -126,7 +126,7 @@ int enroll_fido2(
                         &salt,
                         &cid, &cid_size,
                         &secret, &secret_size,
-                        NULL,
+                        /* ret_usedpin= */ NULL,
                         &lock_with);
         if (r < 0)
                 return r;
