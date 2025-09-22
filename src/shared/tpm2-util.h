@@ -12,6 +12,7 @@ typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN      = 1 << 0,
         TPM2_FLAGS_USE_PCRLOCK  = 1 << 1,
         TPM2_FLAGS_USE_ARGON2ID = 1 << 2,
+        TPM2_FLAGS_USE_FIDO2    = 1 << 3,
 } TPM2Flags;
 
 /* As per https://trustedcomputinggroup.org/wp-content/uploads/TCG_PCClient_PFP_r1p05_v23_pub.pdf a
@@ -309,8 +310,8 @@ int tpm2_index_from_handle(Tpm2Context *c, const Tpm2Handle *handle, TPM2_HANDLE
 int tpm2_pcr_read(Tpm2Context *c, const TPML_PCR_SELECTION *pcr_selection, Tpm2PCRValue **ret_pcr_values, size_t *ret_n_pcr_values);
 int tpm2_pcr_read_missing_values(Tpm2Context *c, Tpm2PCRValue *pcr_values, size_t n_pcr_values);
 
-int tpm2_auth_value_from_pin(TPMI_ALG_HASH hash, const char *pin, TPM2B_AUTH *ret_auth);
-int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin);
+int tpm2_auth_value_from_pin_fido2(TPMI_ALG_HASH hash, const char *pin, const char *fido2_secret, TPM2B_AUTH *ret_auth);
+int tpm2_set_auth(Tpm2Context *c, const Tpm2Handle *handle, const char *pin, const char *fido2_secret);
 int tpm2_set_auth_binary(Tpm2Context *c, const Tpm2Handle *handle, const TPM2B_AUTH *auth);
 
 int tpm2_make_policy_session(Tpm2Context *c, const Tpm2Handle *primary, const Tpm2Handle *encryption_session, Tpm2Handle **ret_session);
@@ -333,8 +334,8 @@ int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TP
 int tpm2_calculate_policy_super_pcr(Tpm2PCRPrediction *prediction, uint16_t algorithm, TPM2B_DIGEST *pcr_policy);
 int tpm2_calculate_policy_signed(TPM2B_DIGEST *digest, const TPM2B_NAME *name);
 int tpm2_calculate_serialize(TPM2_HANDLE handle, const TPM2B_NAME *name, const TPM2B_PUBLIC *public, void **ret_serialized, size_t *ret_serialized_size);
-int tpm2_calculate_sealing_policy(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, const TPM2B_PUBLIC *public, const char *pubkey_policy_ref, bool use_pin, const Tpm2PCRLockPolicy *pcrlock_policy, TPM2B_DIGEST *digest);
-int tpm2_calculate_seal(TPM2_HANDLE parent_handle, const TPM2B_PUBLIC *parent_public, const TPMA_OBJECT *attributes, const struct iovec *secret, const TPM2B_DIGEST *policy, const char *pin, struct iovec *ret_secret, struct iovec *ret_blob, struct iovec *ret_serialized_parent);
+int tpm2_calculate_sealing_policy(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, const TPM2B_PUBLIC *public, const char *pubkey_policy_ref, bool use_pin, bool use_fido2, const Tpm2PCRLockPolicy *pcrlock_policy, TPM2B_DIGEST *digest);
+int tpm2_calculate_seal(TPM2_HANDLE parent_handle, const TPM2B_PUBLIC *parent_public, const TPMA_OBJECT *attributes, const struct iovec *secret, const TPM2B_DIGEST *policy, const char *pin, const char *fido2_secret, struct iovec *ret_secret, struct iovec *ret_blob, struct iovec *ret_serialized_parent);
 
 int tpm2_make_policy_authorize_tbs_data(const TPM2B_DIGEST *approved_digest, const char *policy_ref_data, struct iovec *ret_tbs_data);
 
@@ -351,7 +352,6 @@ typedef enum Tpm2EKTemplateProfile {
         TPM2_EK_TEMPLATE_ECC_NIST_P256,         /* ECC NIST P256 storage (H-2) */
         TPM2_EK_TEMPLATE_ECC_NIST_P384,         /* ECC NIST P384 storage (H-3) */
         TPM2_EK_TEMPLATE_RSA_3072,              /* RSA 3072 storage (H-6) */
-
         _TPM2_EK_TEMPLATE_MAX,
         _TPM2_EK_TEMPLATE_INVALID = -EINVAL,
 } Tpm2EKTemplateProfile;
@@ -362,8 +362,8 @@ int tpm2_get_ek_template(Tpm2Context *c, const Tpm2Handle *session, Tpm2EKTempla
 int tpm2_get_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 int tpm2_get_or_create_ek(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
-int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST policy_hash[], size_t n_policy, const char *pin, struct iovec *ret_secret, struct iovec **ret_blobs, size_t *ret_n_blobs, uint16_t *ret_primary_alg, struct iovec *ret_srk);
-int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, const char *pubkey_policy_ref, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec known_policy_hash[], size_t n_known_policy_hash, const struct iovec *srk, struct iovec *ret_secret);
+int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST policy_hash[], size_t n_policy, const char *pin, const char *fido2_secret, struct iovec *ret_secret, struct iovec **ret_blobs, size_t *ret_n_blobs, uint16_t *ret_primary_alg, struct iovec *ret_srk);
+int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, const char *pubkey_policy_ref, uint32_t pubkey_pcr_mask, sd_json_variant *signature, const char *pin, const char *fido2_secret, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec known_policy_hash[], size_t n_known_policy_hash, const struct iovec *srk, struct iovec *ret_secret);
 
 /* On load/import the return codes mean the key was wrapped for a different parent (INTEGRITY) or used a
  * different template (SIZE), so it's probably not for our TPM. */
@@ -472,8 +472,8 @@ int tpm2_find_device_auto(char **ret);
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, sd_json_variant **ret);
 int tpm2_parse_pcr_json_array(sd_json_variant *v, uint32_t *ret);
 
-int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, const char *pubkey_policy_ref, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec policy_hash[], size_t n_policy_hash, const struct iovec *salt, const struct iovec *srk, const struct iovec *pcrlock_nv, TPM2Flags flags, const Argon2IdParameters *argon2id_params, sd_json_variant **ret);
-int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, struct iovec *ret_pubkey, char **ret_pubkey_policy_ref, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, struct iovec **ret_blobs, size_t *ret_n_blobs, struct iovec **ret_policy_hash, size_t *ret_n_policy_hash, struct iovec *ret_salt, struct iovec *ret_srk, struct iovec *ret_pcrlock_nv, TPM2Flags *ret_flags, Argon2IdParameters *ret_argon2id_params);
+int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, const char *pubkey_policy_ref, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const struct iovec blobs[], size_t n_blobs, const struct iovec policy_hash[], size_t n_policy_hash, const struct iovec *salt, const struct iovec *srk, const struct iovec *pcrlock_nv, TPM2Flags flags, const Argon2IdParameters *argon2id_params, const struct iovec *fido2_cid, const struct iovec *fido2_salt, Fido2EnrollFlags fido2_flags, sd_json_variant **ret);
+int tpm2_parse_luks2_json(sd_json_variant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, struct iovec *ret_pubkey, char **ret_pubkey_policy_ref, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, struct iovec **ret_blobs, size_t *ret_n_blobs, struct iovec **ret_policy_hash, size_t *ret_n_policy_hash, struct iovec *ret_salt, struct iovec *ret_srk, struct iovec *ret_pcrlock_nv, TPM2Flags *ret_flags, Argon2IdParameters *ret_argon2id_params, struct iovec *ret_fido2_cid, struct iovec *ret_fido2_salt, char **ret_fido2_rp_id, Fido2EnrollFlags *ret_fido2_flags);
 
 /* Before v258 we used to bind to PCR 7 by default at various places if no explicit PCR mask was set. With
  * v258 we stopped doing that (since the SecureBoot DB is as much subject to regular updates by tools such as
@@ -535,6 +535,7 @@ typedef struct systemd_tpm2_plugin_params {
         const char *device;
         const char *signature_path;
         const char *pcrlock_path;
+        const char *fido2_device;
 } systemd_tpm2_plugin_params;
 
 typedef enum Tpm2Support {
