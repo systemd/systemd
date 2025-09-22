@@ -16,7 +16,6 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
-#if HAVE_PAM
 static void *libpam_dl = NULL;
 
 DLSYM_PROTOTYPE(pam_acct_mgmt) = NULL;
@@ -61,7 +60,6 @@ int dlopen_libpam(void) {
                         DLSYM_ARG(pam_syslog),
                         DLSYM_ARG(pam_vsyslog));
 }
-#endif
 
 void pam_log_setup(void) {
         /* Make sure we don't leak the syslog fd we open by opening/closing the fd each time. */
