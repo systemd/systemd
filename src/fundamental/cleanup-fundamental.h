@@ -30,6 +30,17 @@
                 }                                               \
         }
 
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(type, func, name, empty) \
+        static inline void name(type *p) {                              \
+                if (*p != (empty)) {                                    \
+                        DISABLE_WARNING_ADDRESS;                        \
+                        assert(func);                                   \
+                        REENABLE_WARNING;                               \
+                        func(*p);                                       \
+                        *p = (empty);                                   \
+                }                                                       \
+        }
+
 /* When func() doesn't return the appropriate type, and is also a macro, set variable to empty afterwards. */
 #define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(type, func, empty)       \
         static inline void func##p(type *p) {                           \
