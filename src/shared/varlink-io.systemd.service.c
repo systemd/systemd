@@ -92,7 +92,6 @@ int varlink_method_get_environment(sd_varlink *link, sd_json_variant *parameters
         int r;
 
         assert(link);
-        assert(parameters);
 
         /* This is a lot like /proc/$PID/environ, but can properly report the actual environment block as
          * seen from the process itself, which might be quite different from the contents of the memory that
