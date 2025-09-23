@@ -400,7 +400,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-shift-uid.c'),
-                'dependencies' : libacl,
                 'type' : 'manual',
         },
         test_template + {
