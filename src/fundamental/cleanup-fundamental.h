@@ -17,18 +17,21 @@
                         *p = func(*p);                  \
         }
 
-/* When func() doesn't return the appropriate type, set variable to empty afterwards.
- * The func() may be provided by a dynamically loaded shared library, hence add an assertion. */
-#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(type, func, empty)     \
-        static inline void func##p(type *p) {                   \
-                if (*p != (empty)) {                            \
-                        DISABLE_WARNING_ADDRESS;                \
-                        assert(func);                           \
-                        REENABLE_WARNING;                       \
-                        func(*p);                               \
-                        *p = (empty);                           \
-                }                                               \
+/* When func() doesn't return the appropriate type, set variable to empty afterwards. The func() may be
+ * provided by a dynamically loaded (dlopen()) shared library, hence add an assertion. */
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(type, func, name, empty) \
+        static inline void name(type *p) {                              \
+                if (*p != (empty)) {                                    \
+                        DISABLE_WARNING_ADDRESS;                        \
+                        assert(func);                                   \
+                        REENABLE_WARNING;                               \
+                        func(*p);                                       \
+                        *p = (empty);                                   \
+                }                                                       \
         }
+
+#define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(type, func, empty)             \
+        DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(type, func, func##p, empty)
 
 /* When func() doesn't return the appropriate type, and is also a macro, set variable to empty afterwards. */
 #define DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_MACRO(type, func, empty)       \
