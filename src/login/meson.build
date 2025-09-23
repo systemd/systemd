@@ -49,6 +49,7 @@ executables += [
                 'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'extract' : systemd_logind_extract_sources,
                 'dependencies' : [
+                        libacl,
                         threads,
                 ],
         },
