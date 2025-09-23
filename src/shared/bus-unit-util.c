@@ -2453,6 +2453,7 @@ static const BusProperty execute_properties[] = {
         { "CPUSchedulingResetOnFork",              bus_append_parse_boolean                      },
         { "LockPersonality",                       bus_append_parse_boolean                      },
         { "MemoryKSM",                             bus_append_parse_boolean                      },
+        { "MemoryTHPMadvise",                      bus_append_parse_boolean                      },
         { "RestrictSUIDSGID",                      bus_append_parse_boolean                      },
         { "RootEphemeral",                         bus_append_parse_boolean                      },
         { "SetLoginEnvironment",                   bus_append_parse_boolean                      },

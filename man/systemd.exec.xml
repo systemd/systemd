@@ -2121,6 +2121,22 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>MemoryTHPMadvise=</varname></term>
+
+        <listitem><para>Takes a boolean argument. When set, it disable THPs for the process except when the
+        usage of THPs is advised. For details, see
+        <ulink url="https://docs.kernel.org/admin-guide/mm/transhuge.html">Transparent Hugepage Support</ulink>
+        in the kernel documentation.</para>
+
+        <para>Note that this functionality might not be available, for example if THP is disabled in the
+        kernel, or the kernel does not support controlling THP at the process level through
+        <citerefentry><refentrytitle>prctl</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v254"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>PrivatePIDs=</varname></term>
 
         <listitem><para>Takes a boolean argument. Defaults to false. If enabled, sets up a new PID namespace
