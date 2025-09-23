@@ -6005,12 +6005,6 @@ int unit_prepare_exec(Unit *u) {
 
         assert(u);
 
-        /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
-         * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
-        r = bpf_firewall_load_custom(u);
-        if (r < 0)
-                return r;
-
         /* Prepares everything so that we can fork of a process for this unit */
 
         r = unit_realize_cgroup(u);
