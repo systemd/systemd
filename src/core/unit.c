@@ -6013,7 +6013,9 @@ int unit_prepare_exec(Unit *u) {
 
         /* Prepares everything so that we can fork of a process for this unit */
 
-        (void) unit_realize_cgroup(u);
+        r = unit_realize_cgroup(u);
+        if (r < 0)
+                return r;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->reset_accounting) {
