@@ -312,7 +312,7 @@ man_page_depends += ethtool_link_mode_xml
 libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
 libshared_deps = [threads,
-                  libacl,
+                  libacl_cflags,
                   libaudit_cflags,
                   libblkid,
                   libcap,
