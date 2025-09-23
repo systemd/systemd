@@ -425,7 +425,7 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
         <term>secure-boot-enroll-timeout-sec</term>
         <listitem>
           <para>How long the warning should be shown in seconds before the key enrollment process starts.</para>
-          <para>If set to <literal>hidden</literal> or <literal>0</literal>, no warning is shown and the keys
+          <para>If set to <literal>off</literal> or <literal>0</literal>, no warning is shown and the keys
           will be enrolled immediately. The default timeout (if not set explicitly) is 15 seconds.</para>
           <para>This option is only relevant if <literal>secure-boot-enroll</literal> is enabled.</para>
           <xi:include href="version-info.xml" xpointer="v259"/>
