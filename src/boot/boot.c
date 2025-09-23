@@ -343,7 +343,10 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         printf("               reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
         printf("            secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
         printf("     secure-boot-enroll-action: %s\n",  secure_boot_enroll_action_to_string(config->secure_boot_enroll_action));
-        printf("secure-boot-enroll-timeout-sec: %" PRIu64 "\n", config->secure_boot_enroll_timeout_sec);
+        if (config->secure_boot_enroll_timeout_sec == ENROLL_TIMEOUT_OFF)
+                printf("secure-boot-enroll-timeout-sec: off\n");
+        else
+                printf("secure-boot-enroll-timeout-sec: %"PRIu64"s\n", config->secure_boot_enroll_timeout_sec);
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
@@ -1100,8 +1103,8 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 log_error("Error parsing 'secure-boot-enroll-action' config option, ignoring: %s",
                                           value);
                 } else if (streq8(key, "secure-boot-enroll-timeout-sec")) {
-                        if (streq8(value, "hidden"))
-                                config->secure_boot_enroll_timeout_sec = ENROLL_TIMEOUT_HIDDEN;
+                        if (streq8(value, "off"))
+                                config->secure_boot_enroll_timeout_sec = ENROLL_TIMEOUT_OFF;
                         else {
                                 uint64_t u;
                                 if (!parse_number8(value, &u, NULL) || u > ENROLL_TIMEOUT_TYPE_MAX) {
