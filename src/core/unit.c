@@ -5560,10 +5560,7 @@ int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef
 
         if (into_cgroup) {
                 (void) unit_realize_cgroup(u);
-
-                crt = unit_setup_cgroup_runtime(u);
-                if (!crt)
-                        return -ENOMEM;
+                crt = unit_get_cgroup_runtime(u);
         }
 
         r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM, &pid);
