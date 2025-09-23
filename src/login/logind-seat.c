@@ -6,8 +6,10 @@
 
 #include "sd-messages.h"
 
+#include "acl-util.h"
 #include "alloc-util.h"
 #include "device-util.h"
+#include "dirent-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -26,6 +28,7 @@
 #include "mkdir-label.h"
 #include "path-util.h"
 #include "set.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "terminal-util.h"
@@ -321,12 +324,88 @@ static int seat_trigger_devices(Seat *s) {
                         return r;
         }
 
-        seat_triggered_uevents_done(s);
         return 0;
+}
+
+static int static_node_acl(Seat *s) {
+#if HAVE_ACL
+        int r, ret = 0;
+        uid_t uid;
+
+        assert(s);
+
+        if (s->active)
+                uid = s->active->user->user_record->uid;
+        else
+                uid = 0;
+
+        _cleanup_closedir_ DIR *dir = opendir("/run/udev/static_node-tags/uaccess/");
+        if (!dir) {
+                if (errno == ENOENT)
+                        return 0;
+
+                return log_debug_errno(errno, "Failed to open /run/udev/static_node-tags/uaccess/: %m");
+        }
+
+        FOREACH_DIRENT(de, dir, return -errno) {
+                _cleanup_close_ int fd = RET_NERRNO(openat(dirfd(dir), de->d_name, O_CLOEXEC|O_PATH));
+                if (ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd))
+                        continue;
+                if (fd < 0) {
+                        RET_GATHER(ret, log_debug_errno(fd, "Failed to open '/run/udev/static_node-tags/uaccess/%s': %m", de->d_name));
+                        continue;
+                }
+
+                struct stat st;
+                if (fstat(fd, &st) < 0) {
+                        RET_GATHER(ret, log_debug_errno(errno, "Failed to stat '/run/udev/static_node-tags/uaccess/%s': %m", de->d_name));
+                        continue;
+                }
+
+                r = stat_verify_device_node(&st);
+                if (r < 0) {
+                        RET_GATHER(ret, log_debug_errno(fd, "'/run/udev/static_node-tags/uaccess/%s' points to a non-device node: %m", de->d_name));
+                        continue;
+                }
+
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                r = sd_device_new_from_stat_rdev(&dev, &st);
+                if (r >= 0) {
+                        log_device_debug(dev, "'/run/udev/static_node-tags/uaccess/%s' points to a non-static device node, ignoring.", de->d_name);
+                        continue;
+                }
+                if (!ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(r))
+                        log_debug_errno(r, "Failed to check if '/run/udev/static_node-tags/uaccess/%s' points to a static device node, ignoring: %m", de->d_name);
+
+                r = devnode_acl(fd, uid);
+                if (r >= 0 || r == -ENOENT)
+                        continue;
+
+                /* de->d_name is escaped, like "snd\x2ftimer", hence let's use the path to node, if possible. */
+                _cleanup_free_ char *node = NULL;
+                (void) fd_get_path(fd, &node);
+
+                if (uid != 0) {
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to apply ACL on '%s': %m", node ?: de->d_name));
+
+                        /* Better be safe than sorry and reset ACL */
+                        r = devnode_acl(fd, /* uid = */ 0);
+                        if (r >= 0 || r == -ENOENT)
+                                continue;
+                }
+                if (r < 0)
+                        RET_GATHER(ret, log_debug_errno(r, "Failed to flush ACL on '%s': %m", node ?: de->d_name));
+        }
+
+        return ret;
+#else
+        return 0;
+#endif
 }
 
 int seat_set_active(Seat *s, Session *session) {
         Session *old_active;
+        int r;
 
         assert(s);
         assert(!session || session->seat == s);
@@ -358,7 +437,16 @@ int seat_set_active(Seat *s, Session *session) {
                 session_send_changed(old_active, "Active");
         }
 
-        return seat_trigger_devices(s);
+        r = seat_trigger_devices(s);
+        if (r < 0)
+                return r;
+
+        r = static_node_acl(s);
+        if (r < 0)
+                return r;
+
+        seat_triggered_uevents_done(s);
+        return 0;
 }
 
 static Session* seat_get_position(Seat *s, unsigned pos) {
