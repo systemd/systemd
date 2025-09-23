@@ -151,27 +151,24 @@ static EFI_CC_MEASUREMENT_PROTOCOL *cc_interface_check(void) {
 }
 
 static EFI_TCG2_PROTOCOL *tcg2_interface_check(void) {
-        EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
-                .Size = sizeof(capability),
-        };
         EFI_STATUS err;
-        EFI_TCG2_PROTOCOL *tcg;
 
+        EFI_TCG2_PROTOCOL *tcg;
         err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG2_PROTOCOL), NULL, (void **) &tcg);
         if (err != EFI_SUCCESS)
                 return NULL;
 
+        EFI_TCG2_BOOT_SERVICE_CAPABILITY capability = {
+                .Size = sizeof(capability),
+        };
         err = tcg->GetCapability(tcg, &capability);
         if (err != EFI_SUCCESS)
                 return NULL;
 
-        if (capability.StructureVersion.Major == 1 &&
-            capability.StructureVersion.Minor == 0) {
-                EFI_TCG_BOOT_SERVICE_CAPABILITY *caps_1_0 =
-                        (EFI_TCG_BOOT_SERVICE_CAPABILITY*) &capability;
-                if (caps_1_0->TPMPresentFlag)
-                        return tcg;
-        }
+        assert(capability.Size >= endoffsetof_field(EFI_TCG2_BOOT_SERVICE_CAPABILITY, Size));
+
+        if (capability.Size < endoffsetof_field(EFI_TCG2_BOOT_SERVICE_CAPABILITY, TPMPresentFlag))
+                return NULL;
 
         if (!capability.TPMPresentFlag)
                 return NULL;
