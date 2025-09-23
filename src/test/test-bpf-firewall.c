@@ -50,7 +50,8 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        r = enter_cgroup_subroot(NULL);
+        _cleanup_free_ char *cgroup_path = NULL;
+        r = enter_cgroup_subroot(&cgroup_path);
         if (r == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
 
@@ -129,6 +130,8 @@ int main(int argc, char *argv[]) {
         SERVICE(u)->type = SERVICE_ONESHOT;
         u->load_state = UNIT_LOADED;
 
+        CGroupRuntime *crt = ASSERT_PTR(unit_setup_cgroup_runtime(u));
+
         unit_dump(u, stdout, NULL);
 
         r = bpf_firewall_compile(u);
@@ -136,7 +139,6 @@ int main(int argc, char *argv[]) {
                 return log_tests_skipped("Kernel doesn't support the necessary bpf bits (masked out via seccomp?)");
         ASSERT_OK(r);
 
-        CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
         ASSERT_NOT_NULL(crt->ip_bpf_ingress);
         ASSERT_NOT_NULL(crt->ip_bpf_egress);
 
