@@ -57,6 +57,15 @@ assert_le() {(
     fi
 )}
 
+assert_ge() {(
+    set +ex
+
+    if [[ "${1:?}" -lt "${2:?}" ]]; then
+        echo "FAIL: '$1' < '$2'" >&2
+        exit 1
+    fi
+)}
+
 assert_in() {(
     set +ex
 
