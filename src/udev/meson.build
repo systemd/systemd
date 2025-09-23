@@ -114,7 +114,7 @@ endif
 ############################################################
 
 udev_dependencies = [
-        libacl,
+        libacl_cflags,
         libblkid,
         libkmod,
         threads,
@@ -131,7 +131,7 @@ udev_plugin_template = executable_template + {
 udev_common_template = {
         'objects' : ['udevadm'],
         'dependencies' : [
-                libacl,
+                libacl_cflags,
                 libblkid,
                 threads,
         ],
