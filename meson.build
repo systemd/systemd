@@ -1183,6 +1183,7 @@ conf.set10('ENABLE_POLKIT', install_polkit)
 libacl = dependency('libacl',
                     required : get_option('acl'))
 conf.set10('HAVE_ACL', libacl.found())
+libacl_cflags = libacl.partial_dependency(includes: true, compile_args: true)
 
 libaudit = dependency('audit',
                       required : get_option('audit'))
