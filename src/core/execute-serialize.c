@@ -1701,6 +1701,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item_tristate(f, "exec-context-memory-thp-madvise", c->memory_thp_madvise);
+        if (r < 0)
+                return r;
+
         r = serialize_item(f, "exec-context-private-tmp", private_tmp_to_string(c->private_tmp));
         if (r < 0)
                 return r;
@@ -2648,6 +2652,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
                 } else if ((val = startswith(l, "exec-context-memory-ksm="))) {
                         r = safe_atoi(val, &c->memory_ksm);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-memory-thp-madvise="))) {
+                        r = safe_atoi(val, &c->memory_thp_madvise);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-private-tmp="))) {
