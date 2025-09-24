@@ -5559,11 +5559,11 @@ int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef
          * with the child's PID. */
 
         if (into_cgroup) {
-                (void) unit_realize_cgroup(u);
+                r = unit_realize_cgroup(u);
+                if (r < 0)
+                        return r;
 
-                crt = unit_setup_cgroup_runtime(u);
-                if (!crt)
-                        return -ENOMEM;
+                crt = unit_get_cgroup_runtime(u);
         }
 
         r = safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM, &pid);
@@ -6005,15 +6005,11 @@ int unit_prepare_exec(Unit *u) {
 
         assert(u);
 
-        /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
-         * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
-        r = bpf_firewall_load_custom(u);
-        if (r < 0)
-                return r;
-
         /* Prepares everything so that we can fork of a process for this unit */
 
-        (void) unit_realize_cgroup(u);
+        r = unit_realize_cgroup(u);
+        if (r < 0)
+                return r;
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->reset_accounting) {
