@@ -44,6 +44,7 @@ static void timer_init(Unit *u) {
         t->next_elapse_realtime = USEC_INFINITY;
         t->accuracy_usec = u->manager->defaults.timer_accuracy_usec;
         t->remain_after_elapse = true;
+        t->last_trigger = DUAL_TIMESTAMP_NULL;
 }
 
 void timer_free_values(Timer *t) {
@@ -663,8 +664,6 @@ static int timer_start(Unit *u) {
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
-
-        t->last_trigger = DUAL_TIMESTAMP_NULL;
 
         /* Reenable all timers that depend on unit activation time */
         LIST_FOREACH(value, v, t->values)
