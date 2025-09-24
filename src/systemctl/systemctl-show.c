@@ -54,6 +54,7 @@
 #include "terminal-util.h"
 #include "utf8.h"
 #include "varlink-io.systemd.Manager.h"
+#include "varlink-util.h"
 
 static OutputFlags get_output_flags(void) {
         return
@@ -2503,11 +2504,8 @@ static int show_manager_varlink_json(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EUNATCH), "XDG_RUNTIME_DIR not set.");
 
                 address = path_join(runtime_dir, "systemd/io.systemd.Manager");
-                if (!address)
-                        return log_oom();
         } else
                 address = strdup("/run/systemd/io.systemd.Manager");
-
         if (!address)
                 return log_oom();
 
@@ -2515,9 +2513,9 @@ static int show_manager_varlink_json(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to %s: %m", address);
 
-        r = sd_varlink_call(vl, "io.systemd.Manager.Describe", NULL, &reply, NULL);
+        r = varlink_call_and_log(vl, "io.systemd.Manager.Describe", NULL, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to call io.systemd.Manager.Describe: %m");
+                return r;
 
         sd_json_variant_dump(reply, output_mode_to_json_format_flags(arg_output), stdout, NULL);
         return 0;
@@ -2558,8 +2556,12 @@ int verb_show(int argc, char *argv[], void *userdata) {
                 if (!arg_states && !arg_types) {
                         if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
                                 /* systemctl show --all → show properties of the manager */
-                                if (OUTPUT_MODE_IS_JSON(arg_output) && arg_transport == BUS_TRANSPORT_LOCAL)
-                                        return show_manager_varlink_json();
+                                if (OUTPUT_MODE_IS_JSON(arg_output)) {
+                                        r = show_manager_varlink_json();
+                                        if (r >= 0)
+                                                return r;
+                                        /* Fall back to D-Bus on varlink failure */
+                                }
 
                                 return show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
                         }
