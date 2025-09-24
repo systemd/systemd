@@ -5,8 +5,6 @@ set -o pipefail
 
 # Test StandardOutput=file:
 
-systemd-analyze log-level debug
-
 systemd-run --wait --unit=TEST-23-UNIT-FILE-standard-output-one \
             -p StandardOutput=file:/tmp/stdout \
             -p StandardError=file:/tmp/stderr \
@@ -56,5 +54,3 @@ EOF
 cmp /tmp/stderr <<EOF
 b
 EOF
-
-systemd-analyze log-level info

@@ -14,8 +14,6 @@ at_exit() {
 
 trap at_exit EXIT
 
-systemctl log-level debug
-
 # Existing files
 
 mkdir /tmp/test-open-file
@@ -51,5 +49,3 @@ systemctl stop TEST-23-UNIT-FILE-openfile-server.socket
 
 assert_rc 202 systemd-run -p OpenFile=/run/missing/foo:missing-file:read-only --wait true
 assert_rc 0 systemd-run -p OpenFile=/run/missing/foo:missing-file:read-only,graceful --wait true
-
-systemctl log-level info

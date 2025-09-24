@@ -8,8 +8,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemd-analyze log-level debug
-
 # Ensure that the init.scope.d drop-in is applied on boot
 test "$(cat /sys/fs/cgroup/init.scope/memory.high)" != "max"
 
@@ -345,7 +343,5 @@ EOF
 }
 
 run_testcases
-
-systemd-analyze log-level info
 
 touch /testok

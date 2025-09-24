@@ -71,8 +71,6 @@ check_device_property() {
     assert_eq "$count" "$expected_count"
 }
 
-systemd-analyze log-level debug
-
 export SYSTEMD_LOG_LEVEL=debug
 
 if [ -f /run/TEST-82-SOFTREBOOT.touch3 ]; then
@@ -324,8 +322,6 @@ EOF
     # Now block until the soft-boot killing spree kills us
     exec sleep infinity
 fi
-
-systemd-analyze log-level info
 
 touch /testok
 systemctl --no-block exit 123

@@ -547,9 +547,9 @@ int bpf_firewall_compile(Unit *u) {
         if (!cc)
                 return -EINVAL;
 
-        crt = unit_setup_cgroup_runtime(u);
+        crt = unit_get_cgroup_runtime(u);
         if (!crt)
-                return -ENOMEM;
+                return -ESTALE;
 
         if (bpf_program_supported() <= 0)
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),

@@ -6,8 +6,6 @@ set -eux
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemd-analyze log-level debug
-
 run_with_cred_compare() (
     local cred="${1:?}"
     local exp="${2?}"
@@ -528,7 +526,5 @@ dd if=/dev/urandom of=/tmp/brummbaer.data bs=4096 count=1
 run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
 run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
 run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
-
-systemd-analyze log-level info
 
 touch /testok
