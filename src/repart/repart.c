@@ -4278,32 +4278,36 @@ static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) 
         assert(offset != UINT64_MAX);
         assert(size != UINT64_MAX);
 
-        probe = blkid_new_probe();
+        r = dlopen_libblkid();
+        if (r < 0)
+                return log_error_errno(r, "Failed to load libblkid: %m");
+
+        probe = sym_blkid_new_probe();
         if (!probe)
                 return log_oom();
 
         errno = 0;
-        r = blkid_probe_set_device(probe, fdisk_get_devfd(context->fdisk_context), offset, size);
+        r = sym_blkid_probe_set_device(probe, fdisk_get_devfd(context->fdisk_context), offset, size);
         if (r < 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to allocate device probe for wiping.");
 
         errno = 0;
-        if (blkid_probe_enable_superblocks(probe, true) < 0 ||
-            blkid_probe_set_superblocks_flags(probe, BLKID_SUBLKS_MAGIC|BLKID_SUBLKS_BADCSUM) < 0 ||
-            blkid_probe_enable_partitions(probe, true) < 0 ||
-            blkid_probe_set_partitions_flags(probe, BLKID_PARTS_MAGIC) < 0)
+        if (sym_blkid_probe_enable_superblocks(probe, true) < 0 ||
+            sym_blkid_probe_set_superblocks_flags(probe, BLKID_SUBLKS_MAGIC|BLKID_SUBLKS_BADCSUM) < 0 ||
+            sym_blkid_probe_enable_partitions(probe, true) < 0 ||
+            sym_blkid_probe_set_partitions_flags(probe, BLKID_PARTS_MAGIC) < 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to enable superblock and partition probing.");
 
         for (;;) {
                 errno = 0;
-                r = blkid_do_probe(probe);
+                r = sym_blkid_do_probe(probe);
                 if (r < 0)
                         return log_error_errno(errno_or_else(EIO), "Failed to probe for file systems.");
                 if (r > 0)
                         break;
 
                 errno = 0;
-                if (blkid_do_wipe(probe, false) < 0)
+                if (sym_blkid_do_wipe(probe, false) < 0)
                         return log_error_errno(errno_or_else(EIO), "Failed to wipe file system signature.");
         }
 
@@ -7392,20 +7396,24 @@ static int resolve_copy_blocks_auto_candidate(
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(whole_devno));
 
-        b = blkid_new_probe();
+        r = dlopen_libblkid();
+        if (r < 0)
+                return log_error_errno(r, "Failed to find libblkid: %m");
+
+        b = sym_blkid_new_probe();
         if (!b)
                 return log_oom();
 
         errno = 0;
-        r = blkid_probe_set_device(b, fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
                 return log_error_errno(errno_or_else(ENOMEM), "Failed to open block device '%s': %m", p);
 
-        (void) blkid_probe_enable_partitions(b, 1);
-        (void) blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+        (void) sym_blkid_probe_enable_partitions(b, 1);
+        (void) sym_blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
 
         errno = 0;
-        r = blkid_do_safeprobe(b);
+        r = sym_blkid_do_safeprobe(b);
         if (r == _BLKID_SAFEPROBE_ERROR)
                 return log_error_errno(errno_or_else(EIO), "Unable to probe for partition table of '%s': %m", p);
         if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND)) {
@@ -7415,18 +7423,18 @@ static int resolve_copy_blocks_auto_candidate(
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
         if (!streq_ptr(pttype, "gpt")) {
                 log_debug("Didn't find a GPT partition table on '%s'.", p);
                 return false;
         }
 
         errno = 0;
-        pl = blkid_probe_get_partitions(b);
+        pl = sym_blkid_probe_get_partitions(b);
         if (!pl)
                 return log_error_errno(errno_or_else(EIO), "Unable read partition table of '%s': %m", p);
 
-        pp = blkid_partlist_devno_to_partition(pl, partition_devno);
+        pp = sym_blkid_partlist_devno_to_partition(pl, partition_devno);
         if (!pp) {
                 log_debug("Partition %u:%u has no matching partition table entry on '%s'.",
                           major(partition_devno), minor(partition_devno), p);
