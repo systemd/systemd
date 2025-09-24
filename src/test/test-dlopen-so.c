@@ -12,6 +12,7 @@
 #include "libarchive-util.h"
 #include "libaudit-util.h"
 #include "libfido2-util.h"
+#include "libmount-util.h"
 #include "main-func.h"
 #include "module-util.h"
 #include "pam-util.h"
@@ -56,6 +57,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
         ASSERT_DLOPEN(dlopen_libacl, HAVE_ACL);
         ASSERT_DLOPEN(dlopen_libblkid, HAVE_BLKID);
+        ASSERT_DLOPEN(dlopen_libmount, true);
 
         return 0;
 }

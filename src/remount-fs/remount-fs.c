@@ -90,13 +90,13 @@ static int remount_by_fstab(Hashmap **ret_pids) {
         for (;;) {
                 struct libmnt_fs *fs;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from fstab: %m");
                 if (r > 0) /* EOF */
                         break;
 
-                const char *target = mnt_fs_get_target(fs);
+                const char *target = sym_mnt_fs_get_target(fs);
                 if (!target)
                         continue;
 

@@ -134,7 +134,7 @@ libcore_static = static_library(
         dependencies : [libaudit_cflags,
                         libdl,
                         libm,
-                        libmount,
+                        libmount_cflags,
                         librt,
                         libseccomp,
                         libselinux,
@@ -222,7 +222,7 @@ executables += [
                         libcore,
                         libshared
                 ],
-                'dependencies' : libmount,
+                'dependencies' : libmount_cflags,
         },
         fuzz_template + {
                 'sources' : files('fuzz-manager-serialize.c'),
