@@ -19,10 +19,10 @@ typedef enum {
 } secure_boot_enroll_action;
 
 enum {
-        ENROLL_TIMEOUT_HIDDEN   = 0,
-        ENROLL_TIMEOUT_MIN      = 1,
-        ENROLL_TIMEOUT_DEFAULT  = 15,
-        ENROLL_TIMEOUT_TYPE_MAX = UINT32_MAX,
+        ENROLL_TIMEOUT_HIDDEN  = 0,
+        ENROLL_TIMEOUT_MIN     = 1,
+        ENROLL_TIMEOUT_DEFAULT = 15,
+        ENROLL_TIMEOUT_MAX     = UINT32_MAX,
 };
 
 bool secure_boot_enabled(void);
