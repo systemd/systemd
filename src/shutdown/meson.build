@@ -16,7 +16,7 @@ executables += [
                 'name' : 'systemd-shutdown',
                 'sources' : systemd_shutdown_sources + systemd_shutdown_extract_sources,
                 'extract' : systemd_shutdown_extract_sources,
-                'dependencies' : libmount,
+                'dependencies' : libmount_cflags,
         },
         libexec_template + {
                 'name' : 'systemd-shutdown.standalone',
@@ -28,11 +28,11 @@ executables += [
                         libshared_static,
                         libsystemd_static,
                 ],
-                'dependencies' : libmount,
+                'dependencies' : libmount_cflags,
         },
         test_template + {
                 'sources' : files('test-umount.c'),
                 'objects' : ['systemd-shutdown'],
-                'dependencies' : libmount,
+                'dependencies' : libmount_cflags,
         },
 ]
