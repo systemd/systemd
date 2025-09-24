@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <net/if.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -290,11 +291,30 @@ static int vl_method_set_link_up_or_down(sd_varlink *vlink, sd_json_variant *par
         if (r <= 0)
                 return r;
 
+        /* Check if operation is redundant - link already in desired state */
+        bool current_up = FLAGS_SET(link->flags, IFF_UP);
+        if (current_up == up)
+                return sd_varlink_reply(vlink, NULL);
+
+        /* Check if there's already a pending set flags operation */
+        if (link->set_flags_messages > 0)
+                return sd_varlink_error_errno(vlink, EBUSY);
+
+        /* Reserve the operation slot immediately to prevent races */
+        link->set_flags_messages++;
+
         if (!up)
                 /* Stop all network engines while interface is still up, then bring it down */
                 (void) link_stop_engines(link, /* may_keep_dynamic = */ false);
 
-        return link_up_or_down_now_by_varlink(link, up, vlink);
+        r = link_up_or_down_now_by_varlink(link, up, vlink);
+        if (r < 0) {
+                /* Revert the increment on failure */
+                link->set_flags_messages--;
+                return r;
+        }
+
+        return r;
 }
 
 static int vl_method_set_link_up(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

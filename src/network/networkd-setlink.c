@@ -1436,7 +1436,7 @@ int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
                 return log_link_warning_errno(link, r, "Could not send rtnetlink message: %m");
 
         TAKE_PTR(ctx);
-        link->set_flags_messages++;
+        /* Note: set_flags_messages is already incremented by the caller */
         return 0;
 }
 

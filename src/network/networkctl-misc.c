@@ -11,7 +11,6 @@
 #include "fd-util.h"
 #include "format-ifname.h"
 #include "json-util.h"
-#include "stdio-util.h"
 #include "log.h"
 #include "netlink-util.h"
 #include "networkctl.h"
@@ -26,7 +25,6 @@
 
 int link_up_down(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
-        _cleanup_set_free_ Set *unique = NULL;
         int r, ret = 0;
         const char *method = streq(argv[0], "up") ? "io.systemd.Network.SetLinkUp" : "io.systemd.Network.SetLinkDown";
 
@@ -36,46 +34,22 @@ int link_up_down(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to systemd-networkd via varlink: %m");
 
-        /* unique will be auto-created by set_put_strdup() */
-
-        /* Deduplicate identical arguments to avoid redundant operations. */
         STRV_FOREACH(s, strv_skip(argv, 1)) {
-                _cleanup_free_ char *key = NULL;
-
                 r = parse_ifindex(*s);
-                if (r >= 0) {
-                        if (asprintf(&key, "#%i", r) < 0)
-                                return log_oom();
-                } else
-                        key = strdup(*s);
-                if (!key)
-                        return log_oom();
-
-                (void) set_put_strdup(&unique, key);
-        }
-
-        const char *k;
-        SET_FOREACH(k, unique) {
-                if (k[0] == '#') {
-                        int ifindex;
-
-                        if (safe_atoi(k + 1, &ifindex) < 0)
-                                continue;
-
+                if (r >= 0)
                         r = varlink_callbo_and_log(
                                         vl,
                                         method,
                                         /* reply = */ NULL,
-                                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex),
+                                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", r),
                                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
-                } else {
+                else
                         r = varlink_callbo_and_log(
                                         vl,
                                         method,
                                         /* reply = */ NULL,
-                                        SD_JSON_BUILD_PAIR_STRING("InterfaceName", k),
+                                        SD_JSON_BUILD_PAIR_STRING("InterfaceName", *s),
                                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
-                }
                 RET_GATHER(ret, r);
         }
 
