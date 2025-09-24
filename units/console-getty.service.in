@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Console Getty
+Description=Console Getty for OCI
 Documentation=man:agetty(8) man:systemd-getty-generator(8)
 After=systemd-user-sessions.service plymouth-quit-wait.service getty-pre.target
 {% if HAVE_SYSV_COMPAT %}
@@ -16,7 +16,11 @@ After=rc-local.service
 {% endif %}
 Before=getty.target
 
+Conflicts=serial-getty@console.service
+Conflicts=getty@console.service
+
 # OCI containers may be run without a console
+ConditionVirtualization=container
 ConditionPathExists=/dev/console
 
 [Service]
