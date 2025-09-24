@@ -168,11 +168,17 @@ test_enable_disable_preset() {
     systemctl enable "$@" "$UNIT_NAME"
     systemctl is-enabled "$@" -l "$UNIT_NAME"
     # We created a preset file for this unit above with a "disable" policy
+    systemctl preset --dry-run "$@" "$UNIT_NAME"
+    systemctl is-enabled "$@" "$UNIT_NAME"
     systemctl preset "$@" "$UNIT_NAME"
     (! systemctl is-enabled "$@" "$UNIT_NAME")
     systemctl reenable "$@" "$UNIT_NAME"
     systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl preset "$@" --dry-run --preset-mode=enable-only "$UNIT_NAME"
+    systemctl is-enabled "$@" "$UNIT_NAME"
     systemctl preset "$@" --preset-mode=enable-only "$UNIT_NAME"
+    systemctl is-enabled "$@" "$UNIT_NAME"
+    systemctl preset "$@" --dry-run --preset-mode=disable-only "$UNIT_NAME"
     systemctl is-enabled "$@" "$UNIT_NAME"
     systemctl preset "$@" --preset-mode=disable-only "$UNIT_NAME"
     (! systemctl is-enabled "$@" "$UNIT_NAME")
