@@ -81,7 +81,7 @@ executables += [
                         libshared_fdisk
                 ],
                 'dependencies' : [
-                        libblkid,
+                        libblkid_cflags,
                         libcrypt,
                         libfdisk,
                         libopenssl,
