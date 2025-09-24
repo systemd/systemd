@@ -70,7 +70,7 @@ foreach dirname : [
         'TEST-46-HOMED',
         'TEST-50-DISSECT',
         'TEST-52-HONORFIRSTSHUTDOWN',
-        'TEST-53-ISSUE-16347',
+        'TEST-53-TIMER',
         'TEST-54-CREDS',
         'TEST-55-OOMD',
         'TEST-58-REPART',
