@@ -376,7 +376,6 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         int r;
 
         assert(link);
-        assert(parameters);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
