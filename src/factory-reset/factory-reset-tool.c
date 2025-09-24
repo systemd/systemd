@@ -305,8 +305,6 @@ static int verb_complete(int argc, char *argv[], void *userdata) {
 static int vl_method_get_factory_reset_mode(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
 
-        assert(parameters);
-
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
                 return r;
@@ -320,8 +318,6 @@ static int vl_method_get_factory_reset_mode(sd_varlink *link, sd_json_variant *p
 
 static int vl_method_can_request_factory_reset(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         int r;
-
-        assert(parameters);
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
