@@ -40,9 +40,6 @@ FSTYPE="$(stat --file-system --format "%T" /)"
 
 systemctl start systemd-homed.service systemd-userdbd.socket
 
-systemd-analyze log-level debug
-systemctl service-log-level systemd-homed debug
-
 # Create a tmpfs to use as backing store for the home dir. That way we can enforce a size limit nicely.
 mkdir -p /home
 mount -t tmpfs tmpfs /home -o size=290M
@@ -847,7 +844,5 @@ PASSWORD=test homectl update -T --default-area=quux3 matchtest
 homectl inspect matchtest
 homectl inspect matchtest | grep "Area: quux3"
 homectl remove matchtest
-
-systemd-analyze log-level info
 
 touch /testok
