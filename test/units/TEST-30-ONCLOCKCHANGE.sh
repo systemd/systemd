@@ -3,8 +3,6 @@
 set -eux
 set -o pipefail
 
-systemd-analyze log-level debug
-
 systemctl disable --now systemd-timesyncd.service
 
 timedatectl set-timezone Europe/Berlin
@@ -60,7 +58,5 @@ while test ! -f /tmp/timezone-changed-alternate-path-2 ; do sleep .5 ; done
 
 rm /run/systemd/system.conf /run/systemd/system/systemd-timedated.service.d/override.conf
 systemctl daemon-reload
-
-systemd-analyze log-level info
 
 touch /testok

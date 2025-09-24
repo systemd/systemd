@@ -13,12 +13,8 @@ fi
 
 install_extension_images
 
-systemd-analyze log-level debug
-
 runas testuser systemd-run --wait --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
-
-runas testuser systemctl --user log-level debug
 
 runas testuser systemd-run --wait --user --unit=test-private-tmp-innerfile \
     -p PrivateTmp=yes \
@@ -139,7 +135,5 @@ if unshare --mount --user --map-root-user mount -t overlay overlay /tmp/c -o low
         -p MountAPIVFS=yes \
         grep PORTABLE_PREFIXES=app1 /usr/lib/extension-release.d/extension-release.app2
 fi
-
-systemd-analyze log-level info
 
 touch /testok

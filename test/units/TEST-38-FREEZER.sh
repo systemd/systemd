@@ -12,8 +12,6 @@ if [[ -n "${COVERAGE_BUILD_DIR:-}" ]]; then
     exit 77
 fi
 
-systemd-analyze log-level debug
-
 unit=TEST-38-FREEZER-sleep.service
 
 start_test_service() {
