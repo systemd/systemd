@@ -20,6 +20,8 @@
 #include "pcre2-util.h"
 #include "pkcs11-util.h"
 #include "qrcode-util.h"
+#include "seccomp-util.h"
+#include "selinux-util.h"
 #include "tests.h"
 #include "tpm2-util.h"
 
@@ -56,6 +58,11 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
         ASSERT_DLOPEN(dlopen_libacl, HAVE_ACL);
         ASSERT_DLOPEN(dlopen_libblkid, HAVE_BLKID);
+        ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SECCOMP);
+
+#if HAVE_SELINUX
+        assert_se(dlopen_libselinux() >= 0);
+#endif
 
         return 0;
 }

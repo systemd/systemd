@@ -1577,6 +1577,10 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
 
         assert(c);
 
+        /* No libseccomp, all is fine */
+        if (dlopen_libseccomp() < 0)
+                return true;
+
         /* No syscall filter, we are allowed to drop privileges */
         if (hashmap_isempty(c->syscall_filter))
                 return true;
@@ -1584,7 +1588,7 @@ static bool seccomp_allows_drop_privileges(const ExecContext *c) {
         HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
                 _cleanup_free_ char *name = NULL;
 
-                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
+                name = sym_seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
 
                 if (streq(name, "capget"))
                         have_capget = true;
@@ -6107,7 +6111,7 @@ int exec_invoke(
                         char *exec_context = mac_selinux_context_net ?: context->selinux_context;
 
                         if (exec_context) {
-                                r = setexeccon(exec_context);
+                                r = sym_setexeccon_raw(exec_context);
                                 if (r < 0) {
                                         if (!context->selinux_context_ignore) {
                                                 *exit_status = EXIT_SELINUX_CONTEXT;
