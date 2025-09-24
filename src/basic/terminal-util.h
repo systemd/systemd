@@ -46,6 +46,7 @@ int terminal_reset_defensive(int fd, TerminalResetFlags flags);
 int terminal_reset_defensive_locked(int fd, TerminalResetFlags flags);
 
 int terminal_set_cursor_position(int fd, unsigned row, unsigned column);
+int terminal_get_cursor_position(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_column);
 
 int open_terminal(const char *name, int mode);
 
