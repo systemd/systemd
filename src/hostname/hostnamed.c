@@ -1894,7 +1894,6 @@ static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_
         int r;
 
         assert(link);
-        assert(parameters);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
         if (r != 0)
