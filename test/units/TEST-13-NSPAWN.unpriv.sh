@@ -69,4 +69,22 @@ machinectl terminate zurps
         "$(systemctl show -p MainPID --value systemd-logind.service)" \
         "$PWD")
 
+run0 -u testuser \
+    busctl call \
+        org.freedesktop.machine1 \
+        /org/freedesktop/machine1 \
+        org.freedesktop.machine1.Manager \
+        RegisterMachine \
+        'sayssus' \
+        shouldnotwork2 \
+        16 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 \
+        "" \
+        container \
+        "$(systemctl show -p MainPID --value user@4711.service)" \
+        "$PWD"
+(! run0 -u testuser machinectl shell shouldnotwork2 /usr/bin/id -u)
+(! run0 -u testuser machinectl shell root@shouldnotwork2 /usr/bin/id -u)
+(! run0 -u testuser machinectl shell 0@shouldnotwork2 /usr/bin/id -u)
+(! run0 -u testuser machinectl shell testuser@shouldnotwork2 /usr/bin/id -u)
+
 loginctl disable-linger testuser
