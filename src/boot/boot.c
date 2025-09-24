@@ -244,7 +244,7 @@ static char16_t* update_timeout_efivar(Config *config, bool inc) {
         case TIMEOUT_MENU_HIDDEN:
                 return xstrdup16(u"Menu hidden. Hold down key at bootup to show menu.");
         default:
-                return xasprintf("Menu timeout set to %u s.", (uint32_t)config->timeout_sec_efivar);
+                return xasprintf("Menu timeout set to %"PRIu64"s.", config->timeout_sec_efivar);
         }
 }
 
@@ -279,7 +279,7 @@ static void print_timeout_status(const char *label, uint64_t t) {
         case TIMEOUT_MENU_HIDDEN:
                 return (void) printf("%s: menu-hidden\n", label);
         default:
-                return (void) printf("%s: %u s\n", label, (uint32_t)t);
+                return (void) printf("%s: %"PRIu64"s\n", label, t);
         }
 }
 
@@ -343,7 +343,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         printf("               reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
         printf("            secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
         printf("     secure-boot-enroll-action: %s\n",  secure_boot_enroll_action_to_string(config->secure_boot_enroll_action));
-        printf("secure-boot-enroll-timeout-sec: %" PRIu64 "\n", config->secure_boot_enroll_timeout_sec);
+        printf("secure-boot-enroll-timeout-sec: %"PRIu64"s\n", config->secure_boot_enroll_timeout_sec);
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
@@ -477,8 +477,8 @@ static bool menu_run(
         size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
         _cleanup_strv_free_ char16_t **lines = NULL;
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
-        uint64_t timeout_efivar_saved = config->timeout_sec_efivar;
-        uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
+        uint64_t timeout_efivar_saved = config->timeout_sec_efivar,
+                timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         size_t default_efivar_saved = config->idx_default_efivar;
 
@@ -622,7 +622,7 @@ static bool menu_run(
 
                 if (timeout_remain > 0) {
                         free(status);
-                        status = xasprintf("Boot in %u s.", timeout_remain);
+                        status = xasprintf("Boot in %"PRIu64"s.", timeout_remain);
                 }
 
                 if (status) {
@@ -1104,7 +1104,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 config->secure_boot_enroll_timeout_sec = ENROLL_TIMEOUT_HIDDEN;
                         else {
                                 uint64_t u;
-                                if (!parse_number8(value, &u, NULL) || u > ENROLL_TIMEOUT_TYPE_MAX) {
+                                if (!parse_number8(value, &u, NULL) || u > ENROLL_TIMEOUT_MAX) {
                                         log_error("Error parsing 'secure-boot-enroll-timeout-sec' config option, ignoring: %s",
                                                   value);
                                         continue;
