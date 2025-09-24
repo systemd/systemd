@@ -2,6 +2,7 @@
 
 #include "acl-util.h"
 #include "apparmor-util.h"
+#include "blkid-util.h"
 #include "bpf-dlopen.h"
 #include "compress.h"
 #include "cryptsetup-util.h"
@@ -54,6 +55,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libaudit, HAVE_AUDIT);
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
         ASSERT_DLOPEN(dlopen_libacl, HAVE_ACL);
+        ASSERT_DLOPEN(dlopen_libblkid, HAVE_BLKID);
 
         return 0;
 }
