@@ -3903,6 +3903,117 @@ int config_parse_memory_limit(
         return 0;
 }
 
+int config_parse_device_memory_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        _cleanup_free_ char *root = NULL;
+        _cleanup_strv_free_ char **domains = NULL, **capacities = NULL;
+        _cleanup_strv_free_ char **limit_domains = NULL, **limits = NULL;
+        CGroupContext *c = data;
+        uint64_t scale = CGROUP_LIMIT_MAX;
+        int r;
+
+        if (isempty(rvalue) && STR_IN_SET(lvalue, "DeviceMemoryLow",
+                                          "DeviceMemoryMin"))
+                scale = CGROUP_LIMIT_MIN;
+        else if (!isempty(rvalue) && !streq(rvalue, "infinity")) {
+
+                r = parse_permyriad(rvalue);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid device memory limit '%s', ignoring: %m", rvalue);
+                        return 0;
+                }
+                scale = r;
+
+                if (scale > 10000U) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Device memory limit '%s' out of range, ignoring.", rvalue);
+                        return 0;
+                }
+        }
+
+        r = cg_get_root_path(&root);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine root cgroup, ignoring device memory limit: %m");
+                return 0;
+        }
+
+        r = cg_get_all_keyed_attributes("dmem", "", "dmem.capacity", &domains, &capacities);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine device memory capacities, ignoring device memory limit: %m");
+                return 0;
+        }
+
+        for (size_t i = 0; i < strv_length(domains); ++i) {
+                uint64_t limit = UINT64_MAX, capacity, bytes;
+                CGroupDeviceMemoryLimit *found = NULL, *target;
+                CGroupDeviceMemoryLimit new_limit = {};
+
+                r = safe_atou64(capacities[i], &capacity);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse dmem.capacity cgroup attribute '%s', ignoring: %m", capacities[i]);
+                        continue;
+                }
+
+                for (size_t limit_index = 0; limit_index < strv_length(limit_domains); ++limit_index) {
+                        if (!streq(limit_domains[limit_index], domains[i]))
+                                continue;
+                        if (streq(limits[limit_index], "max"))
+                                break;
+                        r = safe_atou64(limits[limit_index], &limit);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to parse dmem.max cgroup attribute '%s', ignoring: %m", limits[limit_index]);
+                                break;
+                        }
+                }
+
+                if (limit > capacity)
+                        limit = capacity;
+
+                if (scale == UINT64_MAX)
+                        bytes = UINT64_MAX;
+                else
+                        bytes = scale * capacity / (uint64_t)10000U;
+
+                LIST_FOREACH(dev_limits, cur, c->dev_mem_limits) {
+                        if (!strcmp(cur->region, domains[i])) {
+                                found = cur;
+                                break;
+                        }
+                }
+
+                if (found) {
+                        target = found;
+                } else {
+                        new_limit.region = domains[i];
+                        target = &new_limit;
+                }
+
+                if (streq(lvalue, "DeviceMemoryMax")) {
+                        target->max = bytes;
+                        target->max_valid = true;
+                } else if (streq(lvalue, "DeviceMemoryLow")) {
+                        target->low = bytes;
+                        target->low_valid = true;
+                } else if (streq(lvalue, "DeviceMemoryMin")) {
+                        target->min = bytes;
+                        target->min_valid = true;
+                }
+
+                if (!found)
+                        cgroup_context_add_device_memory_limit(c, target);
+        }
+
+        return 0;
+}
+
 int config_parse_tasks_max(
                 const char *unit,
                 const char *filename,
