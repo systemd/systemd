@@ -1048,18 +1048,22 @@ static int parse_fstab(bool prefix_sysroot) {
         for (;;) {
                 struct libmnt_fs *fs;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from '%s': %m", fstab);
                 if (r > 0) /* EOF */
                         return ret;
 
-                r = parse_fstab_one(fstab,
-                                    mnt_fs_get_source(fs), mnt_fs_get_target(fs),
-                                    mnt_fs_get_fstype(fs), mnt_fs_get_options(fs), mnt_fs_get_passno(fs),
-                                    prefix_sysroot,
-                                    /* accept_root = */ false,
-                                    /* use_swap_enabled = */ true);
+                r = parse_fstab_one(
+                                fstab,
+                                sym_mnt_fs_get_source(fs),
+                                sym_mnt_fs_get_target(fs),
+                                sym_mnt_fs_get_fstype(fs),
+                                sym_mnt_fs_get_options(fs),
+                                sym_mnt_fs_get_passno(fs),
+                                prefix_sysroot,
+                                /* accept_root = */ false,
+                                /* use_swap_enabled = */ true);
                 if (arg_sysroot_check && r > 0)
                         return true;  /* We found a mount or swap that would be started… */
                 RET_GATHER(ret, r);
@@ -1445,18 +1449,22 @@ static int add_mounts_from_creds(bool prefix_sysroot) {
         for (;;) {
                 struct libmnt_fs *fs;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next fstab entry from credential '%s': %m", cred);
                 if (r > 0) /* EOF */
                         return ret;
 
-                RET_GATHER(ret, parse_fstab_one("/run/credentials",
-                                                mnt_fs_get_source(fs), mnt_fs_get_target(fs),
-                                                mnt_fs_get_fstype(fs), mnt_fs_get_options(fs), mnt_fs_get_passno(fs),
-                                                prefix_sysroot,
-                                                /* accept_root = */ true,
-                                                /* use_swap_enabled = */ true));
+                RET_GATHER(ret, parse_fstab_one(
+                                           "/run/credentials",
+                                           sym_mnt_fs_get_source(fs),
+                                           sym_mnt_fs_get_target(fs),
+                                           sym_mnt_fs_get_fstype(fs),
+                                           sym_mnt_fs_get_options(fs),
+                                           sym_mnt_fs_get_passno(fs),
+                                           prefix_sysroot,
+                                           /* accept_root = */ true,
+                                           /* use_swap_enabled = */ true));
         }
 }
 

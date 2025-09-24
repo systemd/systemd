@@ -4,7 +4,7 @@ executables += [
         generator_template + {
                 'name' : 'systemd-fstab-generator',
                 'sources' : files('fstab-generator.c'),
-                'dependencies' : libmount,
+                'dependencies' : libmount_cflags,
         },
 ]
 

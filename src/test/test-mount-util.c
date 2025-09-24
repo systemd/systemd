@@ -361,7 +361,7 @@ TEST(umount_recursive) {
                         for (;;) {
                                 struct libmnt_fs *fs;
 
-                                r = mnt_table_next_fs(table, iter, &fs);
+                                r = sym_mnt_table_next_fs(table, iter, &fs);
                                 if (r == 1)
                                         break;
                                 if (r < 0) {
@@ -369,7 +369,7 @@ TEST(umount_recursive) {
                                         _exit(EXIT_FAILURE);
                                 }
 
-                                log_debug("left after complete umount: %s", mnt_fs_get_target(fs));
+                                log_debug("left after complete umount: %s", sym_mnt_fs_get_target(fs));
                         }
 
                         _exit(EXIT_SUCCESS);
