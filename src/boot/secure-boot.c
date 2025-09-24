@@ -105,6 +105,9 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                                 timeout_sec--;
                                 continue;
                         }
+
+                        printf("\n");
+
                         if (err != EFI_SUCCESS)
                                 return log_error_status(
                                                 err,
