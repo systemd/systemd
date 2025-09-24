@@ -191,19 +191,23 @@ static int is_tmpfs_with_noswap(dev_t devno) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         int r;
 
-        table = mnt_new_table();
-        if (!table)
-                return -ENOMEM;
-
-        r = mnt_table_parse_mtab(table, /* filename= */ NULL);
+        r = dlopen_libmount();
         if (r < 0)
                 return r;
 
-        struct libmnt_fs *fs = mnt_table_find_devno(table, devno, MNT_ITER_FORWARD);
+        table = sym_mnt_new_table();
+        if (!table)
+                return -ENOMEM;
+
+        r = sym_mnt_table_parse_mtab(table, /* filename= */ NULL);
+        if (r < 0)
+                return r;
+
+        struct libmnt_fs *fs = sym_mnt_table_find_devno(table, devno, MNT_ITER_FORWARD);
         if (!fs)
                 return -ENODEV;
 
-        r = mnt_fs_get_option(fs, "noswap", /* value= */ NULL, /* valuesz= */ NULL);
+        r = sym_mnt_fs_get_option(fs, "noswap", /* value= */ NULL, /* valuesz= */ NULL);
         if (r < 0)
                 return r;
 

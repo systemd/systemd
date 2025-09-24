@@ -32,7 +32,7 @@ static void test_libmount_unescaping_one(
 
         /* We allow this call and the checks below to fail in some cases. See the case definitions below. */
 
-        r = mnt_table_next_fs(table, iter, &fs);
+        r = sym_mnt_table_next_fs(table, iter, &fs);
         if (r != 0 && may_fail) {
                 log_error_errno(r, "mnt_table_next_fs failed: %m");
                 return;
@@ -41,8 +41,8 @@ static void test_libmount_unescaping_one(
 
         assert_se(x = cescape(string));
 
-        assert_se(source = mnt_fs_get_source(fs));
-        assert_se(target = mnt_fs_get_target(fs));
+        assert_se(source = sym_mnt_fs_get_source(fs));
+        assert_se(target = sym_mnt_fs_get_target(fs));
 
         assert_se(cs = cescape(source));
         assert_se(ct = cescape(target));
@@ -63,7 +63,7 @@ static void test_libmount_unescaping_one(
         assert_se(may_fail || streq(source, expected_source));
         assert_se(may_fail || streq(target, expected_target));
 
-        assert_se(mnt_table_next_fs(table, iter, &fs) == 1);
+        assert_se(sym_mnt_table_next_fs(table, iter, &fs) == 1);
 }
 
 TEST(libmount_unescaping) {
