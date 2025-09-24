@@ -1104,7 +1104,7 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 config->secure_boot_enroll_timeout_sec = ENROLL_TIMEOUT_HIDDEN;
                         else {
                                 uint64_t u;
-                                if (!parse_number8(value, &u, NULL) || u > ENROLL_TIMEOUT_TYPE_MAX) {
+                                if (!parse_number8(value, &u, NULL) || u > ENROLL_TIMEOUT_MAX) {
                                         log_error("Error parsing 'secure-boot-enroll-timeout-sec' config option, ignoring: %s",
                                                   value);
                                         continue;
