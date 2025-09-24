@@ -5,8 +5,6 @@ set -o pipefail
 
 # Test ExecXYZEx= service unit dbus hookups
 
-systemd-analyze log-level debug
-
 declare -A property
 
 property[1_one]=ExecCondition
@@ -31,5 +29,3 @@ for c in "${!property[@]}"; do
     systemctl show -p "${property[$c]}" "$c" | grep -F "path=echo ; argv[]=echo \${$c} ; ignore_errors=no"
     systemctl show -p "${property[$c]}Ex" "$c" | grep -F "path=echo ; argv[]=echo \${$c} ; flags=no-env-expand"
 done
-
-systemd-analyze log-level info

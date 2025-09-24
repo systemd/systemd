@@ -9,8 +9,6 @@ if ! env --block-signal=SIGUSR1 true 2> /dev/null ; then
     exit 0
 fi
 
-systemd-analyze log-level debug
-
 UNIT="test-sigqueue-$RANDOM.service"
 
 systemd-run -u "$UNIT" -p Type=notify -p DynamicUser=1 -- env --block-signal=SIGRTMIN+7 systemd-notify --exec --ready \; sleep infinity
@@ -29,7 +27,5 @@ P=$(systemctl show -P MainPID "$UNIT")
 test "$(grep SigQ: /proc/"$P"/status | cut -d: -f2 | cut -d/ -f1)" -eq 6
 
 systemctl stop $UNIT
-
-systemd-analyze log-level info
 
 touch /testok

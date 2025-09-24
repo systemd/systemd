@@ -5,8 +5,6 @@ set -o pipefail
 
 # Test Type=exec
 
-systemd-analyze log-level debug
-
 # Create a binary for which execve() will fail
 touch /tmp/brokenbinary
 chmod +x /tmp/brokenbinary
@@ -59,5 +57,3 @@ busctl call \
         sleep 0         true \
         sleep 2 sleep 1 true \
     0)
-
-systemd-analyze log-level info

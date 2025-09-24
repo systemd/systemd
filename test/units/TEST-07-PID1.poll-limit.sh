@@ -3,8 +3,6 @@
 set -eux
 set -o pipefail
 
-systemd-analyze log-level debug
-
 cat >/run/systemd/system/floodme@.service <<EOF
 [Service]
 ExecStart=true
