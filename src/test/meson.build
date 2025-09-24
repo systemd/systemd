@@ -215,7 +215,6 @@ simple_tests += files(
 ############################################################
 
 common_test_dependencies = [
-        libblkid,
         libmount,
         librt,
         libseccomp,
@@ -550,7 +549,7 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-loop-block.c'),
-                'dependencies' : [threads, libblkid],
+                'dependencies' : [threads],
                 'parallel' : false,
         },
         core_test_template + {
@@ -559,7 +558,6 @@ executables += [
         core_test_template + {
                 'sources' : files('test-namespace.c'),
                 'dependencies' : [
-                        libblkid,
                         threads,
                 ],
         },
