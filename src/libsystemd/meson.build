@@ -229,7 +229,7 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-bus/test-bus-cleanup.c'),
-                'dependencies' : [threads, libseccomp],
+                'dependencies' : [threads, libseccomp_cflags],
         },
         {
                 'sources' : files('sd-bus/test-bus-marshal.c'),
@@ -264,7 +264,7 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-bus/test-bus-track.c'),
-                'dependencies' : libseccomp,
+                'dependencies' : libseccomp_cflags,
         },
         {
                 'sources' : files('sd-bus/test-bus-watch-bind.c'),
