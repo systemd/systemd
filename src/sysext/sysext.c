@@ -167,6 +167,7 @@ static int parse_config_file(ImageClass image_class) {
 
         r = config_parse_standard_file_with_dropins_full(
                         arg_root,
+                        XAT_FDROOT,
                         config_file,
                         image_class == IMAGE_SYSEXT ? "SysExt\0" : "ConfExt\0",
                         config_item_table_lookup, items,
@@ -1862,7 +1863,7 @@ static int merge_subprocess(
                         if (r < 0)
                                 return r;
 
-                        r = dissected_image_decrypt(m, /* passphrase= */ NULL, &verity_settings, flags);
+                        r = dissected_image_decrypt(m, /* passphrase= */ NULL, &verity_settings, pick_image_policy(img), flags);
                         if (r < 0)
                                 return r;
 
