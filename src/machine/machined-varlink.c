@@ -528,7 +528,6 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         int r;
 
         assert(link);
-        assert(parameters);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
@@ -679,7 +678,6 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         };
 
         assert(link);
-        assert(parameters);
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
