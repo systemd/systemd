@@ -753,12 +753,12 @@ static char* disk_mount_point(const char *label) {
         for (;;) {
                 struct libmnt_fs *fs;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r != 0)
                         return NULL;
 
-                if (path_equal(mnt_fs_get_source(fs), device)) {
-                        const char *target = mnt_fs_get_target(fs);
+                if (path_equal(sym_mnt_fs_get_source(fs), device)) {
+                        const char *target = sym_mnt_fs_get_target(fs);
                         if (target)
                                 return strdup(target);
                 }

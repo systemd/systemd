@@ -1952,16 +1952,16 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 struct libmnt_fs *fs;
                 const char *device, *path, *options, *fstype;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break;
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                device = mnt_fs_get_source(fs);
-                path = mnt_fs_get_target(fs);
-                options = mnt_fs_get_options(fs);
-                fstype = mnt_fs_get_fstype(fs);
+                device = sym_mnt_fs_get_source(fs);
+                path = sym_mnt_fs_get_target(fs);
+                options = sym_mnt_fs_get_options(fs);
+                fstype = sym_mnt_fs_get_fstype(fs);
 
                 if (!device || !path)
                         continue;
@@ -1983,8 +1983,10 @@ static void mount_shutdown(Manager *m) {
 
         m->mount_event_source = sd_event_source_disable_unref(m->mount_event_source);
 
-        mnt_unref_monitor(m->mount_monitor);
-        m->mount_monitor = NULL;
+        if (m->mount_monitor) {
+                sym_mnt_unref_monitor(m->mount_monitor);
+                m->mount_monitor = NULL;
+        }
 }
 
 static void mount_handoff_timestamp(
@@ -2075,33 +2077,39 @@ static void mount_enumerate(Manager *m) {
 
         assert(m);
 
-        mnt_init_debug(0);
+        r = dlopen_libmount();
+        if (r < 0) {
+                log_error_errno(r, "Cannot enumerate mounts, as libmount is not available: %m");
+                goto fail;
+        }
+
+        sym_mnt_init_debug(0);
 
         if (!m->mount_monitor) {
                 usec_t mount_rate_limit_interval = 1 * USEC_PER_SEC;
                 unsigned mount_rate_limit_burst = 5;
                 int fd;
 
-                m->mount_monitor = mnt_new_monitor();
+                m->mount_monitor = sym_mnt_new_monitor();
                 if (!m->mount_monitor) {
                         log_oom();
                         goto fail;
                 }
 
-                r = mnt_monitor_enable_kernel(m->mount_monitor, 1);
+                r = sym_mnt_monitor_enable_kernel(m->mount_monitor, 1);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable watching of kernel mount events: %m");
                         goto fail;
                 }
 
-                r = mnt_monitor_enable_userspace(m->mount_monitor, 1, NULL);
+                r = sym_mnt_monitor_enable_userspace(m->mount_monitor, 1, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable watching of userspace mount events: %m");
                         goto fail;
                 }
 
                 /* mnt_unref_monitor() will close the fd */
-                fd = r = mnt_monitor_get_fd(m->mount_monitor);
+                fd = r = sym_mnt_monitor_get_fd(m->mount_monitor);
                 if (r < 0) {
                         log_error_errno(r, "Failed to acquire watch file descriptor: %m");
                         goto fail;
@@ -2165,6 +2173,9 @@ static int drain_libmount(Manager *m) {
 
         assert(m);
 
+        if (!m->mount_monitor)
+                return false;
+
         /* Drain all events and verify that the event is valid.
          *
          * Note that libmount also monitors /run/mount mkdir if the directory does not exist yet. The mkdir
@@ -2172,7 +2183,7 @@ static int drain_libmount(Manager *m) {
          *
          * error: r < 0; valid: r == 0, false positive: r == 1 */
         do {
-                r = mnt_monitor_next_change(m->mount_monitor, NULL, NULL);
+                r = sym_mnt_monitor_next_change(m->mount_monitor, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to drain libmount events: %m");
                 if (r == 0)

@@ -215,7 +215,7 @@ simple_tests += files(
 ############################################################
 
 common_test_dependencies = [
-        libmount,
+        libmount_cflags,
         librt,
         libseccomp,
         libselinux,
@@ -290,6 +290,7 @@ executables += [
                         libblkid_cflags,
                         libkmod_cflags,
                         libp11kit_cflags,
+                        libmount_cflags,
                 ],
         },
         test_template + {
@@ -340,7 +341,7 @@ executables += [
         test_template + {
                 'sources' : files('test-libmount.c'),
                 'dependencies' : [
-                        libmount,
+                        libmount_cflags,
                         threads,
                 ],
         },
@@ -358,7 +359,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-mount-util.c'),
-                'dependencies' : libmount,
+                'dependencies' : libmount_cflags,
         },
         test_template + {
                 'sources' : files('test-netlink-manual.c'),
