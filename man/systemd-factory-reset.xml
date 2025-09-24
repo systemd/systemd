@@ -42,7 +42,7 @@
     <para>Some of the functionality is also available via the
     <filename>/run/systemd/io.systemd.FactoryReset</filename> Varlink service (implemented via the
     <filename>systemd-factory-reset.socket</filename>/<filename>systemd-factory-reset@.service</filename>
-    units.</para>
+    units).</para>
 
     <para>See <ulink url="https://systemd.io/FACTORY_RESET">Factory Reset</ulink> for an overview of the
     factory reset logic.</para>
