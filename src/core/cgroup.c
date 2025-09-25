@@ -4330,7 +4330,7 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
                                         log_unit_debug_errno(u, _deserialize_r, \
                                                              "Failed to parse \"%s=%s\", ignoring.", l, v); \
                                 else                                    \
-                                        crt->target = _deserialize_r; \
+                                        crt->target = _deserialize_r;   \
                         }                                               \
                 }                                                       \
                 _deserialize_matched;                                   \
@@ -4353,7 +4353,7 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
                 _deserialize_matched;                                   \
         })
 
-#define MATCH_DESERIALIZE_METRIC(u, key, l, v, parse_func, target)             \
+#define MATCH_DESERIALIZE_METRIC(u, key, l, v, parse_func, target)      \
         ({                                                              \
                 bool _deserialize_matched = streq(l, key);              \
                 if (_deserialize_matched) {                             \
@@ -4366,7 +4366,7 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
                                         log_unit_debug_errno(u, _deserialize_r, \
                                                              "Failed to parse \"%s=%s\", ignoring.", l, v); \
                                 else                                    \
-                                        crt->target = _deserialize_r; \
+                                        crt->target = _deserialize_r;   \
                         }                                               \
                 }                                                       \
                 _deserialize_matched;                                   \
