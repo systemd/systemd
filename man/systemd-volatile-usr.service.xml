@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-volatile-usr.service">
+
+  <refentryinfo>
+    <title>systemd-volatile-usr.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-volatile-usr.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-volatile-usr.service</refname>
+    <refname>systemd-volatile-usr</refname>
+    <refpurpose>Make the /usr file system volatile using overlayfs</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-volatile-usr.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-volatile-usr</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-volatile-usr.service</filename> is a service that replaces the <filename>/usr</filename>
+    directory with a volatile overlay file system using <literal>overlayfs</literal>, combining the original
+    (non-volatile) <filename>/usr</filename> as the lower layer with a writable <literal>tmpfs</literal> as the
+    upper layer. This way, vendor data from <filename>/usr</filename> is available as usual, but any modifications
+    to files in <filename>/usr</filename> are stored in memory and lost at shutdown, enabling stateless systems
+    where the OS image remains unchanged.</para>
+
+    <para>This service is only enabled if volatile usr mode is selected, for example by specifying
+    <literal>systemd.volatile=overlay-usr</literal> on the kernel command line. This service runs only in the initrd,
+    before the system transitions to the host's root directory. This service is not used for other
+    volatile modes such as <literal>systemd.volatile=overlay</literal> or <literal>systemd.volatile=yes</literal>.
+    </para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd.volatile</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>
