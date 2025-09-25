@@ -265,7 +265,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                 }
 
                 /* Indicate whether this partition has verity protection */
-                PartitionDesignator dv = partition_verity_of(d);
+                PartitionDesignator dv = partition_verity_hash_of(d);
                 if (dv >= 0 && image->partitions[dv].found) {
                         /* Add one property that indicates as a boolean whether Verity is available at all for this */
                         _cleanup_free_ char *f = NULL;
