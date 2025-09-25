@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "efi-api.h"
+#include "efivars.h"
 #include "fileio.h"
 #include "kmod-setup.h"
 #include "log.h"
@@ -107,6 +108,11 @@ int kmod_setup(void) {
                 /* This one we need to load explicitly, since auto-loading on use doesn't work
                  * before udev created the ghost device nodes, and we need it earlier than that. */
                 { "autofs4",                    "/sys/class/misc/autofs",    true,  false, NULL               },
+
+                /* This one we need to load explictly, since auto-loading would happen too late for generators
+                 * like systemd-gpt-auto-generator to read the EFI vars. */
+                 // FIXME: should warn_if_unavailable be `is_efi_boot()` or always `true` or always `false`?
+                { "efivarfs",                    NULL,                       true,  false, is_efi_boot        },
 
                 /* This one we need to load explicitly, since auto-loading of IPv6 is not done when
                  * we try to configure ::1 on the loopback device. */
