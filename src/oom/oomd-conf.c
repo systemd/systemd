@@ -1,11 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "conf-files.h"
 #include "conf-parser.h"
+#include "hashmap.h"
 #include "log.h"
 #include "oomd-conf.h"
 #include "oomd-manager.h"
 #include "parse-util.h"
+#include "path-util.h"
+#include "percent-util.h"
+#include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 
 static int config_parse_duration(
@@ -66,7 +73,133 @@ void manager_set_defaults(Manager *m) {
                 log_warning_errno(r, "Failed to set default for default_mem_pressure_limit, ignoring: %m");
 }
 
+/* OOMD_ACTION_NONE is intentionally omitted — it's the "unset" sentinel. Rulesets with
+ * .action == OOMD_ACTION_NONE are rejected at load time, so oomd_action_to_string() must
+ * only be called on rulesets that have already passed ruleset_load_one's validation
+ * (otherwise it returns NULL). */
+static const char* const oomd_action_table[] = {
+        [OOMD_ACTION_KILL_ALL]          = "kill-all",
+        [OOMD_ACTION_KILL_BY_PGSCAN]    = "kill-by-pgscan",
+        [OOMD_ACTION_KILL_BY_SWAP]      = "kill-by-swap",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(oomd_action, OomdAction);
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_oomd_action, oomd_action, OomdAction);
+
+void oomd_ruleset_free(OomdRuleset *ruleset) {
+        if (!ruleset)
+                return;
+        hashmap_free(ruleset->start_times);
+        free(ruleset->name);
+        free(ruleset);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OomdRuleset*, oomd_ruleset_free, NULL);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(oomd_ruleset_hash_ops, char, string_hash_func, string_compare_func, OomdRuleset, oomd_ruleset_free);
+
+static int ruleset_load_one(Manager *m, const char *filename) {
+        _cleanup_free_ char *name = NULL;
+        _cleanup_(oomd_ruleset_freep) OomdRuleset *ruleset = NULL;
+        int r;
+
+        assert(m);
+        assert(filename);
+
+        r = null_or_empty_path(filename);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to check if \"%s\" is empty: %m", filename);
+        if (r > 0) {
+                log_debug("Skipping empty file: %s", filename);
+                return 0;
+        }
+
+        r = path_extract_filename(filename, &name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name of '%s': %m", filename);
+
+        char *e = ASSERT_PTR(endswith(name, ".oomrule"));
+        *e = 0;
+
+        if (!filename_is_valid(name)) {
+                log_warning("Invalid ruleset name '%s' derived from '%s', ignoring.", name, filename);
+                return 0;
+        }
+
+        ruleset = new(OomdRuleset, 1);
+        if (!ruleset)
+                return log_oom();
+
+        *ruleset = (OomdRuleset) {
+                .name = TAKE_PTR(name),
+                .memory_pressure_above = -1,
+                .swap_above = -1,
+        };
+
+        const ConfigTableItem items[] = {
+                { "Rule", "MemoryPressureAbove", config_parse_permyriad,   0, &ruleset->memory_pressure_above },
+                { "Rule", "SwapUsageMax",        config_parse_permyriad,   0, &ruleset->swap_above            },
+                { "Rule", "Action",              config_parse_oomd_action, 0, &ruleset->action                },
+                { "Rule", "LastingSec",          config_parse_sec,         0, &ruleset->lasting_usec          },
+                {}
+        };
+
+        r = config_parse(
+                        NULL,
+                        filename,
+                        NULL,
+                        "Rule\0",
+                        config_item_table_lookup,
+                        items,
+                        CONFIG_PARSE_WARN,
+                        NULL,
+                        NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse ruleset file '%s': %m", filename);
+
+        if (ruleset->memory_pressure_above < 0 && ruleset->swap_above < 0) {
+                log_warning("Ruleset '%s' has no conditions configured (MemoryPressureAbove= or SwapUsageMax=), ignoring.", ruleset->name);
+                return 0;
+        }
+
+        if (ruleset->action == OOMD_ACTION_NONE) {
+                log_warning("Ruleset '%s' has no Action= configured, ignoring.", ruleset->name);
+                return 0;
+        }
+
+        if (ruleset->lasting_usec == USEC_INFINITY) {
+                log_warning("Ruleset '%s' has LastingSec=infinity which can never be satisfied, ignoring.", ruleset->name);
+                return 0;
+        }
+
+        /* A threshold at the maximum can never be exceeded, so the condition would never fire.
+         * Report the normalized percent value so the warning matches regardless of whether the
+         * user wrote '100%', '1000‰' or '10000‱'. */
+        if (ruleset->memory_pressure_above == 10000) {
+                log_warning("Ruleset '%s' has MemoryPressureAbove=" PERMYRIAD_AS_PERCENT_FORMAT_STR " (the maximum) which can never be exceeded, ignoring.",
+                            ruleset->name, PERMYRIAD_AS_PERCENT_FORMAT_VAL(ruleset->memory_pressure_above));
+                return 0;
+        }
+
+        if (ruleset->swap_above == 10000) {
+                log_warning("Ruleset '%s' has SwapUsageMax=" PERMYRIAD_AS_PERCENT_FORMAT_STR " (the maximum) which can never be exceeded, ignoring.",
+                            ruleset->name, PERMYRIAD_AS_PERCENT_FORMAT_VAL(ruleset->swap_above));
+                return 0;
+        }
+
+        /* Duplicates cannot occur here: conf_files_list_strv deduplicates filenames across
+         * directories, and hashmap_clear is called before loading. The value destructor in
+         * oomd_ruleset_hash_ops handles cleanup during hashmap_clear/hashmap_free. */
+        r = hashmap_ensure_replace(&m->rulesets, &oomd_ruleset_hash_ops, ruleset->name, ruleset);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register ruleset '%s': %m", ruleset->name);
+
+        TAKE_PTR(ruleset);
+
+        return 0;
+}
+
 void manager_parse_config_file(Manager *m) {
+        _cleanup_strv_free_ char **files = NULL;
         int r;
 
         assert(m);
@@ -88,4 +221,37 @@ void manager_parse_config_file(Manager *m) {
                         /* userdata= */ m);
         if (r >= 0)
                 log_debug("Config file successfully parsed.");
+
+        r = conf_files_list_strv(&files, ".oomrule", NULL, CONF_FILES_WARN, RULESET_DIRS);
+        if (r < 0) {
+                /* On enumeration failure, keep the previously loaded rulesets rather than clearing them —
+                 * a transient I/O error shouldn't cause in-flight units to silently lose their OOM policy. */
+                log_error_errno(r, "Failed to enumerate ruleset files, keeping previously loaded rulesets: %m");
+                return;
+        }
+
+        /* Clear all rulesets and re-parse. This intentionally resets any accumulated
+         * start_times (LastingSec timers), since the ruleset definitions may have changed. */
+        hashmap_clear(m->rulesets);
+
+        STRV_FOREACH(f, files)
+                (void) ruleset_load_one(m, *f);
+
+        if (DEBUG_LOGGING) {
+                char *name;
+                OomdRuleset *ruleset;
+                HASHMAP_FOREACH_KEY(ruleset, name, m->rulesets) {
+                        log_debug("Registered ruleset: %s", name);
+                        if (ruleset->memory_pressure_above >= 0)
+                                log_debug("  MemoryPressureAbove=" PERMYRIAD_AS_PERCENT_FORMAT_STR, PERMYRIAD_AS_PERCENT_FORMAT_VAL(ruleset->memory_pressure_above));
+                        else
+                                log_debug("  MemoryPressureAbove=unset");
+                        if (ruleset->swap_above >= 0)
+                                log_debug("  SwapUsageMax=" PERMYRIAD_AS_PERCENT_FORMAT_STR, PERMYRIAD_AS_PERCENT_FORMAT_VAL(ruleset->swap_above));
+                        else
+                                log_debug("  SwapUsageMax=unset");
+                        log_debug("  Action=%s", oomd_action_to_string(ruleset->action));
+                        log_debug("  LastingSec=%s", FORMAT_TIMESPAN(ruleset->lasting_usec, USEC_PER_SEC));
+                }
+        }
 }
