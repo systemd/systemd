@@ -2420,6 +2420,7 @@ subdir('src/vconsole')
 subdir('src/veritysetup')
 subdir('src/vmspawn')
 subdir('src/volatile-root')
+subdir('src/volatile-usr')
 subdir('src/vpick')
 subdir('src/xdg-autostart-generator')
 
