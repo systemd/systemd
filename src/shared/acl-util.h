@@ -20,6 +20,7 @@ extern DLSYM_PROTOTYPE(acl_delete_entry);
 extern DLSYM_PROTOTYPE(acl_delete_perm);
 extern DLSYM_PROTOTYPE(acl_dup);
 extern DLSYM_PROTOTYPE(acl_entries);
+extern DLSYM_PROTOTYPE(acl_extended_file);
 extern DLSYM_PROTOTYPE(acl_free);
 extern DLSYM_PROTOTYPE(acl_from_mode);
 extern DLSYM_PROTOTYPE(acl_from_text);
@@ -33,6 +34,7 @@ extern DLSYM_PROTOTYPE(acl_get_tag_type);
 extern DLSYM_PROTOTYPE(acl_init);
 extern DLSYM_PROTOTYPE(acl_set_fd);
 extern DLSYM_PROTOTYPE(acl_set_file);
+extern DLSYM_PROTOTYPE(acl_set_permset);
 extern DLSYM_PROTOTYPE(acl_set_qualifier);
 extern DLSYM_PROTOTYPE(acl_set_tag_type);
 extern DLSYM_PROTOTYPE(acl_to_any_text);
@@ -61,6 +63,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(acl_t, sym_acl_free, acl_freep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_acl_free, acl_free_charpp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(uid_t*, sym_acl_free, acl_free_uid_tpp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(gid_t*, sym_acl_free, acl_free_gid_tpp, NULL);
+
+static inline int acl_set_perm(acl_permset_t ps, acl_perm_t p, bool b) {
+        return (b ? sym_acl_add_perm : sym_acl_delete_perm)(ps, p);
+}
 
 #else
 
