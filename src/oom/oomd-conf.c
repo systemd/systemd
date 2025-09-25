@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "conf-files.h"
 #include "conf-parser.h"
+#include "constants.h"
 #include "log.h"
 #include "oomd-conf.h"
 #include "oomd-manager.h"
 #include "parse-util.h"
+#include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 
 static int config_parse_duration(
@@ -66,7 +70,39 @@ void manager_set_defaults(Manager *m) {
                 log_warning_errno(r, "Failed to set default for default_mem_pressure_limit, ignoring: %m");
 }
 
+static int ruleset_load_one(Manager *m, const char *filename) {
+        _cleanup_free_ char *name = NULL;
+        struct oom_ruleset *ruleset = NULL;
+        int r;
+
+        assert(m);
+        assert(filename);
+
+        r = null_or_empty_path(filename);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to check if \"%s\" is empty: %m", filename);
+        if (r > 0) {
+                log_debug("Skipping empty file: %s", filename);
+                return 0;
+        }
+
+        name = strdup(filename);
+        if (!name)
+                return log_oom();
+
+        ruleset = new(struct oom_ruleset, 1);
+        if (!ruleset)
+                return log_oom();
+
+        *ruleset = (struct oom_ruleset) {
+                .name = TAKE_PTR(name),
+        };
+
+        return 0;
+}
+
 void manager_parse_config_file(Manager *m) {
+        _cleanup_strv_free_ char **files = NULL;
         int r;
 
         assert(m);
@@ -89,4 +125,13 @@ void manager_parse_config_file(Manager *m) {
                         /* userdata= */ m);
         if (r >= 0)
                 log_debug("Config file successfully parsed.");
+
+        r = conf_files_list_strv(&files, ".oomrule", NULL, 0, RULESET_DIRS);
+        if (r < 0) {
+                log_error_errno(r, "failed to enumerate ruleset files: %m");
+                return;
+        }
+
+        STRV_FOREACH_BACKWARDS(f, files)
+                (void) ruleset_load_one(m, *f);
 }
