@@ -4125,6 +4125,21 @@ int config_parse_managed_oom_mem_pressure_duration_sec(
         return 0;
 }
 
+int config_parse_managed_oom_rules(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        return config_parse_strv(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
 int config_parse_device_allow(
                 const char *unit,
                 const char *filename,
