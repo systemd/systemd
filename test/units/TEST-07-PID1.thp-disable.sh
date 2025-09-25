@@ -8,3 +8,7 @@ set -o pipefail
 systemd-run --wait \
         -p MemoryTHPDisable=1 \
         /usr/lib/systemd/tests/unit-tests/manual/test-thp-disable-completely
+
+systemd-run --wait \
+        -p MemoryTHPDisable=2 \
+        /usr/lib/systemd/tests/unit-tests/manual/test-thp-disable-except-madvise
