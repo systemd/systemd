@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "../fundamental/assert-util.h" /* IWYU pragma: export */
 #include "../fundamental/macro.h" /* IWYU pragma: export */
 
 #if !defined(HAS_FEATURE_MEMORY_SANITIZER)
