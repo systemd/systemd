@@ -60,13 +60,13 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                         struct libmnt_fs *fs;
                         const char *path;
 
-                        r = mnt_table_next_fs(table, iter, &fs);
+                        r = sym_mnt_table_next_fs(table, iter, &fs);
                         if (r == 1)
                                 break;
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                        path = mnt_fs_get_target(fs);
+                        path = sym_mnt_fs_get_target(fs);
                         if (!path)
                                 continue;
 
@@ -247,20 +247,20 @@ int bind_remount_recursive_with_mountinfo(
                         unsigned long flags = 0;
                         struct libmnt_fs *fs;
 
-                        r = mnt_table_next_fs(table, iter, &fs);
+                        r = sym_mnt_table_next_fs(table, iter, &fs);
                         if (r == 1) /* EOF */
                                 break;
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                        path = mnt_fs_get_target(fs);
+                        path = sym_mnt_fs_get_target(fs);
                         if (!path)
                                 continue;
 
                         if (!path_startswith(path, prefix))
                                 continue;
 
-                        type = mnt_fs_get_fstype(fs);
+                        type = sym_mnt_fs_get_fstype(fs);
                         if (!type)
                                 continue;
 
@@ -298,9 +298,9 @@ int bind_remount_recursive_with_mountinfo(
                                         continue;
                         }
 
-                        opts = mnt_fs_get_vfs_options(fs);
+                        opts = sym_mnt_fs_get_vfs_options(fs);
                         if (opts) {
-                                r = mnt_optstr_get_flags(opts, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                                r = sym_mnt_optstr_get_flags(opts, &flags, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP));
                                 if (r < 0)
                                         log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
                         }
@@ -438,15 +438,19 @@ int bind_remount_one_with_mountinfo(
 
         rewind(proc_self_mountinfo);
 
-        table = mnt_new_table();
-        if (!table)
-                return -ENOMEM;
-
-        r = mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
+        r = dlopen_libmount();
         if (r < 0)
                 return r;
 
-        fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
+        table = sym_mnt_new_table();
+        if (!table)
+                return -ENOMEM;
+
+        r = sym_mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
+        if (r < 0)
+                return r;
+
+        fs = sym_mnt_table_find_target(table, path, MNT_ITER_FORWARD);
         if (!fs) {
                 r = access_nofollow(path, F_OK); /* Hmm, it's not in the mount table, but does it exist at all? */
                 if (r < 0)
@@ -455,9 +459,9 @@ int bind_remount_one_with_mountinfo(
                 return -EINVAL; /* Not a mount point we recognize */
         }
 
-        opts = mnt_fs_get_vfs_options(fs);
+        opts = sym_mnt_fs_get_vfs_options(fs);
         if (opts) {
-                r = mnt_optstr_get_flags(opts, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                r = sym_mnt_optstr_get_flags(opts, &flags, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP));
                 if (r < 0)
                         log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
         }
@@ -873,7 +877,11 @@ int mount_option_mangle(
         assert(ret_mount_flags);
         assert(ret_remaining_options);
 
-        map = mnt_get_builtin_optmap(MNT_LINUX_MAP);
+        r = dlopen_libmount();
+        if (r < 0)
+                return r;
+
+        map = sym_mnt_get_builtin_optmap(MNT_LINUX_MAP);
         if (!map)
                 return -EINVAL;
 
@@ -1637,20 +1645,20 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 const char *path;
                 int id1, id2;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break; /* EOF */
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                path = mnt_fs_get_target(fs);
+                path = sym_mnt_fs_get_target(fs);
                 if (!path)
                         continue;
 
                 if (isempty(path_startswith(path, prefix)))
                         continue;
 
-                id1 = mnt_fs_get_id(fs);
+                id1 = sym_mnt_fs_get_id(fs);
                 r = path_get_mnt_id(path, &id2);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to get mount ID of '%s', ignoring: %m", path);
@@ -1982,31 +1990,31 @@ int path_get_mount_info_at(
         for (;;) {
                 struct libmnt_fs *fs;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break; /* EOF */
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                if (mnt_fs_get_id(fs) != mnt_id)
+                if (sym_mnt_fs_get_id(fs) != mnt_id)
                         continue;
 
                 _cleanup_free_ char *fstype = NULL, *options = NULL, *source = NULL;
 
                 if (ret_fstype) {
-                        fstype = strdup(strempty(mnt_fs_get_fstype(fs)));
+                        fstype = strdup(strempty(sym_mnt_fs_get_fstype(fs)));
                         if (!fstype)
                                 return log_oom_debug();
                 }
 
                 if (ret_options) {
-                        options = strdup(strempty(mnt_fs_get_options(fs)));
+                        options = strdup(strempty(sym_mnt_fs_get_options(fs)));
                         if (!options)
                                 return log_oom_debug();
                 }
 
                 if (ret_source) {
-                        source = strdup(strempty(mnt_fs_get_source(fs)));
+                        source = strdup(strempty(sym_mnt_fs_get_source(fs)));
                         if (!source)
                                 return log_oom_debug();
                 }
