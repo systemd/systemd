@@ -583,9 +583,18 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         return 0;
 }
 
+static int builtin_blkid_init(void) {
+        r = dlopen_libblkid();
+        if (r < 0)
+                return log_debug_errno(dev, r, "blkid not available: %m");
+
+        return 0;
+}
+
 const UdevBuiltin udev_builtin_blkid = {
         .name = "blkid",
         .cmd = builtin_blkid,
         .help = "Filesystem and partition probing",
+        .init = builtin_blkid_init,
         .run_once = true,
 };
