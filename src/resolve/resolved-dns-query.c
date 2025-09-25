@@ -147,7 +147,7 @@ static int dns_query_candidate_next_search_domain(DnsQueryCandidate *c) {
         dns_search_domain_unref(c->search_domain);
         c->search_domain = dns_search_domain_ref(next);
 
-        return 0;
+        return 1;
 }
 
 static int dns_query_candidate_add_transaction(
