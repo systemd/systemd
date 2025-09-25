@@ -4271,6 +4271,7 @@ static bool context_changed(const Context *context) {
 }
 
 static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) {
+#if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe probe = NULL;
         int r;
 
@@ -4312,6 +4313,10 @@ static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) 
         }
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Cannot wipe partition signatures, libblkid support is not compiled in.");
+#endif
 }
 
 static int context_wipe_partition(Context *context, Partition *p) {
@@ -7361,6 +7366,7 @@ static int resolve_copy_blocks_auto_candidate(
                 dev_t restrict_devno,
                 sd_id128_t *ret_uuid) {
 
+#if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
@@ -7473,6 +7479,10 @@ static int resolve_copy_blocks_auto_candidate(
                 *ret_uuid = u;
 
         return true;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Cannot check partition type UUID and device location, libblkid support is not compiled in.");
+#endif
 }
 
 static int resolve_copy_blocks_auto_candidate_harder(
