@@ -14,7 +14,7 @@
 [ -n "${BASH_VERSION:-}" ] || return 0
 
 __systemd_osc_context_escape() {
-    # Escape according to the OSC 8003 spec. Since this requires shelling out
+    # Escape according to the OSC 3008 spec. Since this requires shelling out
     # to 'sed' we'll only do it where it's strictly necessary, and skip it when
     # processing strings we are pretty sure we won't need it for, such as
     # uuids, id128, hostnames, usernames, since they all come with syntax
@@ -33,11 +33,11 @@ __systemd_osc_context_precmdline() {
     # Close previous command
     if [ -n "${systemd_osc_context_cmd_id:-}" ]; then
         if [ "$systemd_exitstatus" -ge 127 ]; then
-            printf "\033]8003;end=%s;exit=interrupt;signal=%s\033\\" "$systemd_osc_context_cmd_id" $((systemd_exitstatus-127))
+            printf "\033]3008;end=%s;exit=interrupt;signal=%s\033\\" "$systemd_osc_context_cmd_id" $((systemd_exitstatus-127))
         elif [ "$systemd_exitstatus" -ne 0 ]; then
-            printf "\033]8003;end=%s;exit=failure;status=%s\033\\" "$systemd_osc_context_cmd_id" $((systemd_exitstatus))
+            printf "\033]3008;end=%s;exit=failure;status=%s\033\\" "$systemd_osc_context_cmd_id" $((systemd_exitstatus))
         else
-            printf "\033]8003;end=%s;exit=success\033\\" "$systemd_osc_context_cmd_id"
+            printf "\033]3008;end=%s;exit=success\033\\" "$systemd_osc_context_cmd_id"
         fi
     fi
 
@@ -47,7 +47,7 @@ __systemd_osc_context_precmdline() {
     fi
 
     # Create or update the shell session
-    printf "\033]8003;start=%s%s;type=shell;cwd=%s\033\\" "$systemd_osc_context_shell_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
+    printf "\033]3008;start=%s%s;type=shell;cwd=%s\033\\" "$systemd_osc_context_shell_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
 
     # Prepare cmd id for next command
     read -r systemd_osc_context_cmd_id </proc/sys/kernel/random/uuid
@@ -58,5 +58,5 @@ if [[ -n "${BASH_VERSION:-}" ]] && [[ "${TERM:-}" != "dumb" ]]; then
     PROMPT_COMMAND+=(__systemd_osc_context_precmdline)
 
     # PS0 is shown right after a prompt completed, but before the command is executed
-    PS0='\033]8003;start=$systemd_osc_context_cmd_id$(__systemd_osc_context_common);type=command;cwd=$(__systemd_osc_context_escape "$PWD")\033\\'"${PS0:-}"
+    PS0='\033]3008;start=$systemd_osc_context_cmd_id$(__systemd_osc_context_common);type=command;cwd=$(__systemd_osc_context_escape "$PWD")\033\\'"${PS0:-}"
 fi
