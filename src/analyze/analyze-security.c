@@ -2446,8 +2446,6 @@ static int analyze_security_one(sd_bus *bus,
 
 /* Refactoring SecurityInfo so that it can make use of existing struct variables instead of reading from dbus */
 static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, SecurityInfo **ret_info) {
-        int r;
-
         assert(ret_info);
 
         _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
@@ -2577,8 +2575,7 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
                 info->_umask = c->umask;
 
 #if HAVE_SECCOMP
-                r = dlopen_libseccomp();
-                if (r >= 0) {
+                if (dlopen_libseccomp() >= 0) {
                         SET_FOREACH(key, c->syscall_archs) {
                                 const char *name;
 
