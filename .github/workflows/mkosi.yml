@@ -112,8 +112,8 @@ jobs:
           - distro: fedora
             release: "42"
             runner: ubuntu-24.04
-            sanitizers: address,undefined
-            llvm: 1
+            sanitizers: ""
+            llvm: 0
             cflags: "-Og"
             relabel: yes
             vm: 0
@@ -123,8 +123,8 @@ jobs:
           - distro: fedora
             release: rawhide
             runner: ubuntu-24.04
-            sanitizers: ""
-            llvm: 0
+            sanitizers: address,undefined
+            llvm: 1
             cflags: "-Og"
             relabel: yes
             vm: 0
