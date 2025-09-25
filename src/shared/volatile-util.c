@@ -37,6 +37,7 @@ static const char* const volatile_mode_table[_VOLATILE_MODE_MAX] = {
         [VOLATILE_YES] = "yes",
         [VOLATILE_STATE] = "state",
         [VOLATILE_OVERLAY_ROOT] = "overlay-root",
+        [VOLATILE_OVERLAY_USR] = "overlay-usr",
 };
 
 const char* volatile_mode_to_string(VolatileMode i) {
