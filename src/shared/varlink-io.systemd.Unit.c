@@ -400,6 +400,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ManagedOOMMemoryPressureDurationUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#ManagedOOMPreference=none%7Cavoid%7Comit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ManagedOOMPreference, ManagedOOMPreference, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#OOMRules="),
+                SD_VARLINK_DEFINE_FIELD(OOMRules, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryPressureWatch="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(MemoryPressureWatch, CGroupPressureWatch, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryPressureThresholdSec="),
