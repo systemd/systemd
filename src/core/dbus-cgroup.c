@@ -422,6 +422,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureDurationUSec", "t", bus_property_get_usec, offsetof(CGroupContext, moom_mem_pressure_duration_usec), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
+        SD_BUS_PROPERTY("OOMRules", "as", NULL, offsetof(CGroupContext, moom_rules), 0),
         SD_BUS_PROPERTY("BPFProgram", "a(ss)", property_get_bpf_foreign_program, 0, 0),
         SD_BUS_PROPERTY("SocketBindAllow", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
         SD_BUS_PROPERTY("SocketBindDeny", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
@@ -1765,6 +1766,38 @@ int bus_cgroup_set_property(
 
                 return 1;
         }
+
+        if (streq(name, "OOMRules")) {
+                _cleanup_strv_free_ char **oom_rules = NULL;
+
+                if (!UNIT_VTABLE(u)->can_set_managed_oom)
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Cannot set %s for this unit type", name);
+
+                r = sd_bus_message_read_strv(message, &oom_rules);
+                if (r < 0)
+                        return r;
+
+                STRV_FOREACH(rule, oom_rules)
+                        if (!filename_is_valid(*rule))
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid rule name: %s", *rule);
+
+                strv_uniq(oom_rules);
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        _cleanup_free_ char *joined = strv_join(oom_rules, " ");
+                        if (!joined)
+                                return -ENOMEM;
+
+                        strv_free_and_replace(c->moom_rules, oom_rules);
+
+                        unit_write_settingf(u, flags, name, "OOMRules=\nOOMRules=%s", joined);
+
+                        (void) manager_varlink_send_managed_oom_update(u);
+                }
+
+                return 1;
+        }
+
         if (STR_IN_SET(name, "SocketBindAllow", "SocketBindDeny")) {
                 CGroupSocketBindItem **list;
                 uint16_t nr_ports, port_min;
