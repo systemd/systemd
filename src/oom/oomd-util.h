@@ -40,6 +40,7 @@ struct OomdCGroupContext {
         usec_t mem_pressure_limit_hit_start;
         usec_t last_had_mem_reclaim;
         usec_t mem_pressure_duration_usec;
+        char **rules;
 };
 
 struct OomdSystemContext {
