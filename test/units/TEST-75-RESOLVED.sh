@@ -70,7 +70,6 @@ restart_resolved() {
     # and can occasionally hit the default rate limit
     systemctl reset-failed systemd-resolved.service
     systemctl start systemd-resolved.service
-    systemctl service-log-level systemd-resolved.service debug
 }
 
 setup() {
@@ -1440,7 +1439,6 @@ EOF
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
-systemctl service-log-level systemd-resolved.service debug
 
 # Need to be run before SETUP, otherwise things will break
 manual_testcase_01_resolvectl

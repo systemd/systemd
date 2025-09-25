@@ -4,8 +4,6 @@
 set -eux
 set -o pipefail
 
-systemd-analyze log-level debug
-
 test_quotas() {
 
     local directory="$1"
@@ -89,7 +87,5 @@ EOF
 }
 
 test_quotas "/var/lib/private" "StateDirectory=quotadir" "StateDirectoryQuota=1%"
-
-systemd-analyze log-level info
 
 touch /testok
