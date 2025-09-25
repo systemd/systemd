@@ -194,6 +194,7 @@ typedef struct CGroupContext {
         uint32_t moom_mem_pressure_limit; /* Normalized to 2^32-1 == 100% */
         usec_t moom_mem_pressure_duration_usec;
         ManagedOOMPreference moom_preference;
+        char **moom_rules;
 
         /* Pressure logic */
         CGroupPressure pressure[_PRESSURE_RESOURCE_MAX];
