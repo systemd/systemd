@@ -5343,6 +5343,16 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (!crt)
                 return 0;
 
+        if (crt->cgroup_path)
+                (void) serialize_item(f, "cgroup", crt->cgroup_path);
+        if (crt->cgroup_id != 0)
+                (void) serialize_item_format(f, "cgroup-id", "%" PRIu64, crt->cgroup_id);
+
+        (void) serialize_bool(f, "cgroup-realized", crt->cgroup_realized);
+        (void) serialize_cgroup_mask(f, "cgroup-realized-mask", crt->cgroup_realized_mask);
+        (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", crt->cgroup_enabled_mask);
+        (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", crt->cgroup_invalidated_mask);
+
         (void) serialize_item_format(f, "cpu-usage-base", "%" PRIu64, crt->cpu_usage_base);
         if (crt->cpu_usage_last != NSEC_INFINITY)
                 (void) serialize_item_format(f, "cpu-usage-last", "%" PRIu64, crt->cpu_usage_last);
@@ -5375,16 +5385,6 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
                 if (crt->io_accounting_last[im] != UINT64_MAX)
                         (void) serialize_item_format(f, io_accounting_metric_field_last_to_string(im), "%" PRIu64, crt->io_accounting_last[im]);
         }
-
-        if (crt->cgroup_path)
-                (void) serialize_item(f, "cgroup", crt->cgroup_path);
-        if (crt->cgroup_id != 0)
-                (void) serialize_item_format(f, "cgroup-id", "%" PRIu64, crt->cgroup_id);
-
-        (void) serialize_bool(f, "cgroup-realized", crt->cgroup_realized);
-        (void) serialize_cgroup_mask(f, "cgroup-realized-mask", crt->cgroup_realized_mask);
-        (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", crt->cgroup_enabled_mask);
-        (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", crt->cgroup_invalidated_mask);
 
         (void) bpf_socket_bind_serialize(u, f, fds);
 
