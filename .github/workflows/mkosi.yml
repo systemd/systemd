@@ -110,7 +110,7 @@ jobs:
             no_kvm: 0
             shim: 0
           - distro: fedora
-            release: "42"
+            release: "43"
             runner: ubuntu-24.04
             sanitizers: address,undefined
             llvm: 1
