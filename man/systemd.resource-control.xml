@@ -1149,7 +1149,7 @@ NFTSet=cgroup:inet:filter:my_service user:inet:filter:serviceuser
           one more restricted, depending on the use case.</para>
 
           <para>Note that these settings might not be supported on some systems (for example if eBPF control group
-          support is not enabled in the underlying kernel or container manager). These settings will fail the service in
+          support is not enabled in the underlying kernel or container manager). These settings will have no effect in
           that case. If compatibility with such systems is desired it is hence recommended to attach your filter manually
           (requires <varname>Delegate=</varname><constant>yes</constant>) instead of using this setting.</para>
 

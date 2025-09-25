@@ -6,7 +6,6 @@ set -eux
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemctl log-level debug
 export SYSTEMD_LOG_LEVEL=debug
 
 # Sanity checks
@@ -1146,7 +1145,5 @@ MAIN_PID=$(systemctl show -p MainPID --value "$UNIT_NAME")
 # Test systemd-analyze unit-shell with a command (cat /tmp/testfile)
 OUTPUT=$(systemd-analyze unit-shell "$UNIT_NAME" cat /tmp/testfile)
 assert_in "Hello from test unit" "$OUTPUT"
-
-systemd-analyze log-level info
 
 touch /testok

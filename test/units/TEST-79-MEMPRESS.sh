@@ -13,8 +13,6 @@ if ! cat /proc/pressure/memory >/dev/null ; then
     exit 0
 fi
 
-systemd-analyze log-level debug
-
 CGROUP=/sys/fs/cgroup/"$(systemctl show TEST-79-MEMPRESS.service -P ControlGroup)"
 test -d "$CGROUP"
 
@@ -62,7 +60,5 @@ systemd-run \
     --wait "$SCRIPT"
 
 rm "$SCRIPT"
-
-systemd-analyze log-level info
 
 touch /testok

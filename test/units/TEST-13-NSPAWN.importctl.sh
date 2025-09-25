@@ -20,8 +20,6 @@ at_exit() {
 
 trap at_exit EXIT
 
-systemctl service-log-level systemd-importd debug
-
 # Mount tmpfs over /var/lib/confexts to not pollute the image
 mkdir -p /var/lib/confexts
 mount -t tmpfs tmpfs /var/lib/confexts -o mode=755

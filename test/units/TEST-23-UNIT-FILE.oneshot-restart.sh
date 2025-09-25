@@ -11,8 +11,6 @@ set -o pipefail
 # wait this many secs for each test service to succeed in what is being tested
 MAX_SECS=60
 
-systemctl log-level debug
-
 # test one: Restart=on-failure should restart the service
 (! systemd-run --unit=oneshot-restart-one -p Type=oneshot -p Restart=on-failure bash -c "exit 1")
 
@@ -97,5 +95,3 @@ EOF
 
 systemctl disable "$UNIT_NAME"
 rm "$TMP_FILE" /run/systemd/system/{"$UNIT_NAME","$ONSUCCESS_UNIT_NAME"} "$FIFO_FILE"
-
-systemctl log-level info

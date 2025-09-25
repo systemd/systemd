@@ -3,8 +3,6 @@
 set -eux
 set -o pipefail
 
-systemd-analyze log-level debug
-
 test_directory() {
     local directory="$1"
     local path="$2"
@@ -238,7 +236,5 @@ if systemd-analyze compare-versions "$(uname -r)" ge 5.12; then
     test_check_idmapped_mounts
     test_check_idmapped_mounts_root
 fi
-
-systemd-analyze log-level info
 
 touch /testok

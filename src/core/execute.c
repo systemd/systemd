@@ -577,6 +577,7 @@ int exec_spawn(
         dual_timestamp_now(&start_timestamp);
 
         /* The executor binary is pinned, to avoid compatibility problems during upgrades. */
+        log_unit_debug(unit, "Spawning sd-executor: cgroup=%s", cgtarget);
         r = posix_spawn_wrapper(
                         FORMAT_PROC_FD_PATH(unit->manager->executor_fd),
                         STRV_MAKE(unit->manager->executor_path,
@@ -600,6 +601,7 @@ int exec_spawn(
         /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
          * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
          * process will be killed too). */
+        log_unit_debug(unit, "Spawned sd-executor: r=%i", r);
         if (r == 0 && cgtarget)
                 (void) cg_attach(cgtarget, pidref.pid);
         /* r > 0: Already in the right cgroup thanks to CLONE_INTO_CGROUP */
