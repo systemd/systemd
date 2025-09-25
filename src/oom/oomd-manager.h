@@ -5,6 +5,8 @@
 #include "forward.h"
 #include "oomd-util.h"
 
+#define RULESET_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/oomd/rules.d"))
+
 /* Polling interval for monitoring stats */
 #define SWAP_INTERVAL_USEC 150000 /* 0.15 seconds */
 /* Pressure counters are lagging (~2 seconds) compared to swap so polling too frequently just wastes CPU */
@@ -23,6 +25,21 @@
 
 #define RECLAIM_DURATION_USEC (30 * USEC_PER_SEC)
 #define POST_ACTION_DELAY_USEC (15 * USEC_PER_SEC)
+
+enum OomdAction {
+        OOMD_ACTION_NONE = 0,
+        OOMD_ACTION_KILL_BY_PGSCAN,
+        OOMD_ACTION_KILL_BY_SWAP,
+        _OOMD_ACTION_MAX,
+        OOMD_ACTION_INVALID = -1,
+};
+
+struct oom_ruleset {
+        const char *name;
+        int memory_below;
+        int swap_above;
+        enum OomdAction action;
+};
 
 typedef struct Manager {
         sd_bus *bus;
@@ -54,6 +71,9 @@ typedef struct Manager {
         /* This varlink server object is used to manage systemd-oomd's varlink server which is used by user
          * managers to report changes in ManagedOOM settings (oomd server - systemd client). */
         sd_varlink_server *varlink_server;
+
+        bool prekill_enabled;
+        usec_t prekill_timeout;
 } Manager;
 
 Manager* manager_free(Manager *m);
