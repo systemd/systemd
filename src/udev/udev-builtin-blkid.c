@@ -252,6 +252,7 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                 _cleanup_free_ char *root_label = NULL;
                 log_device_debug(dev, "sym_blkid_partlist_numof_partitions");
                 int nvals = sym_blkid_partlist_numof_partitions(pl);
+                log_device_debug(dev, "sym_blkid_partlist_numof_partitions=%i", nvals);
                 for (int i = 0; i < nvals; i++) {
                         blkid_partition pp;
                         const char *label;
@@ -275,6 +276,8 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                                 log_device_debug_errno(dev, r, "Failed to get partition type UUID, ignoring: %m");
                                 continue;
                         }
+
+                        continue;
 
                         log_device_debug(dev, "sym_blkid_partition_get_name");
                         label = sym_blkid_partition_get_name(pp); /* returns NULL if empty */
