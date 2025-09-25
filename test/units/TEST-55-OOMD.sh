@@ -353,6 +353,42 @@ EOF
     systemctl reset-failed
 }
 
+testcase_oom_rulesets() {
+    # Create a ruleset that triggers on any memory pressure with no delay
+    mkdir -p /run/systemd/oomd/rules.d/
+    cat >/run/systemd/oomd/rules.d/testrule.oomrule <<'EOF'
+[Rule]
+MemoryPressureAbove=0%
+Action=kill_all
+LastingSec=0
+EOF
+
+    # Reload oomd to pick up the new ruleset
+    systemctl reload systemd-oomd.service
+
+    # Create a service with OOMRules=testrule that generates memory pressure.
+    # Don't place it in the workload slice (which has ManagedOOMMemoryPressure=kill)
+    # so only the ruleset can trigger the kill.
+    cat >/run/systemd/system/TEST-55-OOMD-testrules.service <<'EOF'
+[Service]
+MemoryHigh=3M
+OOMRules=testrule
+ExecStart=stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep
+EOF
+
+    systemctl daemon-reload
+    ! systemctl start --wait TEST-55-OOMD-testrules.service || exit 1
+
+    # Verify in the journal that the rule triggered
+    journalctl -u systemd-oomd.service --since "-2min" | grep "Rule 'testrule' conditions met" >/dev/null
+
+    # clean up
+    rm -f /run/systemd/system/TEST-55-OOMD-testrules.service
+    rm -f /run/systemd/oomd/rules.d/testrule.oomrule
+    systemctl daemon-reload
+    systemctl reload systemd-oomd.service
+}
+
 testcase_prekill_hook() {
     cat >/run/systemd/oomd.conf.d/99-oomd-prekill-test.conf <<'EOF'
 [OOM]
