@@ -21,13 +21,14 @@
 #include "sort-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "varlink-util.h"
 
 typedef struct OomdKillState {
         Manager *manager;
         OomdCGroupContext *ctx;
-        const char *reason;
+        char *reason;
         /* This holds sd_varlink references */
         Set *links;
 } OomdKillState;
@@ -80,6 +81,7 @@ static OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx) {
                 return NULL;
 
         free(ctx->path);
+        strv_free(ctx->rules);
         return mfree(ctx);
 }
 
@@ -305,6 +307,7 @@ static void oomd_kill_state_free(OomdKillState *ks) {
 
         set_remove(ks->manager->kill_states, ks);
         oomd_cgroup_context_unref(ks->ctx);
+        free(ks->reason);
         free(ks);
 }
 
@@ -489,10 +492,14 @@ int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx, const char *reason
         if (!ks)
                 return log_oom_debug();
 
+        _cleanup_free_ char *reason_copy = strdup(reason);
+        if (!reason_copy)
+                return log_oom_debug();
+
         *ks = (OomdKillState) {
                 .manager = m,
                 .ctx = oomd_cgroup_context_ref(ctx),
-                .reason = reason,
+                .reason = TAKE_PTR(reason_copy),
         };
 
         r = set_ensure_put(&m->kill_states, &oomd_kill_state_hash_ops, ks);
@@ -503,6 +510,7 @@ int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx, const char *reason
                  * cleanup path would remove by cgroup path key and could interfere with the existing queued
                  * kill state. */
                 oomd_cgroup_context_unref(ks->ctx);
+                free(ks->reason);
                 ks = mfree(ks);
                 return 0;
         }
@@ -585,14 +593,14 @@ int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, OomdCGroupContext
         return ret;
 }
 
-int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, OomdCGroupContext **ret_selected) {
+int oomd_select_by_swap_usage(Hashmap *h, const char *prefix, uint64_t threshold_usage, OomdCGroupContext **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         int r, n, ret = 0;
 
         assert(h);
         assert(ret_selected);
 
-        n = oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted);
+        n = oomd_sort_cgroup_contexts(h, compare_swap_usage, prefix, &sorted);
         if (n < 0)
                 return n;
 
@@ -786,6 +794,9 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
                 curr_ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
                 curr_ctx->mem_pressure_duration_usec = old_ctx->mem_pressure_duration_usec;
                 curr_ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
+                curr_ctx->rules = strv_copy(old_ctx->rules);
+                if (old_ctx->rules && !curr_ctx->rules)
+                        return -ENOMEM;
         }
 
         if (oomd_pgscan_rate(curr_ctx) > 0)
@@ -817,6 +828,9 @@ void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_
                 ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
                 ctx->mem_pressure_duration_usec = old_ctx->mem_pressure_duration_usec;
                 ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
+                /* Note: rules are intentionally not copied here. This function is only used on
+                 * candidate hashmaps (populated by recursively_get_cgroup_context for descendant
+                 * cgroups), which never carry rules. */
 
                 if (oomd_pgscan_rate(ctx) > 0)
                         ctx->last_had_mem_reclaim = now(CLOCK_MONOTONIC);
