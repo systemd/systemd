@@ -134,6 +134,7 @@ static int probe_file_system_by_fd(
                 char **ret_fstype,
                 sd_id128_t *ret_uuid) {
 
+#if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         const char *fstype = NULL;
         sd_id128_t id;
@@ -183,6 +184,9 @@ static int probe_file_system_by_fd(
                 return r;
         *ret_uuid = id;
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int probe_file_system_by_path(const char *path, char **ret_fstype, sd_id128_t *ret_uuid) {
@@ -663,6 +667,7 @@ static int luks_validate(
                 uint64_t *ret_offset,
                 uint64_t *ret_size) {
 
+#if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         sd_id128_t found_partition_uuid = SD_ID128_NULL;
         const char *fstype = NULL, *pttype = NULL;
@@ -775,6 +780,9 @@ static int luks_validate(
         *ret_partition_uuid = found_partition_uuid;
 
         return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 static int crypt_device_to_evp_cipher(struct crypt_device *cd, const EVP_CIPHER **ret) {
