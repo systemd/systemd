@@ -347,7 +347,7 @@
       <varlistentry>
         <term><option>--chrome=</option></term>
 
-        <listitem><para>Takes a boolean argument. By default the initial setup scren will show reverse color
+        <listitem><para>Takes a boolean argument. By default the initial setup screen will show reverse color
         "chrome" bars at the top and and the bottom of the terminal screen, which may be disabled by setting
         this option to false.</para>
 
