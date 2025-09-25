@@ -6,7 +6,7 @@ executables += [
                 'public' : true,
                 'sources' : files('creds.c'),
                 'dependencies' : [
-                        libmount,
+                        libmount_cflags,
                         libopenssl,
                         threads,
                 ],
