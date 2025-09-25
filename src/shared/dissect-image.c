@@ -1619,7 +1619,7 @@ static int dissect_image(
                 if (m->partitions[di].found) {
                         found_flags = PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED;
 
-                        PartitionDesignator vi = partition_verity_of(di);
+                        PartitionDesignator vi = partition_verity_hash_of(di);
                         if (vi >= 0 && m->partitions[vi].found) {
                                 found_flags |= PARTITION_POLICY_VERITY;
 
@@ -3119,7 +3119,7 @@ int dissected_image_decrypt(
                 if (r < 0)
                         return r;
 
-                k = partition_verity_of(i);
+                k = partition_verity_hash_of(i);
                 if (k >= 0) {
                         flags |= getenv_bool("SYSTEMD_VERITY_SHARING") != 0 ? DISSECT_IMAGE_VERITY_SHARE : 0;
 
@@ -3608,7 +3608,7 @@ int dissected_image_load_verity_sig_partition(
         if (!m->partitions[dd].found)
                 return 0;
 
-        PartitionDesignator dv = partition_verity_of(dd);
+        PartitionDesignator dv = partition_verity_hash_of(dd);
         assert(dv >= 0);
         if (!m->partitions[dv].found)
                 return 0;
@@ -3734,7 +3734,7 @@ int dissected_image_guess_verity_roothash(
         if (!d->found)
                 return 0;
 
-        PartitionDesignator dv = partition_verity_of(dd);
+        PartitionDesignator dv = partition_verity_hash_of(dd);
         assert(dv >= 0);
 
         DissectedPartition *p = m->partitions + dv;
@@ -4178,7 +4178,7 @@ bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesi
         if (image->single_file_system)
                 return partition_designator == PARTITION_ROOT && image->has_verity;
 
-        return partition_verity_of(partition_designator) >= 0;
+        return partition_verity_hash_of(partition_designator) >= 0;
 }
 
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator partition_designator) {
@@ -4195,7 +4195,7 @@ bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignat
         if (image->single_file_system)
                 return partition_designator == PARTITION_ROOT;
 
-        k = partition_verity_of(partition_designator);
+        k = partition_verity_hash_of(partition_designator);
         return k >= 0 && image->partitions[k].found;
 }
 
