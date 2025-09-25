@@ -33,6 +33,7 @@ Before=initrd-switch-root.target initrd-switch-root.service
 Conflicts=initrd-switch-root.target initrd-switch-root.service
 
 [Service]
+Environment=LIBBLKID_DEBUG=all
 CapabilityBoundingSet=~CAP_SYS_TIME CAP_WAKE_ALARM
 Delegate=
 DelegateSubgroup=udev

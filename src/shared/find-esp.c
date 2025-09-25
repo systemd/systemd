@@ -640,8 +640,8 @@ static int verify_xbootldr_blkid(
                                               "%s: Partition has wrong PART_ENTRY_TYPE=%s for XBOOTLDR partition.", node, v);
 
                 r = blkid_probe_lookup_value_id128(b, "PART_ENTRY_UUID", &uuid);
-                if (r != 0)
-                        return log_error_errno(errno_or_else(EIO), "%s: Failed to probe PART_ENTRY_UUID: %m", node);
+                if (r < 0)
+                        return log_error_errno(r, "%s: Failed to probe PART_ENTRY_UUID: %m", node);
 
         } else if (streq(type, "dos")) {
 
