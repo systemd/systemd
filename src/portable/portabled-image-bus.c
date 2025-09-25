@@ -61,7 +61,7 @@ int bus_image_common_get_os_release(
                 return 1;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_service);
+                r = image_read_metadata(image, &image_policy_service, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -539,7 +539,7 @@ int bus_image_common_remove(
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                r = image_remove(image);
+                r = image_remove(image, m->runtime_scope);
                 if (r < 0) {
                         (void) write(errno_pipe_fd[1], &r, sizeof(r));
                         _exit(EXIT_FAILURE);
@@ -801,7 +801,7 @@ int bus_image_common_mark_read_only(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = image_read_only(image, read_only);
+        r = image_read_only(image, read_only, m->runtime_scope);
         if (r < 0)
                 return r;
 
