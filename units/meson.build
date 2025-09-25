@@ -143,6 +143,12 @@ units = [
         },
         { 'file' : 'modprobe@.service' },
         { 'file' : 'multi-user.target' },
+        {
+          'file' : 'systemd-mute-console.socket',
+          'symlinks' : ['sockets.target.wants/']
+        },
+        { 'file' : 'systemd-mute-console@.service' },
+        { 'file' : 'system-systemd\\x2dmute\\x2dconsole.slice' },
         { 'file' : 'network-online.target' },
         { 'file' : 'network-pre.target' },
         { 'file' : 'network.target' },
@@ -230,6 +236,7 @@ units = [
         },
         { 'file' : 'sysinit.target' },
         { 'file' : 'syslog.socket' },
+        { 'file' : 'system-install.target' },
         {
           'file' : 'system-systemd\\x2dcryptsetup.slice',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
@@ -446,6 +453,15 @@ units = [
         },
         { 'file' : 'systemd-journald@.service.in' },
         { 'file' : 'systemd-journald@.socket' },
+        {
+          'file' : 'systemd-kernel-install@.service',
+          'conditions' : ['ENABLE_KERNEL_INSTALL'],
+        },
+        {
+          'file' : 'systemd-kernel-install.socket',
+          'conditions' : ['ENABLE_KERNEL_INSTALL'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'systemd-kexec.service' },
         {
           'file' : 'systemd-localed.service.in',
@@ -707,6 +723,11 @@ units = [
         {
           'file' : 'systemd-sysext@.service',
           'conditions' : ['ENABLE_SYSEXT'],
+        },
+        {
+          'file' : 'systemd-sysinstall.service',
+          'conditions' : ['ENABLE_SYSINSTALL'],
+          'symlinks' : ['system-install.target.wants/'],
         },
         {
           'file' : 'systemd-sysupdate-reboot.service.in',

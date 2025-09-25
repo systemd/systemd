@@ -11,13 +11,13 @@
 Description=First Boot Home Area Wizard
 Documentation=man:homectl(1)
 ConditionFirstBoot=yes
-After=home.mount systemd-homed.service
+After=home.mount systemd-homed.service systemd-mute-console.socket
 Before=systemd-user-sessions.service first-boot-complete.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=homectl firstboot --prompt-new-user
+ExecStart=homectl firstboot --prompt-new-user --prompt-shell=no --prompt-groups=no --mute-console=yes
 StandardOutput=tty
 StandardInput=tty
 StandardError=tty
