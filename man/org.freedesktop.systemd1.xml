@@ -12560,6 +12560,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ExecReloadPostEx</varname> were added in version 259.</para>
       <para><varname>BindNetworkInterface</varname>, <varname>MemoryTHP</varname>,
       <varname>RefreshOnReload</varname>, and <varname>RootMStack</varname> were added in version 260.</para>
+      <para><varname>OOMRules</varname> was added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
@@ -12630,6 +12631,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname> <varname>MemoryTHP</varname>, and
       <varname>RootMStack</varname> were added in version 260.</para>
+      <para><varname>OOMRules</varname> was added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Mount Unit Objects</title>
@@ -12695,6 +12697,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname> <varname>MemoryTHP</varname>, and
       <varname>RootMStack</varname> were added in version 260.</para>
+      <para><varname>OOMRules</varname> was added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
@@ -12758,6 +12761,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname>, <varname>MemoryTHP</varname>, and
       <varname>RootMStack</varname> were added in version 260.</para>
+      <para><varname>OOMRules</varname> was added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Slice Unit Objects</title>
@@ -12791,6 +12795,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
+      <para><varname>OOMRules</varname> was added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Scope Unit Objects</title>
@@ -12822,6 +12827,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>OOMKills</varname>, and
       <varname>ManagedOOMKills</varname> were added in 259.</para>
       <para><varname>BindNetworkInterface</varname> was added in version 260.</para>
+      <para><varname>OOMRules</varname> was added in version 261.</para>
     </refsect2>
     <refsect2>
       <title>Job Objects</title>
