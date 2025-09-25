@@ -2133,7 +2133,8 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         MemoryTHP is used to disable THPs at exec-invoke to stop providing THPs for workloads where the
         drawbacks outweigh the advantages.
         When set to <literal>disable</literal>, MemoryTHP disables THPs completely for the process, irrespecitive
-        of global THP controls. For details, see
+        of global THP controls. When set to  <literal>madvise</literal>, MemoryTHP disables THPs for the process
+        except when specifically madvised by the process with MADV_HUGEPAGE or MADV_COLLAPSE. For details, see
         <ulink url="https://docs.kernel.org/admin-guide/mm/transhuge.html">Transparent Hugepage Support</ulink>
         in the kernel documentation.</para>
         <para>Note that this functionality might not be available, for example if THP is disabled in the
