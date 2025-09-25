@@ -1440,23 +1440,31 @@ static int dissect_image(
                 }
         }
 
+        /* Verity found but no matching rootfs? Something is off, refuse. */
         if (!m->partitions[PARTITION_ROOT].found &&
                 (m->partitions[PARTITION_ROOT_VERITY].found ||
                  m->partitions[PARTITION_ROOT_VERITY_SIG].found))
-                        return -EADDRNOTAVAIL; /* Verity found but no matching rootfs? Something is off, refuse. */
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                        "Found root verity hash partition without matching root data partition");
 
         /* Hmm, we found a signature partition but no Verity data? Something is off. */
         if (m->partitions[PARTITION_ROOT_VERITY_SIG].found && !m->partitions[PARTITION_ROOT_VERITY].found)
-                return -EADDRNOTAVAIL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                       "Found root verity signature partition without matching root verity hash partition");
 
+        /* as above */
         if (!m->partitions[PARTITION_USR].found &&
                 (m->partitions[PARTITION_USR_VERITY].found ||
                  m->partitions[PARTITION_USR_VERITY_SIG].found))
-                        return -EADDRNOTAVAIL; /* as above */
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                        "Found usr verity hash partition without matching usr data partition");
 
         /* as above */
         if (m->partitions[PARTITION_USR_VERITY_SIG].found && !m->partitions[PARTITION_USR_VERITY].found)
-                return -EADDRNOTAVAIL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                       "Found usr verity signature partition without matching usr verity hash partition");
 
         /* If root and /usr are combined then insist that the architecture matches */
         if (m->partitions[PARTITION_ROOT].found &&
@@ -1464,7 +1472,10 @@ static int dissect_image(
             (m->partitions[PARTITION_ROOT].architecture >= 0 &&
              m->partitions[PARTITION_USR].architecture >= 0 &&
              m->partitions[PARTITION_ROOT].architecture != m->partitions[PARTITION_USR].architecture))
-                return -EADDRNOTAVAIL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                       "Found root and usr partitions with different architectures (%s vs %s)",
+                                       architecture_to_string(m->partitions[PARTITION_ROOT].architecture),
+                                       architecture_to_string(m->partitions[PARTITION_USR].architecture));
 
         if (!m->partitions[PARTITION_ROOT].found &&
             !m->partitions[PARTITION_USR].found &&
@@ -1532,39 +1543,58 @@ static int dissect_image(
         /* Check if we have a root fs if we are told to do check. /usr alone is fine too, but only if appropriate flag for that is set too */
         if (FLAGS_SET(flags, DISSECT_IMAGE_REQUIRE_ROOT) &&
             !(m->partitions[PARTITION_ROOT].found || (m->partitions[PARTITION_USR].found && FLAGS_SET(flags, DISSECT_IMAGE_USR_NO_ROOT))))
-                return -ENXIO;
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Root or usr partition requested but found neither");
 
         if (m->partitions[PARTITION_ROOT_VERITY].found) {
                 /* We only support one verity partition per image, i.e. can't do for both /usr and root fs */
                 if (m->partitions[PARTITION_USR_VERITY].found)
-                        return -ENOTUNIQ;
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Found both root and usr verity enabled partitions which is not supported");
 
                 /* We don't support verity enabled root with a split out /usr. Neither with nor without
                  * verity there. (Note that we do support verity-less root with verity-full /usr, though.) */
                 if (m->partitions[PARTITION_USR].found)
-                        return -EADDRNOTAVAIL;
+                        return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Found verity enabled root partition with split usr partition which is not supported");
         }
 
         if (verity) {
                 /* If a verity designator is specified, then insist that the matching partition exists */
                 if (verity->designator >= 0 && !m->partitions[verity->designator].found)
-                        return -EADDRNOTAVAIL;
+                        return log_debug_errno(
+                                SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                "Explicit %s verity designator was specified but did not find %s partition",
+                                partition_designator_to_string(verity->designator),
+                                partition_designator_to_string(verity->designator));
 
                 if (verity->root_hash) {
                         /* If we have an explicit root hash and found the partitions for it, then we are ready to use
                          * Verity, set things up for it */
 
                         if (verity->designator < 0 || verity->designator == PARTITION_ROOT) {
-                                if (!m->partitions[PARTITION_ROOT_VERITY].found || !m->partitions[PARTITION_ROOT].found)
-                                        return -EADDRNOTAVAIL;
+                                if (!m->partitions[PARTITION_ROOT].found)
+                                        return log_debug_errno(
+                                                        SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                        "Verity enabled root partition was requested but did not find a root data partition");
+
+                                if (!m->partitions[PARTITION_ROOT_VERITY].found)
+                                        return log_debug_errno(
+                                                        SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                        "Verity enabled root partition was requested but did not find a root verity hash partition");
 
                                 /* If we found a verity setup, then the root partition is necessarily read-only. */
                                 m->partitions[PARTITION_ROOT].rw = false;
                         } else {
                                 assert(verity->designator == PARTITION_USR);
 
-                                if (!m->partitions[PARTITION_USR_VERITY].found || !m->partitions[PARTITION_USR].found)
-                                        return -EADDRNOTAVAIL;
+                                if (!m->partitions[PARTITION_USR].found)
+                                        return log_debug_errno(
+                                                        SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                        "Verity enabled usr partition was requested but did not find a usr data partition");
+
+                                if (!m->partitions[PARTITION_USR_VERITY].found)
+                                        return log_debug_errno(
+                                                        SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                                        "Verity enabled usr partition was requested but did not find a usr verity hash partition");
+
 
                                 m->partitions[PARTITION_USR].rw = false;
                         }
@@ -1697,7 +1727,10 @@ int dissect_log_error(int log_level, int r, const char *name, const VeritySettin
                 return log_full_errno(log_level, r, "%s: The image does not pass os-release/extension-release validation.", name);
 
         case -EADDRNOTAVAIL:
-                return log_full_errno(log_level, r, "%s: No root partition for specified root hash found.", name);
+                return log_full_errno(log_level, r, "%s: No root/usr partition for specified root/usr hash found.", name);
+
+        case -EREMOTE:
+                return log_full_errno(log_level, r, "%s: Found root and usr partitions with different architectures", name);
 
         case -ENOTUNIQ:
                 return log_full_errno(log_level, r, "%s: Multiple suitable root partitions found in image.", name);
