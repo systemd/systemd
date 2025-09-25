@@ -221,6 +221,7 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                 need_esp_or_xbootldr = false;
         }
 
+        log_device_debug(dev, "blkid_probe_get_partitions");
         errno = 0;
         blkid_partlist pl = sym_blkid_probe_get_partitions(pr);
         if (!pl)
@@ -249,28 +250,33 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                 /* We do not know the root partition, let's search for it. */
 
                 _cleanup_free_ char *root_label = NULL;
+                log_device_debug(dev, "sym_blkid_partlist_numof_partitions");
                 int nvals = sym_blkid_partlist_numof_partitions(pl);
                 for (int i = 0; i < nvals; i++) {
                         blkid_partition pp;
                         const char *label;
                         sd_id128_t type, id;
 
+                        log_device_debug(dev, "sym_blkid_partlist_get_partition");
                         pp = sym_blkid_partlist_get_partition(pl, i);
                         if (!pp)
                                 continue;
 
+                        log_device_debug(dev, "blkid_partition_get_uuid_id128");
                         r = blkid_partition_get_uuid_id128(pp, &id);
                         if (r < 0) {
                                 log_device_debug_errno(dev, r, "Failed to get partition UUID, ignoring: %m");
                                 continue;
                         }
 
+                        log_device_debug(dev, "blkid_partition_get_type_id128");
                         r = blkid_partition_get_type_id128(pp, &type);
                         if (r < 0) {
                                 log_device_debug_errno(dev, r, "Failed to get partition type UUID, ignoring: %m");
                                 continue;
                         }
 
+                        log_device_debug(dev, "sym_blkid_partition_get_name");
                         label = sym_blkid_partition_get_name(pp); /* returns NULL if empty */
 
                         if (need_esp_or_xbootldr && sd_id128_in_set(type, SD_GPT_ESP, SD_GPT_XBOOTLDR)) {
@@ -282,6 +288,7 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                         } else if (sd_id128_equal(type, SD_GPT_ROOT_NATIVE)) {
                                 unsigned long long flags;
 
+                                log_device_debug(dev, " sym_blkid_partition_get_flags");
                                 flags = sym_blkid_partition_get_flags(pp);
                                 if (flags & SD_GPT_FLAG_NO_AUTO)
                                         continue;
@@ -576,9 +583,20 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         return 0;
 }
 
+static int builtin_blkid_init(void) {
+        int r;
+
+        r = dlopen_libblkid();
+        if (r < 0)
+                return log_debug_errno(r, "blkid not available: %m");
+
+        return 0;
+}
+
 const UdevBuiltin udev_builtin_blkid = {
         .name = "blkid",
         .cmd = builtin_blkid,
         .help = "Filesystem and partition probing",
+        .init = builtin_blkid_init,
         .run_once = true,
 };
