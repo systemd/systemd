@@ -1183,7 +1183,9 @@ static int start_tpm(
         if (r < 0)
                 return log_error_errno(r, "Failed to find swtpm_setup binary: %m");
 
-        _cleanup_strv_free_ char **argv = strv_new(swtpm_setup, "--tpm-state", state_dir, "--tpm2", "--pcr-banks", "sha256", "--not-overwrite");
+        /* Try passing --profile-name default-v2 first, in order to support RSA4096 pcrsig keys, which was
+         * added in 0.11. */
+        _cleanup_strv_free_ char **argv = strv_new(swtpm_setup, "--tpm-state", state_dir, "--tpm2", "--pcr-banks", "sha256", "--not-overwrite", "--profile-name", "default-v2");
         if (!argv)
                 return log_oom();
 
@@ -1194,6 +1196,26 @@ static int start_tpm(
                 log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
                 _exit(EXIT_FAILURE);
         }
+        if (r == -EPROTO) {
+                /* If swtpm_setup fails, try again removing the default-v2 profile, as it might be an older
+                 * version. */
+                argv = strv_remove(argv, "--profile-name");
+                if (!argv)
+                        return log_oom();
+                argv = strv_remove(argv, "default-v2");
+                if (!argv)
+                        return log_oom();
+
+                r = safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
+                if (r == 0) {
+                        /* Child */
+                        execvp(argv[0], argv);
+                        log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
+                        _exit(EXIT_FAILURE);
+                }
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to run swtpm_setup: %m");
 
         strv_free(argv);
         argv = strv_new(sd_socket_activate, "--listen", listen_address, swtpm, "socket", "--tpm2", "--tpmstate");
