@@ -65,6 +65,13 @@ typedef enum {
         _ORDER_INVALID = -EINVAL,
 } Order;
 
+typedef enum {
+        CPU_PERCENT,
+        CPU_TIME,
+        _CPU_MAX,
+        _CPU_INVALID = -EINVAL,
+} CPUType;
+
 static unsigned arg_depth = 3;
 static unsigned arg_iterations = UINT_MAX;
 static bool arg_batch = false;
@@ -76,11 +83,7 @@ static bool arg_recursive = true;
 static bool arg_recursive_unset = false;
 static PidsCount arg_count = COUNT_PIDS;
 static Order arg_order = ORDER_CPU;
-
-static enum {
-        CPU_PERCENT,
-        CPU_TIME,
-} arg_cpu_type = CPU_PERCENT;
+static CPUType arg_cpu_type = CPU_PERCENT;
 
 static const char *order_table[_ORDER_MAX] = {
         [ORDER_PATH]   = "path",
@@ -91,6 +94,13 @@ static const char *order_table[_ORDER_MAX] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(order, Order);
+
+static const char *cpu_type_table[_CPU_MAX] = {
+        [CPU_PERCENT] = "percentage",
+        [CPU_TIME]    = "time",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(cpu_type, CPUType);
 
 static Group *group_free(Group *g) {
         if (!g)
@@ -758,12 +768,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CPU_TYPE:
                         if (optarg) {
-                                if (streq(optarg, "time"))
-                                        arg_cpu_type = CPU_TIME;
-                                else if (streq(optarg, "percentage"))
-                                        arg_cpu_type = CPU_PERCENT;
-                                else
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                arg_cpu_type = cpu_type_from_string(optarg);
+                                if (arg_cpu_type < 0)
+                                        return log_error_errno(arg_cpu_type,
                                                                "Unknown argument to --cpu=: %s",
                                                                optarg);
                         } else
