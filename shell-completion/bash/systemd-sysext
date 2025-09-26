@@ -60,7 +60,7 @@ _systemd-sysext() {
                 comps='pretty short off'
                 ;;
             --noexec)
-                comps='false true'
+                comps='no yes'
                 ;;
             --image-policy)
                 comps=''
