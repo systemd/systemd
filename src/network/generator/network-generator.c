@@ -21,7 +21,7 @@
   ip={dhcp|on|any|dhcp6|auto6|either6|link6|link-local}
   ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6|link-local}[:[<mtu>][:<macaddr>]]
   ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft|link-local}[:[<mtu>][:<macaddr>]]
-  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft|link-local}[:[<dns1>][:<dns2>]]
+  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft|link-local}[:[<dns1>][:[<dns2>][:[<ntp>]]]]
   rd.route=<net>/<netmask>:<gateway>[:<interface>]
   nameserver=<IP> [nameserver=<IP> ...]
   rd.peerdns=0
@@ -197,6 +197,7 @@ static Network* network_free(Network *network) {
         strv_free(network->vlan);
         free(network->bridge);
         free(network->bond);
+        free(network->ntp);
 
         while ((address = network->addresses))
                 address_free(address);
@@ -650,6 +651,27 @@ static int network_set_bond(Context *context, const char *ifname, const char *va
         return free_and_strdup(&network->bond, value);
 }
 
+static int network_set_ntp(Context *context, const char *ifname, const char *value) {
+        Network *network;
+        int r;
+
+        assert(context);
+        assert(ifname);
+
+        if (isempty(value))
+                return 0;
+
+        r = in_addr_from_string_auto(value, NULL, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Invalid NTP address '%s' for '%s'", value, ifname);
+
+        r = network_acquire(context, ifname, &network);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire network for '%s': %m", ifname);
+
+        return free_and_strdup(&network->ntp, value);
+}
+
 static int parse_cmdline_ip_mtu_mac(Context *context, const char *ifname, const char *value) {
         _cleanup_free_ char *mtu = NULL;
         int r;
@@ -862,6 +884,18 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
                 return 0;
 
         r = network_set_dns(context, ifname, dns);
+        if (r < 0)
+                return r;
+
+        /* Next, try [:<ntp>] */
+        _cleanup_free_ char *ntp = NULL;
+        r = extract_ip_address_str(AF_UNSPEC, &p, &ntp);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse NTP address in ip=%s: %m", value);
+        if (r == 0)
+                return 0;
+
+        r = network_set_ntp(context, ifname, ntp);
         if (r < 0)
                 return r;
 
@@ -1372,6 +1406,9 @@ void network_dump(Network *network, FILE *f) {
 
         if (network->bond)
                 fprintf(f, "Bond=%s\n", network->bond);
+
+        if (network->ntp)
+                fprintf(f, "NTP=%s\n", network->ntp);
 
         fputs("\n[DHCP]\n", f);
 
