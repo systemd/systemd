@@ -745,8 +745,8 @@ static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
 
         print_welcome(rfd, mute_console_link);
 
-        msg1 = strjoina("Please enter the new root password (empty to skip):");
-        msg2 = strjoina("Please enter the new root password again:");
+        msg1 = "Please enter the new root password (empty to skip):";
+        msg2 = "Please enter the new root password again:";
 
         suggest_passwords();
 
