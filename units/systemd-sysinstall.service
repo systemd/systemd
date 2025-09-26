@@ -8,22 +8,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=First Boot Home Area Wizard
-Documentation=man:homectl(1)
-ConditionFirstBoot=yes
-After=home.mount systemd-homed.service
-Before=systemd-user-sessions.service first-boot-complete.target
+Description=System Install Tool
+Documentation=man:systemd-sysinstall(1)
+Wants=dbus.socket systemd-logind.service systemd-mute-console.socket
+After=systemd-logind.service
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=homectl firstboot --prompt-new-user --prompt-shell=no --prompt-groups=no --mute-console=yes
+ExecStart=systemd-sysinstall --variables=yes --reboot=yes --mute-console=yes
 StandardOutput=tty
 StandardInput=tty
 StandardError=tty
 TTYReset=yes
-ImportCredential=home.*
-
-[Install]
-WantedBy=systemd-homed.service
-Also=systemd-homed.service
