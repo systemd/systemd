@@ -232,7 +232,7 @@ executables += [
         udev_test_template + {
                 'sources' : files('test-udev-rule-runner.c'),
                 'dependencies' : udev_dependencies + [
-                        libselinux,
+                        libselinux_cflags,
                 ],
                 'type' : 'manual',
         },

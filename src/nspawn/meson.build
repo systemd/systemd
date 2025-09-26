@@ -48,7 +48,7 @@ executables += [
                 'extract' : nspawn_extract_sources,
                 'dependencies' : [
                         libseccomp_cflags,
-                        libselinux,
+                        libselinux_cflags,
                 ],
         },
         nspawn_test_template + {

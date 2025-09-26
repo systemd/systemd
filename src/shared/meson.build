@@ -328,7 +328,7 @@ libshared_deps = [threads,
                   libpam_cflags,
                   librt,
                   libseccomp_cflags,
-                  libselinux,
+                  libselinux_cflags,
                   libxenctrl_cflags,
                   libxz_cflags,
                   libzstd_cflags]
