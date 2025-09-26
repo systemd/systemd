@@ -294,6 +294,7 @@ int register_machine(
                 return 0;
         if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
                 return log_error_errno(r, "Failed to register machine: %s", bus_error_message(&error, r));
+        sd_bus_error_free(&error);
         if (FLAGS_SET(flags, REGISTER_MACHINE_KEEP_UNIT)) {
                 r = bus_call_method(
                                 bus,
