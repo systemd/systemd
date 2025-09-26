@@ -1712,9 +1712,10 @@ static int close_osc_context(pam_handle_t *handle) {
         if (r < 0)
                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to prepare OSC sequence: %m");
 
+        /* When we are closing things, the TTY might not take our writes anymore. Accept that gracefully. */
         r = loop_write(fd, osc, SIZE_MAX);
         if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to write OSC sequence to TTY: %m");
+                pam_syslog_errno(handle, LOG_DEBUG, r, "Failed to write OSC sequence to TTY, ignoring: %m");
 
         return PAM_SUCCESS;
 }
