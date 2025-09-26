@@ -928,7 +928,7 @@ static void session_context_mangle(
                 c->type = "unspecified";
                 if (isempty(c->class))
                         c->class = IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) ?
-                        "manager-early" : "manager";
+                                "manager-early" : "manager";
                 c->tty = NULL;
 
         } else if (c->tty && strchr(c->tty, ':')) {
