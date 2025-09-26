@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "btrfs.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
@@ -889,6 +890,7 @@ static int fd_copy_tree_generic(
                 CopyFlags copy_flags,
                 Hashmap *denylist,
                 Set *subvolumes,
+                BtrfsSubvolFlags subvolume_flags,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -1109,6 +1111,7 @@ static int fd_copy_directory(
                 CopyFlags copy_flags,
                 Hashmap *denylist,
                 Set *subvolumes,
+                BtrfsSubvolFlags subvolume_flags,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -1166,6 +1169,15 @@ static int fd_copy_directory(
                                 LOCK_EX);
         if (fdt < 0)
                 return fdt;
+
+        if (set_contains(subvolumes, st)) {
+                if (subvolume_flags & BTRFS_SUBVOL_NODATACOW) {
+                        r = btrfs_subvol_set_nodatacow_fd(fdt, true);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make subvolume '%s' nodatacow: %m", to);
+                } else if (subvolume_flags & BTRFS_SUBVOL_NODATASUM)
+                        log_warning("Failed to make subvolume '%s' nodatasum", to);
+        }
 
         if (exists && FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS) && fstat(fdt, &dt_st) < 0)
                 return -errno;
@@ -1245,8 +1257,8 @@ static int fd_copy_directory(
 
                 r = fd_copy_tree_generic(dirfd(d), de->d_name, &buf, fdt, de->d_name, original_device,
                                          depth_left-1, override_uid, override_gid, copy_flags & ~COPY_LOCK_BSD,
-                                         denylist, subvolumes, hardlink_context, child_display_path, progress_path,
-                                         progress_bytes, userdata);
+                                         denylist, subvolumes, subvolume_flags, hardlink_context,
+                                         child_display_path, progress_path, progress_bytes, userdata);
 
                 /* Propagate SIGINT/SIGTERM, ENOSPC, and fs-verity fails up instantly */
                 if (IN_SET(r, -EINTR, -ENOSPC, -ESOCKTNOSUPPORT))
@@ -1330,6 +1342,7 @@ static int fd_copy_tree_generic(
                 CopyFlags copy_flags,
                 Hashmap *denylist,
                 Set *subvolumes,
+                BtrfsSubvolFlags subvolume_flags,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -1342,8 +1355,8 @@ static int fd_copy_tree_generic(
 
         if (S_ISDIR(st->st_mode))
                 return fd_copy_directory(df, from, st, dt, to, original_device, depth_left-1, override_uid,
-                                         override_gid, copy_flags, denylist, subvolumes, hardlink_context,
-                                         display_path, progress_path, progress_bytes, userdata);
+                                         override_gid, copy_flags, denylist, subvolumes, subvolume_flags,
+                                         hardlink_context, display_path, progress_path, progress_bytes, userdata);
 
         DenyType t = PTR_TO_INT(hashmap_get(denylist, st));
         if (t == DENY_INODE) {
@@ -1375,6 +1388,7 @@ int copy_tree_at_full(
                 CopyFlags copy_flags,
                 Hashmap *denylist,
                 Set *subvolumes,
+                BtrfsSubvolFlags subvolume_flags,
                 copy_progress_path_t progress_path,
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
@@ -1389,8 +1403,8 @@ int copy_tree_at_full(
                 return -errno;
 
         r = fd_copy_tree_generic(fdf, from, &st, fdt, to, st.st_dev, COPY_DEPTH_MAX, override_uid,
-                                 override_gid, copy_flags, denylist, subvolumes, NULL, NULL, progress_path,
-                                 progress_bytes, userdata);
+                                 override_gid, copy_flags, denylist, subvolumes, subvolume_flags,
+                                 NULL, NULL, progress_path, progress_bytes, userdata);
         if (r < 0)
                 return r;
 
@@ -1458,7 +1472,7 @@ int copy_directory_at_full(
                         COPY_DEPTH_MAX,
                         UID_INVALID, GID_INVALID,
                         copy_flags,
-                        NULL, NULL, NULL, NULL,
+                        NULL, NULL, 0, NULL, NULL,
                         progress_path,
                         progress_bytes,
                         userdata);
