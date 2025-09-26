@@ -215,6 +215,51 @@ int main(int argc, char *argv[]) {
                          "Gateway=192.168.0.1\n"
                          );
 
+        test_network_one("eth0", "ip", "192.168.0.10::192.168.0.1:255.255.255.0::eth0:on:10.10.10.10:10.10.10.11:10.10.10.161",
+                         "[Match]\n"
+                         "Name=eth0\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=yes\n"
+                         "DNS=10.10.10.10\n"
+                         "DNS=10.10.10.11\n"
+                         "NTP=10.10.10.161\n"
+                         "\n[DHCP]\n"
+                         "\n[Address]\n"
+                         "Address=192.168.0.10/24\n"
+                         "\n[Route]\n"
+                         "Gateway=192.168.0.1\n"
+                         );
+
+        test_network_one("eth0", "ip", "192.168.0.10::192.168.0.1:255.255.255.0::eth0:on:10.10.10.10::10.10.10.161",
+                         "[Match]\n"
+                         "Name=eth0\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=yes\n"
+                         "DNS=10.10.10.10\n"
+                         "NTP=10.10.10.161\n"
+                         "\n[DHCP]\n"
+                         "\n[Address]\n"
+                         "Address=192.168.0.10/24\n"
+                         "\n[Route]\n"
+                         "Gateway=192.168.0.1\n"
+                         );
+
+        test_network_one("eth0", "ip", "192.168.0.10::192.168.0.1:255.255.255.0::eth0:on:::10.10.10.161",
+                         "[Match]\n"
+                         "Name=eth0\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=yes\n"
+                         "NTP=10.10.10.161\n"
+                         "\n[DHCP]\n"
+                         "\n[Address]\n"
+                         "Address=192.168.0.10/24\n"
+                         "\n[Route]\n"
+                         "Gateway=192.168.0.1\n"
+                         );
+
         test_network_one("eth0", "ip", "[2001:1234:56:8f63::10]::[2001:1234:56:8f63::1]:64:hogehoge:eth0:on",
                          "[Match]\n"
                          "Name=eth0\n"
