@@ -65,6 +65,7 @@ struct Network {
         char **vlan;
         char *bridge;
         char *bond;
+        char *ntp;
 
         /* [DHCP] */
         char *hostname;
