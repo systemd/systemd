@@ -1639,7 +1639,7 @@ static int can_forward_coredump(Context *context, const PidRef *pid) {
         if (!context->got_pidfd && context->dumpable != SUID_DUMP_USER)
                 return false;
 
-        r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
+        r = cg_pidref_get_path(pid, &cgroup);
         if (r < 0)
                 return r;
 
