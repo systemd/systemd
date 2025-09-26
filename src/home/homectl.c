@@ -4744,6 +4744,8 @@ static int parse_argv(int argc, char *argv[]) {
                                      "minimal");
                                 return 0;
                         }
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid export format: %s", optarg);
 
                         break;
 
