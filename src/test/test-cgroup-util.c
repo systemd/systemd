@@ -13,6 +13,7 @@
 #include "special.h"
 #include "stat-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "tests.h"
 
 static void check_p_d_u(const char *path, int code, const char *result) {
@@ -493,6 +494,33 @@ TEST(cg_get_keyed_attribute) {
                                          STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
         for (size_t i = 0; i < 3; i++)
                 free(vals3a[i]);
+}
+
+TEST(cg_get_all_keyed_attributes) {
+        int r;
+        _cleanup_strv_free_ char **keys = NULL, **vals = NULL;
+
+        r = cg_get_all_keyed_attributes("cpu", "/init.scope", "no_such_file", &keys, &vals);
+        if (r == -ENOMEDIUM || ERRNO_IS_PRIVILEGE(r)) {
+                log_info_errno(r, "Skipping most of %s, /sys/fs/cgroup not accessible: %m", __func__);
+                return;
+        }
+
+        assert_se(r == -ENOENT);
+        ASSERT_NULL(keys);
+
+        if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0) {
+                log_info_errno(errno, "Skipping most of %s, /init.scope/cpu.stat not accessible: %m", __func__);
+                return;
+        }
+
+        assert_se(cg_get_all_keyed_attributes("cpu", "/init.scope", "cpu.stat", &keys, &vals) == 0);
+
+        assert_se(strv_length(keys) == strv_length(vals));
+
+        assert_se(strv_find(keys, "system_usec") != NULL);
+        assert_se(strv_find(keys, "user_usec") != NULL);
+        assert_se(strv_find(keys, "usage_usec") != NULL);
 }
 
 TEST(bfq_weight_conversion) {
