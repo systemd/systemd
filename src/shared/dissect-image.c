@@ -1060,7 +1060,7 @@ static int dissect_image(
                         if (!image_filter_test(filter, type.designator, label))
                                 continue;
 
-                        log_debug("Dissecting %s partition with label %s and UUID %s",
+                        log_debug("Dissecting %s partition with label %s and UUID %s.",
                                   strna(partition_designator_to_string(type.designator)), strna(label), SD_ID128_TO_UUID_STRING(id));
 
                         if (IN_SET(type.designator,
@@ -1446,12 +1446,12 @@ static int dissect_image(
                  m->partitions[PARTITION_ROOT_VERITY_SIG].found))
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                        "Found root verity hash partition without matching root data partition");
+                                        "Found root verity hash partition without matching root data partition.");
 
         /* Hmm, we found a signature partition but no Verity data? Something is off. */
         if (m->partitions[PARTITION_ROOT_VERITY_SIG].found && !m->partitions[PARTITION_ROOT_VERITY].found)
                 return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                       "Found root verity signature partition without matching root verity hash partition");
+                                       "Found root verity signature partition without matching root verity hash partition.");
 
         /* as above */
         if (!m->partitions[PARTITION_USR].found &&
@@ -1459,12 +1459,12 @@ static int dissect_image(
                  m->partitions[PARTITION_USR_VERITY_SIG].found))
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                        "Found usr verity hash partition without matching usr data partition");
+                                        "Found usr verity hash partition without matching usr data partition.");
 
         /* as above */
         if (m->partitions[PARTITION_USR_VERITY_SIG].found && !m->partitions[PARTITION_USR_VERITY].found)
                 return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                       "Found usr verity signature partition without matching usr verity hash partition");
+                                       "Found usr verity signature partition without matching usr verity hash partition.");
 
         /* If root and /usr are combined then insist that the architecture matches */
         if (m->partitions[PARTITION_ROOT].found &&
@@ -1473,7 +1473,7 @@ static int dissect_image(
              m->partitions[PARTITION_USR].architecture >= 0 &&
              m->partitions[PARTITION_ROOT].architecture != m->partitions[PARTITION_USR].architecture))
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                       "Found root and usr partitions with different architectures (%s vs %s)",
+                                       "Found root and usr partitions with different architectures (%s vs %s).",
                                        architecture_to_string(m->partitions[PARTITION_ROOT].architecture),
                                        architecture_to_string(m->partitions[PARTITION_USR].architecture));
 
@@ -1543,17 +1543,17 @@ static int dissect_image(
         /* Check if we have a root fs if we are told to do check. /usr alone is fine too, but only if appropriate flag for that is set too */
         if (FLAGS_SET(flags, DISSECT_IMAGE_REQUIRE_ROOT) &&
             !(m->partitions[PARTITION_ROOT].found || (m->partitions[PARTITION_USR].found && FLAGS_SET(flags, DISSECT_IMAGE_USR_NO_ROOT))))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Root or usr partition requested but found neither");
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Root or usr partition requested but found neither.");
 
         if (m->partitions[PARTITION_ROOT_VERITY].found) {
                 /* We only support one verity partition per image, i.e. can't do for both /usr and root fs */
                 if (m->partitions[PARTITION_USR_VERITY].found)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Found both root and usr verity enabled partitions which is not supported");
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Found both root and usr verity enabled partitions which is not supported.");
 
                 /* We don't support verity enabled root with a split out /usr. Neither with nor without
                  * verity there. (Note that we do support verity-less root with verity-full /usr, though.) */
                 if (m->partitions[PARTITION_USR].found)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Found verity enabled root partition with split usr partition which is not supported");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Found verity enabled root partition with split usr partition which is not supported.");
         }
 
         if (verity) {
@@ -1561,7 +1561,7 @@ static int dissect_image(
                 if (verity->designator >= 0 && !m->partitions[verity->designator].found)
                         return log_debug_errno(
                                 SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                "Explicit %s verity designator was specified but did not find %s partition",
+                                "Explicit %s verity designator was specified but did not find %s partition.",
                                 partition_designator_to_string(verity->designator),
                                 partition_designator_to_string(verity->designator));
 
@@ -1573,12 +1573,12 @@ static int dissect_image(
                                 if (!m->partitions[PARTITION_ROOT].found)
                                         return log_debug_errno(
                                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                                        "Verity enabled root partition was requested but did not find a root data partition");
+                                                        "Verity enabled root partition was requested but did not find a root data partition.");
 
                                 if (!m->partitions[PARTITION_ROOT_VERITY].found)
                                         return log_debug_errno(
                                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                                        "Verity enabled root partition was requested but did not find a root verity hash partition");
+                                                        "Verity enabled root partition was requested but did not find a root verity hash partition.");
 
                                 /* If we found a verity setup, then the root partition is necessarily read-only. */
                                 m->partitions[PARTITION_ROOT].rw = false;
@@ -1588,12 +1588,12 @@ static int dissect_image(
                                 if (!m->partitions[PARTITION_USR].found)
                                         return log_debug_errno(
                                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                                        "Verity enabled usr partition was requested but did not find a usr data partition");
+                                                        "Verity enabled usr partition was requested but did not find a usr data partition.");
 
                                 if (!m->partitions[PARTITION_USR_VERITY].found)
                                         return log_debug_errno(
                                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                                        "Verity enabled usr partition was requested but did not find a usr verity hash partition");
+                                                        "Verity enabled usr partition was requested but did not find a usr verity hash partition.");
 
 
                                 m->partitions[PARTITION_USR].rw = false;
@@ -1633,7 +1633,7 @@ static int dissect_image(
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *s = NULL;
                         (void) partition_policy_flags_to_string(found_flags, /* simplify= */ false, &s);
-                        log_debug("Found for designator %s: %s", partition_designator_to_string(di), strna(s));
+                        log_debug("Found for designator %s: %s.", partition_designator_to_string(di), strna(s));
                 }
 
                 r = image_policy_check_protection(policy, di, found_flags);
