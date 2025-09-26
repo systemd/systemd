@@ -2809,7 +2809,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         }
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
-        if ((partition_designator_is_verity(p->type.designator) || p->verity == VERITY_DATA) && p->read_only < 0)
+        if ((partition_designator_is_verity_hash(p->type.designator) || p->verity == VERITY_DATA) && p->read_only < 0)
                 p->read_only = true;
 
         /* Default to "growfs" on, unless read-only */
@@ -7500,7 +7500,7 @@ static int resolve_copy_blocks_auto_candidate_harder(
          * verity/verity-sig partition for it, based on udev metadata. */
 
         const char *property;
-        if (partition_designator_is_verity(partition_type.designator))
+        if (partition_designator_is_verity_hash(partition_type.designator))
                 property = "ID_DISSECT_PART_VERITY_DEVICE";
         else if (partition_designator_is_verity_sig(partition_type.designator))
                 property = "ID_DISSECT_PART_VERITY_SIG_DEVICE";

@@ -1060,8 +1060,26 @@ static int dissect_image(
                         if (!image_filter_test(filter, type.designator, label))
                                 continue;
 
-                        log_debug("Dissecting %s partition with label %s and UUID %s",
+                        log_debug("Dissecting %s partition with label %s and UUID %s.",
                                   strna(partition_designator_to_string(type.designator)), strna(label), SD_ID128_TO_UUID_STRING(id));
+
+                        if (FLAGS_SET(pflags, SD_GPT_FLAG_NO_AUTO) && type.designator != PARTITION_ESP) {
+                                log_debug("Partition has 'no auto' flag set, ignoring.");
+                                continue;
+                        }
+
+                        if (!verity && partition_designator_is_verity(type.designator)) {
+                                log_debug("Partition is a verity hash or verity signature partition but no verity was requested, ignoring.");
+                                continue;
+                        }
+
+                        PartitionDesignator vd = partition_verity_to_data(type.designator);
+                        if (verity && verity->designator >= 0 && vd >= 0 && vd != verity->designator) {
+                                log_debug("Partition is a %s partition but verity was only requested for the %s partition, ignoring.",
+                                          partition_designator_to_string(type.designator),
+                                          partition_designator_to_string(verity->designator));
+                                continue;
+                        }
 
                         if (IN_SET(type.designator,
                                    PARTITION_HOME,
@@ -1071,9 +1089,6 @@ static int dissect_image(
 
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
-
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
 
                                 rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
@@ -1085,8 +1100,10 @@ static int dissect_image(
                                  * recommended by the UEFI spec (See "12.3.3 Number and Location of System
                                  * Partitions"). */
 
-                                if (pflags & SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL)
+                                if (FLAGS_SET(pflags, SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL)) {
+                                        log_debug("ESP Partition has 'no block io' flag set, ignoring.");
                                         continue;
+                                }
 
                                 fstype = "vfat";
 
@@ -1095,12 +1112,13 @@ static int dissect_image(
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
                                 /* If a root ID is specified, ignore everything but the root id */
-                                if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id))
+                                if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id)) {
+                                        log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from root verity hash, ignoring.",
+                                                  SD_ID128_TO_UUID_STRING(id),
+                                                  SD_ID128_TO_UUID_STRING(root_uuid));
                                         continue;
+                                }
 
                                 rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
@@ -1110,20 +1128,15 @@ static int dissect_image(
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
 
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
                                 m->has_verity = true;
 
-                                /* If no verity configuration is specified, then don't do verity */
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
-                                        continue;
-
                                 /* If root hash is specified, then ignore everything but the root id */
-                                if (!sd_id128_is_null(root_verity_uuid) && !sd_id128_equal(root_verity_uuid, id))
+                                if (!sd_id128_is_null(root_verity_uuid) && !sd_id128_equal(root_verity_uuid, id)) {
+                                        log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from root verity hash, ignoring.",
+                                                  SD_ID128_TO_UUID_STRING(id),
+                                                  SD_ID128_TO_UUID_STRING(root_verity_uuid));
                                         continue;
+                                }
 
                                 fstype = "DM_verity_hash";
                                 rw = false;
@@ -1133,16 +1146,7 @@ static int dissect_image(
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
 
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
                                 m->has_verity_sig = true;
-
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_ROOT)
-                                        continue;
-
                                 fstype = "verity_hash_signature";
                                 rw = false;
 
@@ -1151,12 +1155,13 @@ static int dissect_image(
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
                                 /* If a usr ID is specified, ignore everything but the usr id */
-                                if (!sd_id128_is_null(usr_uuid) && !sd_id128_equal(usr_uuid, id))
+                                if (!sd_id128_is_null(usr_uuid) && !sd_id128_equal(usr_uuid, id)) {
+                                        log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from usr verity hash, ignoring.",
+                                                  SD_ID128_TO_UUID_STRING(id),
+                                                  SD_ID128_TO_UUID_STRING(usr_uuid));
                                         continue;
+                                }
 
                                 rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
@@ -1166,19 +1171,15 @@ static int dissect_image(
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
 
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
                                 m->has_verity = true;
 
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_USR)
-                                        continue;
-
                                 /* If usr hash is specified, then ignore everything but the usr id */
-                                if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id))
+                                if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id)) {
+                                        log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from usr verity hash, ignoring.",
+                                                  SD_ID128_TO_UUID_STRING(id),
+                                                  SD_ID128_TO_UUID_STRING(usr_uuid));
                                         continue;
+                                }
 
                                 fstype = "DM_verity_hash";
                                 rw = false;
@@ -1188,25 +1189,13 @@ static int dissect_image(
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
 
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
                                 m->has_verity_sig = true;
-
-                                if (!verity)
-                                        continue;
-                                if (verity->designator >= 0 && verity->designator != PARTITION_USR)
-                                        continue;
-
                                 fstype = "verity_hash_signature";
                                 rw = false;
 
                         } else if (type.designator == PARTITION_SWAP) {
 
                                 check_partition_flags(node, pflags, SD_GPT_FLAG_NO_AUTO);
-
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
 
                                 /* Note: we don't set fstype = "swap" here, because we still need to probe if
                                  * it might be encrypted (i.e. fstype "crypt_LUKS") or unencrypted
@@ -1222,9 +1211,6 @@ static int dissect_image(
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
-
                                 if (generic_node)
                                         multiple_generic = true;
                                 else {
@@ -1239,9 +1225,6 @@ static int dissect_image(
 
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
-
-                                if (pflags & SD_GPT_FLAG_NO_AUTO)
-                                        continue;
 
                                 if (!FLAGS_SET(flags, DISSECT_IMAGE_RELAX_VAR_CHECK)) {
                                         sd_id128_t var_uuid;
@@ -1446,12 +1429,12 @@ static int dissect_image(
                  m->partitions[PARTITION_ROOT_VERITY_SIG].found))
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                        "Found root verity hash partition without matching root data partition");
+                                        "Found root verity hash partition without matching root data partition.");
 
         /* Hmm, we found a signature partition but no Verity data? Something is off. */
         if (m->partitions[PARTITION_ROOT_VERITY_SIG].found && !m->partitions[PARTITION_ROOT_VERITY].found)
                 return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                       "Found root verity signature partition without matching root verity hash partition");
+                                       "Found root verity signature partition without matching root verity hash partition.");
 
         /* as above */
         if (!m->partitions[PARTITION_USR].found &&
@@ -1459,12 +1442,12 @@ static int dissect_image(
                  m->partitions[PARTITION_USR_VERITY_SIG].found))
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                        "Found usr verity hash partition without matching usr data partition");
+                                        "Found usr verity hash partition without matching usr data partition.");
 
         /* as above */
         if (m->partitions[PARTITION_USR_VERITY_SIG].found && !m->partitions[PARTITION_USR_VERITY].found)
                 return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                       "Found usr verity signature partition without matching usr verity hash partition");
+                                       "Found usr verity signature partition without matching usr verity hash partition.");
 
         /* If root and /usr are combined then insist that the architecture matches */
         if (m->partitions[PARTITION_ROOT].found &&
@@ -1473,7 +1456,7 @@ static int dissect_image(
              m->partitions[PARTITION_USR].architecture >= 0 &&
              m->partitions[PARTITION_ROOT].architecture != m->partitions[PARTITION_USR].architecture))
                 return log_debug_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                       "Found root and usr partitions with different architectures (%s vs %s)",
+                                       "Found root and usr partitions with different architectures (%s vs %s).",
                                        architecture_to_string(m->partitions[PARTITION_ROOT].architecture),
                                        architecture_to_string(m->partitions[PARTITION_USR].architecture));
 
@@ -1543,17 +1526,17 @@ static int dissect_image(
         /* Check if we have a root fs if we are told to do check. /usr alone is fine too, but only if appropriate flag for that is set too */
         if (FLAGS_SET(flags, DISSECT_IMAGE_REQUIRE_ROOT) &&
             !(m->partitions[PARTITION_ROOT].found || (m->partitions[PARTITION_USR].found && FLAGS_SET(flags, DISSECT_IMAGE_USR_NO_ROOT))))
-                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Root or usr partition requested but found neither");
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Root or usr partition requested but found neither.");
 
         if (m->partitions[PARTITION_ROOT_VERITY].found) {
                 /* We only support one verity partition per image, i.e. can't do for both /usr and root fs */
                 if (m->partitions[PARTITION_USR_VERITY].found)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Found both root and usr verity enabled partitions which is not supported");
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTUNIQ), "Found both root and usr verity enabled partitions which is not supported.");
 
                 /* We don't support verity enabled root with a split out /usr. Neither with nor without
                  * verity there. (Note that we do support verity-less root with verity-full /usr, though.) */
                 if (m->partitions[PARTITION_USR].found)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Found verity enabled root partition with split usr partition which is not supported");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL), "Found verity enabled root partition with split usr partition which is not supported.");
         }
 
         if (verity) {
@@ -1561,7 +1544,7 @@ static int dissect_image(
                 if (verity->designator >= 0 && !m->partitions[verity->designator].found)
                         return log_debug_errno(
                                 SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                "Explicit %s verity designator was specified but did not find %s partition",
+                                "Explicit %s verity designator was specified but did not find %s partition.",
                                 partition_designator_to_string(verity->designator),
                                 partition_designator_to_string(verity->designator));
 
@@ -1573,12 +1556,12 @@ static int dissect_image(
                                 if (!m->partitions[PARTITION_ROOT].found)
                                         return log_debug_errno(
                                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                                        "Verity enabled root partition was requested but did not find a root data partition");
+                                                        "Verity enabled root partition was requested but did not find a root data partition.");
 
                                 if (!m->partitions[PARTITION_ROOT_VERITY].found)
                                         return log_debug_errno(
                                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                                        "Verity enabled root partition was requested but did not find a root verity hash partition");
+                                                        "Verity enabled root partition was requested but did not find a root verity hash partition.");
 
                                 /* If we found a verity setup, then the root partition is necessarily read-only. */
                                 m->partitions[PARTITION_ROOT].rw = false;
@@ -1588,12 +1571,12 @@ static int dissect_image(
                                 if (!m->partitions[PARTITION_USR].found)
                                         return log_debug_errno(
                                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                                        "Verity enabled usr partition was requested but did not find a usr data partition");
+                                                        "Verity enabled usr partition was requested but did not find a usr data partition.");
 
                                 if (!m->partitions[PARTITION_USR_VERITY].found)
                                         return log_debug_errno(
                                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),
-                                                        "Verity enabled usr partition was requested but did not find a usr verity hash partition");
+                                                        "Verity enabled usr partition was requested but did not find a usr verity hash partition.");
 
 
                                 m->partitions[PARTITION_USR].rw = false;
@@ -1619,7 +1602,7 @@ static int dissect_image(
                 if (m->partitions[di].found) {
                         found_flags = PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED;
 
-                        PartitionDesignator vi = partition_verity_of(di);
+                        PartitionDesignator vi = partition_verity_hash_of(di);
                         if (vi >= 0 && m->partitions[vi].found) {
                                 found_flags |= PARTITION_POLICY_VERITY;
 
@@ -1633,7 +1616,7 @@ static int dissect_image(
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *s = NULL;
                         (void) partition_policy_flags_to_string(found_flags, /* simplify= */ false, &s);
-                        log_debug("Found for designator %s: %s", partition_designator_to_string(di), strna(s));
+                        log_debug("Found for designator %s: %s.", partition_designator_to_string(di), strna(s));
                 }
 
                 r = image_policy_check_protection(policy, di, found_flags);
@@ -3119,7 +3102,7 @@ int dissected_image_decrypt(
                 if (r < 0)
                         return r;
 
-                k = partition_verity_of(i);
+                k = partition_verity_hash_of(i);
                 if (k >= 0) {
                         flags |= getenv_bool("SYSTEMD_VERITY_SHARING") != 0 ? DISSECT_IMAGE_VERITY_SHARE : 0;
 
@@ -3608,7 +3591,7 @@ int dissected_image_load_verity_sig_partition(
         if (!m->partitions[dd].found)
                 return 0;
 
-        PartitionDesignator dv = partition_verity_of(dd);
+        PartitionDesignator dv = partition_verity_hash_of(dd);
         assert(dv >= 0);
         if (!m->partitions[dv].found)
                 return 0;
@@ -3734,7 +3717,7 @@ int dissected_image_guess_verity_roothash(
         if (!d->found)
                 return 0;
 
-        PartitionDesignator dv = partition_verity_of(dd);
+        PartitionDesignator dv = partition_verity_hash_of(dd);
         assert(dv >= 0);
 
         DissectedPartition *p = m->partitions + dv;
@@ -4178,7 +4161,7 @@ bool dissected_image_verity_candidate(const DissectedImage *image, PartitionDesi
         if (image->single_file_system)
                 return partition_designator == PARTITION_ROOT && image->has_verity;
 
-        return partition_verity_of(partition_designator) >= 0;
+        return partition_verity_hash_of(partition_designator) >= 0;
 }
 
 bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignator partition_designator) {
@@ -4195,7 +4178,7 @@ bool dissected_image_verity_ready(const DissectedImage *image, PartitionDesignat
         if (image->single_file_system)
                 return partition_designator == PARTITION_ROOT;
 
-        k = partition_verity_of(partition_designator);
+        k = partition_verity_hash_of(partition_designator);
         return k >= 0 && image->partitions[k].found;
 }
 
