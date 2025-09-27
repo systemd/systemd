@@ -13,10 +13,11 @@ typedef enum ConfFilesFlags {
         CONF_FILES_FILTER_MASKED_BY_SYMLINK = 1 << 4,
         CONF_FILES_FILTER_MASKED_BY_EMPTY   = 1 << 5,
         CONF_FILES_FILTER_MASKED            = CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_FILTER_MASKED_BY_EMPTY,
+        CONF_FILES_DONT_PREFIX_ROOT         = 1 << 6,
 } ConfFilesFlags;
 
 typedef struct ConfFile {
-        char *name;          /* name of a file found in config directories */
+        char *filename;      /* name of a file found in config directories */
         char *result;        /* resolved config directory with the original file name found in the directory */
         char *original_path; /* original config directory with the original file name found in the directory */
         char *resolved_path; /* fully resolved path, where the filename part of the path may be different from the original name */
@@ -55,6 +56,7 @@ int conf_files_list_dropins(
                 char ***ret,
                 const char *dropin_dirname,
                 const char *root,
+                int root_fd,
                 const char * const *dirs);
 
 typedef int parse_line_t(

@@ -202,6 +202,34 @@ int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispa
         return 0;
 }
 
+int json_dispatch_strv_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_strv_free_ char **n = NULL;
+        char ***l = userdata;
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                const char *a;
+                r = json_dispatch_const_path(name, i, flags, &a);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend(&n, a);
+                if (r < 0)
+                        return json_log_oom(variant, flags);
+        }
+
+        return strv_free_and_replace(*l, n);
+}
+
 int json_dispatch_const_filename(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         const char **n = ASSERT_PTR(userdata);
 
@@ -233,6 +261,42 @@ int json_dispatch_filename(const char *name, sd_json_variant *variant, sd_json_d
                 return r;
 
         if (free_and_strdup(n, filename) < 0)
+                return json_log_oom(variant, flags);
+
+        return 0;
+}
+
+int json_dispatch_const_version(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        const char **n = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant)) {
+                *n = NULL;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        const char *version = sd_json_variant_string(variant);
+        if (!version_is_valid(version))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid version string.", strna(name));
+
+        *n = version;
+        return 0;
+}
+
+int json_dispatch_version(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **n = ASSERT_PTR(userdata);
+        const char *version;
+        int r;
+
+        assert_return(variant, -EINVAL);
+
+        r = json_dispatch_const_version(name, variant, flags, &version);
+        if (r < 0)
+                return r;
+
+        if (free_and_strdup(n, version) < 0)
                 return json_log_oom(variant, flags);
 
         return 0;
