@@ -872,6 +872,10 @@ units = [
           'file' : 'systemd-volatile-root.service.in',
           'conditions' : ['ENABLE_INITRD'],
         },
+        {
+          'file' : 'systemd-volatile-usr.service.in',
+          'conditions' : ['ENABLE_INITRD'],
+        },
         { 'file' : 'time-set.target' },
         { 'file' : 'time-sync.target' },
         { 'file' : 'timers.target' },
