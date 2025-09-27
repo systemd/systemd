@@ -642,6 +642,7 @@ void exec_context_init(ExecContext *c) {
                 .mount_apivfs = -1,
                 .bind_log_sockets = -1,
                 .memory_ksm = -1,
+                .memory_thp_disable = 0,
                 .private_var_tmp = _PRIVATE_TMP_INVALID,
                 .set_login_environment = -1,
         };
@@ -1231,6 +1232,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->memory_ksm >= 0)
                 fprintf(f, "%sMemoryKSM: %s\n", prefix, yes_no(c->memory_ksm > 0));
+
+        if (c->memory_thp_disable > 0)
+                fprintf(f, "%sMemoryTHPDisable: %u\n", prefix, c->memory_thp_disable);
 
         if (c->nice_set)
                 fprintf(f, "%sNice: %i\n", prefix, c->nice);
