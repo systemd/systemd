@@ -50,6 +50,7 @@ typedef struct BootEntry {
         const BootEntryAddons *global_addons; /* Backpointer into the BootConfig; we don't own this here */
         char *kernel;        /* linux is #defined to 1, yikes! */
         char *efi;
+        char *uki;
         char **initrd;
         char *device_tree;
         char **device_tree_overlay;
