@@ -514,7 +514,8 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                         r = free_and_strdup(&config->default_pattern, p);
                 else if (STR_IN_SET(field, "timeout", "editor", "auto-entries", "auto-firmware",
                                     "auto-poweroff", "auto-reboot", "beep", "reboot-for-bitlocker",
-                                    "secure-boot-enroll", "console-mode"))
+                                    "reboot-on-error", "secure-boot-enroll", "secure-boot-enroll-action",
+                                    "console-mode"))
                         r = 0; /* we don't parse these in userspace, but they are OK */
                 else {
                         log_syntax(NULL, LOG_WARNING, path, line, 0, "Unknown line '%s', ignoring.", field);
