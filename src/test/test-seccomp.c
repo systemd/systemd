@@ -557,9 +557,13 @@ TEST(memory_deny_write_execute_mmap) {
                 assert_se(seccomp_memory_deny_write_execute() >= 0);
 
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
-#if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64)
+#if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64) || !defined(__GLIBC__)
                 assert_se(p == MAP_FAILED);
-                assert_se(errno == EPERM);
+#  ifdef __GLIBC__
+                ASSERT_EQ(errno, EPERM);
+#  else
+                ASSERT_EQ(errno, ENOMEM);
+#  endif
 #endif
                 /* Depending on kernel, libseccomp, and glibc versions, other architectures
                  * might fail or not. Let's not assert success. */
@@ -675,7 +679,7 @@ TEST(load_syscall_filter_set_raw) {
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, scmp_act_kill_process(), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, SCMP_ACT_KILL_PROCESS, true) >= 0);
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
@@ -784,7 +788,7 @@ TEST(native_syscalls_filtered) {
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, scmp_act_kill_process(), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, SCMP_ACT_KILL_PROCESS, true) >= 0);
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 

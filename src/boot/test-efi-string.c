@@ -410,13 +410,27 @@ TEST(startswith8) {
         ASSERT_NULL(startswith8(NULL, ""));
 }
 
-#define TEST_FNMATCH_ONE(pattern, haystack, expect)                                     \
-        ({                                                                              \
-                ASSERT_EQ(fnmatch(pattern, haystack, 0), expect ? 0 : FNM_NOMATCH);     \
-                ASSERT_EQ(efi_fnmatch(u##pattern, u##haystack), expect);                \
+#define TEST_FNMATCH_ONE_FULL(pattern, haystack, expect, skip_libc)     \
+        ({                                                              \
+                if (!skip_libc)                                         \
+                        ASSERT_EQ(fnmatch(pattern, haystack, 0), expect ? 0 : FNM_NOMATCH); \
+                ASSERT_EQ(efi_fnmatch(u##pattern, u##haystack), expect); \
         })
 
+#define TEST_FNMATCH_ONE(pattern, haystack, expect)             \
+        TEST_FNMATCH_ONE_FULL(pattern, haystack, expect, false)
+
 TEST(efi_fnmatch) {
+        bool skip_libc;
+
+#ifdef __GLIBC__
+        skip_libc = false;
+#else
+        /* It seems musl is too strict in handling "[]" (or has a bug?). Anyway, let's skip some test cases
+         * when built with musl. The behavior of efi_fnmatch() does not need to match musl's fnmatch(). */
+        skip_libc = true;
+#endif
+
         TEST_FNMATCH_ONE("", "", true);
         TEST_FNMATCH_ONE("abc", "abc", true);
         TEST_FNMATCH_ONE("aBc", "abc", false);
@@ -447,18 +461,18 @@ TEST(efi_fnmatch) {
         TEST_FNMATCH_ONE("[abc", "a", false);
         TEST_FNMATCH_ONE("[][!] [][!] [][!]", "[ ] !", true);
         TEST_FNMATCH_ONE("[]-] []-]", "] -", true);
-        TEST_FNMATCH_ONE("[1\\]] [1\\]]", "1 ]", true);
+        TEST_FNMATCH_ONE_FULL("[1\\]] [1\\]]", "1 ]", true, skip_libc);
         TEST_FNMATCH_ONE("[$-\\+]", "&", true);
         TEST_FNMATCH_ONE("[1-3A-C] [1-3A-C]", "2 B", true);
         TEST_FNMATCH_ONE("[3-5] [3-5] [3-5]", "3 4 5", true);
         TEST_FNMATCH_ONE("[f-h] [f-h] [f-h]", "f g h", true);
-        TEST_FNMATCH_ONE("[a-c-f] [a-c-f] [a-c-f] [a-c-f] [a-c-f]", "a b c - f", true);
-        TEST_FNMATCH_ONE("[a-c-f]", "e", false);
+        TEST_FNMATCH_ONE_FULL("[a-c-f] [a-c-f] [a-c-f] [a-c-f] [a-c-f]", "a b c - f", true, skip_libc);
+        TEST_FNMATCH_ONE_FULL("[a-c-f]", "e", false, skip_libc);
         TEST_FNMATCH_ONE("[--0] [--0] [--0]", "- . 0", true);
         TEST_FNMATCH_ONE("[+--] [+--] [+--]", "+ , -", true);
         TEST_FNMATCH_ONE("[f-l]", "m", false);
         TEST_FNMATCH_ONE("[b]", "z-a", false);
-        TEST_FNMATCH_ONE("[a\\-z]", "b", false);
+        TEST_FNMATCH_ONE_FULL("[a\\-z]", "b", false, skip_libc);
         TEST_FNMATCH_ONE("?a*b[.-0]c", "/a/b/c", true);
         TEST_FNMATCH_ONE("debian-*-*-*.*", "debian-jessie-2018-06-17-kernel-image-5.10.0-16-amd64.efi", true);
 
@@ -674,8 +688,14 @@ TEST(xvasprintf_status) {
         test_printf_one("string");
         test_printf_one("%%-%%%%");
 
+#ifdef __GLIBC__
         test_printf_one("%p %p %32p %*p %*p", NULL, (void *) 0xF, &errno, 0, &saved_argc, 20, &saved_argv);
         test_printf_one("%-10p %-32p %-*p %-*p", NULL, &errno, 0, &saved_argc, 20, &saved_argv);
+#else
+        /* musl prints NULL as 0, while glibc and our implementation print it as (nil). */
+        test_printf_one("%p %32p %*p %*p", (void *) 0xF, &errno, 0, &saved_argc, 20, &saved_argv);
+        test_printf_one("%-32p %-*p %-*p", &errno, 0, &saved_argc, 20, &saved_argv);
+#endif
 
         test_printf_one("%c %3c %*c %*c %-8c", '1', '!', 0, 'a', 9, '_', '>');
 

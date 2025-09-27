@@ -59,16 +59,26 @@ TEST(safe_glob) {
 
         fn = strjoina(template, "/*");
         ASSERT_ERROR(safe_glob(fn, /* flags = */ 0, &v), ENOENT);
+        ASSERT_ERROR(safe_glob_test(fn, /* flags = */ 0, &v), ENOENT);
 
         fn2 = strjoina(template, "/.*");
         ASSERT_ERROR(safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &v), ENOENT);
+        ASSERT_ERROR(safe_glob_test(fn2, GLOB_NOSORT|GLOB_BRACE, &v), ENOENT);
 
         fname = strjoina(template, "/.foobar");
         ASSERT_OK(touch(fname));
 
         ASSERT_ERROR(safe_glob(fn, /* flags = */ 0, &v), ENOENT);
+        ASSERT_ERROR(safe_glob_test(fn, /* flags = */ 0, &v), ENOENT);
 
         ASSERT_OK(safe_glob(fn2, GLOB_NOSORT|GLOB_BRACE, &v));
+        ASSERT_EQ(strv_length(v), 1u);
+        ASSERT_STREQ(v[0], fname);
+        ASSERT_NULL(v[1]);
+
+        v = strv_free(v);
+
+        ASSERT_OK(safe_glob_test(fn2, GLOB_NOSORT|GLOB_BRACE, &v));
         ASSERT_EQ(strv_length(v), 1u);
         ASSERT_STREQ(v[0], fname);
         ASSERT_NULL(v[1]);
