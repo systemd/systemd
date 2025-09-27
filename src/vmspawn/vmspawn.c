@@ -2020,10 +2020,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         case CONSOLE_GUI:
+                /* Enable support for the qemu guest agent for clipboard sharing, resolution scaling, etc. */
                 r = strv_extend_many(
                                 &cmdline,
                                 "-vga",
-                                "virtio");
+                                "virtio",
+                                "-device", "virtio-serial",
+                                "-chardev", "spicevmc,id=vdagent,debug=0,name=vdagent",
+                                "-device", "virtserialport,chardev=vdagent,name=org.qemu.guest_agent.0");
                 break;
 
         case CONSOLE_NATIVE:
