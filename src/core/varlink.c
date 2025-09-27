@@ -425,9 +425,6 @@ static int manager_varlink_init_system(Manager *m) {
 
         assert(m);
 
-        if (!MANAGER_IS_SYSTEM(m))
-                return 0;
-
         r = manager_setup_varlink_server(m);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up varlink server: %m");
@@ -455,9 +452,6 @@ static int manager_varlink_init_user(Manager *m) {
         int r;
 
         assert(m);
-
-        if (!MANAGER_IS_USER(m))
-                return 0;
 
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
