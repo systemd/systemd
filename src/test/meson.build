@@ -14,6 +14,7 @@ path = run_command(sh, '-c', 'echo "$PATH"', check: true).stdout().strip()
 test_env = {
         'PATH' : meson.project_build_root() + ':' + path,
         'PROJECT_BUILD_ROOT' : meson.project_build_root(),
+        'SYSTEMD_DEFAULT_LOCALE' : get_option('default-locale'),
         'SYSTEMD_SLOW_TESTS' : want_slow_tests ? '1' : '0',
         'PYTHONDONTWRITEBYTECODE' : '1',
         'SYSTEMD_LIBC' : get_option('libc'),
