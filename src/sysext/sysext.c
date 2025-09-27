@@ -79,7 +79,7 @@ static const char* const mutable_mode_table[_MUTABLE_MAX] = {
         [MUTABLE_EPHEMERAL_IMPORT] = "ephemeral-import",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(mutable_mode, MutableMode, MUTABLE_YES);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(mutable_mode, MutableMode, MUTABLE_YES);
 
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
 static char *arg_root = NULL;
@@ -2462,7 +2462,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
                "\n%3$sOptions:%4$s\n"
-               "     --mutable=yes|no|auto|import|ephemeral|ephemeral-import\n"
+               "     --mutable=yes|no|auto|import|ephemeral|ephemeral-import|help\n"
                "                          Specify a mutability mode of the merged hierarchy\n"
                "     --no-pager           Do not pipe output into a pager\n"
                "     --no-legend          Do not show the headers and footers\n"
@@ -2577,6 +2577,14 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_MUTABLE:
+                        if (streq(optarg, "help")) {
+                                if (arg_legend)
+                                        puts("Known mutability modes:");
+
+                                DUMP_STRING_TABLE(mutable_mode, MutableMode, _MUTABLE_MAX);
+                                return 0;
+                        }
+
                         r = parse_mutable_mode(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);

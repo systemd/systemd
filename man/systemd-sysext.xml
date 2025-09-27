@@ -389,8 +389,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--mutable=<replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable>|<replaceable>ephemeral</replaceable>|<replaceable>ephemeral-import</replaceable></option></term>
-        <listitem><para>Set mutable mode.</para>
+        <term><option>--mutable=<replaceable>BOOL</replaceable>|<replaceable>auto</replaceable>|<replaceable>import</replaceable>|<replaceable>ephemeral</replaceable>|<replaceable>ephemeral-import</replaceable>|<replaceable>help</replaceable></option></term>
+        <listitem><para>Set mutable mode. The special value <literal>help</literal> will list the known values.</para>
 
         <variablelist>
           <varlistentry>
@@ -437,6 +437,12 @@
             <filename>/var/lib/extensions.mutable/</filename> being merged into the host file system, but
             with the modifications made to the host file system being discarded after unmerge.</para>
             <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>help</option></term>
+            <listitem><para>list known values and exit immediately.</para>
+            <xi:include href="version-info.xml" xpointer="v259"/></listitem>
           </varlistentry>
         </variablelist>
 
