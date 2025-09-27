@@ -320,19 +320,19 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         if (!ps_continue())
                 return;
 
-        print_timeout_status("      timeout (config)", config->timeout_sec_config);
-        print_timeout_status("     timeout (EFI var)", config->timeout_sec_efivar);
+        print_timeout_status("              timeout (config)", config->timeout_sec_config);
+        print_timeout_status("             timeout (EFI var)", config->timeout_sec_efivar);
 
         if (config->entry_default_config)
-                printf("      default (config): %ls\n", config->entry_default_config);
+                printf("              default (config): %ls\n", config->entry_default_config);
         if (config->entry_default_efivar)
-                printf("     default (EFI var): %ls\n", config->entry_default_efivar);
+                printf("             default (EFI var): %ls\n", config->entry_default_efivar);
         if (config->entry_oneshot)
-                printf("    default (one-shot): %ls\n", config->entry_oneshot);
+                printf("            default (one-shot): %ls\n", config->entry_oneshot);
         if (config->entry_sysfail)
-                printf("               sysfail: %ls\n", config->entry_sysfail);
+                printf("                       sysfail: %ls\n", config->entry_sysfail);
         if (config->entry_saved)
-                printf("             saved entry: %ls\n", config->entry_saved);
+                printf("                   saved entry: %ls\n", config->entry_saved);
         printf("                        editor: %ls\n", yes_no(config->editor));
         printf("                  auto-entries: %ls\n", yes_no(config->auto_entries));
         printf("                 auto-firmware: %ls\n", yes_no(config->auto_firmware));
