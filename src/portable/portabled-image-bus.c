@@ -30,6 +30,20 @@
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_type, image_type, ImageType);
 
+static int property_get_read_only(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Image *image = ASSERT_PTR(userdata);
+
+        return sd_bus_message_append(reply, "b", image_is_read_only(image));
+}
+
 int bus_image_common_get_os_release(
                 Manager *m,
                 sd_bus_message *message,
@@ -865,7 +879,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Image, name), 0),
         SD_BUS_PROPERTY("Path", "s", NULL, offsetof(Image, path), 0),
         SD_BUS_PROPERTY("Type", "s", property_get_type,  offsetof(Image, type), 0),
-        SD_BUS_PROPERTY("ReadOnly", "b", bus_property_get_bool, offsetof(Image, read_only), 0),
+        SD_BUS_PROPERTY("ReadOnly", "b", property_get_read_only, 0, 0),
         SD_BUS_PROPERTY("CreationTimestamp", "t", NULL, offsetof(Image, crtime), 0),
         SD_BUS_PROPERTY("ModificationTimestamp", "t", NULL, offsetof(Image, mtime), 0),
         SD_BUS_PROPERTY("Usage", "t", NULL, offsetof(Image, usage), 0),

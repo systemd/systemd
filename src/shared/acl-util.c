@@ -23,6 +23,7 @@ DLSYM_PROTOTYPE(acl_delete_entry);
 DLSYM_PROTOTYPE(acl_delete_perm);
 DLSYM_PROTOTYPE(acl_dup);
 DLSYM_PROTOTYPE(acl_entries);
+DLSYM_PROTOTYPE(acl_extended_file);
 DLSYM_PROTOTYPE(acl_free);
 DLSYM_PROTOTYPE(acl_from_mode);
 DLSYM_PROTOTYPE(acl_from_text);
@@ -36,6 +37,7 @@ DLSYM_PROTOTYPE(acl_get_tag_type);
 DLSYM_PROTOTYPE(acl_init);
 DLSYM_PROTOTYPE(acl_set_fd);
 DLSYM_PROTOTYPE(acl_set_file);
+DLSYM_PROTOTYPE(acl_set_permset);
 DLSYM_PROTOTYPE(acl_set_qualifier);
 DLSYM_PROTOTYPE(acl_set_tag_type);
 DLSYM_PROTOTYPE(acl_to_any_text);
@@ -58,6 +60,7 @@ int dlopen_libacl(void) {
                         DLSYM_ARG(acl_delete_perm),
                         DLSYM_ARG(acl_dup),
                         DLSYM_ARG(acl_entries),
+                        DLSYM_ARG(acl_extended_file),
                         DLSYM_ARG(acl_free),
                         DLSYM_ARG(acl_from_mode),
                         DLSYM_ARG(acl_from_text),
@@ -71,6 +74,7 @@ int dlopen_libacl(void) {
                         DLSYM_ARG(acl_init),
                         DLSYM_ARG(acl_set_fd),
                         DLSYM_ARG(acl_set_file),
+                        DLSYM_ARG(acl_set_permset),
                         DLSYM_ARG(acl_set_qualifier),
                         DLSYM_ARG(acl_set_tag_type),
                         DLSYM_ARG(acl_to_any_text));
