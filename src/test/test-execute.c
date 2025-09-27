@@ -368,6 +368,12 @@ static void test_exec_workingdirectory(Manager *m) {
 }
 
 static void test_exec_execsearchpath(Manager *m) {
+        int r;
+
+        ASSERT_OK(r = is_symlink("/bin/ls"));
+        if (r > 0)
+                return (void) log_tests_skipped("/bin/ls is a symlink, maybe coreutils is built with --enable-single-binary=symlinks");
+
         ASSERT_OK(mkdir_p("/tmp/test-exec_execsearchpath", 0755));
 
         ASSERT_OK(copy_file("/bin/ls", "/tmp/test-exec_execsearchpath/ls_temp", 0,  0777, COPY_REPLACE));
