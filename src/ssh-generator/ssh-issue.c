@@ -25,7 +25,7 @@ static enum {
         ACTION_RM_VSOCK,
 } arg_action = ACTION_MAKE_VSOCK;
 
-static char* arg_issue_path = NULL;
+static char *arg_issue_path = NULL;
 static bool arg_issue_stdout = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_issue_path, freep);
