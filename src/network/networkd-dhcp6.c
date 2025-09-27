@@ -23,6 +23,7 @@
 #include "networkd-ntp.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
+#include "networkd-wwan.h"
 #include "networkd-state-file.h"
 #include "set.h"
 #include "string-table.h"
@@ -492,6 +493,9 @@ int dhcp6_start(Link *link) {
                 return 0;
 
         if (!link_dhcp6_enabled(link))
+                return 0;
+
+        if (link_dhcp_enabled_by_bearer(link, AF_INET6) == 0)
                 return 0;
 
         if (!link_has_carrier(link))

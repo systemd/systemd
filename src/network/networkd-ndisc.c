@@ -24,6 +24,7 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-state-file.h"
+#include "networkd-wwan.h"
 #include "networkd-sysctl.h"
 #include "ordered-set.h"
 #include "set.h"
@@ -2973,6 +2974,9 @@ int ndisc_start(Link *link) {
         assert(link);
 
         if (!link->ndisc || !link->dhcp6_client)
+                return 0;
+
+        if (link_dhcp_enabled_by_bearer(link, AF_INET6) == 0)
                 return 0;
 
         if (!link_has_carrier(link))
