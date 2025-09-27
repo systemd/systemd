@@ -222,13 +222,13 @@ static int apply_solution_for_path(const char *path, const char *name) {
                   "\tio.cost.model: %s\n",
                   path, name, qos, model);
 
-        r = cg_set_attribute("io", NULL, "io.cost.qos", qos);
+        r = cg_set_attribute(/* path = */ NULL, "io.cost.qos", qos);
         if (r < 0) {
                 log_device_full_errno(device, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r, "Failed to set io.cost.qos: %m");
                 return r == -ENOENT ? 0 : r;
         }
 
-        r = cg_set_attribute("io", NULL, "io.cost.model", model);
+        r = cg_set_attribute(/* path = */ NULL, "io.cost.model", model);
         if (r < 0) {
                 log_device_full_errno(device, r == -ENOENT ? LOG_DEBUG : LOG_ERR, r, "Failed to set io.cost.model: %m");
                 return r == -ENOENT ? 0 : r;
