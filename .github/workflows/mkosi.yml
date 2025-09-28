@@ -164,6 +164,17 @@ jobs:
             no_qemu: 0
             no_kvm: 0
             shim: 0
+          - distro: postmarketos
+            release: edge
+            runner: ubuntu-24.04
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: no
+            vm: 0
+            no_qemu: 0
+            no_kvm: 0
+            shim: 0
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -177,6 +188,13 @@ jobs:
           sudo mv /usr/local /usr/local.trash
           sudo mv /opt/hostedtoolcache /opt/hostedtoolcache.trash
           sudo systemd-run rm -rf /usr/local.trash /opt/hostedtoolcache.trash
+
+      - name: Prepare packge installer
+        run: |
+          if [[ ${{ matrix.distro }} == "postmarketos" ]]; then
+            sudo curl --create-dirs -o /usr/local/bin/apk https://gitlab.alpinelinux.org/api/v4/projects/5/packages/generic/v3.0.3/x86_64/apk.static
+            sudo chmod +x /usr/local/bin/apk
+          fi
 
       - name: Btrfs
         run: |
@@ -238,6 +256,12 @@ jobs:
 
       - name: Configure meson
         run: |
+          if [[ ${{ matrix.distro }} == "postmarketos" ]]; then
+              LIBC=musl
+          else
+              LIBC=glibc
+          fi
+
           # /usr/sbin/bpftool is completely broken inside containers on Ubuntu which makes meson blow up so
           # disable the bpf-framework stuff to avoid the issue.
           # TODO: Drop when we move off Ubuntu Noble as this will be fixed in the next Ubuntu LTS release.
@@ -245,6 +269,7 @@ jobs:
             meson setup \
             --buildtype=debugoptimized \
             -Dbpf-framework=disabled \
+            -Dlibc="$LIBC" \
             build
 
       - name: Prepare shim integration
