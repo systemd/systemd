@@ -1436,10 +1436,7 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *ret_n
 
         SAVE_TIMEZONE;
 
-        /* tzset(3) says $TZ should be prefixed with ":" if we reference timezone files */
-        const char *colon_tz = strjoina(":", spec->timezone);
-
-        r = RET_NERRNO(setenv("TZ", colon_tz, 1));
+        r = RET_NERRNO(setenv("TZ", spec->timezone, /* overwrite = */ true));
         if (r < 0)
                 return r;
 

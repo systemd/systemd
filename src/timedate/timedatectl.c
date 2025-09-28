@@ -58,7 +58,6 @@ typedef struct StatusInfo {
 
 static int print_status_info(const StatusInfo *i) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const char *tz_colon;
         char a[LINE_MAX];
         TableCell *cell;
         struct tm tm;
@@ -82,8 +81,7 @@ static int print_status_info(const StatusInfo *i) {
         SAVE_TIMEZONE;
 
         /* Set the new $TZ */
-        tz_colon = strjoina(":", isempty(i->timezone) ? "UTC" : i->timezone);
-        if (setenv("TZ", tz_colon, true) < 0)
+        if (setenv("TZ", isempty(i->timezone) ? "UTC" : i->timezone, /* overwrite = */ true) < 0)
                 log_warning_errno(errno, "Failed to set TZ environment variable, ignoring: %m");
         else
                 tzset();

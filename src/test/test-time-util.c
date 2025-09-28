@@ -13,13 +13,7 @@
 #define TRIAL 100u
 
 static void set_timezone(const char *tz) {
-        if (!tz)
-                ASSERT_OK_ERRNO(unsetenv("TZ"));
-        if (isempty(tz))
-                ASSERT_OK_ERRNO(setenv("TZ", tz, /* overwrite = */ true));
-        else
-                ASSERT_OK_ERRNO(setenv("TZ", strjoina(":", tz), /* overwrite = */ true));
-
+        ASSERT_OK(set_unset_env("TZ", tz, /* overwrite = */ true));
         tzset();
         log_info("TZ=%s, tzname[0]=%s, tzname[1]=%s", strna(getenv("TZ")), strempty(tzname[0]), strempty(tzname[1]));
 }
@@ -421,7 +415,7 @@ static void test_format_timestamp_impl(usec_t x) {
          * timezone may provide time shifted 1 hour from the original. See
          * https://github.com/systemd/systemd/issues/28472 and https://github.com/systemd/systemd/pull/35471 */
         bool ignore =
-                streq_ptr(getenv("TZ"), ":Africa/Windhoek") &&
+                streq_ptr(getenv("TZ"), "Africa/Windhoek") &&
                 (x_sec > y_sec ? x_sec - y_sec : y_sec - x_sec) == 3600;
 
         log_full(ignore ? LOG_WARNING : LOG_ERR,
@@ -1113,14 +1107,14 @@ TEST(usec_shift_clock) {
 TEST(in_utc_timezone) {
         SAVE_TIMEZONE;
 
-        assert_se(setenv("TZ", ":UTC", 1) >= 0);
+        assert_se(setenv("TZ", "UTC", 1) >= 0);
         assert_se(in_utc_timezone());
         ASSERT_STREQ(tzname[0], "UTC");
         ASSERT_STREQ(tzname[1], "UTC");
         assert_se(timezone == 0);
         assert_se(daylight == 0);
 
-        assert_se(setenv("TZ", ":Europe/Berlin", 1) >= 0);
+        assert_se(setenv("TZ", "Europe/Berlin", 1) >= 0);
         assert_se(!in_utc_timezone());
         ASSERT_STREQ(tzname[0], "CET");
         ASSERT_STREQ(tzname[1], "CEST");

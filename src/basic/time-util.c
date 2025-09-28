@@ -1022,7 +1022,7 @@ int parse_timestamp(const char *t, usec_t *ret) {
         if (timezone_is_valid(tz, LOG_DEBUG)) {
                 SAVE_TIMEZONE;
 
-                if (setenv("TZ", strjoina(":", tz), /* overwrite = */ true) < 0)
+                if (setenv("TZ", tz, /* overwrite = */ true) < 0)
                         return negative_errno();
 
                 return parse_timestamp_impl(t, max_len, /* utc = */ false, /* isdst = */ -1, /* gmtoff = */ 0, ret);
