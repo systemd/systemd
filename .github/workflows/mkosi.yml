@@ -84,6 +84,10 @@ jobs:
             release: "9"
           - distro: centos
             release: "10"
+          - distro: postmarketos
+            release: edge
+            libc: musl
+            skip: TEST-92-TPM2-SWTPM
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -173,6 +177,7 @@ jobs:
             meson setup \
             --buildtype=debugoptimized \
             -Dbpf-framework=disabled \
+            -Dlibc="${{ matrix.libc || 'glibc' }}" \
             build
 
       - name: Prepare shim integration
@@ -227,6 +232,7 @@ jobs:
             TEST_NO_QEMU="${{ matrix.no_qemu || 0 }}" \
             TEST_NO_KVM="${{ matrix.no_kvm || 0 }}" \
             TEST_RUNNER="${{ matrix.runner || 'ubuntu-24.04' }}" \
+            TEST_SKIP="${{ matrix.skip }}" \
             meson test \
             -C build \
             --timeout-multiplier="${timeout_multiplier:-1}" \
