@@ -164,6 +164,17 @@ jobs:
             no_qemu: 0
             no_kvm: 0
             shim: 0
+          - distro: postmarketos
+            release: "edge"
+            runner: ubuntu-24.04
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: no
+            vm: 0
+            no_qemu: 1
+            no_kvm: 1
+            shim: 0
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -204,8 +215,8 @@ jobs:
 
           [Build]
           UseSubvolumes=yes
-          ToolsTreeDistribution=${{ matrix.distro }}
-          ToolsTreeRelease=${{ matrix.release }}
+          ToolsTreeDistribution=$( if [[ ${{ matrix.distro }} == "postmarketos" ]]; then echo "fedora"; else echo ${{ matrix.distro }}; fi )
+          ToolsTreeRelease=$( if [[ ${{ matrix.distro }} == "postmarketos" ]]; then echo "43"; else echo ${{ matrix.release }}; fi )
           WithTests=yes
 
           WorkspaceDirectory=$TMPDIR
