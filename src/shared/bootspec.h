@@ -65,6 +65,7 @@ typedef struct BootEntry {
                 .source = (s),                  \
                 .tries_left = UINT_MAX,         \
                 .tries_done = UINT_MAX,         \
+                .profile = UINT_MAX,            \
         }
 
 typedef struct BootConfig {
