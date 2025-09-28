@@ -58,7 +58,6 @@ typedef struct StatusInfo {
 
 static int print_status_info(const StatusInfo *i) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const char *old_tz = NULL, *tz, *tz_colon;
         char a[LINE_MAX];
         TableCell *cell;
         struct tm tm;
@@ -79,13 +78,10 @@ static int print_status_info(const StatusInfo *i) {
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         /* Save the old $TZ */
-        tz = getenv("TZ");
-        if (tz)
-                old_tz = strdupa_safe(tz);
+        SAVE_TIMEZONE;
 
         /* Set the new $TZ */
-        tz_colon = strjoina(":", isempty(i->timezone) ? "UTC" : i->timezone);
-        if (setenv("TZ", tz_colon, true) < 0)
+        if (setenv("TZ", isempty(i->timezone) ? "UTC" : i->timezone, /* overwrite = */ true) < 0)
                 log_warning_errno(errno, "Failed to set TZ environment variable, ignoring: %m");
         else
                 tzset();
@@ -157,13 +153,6 @@ static int print_status_info(const StatusInfo *i) {
         r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->timezone), n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
-
-        /* Restore the $TZ */
-        r = set_unset_env("TZ", old_tz, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set TZ environment variable, ignoring: %m");
-        else
-                tzset();
 
         r = table_add_many(table,
                            TABLE_FIELD, "System clock synchronized",
