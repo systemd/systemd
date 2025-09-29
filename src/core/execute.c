@@ -749,6 +749,8 @@ void exec_context_done(ExecContext *c) {
         c->extension_image_policy = image_policy_free(c->extension_image_policy);
 
         c->private_hostname = mfree(c->private_hostname);
+
+        c->landlock_config = mfree(c->landlock_config);
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -1589,6 +1591,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         }
 
         strv_dump(f, prefix, "ExtensionDirectories", c->extension_directories);
+
+        if (c->landlock_config)
+                fprintf(f, "%sLandlockConfig: %s\n", prefix, c->landlock_config);
 }
 
 bool exec_context_maintains_privileges(const ExecContext *c) {

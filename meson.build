@@ -1166,6 +1166,10 @@ if have
         conf.set_quoted('SMACK_DEFAULT_PROCESS_LABEL', get_option('smack-default-process-label'))
 endif
 
+liblandlockconfig = dependency('landlockconfig',
+                              required : get_option('landlockconfig'))
+conf.set10('HAVE_LANDLOCK_CONFIG', liblandlockconfig.found())
+
 feature = get_option('polkit')
 libpolkit = dependency('polkit-gobject-1',
                        required : feature.disabled() ? feature : false)
@@ -3030,6 +3034,7 @@ foreach tuple : [
         ['AppArmor'],
         ['IMA'],
         ['IPE'],
+        ['LandlockConfig'],
         ['PAM'],
         ['SECCOMP'],
         ['SELinux'],
