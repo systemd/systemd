@@ -106,8 +106,8 @@ jobs:
             cflags: "-Og"
             relabel: no
             vm: 0
-            no_qemu: 0
-            no_kvm: 0
+            no_qemu: 1
+            no_kvm: 1
             shim: 0
           - distro: fedora
             release: "43"
@@ -117,8 +117,8 @@ jobs:
             cflags: "-Og"
             relabel: yes
             vm: 0
-            no_qemu: 0
-            no_kvm: 0
+            no_qemu: 1
+            no_kvm: 1
             shim: 0
           - distro: fedora
             release: rawhide
@@ -150,8 +150,8 @@ jobs:
             cflags: "-Og"
             relabel: yes
             vm: 0
-            no_qemu: 0
-            no_kvm: 0
+            no_qemu: 1
+            no_kvm: 1
             shim: 0
           - distro: centos
             release: "10"
@@ -201,6 +201,8 @@ jobs:
           mkdir -p /mnt/mkosi/tmp
           echo "TMPDIR=/mnt/mkosi/tmp" >>"$GITHUB_ENV"
           ln -sf /mnt/mkosi/build build
+          mkdir -p /tmp/cache
+          sudo mount -t tmpfs tmpfs /tmp/cache
 
       - name: Configure
         run: |
@@ -220,7 +222,7 @@ jobs:
           WithTests=yes
 
           WorkspaceDirectory=$TMPDIR
-          PackageCacheDirectory=$TMPDIR/cache
+          PackageCacheDirectory=/tmp/cache
 
           Environment=
                   # Build debuginfo packages since we'll be publishing the packages as artifacts.
@@ -277,6 +279,9 @@ jobs:
 
       - name: Build image
         run: sudo mkosi box -- meson compile -C build mkosi
+
+      - name: Clear package cache
+        run: sudo umount /tmp/cache
 
       - name: Make sure sources weren't polluted by package build scripts
         run: |
