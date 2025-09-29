@@ -56,6 +56,7 @@
 #include "rlimit-util.h"
 #include "runtime-scope.h"
 #include "stat-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -68,6 +69,14 @@
 #include "user-util.h"
 #include "userdb.h"
 #include "verbs.h"
+
+typedef enum {
+        EXPORT_FORMAT_FULL,          /* export the full record */
+        EXPORT_FORMAT_STRIPPED,      /* strip "state" + "binding", but leave signature in place */
+        EXPORT_FORMAT_MINIMAL,       /* also strip signature */
+        _EXPORT_FORMAT_MAX,
+        _EXPORT_FORMAT_INVALID = -EINVAL,
+} ExportFormat;
 
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
@@ -97,11 +106,7 @@ static bool arg_recovery_key = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static bool arg_and_resize = false;
 static bool arg_and_change_password = false;
-static enum {
-        EXPORT_FORMAT_FULL,          /* export the full record */
-        EXPORT_FORMAT_STRIPPED,      /* strip "state" + "binding", but leave signature in place */
-        EXPORT_FORMAT_MINIMAL,       /* also strip signature */
-} arg_export_format = EXPORT_FORMAT_FULL;
+ExportFormat arg_export_format = EXPORT_FORMAT_FULL;
 static uint64_t arg_capability_bounding_set = UINT64_MAX;
 static uint64_t arg_capability_ambient_set = UINT64_MAX;
 static char *arg_blob_dir = NULL;
@@ -130,6 +135,14 @@ STATIC_DESTRUCTOR_REGISTER(arg_blob_files, hashmap_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key_name, freep);
 
 static const BusLocator *bus_mgr;
+
+static const char *export_format_table[_EXPORT_FORMAT_MAX] = {
+        [EXPORT_FORMAT_FULL]     = "full",
+        [EXPORT_FORMAT_STRIPPED] = "stripped",
+        [EXPORT_FORMAT_MINIMAL]  = "minimal",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(export_format, ExportFormat);
 
 static bool identity_properties_specified(void) {
         return
@@ -4732,17 +4745,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_EXPORT_FORMAT:
-                        if (streq(optarg, "full"))
-                                arg_export_format = EXPORT_FORMAT_FULL;
-                        else if (streq(optarg, "stripped"))
-                                arg_export_format = EXPORT_FORMAT_STRIPPED;
-                        else if (streq(optarg, "minimal"))
-                                arg_export_format = EXPORT_FORMAT_MINIMAL;
-                        else if (streq(optarg, "help")) {
-                                puts("full\n"
-                                     "stripped\n"
-                                     "minimal");
-                                return 0;
+                        arg_export_format = export_format_from_string(optarg);
+                        if (arg_export_format < 0) {
+                                if (streq(optarg, "help"))
+                                        return DUMP_STRING_TABLE(export_format, ExportFormat, _EXPORT_FORMAT_MAX);
+
+                                return log_error_errno(arg_export_format, "Invalid export format: %s", optarg);
                         }
 
                         break;
