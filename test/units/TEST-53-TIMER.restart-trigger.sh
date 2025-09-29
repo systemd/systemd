@@ -45,15 +45,15 @@ assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" --unit="$UNIT_NAME" --
 
 # Restarting the timer unit shouldn't trigger neither the timer nor the service, so these
 # fields should remain constant through the following tests
-SERVICE_INV_ID="$(systemctl show --property=InvocationID "$UNIT_NAME.service")"
-TIMER_LAST_TRIGGER="$(systemctl show --property=LastTriggerUSec "$UNIT_NAME.timer")"
+SERVICE_INV_ID="$(systemctl show -P InvocationID "$UNIT_NAME.service")"
+TIMER_LAST_TRIGGER="$(systemctl show -P LastTriggerUSec "$UNIT_NAME.timer")"
 
 # Now restart the timer and check if the timer and the service weren't triggered again
 systemctl restart "$UNIT_NAME.timer"
 sleep 5
 assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" --unit="$UNIT_NAME" --grep="$TEST_MESSAGE" | wc -l)" "1"
-assert_eq "$SERVICE_INV_ID" "$(systemctl show --property=InvocationID "$UNIT_NAME.service")"
-assert_eq "$TIMER_LAST_TRIGGER" "$(systemctl show --property=LastTriggerUSec "$UNIT_NAME.timer")"
+assert_eq "$SERVICE_INV_ID" "$(systemctl show -P InvocationID "$UNIT_NAME.service")"
+assert_eq "$TIMER_LAST_TRIGGER" "$(systemctl show -P LastTriggerUSec "$UNIT_NAME.timer")"
 
 # Set the timer into the past, restart it, and again check if it wasn't triggered
 TIMER_TS="$(date --date="-1 day" "+%Y-%m-%d %H:%M:%S")"
@@ -68,8 +68,8 @@ assert_in "OnCalendar=$TIMER_TS" "$(systemctl show -P TimersCalendar "$UNIT_NAME
 systemctl restart "$UNIT_NAME.timer"
 sleep 5
 assert_eq "$(journalctl -q -p info --since="@$JOURNAL_TS" --unit="$UNIT_NAME" --grep="$TEST_MESSAGE" | wc -l)" "1"
-assert_eq "$SERVICE_INV_ID" "$(systemctl show --property=InvocationID "$UNIT_NAME.service")"
-assert_eq "$TIMER_LAST_TRIGGER" "$(systemctl show --property=LastTriggerUSec "$UNIT_NAME.timer")"
+assert_eq "$SERVICE_INV_ID" "$(systemctl show -P InvocationID "$UNIT_NAME.service")"
+assert_eq "$TIMER_LAST_TRIGGER" "$(systemctl show -P LastTriggerUSec "$UNIT_NAME.timer")"
 
 # Cleanup
 systemctl stop "$UNIT_NAME".{timer,service}
