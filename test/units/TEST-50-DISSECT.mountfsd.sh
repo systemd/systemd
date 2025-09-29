@@ -61,7 +61,8 @@ if (SYSTEMD_LOG_TARGET=console varlinkctl call \
 fi
 
 # Install key in keychain
-cp /tmp/test-50-unpriv-cert.crt /run/verity.d
+mkdir -p /run/verity.d
+cp /tmp/test-50-unpriv-cert.crt /run/verity.d/
 
 # This should work now
 systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/unpriv.raw >/dev/null
