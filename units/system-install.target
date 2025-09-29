@@ -8,12 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Boot Loader Control Service
-Documentation=man:bootctl(1)
-DefaultDependencies=no
-Conflicts=shutdown.target
-After=local-fs.target
-Before=shutdown.target
-
-[Service]
-ExecStart=bootctl
+Description=System Installer
+Requires=sysinit.target
+After=sysinit.target
+AllowIsolate=yes

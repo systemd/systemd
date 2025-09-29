@@ -24,7 +24,7 @@ ConfFile* conf_file_free(ConfFile *c) {
         if (!c)
                 return NULL;
 
-        free(c->name);
+        free(c->filename);
         free(c->result);
         free(c->original_path);
         free(c->resolved_path);
@@ -59,6 +59,7 @@ static int prepare_dirs(const char *root, char * const *dirs, int *ret_rfd, char
                         return log_oom();
         }
 
+        _cleanup_close_ int rfd = XAT_FDROOT;
         if (root) {
                 /* When a non-trivial root is specified, we will prefix the result later. Hence, it is not
                  * necessary to modify each config directories here. but needs to normalize the root directory. */
@@ -67,6 +68,11 @@ static int prepare_dirs(const char *root, char * const *dirs, int *ret_rfd, char
                         return log_debug_errno(r, "Failed to make '%s' absolute: %m", root);
 
                 path_simplify(root_abs);
+
+                rfd = open(root_abs, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (rfd < 0)
+                        return log_debug_errno(errno, "Failed to open '%s': %m", root_abs);
+
         } else if (ret_dirs) {
                 /* When an empty root or "/" is specified, we will open "/" below, hence we need to make
                  * each config directory absolute if relative. */
@@ -74,10 +80,6 @@ static int prepare_dirs(const char *root, char * const *dirs, int *ret_rfd, char
                 if (r < 0)
                         return log_debug_errno(r, "Failed to make directories absolute: %m");
         }
-
-        _cleanup_close_ int rfd = open(empty_to_root(root_abs), O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (rfd < 0)
-                return log_debug_errno(errno, "Failed to open '%s': %m", empty_to_root(root_abs));
 
         *ret_rfd = TAKE_FD(rfd);
         *ret_root = TAKE_PTR(root_abs);
@@ -116,11 +118,11 @@ int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile
         int r;
 
         assert(path);
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(ret);
 
         _cleanup_free_ char *root = NULL;
-        if (rfd >= 0 && DEBUG_LOGGING)
+        if (DEBUG_LOGGING)
                 (void) fd_get_path(rfd, &root);
 
         _cleanup_(conf_file_freep) ConfFile *c = new(ConfFile, 1);
@@ -135,7 +137,7 @@ int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile
         if (!c->original_path)
                 return log_oom_debug();
 
-        r = path_extract_filename(path, &c->name);
+        r = path_extract_filename(path, &c->filename);
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract filename from '%s': %m", path);
 
@@ -153,7 +155,7 @@ int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile
                         return log_debug_errno(r, "Failed to chase '%s%s': %m", empty_to_root(root), skip_leading_slash(dirpath));
         }
 
-        c->result = path_join(resolved_dirpath, c->name);
+        c->result = path_join(resolved_dirpath, c->filename);
         if (!c->result)
                 return log_oom_debug();
 
@@ -224,7 +226,7 @@ static int files_add(
         assert(dir);
         assert(original_dirpath);
         assert(resolved_dirpath);
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(files);
         assert(masked);
 
@@ -361,7 +363,7 @@ static int files_add(
                         return log_oom_debug();
 
                 *c = (ConfFile) {
-                        .name = strdup(de->d_name),
+                        .filename = strdup(de->d_name),
                         .result = TAKE_PTR(p),
                         .original_path = TAKE_PTR(original_path),
                         .resolved_path = TAKE_PTR(resolved_path),
@@ -369,10 +371,10 @@ static int files_add(
                         .st = st,
                 };
 
-                if (!c->name)
+                if (!c->filename)
                         return log_oom_debug();
 
-                r = hashmap_ensure_put(files, &conf_file_hash_ops, c->name, c);
+                r = hashmap_ensure_put(files, &conf_file_hash_ops, c->filename, c);
                 if (r < 0) {
                         assert(r == -ENOMEM);
                         return log_oom_debug();
@@ -402,7 +404,7 @@ static int dump_files(Hashmap *fh, const char *root, ConfFile ***ret_files, size
 
         /* Hence, we need to remove them from the hashmap. */
         FOREACH_ARRAY(i, files, n_files)
-                assert_se(hashmap_remove(fh, (*i)->name) == *i);
+                assert_se(hashmap_remove(fh, (*i)->filename) == *i);
 
         if (root)
                 FOREACH_ARRAY(i, files, n_files) {
@@ -434,8 +436,8 @@ static int copy_and_sort_files_from_hashmap(Hashmap *fh, const char *root, ConfF
                 ConfFile *c = *i;
 
                 if (FLAGS_SET(flags, CONF_FILES_BASENAME))
-                        r = strv_extend_with_size(&results, &n_results, c->name);
-                else if (root) {
+                        r = strv_extend_with_size(&results, &n_results, c->filename);
+                else if (root && !FLAGS_SET(flags, CONF_FILES_DONT_PREFIX_ROOT)) {
                         char *p;
 
                         r = chaseat_prefix_root(c->result, root, &p);
@@ -462,22 +464,22 @@ static int insert_replacement(Hashmap **fh, ConfFile *replacement, const ConfFil
 
         /* This consumes the input ConfFile. */
 
-        ConfFile *existing = hashmap_get(*fh, c->name);
+        ConfFile *existing = hashmap_get(*fh, c->filename);
         if (existing) {
                 log_debug("An entry with higher priority '%s' -> '%s' already exists, ignoring the replacement: %s",
-                          existing->name, existing->result, c->original_path);
+                          existing->filename, existing->result, c->original_path);
                 *ret = NULL;
                 return 0;
         }
 
-        r = hashmap_ensure_put(fh, &conf_file_hash_ops, c->name, c);
+        r = hashmap_ensure_put(fh, &conf_file_hash_ops, c->filename, c);
         if (r < 0) {
                 assert(r == -ENOMEM);
                 return log_oom_debug();
         }
         assert(r > 0);
 
-        log_debug("Inserted replacement: '%s' -> '%s'", c->name, c->result);
+        log_debug("Inserted replacement: '%s' -> '%s'", c->filename, c->result);
 
         *ret = TAKE_PTR(c);
         return 0;
@@ -499,7 +501,7 @@ static int conf_files_list_impl(
         const ConfFile *inserted = NULL;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(ret);
 
         if (replacement) {
@@ -519,7 +521,7 @@ static int conf_files_list_impl(
                         continue;
                 }
 
-                if (c && streq_ptr(path_startswith(c->result, path), c->name)) {
+                if (c && streq_ptr(path_startswith(c->result, path), c->filename)) {
                         r = insert_replacement(&fh, TAKE_PTR(c), &inserted);
                         if (r < 0)
                                 return r;
@@ -609,10 +611,10 @@ int conf_files_list_strv_at(
         _cleanup_free_ char *root = NULL;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(ret);
 
-        if (rfd >= 0 && DEBUG_LOGGING)
+        if (DEBUG_LOGGING)
                 (void) fd_get_path(rfd, &root); /* for logging */
 
         r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
@@ -634,11 +636,11 @@ int conf_files_list_strv_at_full(
         _cleanup_free_ char *root = NULL;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(ret_files);
         assert(ret_n_files);
 
-        if (rfd >= 0 && DEBUG_LOGGING)
+        if (DEBUG_LOGGING)
                 (void) fd_get_path(rfd, &root); /* for logging */
 
         r = conf_files_list_impl(suffix, rfd, root, flags, dirs, /* replacement = */ NULL, &fh, /* ret_inserted = */ NULL);
@@ -760,6 +762,7 @@ int conf_files_list_dropins(
                 char ***ret,
                 const char *dropin_dirname,
                 const char *root,
+                int root_fd,
                 const char * const *dirs) {
 
         _cleanup_strv_free_ char **dropin_dirs = NULL;
@@ -775,7 +778,7 @@ int conf_files_list_dropins(
         if (r < 0)
                 return r;
 
-        return conf_files_list_strv(ret, ".conf", root, 0, (const char* const*) dropin_dirs);
+        return conf_files_list_strv_at(ret, ".conf", root_fd, 0, (const char* const*) dropin_dirs);
 }
 
 /**
