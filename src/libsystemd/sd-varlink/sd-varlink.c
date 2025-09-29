@@ -1028,7 +1028,7 @@ static int varlink_dispatch_local_error(sd_varlink *v, const char *error) {
         if (!v->reply_callback)
                 return 0;
 
-        r = v->reply_callback(v, NULL, error, SD_VARLINK_REPLY_ERROR|SD_VARLINK_REPLY_LOCAL, v->userdata);
+        r = v->reply_callback(v, JSON_VARIANT_MAGIC_EMPTY_OBJECT, error, SD_VARLINK_REPLY_ERROR|SD_VARLINK_REPLY_LOCAL, v->userdata);
         if (r < 0)
                 varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
 
@@ -1083,7 +1083,6 @@ static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
 
         return 0;
 }
-
 
 static int varlink_dispatch_reply(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;

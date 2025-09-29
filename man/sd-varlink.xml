@@ -44,7 +44,7 @@
     <citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry> API for JSON
     serialization, deserialization and manipulation.</para>
 
-    <para>Canonical encoding rules: sd-varlink omits the <literal>"parameters"</literal> member in replies,
+    <para>Canonical encoding rules: sd-varlink omits the <literal>"parameters"</literal> member on the wire in replies,
     errors, and notifications when there are no parameters to transmit. This reduces message size and
     avoids ambiguity. Receivers must be tolerant and accept any of the following encodings for the
     absence of parameters: an omitted <literal>"parameters"</literal> key (preferred), a JSON <literal>null</literal>
