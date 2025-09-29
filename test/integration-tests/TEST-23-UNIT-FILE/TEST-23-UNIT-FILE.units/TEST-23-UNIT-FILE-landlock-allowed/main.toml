@@ -1,0 +1,8 @@
+abi = 7
+
+[[ruleset]]
+handled_access_fs = ["abi.all"]
+
+[[path_beneath]]
+allowed_access = ["abi.read_execute"]
+parent = ["/usr"]
