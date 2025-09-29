@@ -438,6 +438,9 @@ typedef struct Unit {
         /* When true logs about this unit will be at debug level regardless of other log level settings */
         bool debug_invocation;
 
+        /* When true, unit blocks with sigstop */
+        bool debug_wait;
+
         /* Booleans indicating membership of this unit in the various queues */
         bool in_load_queue:1;
         bool in_dbus_queue:1;
@@ -1014,6 +1017,8 @@ void unit_export_state_files(Unit *u);
 void unit_unlink_state_files(Unit *u);
 
 int unit_set_debug_invocation(Unit *u, bool enable);
+
+int unit_set_debug_wait(Unit *u, bool enable);
 
 int unit_prepare_exec(Unit *u);
 
