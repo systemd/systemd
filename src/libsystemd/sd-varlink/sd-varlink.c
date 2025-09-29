@@ -1020,6 +1020,7 @@ static int varlink_test_timeout(sd_varlink *v) {
 }
 
 static int varlink_dispatch_local_error(sd_varlink *v, const char *error) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
         int r;
 
         assert(v);
@@ -1028,7 +1029,11 @@ static int varlink_dispatch_local_error(sd_varlink *v, const char *error) {
         if (!v->reply_callback)
                 return 0;
 
-        r = v->reply_callback(v, NULL, error, SD_VARLINK_REPLY_ERROR|SD_VARLINK_REPLY_LOCAL, v->userdata);
+        r = sd_json_variant_new_object(&empty, NULL, 0);
+        if (r < 0)
+                return r;
+
+        r = v->reply_callback(v, empty, error, SD_VARLINK_REPLY_ERROR|SD_VARLINK_REPLY_LOCAL, v->userdata);
         if (r < 0)
                 varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
 
@@ -1083,7 +1088,6 @@ static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
 
         return 0;
 }
-
 
 static int varlink_dispatch_reply(sd_varlink *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;

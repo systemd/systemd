@@ -2219,6 +2219,7 @@ static int parse_merge_parameters(sd_varlink *link, sd_json_variant *parameters,
         };
 
         assert(link);
+        assert(parameters);
         assert(p);
 
         return sd_varlink_dispatch(link, parameters, dispatch_table, p);
