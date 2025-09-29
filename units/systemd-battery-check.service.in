@@ -18,9 +18,9 @@ AssertPathExists=/etc/initrd-release
 DefaultDependencies=no
 After=plymouth-start.service
 Before=initrd-root-device.target systemd-hibernate-resume.service
+FailureAction=poweroff-force
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-battery-check
-FailureAction=poweroff-force
