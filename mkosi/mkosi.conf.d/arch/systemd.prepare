@@ -2,6 +2,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
+if ! pkg-config --exists landlockconfig; then
+    if ls /work/src/tools/landlockconfig-git-*.pkg.tar.zst &>/dev/null; then
+        pacman -U --noconfirm /work/src/tools/landlockconfig-git-*.pkg.tar.zst
+    else
+        echo "Failed to find liblandlockconfig" >&2
+        exit 1
+    fi
+fi
+
 if [[ "$1" == "build" ]]; then
     exit 0
 fi
