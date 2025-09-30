@@ -364,6 +364,8 @@ typedef struct ExecContext {
         OrderedSet *import_credentials; /* ExecImportCredential */
 
         ImagePolicy *root_image_policy, *mount_image_policy, *extension_image_policy;
+
+        char *landlock_config;
 } ExecContext;
 
 typedef enum ExecFlags {

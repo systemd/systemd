@@ -139,6 +139,7 @@ exec-context-import-credentials=
 exec-context-root-image-policy=
 exec-context-mount-image-policy=
 exec-context-extension-image-policy=
+exec-context-landlock-config=
 
 exec-command-path=
 exec-command-argv=
