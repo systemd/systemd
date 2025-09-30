@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Check battery level during early boot
+Description=Early Battery Level Check
 Documentation=man:systemd-battery-check.service(8)
 ConditionVirtualization=no
 ConditionDirectoryNotEmpty=/sys/class/power_supply/
