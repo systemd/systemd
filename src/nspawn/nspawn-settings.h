@@ -282,6 +282,9 @@ ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;
 const char* timezone_mode_to_string(TimezoneMode a) _const_;
 TimezoneMode timezone_mode_from_string(const char *s) _pure_;
 
+const char* console_mode_to_string(ConsoleMode m) _const_;
+ConsoleMode console_mode_from_string(const char *s) _pure_;
+
 const char* user_namespace_ownership_to_string(UserNamespaceOwnership a) _const_;
 UserNamespaceOwnership user_namespace_ownership_from_string(const char *s) _pure_;
 
