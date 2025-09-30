@@ -288,35 +288,19 @@ STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 
 static int handle_arg_console(const char *arg) {
         if (streq(arg, "help")) {
-                puts("autopipe\n"
-                     "interactive\n"
-                     "passive\n"
-                     "pipe\n"
-                     "read-only");
-                return 0;
+                puts("autopipe\n");
+                return DUMP_STRING_TABLE(console_mode, ConsoleMode, _CONSOLE_MODE_MAX);
         }
 
-        if (streq(arg, "interactive"))
-                arg_console_mode = CONSOLE_INTERACTIVE;
-        else if (streq(arg, "read-only"))
-                arg_console_mode = CONSOLE_READ_ONLY;
-        else if (streq(arg, "passive"))
-                arg_console_mode = CONSOLE_PASSIVE;
-        else if (streq(arg, "pipe")) {
-                if (isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO))
-                        log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE,
-                                 "Console mode 'pipe' selected, but standard input/output are connected to an interactive TTY. "
-                                 "Most likely you want to use 'interactive' console mode for proper interactivity and shell job control. "
-                                 "Proceeding anyway.");
-
-                arg_console_mode = CONSOLE_PIPE;
-        } else if (streq(arg, "autopipe")) {
+        if (streq(arg, "autopipe")) {
                 if (isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO))
                         arg_console_mode = CONSOLE_INTERACTIVE;
                 else
                         arg_console_mode = CONSOLE_PIPE;
         } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown console mode: %s", optarg);
+                arg_console_mode = console_mode_from_string(optarg);
+        if (arg_console_mode < 0)
+                return log_error_errno(arg_console_mode, "Unknown console mode: %s", optarg);
 
         arg_settings_mask |= SETTING_CONSOLE_MODE;
         return 1;
@@ -1737,6 +1721,12 @@ static int verify_arguments(void) {
         r = custom_mount_check_all();
         if (r < 0)
                 return r;
+
+        if (arg_console_mode == CONSOLE_PIPE && isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO))
+                log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE,
+                        "Console mode 'pipe' selected, but standard input/output are connected to an interactive TTY. "
+                        "Most likely you want to use 'interactive' console mode for proper interactivity and shell job control. "
+                        "Proceeding anyway.");
 
         return 0;
 }
