@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-event.h"
 #include "sd-messages.h"
 #include "sd-varlink.h"
@@ -18,6 +19,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "daemon-util.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "env-file.h"
 #include "errno-util.h"
@@ -274,6 +276,46 @@ static void session_save_devices(Session *s, FILE *f) {
                         fprintf(f, DEVNUM_FORMAT_STR " ", DEVNUM_FORMAT_VAL(sd->dev));
                 fprintf(f, "\n");
         }
+}
+
+static int trigger_remote_uaccess(void) {
+        int r;
+
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_device_enumerator_add_match_tag(e, "uremotegraphicalaccess");
+        if (r < 0)
+                return r;
+
+        FOREACH_DEVICE(e, d) {
+                /* Verify that the tag is still in place. */
+                r = sd_device_has_current_tag(d, "uremotegraphicalaccess");
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        continue;
+
+                /* In case people mistag devices without nodes, we need to ignore this. */
+                r = sd_device_get_devname(d, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                sd_id128_t uuid;
+                r = sd_device_trigger_with_uuid(d, SD_DEVICE_CHANGE, &uuid);
+                if (r < 0) {
+                        log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
+                        continue;
+                }
+
+                log_device_debug(d, "Triggered synthetic event (ACTION=change, UUID=%s).", SD_ID128_TO_UUID_STRING(uuid));
+        }
+
+        return 0;
 }
 
 int session_save(Session *s) {
@@ -827,6 +869,9 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         if (s->seat)
                 (void) seat_save(s->seat);
 
+        if (!s->seat && s->remote && SESSION_TYPE_IS_GRAPHICAL(s->type))
+                trigger_remote_uaccess();
+
         /* Send signals */
         session_send_signal(s, true);
         user_send_changed(s->user, "Display");
@@ -916,6 +961,9 @@ int session_stop(Session *s, bool force) {
 
         (void) session_save(s);
         (void) user_save(s->user);
+
+        if (!s->seat && s->remote && SESSION_TYPE_IS_GRAPHICAL(s->type))
+                trigger_remote_uaccess();
 
         return r;
 }
