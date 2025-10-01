@@ -1478,9 +1478,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'P':
                 case ARG_PIPE:
-                        r = handle_arg_console("pipe");
-                        if (r <= 0)
-                                return r;
+                        arg_console_mode = CONSOLE_PIPE;
+                        arg_settings_mask |= SETTING_CONSOLE_MODE;
                         break;
 
                 case ARG_NO_PAGER:
