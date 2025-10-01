@@ -286,18 +286,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 
-static int handle_arg_console(const char *arg) {
-        if (streq(arg, "help"))
-                return DUMP_STRING_TABLE(console_mode, ConsoleMode, _CONSOLE_MODE_MAX);
-
-        arg_console_mode = console_mode_from_string(optarg);
-        if (arg_console_mode < 0)
-                return log_error_errno(arg_console_mode, "Unknown console mode: %s", optarg);
-
-        arg_settings_mask |= SETTING_CONSOLE_MODE;
-        return 1;
-}
-
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1471,9 +1459,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CONSOLE:
-                        r = handle_arg_console(optarg);
-                        if (r <= 0)
-                                return r;
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(console_mode, ConsoleMode, _CONSOLE_MODE_MAX);
+
+                        arg_console_mode = console_mode_from_string(optarg);
+                        if (arg_console_mode < 0)
+                                return log_error_errno(arg_console_mode, "Unknown console mode: %s", optarg);
+
+                        arg_settings_mask |= SETTING_CONSOLE_MODE;
+
                         break;
 
                 case 'P':
