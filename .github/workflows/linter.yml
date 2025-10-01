@@ -38,7 +38,7 @@ jobs:
           LINTER_RULES_PATH: .github/linters
           GITHUB_ACTIONS_CONFIG_FILE: actionlint.yml
 
-      - uses: systemd/mkosi@d45142e329550abc9c6fc63c1f1f86e5286d3d67
+      - uses: systemd/mkosi@e805253447bbab0cf6b21fe2acc08082a86be16e
 
       - name: Check that tabs are not used in Python code
         run: sh -c '! git grep -P "\\t" -- src/core/generate-bpf-delegate-configs.py src/boot/generate-hwids-section.py src/ukify/ukify.py test/integration-tests/integration-test-wrapper.py'
