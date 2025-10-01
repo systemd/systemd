@@ -1097,10 +1097,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (!optarg)
                                 arg_volatile_mode = VOLATILE_YES;
-                        else if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(volatile_mode, VolatileMode, _VOLATILE_MODE_MAX);
-                                return 0;
-                        } else {
+                        else if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(volatile_mode, VolatileMode, _VOLATILE_MODE_MAX);
+                        else {
                                 VolatileMode m;
 
                                 m = volatile_mode_from_string(optarg);
@@ -1202,10 +1201,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PRIVATE_USERS_OWNERSHIP:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(user_namespace_ownership, UserNamespaceOwnership, _USER_NAMESPACE_OWNERSHIP_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(user_namespace_ownership, UserNamespaceOwnership, _USER_NAMESPACE_OWNERSHIP_MAX);
 
                         arg_userns_ownership = user_namespace_ownership_from_string(optarg);
                         if (arg_userns_ownership < 0)
@@ -1215,10 +1212,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KILL_SIGNAL:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(signal, int, _NSIG);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(signal, int, _NSIG);
 
                         arg_kill_signal = signal_from_string(optarg);
                         if (arg_kill_signal < 0)
@@ -1377,10 +1372,8 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ char *name = NULL;
                         int rl;
 
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(rlimit, int, _RLIMIT_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(rlimit, int, _RLIMIT_MAX);
 
                         eq = strchr(optarg, '=');
                         if (!eq)
@@ -1431,10 +1424,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_RESOLV_CONF:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(resolv_conf_mode, ResolvConfMode, _RESOLV_CONF_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(resolv_conf_mode, ResolvConfMode, _RESOLV_CONF_MODE_MAX);
 
                         arg_resolv_conf = resolv_conf_mode_from_string(optarg);
                         if (arg_resolv_conf < 0)
@@ -1445,10 +1436,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMEZONE:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(timezone_mode, TimezoneMode, _TIMEZONE_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(timezone_mode, TimezoneMode, _TIMEZONE_MODE_MAX);
 
                         arg_timezone = timezone_mode_from_string(optarg);
                         if (arg_timezone < 0)
