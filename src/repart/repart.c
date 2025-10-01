@@ -6026,10 +6026,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         return log_error_errno(sfd, "Failed to open source file '%s%s': %m", strempty(arg_copy_source), line->source);
 
                 r = fd_verify_regular(sfd);
-                if (r < 0) {
-                        if (r != -EISDIR)
-                                return log_error_errno(r, "Failed to check type of source file '%s': %m", line->source);
-
+                if (r == -EISDIR) {
                         /* We are looking at a directory */
                         tfd = chase_and_open(line->target, root, CHASE_PREFIX_ROOT, O_RDONLY|O_DIRECTORY|O_CLOEXEC, NULL);
                         if (tfd < 0) {
@@ -6070,6 +6067,8 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
                                                        strempty(arg_copy_source), line->source, strempty(root), line->target);
+                } else if (r < 0) {
+                        return log_error_errno(r, "Failed to check type of source file '%s': %m", line->source);
                 } else {
                         _cleanup_free_ char *dn = NULL, *fn = NULL;
 
