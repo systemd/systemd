@@ -82,6 +82,7 @@ typedef enum TimezoneMode {
 } TimezoneMode;
 
 typedef enum ConsoleMode {
+        CONSOLE_AUTOPIPE,
         CONSOLE_INTERACTIVE,
         CONSOLE_READ_ONLY,
         CONSOLE_PASSIVE,
