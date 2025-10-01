@@ -6065,7 +6065,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                                 line->flags,
                                                 denylist, subvolumes_by_source_inode);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
+                                return log_error_errno(r, "Failed to copy directory '%s%s' to '%s%s': %m",
                                                        strempty(arg_copy_source), line->source, strempty(root), line->target);
                 } else if (r < 0) {
                         return log_error_errno(r, "Failed to check type of source file '%s': %m", line->source);
@@ -6107,7 +6107,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 
                         r = copy_bytes(sfd, tfd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_SIGINT|COPY_TRUNCATE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy '%s' to '%s%s': %m", line->source, strempty(arg_copy_source), line->target);
+                                return log_error_errno(r, "Failed to copy file '%s' to '%s%s': %m", line->source, strempty(arg_copy_source), line->target);
 
                         (void) copy_xattr(sfd, NULL, tfd, NULL, COPY_ALL_XATTRS);
                         (void) copy_access(sfd, tfd);
