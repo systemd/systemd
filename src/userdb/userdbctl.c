@@ -39,6 +39,7 @@
 #include "virt.h"
 
 typedef enum {
+        OUTPUT_AUTO,
         OUTPUT_CLASSIC,
         OUTPUT_TABLE,
         OUTPUT_FRIENDLY,
@@ -47,7 +48,7 @@ typedef enum {
         _OUTPUT_INVALID = -EINVAL,
 } Output;
 
-static Output arg_output = _OUTPUT_INVALID;
+static Output arg_output = OUTPUT_AUTO;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static char** arg_services = NULL;
@@ -65,6 +66,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_from_file, sd_json_variant_unrefp);
 
 static const char *output_table[_OUTPUT_MAX] = {
+        [OUTPUT_AUTO]  =    "auto",
         [OUTPUT_CLASSIC]  = "classic",
         [OUTPUT_TABLE]    = "table",
         [OUTPUT_FRIENDLY] = "friendly",
@@ -410,7 +412,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
         bool draw_separator = false;
         int ret = 0, r;
 
-        if (arg_output < 0)
+        if (arg_output == OUTPUT_AUTO)
                 arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
@@ -752,7 +754,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
         bool draw_separator = false;
         int ret = 0, r;
 
-        if (arg_output < 0)
+        if (arg_output == OUTPUT_AUTO)
                 arg_output = arg_from_file || (argc > 1 && !arg_fuzzy) ? OUTPUT_FRIENDLY : OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
@@ -954,7 +956,7 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
         if (arg_from_file)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--from-file= not supported when showing memberships, refusing.");
 
-        if (arg_output < 0)
+        if (arg_output == OUTPUT_AUTO)
                 arg_output = OUTPUT_TABLE;
 
         if (arg_output == OUTPUT_TABLE) {
@@ -1668,7 +1670,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return DUMP_STRING_TABLE(output, Output, _OUTPUT_MAX);
 
                         arg_output = output_from_string(optarg);
-                        if (arg_output < 0 && !isempty(optarg))
+                        if (arg_output < 0)
                                 return log_error_errno(arg_output, "Invalid --output= mode: %s", optarg);
 
                         arg_json_format_flags = arg_output == OUTPUT_JSON ? SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO : SD_JSON_FORMAT_OFF;
