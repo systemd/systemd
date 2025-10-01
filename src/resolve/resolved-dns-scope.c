@@ -376,6 +376,12 @@ int dns_scope_emit_udp(DnsScope *s, int fd, int af, DnsPacket *p) {
         assert(p->protocol == s->protocol);
         assert((s->protocol == DNS_PROTOCOL_DNS) == (fd >= 0));
 
+        /* If we trust this server, then request validation with the AD bit. */
+        if (s->dnssec_mode == DNSSEC_TRUST_AD) {
+                assert(p->protocol == DNS_PROTOCOL_DNS);
+                DNS_PACKET_HEADER(p)->flags |= htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 0, 0, 1, 0, 0));
+        }
+
         do {
                 /* If there are multiple linked packets, set the TC bit in all but the last of them */
                 if (p->more) {
