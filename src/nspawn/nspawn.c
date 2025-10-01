@@ -287,18 +287,10 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 
 static int handle_arg_console(const char *arg) {
-        if (streq(arg, "help")) {
-                puts("autopipe\n");
+        if (streq(arg, "help"))
                 return DUMP_STRING_TABLE(console_mode, ConsoleMode, _CONSOLE_MODE_MAX);
-        }
 
-        if (streq(arg, "autopipe")) {
-                if (isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO))
-                        arg_console_mode = CONSOLE_INTERACTIVE;
-                else
-                        arg_console_mode = CONSOLE_PIPE;
-        } else
-                arg_console_mode = console_mode_from_string(optarg);
+        arg_console_mode = console_mode_from_string(optarg);
         if (arg_console_mode < 0)
                 return log_error_errno(arg_console_mode, "Unknown console mode: %s", optarg);
 
@@ -5972,6 +5964,13 @@ static int run(int argc, char *argv[]) {
         if (arg_console_mode < 0)
                 arg_console_mode = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) ?
                                    CONSOLE_INTERACTIVE : CONSOLE_READ_ONLY;
+
+        if (arg_console_mode == CONSOLE_AUTOPIPE) {
+                if (isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO))
+                        arg_console_mode = CONSOLE_INTERACTIVE;
+                else
+                        arg_console_mode = CONSOLE_PIPE;
+        }
 
         if (arg_console_mode == CONSOLE_PIPE) /* if we pass STDERR on to the container, don't add our own logs into it too */
                 arg_quiet = true;

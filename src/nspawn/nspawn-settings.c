@@ -915,6 +915,7 @@ static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);
 
 static const char *const console_mode_table[_CONSOLE_MODE_MAX] = {
+        [CONSOLE_AUTOPIPE]    = "autopipe",
         [CONSOLE_INTERACTIVE] = "interactive",
         [CONSOLE_READ_ONLY]   = "read-only",
         [CONSOLE_PASSIVE]     = "passive",
