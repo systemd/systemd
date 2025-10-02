@@ -857,7 +857,6 @@ static void dns_stub_query_complete(DnsQuery *query) {
                 break;
 
         case DNS_TRANSACTION_TIMEOUT:
-        case DNS_TRANSACTION_ATTEMPTS_MAX_REACHED:
                 /* Propagate a timeout as a no packet, i.e. that the client also gets a timeout */
                 break;
 
@@ -871,6 +870,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
                 (void) dns_stub_send_reply(q, DNS_RCODE_NOTIMP);
                 break;
 
+        case DNS_TRANSACTION_ATTEMPTS_MAX_REACHED:
         case DNS_TRANSACTION_INVALID_REPLY:
         case DNS_TRANSACTION_ERRNO:
         case DNS_TRANSACTION_ABORTED:
