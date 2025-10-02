@@ -114,6 +114,7 @@ int sd_bus_call(sd_bus *bus, sd_bus_message *m, uint64_t usec, sd_bus_error *ret
 int sd_bus_call_async(sd_bus *bus, sd_bus_slot **ret_slot, sd_bus_message *m, sd_bus_message_handler_t callback, void *userdata, uint64_t usec);
 
 int sd_bus_get_fd(sd_bus *bus);
+int sd_bus_get_rqueue_eventfd(sd_bus *bus);
 int sd_bus_get_events(sd_bus *bus);
 int sd_bus_get_timeout(sd_bus *bus, uint64_t *ret);
 int sd_bus_process(sd_bus *bus, sd_bus_message **ret);
