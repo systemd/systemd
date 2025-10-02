@@ -90,14 +90,14 @@ static uint64_t system_battery_identifier_hash(sd_device *dev) {
         return siphash24_finalize(&state);
 }
 
-/* Return success if battery percentage discharge rate per hour is in the range 1–199 */
-static bool battery_discharge_rate_is_valid(int battery_discharge_rate) {
-        return battery_discharge_rate > 0 && battery_discharge_rate < 200;
+/* Return success if battery percentage discharge rate per hour is between 0 and 200 */
+static bool battery_discharge_rate_is_valid(double battery_discharge_rate) {
+        return battery_discharge_rate > 0.0 && battery_discharge_rate < 200.0;
 }
 
 /* Battery percentage discharge rate per hour is read from specific file. It is stored along with system
  * and battery identifier hash to maintain the integrity of discharge rate value */
-static int get_battery_discharge_rate(sd_device *dev, int *ret) {
+static int get_battery_discharge_rate(sd_device *dev, double *ret) {
         _cleanup_fclose_ FILE *f = NULL;
         uint64_t current_hash_id;
         const char *p;
@@ -115,7 +115,8 @@ static int get_battery_discharge_rate(sd_device *dev, int *ret) {
         for (;;) {
                 _cleanup_free_ char *stored_hash_id = NULL, *stored_discharge_rate = NULL, *line = NULL;
                 uint64_t hash_id;
-                int discharge_rate;
+                double discharge_rate;
+                int discharge_rate_int;
 
                 r = read_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
@@ -140,10 +141,53 @@ static int get_battery_discharge_rate(sd_device *dev, int *ret) {
                         /* matching device not found, move to next line */
                         continue;
 
-                r = safe_atoi(stored_discharge_rate, &discharge_rate);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to parse discharge rate read from %s: %m",
+                /* Manually parse decimal format to avoid any locale issues with atod */
+                const char *dot = strchr(stored_discharge_rate, '.');
+                if (dot) {
+                        _cleanup_free_ char *integer_part = NULL, *fractional_part = NULL;
+                        int integer_val, fractional_val;
+
+                        integer_part = strndup(stored_discharge_rate, dot - stored_discharge_rate);
+                        if (!integer_part)
+                                return log_oom_debug();
+
+                        fractional_part = strdup(dot + 1);
+                        if (!fractional_part)
+                                return log_oom_debug();
+
+                        /* just in case someone manually edits to 1 decimal, handle it */
+                        size_t frac_len = strlen(fractional_part);
+                        if (frac_len == 0 || frac_len > 2) {
+                                log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                                      "Invalid fractional part format in %s, skipping entry",
                                                       DISCHARGE_RATE_FILEPATH);
+                                continue;
+                        }
+
+                        r = safe_atoi(integer_part, &integer_val);
+                        if (r < 0)
+                                return log_device_debug_errno(dev, r, "Failed to parse integer part of discharge rate from %s: %m",
+                                                              DISCHARGE_RATE_FILEPATH);
+
+                        r = safe_atoi(fractional_part, &fractional_val);
+                        if (r < 0)
+                                return log_device_debug_errno(dev, r, "Failed to parse fractional part of discharge rate from %s: %m",
+                                                              DISCHARGE_RATE_FILEPATH);
+
+                        if (frac_len == 1)
+                                discharge_rate_int = integer_val * 100 + fractional_val * 10;
+                        else
+                                discharge_rate_int = integer_val * 100 + fractional_val;
+                } else {
+                        /* Parse as int for backwards compatibility */
+                        r = safe_atoi(stored_discharge_rate, &discharge_rate_int);
+                        if (r < 0)
+                                return log_device_debug_errno(dev, r, "Failed to parse discharge rate read from %s: %m",
+                                                              DISCHARGE_RATE_FILEPATH);
+                        discharge_rate_int *= 100;
+                }
+
+                discharge_rate = (double) discharge_rate_int / 100.0;
 
                 if (!battery_discharge_rate_is_valid(discharge_rate))
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERANGE),
@@ -158,24 +202,27 @@ static int get_battery_discharge_rate(sd_device *dev, int *ret) {
 }
 
 /* Write battery percentage discharge rate per hour along with system and battery identifier hash to file */
-static int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint64_t system_hash_id, bool trunc) {
-        int r;
+static int put_battery_discharge_rate(double estimated_battery_discharge_rate, uint64_t system_hash_id, bool trunc) {
+        int r, rate_int;
 
         if (!battery_discharge_rate_is_valid(estimated_battery_discharge_rate))
                 return log_debug_errno(SYNTHETIC_ERRNO(ERANGE),
-                                        "Invalid battery discharge rate %d%% per hour.",
+                                        "Invalid battery discharge rate %.2f%% per hour.",
                                         estimated_battery_discharge_rate);
+
+        rate_int = (int) (estimated_battery_discharge_rate * 100.0 + 0.5); /* +0.5 for more accurate rounding */
 
         r = write_string_filef(
                         DISCHARGE_RATE_FILEPATH,
                         WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755 | (trunc ? WRITE_STRING_FILE_TRUNCATE : 0),
-                        "%"PRIu64" %d",
+                        "%"PRIu64" %i.%02i",
                         system_hash_id,
-                        estimated_battery_discharge_rate);
+                        rate_int / 100,
+                        rate_int % 100);
         if (r < 0)
                 return log_debug_errno(r, "Failed to update %s: %m", DISCHARGE_RATE_FILEPATH);
 
-        log_debug("Estimated discharge rate %d%% per hour successfully saved to %s", estimated_battery_discharge_rate, DISCHARGE_RATE_FILEPATH);
+        log_debug("Estimated discharge rate %.2f%% per hour successfully saved to %s", estimated_battery_discharge_rate, DISCHARGE_RATE_FILEPATH);
 
         return 0;
 }
@@ -260,7 +307,8 @@ int estimate_battery_discharge_rate_per_hour(
                 return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
 
         FOREACH_DEVICE(e, dev) {
-                int battery_last_capacity, battery_current_capacity, battery_discharge_rate;
+                int battery_last_capacity, battery_current_capacity;
+                double battery_discharge_rate;
                 const char *battery_name;
                 uint64_t system_hash_id;
 
@@ -290,7 +338,7 @@ int estimate_battery_discharge_rate_per_hour(
                                  battery_last_capacity - battery_current_capacity,
                                  FORMAT_TIMESPAN(after_timestamp - before_timestamp, USEC_PER_SEC));
 
-                battery_discharge_rate = (battery_last_capacity - battery_current_capacity) * USEC_PER_HOUR / (after_timestamp - before_timestamp);
+                battery_discharge_rate = (double) (battery_last_capacity - battery_current_capacity) * USEC_PER_HOUR / (after_timestamp - before_timestamp);
                 r = put_battery_discharge_rate(battery_discharge_rate, system_hash_id, trunc);
                 if (r < 0)
                         log_device_warning_errno(dev, r, "Failed to update battery discharge rate, ignoring: %m");
@@ -315,7 +363,8 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
                 return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
 
         FOREACH_DEVICE(e, dev) {
-                int battery_last_capacity, previous_discharge_rate = 0;
+                int battery_last_capacity = 0;
+                double previous_discharge_rate = 0.0;
                 const char *battery_name;
                 usec_t suspend_interval;
 
@@ -335,7 +384,7 @@ int get_total_suspend_interval(Hashmap *last_capacity, usec_t *ret) {
                         continue;
                 }
 
-                if (previous_discharge_rate == 0)
+                if (previous_discharge_rate <= 0.0)
                         continue;
 
                 if (battery_last_capacity * 2 <= previous_discharge_rate) {
