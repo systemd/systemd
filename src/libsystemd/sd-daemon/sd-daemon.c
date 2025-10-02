@@ -35,6 +35,7 @@ static void unsetenv_listen(bool unset_environment) {
                 return;
 
         assert_se(unsetenv("LISTEN_PID") == 0);
+        assert_se(unsetenv("LISTEN_PIDFDID") == 0);
         assert_se(unsetenv("LISTEN_FDS") == 0);
         assert_se(unsetenv("LISTEN_FDNAMES") == 0);
 }
@@ -58,6 +59,23 @@ _public_ int sd_listen_fds(int unset_environment) {
         if (getpid_cached() != pid) {
                 r = 0;
                 goto finish;
+        }
+
+        e = getenv("LISTEN_PIDFDID");
+        if (e) {
+                uint64_t own_pidfdid, pidfdid;
+
+                r = safe_atou64(e, &pidfdid);
+                if (r < 0)
+                        goto finish;
+
+                if (pidfd_get_inode_id_self_cached(&own_pidfdid) >= 0) {
+                        /* Is this *really* for us? */
+                        if (pidfdid != own_pidfdid) {
+                                r = 0;
+                                goto finish;
+                        }
+                }
         }
 
         e = getenv("LISTEN_FDS");

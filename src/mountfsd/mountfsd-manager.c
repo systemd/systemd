@@ -14,6 +14,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "mountfsd-manager.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -163,6 +164,17 @@ static int start_one_worker(Manager *m) {
                 if (setenv("LISTEN_PID", pids, 1) < 0) {
                         log_error_errno(errno, "Failed to set $LISTEN_PID: %m");
                         _exit(EXIT_FAILURE);
+                }
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        char pidfdids[DECIMAL_STR_MAX(uint64_t)];
+
+                        xsprintf(pidfdids, "%" PRIu64, pidfdid);
+                        if (setenv("LISTEN_PIDFDID", pidfdids, 1) < 0) {
+                                log_error_errno(errno, "Failed to set $LISTEN_PIDFDID: %m");
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
                 if (setenv("LISTEN_FDS", "1", 1) < 0) {
