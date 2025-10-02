@@ -5488,6 +5488,31 @@ int exec_invoke(
                         }
                 }
 
+        if (context->memory_thp_disable > 0) {
+                if (context->memory_thp_disable == 1) {
+                        if (prctl(PR_SET_THP_DISABLE, context->memory_thp_disable, 0, 0, 0) < 0) {
+                                if (errno == EINVAL)
+                                        log_debug_errno(errno, "Per process THP disable support not available, ignoring.");
+                                else {
+                                        *exit_status = EXIT_THP_DISABLE;
+                                        return log_error_errno(errno, "Failed to disable THP per process: %m");
+                                }
+                        }
+                } else if (context->memory_thp_disable == 2) {
+                        if (prctl(PR_SET_THP_DISABLE, context->memory_thp_disable, PR_THP_DISABLE_EXCEPT_ADVISED, 0, 0) < 0) {
+                                if (errno == EINVAL)
+                                        log_debug_errno(errno, "Per process THP disable (except madvise) support not available, ignoring.");
+                                else {
+                                        *exit_status = EXIT_THP_DISABLE;
+                                        return log_error_errno(errno, "Failed to disable (except madvise) THP per process: %m");
+                                }
+                        }
+                } else {
+                        *exit_status = EXIT_THP_DISABLE;
+                        return log_error_errno(-EINVAL, "Invalid value for MemoryTHPDisable");
+                }
+        }
+
 #if ENABLE_UTMP
         if (context->utmp_id) {
                 _cleanup_free_ char *username_alloc = NULL;
