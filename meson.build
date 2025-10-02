@@ -405,7 +405,6 @@ possible_common_cc_flags = [
         '-Werror=shift-overflow=2',
         '-Werror=strict-flex-arrays',
         '-Werror=undef',
-        '-Werror=unused-variable',
         '-Wfloat-equal',
         # gperf prevents us from enabling this because it does not emit fallthrough
         # attribute with clang.
@@ -499,6 +498,8 @@ if get_option('mode') == 'release'
         # valgrind and sanitizer builds. Also, clang does not zero-initialize unions,
         # breaking some of our code (https://reviews.llvm.org/D68115).
         possible_common_cc_flags += '-ftrivial-auto-var-init=zero'
+        # Too noisy for developers builds
+        possible_common_cc_flags += '-Werror=unused-variable'
 endif
 
 possible_cc_flags = [
