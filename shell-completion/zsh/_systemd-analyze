@@ -14,10 +14,7 @@
 (( $+functions[_systemd-analyze_critical-chain] )) ||
     _systemd-analyze_critical-chain() {
         local -a _units
-        systemctl list-units --no-legend --no-pager --plain --all 2>/dev/null |
-        while read -r a b c; do
-            _units+=($a)
-        done
+        _units=( ${(f)"$(systemctl list-units --completion-names --all 2>/dev/null)"} )
         compadd -a _units
     }
 

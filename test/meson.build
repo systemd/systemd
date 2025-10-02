@@ -59,6 +59,19 @@ if want_tests != 'false'
                      systemd_id128.full_path()],
              depends : [systemctl, systemd_id128],
              suite : 'systemctl')
+
+        journalctl = executables_by_name.get('journalctl')
+        test('test-completion',
+             files('test-completion.sh'),
+             args : [systemctl.full_path(),
+                     journalctl.full_path()],
+             depends : [systemctl, journalctl],
+             suite : 'completion')
+endif
+if install_tests
+        install_data(files('test-completion.sh'),
+                     install_mode : 'rwxr-xr-x',
+                     install_dir : unittestsdir)
 endif
 
 ############################################################

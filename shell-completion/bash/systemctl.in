@@ -55,29 +55,23 @@ __filter_units_by_properties () {
 }
 {% endraw %}
 
-__get_all_units      () { { __systemctl $1 list-unit-files "$2*"; __systemctl $1 list-units --all "$2*"; } |
-                              { while read -r a b; do echo " $a"; done; }; }
-__get_non_template_units() { { __systemctl $1 list-unit-files "$2*"; __systemctl $1 list-units --all "$2*"; } |
-                                 { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }; }
-__get_template_names () { __systemctl $1 list-unit-files "$2*" |
-                              { while read -r a b; do [[ $a =~ @\. ]] && echo " ${a%%@.*}@"; done; }; }
-__get_active_units   () { __systemctl $1 list-units "$2*" |
-                              { while read -r a b; do echo " $a"; done; }; }
-__get_active_services() { __systemctl $1 list-units "$2*.service" |
-                              { while read -r a b; do echo " $a"; done; }; }
+__get_all_units      () { __systemctl $1 list-units --completion-names "$2*" 2>/dev/null; }
+__get_non_template_units() { __systemctl $1 list-units --completion-names "$2*" 2>/dev/null | grep -v '@\.'; }
+__get_template_names () { __systemctl $1 list-unit-files --completion-names "$2*" 2>/dev/null |
+                              { while read -r a; do [[ $a =~ @\. ]] && echo " ${a%%@.*}@"; done; }; }
+__get_active_units   () { __systemctl $1 list-units --completion-names "$2*" 2>/dev/null; }
+__get_active_services() { __systemctl $1 list-units --completion-names -t service "$2*" 2>/dev/null; }
 
 __get_not_masked_unit_files() {
     # filter out masked, not-found, or template units.
-    __systemctl $1 list-unit-files --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$2*" |
-        { while read -r a b; do [[ $a =~ @\. ]] || echo " $a"; done; }
+    __systemctl $1 list-unit-files --completion-names --state enabled,enabled-runtime,linked,linked-runtime,static,indirect,disabled,generated,transient "$2*" 2>/dev/null | grep -v '@$'
 }
 
 __get_startable_units () {
     __filter_units_by_properties $1 ActiveState=inactive,CanStart=yes $(
         { __get_not_masked_unit_files $1 $2
           # get inactive template units
-          __systemctl $1 list-units --state inactive,failed "$2*" |
-              { while read -r a b c; do [[ $b == "loaded" ]] && echo " $a"; done; }
+          __systemctl $1 list-units --completion-names --state inactive,failed "$2*" 2>/dev/null
         } | sort -u )
 }
 __get_restartable_units () {
@@ -107,15 +101,11 @@ __get_reloadable_units () {
         } | sort -u )
 }
 
-__get_failed_units()   { __systemctl $1 list-units "$2*"      |
-                              while read -r a b c d; do [[ $c == "failed" ]] && echo " $a"; done; }
-__get_enabled_units()  { __systemctl $1 list-unit-files "$2*" |
-                              while read -r a b c  ; do [[ $b == "enabled" ]] && echo " $a"; done; }
-__get_disabled_units() { __systemctl $1 list-unit-files "$2*" |
-                              while read -r a b c  ; do [[ $b == "disabled" ]] && echo " $a"; done; }
-__get_masked_units()   { __systemctl $1 list-unit-files "$2*" |
-                              while read -r a b c  ; do [[ $b == "masked" ]] && echo " $a"; done; }
-__get_all_unit_files() { __systemctl $1 list-unit-files "$2*" | while read -r a b; do echo " $a"; done; }
+__get_failed_units()   { __systemctl $1 list-units --completion-names --state=failed "$2*" 2>/dev/null; }
+__get_enabled_units()  { __systemctl $1 list-unit-files --completion-names --state=enabled "$2*" 2>/dev/null; }
+__get_disabled_units() { __systemctl $1 list-unit-files --completion-names --state=disabled "$2*" 2>/dev/null; }
+__get_masked_units()   { __systemctl $1 list-unit-files --completion-names --state=masked "$2*" 2>/dev/null; }
+__get_all_unit_files() { __systemctl $1 list-unit-files --completion-names "$2*" 2>/dev/null; }
 
 __get_machines() {
     local a
@@ -333,8 +323,7 @@ _systemctl () {
     elif __contains_word "$verb" ${VERBS[TARGET_AND_UNITS]}; then
         if __contains_word "$prev" ${VERBS[TARGET_AND_UNITS]} ||
                 __contains_word "$prev" ${OPTS[STANDALONE]}; then
-            comps=$( __systemctl $mode list-unit-files --type target --all "$cur*" |
-                         { while read -r a b; do echo " $a"; done; } )
+            comps=$( __systemctl $mode list-unit-files --completion-names --type target --all "$cur*" 2>/dev/null )
         else
             comps=$( __get_all_unit_files $mode "$cur" )
         fi
@@ -365,8 +354,7 @@ _systemctl () {
         compopt -o filenames
 
     elif __contains_word "$verb" ${VERBS[TARGETS]}; then
-        comps=$( __systemctl $mode list-unit-files --type target --full --all "$cur*" |
-                     { while read -r a b; do echo " $a"; done; } )
+        comps=$( __systemctl $mode list-unit-files --completion-names --type target --full --all "$cur*" 2>/dev/null )
     elif __contains_word "$verb" ${VERBS[LOG_LEVEL]}; then
         comps='debug info notice warning err crit alert emerg'
     elif __contains_word "$verb" ${VERBS[LOG_TARGET]}; then

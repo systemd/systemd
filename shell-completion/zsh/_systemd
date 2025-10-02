@@ -29,6 +29,12 @@ case "$service" in
             '--no-pager[Do not pipe output into a pager]' \
             '(-a --all)'{-a,--all}'[Show all groups, including empty]' \
             '-k[Include kernel threads in output]' \
+            '(-l --full)'{-l,--full}'[Do not ellipsize output]' \
+            '(-M --machine)'{-M+,--machine=}'[Show container]:machine' \
+            '(-u --unit)'{-u+,--unit=}'[Show data for specified unit]:units:compadd - ${(f)"$(systemctl list-units --completion-names --state=active -t service,socket,mount,swap,slice,scope 2>/dev/null)"}' \
+            '--user-unit=[Show data for specified user unit]:user units:compadd - ${(f)"$(systemctl --user list-units --completion-names --state=active -t service,socket,mount,swap,slice,scope 2>/dev/null)"}' \
+            '(-c --cgroup-id)'{-c+,--cgroup-id=}'[Show cgroup ID]:boolean:(yes no)' \
+            '(-x --xattr)'{-x+,--xattr=}'[Show cgroup extended attributes]:boolean:(yes no)' \
             ':cgroups:(cpuset cpu cpuacct memory devices freezer blkio)'
         ;;
     systemd-cgtop)
