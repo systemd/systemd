@@ -66,7 +66,7 @@ typedef enum {
 } Order;
 
 typedef enum {
-        CPU_PERCENT,
+        CPU_PERCENTAGE,
         CPU_TIME,
         _CPU_MAX,
         _CPU_INVALID = -EINVAL,
@@ -83,7 +83,7 @@ static bool arg_recursive = true;
 static bool arg_recursive_unset = false;
 static PidsCount arg_count = COUNT_PIDS;
 static Order arg_order = ORDER_CPU;
-static CPUType arg_cpu_type = CPU_PERCENT;
+static CPUType arg_cpu_type = CPU_PERCENTAGE;
 
 static const char *order_table[_ORDER_MAX] = {
         [ORDER_PATH]   = "path",
@@ -96,8 +96,8 @@ static const char *order_table[_ORDER_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(order, Order);
 
 static const char *cpu_type_table[_CPU_MAX] = {
-        [CPU_PERCENT] = "percentage",
-        [CPU_TIME]    = "time",
+        [CPU_PERCENTAGE] = "percentage",
+        [CPU_TIME]       = "time",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(cpu_type, CPUType);
@@ -530,7 +530,7 @@ static int group_compare(Group * const *a, Group * const *b) {
                 break;
 
         case ORDER_CPU:
-                if (arg_cpu_type == CPU_PERCENT) {
+                if (arg_cpu_type == CPU_PERCENTAGE) {
                         if (x->cpu_valid && y->cpu_valid) {
                                 r = CMP(y->cpu_fraction, x->cpu_fraction);
                                 if (r != 0)
@@ -624,7 +624,7 @@ static void display(Hashmap *a) {
 
         if (on_tty()) {
                 const char *on, *off;
-                int cpu_len = arg_cpu_type == CPU_PERCENT ? 6 : maxtcpu;
+                int cpu_len = arg_cpu_type == CPU_PERCENTAGE ? 6 : maxtcpu;
 
                 path_columns = columns() - 36 - cpu_len;
                 if (path_columns < 10)
@@ -642,7 +642,7 @@ static void display(Hashmap *a) {
                        arg_order == ORDER_TASKS ? off : "",
                        arg_order == ORDER_CPU ? on : "",
                        cpu_len,
-                       arg_cpu_type == CPU_PERCENT ? "%CPU" : "CPU Time",
+                       arg_cpu_type == CPU_PERCENTAGE ? "%CPU" : "CPU Time",
                        arg_order == ORDER_CPU ? off : "",
                        arg_order == ORDER_MEMORY ? on : "", "Memory",
                        arg_order == ORDER_MEMORY ? off : "",
@@ -672,7 +672,7 @@ static void display(Hashmap *a) {
                 else
                         fputs("       -", stdout);
 
-                if (arg_cpu_type == CPU_PERCENT) {
+                if (arg_cpu_type == CPU_PERCENTAGE) {
                         if (g->cpu_valid)
                                 printf(" %6.1f", g->cpu_fraction*100);
                         else
@@ -976,7 +976,7 @@ static int loop(const char *root) {
                         break;
 
                 case '%':
-                        arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENT : CPU_TIME;
+                        arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
                         break;
 
                 case 'k':
