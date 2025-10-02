@@ -1086,7 +1086,8 @@ static int copy_skel(UserRecord *h, int root_fd, const char *skel) {
                         h->uid, user_record_gid(h),
                         COPY_MERGE|COPY_REPLACE,
                         /* denylist= */ NULL,
-                        /* subvolumes= */ NULL);
+                        /* subvolumes= */ NULL,
+                        /* subvolume_flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to copy in %s: %m", skel);
 
