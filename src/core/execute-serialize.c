@@ -52,6 +52,10 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_bool_elide(f, "exec-cgroup-context-device-memory-accounting", c->device_memory_accounting);
+        if (r < 0)
+                return r;
+
         r = serialize_bool_elide(f, "exec-cgroup-context-tasks-accounting", c->tasks_accounting);
         if (r < 0)
                 return r;
@@ -428,6 +432,40 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        LIST_FOREACH(dev_limits, l, c->dev_mem_limits) {
+                if (l->min_valid) {
+                        r = serialize_item_format(
+                                        f,
+                                        "exec-cgroup-context-device-memory-min",
+                                        "%s %" PRIu64,
+                                        l->region,
+                                        l->min);
+                        if (r < 0)
+                                return r;
+                }
+                if (l->low_valid) {
+                        r = serialize_item_format(
+                                        f,
+                                        "exec-cgroup-context-device-memory-low",
+                                        "%s %" PRIu64,
+                                        l->region,
+                                        l->low);
+                        if (r < 0)
+                                return r;
+                }
+                if (l->max_valid) {
+                        r = serialize_item_format(
+                                        f,
+                                        "exec-cgroup-context-device-memory-max",
+                                        "%s %" PRIu64,
+                                        l->region,
+                                        l->max);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+
         fputc('\n', f); /* End marker */
 
         return 0;
@@ -461,6 +499,11 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->memory_accounting = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-device-memory-accounting="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->device_memory_accounting = r;
                 } else if ((val = startswith(l, "exec-cgroup-context-tasks-accounting="))) {
                         r = parse_boolean(val);
                         if (r < 0)
@@ -709,6 +752,50 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         r = cgroup_context_add_or_update_device_allow(c, path, p);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-device-memory_min=")) ||
+                           (val = startswith(l, "exec-cgroup-context-device-memory_low=")) ||
+                           (val = startswith(l, "exec-cgroup-context-device-memory_max="))) {
+                        _cleanup_free_ char *region = NULL, *value = NULL;
+                        CGroupDeviceMemoryLimit *m = NULL;
+
+                        r = extract_many_words(&val, " ", 0, &region, &value);
+                        if (r < 0)
+                                return r;
+                        if (r != 2)
+                                return -EINVAL;
+
+                        LIST_FOREACH(dev_limits, b, c->dev_mem_limits)
+                                if (streq(b->region, region)) {
+                                        m = b;
+                                        break;
+                                }
+
+                        if (!m) {
+                                m = new0(CGroupDeviceMemoryLimit , 1);
+                                if (!m)
+                                        return log_oom_debug();
+
+                                m->region = TAKE_PTR(region);
+
+                                LIST_PREPEND(dev_limits, c->dev_mem_limits, m);
+                        }
+
+                        if (startswith(l, "exec-cgroup-context-device-memory-min")) {
+                                r = safe_atou64(value, &m->min);
+                                if (r < 0)
+                                        return r;
+                                m->min_valid = true;
+                        } else if (startswith(l, "exec-cgroup-context-device-memory-low")) {
+                                r = safe_atou64(value, &m->low);
+                                if (r < 0)
+                                        return r;
+                                m->low_valid = true;
+                        } else if (startswith(l, "exec-cgroup-context-device-memory-max")) {
+                                r = safe_atou64(value, &m->max);
+                                if (r < 0)
+                                        return r;
+                                m->max_valid = true;
+                        }
                 } else if ((val = startswith(l, "exec-cgroup-context-io-device-weight="))) {
                         _cleanup_free_ char *path = NULL, *weight = NULL;
                         CGroupIODeviceWeight *a = NULL;
