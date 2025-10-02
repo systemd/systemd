@@ -30,7 +30,7 @@ case "$COMMAND" in
         [ -d "/lib/modules/$KERNEL_VERSION/kernel" ] || exit 0
         command -v depmod >/dev/null || exit 0
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "+depmod -a $KERNEL_VERSION"
-        exec depmod -a "$KERNEL_VERSION"
+        depmod -a "$KERNEL_VERSION"
         ;;
     remove)
         if [ -n "$KERNEL_INSTALL_BOOT_ENTRY_TYPE" ] && [ -d "/lib/modules/$KERNEL_VERSION/kernel" ]; then
@@ -41,7 +41,7 @@ case "$COMMAND" in
 
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing /lib/modules/${KERNEL_VERSION}/modules.dep and associated files"
-        exec rm -f \
+        rm -f \
             "/lib/modules/$KERNEL_VERSION/modules.alias" \
             "/lib/modules/$KERNEL_VERSION/modules.alias.bin" \
             "/lib/modules/$KERNEL_VERSION/modules.builtin.bin" \
@@ -58,3 +58,5 @@ case "$COMMAND" in
         exit 0
         ;;
 esac
+
+printf "+ kernel-install plugin '%s' completed successfully\n" "$0"
