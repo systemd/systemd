@@ -391,6 +391,8 @@ int bus_unit_method_start_generic(
         assert(u);
         assert(job_type >= 0 && job_type < _JOB_TYPE_MAX);
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         r = mac_selinux_unit_access_check(
                         u, message,
                         job_type_to_access_method(job_type),
@@ -476,6 +478,8 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
 
         assert(message);
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         r = sd_bus_message_read(message, "ss", &jtype, &smode);
         if (r < 0)
                 return r;
@@ -528,6 +532,8 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         int r, code;
 
         assert(message);
+
+        LOG_CONTEXT_PUSH_UNIT(u);
 
         r = mac_selinux_unit_access_check(u, message, "stop", error);
         if (r < 0)
@@ -638,6 +644,8 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
 
         assert(message);
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         r = mac_selinux_unit_access_check(u, message, "reload", error);
         if (r < 0)
                 return r;
@@ -663,6 +671,8 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
         int runtime, r;
 
         assert(message);
+
+        LOG_CONTEXT_PUSH_UNIT(u);
 
         r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
@@ -696,6 +706,8 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *e
 
         assert(message);
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         r = mac_selinux_unit_access_check(u, message, "start", error);
         if (r < 0)
                 return r;
@@ -724,6 +736,8 @@ int bus_unit_method_unref(sd_bus_message *message, void *userdata, sd_bus_error 
 
         assert(message);
 
+        LOG_CONTEXT_PUSH_UNIT(u);
+
         r = bus_unit_track_remove_sender(u, message);
         if (r == -EUNATCH)
                 return sd_bus_error_set(error, BUS_ERROR_NOT_REFERENCED, "Unit has not been referenced yet.");
@@ -739,6 +753,8 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
         int r;
 
         assert(message);
+
+        LOG_CONTEXT_PUSH_UNIT(u);
 
         r = mac_selinux_unit_access_check(u, message, "stop", error);
         if (r < 0)
@@ -799,6 +815,8 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
 
         assert(message);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
+
+        LOG_CONTEXT_PUSH_UNIT(u);
 
         const char *perm = action == FREEZER_FREEZE ? "stop" : "start";
 
@@ -1441,10 +1459,12 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
 int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_set_free_ Set *pids = NULL;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
+
+        LOG_CONTEXT_PUSH_UNIT(u);
 
         r = mac_selinux_unit_access_check(u, message, "status", error);
         if (r < 0)
@@ -1560,11 +1580,13 @@ static int property_get_effective_limit(
 int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_set_free_ Set *pids = NULL;
-        Unit *u = userdata;
+        Unit *u = ASSERT_PTR(userdata);
         const char *path;
         int r;
 
         assert(message);
+
+        LOG_CONTEXT_PUSH_UNIT(u);
 
         /* This migrates the processes with the specified PIDs into the cgroup of this unit, optionally below a
          * specified cgroup path. Obviously this only works for units that actually maintain a cgroup
@@ -1677,6 +1699,8 @@ int bus_unit_method_remove_subgroup(sd_bus_message *message, void *userdata, sd_
         int r;
 
         assert(message);
+
+        LOG_CONTEXT_PUSH_UNIT(u);
 
         /* This removes a subcgroup of the unit, regardless which user owns the subcgroup. This is useful
          * when cgroup delegation is enabled for a unit, and the unit subdelegates the cgroup further */
