@@ -1652,9 +1652,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OUTPUT:
-                        if (isempty(optarg))
-                                arg_output = _OUTPUT_INVALID;
-                        else if (streq(optarg, "classic"))
+                        if (streq(optarg, "classic"))
                                 arg_output = OUTPUT_CLASSIC;
                         else if (streq(optarg, "friendly"))
                                 arg_output = OUTPUT_FRIENDLY;
