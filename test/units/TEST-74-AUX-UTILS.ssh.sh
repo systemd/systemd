@@ -43,8 +43,17 @@ usermod -U root
 
 mkdir -p /etc/ssh
 test -f /etc/ssh/ssh_host_rsa_key || ssh-keygen -t rsa -C '' -N '' -f /etc/ssh/ssh_host_rsa_key
-echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
-echo "LogLevel DEBUG3" >> /etc/ssh/sshd_config
+
+SSHD_CONF_P="/etc/ssh/sshd_config.d/test.conf"
+mkdir -p "$(basename ${SSHD_CONF_P})"
+{
+    echo "PermitRootLogin yes"
+    echo "LogLevel DEBUG3"
+} >"${SSHD_CONF_P}"
+rm_sshd_conf() {
+    rm -f "${SSHD_CONF_P}"
+}
+trap rm_sshd_conf EXIT
 
 test -f /etc/ssh/ssh_config || {
     echo 'Include /etc/ssh/ssh_config.d/*.conf'
