@@ -43,8 +43,13 @@ usermod -U root
 
 mkdir -p /etc/ssh
 test -f /etc/ssh/ssh_host_rsa_key || ssh-keygen -t rsa -C '' -N '' -f /etc/ssh/ssh_host_rsa_key
-echo "PermitRootLogin yes" >> /etc/ssh/sshd_config
-echo "LogLevel DEBUG3" >> /etc/ssh/sshd_config
+
+# Use /etc/ssh/sshd_config.d/ to not overwrite sshd config when config is in
+# /usr/etc/ssh/sshd_config
+{
+    echo "PermitRootLogin yes"
+    echo "LogLevel DEBUG3"
+} >/etc/ssh/sshd_config.d/test.conf
 
 test -f /etc/ssh/ssh_config || {
     echo 'Include /etc/ssh/ssh_config.d/*.conf'
