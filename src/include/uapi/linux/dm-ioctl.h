@@ -291,9 +291,9 @@ enum {
 #define DM_MPATH_PROBE_PATHS _IO(DM_IOCTL, DM_MPATH_PROBE_PATHS_CMD)
 
 #define DM_VERSION_MAJOR	4
-#define DM_VERSION_MINOR	27
+#define DM_VERSION_MINOR	41
 #define DM_VERSION_PATCHLEVEL	0
-#define DM_VERSION_EXTRA	"-ioctl (2025-04-28)"
+#define DM_VERSION_EXTRA	"-ioctl (2019-09-16)"
 
 /* Status bits */
 #define DM_READONLY_FLAG	(1 << 0) /* In/Out */
