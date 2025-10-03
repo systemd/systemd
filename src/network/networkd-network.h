@@ -411,6 +411,9 @@ typedef struct Network {
 
         /* NTP */
         char **ntp;
+
+        /* ModemManager support */
+        char **modem_simple_connect_props;
 } Network;
 
 Network *network_ref(Network *network);
