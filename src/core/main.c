@@ -2810,9 +2810,6 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
         fallback_rlimit_nofile(saved_rlimit_nofile);
         fallback_rlimit_memlock(saved_rlimit_memlock);
 
-        /* Note that this also parses bits from the kernel command line, including "debug". */
-        log_parse_environment();
-
         /* Initialize the show status setting if it hasn't been set explicitly yet */
         if (arg_show_status == _SHOW_STATUS_INVALID)
                 arg_show_status = SHOW_STATUS_YES;
@@ -2823,7 +2820,7 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
         /* Push variables into the manager environment block */
         setenv_manager_environment();
 
-        /* Parse log environment variables again to take into account any new environment variables. */
+        /* Parse log environment variables to take into account any new environment variables. */
         log_parse_environment();
 
         return 0;
