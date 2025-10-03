@@ -364,7 +364,7 @@ EOF
         check_session && break
     done
     check_session
-    assert_eq "$(loginctl --no-legend | grep -v manager | awk '$3=="logind-test-user" { print $7 }')" "tty2"
+    assert_eq "$(loginctl --no-legend | grep -v manager | awk '$3=="logind-test-user" { print $10 }')" "tty2"
 }
 
 testcase_sanity_check() {
@@ -580,9 +580,9 @@ testcase_list_users_sessions_seats() {
     assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $2 }')" "$(id -ru logind-test-user)"
     seat=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $4 }')
     assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $6 }')" user
-    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $7 }')" tty2
-    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $8 }')" no
-    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $9 }')" '-'
+    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $10 }')" tty2
+    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $11 }')" no
+    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $12 }')" '-'
 
     loginctl list-seats --no-legend | grep -Fwq "${seat?}"
 
