@@ -33,6 +33,7 @@ typedef enum CopyFlags {
          */
         COPY_NOCOW_AFTER                  = 1 << 20,
         COPY_PRESERVE_FS_VERITY           = 1 << 21, /* Preserve fs-verity when copying. */
+        COPY_MERGE_APPLY_STAT             = 1 << 22, /* When we reuse an existing directory inode, apply source ownership/mode/xattrs/timestamps */
 } CopyFlags;
 
 typedef enum DenyType {

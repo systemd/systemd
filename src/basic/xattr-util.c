@@ -477,3 +477,14 @@ int fd_setcrtime(int fd, usec_t usec) {
                               "user.crtime_usec", (const char*) &le, sizeof(le),
                               /* xattr_flags = */ 0);
 }
+
+bool xattr_is_acl(const char *name) {
+        return STRPTR_IN_SET(
+                        name,
+                        "system.posix_acl_access",
+                        "system.posix_acl_default");
+}
+
+bool xattr_is_selinux(const char *name) {
+        return streq_ptr(name, "security.selinux");
+}
