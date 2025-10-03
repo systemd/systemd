@@ -497,6 +497,7 @@ static int vl_method_mount_image(
                         di,
                         p.password,
                         &verity,
+                        use_policy,
                         dissect_flags);
         if (r == -ENOKEY) /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
                            * key chain. That's great. */
