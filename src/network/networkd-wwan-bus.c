@@ -578,7 +578,7 @@ static int bus_call_method_async_props(
                                                  *prop, link->network->filename);
 
                 type = prop_type_lookup(left);
-                if ((r < 0) || !type)
+                if (!type)
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                  "ModemManager: unknown simple connect option: %s, file: %s",
                                                  *prop, link->network->filename);
