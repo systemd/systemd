@@ -21,9 +21,9 @@ xsltproc_flags = [
         '--stringparam', 'systemd.version', '@0@'.format(meson.project_version()),
         '--path',
         '@0@:@1@:@2@:@3@'.format(meson.current_build_dir(),
-                             meson.current_source_dir(),
-                             libshared_build_dir,
-                             libcore_build_dir)]
+                                 meson.current_source_dir(),
+                                 libshared_build_dir,
+                                 libcore_build_dir)]
 
 custom_man_xsl = files('custom-man.xsl')
 custom_html_xsl = files('custom-html.xsl')
@@ -108,7 +108,7 @@ foreach tuple : manpages
                         html_pages += p3
                 endif
         else
-                message('Skipping @0@.@1@ because @2@ is false'.format(stem, section, condition))
+                message(f'Skipping @stem@.@section@ because @condition@ is false')
         endif
 endforeach
 

@@ -451,12 +451,12 @@ foreach efi_elf_binary : efi_elf_binaries
                 install_tag : 'systemd-boot',
                 command : [
                         elf2efi_py,
-                        '--version-major=' + project_major_version,
-                        '--version-minor=' + project_minor_version,
+                        f'--version-major=@project_major_version@',
+                        f'--version-minor=@project_minor_version@',
                         '--efi-major=1',
                         '--efi-minor=1',
                         '--subsystem=10',
-                        '--minimum-sections=@0@'.format(minimum_sections),
+                        f'--minimum-sections=@minimum_sections@',
                         '--copy-sections=.sbat,.sdmagic,.osrel',
                         '@INPUT@',
                         '@OUTPUT@',
@@ -467,11 +467,11 @@ foreach efi_elf_binary : efi_elf_binaries
         endif
 
         # This is supposed to match exactly one time
-        if name == 'addon@0@.efi.stub'.format(efi_arch)
+        if name == f'addon@efi_arch@.efi.stub'
                 efi_addon = [exe]
         endif
 
-        test('check-alignment-@0@'.format(name),
+        test(f'check-alignment-@name@',
              check_efi_alignment_py,
              args : exe,
              suite : 'boot')

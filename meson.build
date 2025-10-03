@@ -119,7 +119,7 @@ conf.set('HIGH_RLIMIT_NOFILE',          512*1024)
 # are absolute or relative.
 prefixdir = get_option('prefix')
 if not prefixdir.startswith('/')
-        error('Prefix is not absolute: "@0@"'.format(prefixdir))
+        error(f'Prefix is not absolute: "@prefixdir@"')
 endif
 
 prefixdir_noslash = '/' + prefixdir.strip('/')
@@ -570,7 +570,7 @@ long_max = cc.compute_int(
         guess : 0x7FFFFFFFFFFFFFFF,
         high : 0x7FFFFFFFFFFFFFFF)
 assert(long_max > 100000)
-conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
+conf.set_quoted('LONG_MAX_STR', f'@long_max@')
 
 foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
@@ -684,7 +684,7 @@ else
                 error('unable to determine gperf len type')
         endif
 endif
-message('gperf len type is @0@'.format(gperf_len_type))
+message(f'gperf len type is @gperf_len_type@')
 conf.set('GPERF_LEN_TYPE', gperf_len_type,
          description : 'The type of gperf "len" parameter')
 
@@ -696,7 +696,7 @@ foreach header : [
 ]
 
         if not cc.has_header(header)
-                error('Header file @0@ not found.'.format(header))
+                error(f'Header file @header@ not found')
         endif
 endforeach
 
@@ -831,7 +831,7 @@ if not meson.is_cross_build()
                         name = ret.stdout().split(':')[0]
                         if name != nobody_user
                                 warning('\n' +
-                                        'The local user with the UID 65534 does not match the configured user name "@0@" of the nobody user (its name is @1@).\n'.format(nobody_user, name) +
+                                        f'The local user with the UID 65534 does not match the configured user name "@nobody_user@" of the nobody user (its name is @name@).\n' +
                                         'Your build will result in an user table setup that is incompatible with the local system.')
                         endif
                 endif
@@ -842,7 +842,7 @@ if not meson.is_cross_build()
                         uid = ret.stdout().strip().to_int()
                         if uid != 65534
                                 warning('\n' +
-                                        'The local user with the configured user name "@0@" of the nobody user does not have UID 65534 (it has @1@).\n'.format(nobody_user, uid) +
+                                        f'The local user with the configured user name "@nobody_user@" of the nobody user does not have UID 65534 (it has @uid@).\n' +
                                         'Your build will result in an user table setup that is incompatible with the local system.')
                         endif
                 endif
@@ -854,7 +854,7 @@ if not meson.is_cross_build()
                         name = ret.stdout().split(':')[0]
                         if name != nobody_group
                                 warning('\n' +
-                                        'The local group with the GID 65534 does not match the configured group name "@0@" of the nobody group (its name is @1@).\n'.format(nobody_group, name) +
+                                        f'The local group with the GID 65534 does not match the configured group name "@nobody_group@" of the nobody group (its name is @name@).\n' +
                                         'Your build will result in an group table setup that is incompatible with the local system.')
                         endif
                 endif
@@ -865,7 +865,7 @@ if not meson.is_cross_build()
                         gid = ret.stdout().strip().to_int()
                         if gid != 65534
                                 warning('\n' +
-                                        'The local group with the configured group name "@0@" of the nobody group does not have GID 65534 (it has @1@).\n'.format(nobody_group, gid) +
+                                        f'The local group with the configured group name "@nobody_group@" of the nobody group does not have GID 65534 (it has @gid@).\n' +
                                         'Your build will result in an group table setup that is incompatible with the local system.')
                         endif
                 endif
@@ -873,7 +873,7 @@ if not meson.is_cross_build()
 endif
 if nobody_user != nobody_group and not (nobody_user == 'nobody' and nobody_group == 'nogroup')
         warning('\n' +
-                'The configured user name "@0@" and group name "@1@" of the nobody user/group are not equivalent.\n'.format(nobody_user, nobody_group) +
+                f'The configured user name "@nobody_user@" and group name "@nobody_group@" of the nobody user/group are not equivalent.\n' +
                 'Please re-check that both "nobody-user" and "nobody-group" options are correctly set.')
 endif
 
@@ -909,7 +909,7 @@ foreach option : ['adm-gid',
         # Ensure provided GID argument is positive, otherwise fall back to default assignment
         conf.set(name, val > 0 ? val : '-')
         if val > 0
-                static_ugids += '@0@:@1@'.format(option, val)
+                static_ugids += f'@option@:@val@'
         endif
 endforeach
 
@@ -926,9 +926,9 @@ tty_mode = get_option('tty-mode')
 # The setting is used as both octal integer and string through STRINGIFY().
 # Here, only check if the value starts with '06', and further check will be done in terminal-util.h.
 if not tty_mode.startswith('06')
-        error('Unexpected access mode "@0@" is specified for TTY/PTS device nodes, it must be "06xx".'.format(tty_mode))
+        error(f'Unexpected access mode "@tty_mode@" is specified for TTY/PTS device nodes, it must be "06xx"')
 elif tty_mode != '0600' and tty_mode != '0620'
-        warning('Unexpected access mode "@0@" is specified for TTY/PTS device nodes, typically it should be "0600" or "0620", proceeding anyway.'.format(tty_mode))
+        warning(f'Unexpected access mode "@tty_mode@" is specified for TTY/PTS device nodes, typically it should be "0600" or "0620", proceeding anyway')
 endif
 # Do not use set_quoted() here, so that the value is available as an integer.
 conf.set('TTY_MODE', tty_mode)
@@ -982,7 +982,7 @@ foreach name : get_option('debug-extra')
         elif name == 'siphash'
                 enable_debug_siphash = true
         else
-                message('unknown debug option "@0@", ignoring'.format(name))
+                message(f'unknown debug option "@name@", ignoring')
         endif
 endforeach
 conf.set10('ENABLE_DEBUG_HASHMAP', enable_debug_hashmap)
@@ -1950,7 +1950,7 @@ if use_provided_vmlinux_h
                 error('Path to provided vmlinux.h does not exist.')
         endif
         bpf_o_unstripped_cmd += ['-I' + fs.parent(provided_vmlinux_h_path)]
-        message('Using provided @0@'.format(provided_vmlinux_h_path))
+        message(f'Using provided @provided_vmlinux_h_path@')
 elif use_generated_vmlinux_h
         vmlinux_h_dependency = custom_target(
                 output: 'vmlinux.h',
@@ -2574,9 +2574,9 @@ foreach dict : executables
                 endif
 
                 if type == 'manual'
-                        message('@0@/@1@ is a manual test'.format(suite, name))
+                        message(f'@suite@/@name@ is a manual test')
                 elif type == 'unsafe' and want_tests != 'unsafe'
-                        message('@0@/@1@ is an unsafe test'.format(suite, name))
+                        message(f'@suite@/@name@ is an unsafe test')
                 elif dict.get('build_by_default')
                         test(name, exe,
                              env : test_env,
@@ -2677,7 +2677,7 @@ foreach dict : modules
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.
                 # Unfortunately shared_library insists on creating the symlink…
-                meson.add_install_script(sh, '-c', 'rm -f $DESTDIR@0@/lib@1@.so'.format(libdir, name),
+                meson.add_install_script(sh, '-c', f'rm -f $DESTDIR@libdir@/lib@name@.so',
                                          install_tag : 'nss')
                 nss_targets += lib
         endif
@@ -2893,7 +2893,7 @@ if git.found()
                 command : [git, 'archive',
                            '-o', '@0@/systemd-@1@.tar.gz'.format(meson.project_source_root(),
                                                                  git_head_short),
-                           '--prefix', 'systemd-@0@/'.format(git_head),
+                           '--prefix', f'systemd-@git_head@/',
                            'HEAD'])
 endif
 
@@ -2972,7 +2972,7 @@ if conf.get('ENABLE_HWDB') == 1
         alias_target('hwdb', auto_suspend_rules, executables_by_name.get('systemd-hwdb'), hwdb_units)
 endif
 
-alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch),
+alt_time_epoch = run_command('date', '-Is', '-u', '-d', f'@@time_epoch@',
                              check : true).stdout().strip()
 
 summary({
@@ -3001,15 +3001,15 @@ summary({
         'zsh completions directory'                 : zshcompletiondir,
         'private shared lib version tag'            : shared_lib_tag,
         'debug shell'                               : '@0@ @ @1@'.format(get_option('debug-shell'),
-                                                      get_option('debug-tty')),
+                                                                         get_option('debug-tty')),
         'system UIDs'                               : '<=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
                                                       conf.get('SYSTEM_ALLOC_UID_MIN')),
         'system GIDs'                               : '<=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),
                                                       conf.get('SYSTEM_ALLOC_GID_MIN')),
-        'greeter UIDs'                              : '@0@…@1@'.format(greeter_uid_min, greeter_uid_max),
-        'dynamic UIDs'                              : '@0@…@1@'.format(dynamic_uid_min, dynamic_uid_max),
-        'container UID bases'                       : '@0@…@1@'.format(container_uid_base_min, container_uid_base_max),
-        'foreign UID base'                          : '@0@'.format(foreign_uid_base),
+        'greeter UIDs'                              : f'@greeter_uid_min@…@greeter_uid_max@',
+        'dynamic UIDs'                              : f'@dynamic_uid_min@…@dynamic_uid_max@',
+        'container UID bases'                       : f'@container_uid_base_min@…@container_uid_base_max@',
+        'foreign UID base'                          : f'@foreign_uid_base@',
         'static UID/GID allocations'                : ' '.join(static_ugids),
         '/dev/kvm access mode'                      : get_option('dev-kvm-mode'),
         'render group access mode'                  : get_option('group-render-mode'),
@@ -3032,7 +3032,7 @@ summary({
         'default status unit format'                : status_unit_format_default,
         'default user $PATH'                        : default_user_path != '' ? default_user_path : '(same as system services)',
         'systemd service watchdog'                  : service_watchdog == '' ? 'disabled' : service_watchdog,
-        'time epoch'                                : '@0@ (@1@)'.format(time_epoch, alt_time_epoch)
+        'time epoch'                                : f'@time_epoch@ (@alt_time_epoch@)',
 })
 
 # TODO:
@@ -3191,13 +3191,13 @@ endforeach
 if static_libsystemd == 'false'
         missing += 'static-libsystemd'
 else
-        found += 'static-libsystemd(@0@)'.format(static_libsystemd)
+        found += f'static-libsystemd(@static_libsystemd@)'
 endif
 
 if static_libudev == 'false'
         missing += 'static-libudev'
 else
-        found += 'static-libudev(@0@)'.format(static_libudev)
+        found += f'static-libudev(@static_libudev@)'
 endif
 
 summary({
