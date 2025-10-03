@@ -3311,6 +3311,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) SystemCallLog = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s LandlockConfig = '...'';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Personality = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b LockPersonality = ...;
@@ -3941,6 +3943,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property SystemCallErrorNumber is not documented!-->
 
     <!--property SystemCallLog is not documented!-->
+
+    <!--property LandlockConfig is not documented!-->
 
     <!--property Personality is not documented!-->
 
@@ -4661,6 +4665,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="SystemCallErrorNumber"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SystemCallLog"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LandlockConfig"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Personality"/>
 
@@ -5558,6 +5564,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) SystemCallLog = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s LandlockConfig = '...'';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Personality = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b LockPersonality = ...;
@@ -6208,6 +6216,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <!--property SystemCallErrorNumber is not documented!-->
 
     <!--property SystemCallLog is not documented!-->
+
+    <!--property LandlockConfig is not documented!-->
 
     <!--property Personality is not documented!-->
 
@@ -6908,6 +6918,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2esocket {
     <variablelist class="dbus-property" generated="True" extra-ref="SystemCallErrorNumber"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SystemCallLog"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LandlockConfig"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Personality"/>
 
@@ -7629,6 +7641,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) SystemCallLog = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s LandlockConfig = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Personality = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b LockPersonality = ...;
@@ -8201,6 +8215,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <!--property SystemCallErrorNumber is not documented!-->
 
     <!--property SystemCallLog is not documented!-->
+
+    <!--property LandlockConfig is not documented!-->
 
     <!--property Personality is not documented!-->
 
@@ -8809,6 +8825,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-property" generated="True" extra-ref="SystemCallErrorNumber"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SystemCallLog"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LandlockConfig"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Personality"/>
 
@@ -9663,6 +9681,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (bas) SystemCallLog = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s LandlockConfig = '...'';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Personality = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b LockPersonality = ...;
@@ -10217,6 +10237,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <!--property SystemCallErrorNumber is not documented!-->
 
     <!--property SystemCallLog is not documented!-->
+
+    <!--property LandlockConfig is not documented!-->
 
     <!--property Personality is not documented!-->
 
@@ -10807,6 +10829,8 @@ node /org/freedesktop/systemd1/unit/dev_2dsda3_2eswap {
     <variablelist class="dbus-property" generated="True" extra-ref="SystemCallErrorNumber"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SystemCallLog"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="LandlockConfig"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Personality"/>
 

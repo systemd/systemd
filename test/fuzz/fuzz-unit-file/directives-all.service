@@ -837,6 +837,7 @@ KillSignal=
 WatchdogSignal=
 KillUserProcesses=
 LOCATION=
+LandlockConfig=
 LidSwitchIgnoreInhibited=
 LimitAS=
 LimitCORE=
