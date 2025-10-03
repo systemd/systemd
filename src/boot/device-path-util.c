@@ -186,6 +186,69 @@ size_t device_path_size(const EFI_DEVICE_PATH *dp) {
         return (const uint8_t*) i - (const uint8_t*) dp + sizeof(EFI_DEVICE_PATH);
 }
 
+size_t device_path_size_with_limit(const EFI_DEVICE_PATH *dp, size_t limit) {
+        const EFI_DEVICE_PATH *i = ASSERT_PTR(dp);
+        size_t size = 0;
+
+        /* Never read past 'limit' bytes, useful when processing userspace vars. If it is reached, truncate
+         * to the last item that fits, which might be none. */
+
+        for (; !device_path_is_end(i); i = device_path_next_node(i)) {
+                if (SIZE_MAX - size < i->Length)
+                        return size;
+                if (size + i->Length > limit)
+                        return size;
+                size += i->Length;
+                if (SIZE_MAX - size < sizeof(EFI_DEVICE_PATH))
+                        return size;
+                if (size + sizeof(EFI_DEVICE_PATH) > limit)
+                        return size;
+        }
+
+        return size + sizeof(EFI_DEVICE_PATH);
+}
+
 EFI_DEVICE_PATH *device_path_dup(const EFI_DEVICE_PATH *dp) {
         return xmemdup(ASSERT_PTR(dp), device_path_size(dp));
+}
+
+EFI_DEVICE_PATH *device_path_find_type(EFI_DEVICE_PATH **dp, uint8_t type) {
+        EFI_DEVICE_PATH *next;
+
+        assert(dp);
+        assert(*dp);
+
+        for (;;) {
+                next = device_path_next_node(*dp);
+
+                if ((*dp)->Type == type)
+                        break;
+
+                *dp = next;
+        }
+
+        return next;
+}
+
+EFI_DEVICE_PATH *device_path_instance(EFI_DEVICE_PATH **device_path, size_t *ret_size) {
+        EFI_DEVICE_PATH *head, *dp;
+
+        assert(device_path);
+        assert(ret_size);
+
+        if (!*device_path) {
+                *ret_size = 0;
+                return NULL;
+        }
+
+        dp = head = *device_path;
+
+        /* Skip through all subtypes until the last node and return it */
+        *device_path = device_path_find_type(&dp, END_DEVICE_PATH_TYPE);
+        if (dp->SubType == END_ENTIRE_DEVICE_PATH_SUBTYPE)
+                *device_path = NULL;
+
+        *ret_size = (uint8_t *) dp - (uint8_t *) head;
+
+        return head;
 }
