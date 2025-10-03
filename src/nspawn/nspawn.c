@@ -286,42 +286,6 @@ STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 
-static int handle_arg_console(const char *arg) {
-        if (streq(arg, "help")) {
-                puts("autopipe\n"
-                     "interactive\n"
-                     "passive\n"
-                     "pipe\n"
-                     "read-only");
-                return 0;
-        }
-
-        if (streq(arg, "interactive"))
-                arg_console_mode = CONSOLE_INTERACTIVE;
-        else if (streq(arg, "read-only"))
-                arg_console_mode = CONSOLE_READ_ONLY;
-        else if (streq(arg, "passive"))
-                arg_console_mode = CONSOLE_PASSIVE;
-        else if (streq(arg, "pipe")) {
-                if (isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO))
-                        log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE,
-                                 "Console mode 'pipe' selected, but standard input/output are connected to an interactive TTY. "
-                                 "Most likely you want to use 'interactive' console mode for proper interactivity and shell job control. "
-                                 "Proceeding anyway.");
-
-                arg_console_mode = CONSOLE_PIPE;
-        } else if (streq(arg, "autopipe")) {
-                if (isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO))
-                        arg_console_mode = CONSOLE_INTERACTIVE;
-                else
-                        arg_console_mode = CONSOLE_PIPE;
-        } else
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown console mode: %s", optarg);
-
-        arg_settings_mask |= SETTING_CONSOLE_MODE;
-        return 1;
-}
-
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1133,10 +1097,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         if (!optarg)
                                 arg_volatile_mode = VOLATILE_YES;
-                        else if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(volatile_mode, VolatileMode, _VOLATILE_MODE_MAX);
-                                return 0;
-                        } else {
+                        else if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(volatile_mode, VolatileMode, _VOLATILE_MODE_MAX);
+                        else {
                                 VolatileMode m;
 
                                 m = volatile_mode_from_string(optarg);
@@ -1238,10 +1201,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PRIVATE_USERS_OWNERSHIP:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(user_namespace_ownership, UserNamespaceOwnership, _USER_NAMESPACE_OWNERSHIP_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(user_namespace_ownership, UserNamespaceOwnership, _USER_NAMESPACE_OWNERSHIP_MAX);
 
                         arg_userns_ownership = user_namespace_ownership_from_string(optarg);
                         if (arg_userns_ownership < 0)
@@ -1251,10 +1212,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KILL_SIGNAL:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(signal, int, _NSIG);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(signal, int, _NSIG);
 
                         arg_kill_signal = signal_from_string(optarg);
                         if (arg_kill_signal < 0)
@@ -1413,10 +1372,8 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ char *name = NULL;
                         int rl;
 
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(rlimit, int, _RLIMIT_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(rlimit, int, _RLIMIT_MAX);
 
                         eq = strchr(optarg, '=');
                         if (!eq)
@@ -1467,10 +1424,8 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_RESOLV_CONF:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(resolv_conf_mode, ResolvConfMode, _RESOLV_CONF_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(resolv_conf_mode, ResolvConfMode, _RESOLV_CONF_MODE_MAX);
 
                         arg_resolv_conf = resolv_conf_mode_from_string(optarg);
                         if (arg_resolv_conf < 0)
@@ -1481,10 +1436,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMEZONE:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(timezone_mode, TimezoneMode, _TIMEZONE_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(timezone_mode, TimezoneMode, _TIMEZONE_MODE_MAX);
 
                         arg_timezone = timezone_mode_from_string(optarg);
                         if (arg_timezone < 0)
@@ -1495,16 +1448,21 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CONSOLE:
-                        r = handle_arg_console(optarg);
-                        if (r <= 0)
-                                return r;
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(console_mode, ConsoleMode, _CONSOLE_MODE_MAX);
+
+                        arg_console_mode = console_mode_from_string(optarg);
+                        if (arg_console_mode < 0)
+                                return log_error_errno(arg_console_mode, "Unknown console mode: %s", optarg);
+
+                        arg_settings_mask |= SETTING_CONSOLE_MODE;
+
                         break;
 
                 case 'P':
                 case ARG_PIPE:
-                        r = handle_arg_console("pipe");
-                        if (r <= 0)
-                                return r;
+                        arg_console_mode = CONSOLE_PIPE;
+                        arg_settings_mask |= SETTING_CONSOLE_MODE;
                         break;
 
                 case ARG_NO_PAGER:
@@ -1737,6 +1695,12 @@ static int verify_arguments(void) {
         r = custom_mount_check_all();
         if (r < 0)
                 return r;
+
+        if (arg_console_mode == CONSOLE_PIPE && isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO))
+                log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE,
+                        "Console mode 'pipe' selected, but standard input/output are connected to an interactive TTY. "
+                        "Most likely you want to use 'interactive' console mode for proper interactivity and shell job control. "
+                        "Proceeding anyway.");
 
         return 0;
 }
@@ -5982,6 +5946,13 @@ static int run(int argc, char *argv[]) {
         if (arg_console_mode < 0)
                 arg_console_mode = isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO) ?
                                    CONSOLE_INTERACTIVE : CONSOLE_READ_ONLY;
+
+        if (arg_console_mode == CONSOLE_AUTOPIPE) {
+                if (isatty_safe(STDIN_FILENO) && isatty_safe(STDOUT_FILENO))
+                        arg_console_mode = CONSOLE_INTERACTIVE;
+                else
+                        arg_console_mode = CONSOLE_PIPE;
+        }
 
         if (arg_console_mode == CONSOLE_PIPE) /* if we pass STDERR on to the container, don't add our own logs into it too */
                 arg_quiet = true;

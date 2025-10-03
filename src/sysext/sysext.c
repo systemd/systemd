@@ -2581,8 +2581,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (arg_legend)
                                         puts("Known mutability modes:");
 
-                                DUMP_STRING_TABLE(mutable_mode, MutableMode, _MUTABLE_MAX);
-                                return 0;
+                                return DUMP_STRING_TABLE(mutable_mode, MutableMode, _MUTABLE_MAX);
                         }
 
                         r = parse_mutable_mode(optarg);

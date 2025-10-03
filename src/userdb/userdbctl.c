@@ -26,6 +26,7 @@
 #include "pretty-print.h"
 #include "recurse-dir.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "uid-classification.h"
@@ -37,14 +38,16 @@
 #include "verbs.h"
 #include "virt.h"
 
-static enum {
+typedef enum {
         OUTPUT_CLASSIC,
         OUTPUT_TABLE,
         OUTPUT_FRIENDLY,
         OUTPUT_JSON,
+        _OUTPUT_MAX,
         _OUTPUT_INVALID = -EINVAL,
-} arg_output = _OUTPUT_INVALID;
+} Output;
 
+static Output arg_output = _OUTPUT_INVALID;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static char** arg_services = NULL;
@@ -60,6 +63,15 @@ static sd_json_variant *arg_from_file = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_services, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_from_file, sd_json_variant_unrefp);
+
+static const char *output_table[_OUTPUT_MAX] = {
+        [OUTPUT_CLASSIC]  = "classic",
+        [OUTPUT_TABLE]    = "table",
+        [OUTPUT_FRIENDLY] = "friendly",
+        [OUTPUT_JSON]     = "json",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(output, Output);
 
 static const char *user_disposition_to_color(UserDisposition d) {
         assert(d >= 0);
@@ -1652,24 +1664,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OUTPUT:
-                        if (isempty(optarg))
-                                arg_output = _OUTPUT_INVALID;
-                        else if (streq(optarg, "classic"))
-                                arg_output = OUTPUT_CLASSIC;
-                        else if (streq(optarg, "friendly"))
-                                arg_output = OUTPUT_FRIENDLY;
-                        else if (streq(optarg, "json"))
-                                arg_output = OUTPUT_JSON;
-                        else if (streq(optarg, "table"))
-                                arg_output = OUTPUT_TABLE;
-                        else if (streq(optarg, "help")) {
-                                puts("classic\n"
-                                     "friendly\n"
-                                     "json\n"
-                                     "table");
-                                return 0;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid --output= mode: %s", optarg);
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(output, Output, _OUTPUT_MAX);
+
+                        arg_output = output_from_string(optarg);
+                        if (arg_output < 0)
+                                return log_error_errno(arg_output, "Invalid --output= mode: %s", optarg);
 
                         arg_json_format_flags = arg_output == OUTPUT_JSON ? SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO : SD_JSON_FORMAT_OFF;
                         break;

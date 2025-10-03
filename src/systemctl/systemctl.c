@@ -810,10 +810,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
 
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
@@ -899,10 +897,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PRESET_MODE:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MODE_MAX);
 
                         arg_preset_mode = unit_file_preset_mode_from_string(optarg);
                         if (arg_preset_mode < 0)
@@ -964,10 +960,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMESTAMP_STYLE:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(timestamp_style, TimestampStyle, _TIMESTAMP_STYLE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(timestamp_style, TimestampStyle, _TIMESTAMP_STYLE_MAX);
 
                         arg_timestamp_style = timestamp_style_from_string(optarg);
                         if (arg_timestamp_style < 0)

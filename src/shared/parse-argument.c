@@ -110,10 +110,8 @@ int parse_signal_argument(const char *s, int *ret) {
         assert(s);
         assert(ret);
 
-        if (streq(s, "help")) {
-                DUMP_STRING_TABLE(signal, int, _NSIG);
-                return 0;
-        }
+        if (streq(s, "help"))
+                return DUMP_STRING_TABLE(signal, int, _NSIG);
 
         if (streq(s, "list")) {
                 _cleanup_(table_unrefp) Table *table = NULL;

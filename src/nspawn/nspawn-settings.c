@@ -914,6 +914,16 @@ static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);
 
+static const char *const console_mode_table[_CONSOLE_MODE_MAX] = {
+        [CONSOLE_AUTOPIPE]    = "autopipe",
+        [CONSOLE_INTERACTIVE] = "interactive",
+        [CONSOLE_READ_ONLY]   = "read-only",
+        [CONSOLE_PASSIVE]     = "passive",
+        [CONSOLE_PIPE]        = "pipe",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
+
 DEFINE_CONFIG_PARSE_ENUM(config_parse_userns_ownership, user_namespace_ownership, UserNamespaceOwnership);
 
 static const char *const user_namespace_ownership_table[_USER_NAMESPACE_OWNERSHIP_MAX] = {
