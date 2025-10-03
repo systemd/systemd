@@ -4857,7 +4857,7 @@ _public_ int sd_event_loop(sd_event *e) {
                 if (r < 0)
                         return r;
         }
-
+        printf("event state is finished, exit code is %d", e->exit_code);
         return e->exit_code;
 }
 

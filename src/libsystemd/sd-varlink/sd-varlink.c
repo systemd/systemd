@@ -1681,6 +1681,7 @@ _public_ int sd_varlink_is_idle(sd_varlink *v) {
         /* Returns true if there's nothing pending on the connection anymore, i.e. we processed all incoming
          * or outgoing messages fully, or finished disconnection */
 
+        printf("sd_varlink_is_idle varlink state: %d\n", v->state);
         return IN_SET(v->state, VARLINK_DISCONNECTED, VARLINK_IDLE_CLIENT, VARLINK_IDLE_SERVER);
 }
 
