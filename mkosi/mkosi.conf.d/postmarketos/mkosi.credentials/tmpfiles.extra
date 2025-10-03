@@ -1,0 +1,4 @@
+# The testuser is created by systemd-sysusers, hence home directory does not exist,
+# which is necessary for testing user session.
+
+Q /home/testuser 0700 testuser testuser - -

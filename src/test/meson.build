@@ -14,8 +14,10 @@ path = run_command(sh, '-c', 'echo "$PATH"', check: true).stdout().strip()
 test_env = {
         'PATH' : meson.project_build_root() + ':' + path,
         'PROJECT_BUILD_ROOT' : meson.project_build_root(),
+        'SYSTEMD_DEFAULT_LOCALE' : get_option('default-locale'),
         'SYSTEMD_SLOW_TESTS' : want_slow_tests ? '1' : '0',
         'PYTHONDONTWRITEBYTECODE' : '1',
+        'SYSTEMD_LIBC' : get_option('libc'),
 }
 if conf.get('ENABLE_LOCALED') == 1
         test_env += {'SYSTEMD_LANGUAGE_FALLBACK_MAP' : language_fallback_map}
@@ -403,6 +405,12 @@ executables += [
         test_template + {
                 'sources' : files('test-shift-uid.c'),
                 'type' : 'manual',
+        },
+        test_template + {
+                'sources' : files(
+                        'test-printf.c',
+                        '../libc/musl/printf.c'
+                ),
         },
         test_template + {
                 'sources' : files('test-process-util.c'),

@@ -39,12 +39,14 @@ assert_cc(sizeof(gid_t) == sizeof(uint32_t));
 #  error Unknown timex member size
 #endif
 
-#if SIZEOF_RLIM_T == 8
-#  define RLIM_FMT "%" PRIu64
-#elif SIZEOF_RLIM_T == 4
-#  define RLIM_FMT "%" PRIu32
-#else
-#  error Unknown rlim_t size
+#ifndef RLIM_FMT
+#  if SIZEOF_RLIM_T == 8
+#    define RLIM_FMT "%" PRIu64
+#  elif SIZEOF_RLIM_T == 4
+#    define RLIM_FMT "%" PRIu32
+#  else
+#    error Unknown rlim_t size
+#  endif
 #endif
 
 #if SIZEOF_DEV_T == 8

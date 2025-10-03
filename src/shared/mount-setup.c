@@ -43,20 +43,6 @@ typedef struct MountPoint {
         bool (*condition_fn)(void);
 } MountPoint;
 
-static bool cgroupfs_recursiveprot_supported(void) {
-        int r;
-
-        /* Added in kernel 5.7 */
-
-        r = mount_option_supported("cgroup2", "memory_recursiveprot", /* value = */ NULL);
-        if (r < 0)
-                log_debug_errno(r, "Failed to determine whether cgroupfs supports 'memory_recursiveprot' mount option, assuming not: %m");
-        else if (r == 0)
-                log_debug("'memory_recursiveprot' not supported by cgroupfs, not using mount option.");
-
-        return r > 0;
-}
-
 int mount_cgroupfs(const char *path) {
         assert(path);
 
@@ -69,7 +55,7 @@ int mount_cgroupfs(const char *path) {
 
         return mount_nofollow_verbose(LOG_ERR, "cgroup2", path, "cgroup2",
                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                                      cgroupfs_recursiveprot_supported() ? "nsdelegate,memory_recursiveprot" : "nsdelegate");
+                                      "nsdelegate,memory_recursiveprot");
 }
 
 static const MountPoint mount_table[] = {
@@ -98,8 +84,6 @@ static const MountPoint mount_table[] = {
         { "tmpfs",       "/run",                      "tmpfs",      "mode=0755" TMPFS_LIMITS_RUN,               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
           MNT_FATAL|MNT_IN_CONTAINER },
         { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate,memory_recursiveprot",          MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE, cgroupfs_recursiveprot_supported },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
           MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
 #if ENABLE_PSTORE
         { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,

@@ -182,6 +182,11 @@ if get_option('mode') == 'developer' and get_option('debug')
         efi_c_args += '-DEFI_DEBUG'
 endif
 
+if get_option('libc') == 'musl'
+        # To make musl not define wchar_t as int, rather than short.
+        efi_c_args += '-D__DEFINED_wchar_t'
+endif
+
 efi_c_ld_args = [
         '-nostdlib',
         '-static-pie',

@@ -12,6 +12,7 @@
 #include "apparmor-util.h"
 #include "architecture.h"
 #include "battery-util.h"
+#include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "condition.h"
 #include "confidential-virt.h"
@@ -131,12 +132,9 @@ TEST(condition_test_control_group_controller) {
         Condition *condition;
         CGroupMask system_mask;
         _cleanup_free_ char *controller_name = NULL;
-        int r;
 
-        r = cg_unified();
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
+        if (cg_is_ready() <= 0)
                 return (void) log_tests_skipped("cgroupfs is not mounted");
-        ASSERT_OK(r);
 
         /* Invalid controllers are ignored */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, false)));
@@ -669,8 +667,10 @@ TEST(condition_test_version) {
         condition_free(condition);
 
         /* Test glibc version */
+        bool expected = !!gnu_get_libc_version();
+
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 1", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_EQ(condition_test(condition, environ), expected);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 2", false, false)));
@@ -678,7 +678,7 @@ TEST(condition_test_version) {
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 9999", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_EQ(condition_test(condition, environ), expected);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 9999", false, false)));
@@ -688,7 +688,7 @@ TEST(condition_test_version) {
         v = strjoina("glibc = ", gnu_get_libc_version());
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_EQ(condition_test(condition, environ), expected);
         condition_free(condition);
 
         v = strjoina("glibc != ", gnu_get_libc_version());
@@ -1327,7 +1327,6 @@ TEST(condition_test_os_release) {
 TEST(condition_test_psi) {
         Condition *condition;
         CGroupMask mask;
-        int r;
 
         if (!is_pressure_supported())
                 return (void) log_notice("Pressure Stall Information (PSI) is not supported, skipping %s", __func__);
@@ -1412,11 +1411,8 @@ TEST(condition_test_psi) {
         ASSERT_OK(condition_test(condition, environ));
         condition_free(condition);
 
-        r = cg_all_unified();
-        if (r < 0)
-                return (void) log_notice("Failed to determine whether the unified cgroups hierarchy is used, skipping %s", __func__);
-        if (r == 0)
-                return (void) log_notice("Requires the unified cgroups hierarchy, skipping %s", __func__);
+        if (cg_is_ready() <= 0)
+                return (void) log_tests_skipped("cgroupfs is not mounted");
 
         if (cg_mask_supported(&mask) < 0)
                 return (void) log_notice("Failed to get supported cgroup controllers, skipping %s", __func__);

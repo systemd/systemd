@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include_next <malloc.h>        /* IWYU pragma: export */
+#include <errno.h>
+#include <stdio.h>
 
-#if !HAVE_MALLINFO2
+#include_next <malloc.h>
+
 struct mallinfo2 {
         size_t arena;    /* non-mmapped space allocated from system */
         size_t ordblks;  /* number of free chunks */
@@ -18,22 +20,17 @@ struct mallinfo2 {
 };
 
 static inline struct mallinfo2 mallinfo2(void) {
-        _Pragma("GCC diagnostic push");
-        _Pragma("GCC diagnostic ignored \"-Wdeprecated-declarations\"");
-        struct mallinfo m = mallinfo();
-        _Pragma("GCC diagnostic pop");
-
-        return (struct mallinfo2) {
-                .arena = m.arena,
-                .ordblks = m.ordblks,
-                .smblks = m.smblks,
-                .hblks = m.hblks,
-                .hblkhd = m.hblkhd,
-                .usmblks = 0,
-                .fsmblks = m.fsmblks,
-                .uordblks = m.uordblks,
-                .fordblks = m.fordblks,
-                .keepcost = m.keepcost,
-        };
+        return (struct mallinfo2) {};
 }
-#endif
+
+static inline int malloc_info(int options, FILE *stream) {
+        if (options != 0)
+                errno = EINVAL;
+        else
+                errno = EOPNOTSUPP;
+        return -1;
+}
+
+static inline int malloc_trim(size_t pad) {
+        return 0;
+}

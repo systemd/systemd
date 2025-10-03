@@ -35,6 +35,8 @@ at_exit() {
 trap at_exit EXIT
 
 testcase_basic() {
+    local expected_comm
+
     # Verify current process is PID1 in new namespace
     assert_eq "$(systemd-run -p PrivatePIDs=yes --wait --pipe readlink /proc/self)" "1"
     # Verify we are only processes in new namespace
@@ -48,9 +50,18 @@ testcase_basic() {
 
     # Verify main PID is correct
     systemd-run -p PrivatePIDs=yes --remain-after-exit --unit TEST-07-PID1-private-pid sleep infinity
+
+    # Workaround for the case that coreutils is built with --enable-single-binary=symlinks. In that case,
+    # coreutils calls prctl(PR_SET_NAME, argv[0]), hence the comm will be the path to the symlink.
+    # If the sleep file is a dedicated binary, the comm will be the filename, i.e. "sleep", as usual.
+    expected_comm="$(command -v sleep)"
+    if [[ ! -L "$expected_comm" ]]; then
+        expected_comm="sleep"
+    fi
+
     # Wait for ExecMainPID to be correctly populated as there might be a race between spawning service
     # and actual exec child process
-    timeout 10s bash -xec 'until [[ "$(cat /proc/$(systemctl show TEST-07-PID1-private-pid.service -p ExecMainPID --value)/comm)" == sleep ]]; do sleep .5; done'
+    timeout 10s bash -xec 'until [[ "$(cat /proc/$(systemctl show TEST-07-PID1-private-pid.service -p ExecMainPID --value)/comm)" == '"$expected_comm"' ]]; do sleep .5; done'
     pid=$(systemctl show TEST-07-PID1-private-pid.service -p ExecMainPID --value)
     kill -9 "$pid"
     timeout 10s bash -xec 'while [[ "$(systemctl show -P SubState TEST-07-PID1-private-pid.service)" != "failed" ]]; do sleep .5; done'

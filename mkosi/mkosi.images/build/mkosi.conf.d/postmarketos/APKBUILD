@@ -1,0 +1,500 @@
+# Contributor: Jakub Panek <me@panekj.dev>
+# Maintainer: Casey Connolly <kcxt@postmarketos.org>
+# Co-Maintainer: jane400 <jane400@postmarketos.org>
+
+#########################################################
+# Make sure to upgrade systemd-stage0 at the same time! #
+#########################################################
+
+pkgname=systemd
+pkgver=257.8
+_pkgver="musl-v${pkgver//_/-}-split-usr"
+pkgrel=2
+pkgdesc="System and service manager"
+url="https://github.com/systemd/systemd"
+# ppc64le and s390x blocked by pmboostrap not supporting
+# armhf blocked by pmb#2618
+arch="all !ppc64le !s390x !armhf"
+license="MIT AND GPL-2.0-only AND LGPL-2.1-or-later"
+options="pmb:strict !check" # few tests fail, need to debug. We use alpine dbus for building, systemd-dbus for runtime
+
+triggers="$pkgname.trigger=/usr/lib/systemd/catalog:\
+/usr/lib/udev/hwdb.d:\
+/usr/lib/binfmt.d:\
+/usr/lib/sysusers.d:\
+/usr/lib/tmpfiles.d:\
+/usr/lib/udev/rules.d:\
+/usr/lib/sysctl.d:\
+/usr/lib/systemd/system:\
+/usr/lib/systemd/user:\
+/etc/systemd/system:\
+/etc/systemd/user
+"
+
+makedepends="
+	acl
+	acl-dev
+	audit-dev
+	bash
+	bash-completion
+	bpftool
+	clang
+	cmake
+	coreutils
+	cryptsetup-dev
+	curl-dev
+	elfutils
+	glib-dev
+	gperf
+	kmod-dev
+	libapparmor-dev
+	libbpf-dev
+	libbz2
+	libcap-dev
+	libfido2-dev
+	libgcc
+	libgcrypt-dev
+	libintl
+	libiptcdata-dev
+	libmicrohttpd-dev
+	libpwquality
+	libqrencode-dev
+	libseccomp-dev
+	libselinux-dev
+	libxkbcommon-dev
+	linux-pam-dev
+	linux-stable-dev
+	llvm15
+	lz4-dev
+	meson
+	musl-dev
+	pcre2-dev
+	perl
+	pkgconf
+	py3-jinja2
+	py3-lxml
+	python3-dev
+	rsync
+	tpm2-tss-mu
+	tzdata
+	util-linux-dev
+	xz-dev
+	zstd-dev
+
+	dbus-dev
+	polkit-dev
+	"
+
+# provides=openrc and openrc-settingsd to prevent those packages
+# getting pulled in, as there are some conflicts (dbus)
+provides="busctl eudev openrc-settingsd=$pkgver-r$pkgrel systemd-stage0=$pkgver-r$pkgrel"
+provider_priority=100
+
+install="$pkgname.pre-install"
+subpackages="
+	$pkgname-lang
+	$pkgname-dbg
+	$pkgname-dev
+	$pkgname-doc
+	$pkgname-x11
+
+	$pkgname-udevd
+	$pkgname-udevd-zsh-completion:udevd_zcomp:noarch
+	$pkgname-udevd-bash-completion:udevd_bcomp:noarch
+
+	$pkgname-timesyncd
+	$pkgname-timesyncd-zsh-completion:timesyncd_zcomp:noarch
+	$pkgname-timesyncd-bash-completion:timesyncd_bcomp:noarch
+
+	$pkgname-networkd
+	$pkgname-networkd-zsh-completion:networkd_zcomp:noarch
+	$pkgname-networkd-bash-completion:networkd_bcomp:noarch
+
+	$pkgname-resolved
+	$pkgname-resolved-zsh-completion:resolved_zcomp:noarch
+	$pkgname-resolved-bash-completion:resolved_bcomp:noarch
+
+	$pkgname-logind
+	$pkgname-logind-zsh-completion:logind_zcomp:noarch
+	$pkgname-logind-bash-completion:logind_bcomp:noarch
+
+	$pkgname-journald
+	$pkgname-journald-zsh-completion:journald_zcomp:noarch
+	$pkgname-journald-bash-completion:journald_bcomp:noarch
+
+	$pkgname-libs
+
+	$pkgname-bash-completion
+	$pkgname-zsh-completion
+	"
+
+source="
+	https://gitlab.postmarketos.org/postmarketOS/systemd/-/archive/$_pkgver/systemd-$_pkgver.tar.gz
+	wired.network
+	"
+builddir="$srcdir/systemd-$_pkgver"
+mesondir="$builddir/build"
+
+_bashcomp="usr/share/bash-completion/completions"
+_zshcomp="usr/share/zsh/site-functions"
+
+if [ "${SYSTEMD_UPSTREAM:-}" = 1 ]; then
+    options="pmb:strict"
+
+    makedepends="
+	$makedepends
+	agetty
+	bash-completion-dev
+	bzip2-dev
+	coreutils-env
+	diffutils
+	gettext-dev
+	gnutls-dev
+	grep
+	kbd
+	kexec-tools
+	kmod
+	libarchive-dev
+	libidn2-dev
+	libpwquality-dev
+	openssl-dev
+	p11-kit-dev
+	py3-elftools
+	py3-pefile
+	py3-pytest
+	quota-tools
+	sed
+	sfdisk
+	tpm2-tss-dev
+	tpm2-tss-esys
+	tpm2-tss-rc
+	tpm2-tss-tcti-device
+	util-linux-login
+	util-linux-misc
+	valgrind-dev
+	xen-dev
+	zlib-dev
+	"
+    subpackages="
+	$subpackages
+	$pkgname-boot
+	$pkgname-tests
+	$pkgname-ukify
+	"
+
+    # $startdir : contains APKBUILD file,
+    # $srcdir   : contains package specific files, must be $startdir in
+    #             upstream case, but defaults to $startdir/src,
+    # $builddir : contains the systemd source, i.e. $SRCDIR,
+    # $mesondir : used for storing meson/ninja output, i.e. $BUILDDIR,
+    srcdir="$startdir"
+    builddir="$SRCDIR"
+    mesondir="$BUILDDIR"
+fi
+
+_default_bashcomp() {
+	depends=""
+	pkgdesc="Bash completions for $pkgname"
+	install_if="$pkgname=$pkgver-r$pkgrel bash-completion"
+
+	cd "$pkgdir" || return 0
+	amove "$_bashcomp/$1"
+}
+
+_default_zshcomp() {
+	depends=""
+	pkgdesc="Zsh completions for $pkgname"
+	install_if="$pkgname=$pkgver-r$pkgrel zsh"
+
+	cd "$pkgdir" || return 0
+	amove "$_zshcomp/$1"
+}
+
+build() {
+	abuild-meson \
+		-Dmode=developer \
+		\
+		-Ddebug-shell=/bin/ash \
+		\
+		-Dsystem-alloc-uid-min=101 \
+		-Dsystem-alloc-gid-min=101 \
+		-Dsystem-uid-max=999 \
+		-Dsystem-gid-max=999 \
+		-Dwheel-group=true \
+		-Dnobody-user=nobody \
+		-Dnobody-group=nobody \
+		\
+		-Ddefault-kill-user-processes=true \
+		-Ddefault-locale=en_US.UTF-8 \
+		\
+		-Ddefault-dns-over-tls=yes \
+		-Ddns-over-tls=openssl \
+		-Ddns-servers="9.9.9.10#dns10.quad9.net 149.112.112.10#dns10.quad9.net 2620:fe::10#dns10.quad9.net 2620:fe::fe:10#dns10.quad9.net" \
+		-Dntp-servers="0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 4.pool.ntp.org" \
+		\
+		-Dbpf-framework=enabled \
+		-Dvmlinux-h=provided \
+		-Dvmlinux-h-path="$(find /usr/src -path "/usr/src/linux-headers-*-stable/vmlinux.h" | sort -V | tail -n1)" \
+		-Dlibc=musl \
+		-Dinstall-tests=true \
+		-Dwerror=true \
+		"$mesondir" .
+	meson compile ${JOBS:+-j ${JOBS}} -C "$mesondir"
+}
+
+check() {
+	meson test --print-errorlogs -C "$mesondir"
+}
+
+package() {
+	# FIXME: For some reason .note.dlopen isn't placed in the binary. Investigate!
+	# https://github.com/systemd/systemd/blob/main/docs/ELF_DLOPEN_METADATA.md
+	depends="
+		$pkgname-journald=$pkgver-r$pkgrel
+		$pkgname-udevd=$pkgver-r$pkgrel
+		!openrc
+		"
+
+	DESTDIR="$pkgdir" meson install --no-rebuild -C "$mesondir"
+
+	# ship default policy to leave services disabled
+	for type in system user; do
+		mkdir -p "$pkgdir"/usr/lib/systemd/"$type"-preset
+		echo 'disable *' > "$pkgdir"/usr/lib/systemd/"$type"-preset/99-default.preset
+	done
+
+	# alpine does not provide pam_selinux.so
+	local conf
+	for conf in systemd-run0 systemd-user; do
+		sed -i -e '/pam_selinux/ s/^/#/' "$pkgdir"/usr/lib/pam.d/"$conf"
+	done
+}
+
+boot() {
+	provider_priority=100
+
+	amove usr/lib/systemd/boot/efi/addonx64.efi.stub
+	amove usr/lib/systemd/boot/efi/linuxx64.efi.stub
+	amove usr/lib/systemd/boot/efi/systemd-bootx64.efi
+}
+
+tests() {
+	depends="
+		$pkgname
+		python3
+		util-linux-misc
+	"
+
+	amove usr/lib/systemd/tests
+}
+
+ukify() {
+	depends="
+		py3-cryptography
+		py3-pefile
+		py3-zstandard
+		python3
+	"
+
+	amove usr/bin/ukify
+	amove usr/lib/kernel/install.d/60-ukify.install
+	amove usr/lib/systemd/ukify
+}
+
+udevd() {
+	pkgdesc="systemd udev"
+	# is a dependency of systemd
+
+	# Some lib dependencies can't be automatically detected because they are
+	# dlopened and must be explicitly listed
+	depends="kmod-libs"
+
+	# NOTE: should only be udev, but packages hardcode eudev
+	provides="eudev udev eudev-libs"
+	provider_priority=100
+
+	amove etc/udev
+	amove usr/bin/udevadm
+	amove usr/lib/libudev*
+	amove usr/lib/systemd/system/initrd-udevadm-cleanup-db.service
+	amove usr/lib/systemd/system/sockets.target.wants/systemd-udev*
+	amove usr/lib/systemd/system/sysinit.target.wants/systemd-udev*
+	amove usr/lib/systemd/system/systemd-udev*
+	amove usr/lib/systemd/systemd-udevd
+	amove usr/lib/udev
+}
+
+udevd_bcomp() {
+	_default_bashcomp udevadm
+}
+
+udevd_zcomp() {
+	_default_zshcomp _udevadm
+}
+
+timesyncd() {
+	pkgdesc="systemd Time Synchronization"
+	depends="$pkgname=$pkgver-r$pkgrel"
+
+	amove etc/systemd/timesyncd.conf
+	amove usr/bin/timedatectl
+	amove usr/lib/systemd/ntp-units.d/80-systemd-timesync.list
+	amove usr/lib/systemd/systemd-timesyncd
+	amove usr/lib/systemd/system/systemd-timesyncd.service
+	amove usr/share/dbus-1/system-services/org.freedesktop.timesync1.service
+	amove usr/share/dbus-1/system.d/org.freedesktop.timesync1.conf
+	amove usr/share/polkit-1/actions/org.freedesktop.timesync1.policy
+}
+
+timesyncd_bcomp() {
+	_default_bashcomp timedatectl
+}
+
+timesyncd_zcomp() {
+	_default_zshcomp _timedatectl
+}
+
+networkd() {
+	pkgdesc="systemd Network Configuration"
+	depends="$pkgname=$pkgver-r$pkgrel"
+
+	amove usr/bin/networkctl
+	amove etc/systemd/network
+	amove etc/systemd/networkd.conf
+	amove usr/share/polkit-1/rules.d/systemd-networkd.rules
+	amove usr/lib/systemd/systemd-networkd
+	amove usr/lib/systemd/systemd-networkd-wait-online
+	amove usr/lib/systemd/network
+	amove usr/lib/systemd/system/systemd-networkd.service
+	amove usr/lib/systemd/system/systemd-networkd.socket
+	amove usr/lib/systemd/system/systemd-networkd-wait-online.service
+	amove usr/share/dbus-1/interfaces/org.freedesktop.network1.DHCPServer.xml
+	amove usr/share/dbus-1/interfaces/org.freedesktop.network1.Link.xml
+	amove usr/share/dbus-1/interfaces/org.freedesktop.network1.Manager.xml
+	amove usr/share/dbus-1/interfaces/org.freedesktop.network1.Network.xml
+	amove usr/share/dbus-1/system-services/org.freedesktop.network1.service
+	amove usr/share/dbus-1/system.d/org.freedesktop.network1.conf
+	amove usr/share/polkit-1/actions/org.freedesktop.network1.policy
+
+	install -D -m0644 "$srcdir/wired.network" "$subpkgdir/usr/lib/systemd/network/80-wired.network"
+}
+
+networkd_bcomp() {
+	_default_bashcomp networkctl
+}
+
+networkd_zcomp() {
+	_default_zshcomp _networkctl
+}
+
+resolved() {
+	pkgdesc="systemd Network Name Resolution"
+	depends="$pkgname=$pkgver-r$pkgrel"
+	replaces="resolvconf"
+	provides="resolvconf"
+
+	amove etc/systemd/resolved.conf
+	amove usr/lib/systemd/system/systemd-resolved.service
+	amove usr/lib/systemd/systemd-resolved
+	if [ -L /usr/sbin ]; then
+	    amove usr/bin/resolvconf
+	else
+	    amove usr/sbin/resolvconf
+	fi
+	amove usr/bin/resolvectl
+	amove usr/bin/systemd-resolve
+	amove usr/lib/tmpfiles.d/systemd-resolve.conf
+	amove usr/share/dbus-1/interfaces/org.freedesktop.resolve1*
+	amove usr/share/dbus-1/system-services/org.freedesktop.resolve1.service
+	amove usr/share/dbus-1/system.d/org.freedesktop.resolve1.conf
+	amove usr/share/polkit-1/actions/org.freedesktop.resolve1.policy
+}
+
+resolved_bcomp() {
+	_default_bashcomp resolvectl
+	_default_bashcomp systemd-resolve
+}
+
+resolved_zcomp() {
+	_default_zshcomp _resolvectl
+}
+
+logind() {
+	pkgdesc="systemd User Login Management"
+	depends="
+		$pkgname=$pkgver-r$pkgrel
+		dbus
+		shadow
+	"
+
+	provides="elogind"
+	provider_priority=100
+
+	amove usr/bin/loginctl
+	amove etc/systemd/logind.conf
+	amove usr/lib/systemd/systemd-logind
+	amove usr/lib/systemd/system/systemd-logind.service
+
+	amove usr/lib/systemd/system/dbus-org.freedesktop.login1.service
+	amove usr/share/dbus-1/interfaces/org.freedesktop.login1.*.xml
+	amove usr/share/dbus-1/system-services/org.freedesktop.login1.service
+	amove usr/share/dbus-1/system.d/org.freedesktop.login1.conf
+
+	amove usr/share/polkit-1/actions/org.freedesktop.login1.policy
+}
+
+logind_bcomp() {
+	_default_bashcomp loginctl
+}
+
+logind_zcomp() {
+	_default_zshcomp _loginctl
+}
+
+journald() {
+	pkgdesc="systemd Journal"
+	# is a dependency of systemd
+
+	amove usr/bin/journalctl
+	amove etc/systemd/journal-remote.conf
+	amove etc/systemd/journald.conf
+	amove usr/lib/systemd/system/sockets.target.wants/systemd-journal*
+	amove usr/lib/systemd/system/systemd-journal*
+	amove usr/lib/systemd/systemd-journal*
+	amove usr/lib/sysusers.d/systemd-journal.conf
+	amove usr/lib/tmpfiles.d/journal-nocow.conf
+	amove var/log/journal
+}
+
+journald_bcomp() {
+	_default_bashcomp journalctl
+}
+
+journald_zcomp() {
+	_default_zshcomp _journalctl
+}
+
+x11() {
+	pkgdesc="systemd x11"
+	install_if="$pkgname=$pkgver-r$pkgrel xorg-server-common"
+
+	amove etc/X11/xinit/xinitrc.d/50-systemd-user.sh
+}
+
+dev() {
+	provides="eudev-dev udev-dev systemd-stage0-dev=$pkgver-r$pkgrel"
+	provider_priority=100
+
+	default_dev
+}
+
+libs() {
+	provides="systemd-stage0-libs=$pkgver-r$pkgrel"
+
+	default_libs
+}
+
+sha512sums="
+f074fef94f937707ff56a90f63201a29ebb5348b68b813e9dc6585316313b9aabb92e6b7ea1e7f38411286c616477f7a4e998a8d5b611b51d5e06ecca6d35d6c  systemd-musl-v257.8-split-usr.tar.gz
+81c897fed8a3fbfb67ec591b2398a5d65e4af1b3ef379376c157c98d71f085b707f8ebc896d5571a94f99f8fc84fd6b43e3b879ca9b0d57fc6c4596034c7a777  wired.network
+"
