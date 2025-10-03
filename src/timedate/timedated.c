@@ -593,7 +593,7 @@ static int property_get_rtc_time(
         usec_t t = 0;
         int r;
 
-        r = hwclock_get(&tm);
+        r = hwclock_get(/*rtc_device= */ NULL, &tm);
         if (r == -EBUSY)
                 log_warning("/dev/rtc is busy. Is somebody keeping it open continuously? That's not a good idea... Returning a bogus RTC timestamp.");
         else if (r == -ENOENT)
@@ -724,7 +724,7 @@ static int method_set_timezone(sd_bus_message *m, void *userdata, sd_bus_error *
                 if (r < 0)
                         log_debug_errno(r, "Failed to convert system time to calendar time, ignoring: %m");
                 else {
-                        r = hwclock_set(&tm);
+                        r = hwclock_set(/*rtc_device= */ NULL, &tm);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
                 }
@@ -802,7 +802,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                         log_debug_errno(r, "Failed to determine current timezone, ignoring: %m");
 
                 /* Override the main fields of struct tm, but not the timezone fields */
-                r = hwclock_get(&tm);
+                r = hwclock_get(/*rtc_device= */ NULL, &tm);
                 if (r < 0)
                         log_debug_errno(r, "Failed to get hardware clock, ignoring: %m");
                 else {
@@ -828,7 +828,7 @@ static int method_set_local_rtc(sd_bus_message *m, void *userdata, sd_bus_error 
                 if (r < 0)
                         log_debug_errno(r, "Failed to convert time to calendar time, ignoring: %m");
                 else {
-                        r = hwclock_set(&tm);
+                        r = hwclock_set(/*rtc_device= */ NULL, &tm);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to sync time to hardware clock, ignoring: %m");
                 }
@@ -927,7 +927,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (r < 0)
                 log_debug_errno(r, "Failed to convert timestamp to calendar time, ignoring: %m");
         else {
-                r = hwclock_set(&tm);
+                r = hwclock_set(/*rtc_device= */ NULL, &tm);
                 if (r < 0)
                         log_debug_errno(r, "Failed to update hardware clock, ignoring: %m");
         }
