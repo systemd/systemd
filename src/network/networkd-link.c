@@ -1301,14 +1301,11 @@ static int link_configure(Link *link) {
 
 static int link_get_network(Link *link, Network **ret) {
         Network *network;
-        Bearer *b = NULL;
         int r;
 
         assert(link);
         assert(link->manager);
         assert(ret);
-
-        (void) link_get_bearer(link, &b);
 
         ORDERED_HASHMAP_FOREACH(network, link->manager->networks) {
                 bool warn = false;

@@ -58,13 +58,16 @@ int bearer_new(Modem *modem, const char *path, Bearer **ret) {
         assert(modem);
         assert(path);
 
+        if (hashmap_contains(modem->bearers_by_path, path))
+                return -EEXIST;
+
         p = strdup(path);
         if (!p)
-                return log_oom();
+                return -ENOMEM;
 
         b = new(Bearer, 1);
         if (!b)
-                return log_oom();
+                return -ENOMEM;
 
         *b = (Bearer) {
                 .modem = modem,
@@ -186,13 +189,16 @@ int modem_new(Manager *m, const char *path, Modem **ret) {
         assert(m);
         assert(path);
 
+        if (hashmap_contains(m->modems_by_path, path))
+                return -EEXIST;
+
         p = strdup(path);
         if (!p)
-                return log_oom();
+                return -ENOMEM;
 
         modem = new(Modem, 1);
         if (!modem)
-                return log_oom();
+                return -ENOMEM;
 
         *modem = (Modem) {
                 .manager = m,
@@ -274,6 +280,7 @@ static int bearer_address_handler(
                 Request *req,
                 Link *link,
                 Address *address) {
+
         int r;
 
         assert(link);
@@ -295,6 +302,7 @@ static int link_request_bearer_address(
                 int family,
                 const union in_addr_union *addr,
                 unsigned prefixlen) {
+
         _cleanup_(address_unrefp) Address *address = NULL;
         Address *existing;
         int r;
@@ -342,6 +350,7 @@ static int bearer_route_handler(
                 Request *req,
                 Link *link,
                 Route *route) {
+
         int r;
 
         assert(link);
@@ -363,6 +372,7 @@ static int link_request_bearer_route(
                 int family,
                 const union in_addr_union *gw,
                 const union in_addr_union *prefsrc) {
+
         _cleanup_(route_unrefp) Route *route = NULL;
         Route *existing;
         int r;
@@ -414,10 +424,7 @@ static int link_request_bearer_route(
         return 0;
 }
 
-static int link_apply_bearer_dns(
-                Link *link,
-                size_t n_dns,
-                struct in_addr_data *dns) {
+static int link_apply_bearer_dns(Link *link, size_t n_dns, struct in_addr_data *dns) {
         unsigned i;
         int r;
 

@@ -7,7 +7,7 @@
  * 2. Initialization phase
  * 2.1. Wait for networkd to connect to D-Bus
  * 2.2. Setup D-Bus handlers for the essential signals:
- *      - /org/freedesktop/DBus, org.freedesktop.DBus, NameOwnerChanged - to track MM serice availability
+ *      - /org/freedesktop/DBus, org.freedesktop.DBus, NameOwnerChanged - to track MM service availability
  *      - /org/freedesktop/ModemManager1, org.freedesktop.DBus.ObjectManager Interfaces{Added|Removed} -
  *        to track modem plug/unplug
  *      - /org/freedesktop/ModemManager1/Bearer org.freedesktop.DBus.Properties PropertiesChanged
@@ -19,7 +19,7 @@
  * 2.5. Finish initialization phase.
  *
  * 3. Run-time
- * 3.1. During the run-time we track MM service avaialbility. When it is gone we remove all the modems
+ * 3.1. During the run-time we track MM service availability. When it is gone we remove all the modems
  *      and bearers.
  * 3.2. When MM is connected we do modem enumeration to get in sync with their current state.
  * 3.3. If a modem was removed we also remove all its bearers.
@@ -27,7 +27,7 @@
  * 3.5. If connection was interrupted, e.g. modem changed its network connection from connected state
  *      we start an automatic reconnect.
  *
- * 4. Modem enumeration proces
+ * 4. Modem enumeration
  * 4.1. Modem enumeration is done by calling GetManagedObjects.
  * 4.2. By receiving managed objects we try to instantiate all new modems found.
  * 4.3. For that we inspect all bearers available for that modem and add all new bearers found.
@@ -63,12 +63,12 @@
 #include "bus-match.h"
 #include "bus-message.h"
 #include "bus-util.h"
-#include "hashmap.h"
 #include "event-util.h"
+#include "hashmap.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
-#include "networkd-wwan-bus.h"
 #include "networkd-wwan.h"
+#include "networkd-wwan-bus.h"
 #include "parse-util.h"
 #include "set.h"
 #include "string-util.h"
@@ -91,6 +91,7 @@ static int map_name(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         Bearer *b = ASSERT_PTR(userdata);
         const char *s;
         int r;
@@ -98,15 +99,14 @@ static int map_name(
         assert(m);
 
         /*
-         * If name is already set - do not wipe it on disconnect, so
-         * we can work with link and other code which relies on the
-         * interface name.
+         * If name is already set - do not wipe it on disconnect, so we can work with link and other code which
+         * relies on the interface name.
          */
         r = sd_bus_message_read_basic(m, 's', &s);
         if (r < 0)
                 return r;
 
-        if (b->name && strlen(b->name))
+        if (!isempty(b->name))
                 return 0;
 
         return bearer_set_name(b, s);
@@ -118,6 +118,7 @@ static int map_dns(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         Bearer *b = ASSERT_PTR(userdata);
         union in_addr_union a;
         const char *s;
@@ -151,6 +152,7 @@ static int map_in_addr(
                 sd_bus_error *error,
                 void *userdata,
                 int family) {
+
         union in_addr_union *addr = ASSERT_PTR(userdata);
         const char *s;
         int r;
@@ -170,6 +172,7 @@ static int map_in4(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         return map_in_addr(bus, member, m, error, userdata, AF_INET);
 }
 
@@ -179,6 +182,7 @@ static int map_in6(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         return map_in_addr(bus, member, m, error, userdata, AF_INET6);
 }
 
@@ -188,6 +192,7 @@ static int map_ip4_config(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         static const struct bus_properties_map map[] = {
                 { "method",  "u", NULL,    offsetof(Bearer, ip4_method)    },
                 { "address", "s", map_in4, offsetof(Bearer, ip4_address)   },
@@ -202,15 +207,14 @@ static int map_ip4_config(
         Bearer *b = ASSERT_PTR(userdata);
 
         /*
-         * FIXME: The "Ip4Config" property: if the bearer was configured
-         * for IPv4 addressing, upon activation this property contains the
-         * addressing details for assignment to the data interface.
+         * The "Ip4Config" property: if the bearer was configured for IPv4 addressing, upon activation this
+         * property contains the addressing details for assignment to the data interface.
          * We may have both IPv4 and IPv6 configured.
          */
         if (b->ip_type & ADDRESS_FAMILY_IPV6)
                 b->ip_type = ADDRESS_FAMILY_YES;
         else
-                b->ip_type = ADDRESS_FAMILY_IPV4;
+                b->ip_type |= ADDRESS_FAMILY_IPV4;
 
         return bus_message_map_all_properties(m, map, 0, error, userdata);
 }
@@ -221,6 +225,7 @@ static int map_ip6_config(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         static const struct bus_properties_map map[] = {
                 { "method",  "u", NULL,    offsetof(Bearer, ip6_method)    },
                 { "address", "s", map_in6, offsetof(Bearer, ip6_address)   },
@@ -235,15 +240,14 @@ static int map_ip6_config(
         Bearer *b = ASSERT_PTR(userdata);
 
         /*
-         * FIXME: The "Ip6Config" property: if the bearer was configured
-         * for IPv6 addressing, upon activation this property contains the
-         * addressing details for assignment to the data interface.
+         * The "Ip6Config" property: if the bearer was configured for IPv6 addressing, upon activation this
+         * property contains the addressing details for assignment to the data interface.
          * We may have both IPv4 and IPv6 configured.
          */
         if (b->ip_type & ADDRESS_FAMILY_IPV4)
                 b->ip_type = ADDRESS_FAMILY_YES;
         else
-                b->ip_type = ADDRESS_FAMILY_IPV6;
+                b->ip_type |= ADDRESS_FAMILY_IPV6;
 
         return bus_message_map_all_properties(m, map, 0, error, userdata);
 }
@@ -254,6 +258,7 @@ static int map_properties(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         static const struct bus_properties_map map[] = {
                 { "apn", "s", NULL, offsetof(Bearer, apn) },
                 {}
@@ -266,28 +271,29 @@ static int bus_message_check_properties(
                 sd_bus_message *m,
                 const struct bus_properties_map *map,
                 sd_bus_error *error,
-                int *found_cnt) {
+                unsigned *ret_found_cnt) {
+
+        unsigned found_cnt;
         int r;
 
         assert(m);
         assert(map);
 
-        *found_cnt = 0;
+        *ret_found_cnt = found_cnt = 0;
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
         while ((r = sd_bus_message_enter_container(m, SD_BUS_TYPE_DICT_ENTRY, "sv")) > 0) {
-                const struct bus_properties_map *prop;
+                const struct bus_properties_map *prop = NULL;
                 const char *member;
-                unsigned i;
 
                 r = sd_bus_message_read_basic(m, SD_BUS_TYPE_STRING, &member);
                 if (r < 0)
                         return bus_log_parse_error_debug(r);
 
-                for (i = 0, prop = NULL; map[i].member; i++)
+                for (unsigned i = 0; map[i].member; i++)
                         if (streq(map[i].member, member)) {
                                 prop = &map[i];
                                 break;
@@ -297,7 +303,7 @@ static int bus_message_check_properties(
                 if (r < 0)
                         return bus_log_parse_error_debug(r);
                 if (prop)
-                        (*found_cnt)++;
+                        found_cnt++;
 
                 r = sd_bus_message_exit_container(m);
                 if (r < 0)
@@ -310,7 +316,8 @@ static int bus_message_check_properties(
         if (r < 0)
                 return bus_log_parse_error_debug(r);
 
-        return r;
+        *ret_found_cnt = found_cnt;
+        return 0;
 }
 
 static int bearer_get_all_handler(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
@@ -326,7 +333,7 @@ static int bearer_get_all_handler(sd_bus_message *message, void *userdata, sd_bu
         Bearer *b = ASSERT_PTR(userdata);
         const sd_bus_error *e;
         int r;
-        int found_cnt;
+        unsigned found_cnt;
 
         assert(message);
 
@@ -356,6 +363,11 @@ static int bearer_get_all_handler(sd_bus_message *message, void *userdata, sd_bu
                 return log_warning_errno(r, "Failed to count properties of bearer \"%s\": %s",
                                          b->path, bus_error_message(ret_error, r));
 
+        /*
+         * We do not want to update link status on properties change which come more or less frequently
+         * and do not involve link state change, e.g. we do not want to bearer_update_link on Rx/Tx counters
+         * change. So, see if this callback was called with the changes we want to track.
+         */
         if (!found_cnt)
                 return 0;
 
@@ -459,63 +471,78 @@ static int modem_connect_handler(sd_bus_message *message, void *userdata, sd_bus
 }
 
 static MMBearerIpFamily prop_iptype_lookup(const char *key) {
-        if (streq_ptr("none", key))
-                return MM_BEARER_IP_FAMILY_NONE;
-        if (streq_ptr("ipv4", key))
-                return MM_BEARER_IP_FAMILY_IPV4;
-        if (streq_ptr("ipv6", key))
-                return MM_BEARER_IP_FAMILY_IPV6;
-        if (streq_ptr("ipv4v6", key))
-                return MM_BEARER_IP_FAMILY_IPV4V6;
-        if (streq_ptr("any", key))
-                return MM_BEARER_IP_FAMILY_ANY;
+        static const struct {
+                MMBearerIpFamily family;
+                const char *str;
+        } table[] = {
+                { MM_BEARER_IP_FAMILY_NONE,   "none"   },
+                { MM_BEARER_IP_FAMILY_IPV4,   "ipv4"   },
+                { MM_BEARER_IP_FAMILY_IPV6,   "ipv6"   },
+                { MM_BEARER_IP_FAMILY_IPV4V6, "ipv4v6" },
+                { MM_BEARER_IP_FAMILY_ANY,    "any"    },
+                {}
+        };
+
+        assert(key);
+
+        FOREACH_ELEMENT(item, table)
+                if (streq(item->str, key))
+                        return item->family;
 
         log_warning("ModemManager: ignoring unknown ip-type: %s, using any", key);
         return MM_BEARER_IP_FAMILY_ANY;
 }
 
 static MMBearerAllowedAuth prop_auth_lookup(const char *key) {
-        if (streq_ptr("none", key))
-                return MM_BEARER_ALLOWED_AUTH_NONE;
-        if (streq_ptr("pap", key))
-                return MM_BEARER_ALLOWED_AUTH_PAP;
-        if (streq_ptr("chap", key))
-                return MM_BEARER_ALLOWED_AUTH_CHAP;
-        if (streq_ptr("mschap", key))
-                return MM_BEARER_ALLOWED_AUTH_MSCHAP;
-        if (streq_ptr("mschapv2", key))
-                return MM_BEARER_ALLOWED_AUTH_MSCHAPV2;
-        if (streq_ptr("eap", key))
-                return MM_BEARER_ALLOWED_AUTH_EAP;
+        static const struct {
+                MMBearerAllowedAuth auth;
+                const char *str;
+        } table[] = {
+                { MM_BEARER_ALLOWED_AUTH_NONE,     "none"     },
+                { MM_BEARER_ALLOWED_AUTH_PAP,      "pap"      },
+                { MM_BEARER_ALLOWED_AUTH_CHAP,     "chap"     },
+                { MM_BEARER_ALLOWED_AUTH_MSCHAP,   "mschap"   },
+                { MM_BEARER_ALLOWED_AUTH_MSCHAPV2, "mschapv2" },
+                { MM_BEARER_ALLOWED_AUTH_EAP,      "eap"      },
+                {}
+        };
+
+        assert(key);
+
+        FOREACH_ELEMENT(item, table)
+                if (streq(item->str, key))
+                        return item->auth;
 
         log_warning("ModemManager: ignoring unknown allowed-auth: %s, using none", key);
         return MM_BEARER_ALLOWED_AUTH_NONE;
 }
 
-static const char *prop_type_lookup(const char *key) {
-        const char * const * SIMPLE_PROP_TYPES =
-                STRV_MAKE_CONST(
-                                "apn",           "s",
-                                "allowed-auth",  "u",
-                                "user",          "s",
-                                "password",      "s",
-                                "ip-type",       "u",
-                                "allow-roaming", "b",
-                                "pin",           "s",
-                                "operator-id",   "s"
-                               );
+static const char* prop_type_lookup(const char *key) {
+        static const struct {
+                const char *prop;
+                const char *type;
+        } table[] = {
+                { "apn",           "s" },
+                { "allowed-auth",  "u" },
+                { "user",          "s" },
+                { "password",      "s" },
+                { "ip-type",       "u" },
+                { "allow-roaming", "b" },
+                { "pin",           "s" },
+                { "operator-id",   "s" },
+                {}
+        };
 
         if (!key)
                 return NULL;
 
-        STRV_FOREACH_PAIR(prop, type, SIMPLE_PROP_TYPES)
-                if (streq_ptr(*prop, key))
-                        return *type;
-
+        FOREACH_ELEMENT(item, table)
+                if (streq(item->prop, key))
+                        return item->type;
         return NULL;
 }
 
-static int sd_bus_call_method_async_props(
+static int bus_call_method_async_props(
                 sd_bus *bus,
                 sd_bus_slot **slot,
                 const char *destination,
@@ -525,19 +552,15 @@ static int sd_bus_call_method_async_props(
                 sd_bus_message_handler_t callback,
                 void *userdata,
                 Link *link) {
+
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         int r;
 
-        assert_return(bus, -EINVAL);
-        assert_return(bus = bus_resolve(bus), -ENOPKG);
-        assert_return(!bus_origin_changed(bus), -ECHILD);
-
-        if (!BUS_IS_OPEN(bus->state))
-                return -ENOTCONN;
+        assert(bus);
 
         r = sd_bus_message_new_method_call(bus, &m, destination, path, interface, member);
         if (r < 0)
-                return r;
+                return bus_log_create_error(r);
 
         r = sd_bus_message_open_container(m, 'a', "{sv}");
         if (r < 0)
@@ -547,56 +570,35 @@ static int sd_bus_call_method_async_props(
                 const char *type;
                 _cleanup_free_ char *left = NULL;
                 _cleanup_free_ char *right = NULL;
-                signed int right_i;
-                unsigned int right_u;
 
                 r = split_pair(*prop, "=", &left, &right);
-                type = prop_type_lookup(left);
-                if ((r < 0) || !type) {
-                        log_error("ModemManager: malformed simple connect option: %s, file: %s",
-                                  *prop, link->network->filename);
-                        return -EINVAL;
-                }
+                if (r < 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(r),
+                                                 "ModemManager: failed to parse simple connect option: %s, file: %s",
+                                                 *prop, link->network->filename);
 
-                if (streq_ptr(left, "ip-type")) {
+                type = prop_type_lookup(left);
+                if ((r < 0) || !type)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "ModemManager: unknown simple connect option: %s, file: %s",
+                                                 *prop, link->network->filename);
+
+                if (streq(left, "ip-type")) {
                         MMBearerIpFamily ip_type = prop_iptype_lookup(right);
 
                         r = sd_bus_message_append(m, "{sv}", left, type, (uint32_t)ip_type);
-                        continue;
-                }
-
-                if (streq_ptr(left, "allowed-auth")) {
+                } if (streq(left, "allowed-auth")) {
                         MMBearerAllowedAuth auth = prop_auth_lookup(right);
 
                         r = sd_bus_message_append(m, "{sv}", left, type, (uint32_t)auth);
-                        continue;
-                }
-
-                switch (type[0]) {
-                case SD_BUS_TYPE_BOOLEAN:
+                } else if (streq(type, "b")) {
                         r = parse_boolean(right);
                         if (r < 0)
                                 return -EINVAL;
-                        r = sd_bus_message_append(m, "{sv}", left, type, (bool)r);
-                        break;
-                case SD_BUS_TYPE_INT32:
-                        r = safe_atoi(right, &right_i);
-                        if (r < 0)
-                                return -EINVAL;
-                        r = sd_bus_message_append(m, "{sv}", left, type, (int32_t)right_i);
-                        break;
-                case SD_BUS_TYPE_UINT32:
-                        r = safe_atou(right, &right_u);
-                        if (r < 0)
-                                return -EINVAL;
-                        r = sd_bus_message_append(m, "{sv}", left, type, (uint32_t)right_u);
-                        break;
-                case SD_BUS_TYPE_STRING:
-                        _fallthrough_;
-                default:
+                        r = sd_bus_message_append(m, "{sv}", left, type, r);
+                } else if (streq(type, "s"))
                         r = sd_bus_message_append(m, "{sv}", left, type, right);
-                        break;
-                }
+
                 if (r < 0)
                         return bus_log_create_error(r);
         }
@@ -628,31 +630,31 @@ static void modem_simple_connect(Modem *modem) {
 
         (void) link_get_by_name(modem->manager, modem->port_name, &link);
         if (!link) {
-                log_error("ModemManager: cannot find link for %s", modem->port_name);
+                log_debug("ModemManager: cannot find link for %s", modem->port_name);
                 return;
         }
 
         /* Check if .network file found at all */
-        if (!link-> network) {
-                log_warning("ModemManager: no .network file provideded for %s", modem->port_name);
+        if (!link->state) {
+                log_debug("ModemManager: no .network file provideded for %s", modem->port_name);
                 return;
         }
 
         /* Check if we are provided with simple connection properties */
         if (!link->network->modem_simple_connect_props) {
-                log_warning("ModemManager: no simple connect properties provideded for %s", modem->port_name);
+                log_debug("ModemManager: no simple connect properties provided for %s", modem->port_name);
                 return;
         }
 
         log_info("ModemManager: starting simple connect on %s %s interface %s",
                  modem->manufacturer, modem->model, modem->port_name);
-        r = sd_bus_call_method_async_props(modem->manager->bus,
-                                           &modem->slot_connect,
-                                           "org.freedesktop.ModemManager1",
-                                           modem->path,
-                                           "org.freedesktop.ModemManager1.Modem.Simple",
-                                           "Connect",
-                                           modem_connect_handler, modem, link);
+        r = bus_call_method_async_props(modem->manager->bus,
+                                        &modem->slot_connect,
+                                        "org.freedesktop.ModemManager1",
+                                        modem->path,
+                                        "org.freedesktop.ModemManager1.Modem.Simple",
+                                        "Connect",
+                                        modem_connect_handler, modem, link);
         /*
          * If we failed to (re)start the connection now then rely on the priodic
          * timer and wait when it retries the connection attempt.
@@ -678,14 +680,11 @@ static int on_periodic_timer(sd_event_source *s, uint64_t usec, void *userdata) 
 
         HASHMAP_FOREACH(modem, manager->modems_by_path) {
                 /*
-                 * We might be rate limiting the reconnection, e.g. if wrong
-                 * simple connect options are provided modem manager might try
-                 * to connect (registered->connecting) and fail soon
-                 * (connecting->registered). To rate limit such a case we set
-                 * MODEM_RECONNECT_WAITING state, so using this timer we can
-                 * limit the requests and wait, for example, for
-                 * network reconfigure wwanX. Still do not try to reconnect
-                 * modems in failed state yet.
+                 * We might be rate limiting the reconnection, e.g. if wrong simple connect options are
+                 * provided modem manager might try to connect (registered->connecting) and fail soon
+                 * (connecting->registered). To rate limit such a case we set MODEM_RECONNECT_WAITING state,
+                 * so using this timer we can limit the requests and wait, for example, for network
+                 * reconfigure wwanX. Still do not try to reconnect modems in failed state yet.
                  */
                 if ((modem->reconnect_state == MODEM_RECONNECT_WAITING) &&
                     (modem->state_fail_reason == MM_MODEM_STATE_FAILED_REASON_NONE))
@@ -724,16 +723,15 @@ static int modem_on_state_change(
                 Modem *modem,
                 MMModemState old_state,
                 MMModemStateFailedReason old_fail_reason) {
+
         if (IN_SET(modem->state, MM_MODEM_STATE_CONNECTING,
                    MM_MODEM_STATE_CONNECTED)) {
                 /*
-                 * Connection is ok or reconnect is already in progress: either
-                 * initiataed by us or an external entity. Make sure we do not
-                 * try to start reconnection logic and wait for the modem
-                 * state change signal and then decide if need be.
-                 * FIXME: we assume that it is not possible to be in the above
-                 * modem states e.g. connecting|connected if failed reason is
-                 * not NONE, e.g. modem is all good.
+                 * Connection is ok or reconnect is already in progress: either initiataed by us or an
+                 * external entity. Make sure we do not try to start reconnection logic and wait for th
+                 * modem state change signal and then decide if need be.
+                 * We assume that it is not possible to be in the above modem states e.g.
+                 * connecting|connected if failed reason is not NONE, e.g. modem is all good.
                  */
                 return 0;
         }
@@ -759,9 +757,8 @@ static int modem_on_state_change(
         }
 
         /*
-         * Modem is not in failed state and is not connected: try now.
-         * It is ok to fail and re-try to connect with periodic timer
-         * later on.
+         * Modem is not in failed state and is not connected: try now. It is ok to fail and re-try to
+         * connect with periodic timer later on.
          */
         modem->reconnect_state = MODEM_RECONNECT_SCHEDULED;
         modem_simple_connect(modem);
@@ -790,6 +787,7 @@ static int bearer_properties_changed_handler(
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *error) {
+
         Manager *manager = ASSERT_PTR(userdata);
         const char *path;
         Modem *modem;
@@ -830,6 +828,7 @@ static int modem_map_bearers_on_props(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         Modem *modem = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **paths = NULL;
         int r;
@@ -852,6 +851,7 @@ static int modem_map_bearers_initial(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         Modem *modem = ASSERT_PTR(userdata);
         int r;
 
@@ -881,6 +881,7 @@ static int modem_map_ports(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         Modem *modem = ASSERT_PTR(userdata);
         const char *port_name;
         uint32_t port_type;
@@ -909,6 +910,7 @@ static int modem_properties_changed_signal(
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *ret_error) {
+
         static const struct bus_properties_map map[] = {
                 { "Bearers",       "a{sv}", modem_map_bearers_on_props, 0,                                 },
                 { "State",             "i", NULL,                       offsetof(Modem, state)             },
@@ -919,7 +921,7 @@ static int modem_properties_changed_signal(
                 {}
         };
         Modem *modem = ASSERT_PTR(userdata);
-        int found_cnt;
+        unsigned found_cnt;
         MMModemState old_state;
         MMModemStateFailedReason old_fail_reason;
         int r;
@@ -957,6 +959,7 @@ static int modem_properties_changed_installed(
                 sd_bus_message *message,
                 void *userdata,
                 sd_bus_error *ret_error) {
+
         Modem *modem = ASSERT_PTR(userdata);
 
         /*
