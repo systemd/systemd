@@ -1235,22 +1235,6 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
         return 0;
 }
 
-Transaction* transaction_new(bool irreversible) {
-        Transaction *tr;
-
-        tr = new0(Transaction, 1);
-        if (!tr)
-                return NULL;
-
-        tr->jobs = hashmap_new(NULL);
-        if (!tr->jobs)
-                return mfree(tr);
-
-        tr->irreversible = irreversible;
-
-        return tr;
-}
-
 Transaction* transaction_free(Transaction *tr) {
         if (!tr)
                 return NULL;
@@ -1261,6 +1245,8 @@ Transaction* transaction_free(Transaction *tr) {
         return mfree(tr);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(Transaction*, transaction_free);
+
 Transaction* transaction_abort_and_free(Transaction *tr) {
         if (!tr)
                 return NULL;
@@ -1268,4 +1254,21 @@ Transaction* transaction_abort_and_free(Transaction *tr) {
         transaction_abort(tr);
 
         return transaction_free(tr);
+}
+
+Transaction* transaction_new(bool irreversible) {
+        _cleanup_(transaction_freep) Transaction *tr = NULL;
+
+        tr = new(Transaction, 1);
+        if (!tr)
+                return NULL;
+
+        *tr = (Transaction) {
+                .jobs = hashmap_new(NULL),
+                .irreversible = irreversible,
+        };
+        if (!tr->jobs)
+                return NULL;
+
+        return TAKE_PTR(tr);
 }
