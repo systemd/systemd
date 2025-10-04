@@ -36,6 +36,7 @@ static const char* const volatile_mode_table[_VOLATILE_MODE_MAX] = {
         [VOLATILE_YES] = "yes",
         [VOLATILE_STATE] = "state",
         [VOLATILE_OVERLAY] = "overlay",
+        [VOLATILE_OVERLAY_USR] = "overlay-usr",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(volatile_mode, VolatileMode, VOLATILE_YES);
