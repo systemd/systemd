@@ -443,6 +443,7 @@ typedef struct ExecParameters {
         char invocation_id_string[SD_ID128_STRING_MAX];
 
         bool debug_invocation;
+        bool debug_wait;
 } ExecParameters;
 
 #define EXEC_PARAMETERS_INIT(_flags)              \

@@ -388,6 +388,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Perpetual, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("When true, logs about this unit will be at debug level regardless of other log level settings"),
                 SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(DebugWait, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE));
 
