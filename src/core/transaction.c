@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "sd-bus.h"
+#include "sd-id128.h"
 #include "sd-messages.h"
 
 #include "alloc-util.h"
@@ -1268,6 +1269,9 @@ Transaction* transaction_new(bool irreversible) {
                 .irreversible = irreversible,
         };
         if (!tr->jobs)
+                return NULL;
+
+        if (sd_id128_randomize(&tr->id) < 0)
                 return NULL;
 
         return TAKE_PTR(tr);
