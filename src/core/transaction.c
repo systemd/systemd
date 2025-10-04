@@ -1270,5 +1270,8 @@ Transaction* transaction_new(bool irreversible) {
         if (!tr->jobs)
                 return NULL;
 
+        if (sd_id128_randomize(&tr->id) < 0)
+                return NULL;
+
         return TAKE_PTR(tr);
 }
