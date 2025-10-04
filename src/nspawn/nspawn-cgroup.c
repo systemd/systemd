@@ -75,9 +75,9 @@ int create_subcgroup(
                 return log_error_errno(r, "Failed to determine supported controllers: %m");
 
         if (keep_unit)
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+                r = cg_pid_get_path(0, &cgroup);
         else
-                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
+                r = cg_pidref_get_path(pid, &cgroup);
         if (r < 0)
                 return log_error_errno(r, "Failed to get our control group: %m");
 
@@ -100,7 +100,7 @@ int create_subcgroup(
         if (userns_mode == USER_NAMESPACE_MANAGED) {
                 _cleanup_close_ int cgroup_fd = -EBADF;
 
-                cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, payload);
+                cgroup_fd = cg_path_open(payload);
                 if (cgroup_fd < 0)
                         return log_error_errno(cgroup_fd, "Failed to open cgroup %s: %m", payload);
 
@@ -113,7 +113,7 @@ int create_subcgroup(
                         return log_error_errno(r, "Failed to add cgroup %s to userns: %m", payload);
         } else {
                 _cleanup_free_ char *fs = NULL;
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, payload, NULL, &fs);
+                r = cg_get_path(payload, /* suffix = */ NULL, &fs);
                 if (r < 0)
                         return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
 
@@ -172,7 +172,7 @@ int bind_mount_cgroup_hierarchy(void) {
 
         /* NB: This must be called from the inner child, with /sys/fs/cgroup/ being a bind mount in mountns! */
 
-        r = cg_pid_get_path(NULL, 0, &own_cgroup_path);
+        r = cg_pid_get_path(0, &own_cgroup_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine our own cgroup path: %m");
 
