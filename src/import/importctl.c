@@ -1127,10 +1127,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERIFY:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
 
                         r = import_verify_from_string(optarg);
                         if (r < 0)

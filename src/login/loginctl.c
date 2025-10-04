@@ -1600,10 +1600,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
 
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)

@@ -20,6 +20,7 @@
 #include "process-util.h"
 #include "procfs-util.h"
 #include "sort-util.h"
+#include "string-table.h"
 #include "terminal-util.h"
 #include "time-util.h"
 #include "virt.h"
@@ -54,6 +55,23 @@ typedef enum PidsCount {
         COUNT_PIDS,                     /* most, requires pids controller */
 } PidsCount;
 
+typedef enum {
+        ORDER_PATH,
+        ORDER_TASKS,
+        ORDER_CPU,
+        ORDER_MEMORY,
+        ORDER_IO,
+        _ORDER_MAX,
+        _ORDER_INVALID = -EINVAL,
+} Order;
+
+typedef enum {
+        CPU_PERCENTAGE,
+        CPU_TIME,
+        _CPU_MAX,
+        _CPU_INVALID = -EINVAL,
+} CPUType;
+
 static unsigned arg_depth = 3;
 static unsigned arg_iterations = UINT_MAX;
 static bool arg_batch = false;
@@ -63,21 +81,26 @@ static char* arg_machine = NULL;
 static char* arg_root = NULL;
 static bool arg_recursive = true;
 static bool arg_recursive_unset = false;
-
 static PidsCount arg_count = COUNT_PIDS;
+static Order arg_order = ORDER_CPU;
+static CPUType arg_cpu_type = CPU_PERCENTAGE;
 
-static enum {
-        ORDER_PATH,
-        ORDER_TASKS,
-        ORDER_CPU,
-        ORDER_MEMORY,
-        ORDER_IO,
-} arg_order = ORDER_CPU;
+static const char *order_table[_ORDER_MAX] = {
+        [ORDER_PATH]   = "path",
+        [ORDER_TASKS]  = "tasks",
+        [ORDER_CPU]    = "cpu",
+        [ORDER_MEMORY] = "memory",
+        [ORDER_IO]     = "io",
+};
 
-static enum {
-        CPU_PERCENT,
-        CPU_TIME,
-} arg_cpu_type = CPU_PERCENT;
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(order, Order);
+
+static const char *cpu_type_table[_CPU_MAX] = {
+        [CPU_PERCENTAGE] = "percentage",
+        [CPU_TIME]       = "time",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(cpu_type, CPUType);
 
 static Group *group_free(Group *g) {
         if (!g)
@@ -507,7 +530,7 @@ static int group_compare(Group * const *a, Group * const *b) {
                 break;
 
         case ORDER_CPU:
-                if (arg_cpu_type == CPU_PERCENT) {
+                if (arg_cpu_type == CPU_PERCENTAGE) {
                         if (x->cpu_valid && y->cpu_valid) {
                                 r = CMP(y->cpu_fraction, x->cpu_fraction);
                                 if (r != 0)
@@ -557,6 +580,12 @@ static int group_compare(Group * const *a, Group * const *b) {
                         return -1;
                 else if (y->io_valid)
                         return 1;
+
+                break;
+
+        case _ORDER_MAX:
+        case _ORDER_INVALID:
+                assert_not_reached();
         }
 
         return path_compare(x->path, y->path);
@@ -595,7 +624,7 @@ static void display(Hashmap *a) {
 
         if (on_tty()) {
                 const char *on, *off;
-                int cpu_len = arg_cpu_type == CPU_PERCENT ? 6 : maxtcpu;
+                int cpu_len = arg_cpu_type == CPU_PERCENTAGE ? 6 : maxtcpu;
 
                 path_columns = columns() - 36 - cpu_len;
                 if (path_columns < 10)
@@ -613,7 +642,7 @@ static void display(Hashmap *a) {
                        arg_order == ORDER_TASKS ? off : "",
                        arg_order == ORDER_CPU ? on : "",
                        cpu_len,
-                       arg_cpu_type == CPU_PERCENT ? "%CPU" : "CPU Time",
+                       arg_cpu_type == CPU_PERCENTAGE ? "%CPU" : "CPU Time",
                        arg_order == ORDER_CPU ? off : "",
                        arg_order == ORDER_MEMORY ? on : "", "Memory",
                        arg_order == ORDER_MEMORY ? off : "",
@@ -643,7 +672,7 @@ static void display(Hashmap *a) {
                 else
                         fputs("       -", stdout);
 
-                if (arg_cpu_type == CPU_PERCENT) {
+                if (arg_cpu_type == CPU_PERCENTAGE) {
                         if (g->cpu_valid)
                                 printf(" %6.1f", g->cpu_fraction*100);
                         else
@@ -739,12 +768,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_CPU_TYPE:
                         if (optarg) {
-                                if (streq(optarg, "time"))
-                                        arg_cpu_type = CPU_TIME;
-                                else if (streq(optarg, "percentage"))
-                                        arg_cpu_type = CPU_PERCENT;
-                                else
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                arg_cpu_type = cpu_type_from_string(optarg);
+                                if (arg_cpu_type < 0)
+                                        return log_error_errno(arg_cpu_type,
                                                                "Unknown argument to --cpu=: %s",
                                                                optarg);
                         } else
@@ -810,18 +836,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ORDER:
-                        if (streq(optarg, "path"))
-                                arg_order = ORDER_PATH;
-                        else if (streq(optarg, "tasks"))
-                                arg_order = ORDER_TASKS;
-                        else if (streq(optarg, "cpu"))
-                                arg_order = ORDER_CPU;
-                        else if (streq(optarg, "memory"))
-                                arg_order = ORDER_MEMORY;
-                        else if (streq(optarg, "io"))
-                                arg_order = ORDER_IO;
-                        else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                        arg_order = order_from_string(optarg);
+                        if (arg_order < 0)
+                                return log_error_errno(arg_order,
                                                        "Invalid argument to --order=: %s",
                                                        optarg);
                         break;
@@ -959,7 +976,7 @@ static int loop(const char *root) {
                         break;
 
                 case '%':
-                        arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENT : CPU_TIME;
+                        arg_cpu_type = arg_cpu_type == CPU_TIME ? CPU_PERCENTAGE : CPU_TIME;
                         break;
 
                 case 'k':
