@@ -783,7 +783,9 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                          "Method call %s() returned expected error: %s", method, error);
 
                                 r = 0;
-                        } else {
+                        } else if (streq(error, SD_VARLINK_ERROR_EXPECTED_MORE))
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: called without 'more' flag, but flag needs to be set.", method);
+                        else {
                                 r = sd_varlink_error_to_errno(error, reply);
                                 if (r != -EBADR)
                                         log_error_errno(r, "Method call %s() failed: %m", method);
