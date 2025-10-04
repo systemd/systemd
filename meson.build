@@ -2940,6 +2940,8 @@ run_target(
                    libsystemd.full_path(),
                    libudev.full_path()])
 
+alias_target('man', man)
+alias_target('html', html)
 alias_target('update-dbus-docs', update_dbus_docs)
 alias_target('update-man-rules', update_man_rules)
 
