@@ -400,6 +400,10 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strempty(unit_ids)));
 
+                sd_id128_t *id = newdup(sd_id128_t, &tr->id, 1);
+                if (id)
+                        (void) set_ensure_consume(&j->manager->transactions_with_cycle, &id128_hash_ops_free, id);
+
                 if (delete) {
                         const char *status;
                         /* logging for j not k here to provide a consistent narrative */
