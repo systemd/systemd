@@ -112,6 +112,24 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ControlGroup", m->cgroup_root));
 }
 
+static int transactions_with_cycle_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        const Set *ids = userdata;
+        int r;
+
+        assert(ret);
+
+        sd_id128_t *i;
+        SET_FOREACH(i, ids) {
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_ID128(*i));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 static int manager_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         dual_timestamp watchdog_last_ping;
@@ -154,6 +172,7 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 SD_JSON_BUILD_PAIR_UNSIGNED("NJobs", hashmap_size(m->jobs)),
                 SD_JSON_BUILD_PAIR_UNSIGNED("NInstalledJobs", m->n_installed_jobs),
                 SD_JSON_BUILD_PAIR_UNSIGNED("NFailedJobs", m->n_failed_jobs),
+                JSON_BUILD_PAIR_CALLBACK_NON_NULL("TransactionsWithOrderingCycle", transactions_with_cycle_build_json, m->transactions_with_cycle),
                 SD_JSON_BUILD_PAIR_REAL("Progress", manager_get_progress(m)),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("WatchdogLastPingTimestamp", watchdog_get_last_ping_as_dual_timestamp(&watchdog_last_ping)),
                 SD_JSON_BUILD_PAIR_STRING("SystemState", manager_state_to_string(manager_state(m))),
