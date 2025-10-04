@@ -8,6 +8,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "dbus-unit.h"
+#include "id128-util.h"
 #include "manager.h"
 #include "set.h"
 #include "slice.h"
@@ -398,6 +399,10 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
                                    LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strempty(unit_ids)));
+
+                sd_id128_t *id = newdup(sd_id128_t, &tr->id, 1);
+                if (id)
+                        (void) set_ensure_consume(&j->manager->transactions_with_cycle, &id128_hash_ops_free, id);
 
                 if (delete) {
                         const char *status;
