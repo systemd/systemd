@@ -370,8 +370,12 @@ static void warn_not_encrypted(int fd, CredentialSecretFlags flags, const char *
                 log_debug_errno(r, "Failed to determine if credential secret file '%s/%s' is encrypted.",
                                 dirname, filename);
         else if (r == 0)
-                log_warning("Credential secret file '%s/%s' is not located on encrypted media, using anyway.",
-                            dirname, filename);
+                log_warning("Credential secret file '%s/%s' is not located on encrypted media.\n"
+                "Storing encrypted credentials on unencrypted storage allows attackers\n"
+                "with physical access to copy the ciphertext and attempt offline\n"
+                "brute-force attacks. For better security, store credentials on\n"
+                "encrypted media (LUKS, fscrypt) or in-memory filesystems (tmpfs).",
+                dirname, filename);
 }
 
 static int make_credential_host_secret(
