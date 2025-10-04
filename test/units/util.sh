@@ -322,6 +322,21 @@ EOF
         chmod +x "$initdir/opt/script0.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
         mksquashfs "$initdir" /tmp/app0.raw -noappend
+
+        if [[ -d "/sys/class/tpm/tpm0" ]] && [[ "$(id -u)" -eq 0 ]] && ! systemd-detect-virt -qc; then
+            # Provide an encrypted version of the image to test TPM unlock
+            truncate -s 20MiB /tmp/app0.raw.enc
+            echo -n passphrase >/tmp/passphrase
+            # Change file mode to avoid "/tmp/passphrase has 0644 mode that is too permissive" messages
+            chmod 0600 /tmp/passphrase
+            cryptsetup luksFormat -q --pbkdf pbkdf2 --pbkdf-force-iterations 1000 --use-urandom "/tmp/app0.raw.enc" /tmp/passphrase
+            PASSWORD=passphrase systemd-cryptenroll --tpm2-device="auto" --tpm2-pcrs="" "/tmp/app0.raw.enc"
+            PASSWORD=passphrase systemd-cryptenroll --wipe-slot=password "/tmp/app0.raw.enc"
+            systemd-cryptsetup attach app0-enc "/tmp/app0.raw.enc"
+            udevadm lock --timeout=60 --device="/dev/mapper/app0-enc" dd if=/tmp/app0.raw of=/dev/mapper/app0-enc bs=1M
+            systemd-cryptsetup detach app0-enc
+        fi
+
         veritysetup format /tmp/app0.raw /tmp/app0.verity --root-hash-file /tmp/app0.roothash
 
         initdir="/var/tmp/conf0"

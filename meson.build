@@ -1248,6 +1248,7 @@ libcryptsetup = dependency('libcryptsetup',
 have = libcryptsetup.found()
 foreach ident : ['crypt_set_metadata_size',
                  'crypt_activate_by_signed_key',
+                 'crypt_activate_by_token_pin',
                  'crypt_token_max',
                  'crypt_reencrypt_init_by_passphrase',
                  'crypt_reencrypt',
