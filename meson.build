@@ -2743,11 +2743,11 @@ foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyut
 endforeach
 
 if mkosi.found()
-        custom_target('mkosi',
+        custom_target(
                 build_always_stale : true,
                 build_by_default: false,
                 console : true,
-                output : '.',
+                output : 'mkosi',
                 command : [
                         mkosi,
                         '--directory', meson.current_source_dir(),
