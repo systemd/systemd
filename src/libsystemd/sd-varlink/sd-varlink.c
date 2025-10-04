@@ -1020,6 +1020,7 @@ static int varlink_test_timeout(sd_varlink *v) {
 }
 
 static int varlink_dispatch_local_error(sd_varlink *v, const char *error) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
         int r;
 
         assert(v);
@@ -1028,7 +1029,11 @@ static int varlink_dispatch_local_error(sd_varlink *v, const char *error) {
         if (!v->reply_callback)
                 return 0;
 
-        r = v->reply_callback(v, NULL, error, SD_VARLINK_REPLY_ERROR|SD_VARLINK_REPLY_LOCAL, v->userdata);
+        r = sd_json_variant_new_object(&empty, NULL, 0);
+        if (r < 0)
+                return r;
+
+        r = v->reply_callback(v, empty, error, SD_VARLINK_REPLY_ERROR|SD_VARLINK_REPLY_LOCAL, v->userdata);
         if (r < 0)
                 varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
 
@@ -1061,25 +1066,23 @@ static int varlink_dispatch_disconnect(sd_varlink *v) {
         return 1;
 }
 
-static int varlink_sanitize_parameters(sd_json_variant **v) {
+static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
         int r;
-
         assert(v);
 
-        /* Varlink always wants a parameters list, hence make one if the caller doesn't want any */
-        if (!*v)
-                return sd_json_variant_new_object(v, NULL, 0);
-        if (sd_json_variant_is_null(*v)) {
-                sd_json_variant *empty;
-
+        /* Convert NULL or JSON null to empty object for method handlers (backward compatibility) */
+        if (!*v || sd_json_variant_is_null(*v)) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
                 r = sd_json_variant_new_object(&empty, NULL, 0);
                 if (r < 0)
                         return r;
-
+                /* sd_json_variant_unref() is a NOP if *v is NULL */
                 sd_json_variant_unref(*v);
-                *v = empty;
+                *v = TAKE_PTR(empty);
                 return 0;
         }
+
+        /* Ensure we have an object */
         if (!sd_json_variant_is_object(*v))
                 return -EINVAL;
 
@@ -1146,7 +1149,7 @@ static int varlink_dispatch_reply(sd_varlink *v) {
         if (error && FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES))
                 goto invalid;
 
-        r = varlink_sanitize_parameters(&parameters);
+        r = varlink_sanitize_incoming_parameters(&parameters);
         if (r < 0)
                 goto invalid;
 
@@ -1327,7 +1330,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
         if (!method)
                 goto invalid;
 
-        r = varlink_sanitize_parameters(&parameters);
+        r = varlink_sanitize_incoming_parameters(&parameters);
         if (r < 0)
                 goto fail;
 
@@ -1575,13 +1578,14 @@ _public_ int sd_varlink_get_current_parameters(sd_varlink *v, sd_json_variant **
         if (!v->current)
                 return -ENODATA;
 
+        if (!ret)
+                return 0;
+
         p = sd_json_variant_by_key(v->current, "parameters");
-        if (!p)
-                return -ENODATA;
+        if (!p || sd_json_variant_is_null(p))
+                return sd_json_variant_new_object(ret, NULL, 0);
 
-        if (ret)
-                *ret = sd_json_variant_ref(p);
-
+        *ret = sd_json_variant_ref(p);
         return 0;
 }
 
@@ -2024,14 +2028,10 @@ _public_ int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant 
         if (!IN_SET(v->state, VARLINK_IDLE_CLIENT, VARLINK_AWAITING_REPLY))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
-        r = varlink_sanitize_parameters(&parameters);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
-
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
-                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
                         SD_JSON_BUILD_PAIR("oneway", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
@@ -2076,14 +2076,10 @@ _public_ int sd_varlink_invoke(sd_varlink *v, const char *method, sd_json_varian
         if (!IN_SET(v->state, VARLINK_IDLE_CLIENT, VARLINK_AWAITING_REPLY))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
-        r = varlink_sanitize_parameters(&parameters);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
-
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
-                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)));
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2130,14 +2126,10 @@ _public_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_varia
         if (v->state != VARLINK_IDLE_CLIENT)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
-        r = varlink_sanitize_parameters(&parameters);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
-
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
-                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
                         SD_JSON_BUILD_PAIR("more", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
@@ -2195,14 +2187,10 @@ _public_ int sd_varlink_call_full(
          * that we can assign a new reply shortly. */
         varlink_clear_current(v);
 
-        r = varlink_sanitize_parameters(&parameters);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
-
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
-                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)));
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
@@ -2353,14 +2341,10 @@ _public_ int sd_varlink_collect_full(
          * that we can assign a new reply shortly. */
         varlink_clear_current(v);
 
-        r = varlink_sanitize_parameters(&parameters);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
-
         r = sd_json_buildo(
                         &m,
                         SD_JSON_BUILD_PAIR("method", SD_JSON_BUILD_STRING(method)),
-                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
                         SD_JSON_BUILD_PAIR("more", SD_JSON_BUILD_BOOLEAN(true)));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
@@ -2501,14 +2485,7 @@ _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
                     VARLINK_PENDING_METHOD, VARLINK_PENDING_METHOD_MORE))
                 return -EBUSY;
 
-        r = varlink_sanitize_parameters(&parameters);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
-
-        r = sd_json_buildo(&m, SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)));
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
-
+        /* Validate parameters BEFORE sanitization */
         if (v->current_method) {
                 const char *bad_field = NULL;
 
@@ -2518,6 +2495,10 @@ _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
                         varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
                                           v->current_method->name, strna(bad_field));
         }
+
+        r = sd_json_buildo(&m, JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
@@ -2588,17 +2569,7 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
          * the callers don't need to do this explicitly. */
         sd_varlink_reset_fds(v);
 
-        r = varlink_sanitize_parameters(&parameters);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
-
-        r = sd_json_buildo(
-                        &m,
-                        SD_JSON_BUILD_PAIR("error", SD_JSON_BUILD_STRING(error_id)),
-                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)));
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
-
+        /* Validate parameters BEFORE sanitization */
         sd_varlink_symbol *symbol = hashmap_get(v->server->symbols, error_id);
         if (!symbol)
                 varlink_log(v, "No interface description defined for error '%s', not validating.", error_id);
@@ -2611,6 +2582,13 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
                         varlink_log_errno(v, r, "Parameters for error %s didn't pass validation on field '%s', ignoring: %m",
                                           error_id, strna(bad_field));
         }
+
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR("error", SD_JSON_BUILD_STRING(error_id)),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
@@ -2726,17 +2704,7 @@ _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
         if (!IN_SET(v->state, VARLINK_PROCESSING_METHOD_MORE, VARLINK_PENDING_METHOD_MORE))
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
 
-        r = varlink_sanitize_parameters(&parameters);
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to sanitize parameters: %m");
-
-        r = sd_json_buildo(
-                        &m,
-                        SD_JSON_BUILD_PAIR("parameters", SD_JSON_BUILD_VARIANT(parameters)),
-                        SD_JSON_BUILD_PAIR("continues", SD_JSON_BUILD_BOOLEAN(true)));
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
-
+        /* Validate parameters BEFORE sanitization */
         if (v->current_method) {
                 const char *bad_field = NULL;
 
@@ -2749,6 +2717,13 @@ _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
                         varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
                                           v->current_method->name, strna(bad_field));
         }
+
+        r = sd_json_buildo(
+                        &m,
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
+                        SD_JSON_BUILD_PAIR("continues", SD_JSON_BUILD_BOOLEAN(true)));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         r = varlink_enqueue_json(v, m);
         if (r < 0)
@@ -2783,6 +2758,7 @@ _public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, con
 
         /* A wrapper around json_dispatch_full() that returns a nice InvalidParameter error if we hit a problem with some field. */
 
+        /* sd_json_dispatch_full() now handles NULL parameters gracefully */
         r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
         if (r < 0) {
                 if (bad_field)
