@@ -3675,6 +3675,8 @@ void manager_reset_failed(Manager *m) {
 
         HASHMAP_FOREACH(u, m->units)
                 unit_reset_failed(u);
+
+        m->transactions_with_cycle = set_free(m->transactions_with_cycle);
 }
 
 bool manager_unit_inactive_or_pending(Manager *m, const char *name) {
@@ -4623,8 +4625,8 @@ ManagerState manager_state(Manager *m) {
                         return MANAGER_MAINTENANCE;
         }
 
-        /* Are there any failed units? If so, we are in degraded mode */
-        if (!set_isempty(m->failed_units))
+        /* Are there any failed units or ordering cycles? If so, we are in degraded mode */
+        if (!set_isempty(m->failed_units) || !set_isempty(m->transactions_with_cycle))
                 return MANAGER_DEGRADED;
 
         return MANAGER_RUNNING;
