@@ -15,6 +15,8 @@
 #include "strv.h"
 #include "transaction.h"
 
+#define CYCLIC_TRANSACTIONS_MAX 4096U
+
 static bool job_matters_to_anchor(Job *job);
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
 
@@ -398,6 +400,11 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
                                    LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strempty(unit_ids)));
+
+                if (set_size(j->manager->transactions_with_cycle) < CYCLIC_TRANSACTIONS_MAX)
+                        (void) set_ensure_put(&j->manager->transactions_with_cycle, NULL, UINT64_TO_PTR(j->manager->last_transaction_id));
+                else
+                        log_warning("Too many transactions with ordering cycle, suppressing record.");
 
                 if (delete) {
                         const char *status;
