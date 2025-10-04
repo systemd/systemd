@@ -1235,20 +1235,24 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
         return 0;
 }
 
-Transaction* transaction_new(bool irreversible) {
-        Transaction *tr;
+Transaction* transaction_new(bool irreversible, uint64_t id) {
+        _cleanup_free_ Transaction *tr = NULL;
 
-        tr = new0(Transaction, 1);
+        assert(id != 0);
+
+        tr = new(Transaction, 1);
         if (!tr)
                 return NULL;
 
-        tr->jobs = hashmap_new(NULL);
+        *tr = (Transaction) {
+                .jobs = hashmap_new(NULL),
+                .irreversible = irreversible,
+                .id = id,
+        };
         if (!tr->jobs)
-                return mfree(tr);
+                return NULL;
 
-        tr->irreversible = irreversible;
-
-        return tr;
+        return TAKE_PTR(tr);
 }
 
 Transaction* transaction_free(Transaction *tr) {

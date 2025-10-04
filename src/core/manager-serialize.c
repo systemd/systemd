@@ -92,6 +92,8 @@ int manager_serialize(
 
         _cleanup_(manager_reloading_stopp) _unused_ Manager *reloading = manager_reloading_start(m);
 
+        (void) serialize_item_format(f, "last-transaction-id", "%" PRIu64, m->last_transaction_id);
+
         (void) serialize_item_format(f, "current-job-id", "%" PRIu32, m->current_job_id);
         (void) serialize_item_format(f, "n-installed-jobs", "%u", m->n_installed_jobs);
         (void) serialize_item_format(f, "n-failed-jobs", "%u", m->n_failed_jobs);
@@ -325,7 +327,15 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                 if (r == 0) /* eof or end marker */
                         break;
 
-                if ((val = startswith(l, "current-job-id="))) {
+                if ((val = startswith(l, "last-transaction-id="))) {
+                        uint64_t id;
+
+                        if (safe_atou64(val, &id) < 0)
+                                log_notice("Failed to parse last transaction id value '%s', ignoring.", val);
+                        else
+                                m->last_transaction_id = MAX(m->last_transaction_id, id);
+
+                } else if ((val = startswith(l, "current-job-id="))) {
                         uint32_t id;
 
                         if (safe_atou32(val, &id) < 0)
