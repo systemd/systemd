@@ -8,12 +8,15 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "dbus-unit.h"
+#include "hash-funcs.h"
 #include "manager.h"
 #include "set.h"
 #include "slice.h"
 #include "string-util.h"
 #include "strv.h"
 #include "transaction.h"
+
+#define CYCLIC_TRANSACTIONS_MAX 4096U
 
 static bool job_matters_to_anchor(Job *job);
 static void transaction_unlink_job(Transaction *tr, Job *j, bool delete_dependencies);
@@ -398,6 +401,16 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
                                    LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strempty(unit_ids)));
+
+                if (set_size(j->manager->transactions_with_cycle) >= CYCLIC_TRANSACTIONS_MAX)
+                        log_warning("Too many transactions with ordering cycle, suppressing record.");
+                else {
+                        uint64_t *id_buf = newdup(uint64_t, tr->id);
+                        if (!id_buf)
+                                log_oom_warning();
+                        else
+                                (void) set_ensure_consume(&j->manager->transactions_with_cycle, &uint64_hash_ops_value_free, id_buf);
+                }
 
                 if (delete) {
                         const char *status;
