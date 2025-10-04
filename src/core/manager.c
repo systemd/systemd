@@ -2153,13 +2153,15 @@ int manager_add_job_full(
         if (mode == JOB_RESTART_DEPENDENCIES && type != JOB_START)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=restart-dependencies is only valid for start.");
 
-        log_unit_debug(unit, "Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
-
-        type = job_type_collapse(type, unit);
-
         tr = transaction_new(mode == JOB_REPLACE_IRREVERSIBLY);
         if (!tr)
                 return -ENOMEM;
+
+        LOG_CONTEXT_PUSHF("TRANSACTION_ID=%" PRIu64, ++m->last_transaction_id);
+
+        log_unit_debug(unit, "Trying to enqueue job %s/%s/%s", unit->id, job_type_to_string(type), job_mode_to_string(mode));
+
+        type = job_type_collapse(type, unit);
 
         r = transaction_add_job_and_dependencies(
                         tr,
@@ -2247,8 +2249,8 @@ int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name,
 }
 
 int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error *e) {
-        int r;
         _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
+        int r;
 
         assert(m);
         assert(unit);
@@ -2258,6 +2260,8 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
         tr = transaction_new(mode == JOB_REPLACE_IRREVERSIBLY);
         if (!tr)
                 return -ENOMEM;
+
+        LOG_CONTEXT_PUSHF("TRANSACTION_ID=%" PRIu64, ++m->last_transaction_id);
 
         /* We need an anchor job */
         r = transaction_add_job_and_dependencies(tr, JOB_NOP, unit, NULL, TRANSACTION_IGNORE_REQUIREMENTS|TRANSACTION_IGNORE_ORDER, e);
