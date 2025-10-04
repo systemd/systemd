@@ -1013,6 +1013,8 @@ static void config_defaults_load_from_file(Config *config, char *content) {
         assert(config);
         assert(content);
 
+        /* If you add, remove, or change an option name here, please also update
+         * shared/bootspec.c@boot_loader_read_conf() to make parsing by bootctl/logind/etc. work. */
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
                 if (streq8(key, "timeout")) {
                         if (streq8(value, "menu-disabled"))
@@ -1291,6 +1293,8 @@ static void boot_entry_add_type1(
                 .call = call_image_start,
         };
 
+        /* If you add, remove, or change an option name here, please also update shared/bootspec.c and
+         * shared/varlink-io.systemd.BootControl to make parsing by bootctl/logind/etc. work. */
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
                 if (streq8(key, "title")) {
                         free(entry->title);
@@ -1299,6 +1303,7 @@ static void boot_entry_add_type1(
                 } else if (streq8(key, "sort-key")) {
                         free(entry->sort_key);
                         entry->sort_key = xstr8_to_16(value);
+
                 } else if (streq8(key, "profile")) {
                         uint64_t u;
                         if (parse_number8(value, &u, NULL) && u <= UINT_MAX)
