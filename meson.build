@@ -2743,11 +2743,11 @@ foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyut
 endforeach
 
 if mkosi.found()
-        custom_target('mkosi',
+        custom_target(
                 build_always_stale : true,
                 build_by_default: false,
                 console : true,
-                output : '.',
+                output : 'mkosi',
                 command : [
                         mkosi,
                         '--directory', meson.current_source_dir(),
@@ -2940,6 +2940,8 @@ run_target(
                    libsystemd.full_path(),
                    libudev.full_path()])
 
+alias_target('man', man)
+alias_target('html', html)
 alias_target('update-dbus-docs', update_dbus_docs)
 alias_target('update-man-rules', update_man_rules)
 
