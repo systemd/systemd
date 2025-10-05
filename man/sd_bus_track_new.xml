@@ -33,7 +33,7 @@
     <funcsynopsis>
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
-      <funcprototype id="sd_bus_track_handler_t">
+      <funcprototype>
         <funcdef>typedef int (*<function>sd_bus_track_handler_t</function>)</funcdef>
         <paramdef>sd_bus_track *<parameter>track</parameter></paramdef>
         <paramdef>void *<parameter>userdata</parameter></paramdef>
