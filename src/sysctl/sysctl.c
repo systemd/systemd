@@ -323,8 +323,7 @@ static int read_credential_lines(OrderedHashmap **sysctl_options) {
         if (!j)
                 return log_oom();
 
-        (void) parse_file(sysctl_options, j, /* ignore_enoent= */ true);
-        return 0;
+        return parse_file(sysctl_options, j, /* ignore_enoent= */ true);
 }
 
 static int cat_config(char **files) {
