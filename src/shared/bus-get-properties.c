@@ -70,12 +70,12 @@ int bus_property_get_id128(
                 void *userdata,
                 sd_bus_error *reterr_error) {
 
-        sd_id128_t *id = userdata;
+        sd_id128_t *id = ASSERT_PTR(userdata);
 
         if (sd_id128_is_null(*id)) /* Add an empty array if the ID is zero */
                 return sd_bus_message_append(reply, "ay", 0);
-        else
-                return sd_bus_message_append_array(reply, 'y', id->bytes, 16);
+
+        return sd_bus_message_append_array(reply, 'y', id->bytes, sizeof(sd_id128_t));
 }
 
 #if __SIZEOF_SIZE_T__ != 8
