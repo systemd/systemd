@@ -713,7 +713,7 @@ int sd_lldp_tx_describe(sd_lldp_tx *lldp_tx, sd_json_variant **ret) {
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR_STRING("ChassisID", SD_ID128_TO_STRING(machine_id)),
+                        SD_JSON_BUILD_PAIR_ID128("ChassisID", machine_id),
                         SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawChassisID", chassis_id, chassis_id_len),
                         SD_JSON_BUILD_PAIR_STRING("PortID", lldp_tx->ifname),
                         SD_JSON_BUILD_PAIR_BYTE_ARRAY("RawPortID", port_id, port_id_len),
