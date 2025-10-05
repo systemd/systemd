@@ -214,100 +214,79 @@ static int apply_all(OrderedHashmap *sysctl_options) {
         return r;
 }
 
-static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ignore_enoent) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_free_ char *pp = NULL;
-        unsigned c = 0;
+static int parse_line(const char *fname, unsigned line, const char *buffer, bool *invalid_config, void *userdata) {
+        OrderedHashmap **sysctl_options = ASSERT_PTR(userdata);
+        _cleanup_free_ char *k = NULL, *v = NULL;
+        bool ignore_failure = false;
         int r;
 
-        assert(path);
-
-        r = search_and_fopen(path, "re", NULL, (const char**) CONF_PATHS_STRV("sysctl.d"), &f, &pp);
-        if (r < 0) {
-                if (ignore_enoent && r == -ENOENT)
-                        return 0;
-
-                return log_error_errno(r, "Failed to open file '%s', ignoring: %m", path);
-        }
-
-        log_debug("Parsing %s", pp);
-        for (;;) {
-                _cleanup_(option_freep) Option *new_option = NULL;
-                _cleanup_free_ char *l = NULL;
-                bool ignore_failure = false;
-                Option *existing;
-                char *value;
-                int k;
-
-                k = read_stripped_line(f, LONG_LINE_MAX, &l);
-                if (k == 0)
-                        break;
-                if (k < 0)
-                        return log_error_errno(k, "Failed to read file '%s', ignoring: %m", pp);
-
-                c++;
-
-                if (isempty(l))
-                        continue;
-                if (strchr(COMMENTS, l[0]))
-                        continue;
-
-                char *p = l;
-                value = strchr(p, '=');
-                if (value) {
-                        if (p[0] == '-') {
-                                ignore_failure = true;
-                                p++;
-                        }
-
-                        *value = 0;
-                        value++;
-                        value = strstrip(value);
-
-                } else {
-                        if (p[0] == '-')
-                                /* We have a "negative match" option. Let's continue with value==NULL. */
-                                p++;
-                        else {
-                                log_syntax(NULL, LOG_WARNING, pp, c, 0,
-                                           "Line is not an assignment, ignoring: %s", p);
-                                if (r == 0)
-                                        r = -EINVAL;
-                                continue;
-                        }
+        const char *eq = strchr(buffer, '=');
+        if (eq) {
+                if (buffer[0] == '-') {
+                        ignore_failure = true;
+                        buffer++;
                 }
 
-                p = strstrip(p);
-                p = sysctl_normalize(p);
-
-                /* We can't filter out globs at this point, we'll need to do that later. */
-                if (!string_is_glob(p) &&
-                    !test_prefix(p))
-                        continue;
-
-                existing = ordered_hashmap_get(*sysctl_options, p);
-                if (existing) {
-                        if (streq_ptr(value, existing->value)) {
-                                existing->ignore_failure = existing->ignore_failure || ignore_failure;
-                                continue;
-                        }
-
-                        log_debug("Overwriting earlier assignment of %s at '%s:%u'.", p, pp, c);
-                        option_free(ordered_hashmap_remove(*sysctl_options, p));
-                }
-
-                new_option = option_new(p, value, ignore_failure);
-                if (!new_option)
+                k = strndup(buffer, eq - buffer);
+                if (!k)
                         return log_oom();
 
-                k = ordered_hashmap_ensure_put(sysctl_options, &option_hash_ops, new_option->key, new_option);
-                if (k < 0)
-                        return log_error_errno(k, "Failed to add sysctl variable %s to hashmap: %m", p);
+                v = strdup(eq + 1);
+                if (!v)
+                        return log_oom();
 
-                TAKE_PTR(new_option);
+        } else {
+                if (buffer[0] == '-')
+                        /* We have a "negative match" option. Let's continue with value==NULL. */
+                        buffer++;
+                else
+                        return log_syntax(NULL, LOG_WARNING, fname, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Line is not an assignment, ignoring: %s", buffer);
+
+                k = strdup(buffer);
+                if (!k)
+                        return log_oom();
         }
 
-        return r;
+        const char *key = sysctl_normalize(strstrip(k)), *value = strstrip(v);
+
+        /* We can't filter out globs at this point, we'll need to do that later. */
+        if (!string_is_glob(key) && !test_prefix(key))
+                return 0;
+
+        Option *existing = ordered_hashmap_get(*sysctl_options, key);
+        if (existing) {
+                if (streq_ptr(value, existing->value)) {
+                        existing->ignore_failure = existing->ignore_failure || ignore_failure;
+                        return 0;
+                }
+
+                log_syntax(NULL, LOG_DEBUG, fname, line, 0,
+                           "Overwriting earlier assignment of '%s'.", key);
+                option_free(ordered_hashmap_remove(*sysctl_options, key));
+        }
+
+        _cleanup_(option_freep) Option *option = option_new(key, value, ignore_failure);
+        if (!option)
+                return log_oom();
+
+        r = ordered_hashmap_ensure_put(sysctl_options, &option_hash_ops, option->key, option);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add sysctl variable '%s' to hashmap: %m", key);
+
+        TAKE_PTR(option);
+        return 0;
+}
+
+static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ignore_enoent) {
+        return conf_file_read(
+                        /* root = */ NULL,
+                        (const char**) CONF_PATHS_STRV("sysctl.d"),
+                        path,
+                        parse_line,
+                        sysctl_options,
+                        ignore_enoent,
+                        /* invalid_config = */ NULL);
 }
 
 static int read_credential_lines(OrderedHashmap **sysctl_options) {
