@@ -911,7 +911,7 @@ void manager_disconnect(Manager *m) {
         (void) sd_notify(false, "STATUS=Idle.");
 }
 
-void manager_flush_server_names(Manager  *m, ServerType t) {
+void manager_flush_server_names(Manager *m, ServerType t) {
         assert(m);
 
         if (t == SERVER_SYSTEM)
