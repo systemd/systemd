@@ -8,6 +8,8 @@ typedef struct Transaction {
         Hashmap *jobs;        /* Unit object => Job object list 1:1 */
         Job *anchor_job;      /* The job the user asked for */
         bool irreversible;
+
+        sd_id128_t id;
 } Transaction;
 
 Transaction* transaction_new(bool irreversible);
