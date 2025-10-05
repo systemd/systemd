@@ -2696,10 +2696,13 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       <varname>OOMPolicy=kill</varname> is enabled for the unit or not. If enabled, the property contains the
       number of times the kernel OOM killer killed all the processes in the unit's cgroup and its
       descendant cgroups. If disabled, the property contains the number of processes the kernel OOM killer
-      has killed in the unit's cgroup and its descendant cgroups.</para>
+      has killed in the unit's cgroup and its descendant cgroups. When the corresponding cgroups have not
+      been realized, it reports <constant>18446744073709551615</constant> (<constant>2^64 - 1</constant>).</para>
 
       <para><varname>ManagedOOMKills</varname> contains the number of times <command>systemd-oomd</command>
-      killed all the processes in the unit's cgroup and its descendant cgroups.</para>
+      killed all the processes in the unit's cgroup and its descendant cgroups. When the corresponding
+      cgroups have not been realized yet, it reports <constant>18446744073709551615</constant>
+      (<constant>2^64 - 1</constant>).</para>
     </refsect2>
 
     <refsect2>
