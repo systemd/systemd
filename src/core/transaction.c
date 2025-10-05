@@ -8,6 +8,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "dbus-unit.h"
+#include "id128-util.h"
 #include "manager.h"
 #include "set.h"
 #include "slice.h"
@@ -398,6 +399,10 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    LOG_UNIT_MESSAGE(j->unit, "%s", cycle_path_text),
                                    LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strempty(unit_ids)));
+
+                sd_id128_t *id = newdup(sd_id128_t, &tr->id, 1);
+                if (id)
+                        (void) set_ensure_consume(&j->manager->transactions_with_cycle, &id128_hash_ops_free, id);
 
                 if (delete) {
                         const char *status;
@@ -1235,22 +1240,6 @@ int transaction_add_triggering_jobs(Transaction *tr, Unit *u) {
         return 0;
 }
 
-Transaction* transaction_new(bool irreversible) {
-        Transaction *tr;
-
-        tr = new0(Transaction, 1);
-        if (!tr)
-                return NULL;
-
-        tr->jobs = hashmap_new(NULL);
-        if (!tr->jobs)
-                return mfree(tr);
-
-        tr->irreversible = irreversible;
-
-        return tr;
-}
-
 Transaction* transaction_free(Transaction *tr) {
         if (!tr)
                 return NULL;
@@ -1261,6 +1250,8 @@ Transaction* transaction_free(Transaction *tr) {
         return mfree(tr);
 }
 
+DEFINE_TRIVIAL_CLEANUP_FUNC(Transaction*, transaction_free);
+
 Transaction* transaction_abort_and_free(Transaction *tr) {
         if (!tr)
                 return NULL;
@@ -1268,4 +1259,24 @@ Transaction* transaction_abort_and_free(Transaction *tr) {
         transaction_abort(tr);
 
         return transaction_free(tr);
+}
+
+Transaction* transaction_new(bool irreversible) {
+        _cleanup_(transaction_freep) Transaction *tr = NULL;
+
+        tr = new(Transaction, 1);
+        if (!tr)
+                return NULL;
+
+        *tr = (Transaction) {
+                .jobs = hashmap_new(NULL),
+                .irreversible = irreversible,
+        };
+        if (!tr->jobs)
+                return NULL;
+
+        if (sd_id128_randomize(&tr->id) < 0)
+                return NULL;
+
+        return TAKE_PTR(tr);
 }
