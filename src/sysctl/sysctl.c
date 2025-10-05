@@ -26,6 +26,7 @@
 static char **arg_prefixes = NULL;
 static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static bool arg_strict = false;
+static bool arg_inline = false;
 static PagerFlags arg_pager_flags = 0;
 
 STATIC_DESTRUCTOR_REGISTER(arg_prefixes, strv_freep);
@@ -332,6 +333,7 @@ static int help(void) {
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
                "     --no-pager         Do not pipe output into a pager\n"
                "     --strict           Fail on any kind of failures\n"
+               "     --inline           Treat arguments as configuration lines\n"
                "\nSee the %5$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -351,6 +353,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PREFIX,
                 ARG_NO_PAGER,
                 ARG_STRICT,
+                ARG_INLINE,
         };
 
         static const struct option options[] = {
@@ -361,6 +364,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "prefix",     required_argument, NULL, ARG_PREFIX     },
                 { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
                 { "strict",     no_argument,       NULL, ARG_STRICT     },
+                { "inline",     no_argument,       NULL, ARG_INLINE     },
                 {}
         };
 
@@ -416,6 +420,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_strict = true;
                         break;
 
+                case ARG_INLINE:
+                        arg_inline = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -443,11 +451,15 @@ static int run(int argc, char *argv[]) {
         umask(0022);
 
         if (argc > optind) {
-                r = 0;
+                unsigned pos = 0;
 
-                for (int i = optind; i < argc; i++)
-                        RET_GATHER(r, parse_file(&sysctl_options, argv[i], false));
-
+                STRV_FOREACH(arg, strv_skip(argv, optind)) {
+                        if (arg_inline)
+                                /* Use (argument):n, where n==1 for the first positional arg */
+                                RET_GATHER(r, parse_line("(argument)", ++pos, *arg, /* invalid_config = */ NULL, &sysctl_options));
+                        else
+                                RET_GATHER(r, parse_file(&sysctl_options, *arg, false));
+                }
         } else {
                 _cleanup_strv_free_ char **files = NULL;
 
