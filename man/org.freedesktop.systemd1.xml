@@ -406,6 +406,7 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u NNames = ...;
       readonly u NFailedUnits = ...;
+      readonly a(ay) TransactionsWithOrderingCycle = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u NJobs = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
