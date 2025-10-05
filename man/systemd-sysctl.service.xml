@@ -42,8 +42,12 @@
     <para>When invoked with no arguments, <command>/usr/lib/systemd/systemd-sysctl</command> applies
     all directives from configuration files listed in
     <citerefentry><refentrytitle>sysctl.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    If one or more filenames are passed on the command line, only the directives in these files are
-    applied.</para>
+    When invoked with positional arguments, the configuration specified by the command line arguments is
+    executed. If the string <literal>-</literal> is specified instead of a filename, the configuration is
+    read from standard input. If the argument is a file name (without any slashes), all configuration
+    directories are searched for a matching file and the file found that has the highest priority is
+    executed. If the argument is a path, that file is used directly without searching the configuration
+    directories for any other matching file.</para>
 
     <para>In addition, <option>--prefix=</option> option may be used to limit which sysctl
     settings are applied.</para>
@@ -75,6 +79,14 @@
 
           <xi:include href="version-info.xml" xpointer="v252"/>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--inline</option></term>
+        <listitem><para>Treat each positional argument as a separate configuration line instead of a file
+        name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="cat-config" />
