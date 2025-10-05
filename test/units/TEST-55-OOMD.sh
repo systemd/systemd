@@ -301,6 +301,7 @@ testcase_reload() {
 testcase_kernel_oom() {
     cat >/tmp/script.sh <<"EOF"
 #!/usr/bin/env bash
+set -eux
 choom --adjust '+1000' -- bash -c 'echo f >/proc/sysrq-trigger && exec sleep infinity'
 choom --adjust '+1000' -p $$
 echo f >/proc/sysrq-trigger
@@ -324,6 +325,7 @@ EOF
 
     cat >/tmp/script.sh <<"EOF"
 #!/usr/bin/env bash
+set -eux
 echo '+memory' >/sys/fs/cgroup/system.slice/oom-kill.service/cgroup.subtree_control
 mkdir /sys/fs/cgroup/system.slice/oom-kill.service/sub
 echo 1 >/sys/fs/cgroup/system.slice/oom-kill.service/sub/memory.oom.group
@@ -340,6 +342,8 @@ EOF
     assert_eq "$(systemctl show oom-kill -P Result)" "oom-kill"
     assert_eq "$(systemctl show oom-kill -P OOMKills)" "1"
     systemctl reset-failed
+
+    exit 1
 }
 
 run_testcases
