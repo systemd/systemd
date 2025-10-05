@@ -115,7 +115,7 @@ typedef struct SocketAddress SocketAddress;
 
 typedef void (*_sd_destroy_t)(void *userdata);
 
-typedef union sd_id128 sd_id128_t;
+typedef union sd_id128_t sd_id128_t;
 
 typedef struct sd_event sd_event;
 typedef struct sd_event_source sd_event_source;
