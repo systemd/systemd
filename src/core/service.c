@@ -5643,7 +5643,7 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
         return 0;
 }
 
-static int service_cgroup_freezer_action(Unit *u, FreezerAction action) {
+static int service_freezer_action(Unit *u, FreezerAction action) {
         Service *s = ASSERT_PTR(SERVICE(u));
         int r;
 
@@ -5796,7 +5796,7 @@ const UnitVTable service_vtable = {
         .live_mount = service_live_mount,
         .can_live_mount = service_can_live_mount,
 
-        .freezer_action = service_cgroup_freezer_action,
+        .freezer_action = service_freezer_action,
 
         .serialize = service_serialize,
         .deserialize_item = service_deserialize_item,
