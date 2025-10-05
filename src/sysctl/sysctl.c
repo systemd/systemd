@@ -341,17 +341,22 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
-               "Applies kernel sysctl settings.\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
+        printf("%1$s [OPTIONS...] [CONFIGURATION FILE...]\n"
+               "\n%2$sApplies kernel sysctl settings.%4$s\n"
+               "\n%3$sCommands:%4$s\n"
                "     --cat-config       Show configuration files\n"
                "     --tldr             Show non-comment parts of configuration\n"
+               "  -h --help             Show this help\n"
+               "     --version          Show package version\n"
+               "\n%3$sOptions:%4$s\n"
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
                "     --no-pager         Do not pipe output into a pager\n"
                "     --strict           Fail on any kind of failures\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %5$s for details.\n",
                program_invocation_short_name,
+               ansi_highlight(),
+               ansi_underline(),
+               ansi_normal(),
                link);
 
         return 0;
