@@ -483,9 +483,7 @@ static int run(int argc, char *argv[]) {
                 RET_GATHER(r, read_credential_lines(&sysctl_options));
         }
 
-        RET_GATHER(r, apply_all(sysctl_options));
-
-        return r;
+        return RET_GATHER(r, apply_all(sysctl_options));
 }
 
 DEFINE_MAIN_FUNCTION(run);
