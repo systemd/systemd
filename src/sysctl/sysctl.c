@@ -36,7 +36,7 @@ typedef struct Option {
         bool ignore_failure;
 } Option;
 
-static Option *option_free(Option *o) {
+static Option* option_free(Option *o) {
         if (!o)
                 return NULL;
 
@@ -47,7 +47,10 @@ static Option *option_free(Option *o) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Option*, option_free);
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(option_hash_ops, char, string_hash_func, string_compare_func, Option, option_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                option_hash_ops,
+                char, string_hash_func, string_compare_func,
+                Option, option_free);
 
 static bool test_prefix(const char *p) {
         if (strv_isempty(arg_prefixes))
@@ -56,7 +59,7 @@ static bool test_prefix(const char *p) {
         return path_startswith_strv(p, arg_prefixes);
 }
 
-static Option *option_new(
+static Option* option_new(
                 const char *key,
                 const char *value,
                 bool ignore_failure) {
@@ -155,14 +158,13 @@ static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option 
                 if (option->ignore_failure || ERRNO_IS_PRIVILEGE(r)) {
                         log_debug_errno(r, "Failed to resolve glob '%s', ignoring: %m", option->key);
                         return 0;
-                } else
-                        return log_error_errno(r, "Couldn't resolve glob '%s': %m", option->key);
+                }
+
+                return log_error_errno(r, "Couldn't resolve glob '%s': %m", option->key);
         }
 
         STRV_FOREACH(s, paths) {
-                const char *key;
-
-                assert_se(key = path_startswith(*s, "/proc/sys"));
+                const char *key = ASSERT_SE_PTR(path_startswith(*s, "/proc/sys"));
 
                 if (ordered_hashmap_contains(sysctl_options, key)) {
                         log_debug("Not setting %s (explicit setting exists).", key);
