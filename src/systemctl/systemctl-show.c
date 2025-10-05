@@ -8,6 +8,7 @@
 #include "af-list.h"
 #include "bus-error.h"
 #include "bus-map-properties.h"
+#include "bus-message-util.h"
 #include "bus-print-properties.h"
 #include "bus-unit-procs.h"
 #include "bus-unit-util.h"
@@ -2139,6 +2140,28 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return log_oom();
 
                         bus_print_property_value(name, expected_value, flags, joined);
+
+                        return 1;
+
+                } else if (streq(name, "TransactionsWithOrderingCycle")) {
+                        _cleanup_free_ char *ids = NULL;
+
+                        r = sd_bus_message_enter_container(m, 'a', "ay");
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        sd_id128_t tr_id;
+                        while ((r = bus_message_read_id128(m, &tr_id)) > 0)
+                                if (!strextend_with_separator(&ids, " ", SD_ID128_TO_STRING(tr_id)))
+                                        return log_oom();
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        r = sd_bus_message_exit_container(m);
+                        if (r < 0)
+                                return bus_log_parse_error(r);
+
+                        bus_print_property_value(name, expected_value, flags, ids);
 
                         return 1;
                 }

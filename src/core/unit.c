@@ -2309,7 +2309,7 @@ static void retroactively_stop_dependencies(Unit *u) {
         assert(UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(u)));
 
         /* Pull down units which are bound to us recursively if enabled */
-        UNIT_FOREACH_DEPENDENCY_SAFE(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
+        UNIT_FOREACH_DEPENDENCY(other, u, UNIT_ATOM_RETROACTIVE_STOP_ON_STOP) /* BoundBy= */
                 if (!UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other)))
                         (void) manager_add_job(u->manager, JOB_STOP, other, JOB_REPLACE, /* error = */ NULL, /* ret = */ NULL);
 }
