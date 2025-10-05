@@ -34,6 +34,12 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
+        <funcdef>typedef int (*<function>sd_bus_track_handler_t</function>)</funcdef>
+        <paramdef>sd_bus_track *<parameter>track</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_bus_track_new</function></funcdef>
         <paramdef>sd_bus* <parameter>bus</parameter></paramdef>
         <paramdef>sd_bus_track** <parameter>ret</parameter></paramdef>
@@ -221,6 +227,7 @@
   <refsect1>
     <title>History</title>
     <para><function>sd_bus_track_new()</function>,
+    <function>sd_bus_track_handler_t()</function>,
     <function>sd_bus_track_ref()</function>,
     <function>sd_bus_track_unref()</function>,
     <function>sd_bus_track_unrefp()</function>,
