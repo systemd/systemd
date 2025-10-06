@@ -316,6 +316,41 @@ static void test_static_lease(void) {
                                                   (uint8_t*) &(uint32_t) { 0x01020306 }, sizeof(uint32_t)));
 }
 
+static void test_domain_name(void) {
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+
+        log_debug("/* %s */", __func__);
+
+        ASSERT_OK(sd_dhcp_server_new(&server, 1));
+
+        /* Test setting domain name */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "example.com"));
+
+        /* Test setting same domain name (should return 0 - no change) */
+        ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, "example.com"));
+
+        /* Test changing domain name */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "test.local"));
+
+        /* Test clearing domain name */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, NULL));
+
+        /* Test clearing again (should return 0 - already cleared) */
+        ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, NULL));
+
+        /* Test invalid domain name */
+        ASSERT_ERROR(sd_dhcp_server_set_domain_name(server, "invalid..domain"), EINVAL);
+
+        /* Test empty string (should be treated as NULL) */
+        ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, ""));
+
+        /* Test valid domain with subdomain */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "sub.example.com"));
+
+        /* Test single-label domain */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "local"));
+}
+
 int main(int argc, char *argv[]) {
         int r;
 
@@ -323,6 +358,7 @@ int main(int argc, char *argv[]) {
 
         test_client_id_hash();
         test_static_lease();
+        test_domain_name();
 
         r = test_basic(true);
         if (r < 0)

@@ -3993,6 +3993,19 @@ ServerAddress=192.168.0.1/24</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>EmitDomain=</varname></term>
+        <term><varname>Domain=</varname></term>
+
+        <listitem><para>Takes a boolean. Configures whether the DHCP leases handed out
+        to clients shall contain domain name information (DHCP option 15). Defaults to <literal>no</literal>.
+        The <varname>Domain=</varname> setting takes a domain name (such as
+        <literal>example.com</literal>) to pass to clients. This configures the DNS default domain
+        for DHCP clients. When set, DHCP clients will use this as their DNS search domain.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>BootServerAddress=</varname></term>
 
         <listitem>

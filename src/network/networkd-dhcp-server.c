@@ -678,6 +678,12 @@ static int dhcp4_server_configure(Link *link) {
                 }
         }
 
+        if (link->network->dhcp_server_emit_domain && link->network->dhcp_server_domain) {
+                r = sd_dhcp_server_set_domain_name(link->dhcp_server, link->network->dhcp_server_domain);
+                if (r < 0)
+                        return log_link_error_errno(link, r, "Failed to set domain name for DHCP server: %m");
+        }
+
         ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options) {
                 r = sd_dhcp_server_add_option(link->dhcp_server, p);
                 if (r == -EEXIST)
