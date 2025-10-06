@@ -5645,16 +5645,31 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
 
 static int service_freezer_action(Unit *u, FreezerAction action) {
         Service *s = ASSERT_PTR(SERVICE(u));
+        FreezerState old_objective, new_objective;
         int r;
 
+        old_objective = freezer_state_objective(u->freezer_state);
+
         r = unit_cgroup_freezer_action(u, action);
-        if (r <= 0)
+        if (r < 0)
                 return r;
 
-        if (action == FREEZER_FREEZE)
-                service_stop_watchdog(s);
-        else if (action == FREEZER_THAW)
-                service_reset_watchdog(s);
+        new_objective = freezer_state_objective(u->freezer_state);
+
+        /* Note that we cannot trivially check the retval of unit_cgroup_freezer_action() here, since
+         * that signals whether the operation is ongoing from *kernel's PoV*. If the freeze operation
+         * is aborted, the frozen attribute of the cgroup would never have been flipped in kernel,
+         * and unit_cgroup_freezer_action() will happily return 0, yet the watchdog still needs to be reset;
+         * vice versa. */
+
+        if (old_objective != new_objective) {
+                if (new_objective == FREEZER_FROZEN)
+                        service_stop_watchdog(s);
+                else if (new_objective == FREEZER_RUNNING)
+                        service_reset_watchdog(s);
+                else
+                        assert_not_reached();
+        }
 
         return r;
 }
