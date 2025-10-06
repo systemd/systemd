@@ -711,6 +711,11 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 if (r < 0)
                         return r;
 
+                /* If we trust the server, then request validation with the AD bit */
+                if (t->scope->dnssec_mode == DNSSEC_TRUST_AD)
+                        DNS_PACKET_HEADER(t->sent)->flags = htobe16(UPDATE_FLAG(be16toh(DNS_PACKET_HEADER(t->sent)->flags),
+                                  DNS_PACKET_FLAG_AD, true));
+
                 if (manager_server_is_stub(t->scope->manager, t->server))
                         return -ELOOP;
 
@@ -1075,6 +1080,7 @@ static int dns_transaction_fix_rcode(DnsTransaction *t) {
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted) {
         bool retry_with_tcp = false;
+        bool trusted = false;
         int r;
 
         assert(t);
@@ -1238,6 +1244,16 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
                 dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                 return;
+        }
+
+        trusted = ( t->scope->dnssec_mode == DNSSEC_TRUST_AD ) && encrypted && DNS_PACKET_AD(p);
+        if (trusted) {
+                DnsAnswerItem *item;
+                DNS_ANSWER_FOREACH_ITEM(item, p->answer) {
+                        SET_FLAG(item->flags, DNS_ANSWER_AUTHENTICATED,
+                                        FLAGS_SET(item->flags, DNS_ANSWER_SECTION_ANSWER) ||
+                                        FLAGS_SET(item->flags, DNS_ANSWER_SECTION_AUTHORITY));
+                }
         }
 
         switch (t->scope->protocol) {
@@ -1419,7 +1435,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
         DNS_ANSWER_REPLACE(t->answer, dns_answer_ref(p->answer));
         t->answer_rcode = dns_packet_rcode(p);
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
-        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, false);
+        SET_FLAG(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED, trusted);
         SET_FLAG(t->answer_query_flags, SD_RESOLVED_CONFIDENTIAL, encrypted);
 
         r = dns_transaction_fix_rcode(t);
@@ -2480,6 +2496,8 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 return 0;
         if (t->answer_source != DNS_TRANSACTION_NETWORK)
                 return 0; /* We only need to validate stuff from the network */
+        if (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
+                return 0; /* We already consider this reply authentic */
         if (!dns_transaction_dnssec_supported(t))
                 return 0; /* If we can't do DNSSEC anyway there's no point in getting the auxiliary RRs */
 

@@ -41,6 +41,11 @@ typedef enum DnssecMode {
          * that's life and what is configured. */
         DNSSEC_ALLOW_DOWNGRADE,
 
+        /*
+         * Do not validate, trust the resolver's ad flag
+         */
+        DNSSEC_TRUST_AD,
+
         /* Insist on DNSSEC server support, and rather fail than downgrading. */
         DNSSEC_YES,
 
