@@ -153,7 +153,7 @@ done
 (! varlinkctl call "")
 (! varlinkctl call "" "")
 (! varlinkctl call "" "" "")
-(! varlinkctl call /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetUserRecord </dev/null)
+(! varlinkctl call /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetUserRecord '{ "service" : "io.systemd.ShouldNotExist" }')
 (! varlinkctl validate-idl "")
 (! varlinkctl validate-idl </dev/null)
 

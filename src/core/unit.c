@@ -1386,6 +1386,9 @@ int unit_load_fragment_and_dropin(Unit *u, bool fragment_required) {
         if (r < 0)
                 return r;
 
+        if (u->load_state == UNIT_MASKED)
+                return 0;
+
         if (u->load_state == UNIT_STUB) {
                 if (fragment_required)
                         return -ENOENT;

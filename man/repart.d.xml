@@ -807,8 +807,10 @@
         partition should be mounted. The second field specifies extra mount options to append to the default
         mount options. These fields correspond to the second and fourth column of the
         <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        format. This setting may be specified multiple times to mount the partition multiple times. This can
-        be used to add mounts for different
+        format. As a colon is used for separating fields, each field needs to be quoted when it contains
+        colons. E.g. <programlisting>MountPoint="/path/with:colon":"zstd:1,noatime,lazytime"</programlisting>
+        This setting may be specified multiple times to mount the partition multiple times. This can be used
+        to add mounts for different
         <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         subvolumes located on the same btrfs partition.</para>
 

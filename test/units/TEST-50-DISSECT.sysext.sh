@@ -1106,5 +1106,6 @@ systemd-sysext unmerge
 test ! -f /usr/lib/systemd/system/some_file
 mountpoint /usr/share
 umount /usr/share
+rm -f /var/lib/extensions/app0.raw
 
 exit 0
