@@ -192,7 +192,7 @@ static int mute_kernel(Context *c) {
         }
 
         if (detect_container() > 0) {
-                log_debug("Skipping muting of print() console output, because running in a container.");
+                log_debug("Skipping muting of printk() console output, because running in a container.");
                 c->saved_kernel = -1;
                 return 0;
         }
@@ -398,7 +398,7 @@ static int run(int argc, char* argv[]) {
         RET_GATHER(ret, mute_pid1(&c));
         RET_GATHER(ret, mute_kernel(&c));
 
-        /* Now tell service manager we area ready to go */
+        /* Now tell service manager we are ready to go */
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_message =
                 notify_start("READY=1\n"
                              "STATUS=Console status output muted temporarily.",
