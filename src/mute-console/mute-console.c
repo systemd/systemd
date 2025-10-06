@@ -192,7 +192,7 @@ static int mute_kernel(Context *c) {
         }
 
         if (detect_container() > 0) {
-                log_debug("Skipping muting of print() console output, because running in a container.");
+                log_debug("Skipping muting of printk() console output, because running in a container.");
                 c->saved_kernel = -1;
                 return 0;
         }
