@@ -37,7 +37,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
           int a, b, c;
   ```
 
-  (i.e. use double indentation — 16 spaces — for the parameter list.)
+  (i.e. use double indentation — 16 spaces — for the parameter list and leave a
+  newline between the function declaration and the first variable declaration.)
 
 - Try to write this:
 
