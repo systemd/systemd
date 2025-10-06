@@ -10,9 +10,6 @@
 [Unit]
 Description=Console Output Muting Service Slice
 Documentation=man:systemd-mute-console(8)
-DefaultDependencies=no
-Conflicts=shutdown.target
-Before=shutdown.target
 
 [Slice]
 # Serialize requests to mute the console.
