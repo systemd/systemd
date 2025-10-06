@@ -94,6 +94,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->kernel);
         free(entry->efi);
         free(entry->uki);
+        free(entry->uki_url);
         strv_free(entry->initrd);
         free(entry->device_tree);
         strv_free(entry->device_tree_overlay);
@@ -406,6 +407,8 @@ static int boot_entry_load_type1(
                         r = parse_path_one(tmp.path, line, field, &tmp.efi, p);
                 else if (streq(field, "uki"))
                         r = parse_path_one(tmp.path, line, field, &tmp.uki, p);
+                else if (streq(field, "uki-url"))
+                        r = free_and_strdup(&tmp.uki_url, p);
                 else if (streq(field, "profile"))
                         r = safe_atou_full(p, 10, &tmp.profile);
                 else if (streq(field, "initrd"))
@@ -1905,6 +1908,8 @@ int show_boot_entry(
                 boot_entry_file_list("efi", e->root, e->efi, &status);
         if (e->uki)
                 boot_entry_file_list("uki", e->root, e->uki, &status);
+        if (e->uki_url)
+                printf("      uki-url: %s\n", e->uki_url);
         if (e->profile != UINT_MAX)
                 printf("      profile: %u\n", e->profile);
 
@@ -1969,6 +1974,7 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->kernel, "linux", SD_JSON_BUILD_STRING(e->kernel)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->efi, "efi", SD_JSON_BUILD_STRING(e->efi)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->uki, "uki", SD_JSON_BUILD_STRING(e->uki)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!e->uki_url, "ukiUrl", SD_JSON_BUILD_STRING(e->uki_url)),
                         SD_JSON_BUILD_PAIR_CONDITION(e->profile != UINT_MAX, "profile", SD_JSON_BUILD_UNSIGNED(e->profile)),
                         SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", SD_JSON_BUILD_STRV(e->initrd)));
         if (r < 0)

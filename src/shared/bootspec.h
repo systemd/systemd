@@ -51,6 +51,7 @@ typedef struct BootEntry {
         char *kernel;        /* linux is #defined to 1, yikes! */
         char *efi;
         char *uki;
+        char *uki_url;
         char **initrd;
         char *device_tree;
         char **device_tree_overlay;
