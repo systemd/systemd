@@ -21,6 +21,7 @@ Include any other files from the [documentation](../docs) in the context as need
 - Frame comments as questions
 - Always consider you may be wrong
 - Do not argue with contributors, assume they are right unless you are very confident in your deduction
+- Be extremely thorough. Every single separate coding style violation should be reported
 
 ## Testing Expectations
 
