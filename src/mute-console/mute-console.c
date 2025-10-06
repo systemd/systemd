@@ -167,7 +167,8 @@ static int unmute_pid1(Context *c) {
         assert(c);
 
         if (!c->muted_pid1) {
-                log_debug("Not restoring PID 1 status console output level.");
+                if (c->mute_pid1)
+                        log_debug("Not restoring PID 1 status console output level.");
                 return 0;
         }
 
@@ -193,6 +194,8 @@ static int mute_kernel(Context *c) {
 
         if (detect_container() > 0) {
                 log_debug("Skipping muting of printk() console output, because running in a container.");
+
+                c->mute_kernel = false;
                 c->saved_kernel = -1;
                 return 0;
         }
@@ -222,7 +225,8 @@ static int unmute_kernel(Context *c) {
         assert(c);
 
         if (c->saved_kernel < 0) {
-                log_debug("Not restoring kernel printk() console output level.");
+                if (c->mute_kernel)
+                        log_debug("Not restoring kernel printk() console output level.");
                 return 0;
         }
 
