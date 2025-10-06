@@ -185,7 +185,7 @@ static int mute_kernel(Context *c) {
 
         assert(c);
 
-        if (!arg_mute_kernel) {
+        if (!c->mute_kernel) {
                 log_debug("Muting of kernel printk() console output disabled.");
                 c->saved_kernel = -1;
                 return 0;
