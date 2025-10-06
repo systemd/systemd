@@ -414,7 +414,7 @@ static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
 static void service_reset_watchdog(Service *s) {
         assert(s);
 
-        if (freezer_state_finish(UNIT(s)->freezer_state) != FREEZER_RUNNING) {
+        if (freezer_state_objective(UNIT(s)->freezer_state) != FREEZER_RUNNING) {
                 log_unit_debug(UNIT(s), "Service is currently %s, skipping resetting watchdog.",
                                freezer_state_to_string(UNIT(s)->freezer_state));
                 return;
@@ -1425,7 +1425,7 @@ static int service_coldplug(Unit *u) {
                 (void) unit_setup_exec_runtime(u);
 
         if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_REFRESH_EXTENSIONS, SERVICE_MOUNTING) &&
-            freezer_state_finish(u->freezer_state) == FREEZER_RUNNING)
+            freezer_state_objective(u->freezer_state) == FREEZER_RUNNING)
                 service_start_watchdog(s);
 
         if (UNIT_ISSET(s->accept_socket)) {
