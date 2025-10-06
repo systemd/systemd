@@ -244,8 +244,9 @@ static int unmute_kernel(Context *c) {
         return 0;
 }
 
-static void context_done(Context *c) {
-        assert(c);
+static Context* context_unmute_and_free(Context *c) {
+        if (!c)
+                return NULL;
 
         (void) unmute_pid1(c);
         (void) unmute_kernel(c);
@@ -254,17 +255,11 @@ static void context_done(Context *c) {
                 (void) sd_varlink_set_userdata(c->link, NULL);
                 c->link = sd_varlink_flush_close_unref(c->link);
         }
-}
 
-static Context* context_free(Context *c) {
-        if (!c)
-                return NULL;
-
-        context_done(c);
         return mfree(c);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_unmute_and_free);
 
 static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
         assert(link);
@@ -273,7 +268,7 @@ static void vl_on_disconnect(sd_varlink_server *server, sd_varlink *link, void *
         if (!c)
                 return;
 
-        context_free(c);
+        context_unmute_and_free(c);
 }
 
 static int vl_method_mute(
@@ -286,7 +281,7 @@ static int vl_method_mute(
 
         assert(link);
 
-        _cleanup_(context_freep) Context *nc = new(Context, 1);
+        _cleanup_(context_unmute_and_freep) Context *nc = new(Context, 1);
         if (!nc)
                 return -ENOMEM;
 
@@ -380,7 +375,7 @@ static int run(int argc, char* argv[]) {
         if (!arg_mute_pid1 && !arg_mute_kernel)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not asked to mute anything, refusing.");
 
-        _cleanup_(context_done) Context c = {
+        Context c = {
                 .mute_pid1 = arg_mute_pid1,
                 .mute_kernel = arg_mute_kernel,
                 .saved_kernel = -1,
