@@ -72,7 +72,7 @@ static bool arg_pretty = false;
 static bool arg_quiet = false;
 static bool arg_varlink = false;
 static uid_t arg_uid = UID_INVALID;
-static bool arg_allow_null = false;
+static CredentialFlags arg_credential_flags = 0;
 static bool arg_ask_password = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
@@ -526,7 +526,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                                 timestamp,
                                                 uid_is_valid(arg_uid) ? arg_uid : getuid(),
                                                 &IOVEC_MAKE(data, size),
-                                                CREDENTIAL_ANY_SCOPE,
+                                                arg_credential_flags | CREDENTIAL_ANY_SCOPE,
                                                 &plaintext);
                         else
                                 r = decrypt_credential_and_warn(
@@ -536,7 +536,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                                 arg_tpm2_signature,
                                                 uid_is_valid(arg_uid) ? arg_uid : getuid(),
                                                 &IOVEC_MAKE(data, size),
-                                                CREDENTIAL_ANY_SCOPE,
+                                                arg_credential_flags | CREDENTIAL_ANY_SCOPE,
                                                 &plaintext);
                         if (r < 0)
                                 return r;
@@ -608,7 +608,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                                 arg_not_after,
                                 arg_uid,
                                 &plaintext,
-                                arg_ask_password ? CREDENTIAL_IPC_ALLOW_INTERACTIVE : 0,
+                                arg_credential_flags,
                                 &output);
         } else
                 r = encrypt_credential_and_warn(
@@ -622,7 +622,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                                 arg_tpm2_public_key_pcr_mask,
                                 arg_uid,
                                 &plaintext,
-                                /* flags= */ 0,
+                                arg_credential_flags,
                                 &output);
         if (r < 0)
                 return r;
@@ -713,7 +713,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                                 timestamp,
                                 arg_uid,
                                 &input,
-                                arg_ask_password ? CREDENTIAL_IPC_ALLOW_INTERACTIVE : 0,
+                                arg_credential_flags,
                                 &plaintext);
         } else
                 r = decrypt_credential_and_warn(
@@ -723,7 +723,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                                 arg_tpm2_signature,
                                 arg_uid,
                                 &input,
-                                arg_allow_null ? CREDENTIAL_ALLOW_NULL : 0,
+                                arg_credential_flags,
                                 &plaintext);
         if (r < 0)
                 return r;
@@ -815,7 +815,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          Specify signature for public key PCR policy\n"
                "     --user               Select user-scoped credential encryption\n"
                "     --uid=UID            Select user for scoped credentials\n"
-               "     --allow-null         Allow decrypting credentials with empty key\n"
+               "     --allow-null         Allow decrypting credentials with null key\n"
+               "     --refuse-null        Refuse decrypting credentials with null key\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -849,6 +850,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_UID,
                 ARG_ALLOW_NULL,
+                ARG_REFUSE_NULL,
                 ARG_NO_ASK_PASSWORD,
         };
 
@@ -875,6 +877,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "user",                 no_argument,       NULL, ARG_USER                 },
                 { "uid",                  required_argument, NULL, ARG_UID                  },
                 { "allow-null",           no_argument,       NULL, ARG_ALLOW_NULL           },
+                { "refuse-null",          no_argument,       NULL, ARG_REFUSE_NULL          },
                 { "no-ask-password",      no_argument,       NULL, ARG_NO_ASK_PASSWORD      },
                 {}
         };
@@ -1068,7 +1071,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ALLOW_NULL:
-                        arg_allow_null = true;
+                        arg_credential_flags &= ~CREDENTIAL_REFUSE_NULL;
+                        arg_credential_flags |= CREDENTIAL_ALLOW_NULL;
+                        break;
+
+                case ARG_REFUSE_NULL:
+                        arg_credential_flags |= CREDENTIAL_REFUSE_NULL;
+                        arg_credential_flags &= ~CREDENTIAL_ALLOW_NULL;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -1086,6 +1095,8 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
         }
+
+        SET_FLAG(arg_credential_flags, CREDENTIAL_IPC_ALLOW_INTERACTIVE, arg_ask_password);
 
         if (uid_is_valid(arg_uid)) {
                 /* If a UID is specified, then switch to scoped credentials */
@@ -1391,6 +1402,7 @@ typedef struct MethodDecryptParameters {
         uint64_t timestamp;
         CredentialScope scope;
         uid_t uid;
+        int allow_null;
 } MethodDecryptParameters;
 
 static void method_decrypt_parameters_done(MethodDecryptParameters *p) {
@@ -1402,11 +1414,12 @@ static void method_decrypt_parameters_done(MethodDecryptParameters *p) {
 static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodDecryptParameters, name),      0                 },
-                { "blob",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodDecryptParameters, blob),      SD_JSON_MANDATORY },
-                { "timestamp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodDecryptParameters, timestamp), 0                 },
-                { "scope",     SD_JSON_VARIANT_STRING,        dispatch_credential_scope,     offsetof(MethodDecryptParameters, scope),     0                 },
-                { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MethodDecryptParameters, uid),       0                 },
+                { "name",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodDecryptParameters, name),       0                 },
+                { "blob",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodDecryptParameters, blob),       SD_JSON_MANDATORY },
+                { "timestamp", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodDecryptParameters, timestamp),  0                 },
+                { "scope",     SD_JSON_VARIANT_STRING,        dispatch_credential_scope,     offsetof(MethodDecryptParameters, scope),      0                 },
+                { "uid",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(MethodDecryptParameters, uid),        0                 },
+                { "allowNull", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(MethodDecryptParameters, allow_null), SD_JSON_NULLABLE  },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -1414,6 +1427,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
                 .timestamp = UINT64_MAX,
                 .scope = _CREDENTIAL_SCOPE_INVALID,
                 .uid = UID_INVALID,
+                .allow_null = -1,
         };
         bool timestamp_fresh, any_scope_after_polkit = false;
         _cleanup_(iovec_done_erase) struct iovec output = {};
@@ -1439,6 +1453,11 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
         r = settle_scope(link, &p.scope, &p.uid, &cflags, &any_scope_after_polkit);
         if (r < 0)
                 return r;
+
+        if (p.allow_null > 0)
+                cflags |= CREDENTIAL_ALLOW_NULL;
+        else if (p.allow_null == 0)
+                cflags |= CREDENTIAL_REFUSE_NULL;
 
         r = sd_varlink_get_peer_uid(link, &peer_uid);
         if (r < 0)

@@ -812,6 +812,9 @@ int encrypt_credential_and_warn(
         assert(iovec_is_valid(input));
         assert(ret);
 
+        /* Only one of these two flags may be set at the same time */
+        assert(!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL) || !FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL));
+
         if (!sd_id128_in_set(with_key,
                              _CRED_AUTO,
                              _CRED_AUTO_INITRD,
@@ -1008,8 +1011,12 @@ int encrypt_credential_and_warn(
         } else
                 id = with_key;
 
-        if (sd_id128_equal(id, CRED_AES256_GCM_BY_NULL) && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
-                log_warning("Using a null key for encryption and signing. Confidentiality or authenticity will not be provided.");
+        if (sd_id128_equal(id, CRED_AES256_GCM_BY_NULL)) {
+                if (FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL))
+                        return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Attempted to encrypt with null key, but this is disallowed.");
+                if (!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
+                        log_warning("Using a null key for encryption and signing. Confidentiality or authenticity will not be provided.");
+        }
 
         /* Let's now take the host key and the TPM2 key and hash it together, to use as encryption key for the data */
         r = sha256_hash_host_and_tpm2_key(&host_key, &tpm2_key, md);
@@ -1201,12 +1208,15 @@ int decrypt_credential_and_warn(
         assert(iovec_is_valid(input));
         assert(ret);
 
+        /* Only one of these two flags may be set at the same time */
+        assert(!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL) || !FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL));
+
         /* Relevant error codes:
          *
          *   -EBADMSG      → Corrupted file
          *   -EOPNOTSUPP   → Unsupported file type (could be: requires TPM but we have no TPM)
          *   -EHOSTDOWN    → Need PCR signature file, but couldn't find it
-         *   -EHWPOISON    → Attempt to decode NULL key (and CREDENTIAL_ALLOW_NULL is off), but the system has a TPM and SecureBoot is on
+         *   -EHWPOISON    → Attempt to unlock with NULL key and either CREDENTIAL_ALLOW_REFUSE is on, or CREDENTIAL_ALLOW_NULL is off, but the system has a TPM and SecureBoot is on
          *   -EMEDIUMTYPE  → File has unexpected scope, i.e. user-scoped credential is attempted to be unlocked in system scope, or vice versa
          *   -EDESTADDRREQ → Credential is incorrectly named (i.e. the authenticated name does not match the actual name)
          *   -ESTALE       → Credential's validity has passed
@@ -1237,24 +1247,30 @@ int decrypt_credential_and_warn(
                         return log_error_errno(r, "Failed to load PCR signature: %m");
         }
 
-        if (with_null && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL)) {
-                /* So this is a credential encrypted with a zero length key. We support this to cover for the
-                 * case where neither a host key not a TPM2 are available (specifically: initrd environments
-                 * where the host key is not yet accessible and no TPM2 chip exists at all), to minimize
-                 * different codeflow for TPM2 and non-TPM2 codepaths. Of course, credentials encoded this
-                 * way offer no confidentiality nor authenticity. Because of that it's important we refuse to
-                 * use them on systems that actually *do* have a TPM2 chip – if we are in SecureBoot
-                 * mode. Otherwise an attacker could hand us credentials like this and we'd use them thinking
-                 * they are trusted, even though they are not. */
+        if (with_null) {
+                if (FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL))
+                        return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
+                                               "Credential uses null key, but that's not allowed, refusing.");
 
-                if (efi_has_tpm2()) {
-                        if (is_efi_secure_boot())
-                                return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
-                                                       "Credential uses fixed key for fallback use when TPM2 is absent — but TPM2 is present, and SecureBoot is enabled, refusing.");
+                if (!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL)) {
+                        /* So this is a credential encrypted with a zero length key. We support this to cover for the
+                         * case where neither a host key not a TPM2 are available (specifically: initrd environments
+                         * where the host key is not yet accessible and no TPM2 chip exists at all), to minimize
+                         * different codeflow for TPM2 and non-TPM2 codepaths. Of course, credentials encoded this
+                         * way offer no confidentiality nor authenticity. Because of that it's important we refuse to
+                         * use them on systems that actually *do* have a TPM2 chip – if we are in SecureBoot
+                         * mode. Otherwise an attacker could hand us credentials like this and we'd use them thinking
+                         * they are trusted, even though they are not. */
 
-                        log_warning("Credential uses fixed key for use when TPM2 is absent, but TPM2 is present! Accepting anyway, since SecureBoot is disabled.");
-                } else
-                        log_debug("Credential uses fixed key for use when TPM2 is absent, and TPM2 indeed is absent. Accepting.");
+                        if (efi_has_tpm2()) {
+                                if (is_efi_secure_boot())
+                                        return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
+                                                               "Credential uses null key intended for fallback use when TPM2 is absent — but TPM2 is present, and SecureBoot is enabled, refusing.");
+
+                                log_warning("Credential uses null key intended for use when TPM2 is absent, but TPM2 is present! Accepting anyway, since SecureBoot is disabled.");
+                        } else
+                                log_debug("Credential uses null key intended for use when TPM2 is absent, and TPM2 indeed is absent. Accepting.");
+                }
         }
 
         if (with_scope) {
@@ -1590,6 +1606,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
                         SD_JSON_BUILD_PAIR_CONDITION(not_after != USEC_INFINITY, "notAfter",  SD_JSON_BUILD_UNSIGNED(not_after)),
                         SD_JSON_BUILD_PAIR_CONDITION(!FLAGS_SET(flags, CREDENTIAL_ANY_SCOPE), "scope", SD_JSON_BUILD_STRING(uid_is_valid(uid) ? "user" : "system")),
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid), "uid", SD_JSON_BUILD_UNSIGNED(uid)),
+                        SD_JSON_BUILD_PAIR_CONDITION((flags & (CREDENTIAL_ALLOW_NULL|CREDENTIAL_REFUSE_NULL)) != 0, "allowNull", SD_JSON_BUILD_BOOLEAN(flags & CREDENTIAL_ALLOW_NULL)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, CREDENTIAL_IPC_ALLOW_INTERACTIVE)));
         if (r < 0)
                 return log_error_errno(r, "Failed to call Encrypt() varlink call.");
