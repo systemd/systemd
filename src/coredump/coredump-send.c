@@ -95,7 +95,7 @@ int coredump_send(CoredumpContext *context) {
         return 0;
 }
 
-static int can_forward_coredump(PidRef *pidref, PidRef *leader) {
+int can_forward_coredump(PidRef *pidref, PidRef *leader) {
         int r;
 
         assert(pidref_is_set(pidref));
