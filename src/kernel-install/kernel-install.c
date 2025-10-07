@@ -222,9 +222,9 @@ static int context_open_root(Context *c) {
         if (r > 0)
                 return 0;
 
-        c->rfd = open(empty_to_root(arg_root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        c->rfd = open(arg_root, O_CLOEXEC | O_DIRECTORY | O_PATH);
         if (c->rfd < 0)
-                return log_error_errno(errno, "Failed to open root directory '%s': %m", empty_to_root(arg_root));
+                return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
 
         return 0;
 }
