@@ -424,9 +424,17 @@
       <varlistentry>
         <term><option>--allow-null</option></term>
 
-        <listitem><para>Allow decrypting credentials that use an empty key.</para>
+        <listitem><para>Allow decrypting credentials that use a null key. By default decryption of credentials encrypted/authenticated with a null key is only allowed if UEFI SecureBoot is off.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--refuse-null</option></term>
+
+        <listitem><para>Refuse decrypting credentials that use a null key, regardless of the UEFI SecureBoot state (see above).</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>

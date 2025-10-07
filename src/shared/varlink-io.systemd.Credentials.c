@@ -63,6 +63,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(scope, Scope, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If the 'user' scope is selected, specifies the numeric UNIX UID of the user the credential is associated with. If not specified this is automatically derived from the UID of the calling user, if that can be determined."),
                 SD_VARLINK_DEFINE_INPUT(uid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("If true allows decryption of credentials encrypted with the null key, if false does not allow it, if unset/null the default depends on whether a TPM device exists and SecureBoot is enabled."),
+                SD_VARLINK_DEFINE_INPUT(allowNull, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("The decrypted plaintext data in Base64 encoding."),
                 SD_VARLINK_DEFINE_OUTPUT(data, SD_VARLINK_STRING, 0));
