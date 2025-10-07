@@ -190,7 +190,7 @@ int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispa
         const char *path;
         int r;
 
-        assert_return(variant, -EINVAL);
+        assert(variant);
 
         r = json_dispatch_const_path(name, variant, flags, &path);
         if (r < 0)
@@ -256,7 +256,7 @@ int json_dispatch_filename(const char *name, sd_json_variant *variant, sd_json_d
         const char *filename;
         int r;
 
-        assert_return(variant, -EINVAL);
+        assert(variant);
 
         r = json_dispatch_const_filename(name, variant, flags, &filename);
         if (r < 0)
