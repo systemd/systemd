@@ -81,3 +81,5 @@ int coredump_context_acquire_mount_tree_fd(const CoredumpConfig *config, Coredum
 int coredump_context_build_iovw(CoredumpContext *context);
 int coredump_context_parse_iovw(CoredumpContext *context);
 int coredump_context_parse_from_argv(CoredumpContext *context, int argc, char **argv);
+int coredump_context_parse_from_peer(CoredumpContext *context);
+int coredump_context_update_signal(CoredumpContext *context);
