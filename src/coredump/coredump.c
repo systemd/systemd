@@ -5,6 +5,7 @@
 #include "coredump-backtrace.h"
 #include "coredump-container.h"
 #include "coredump-kernel-helper.h"
+#include "coredump-manager.h"
 #include "coredump-receive.h"
 #include "coredump-register.h"
 #include "coredump-util.h"
@@ -22,6 +23,9 @@ static int run(int argc, char *argv[]) {
 
         if (streq_ptr(argv[1], "--container"))
                 return coredump_container(argc, argv);
+
+        if (streq_ptr(argv[1], "--manager"))
+                return coredump_manager(argc, argv);
 
         if (streq_ptr(argv[1], "--register"))
                 return coredump_register(argc, argv);
