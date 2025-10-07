@@ -10,18 +10,22 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "hostname-setup.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "log.h"
 #include "memstream-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "user-util.h"
 
 static const char * const metadata_field_table[_META_MAX] = {
@@ -535,4 +539,88 @@ int coredump_context_parse_from_procfs(CoredumpContext *context) {
 
         /* We successfully acquired all metadata. */
         return coredump_context_parse_iovw(context);
+}
+
+int coredump_context_build(const CoredumpConfig *config, CoredumpContext *context, int coredump_fd, usec_t timestamp) {
+        int r;
+
+        assert(config);
+        assert(context);
+        assert(coredump_fd >= 0);
+
+        r = getpeerpidref(coredump_fd, &context->pidref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get peer pidref: %m");
+
+        struct pidfd_info info = {
+                .mask = PIDFD_INFO_EXIT | PIDFD_INFO_COREDUMP,
+        };
+
+        r = pidfd_get_info(context->pidref.fd, &info);
+        if (r < 0)
+                return log_error_errno(r, "ioctl(PIDFD_GET_INFO) failed: %m");
+
+        /* Basic verifications. Note, here PIDFD_INFO_EXIT may not be set (at least as of v6.16.10), as the
+         * crashed process has not exited yet. See also the comment about the signal number below. */
+        if (!FLAGS_SET(info.mask, PIDFD_INFO_PID | PIDFD_INFO_CREDS | PIDFD_INFO_COREDUMP))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ioctl(PIDFD_GET_INFO) does not provide necessary information.");
+
+        if (!FLAGS_SET(info.coredump_mask, PIDFD_COREDUMPED))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "The process ["PID_FMT"] not crashed.", context->pidref.pid);
+
+        if (FLAGS_SET(info.coredump_mask, PIDFD_COREDUMP_SKIP))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                       "Coredump generation for process ["PID_FMT"] is skipped.", context->pidref.pid);
+
+        r = iovw_put_string_fieldf(&context->iovw, "COREDUMP_PID=", PID_FMT, context->pidref.pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add COREDUMP_PID= field: %m");
+
+        r = iovw_put_string_fieldf(&context->iovw, "COREDUMP_UID=", UID_FMT, info.ruid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add COREDUMP_UID= field: %m");
+
+        r = iovw_put_string_fieldf(&context->iovw, "COREDUMP_GID=", UID_FMT, info.rgid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add COREDUMP_GID= field: %m");
+
+        /* info.exit_code consists of signal at lower 8 bits and exit state at higher 8bits.
+         * FIXME: As of v6.16.10 (maybe also on v6.17.x, but not sure), PIDFD_INFO_EXIT flag is not set, as
+         * the crashed process has not exited yet. But, the old socket client requires the COREDUMP_SIGNAL
+         * field is set. So, we need to fallback to SIGABRT here. */
+        r = iovw_put_string_fieldf(&context->iovw, "COREDUMP_SIGNAL=", "%i",
+                                   FLAGS_SET(info.mask, PIDFD_INFO_EXIT) ? info.exit_code & 0xff : SIGABRT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add COREDUMP_SIGNAL= field: %m");
+
+        r = iovw_put_string_fieldf(&context->iovw, "COREDUMP_TIMESTAMP=", USEC_FMT, timestamp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add COREDUMP_TIMESTAMP= field: %m");
+
+        struct rlimit rl;
+        r = pid_getrlimit(info.pid, RLIMIT_CORE, &rl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get coredump size limit: %m");
+
+        r = iovw_put_string_fieldf(&context->iovw, "COREDUMP_RLIMIT=", RLIM_FMT, rl.rlim_cur);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add COREDUMP_RLIMIT= field: %m");
+
+        char *h;
+        if (pidref_gethostname_full(&context->pidref, GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &h) >= 0)
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_HOSTNAME=", h);
+
+        (void) iovw_put_string_fieldf(&context->iovw, "COREDUMP_DUMPABLE=", "%i",
+                                      FLAGS_SET(info.coredump_mask, PIDFD_COREDUMP_USER) ? SUID_DUMP_USER : SUID_DUMP_SAFE);
+
+        context->got_pidfd = true;
+        (void) iovw_put_string_field(&context->iovw, "COREDUMP_BY_PIDFD=", "1");
+
+        r = coredump_context_parse_from_procfs(context);
+        if (r < 0)
+                return r;
+
+        return coredump_context_acquire_mount_tree_fd(config, context);
 }

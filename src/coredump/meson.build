@@ -12,6 +12,9 @@ systemd_coredump_sources = files(
         'coredump-kernel-helper.c',
         'coredump-receive.c',
         'coredump-send.c',
+        'coredump-socket.c',
+        'coredump-socket-container.c',
+        'coredump-socket-kernel.c',
         'coredump-submit.c',
 )
 systemd_coredump_extract_sources = files(
