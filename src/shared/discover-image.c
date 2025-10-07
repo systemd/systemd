@@ -1867,6 +1867,14 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope 
                 if (r < 0)
                         return r;
 
+                r = dissected_image_decrypt(
+                                m,
+                                /* passphrase= */ NULL,
+                                /* verity_settings= */ NULL,
+                                flags);
+                if (r < 0)
+                        return r;
+
                 r = dissected_image_acquire_metadata(
                                 m,
                                 /* userns_fd= */ -EBADF,
