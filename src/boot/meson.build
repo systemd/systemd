@@ -207,7 +207,7 @@ efi_c_ld_args = [
 ]
 
 linker_sanity_code = 'void a(void) {}; void _start(void) { a(); }'
-linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings']
+linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings', '-fno-stack-protector']
 
 # Check if libgcc is available and then use it. It is needed for gcc builds
 # and for ia32 builds with clang.
