@@ -4,6 +4,8 @@
 
 #include "coredump-backtrace.h"
 #include "coredump-kernel-helper.h"
+#include "coredump-socket-container.h"
+#include "coredump-socket-kernel.h"
 #include "coredump-receive.h"
 #include "coredump-util.h"
 #include "log.h"
@@ -16,6 +18,9 @@ static int run(int argc, char *argv[]) {
         if (streq_ptr(argv[1], "--backtrace"))
                 return coredump_backtrace(argc, argv);
 
+        if (streq_ptr(argv[1], "--register"))
+                return coredump_register_socket(argc, argv);
+
         /* First, log to a safe place, since we don't know what crashed and it might be journald which we'd
          * rather not log to then. */
         log_parse_environment();
@@ -23,6 +28,12 @@ static int run(int argc, char *argv[]) {
 
         /* Make sure we never enter a loop. */
         (void) set_dumpable(SUID_DUMP_DISABLE);
+
+        if (streq_ptr(argv[1], "--container"))
+                return coredump_process_container_socket(argc, argv);
+
+        if (streq_ptr(argv[1], "--kernel"))
+                return coredump_process_kernel_socket(argc, argv);
 
         r = sd_listen_fds(false);
         if (r < 0)
