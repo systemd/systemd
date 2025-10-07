@@ -499,10 +499,16 @@ cmp /tmp/vlcredsdata /tmp/vlcredsdata2
 rm /tmp/vlcredsdata2
 
 varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"null\"}" | \
+    jq '.["allowNull"] = true' |
     varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt > /tmp/vlcredsdata2
 
 cmp /tmp/vlcredsdata /tmp/vlcredsdata2
 rm /tmp/vlcredsdata /tmp/vlcredsdata2
+
+# Ensure allowNull works
+(! varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"null\"}" | \
+    jq '.["allowNull"] = false' |
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt )
 
 clean_usertest() {
     rm -f /tmp/usertest.data /tmp/usertest.data /tmp/brummbaer.data
