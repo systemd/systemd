@@ -27,6 +27,7 @@
 #include "loop-util.h"
 #include "main-func.h"
 #include "memory-util.h"
+#include "mount-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
@@ -41,6 +42,7 @@
 #include "time-util.h"
 #include "uid-classification.h"
 #include "uid-range.h"
+#include "user-util.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-util.h"
 
@@ -636,10 +638,16 @@ static MountMapMode default_mount_map_mode(DirectoryOwnership ownership) {
 
 static JSON_DISPATCH_ENUM_DEFINE(dispatch_mount_directory_mode, MountMapMode, mount_map_mode_from_string);
 
-static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
+static DirectoryOwnership validate_directory_fd(
+                int fd,
+                uid_t peer_uid,
+                uid_t *ret_current_owner_uid) {
+
         int r, fl;
 
         assert(fd >= 0);
+        assert(uid_is_valid(peer_uid));
+        assert(ret_current_owner_uid);
 
         /* Checks if the specified directory fd looks sane. Returns a DirectoryOwnership that categorizes the
          * ownership situation in comparison to the peer's UID.
@@ -664,6 +672,7 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
                 return log_debug_errno(fl, "Directory file descriptor has unsafe flags set: %m");
 
         if (st.st_uid == 0) {
+                *ret_current_owner_uid = st.st_uid;
                 if (peer_uid == 0) {
                         log_debug("Directory file descriptor points to root owned directory, who is also the peer.");
                         return DIRECTORY_IS_ROOT_PEER_OWNED;
@@ -673,6 +682,7 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
         }
         if (st.st_uid == peer_uid) {
                 log_debug("Directory file descriptor points to peer owned directory.");
+                *ret_current_owner_uid = st.st_uid;
                 return DIRECTORY_IS_PEER_OWNED;
         }
 
@@ -686,12 +696,14 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
                 /* Stop iteration if we find a directory up the tree that is neither owned by the user, nor is from the foreign UID range */
                 if (!uid_is_foreign(st.st_uid) || !gid_is_foreign(st.st_gid)) {
                         log_debug("Directory file descriptor points to directory which itself or its parents is neither owned by foreign UID range nor by the user.");
+                        *ret_current_owner_uid = st.st_uid;
                         return DIRECTORY_IS_OTHERWISE_OWNED;
                 }
 
                 /* If the peer is root, then it doesn't matter if we find a parent owned by root, let's shortcut things. */
                 if (peer_uid == 0) {
                         log_debug("Directory file descriptor is owned by foreign UID range, and peer is root.");
+                        *ret_current_owner_uid = st.st_uid;
                         return DIRECTORY_IS_FOREIGN_OWNED;
                 }
 
@@ -707,11 +719,13 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
                 /* Safety check to see if we hit the root dir */
                 if (stat_inode_same(&st, &new_st)) {
                         log_debug("Directory file descriptor is owned by foreign UID range, but didn't find parent directory that is owned by peer among ancestors.");
+                        *ret_current_owner_uid = st.st_uid;
                         return DIRECTORY_IS_OTHERWISE_OWNED;
                 }
 
                 if (new_st.st_uid == peer_uid) { /* Parent inode is owned by the peer. That's good! Everything's fine. */
                         log_debug("Directory file descriptor is owned by foreign UID range, and ancestor is owned by peer.");
+                        *ret_current_owner_uid = st.st_uid;
                         return DIRECTORY_IS_FOREIGN_OWNED;
                 }
 
@@ -720,6 +734,7 @@ static DirectoryOwnership validate_directory_fd(int fd, uid_t peer_uid) {
         }
 
         log_debug("Failed to find peer owned parent directory after %u levels, refusing.", n_level);
+        *ret_current_owner_uid = st.st_uid;
         return DIRECTORY_IS_OTHERWISE_OWNED;
 }
 
@@ -770,7 +785,8 @@ static int vl_method_mount_directory(
         if (r < 0)
                 return log_debug_errno(r, "Failed to get client UID: %m");
 
-        DirectoryOwnership owned_by = validate_directory_fd(directory_fd, peer_uid);
+        uid_t current_owner_uid;
+        DirectoryOwnership owned_by = validate_directory_fd(directory_fd, peer_uid, &current_owner_uid);
         if (owned_by == -EREMOTEIO)
                 return sd_varlink_errorbo(link, "io.systemd.MountFileSystem.BadFileDescriptorFlags", SD_JSON_BUILD_PAIR_STRING("parameter", "directoryFileDescriptor"));
         if (owned_by < 0)
@@ -835,9 +851,43 @@ static int vl_method_mount_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int mount_fd = open_tree(directory_fd, "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
-        if (mount_fd < 0)
-                return log_debug_errno(errno, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+        _cleanup_close_ int mount_fd = open_tree_attr_with_fallback(
+                        directory_fd,
+                        "",
+                        OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH,
+                        &(struct mount_attr) {
+                                .attr_clr = MOUNT_ATTR_IDMAP, /* clear idmaps! */
+                        });
+        if (mount_fd < 0) {
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(mount_fd))
+                        return log_debug_errno(mount_fd, "Failed to issue open_tree_attr() of provided directory '%s': %m", strna(directory_path));
+
+                log_debug_errno(mount_fd, "open_tree_attr() with clearing MOUNT_ATTR_IDMAP is not supported, falling back to classic open_tree()");
+
+                mount_fd = open_tree(
+                                directory_fd,
+                                "",
+                                OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
+                if (mount_fd < 0)
+                        return log_debug_errno(errno, "Failed to issue open_tree() of provided directory '%s': %m", strna(directory_path));
+        } else {
+                log_debug("Successfully cleared IDMAP from mount fd.");
+
+                /* MOUNT_ATTR_IDMAP has possibly been cleared. Let's verify that the underlying data matches our expectations. */
+                struct stat unmapped_st;
+                if (fstat(mount_fd, &unmapped_st) < 0)
+                        return log_debug_errno(errno, "Failed to fstat() unmapped inode: %m");
+
+                r = stat_verify_directory(&unmapped_st);
+                if (r < 0)
+                        return r;
+
+                /* For now, let's simply refuse things if dropping the idmapping changed anything. For now
+                 * that should be good enough, because the primary usecase for this (homed) will mount the
+                 * foreign UID range 1:1. */
+                if (unmapped_st.st_uid != current_owner_uid)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Owner UID of mount after clearing ID mapping not the same anymore, refusing.");
+        }
 
         if (p.read_only > 0 && mount_setattr(
                             mount_fd, "", AT_EMPTY_PATH,
