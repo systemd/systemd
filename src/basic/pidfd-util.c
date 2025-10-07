@@ -73,7 +73,7 @@ int pidfd_get_namespace(int fd, unsigned long ns_type_cmd) {
         return nsfd;
 }
 
-static int pidfd_get_info(int fd, struct pidfd_info *info) {
+int pidfd_get_info(int fd, struct pidfd_info *info) {
         static bool cached_supported = true;
 
         assert(fd >= 0);
