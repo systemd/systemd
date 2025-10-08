@@ -6,6 +6,7 @@ endif
 
 systemd_coredump_sources = files(
         'coredump.c',
+        'coredump-backtrace.c',
         'coredump-config.c',
         'coredump-context.c',
 )
