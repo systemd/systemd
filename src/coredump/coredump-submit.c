@@ -230,6 +230,7 @@ static int fix_permissions_and_link(
 }
 
 static int save_external_coredump(
+                const CoredumpConfig *config,
                 const Context *context,
                 int input_fd,
                 char **ret_filename,
@@ -247,6 +248,7 @@ static int save_external_coredump(
         struct stat st;
         int r;
 
+        assert(config);
         assert(context);
         assert(ret_filename);
         assert(ret_node_fd);
@@ -264,7 +266,7 @@ static int save_external_coredump(
                                       "Resource limits disable core dumping for process %s (%s).",
                                       context->meta[META_ARGV_PID], context->meta[META_COMM]);
 
-        process_limit = MAX(arg_process_size_max, coredump_storage_size_max());
+        process_limit = MAX(config->process_size_max, coredump_storage_size_max(config));
         if (process_limit == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT),
                                        "Limits for coredump processing and storage are both 0, not dumping core.");
@@ -295,7 +297,7 @@ static int save_external_coredump(
          * should be able to at least store the full compressed core file. */
 
         storage_on_tmpfs = fd_is_temporary_fs(fd) > 0;
-        if (storage_on_tmpfs && arg_compress) {
+        if (storage_on_tmpfs && config->compress) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 uint64_t cgroup_limit = UINT64_MAX;
                 struct statvfs sv;
@@ -349,7 +351,7 @@ static int save_external_coredump(
         bool allow_user = grant_user_access(fd, context) > 0;
 
 #if HAVE_COMPRESSION
-        if (arg_compress) {
+        if (config->compress) {
                 _cleanup_(unlink_and_freep) char *tmp_compressed = NULL;
                 _cleanup_free_ char *fn_compressed = NULL;
                 _cleanup_close_ int fd_compressed = -EBADF;
@@ -432,20 +434,22 @@ static int save_external_coredump(
 }
 
 static int maybe_remove_external_coredump(
-                const Context *c,
+                const CoredumpConfig *config,
+                const Context *context,
                 const char *filename,
                 uint64_t size) {
 
-        assert(c);
+        assert(config);
+        assert(context);
 
         /* Returns true if might remove, false if will not remove, < 0 on error. */
 
         /* Always keep around in case of journald/pid1, since we cannot rely on the journal to accept them. */
-        if (arg_storage != COREDUMP_STORAGE_NONE && (c->is_pid1 || c->is_journald))
+        if (config->storage != COREDUMP_STORAGE_NONE && (context->is_pid1 || context->is_journald))
                 return false;
 
-        if (arg_storage == COREDUMP_STORAGE_EXTERNAL &&
-            size <= arg_external_size_max)
+        if (config->storage == COREDUMP_STORAGE_EXTERNAL &&
+            size <= config->external_size_max)
                 return false;
 
         if (!filename)
@@ -542,6 +546,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
 }
 
 int coredump_submit(
+                const CoredumpConfig *config,
                 const Context *context,
                 struct iovec_wrapper *iovw,
                 int input_fd) {
@@ -555,16 +560,17 @@ int coredump_submit(
         sd_json_variant *module_json;
         int r;
 
+        assert(config);
         assert(context);
         assert(iovw);
         assert(input_fd >= 0);
 
         /* Vacuum before we write anything again */
-        (void) coredump_vacuum(-1, arg_keep_free, arg_max_use);
+        (void) coredump_vacuum(-1, config->keep_free, config->max_use);
 
         /* Always stream the coredump to disk, if that's possible */
         written = save_external_coredump(
-                        context, input_fd,
+                        config, context, input_fd,
                         &filename, &coredump_node_fd, &coredump_fd,
                         &coredump_size, &coredump_compressed_size, &truncated) >= 0;
         if (written) {
@@ -573,6 +579,7 @@ int coredump_submit(
                  * will lack the privileges for it. However, we keep the fd to it, so that we can
                  * still process it and log it. */
                 r = maybe_remove_external_coredump(
+                                config,
                                 context,
                                 filename,
                                 coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size);
@@ -580,12 +587,12 @@ int coredump_submit(
                         return r;
                 if (r == 0)
                         (void) iovw_put_string_field(iovw, "COREDUMP_FILENAME=", filename);
-                else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
+                else if (config->storage == COREDUMP_STORAGE_EXTERNAL)
                         log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
-                                 coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size, arg_external_size_max);
+                                 coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size, config->external_size_max);
 
                 /* Vacuum again, but exclude the coredump we just created */
-                (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
+                (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, config->keep_free, config->max_use);
         }
 
         if (context->mount_tree_fd >= 0 && attach_mount_tree(context->mount_tree_fd) >= 0)
@@ -601,10 +608,10 @@ int coredump_submit(
 
         if (written) {
                 /* Try to get a stack trace if we can */
-                if (coredump_size > arg_process_size_max)
+                if (coredump_size > config->process_size_max)
                         log_debug("Not generating stack trace: core size %"PRIu64" is greater "
                                   "than %"PRIu64" (the configured maximum)",
-                                  coredump_size, arg_process_size_max);
+                                  coredump_size, config->process_size_max);
                 else if (coredump_fd >= 0) {
                         bool skip = startswith(context->meta[META_COMM], "systemd-coredum"); /* COMM is 16 bytes usually */
 
@@ -676,8 +683,8 @@ int coredump_submit(
                 }
 
         /* Optionally store the entire coredump in the journal */
-        if (arg_storage == COREDUMP_STORAGE_JOURNAL && coredump_fd >= 0) {
-                if (coredump_size <= arg_journal_size_max) {
+        if (config->storage == COREDUMP_STORAGE_JOURNAL && coredump_fd >= 0) {
+                if (coredump_size <= config->journal_size_max) {
                         size_t sz = 0;
 
                         /* Store the coredump itself in the journal */
@@ -690,7 +697,7 @@ int coredump_submit(
                                 log_warning_errno(r, "Failed to attach the core to the journal entry: %m");
                 } else
                         log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
-                                 coredump_size, arg_journal_size_max);
+                                 coredump_size, config->journal_size_max);
         }
 
         /* If journald is coredumping, we have to be careful that we don't deadlock when trying to write the

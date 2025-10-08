@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "coredump-config.h"
 #include "coredump-context.h"
 #include "coredump-receive.h"
 #include "coredump-submit.h"
@@ -15,6 +16,7 @@ int coredump_receive_and_submit(int fd) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
         _cleanup_(context_done) Context context = CONTEXT_NULL;
         _cleanup_close_ int input_fd = -EBADF;
+        CoredumpConfig config;
         enum {
                 STATE_PAYLOAD,
                 STATE_INPUT_FD_DONE,
@@ -25,8 +27,10 @@ int coredump_receive_and_submit(int fd) {
         assert(fd >= 0);
 
         log_setup();
-
         log_debug("Processing coredump received via socket...");
+
+        /* Ignore all parse errors */
+        (void) coredump_parse_config(&config);
 
         for (;;) {
                 CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
@@ -158,5 +162,5 @@ int coredump_receive_and_submit(int fd) {
                                                "Mandatory argument %s not received on socket, aborting.",
                                                metadata_field_to_string(i));
 
-        return coredump_submit(&context, &iovw, input_fd);
+        return coredump_submit(&config, &context, &iovw, input_fd);
 }
