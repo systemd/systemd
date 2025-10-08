@@ -18,6 +18,7 @@ int coredump_backtrace(int argc, char *argv[]) {
 
         assert(argc >= 2);
 
+        log_setup();
         log_debug("Processing backtrace on stdin...");
 
         (void) iovw_put_string_field(&context.iovw, "MESSAGE_ID=", SD_MESSAGE_BACKTRACE_STR);
