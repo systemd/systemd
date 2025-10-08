@@ -895,6 +895,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Integrity=</varname></term>
+
+        <listitem><para>Enable integrity checking for the partition. Currently, the only supported option
+        is <varname>Integrity=luks2</varname> which enables Authenticated disk encryption for LUKS2 devices.
+        The option requires <varname>Encrypt=</varname> setting and can only be used in online image build.
+
+        Note: Authenticated disk encryption is considered EXPERIMENTAL by cryptsetup.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IntegrityAlgorithm=</varname></term>
+        <listitem><para>Specify the integrity algorithm to be used for integrity verification. For
+        <varname>Integrity=luks2</varname> defaults to "hmac(sha256)".</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Compression=</varname></term>
 
         <listitem><para>Specifies the compression algorithm to use for the filesystem configured with

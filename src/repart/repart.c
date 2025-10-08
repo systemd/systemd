@@ -242,6 +242,13 @@ typedef enum EncryptMode {
         _ENCRYPT_MODE_INVALID = -EINVAL,
 } EncryptMode;
 
+typedef enum IntegrityMode {
+        INTEGRITY_OFF,
+        INTEGRITY_LUKS2,
+        _INTEGRITY_MODE_MAX,
+        _INTEGRITY_MODE_INVALID = -EINVAL,
+} IntegrityMode;
+
 typedef enum VerityMode {
         VERITY_OFF,
         VERITY_DATA,
@@ -419,6 +426,8 @@ typedef struct Partition {
         struct iovec key;
         Tpm2PCRValue *tpm2_hash_pcr_values;
         size_t tpm2_n_hash_pcr_values;
+        IntegrityMode integrity;
+        char *integrity_alg;
         VerityMode verity;
         char *verity_match_key;
         MinimizeMode minimize;
@@ -515,6 +524,11 @@ static const char *encrypt_mode_table[_ENCRYPT_MODE_MAX] = {
         [ENCRYPT_KEY_FILE_TPM2] = "key-file+tpm2",
 };
 
+static const char *integrity_mode_table[_INTEGRITY_MODE_MAX] = {
+        [INTEGRITY_OFF] = "off",
+        [INTEGRITY_LUKS2] = "luks2",
+};
+
 static const char *verity_mode_table[_VERITY_MODE_MAX] = {
         [VERITY_OFF]  = "off",
         [VERITY_DATA] = "data",
@@ -531,6 +545,7 @@ static const char *minimize_mode_table[_MINIMIZE_MODE_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(empty_mode, EmptyMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(append_mode, AppendMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(integrity_mode, IntegrityMode, INTEGRITY_LUKS2);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
 
@@ -2555,6 +2570,8 @@ static int config_parse_key_file(
         return parse_key_file(rvalue, &partition->key);
 }
 
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_integrity, integrity_mode, IntegrityMode, INTEGRITY_OFF);
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF);
 
@@ -2662,6 +2679,8 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
                 { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
                 { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
+                { "Partition", "Integrity",                config_parse_integrity,         0,                                  &p->integrity               },
+                { "Partition", "IntegrityAlgorithm",       config_parse_string,            0,                                  &p->integrity_alg           },
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
@@ -2791,6 +2810,14 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "SizeMinBytes=/SizeMaxBytes= cannot be used with Verity=%s.",
                                   verity_mode_to_string(p->verity));
+
+        if (p->integrity == INTEGRITY_LUKS2 && p->encrypt == ENCRYPT_OFF)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Integrity=luks2 requires Encrypt=.");
+
+        if (p->integrity_alg && p->integrity != INTEGRITY_LUKS2)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "IntegrityAlg= requires Integrity=.");
 
         if (p->default_subvolume && !ordered_hashmap_contains(p->subvolumes, p->default_subvolume))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -4835,6 +4862,10 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
 
         if (offline) {
+                /* libcryptsetup does not currently support reencryption of device with integrity profile.*/
+                if (p->integrity == INTEGRITY_LUKS2)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Integrity=luks2 cannot be enabled in offline mode.");
+
                 r = var_tmp_dir(&vt);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine temporary files directory: %m");
@@ -4877,6 +4908,13 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 r = sym_crypt_set_data_offset(cd, LUKS2_METADATA_SIZE / 512);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set data offset: %m");
+        }
+
+        if (p->integrity == INTEGRITY_LUKS2) {
+                if (!p->integrity_alg)
+                        luks_params.integrity = "hmac(sha256)";
+                else
+                        luks_params.integrity = p->integrity_alg;
         }
 
         r = sym_crypt_format(
@@ -5175,9 +5213,27 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 dm_name,
                                 NULL,
                                 VOLUME_KEY_SIZE,
-                                (arg_discard ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) | CRYPT_ACTIVATE_PRIVATE);
+                                (arg_discard && p->integrity != INTEGRITY_LUKS2 ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) | CRYPT_ACTIVATE_PRIVATE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to activate LUKS superblock: %m");
+
+                /* Wipe the whole device to avoid integrity errors upon mkfs */
+                if (p->integrity == INTEGRITY_LUKS2) {
+                        r = sym_crypt_wipe(
+                                        cd,
+                                        vol,
+                                        CRYPT_WIPE_ZERO,
+                                        0,
+                                        0,
+                                        1048576 /* 1 MiB */,
+                                        0,
+                                        NULL,
+                                        NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to wipe LUKS device: %m");
+
+                        log_info("Encrypted future partition %" PRIu64 " wiped for integrity.", p->partno);
+                }
 
                 dev_fd = open(vol, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (dev_fd < 0)
