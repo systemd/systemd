@@ -168,7 +168,7 @@ int open_os_release_at(int rfd, char **ret_path, int *ret_fd) {
         const char *e;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
 
         e = secure_getenv("SYSTEMD_OS_RELEASE");
         if (e)
