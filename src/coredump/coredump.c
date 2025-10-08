@@ -3,8 +3,6 @@
 #include "sd-daemon.h"
 
 #include "coredump-backtrace.h"
-#include "coredump-config.h"
-#include "coredump-context.h"
 #include "coredump-kernel-helper.h"
 #include "coredump-receive.h"
 #include "coredump-util.h"
@@ -22,9 +20,6 @@ static int run(int argc, char *argv[]) {
 
         /* Make sure we never enter a loop */
         (void) set_dumpable(SUID_DUMP_DISABLE);
-
-        /* Ignore all parse errors */
-        (void) coredump_parse_config();
 
         r = sd_listen_fds(false);
         if (r < 0)
