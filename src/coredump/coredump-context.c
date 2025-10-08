@@ -353,7 +353,7 @@ int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         bool have_signal_name = false;
         FOREACH_ARRAY(iovec, iovw->iovec, iovw->count) {
                 /* Note that these strings are NUL-terminated, because we made sure that a trailing NUL byte
-                 * is in the buffer, though not included in the iov_len count. See process_socket() and
+                 * is in the buffer, though not included in the iov_len count. See coredump_receive() and
                  * gather_pid_metadata_*(). */
                 assert(((char*) iovec->iov_base)[iovec->iov_len] == 0);
 
