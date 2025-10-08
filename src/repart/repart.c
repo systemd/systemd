@@ -155,13 +155,21 @@ typedef enum AppendMode {
         _APPEND_MODE_INVALID = -EINVAL,
 } AppendMode;
 
+typedef enum DiscardMode {
+        DISCARD_NO,
+        DISCARD_YES,
+        DISCARD_AUTO,
+        _DISCARD_MODE_MAX,
+        _DISCARD_MODE_INVALID = -EINVAL,
+} DiscardMode;
+
 static EmptyMode arg_empty = EMPTY_UNSET;
 static bool arg_dry_run = true;
 static char *arg_node = NULL;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
 static char **arg_definitions = NULL;
-static bool arg_discard = true;
+static DiscardMode arg_discard = DISCARD_AUTO;
 static bool arg_can_factory_reset = false;
 static int arg_factory_reset = -1;
 static sd_id128_t arg_seed = SD_ID128_NULL;
@@ -528,11 +536,18 @@ static const char *minimize_mode_table[_MINIMIZE_MODE_MAX] = {
         [MINIMIZE_GUESS] = "guess",
 };
 
+static const char *discard_mode_table[_DISCARD_MODE_MAX] = {
+        [DISCARD_NO]   = "no",
+        [DISCARD_YES]  = "yes",
+        [DISCARD_AUTO] = "auto",
+};
+
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(empty_mode, EmptyMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(append_mode, AppendMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(discard_mode, DiscardMode, DISCARD_YES);
 
 static uint64_t round_down_size(uint64_t v, uint64_t p) {
         return (v / p) * p;
@@ -8842,9 +8857,10 @@ static int parse_argv(
                         break;
 
                 case ARG_DISCARD:
-                        r = parse_boolean_argument("--discard=", optarg, &arg_discard);
-                        if (r < 0)
-                                return r;
+                        arg_discard = discard_mode_from_string(optarg);
+                        if (arg_discard < 0)
+                                return log_error_errno(arg_discard, "Failed to parse --discard= parameter: %s", optarg);
+
                         break;
 
                 case ARG_FACTORY_RESET:
@@ -9609,6 +9625,30 @@ static int find_root(Context *context) {
         return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "Failed to discover root block device.");
 }
 
+static int fd_supports_discard(int fd) {
+        struct stat st;
+        char sysfs_path[PATH_MAX];
+        _cleanup_fclose_ FILE *f = NULL;
+        unsigned long long discard_max = 0;
+
+        if (fstat(fd, &st) < 0)
+                return -1;
+        if (S_ISREG(st.st_mode))
+                return 1;
+        if (!S_ISBLK(st.st_mode))
+                return 0;
+
+        snprintf(sysfs_path, sizeof(sysfs_path), "/sys/dev/block/%u:%u/queue/discard_max_bytes", major(st.st_rdev), minor(st.st_rdev));
+
+        f = fopen(sysfs_path, "r");
+        if (!f)
+                return -1;
+        if (fscanf(f, "%llu", &discard_max) != 1)
+                discard_max = 0;
+
+        return discard_max > 0 ? 1 : 0;
+}
+
 static int resize_pt(int fd, uint64_t sector_size) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         int r;
@@ -10017,6 +10057,11 @@ static int run(int argc, char *argv[]) {
                             * anything". This isn't really an error when called at boot. */
         if (r < 0)
                 return r;
+
+        if (arg_discard == DISCARD_AUTO)
+                /* errors are deliberately treated as DISCARD_YES to keep in line with the old default
+                 * in cases where discard cannot be determined (e.g. in chroots without /sys mounted) */
+                arg_discard = fd_supports_discard(context->backing_fd) ? DISCARD_YES : DISCARD_NO;
 
         if (arg_size != UINT64_MAX) {
                 r = resize_backing_fd(
