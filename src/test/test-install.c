@@ -228,7 +228,7 @@ int main(int argc, char* argv[]) {
         changes = NULL;
         n_changes = 0;
 
-        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, NULL, (char**) files, UNIT_FILE_PRESET_FULL, &changes, &n_changes));
+        ASSERT_OK(unit_file_preset(RUNTIME_SCOPE_SYSTEM, 0, NULL, (char**) files, UNIT_FILE_PRESET_FULL, /* dry_run = */ false, &changes, &n_changes));
 
         dump_changes(changes, n_changes);
         install_changes_free(changes, n_changes);
