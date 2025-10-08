@@ -590,7 +590,10 @@ testcase_list_users_sessions_seats() {
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" no
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $4 }')" active
 
-    loginctl enable-linger logind-test-user
+    systemd-run --quiet --service-type=notify --unit=test-linger-signal-wait --pty \
+                -p Environment=SYSTEMD_LOG_LEVEL=debug \
+                -p ExecStartPost="loginctl enable-linger logind-test-user" \
+		busctl --timeout=30 wait "/org/freedesktop/login1/user/_$(id -ru logind-test-user)" org.freedesktop.DBus.Properties PropertiesChanged | grep -qF '"Linger" b true'
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" yes
 
     for s in $(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }'); do
