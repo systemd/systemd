@@ -99,7 +99,7 @@ typedef enum CredKeyType {
         CRED_KEY_TYPE_HOST_TPM2_PUBLIC,
         CRED_KEY_TYPE_TPM2_PUBLIC_HOST,
         CRED_KEY_TYPE_NULL,
-        CRED_KEY_TYPE_ABSENT,
+        CRED_KEY_TYPE_TPM2_ABSENT,
         _CRED_KEY_TYPE_MAX,
         _CRED_KEY_TYPE_INVALID = -EINVAL,
 } CredKeyType;
@@ -115,7 +115,7 @@ static const char* cred_key_type_table[_CRED_KEY_TYPE_MAX] = {
         [CRED_KEY_TYPE_HOST_TPM2_PUBLIC] = "host+tpm2-with-public-key",
         [CRED_KEY_TYPE_TPM2_PUBLIC_HOST] = "tpm2-with-public-key+host",
         [CRED_KEY_TYPE_NULL]             = "null",
-        [CRED_KEY_TYPE_ABSENT]           = "tpm2-absent",
+        [CRED_KEY_TYPE_TPM2_ABSENT]      = "tpm2-absent",  /* legacy alias */
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(cred_key_type, CredKeyType);
@@ -131,7 +131,7 @@ static sd_id128_t cred_key_id[_CRED_KEY_TYPE_MAX] = {
         [CRED_KEY_TYPE_HOST_TPM2_PUBLIC] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
         [CRED_KEY_TYPE_TPM2_PUBLIC_HOST] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
         [CRED_KEY_TYPE_NULL]             = CRED_AES256_GCM_BY_NULL,
-        [CRED_KEY_TYPE_ABSENT]           = CRED_AES256_GCM_BY_NULL,
+        [CRED_KEY_TYPE_TPM2_ABSENT]      = CRED_AES256_GCM_BY_NULL,
 };
 
 static int open_credential_directory(
