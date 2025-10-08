@@ -46,16 +46,17 @@ void context_done(Context *c) {
         c->mount_tree_fd = safe_close(c->mount_tree_fd);
 }
 
-int acquire_pid_mount_tree_fd(const Context *context, int *ret_fd) {
+int acquire_pid_mount_tree_fd(const CoredumpConfig *config, const Context *context, int *ret_fd) {
 #if HAVE_DWFL_SET_SYSROOT
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int r;
 
+        assert(config);
         assert(context);
         assert(ret_fd);
 
-        if (!arg_enter_namespace) {
+        if (!config->enter_namespace) {
                 *ret_fd = -EHOSTDOWN;
                 log_debug("EnterNamespace=no so we won't use mount tree of the crashed process for generating backtrace.");
                 return 0;

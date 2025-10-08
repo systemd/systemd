@@ -70,7 +70,7 @@ struct Context {
         }
 
 void context_done(Context *c);
-int acquire_pid_mount_tree_fd(const Context *context, int *ret_fd);
+int acquire_pid_mount_tree_fd(const CoredumpConfig *config, const Context *context, int *ret_fd);
 int context_parse_iovw(Context *context, struct iovec_wrapper *iovw);
 int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *context, int argc, char **argv);
 int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context);
