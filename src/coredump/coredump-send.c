@@ -288,12 +288,6 @@ int coredump_send_to_container(CoredumpContext *context) {
                         }
                 }
 
-                r = coredump_context_parse_iovw(&child_context);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to save context: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
                 r = coredump_context_parse_from_procfs(&child_context);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to gather metadata from procfs: %m");
