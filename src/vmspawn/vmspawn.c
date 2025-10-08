@@ -2101,12 +2101,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        if (strv_length(arg_extra_drives) > 0) {
-                r = strv_extend_many(&cmdline, "-device", "virtio-scsi-pci,id=scsi");
-                if (r < 0)
-                        return log_oom();
-        }
-
         if (kernel) {
                 r = strv_extend_many(&cmdline, "-kernel", kernel);
                 if (r < 0)
@@ -2255,7 +2249,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (strv_extend(&cmdline, "-device") < 0)
                         return log_oom();
 
-                if (strv_extendf(&cmdline, "scsi-hd,drive=vmspawn_extra_%zu,serial=%s", i++, escaped_drive_fn) < 0)
+                if (strv_extendf(&cmdline, "virtio-blk-pci,drive=vmspawn_extra_%zu,serial=%s", i++, escaped_drive_fn) < 0)
                         return log_oom();
         }
 
