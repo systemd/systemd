@@ -821,7 +821,6 @@ mouse:usb:v22d4p1308:name:Laview Technology Mionix Avior 7000:*
 mouse:usb:v0e8fp00a7:name:DaKai 2.4G RX:*
  MOUSE_DPI=*800@126 1600@126
 
-
 ##########################################
 # Nulea
 ##########################################
