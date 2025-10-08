@@ -13,8 +13,7 @@
 #include "socket-util.h"
 
 int coredump_receive_and_submit(int fd) {
-        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        _cleanup_(coredump_context_done) CoredumpContext context = COREDUMP_CONTEXT_NULL;
         _cleanup_close_ int input_fd = -EBADF;
         CoredumpConfig config;
         enum {
@@ -130,7 +129,7 @@ int coredump_receive_and_submit(int fd) {
                 ((char*) iovec.iov_base)[n] = 0;
                 iovec.iov_len = (size_t) n;
 
-                if (iovw_put(&iovw, iovec.iov_base, iovec.iov_len) < 0)
+                if (iovw_put(&context.iovw, iovec.iov_base, iovec.iov_len) < 0)
                         return log_oom();
 
                 TAKE_STRUCT(iovec);
@@ -139,7 +138,7 @@ int coredump_receive_and_submit(int fd) {
         /* Make sure we got all data we really need */
         assert(input_fd >= 0);
 
-        r = context_parse_iovw(&context, &iovw);
+        r = coredump_context_parse_iovw(&context);
         if (r < 0)
                 return r;
 
@@ -162,5 +161,5 @@ int coredump_receive_and_submit(int fd) {
                                                "Mandatory argument %s not received on socket, aborting.",
                                                metadata_field_to_string(i));
 
-        return coredump_submit(&config, &context, &iovw, input_fd);
+        return coredump_submit(&config, &context, input_fd);
 }

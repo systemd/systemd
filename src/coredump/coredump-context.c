@@ -42,14 +42,15 @@ static const char * const metadata_field_table[_META_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(metadata_field, MetadataField);
 
-void context_done(Context *c) {
-        assert(c);
+void coredump_context_done(CoredumpContext *context) {
+        assert(context);
 
-        pidref_done(&c->pidref);
-        c->mount_tree_fd = safe_close(c->mount_tree_fd);
+        pidref_done(&context->pidref);
+        safe_close(context->mount_tree_fd);
+        iovw_done_free(&context->iovw);
 }
 
-int acquire_pid_mount_tree_fd(const CoredumpConfig *config, const Context *context, int *ret_fd) {
+int coredump_context_acquire_mount_tree_fd(const CoredumpConfig *config, CoredumpContext *context) {
 #if HAVE_DWFL_SET_SYSROOT
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
@@ -57,10 +58,9 @@ int acquire_pid_mount_tree_fd(const CoredumpConfig *config, const Context *conte
 
         assert(config);
         assert(context);
-        assert(ret_fd);
 
         if (!config->enter_namespace) {
-                *ret_fd = -EHOSTDOWN;
+                context->mount_tree_fd = -EHOSTDOWN;
                 log_debug("EnterNamespace=no so we won't use mount tree of the crashed process for generating backtrace.");
                 return 0;
         }
@@ -115,30 +115,29 @@ int acquire_pid_mount_tree_fd(const CoredumpConfig *config, const Context *conte
         if (fd < 0)
                 return log_error_errno(fd, "Failed to receive mount tree: %m");
 
-        *ret_fd = TAKE_FD(fd);
+        context->mount_tree_fd = TAKE_FD(fd);
 #else
         /* Don't bother preparing environment if we can't pass it to libdwfl. */
-        *ret_fd = -EOPNOTSUPP;
+        context->mount_tree_fd = -EOPNOTSUPP;
         log_debug("dwfl_set_sysroot() is not supported.");
 #endif
         return 0;
 }
 
-int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
+int coredump_context_parse_iovw(CoredumpContext *context) {
         const char *unit;
         int r;
 
         assert(context);
-        assert(iovw);
 
         /* Converts the data in the iovec array iovw into separate fields. Fills in context->meta[] (for
          * which no memory is allocated, it just contains direct pointers into the iovec array memory). */
 
         bool have_signal_name = false;
-        FOREACH_ARRAY(iovec, iovw->iovec, iovw->count) {
+        FOREACH_ARRAY(iovec, context->iovw.iovec, context->iovw.count) {
                 /* Note that these strings are NUL-terminated, because we made sure that a trailing NUL byte
                  * is in the buffer, though not included in the iov_len count. See coredump_receive() and
-                 * gather_pid_metadata_*(). */
+                 * coredump_context_parse_from_*(). */
                 assert(((char*) iovec->iov_base)[iovec->iov_len] == 0);
 
                 for (MetadataField i = 0; i < _META_MAX; i++) {
@@ -208,20 +207,15 @@ int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         /* After parsing everything, let's also synthesize a new iovw field for the textual signal name if it
          * isn't already set. */
         if (SIGNAL_VALID(context->signo) && !have_signal_name)
-                (void) iovw_put_string_field(iovw, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(context->signo));
+                (void) iovw_put_string_field(&context->iovw, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(context->signo));
 
         return 0;
 }
 
-int gather_pid_metadata_from_argv(
-                struct iovec_wrapper *iovw,
-                Context *context,
-                int argc, char **argv) {
-
+int coredump_context_parse_from_argv(CoredumpContext *context, int argc, char **argv) {
         _cleanup_(pidref_done) PidRef local_pidref = PIDREF_NULL;
         int r, kernel_fd = -EBADF;
 
-        assert(iovw);
         assert(context);
 
         /* We gather all metadata that were passed via argv[] into an array of iovecs that
@@ -294,14 +288,14 @@ int gather_pid_metadata_from_argv(
                         t = "1";
                 }
 
-                r = iovw_put_string_field(iovw, metadata_field_to_string(i), t);
+                r = iovw_put_string_field(&context->iovw, metadata_field_to_string(i), t);
                 if (r < 0)
                         return r;
         }
 
         /* Cache some of the process metadata we collected so far and that we'll need to
          * access soon. */
-        r = context_parse_iovw(context, iovw);
+        r = coredump_context_parse_iovw(context);
         if (r < 0)
                 return r;
 
@@ -424,7 +418,7 @@ static int get_process_container_parent_cmdline(PidRef *pid, char** ret_cmdline)
         return 1;
 }
 
-int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context) {
+int coredump_context_parse_from_procfs(CoredumpContext *context) {
         uid_t owner_uid;
         pid_t pid;
         char *t;
@@ -432,7 +426,6 @@ int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context
         const char *p;
         int r;
 
-        assert(iovw);
         assert(context);
 
         /* Note that if we fail on oom later on, we do not roll-back changes to the iovec
@@ -445,95 +438,95 @@ int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context
         if (r < 0)
                 return log_error_errno(r, "Failed to get COMM: %m");
 
-        r = iovw_put_string_field_free(iovw, "COREDUMP_COMM=", t);
+        r = iovw_put_string_field_free(&context->iovw, "COREDUMP_COMM=", t);
         if (r < 0)
                 return r;
 
         /* The following are optional, but we use them if present. */
         r = get_process_exe(pid, &t);
         if (r >= 0)
-                r = iovw_put_string_field_free(iovw, "COREDUMP_EXE=", t);
+                r = iovw_put_string_field_free(&context->iovw, "COREDUMP_EXE=", t);
         if (r < 0)
                 log_warning_errno(r, "Failed to get EXE, ignoring: %m");
 
         if (cg_pidref_get_unit(&context->pidref, &t) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_UNIT=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_UNIT=", t);
 
         if (cg_pidref_get_user_unit(&context->pidref, &t) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_USER_UNIT=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_USER_UNIT=", t);
 
         if (cg_pidref_get_session(&context->pidref, &t) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_SESSION=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_SESSION=", t);
 
         if (cg_pidref_get_owner_uid(&context->pidref, &owner_uid) >= 0) {
                 r = asprintf(&t, UID_FMT, owner_uid);
                 if (r > 0)
-                        (void) iovw_put_string_field_free(iovw, "COREDUMP_OWNER_UID=", t);
+                        (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_OWNER_UID=", t);
         }
 
         if (sd_pid_get_slice(pid, &t) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_SLICE=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_SLICE=", t);
 
         if (pidref_get_cmdline(&context->pidref, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &t) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_CMDLINE=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_CMDLINE=", t);
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_CGROUP=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_CGROUP=", t);
 
         if (compose_open_fds(pid, &t) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_OPEN_FDS=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_OPEN_FDS=", t);
 
         p = procfs_file_alloca(pid, "status");
         if (read_full_file(p, &t, /* ret_size= */ NULL) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_STATUS=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_PROC_STATUS=", t);
 
         p = procfs_file_alloca(pid, "maps");
         if (read_full_file(p, &t, /* ret_size= */ NULL) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MAPS=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_PROC_MAPS=", t);
 
         p = procfs_file_alloca(pid, "limits"); /* this uses 'seq_file' in kernel, use read_full_file_at() */
         if (read_full_file(p, &t, /* ret_size= */ NULL) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_LIMITS=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_PROC_LIMITS=", t);
 
         p = procfs_file_alloca(pid, "cgroup");
         if (read_full_file(p, &t, /* ret_size= */ NULL) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_CGROUP=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_PROC_CGROUP=", t);
 
         p = procfs_file_alloca(pid, "mountinfo");
         if (read_full_file(p, &t, /* ret_size= */ NULL) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MOUNTINFO=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_PROC_MOUNTINFO=", t);
 
         /* We attach /proc/auxv here. ELF coredumps also contain a note for this (NT_AUXV), see elf(5). */
         p = procfs_file_alloca(pid, "auxv");
         if (read_full_file(p, &t, &size) >= 0) {
                 char *buf = malloc(strlen("COREDUMP_PROC_AUXV=") + size + 1);
                 if (buf) {
-                        /* Add a dummy terminator to make context_parse_iovw() happy. */
+                        /* Add a dummy terminator to make coredump_context_parse_iovw() happy. */
                         *mempcpy_typesafe(stpcpy(buf, "COREDUMP_PROC_AUXV="), t, size) = '\0';
-                        (void) iovw_consume(iovw, buf, size + strlen("COREDUMP_PROC_AUXV="));
+                        (void) iovw_consume(&context->iovw, buf, size + strlen("COREDUMP_PROC_AUXV="));
                 }
 
                 free(t);
         }
 
         if (get_process_cwd(pid, &t) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_CWD=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_CWD=", t);
 
         if (get_process_root(pid, &t) >= 0) {
                 bool proc_self_root_is_slash;
 
                 proc_self_root_is_slash = strcmp(t, "/") == 0;
 
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_ROOT=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_ROOT=", t);
 
                 /* If the process' root is "/", then there is a chance it has
                  * mounted own root and hence being containerized. */
                 if (proc_self_root_is_slash && get_process_container_parent_cmdline(&context->pidref, &t) > 0)
-                        (void) iovw_put_string_field_free(iovw, "COREDUMP_CONTAINER_CMDLINE=", t);
+                        (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_CONTAINER_CMDLINE=", t);
         }
 
         if (get_process_environ(pid, &t) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_ENVIRON=", t);
+                (void) iovw_put_string_field_free(&context->iovw, "COREDUMP_ENVIRON=", t);
 
         /* Now that we have parsed info from /proc/ ensure the pidfd is still valid before continuing. */
         r = pidref_verify(&context->pidref);
@@ -541,5 +534,5 @@ int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context
                 return log_error_errno(r, "PIDFD validation failed: %m");
 
         /* We successfully acquired all metadata. */
-        return context_parse_iovw(context, iovw);
+        return coredump_context_parse_iovw(context);
 }

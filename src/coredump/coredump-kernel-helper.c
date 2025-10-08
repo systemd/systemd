@@ -15,8 +15,7 @@
 #include "signal-util.h"
 
 int coredump_kernel_helper(int argc, char *argv[]) {
-        _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        _cleanup_(coredump_context_done) CoredumpContext context = COREDUMP_CONTEXT_NULL;
         CoredumpConfig config;
         int r;
 
@@ -32,17 +31,13 @@ int coredump_kernel_helper(int argc, char *argv[]) {
 
         log_debug("Processing coredump received from the kernel...");
 
-        iovw = iovw_new();
-        if (!iovw)
-                return log_oom();
-
         /* Collect all process metadata passed by the kernel through argv[] */
-        r = gather_pid_metadata_from_argv(iovw, &context, argc - 1, argv + 1);
+        r = coredump_context_parse_from_argv(&context, argc - 1, argv + 1);
         if (r < 0)
                 return r;
 
         /* Collect the rest of the process metadata retrieved from the runtime */
-        r = gather_pid_metadata_from_procfs(iovw, &context);
+        r = coredump_context_parse_from_procfs(&context);
         if (r < 0)
                 return r;
 
@@ -66,7 +61,7 @@ int coredump_kernel_helper(int argc, char *argv[]) {
                 if (r >= 0)
                         return 0;
 
-                r = acquire_pid_mount_tree_fd(&config, &context, &context.mount_tree_fd);
+                r = coredump_context_acquire_mount_tree_fd(&config, &context);
                 if (r < 0)
                         log_warning_errno(r, "Failed to access the mount tree of a container, ignoring: %m");
         }
@@ -82,11 +77,11 @@ int coredump_kernel_helper(int argc, char *argv[]) {
                 disable_coredumps();
         }
 
-        (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
-        (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
+        (void) iovw_put_string_field(&context.iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
+        (void) iovw_put_string_field(&context.iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         if (context.is_journald || context.is_pid1)
-                return coredump_submit(&config, &context, iovw, STDIN_FILENO);
+                return coredump_submit(&config, &context, STDIN_FILENO);
 
-        return coredump_send(iovw, STDIN_FILENO, &context.pidref, context.mount_tree_fd);
+        return coredump_send(&context, STDIN_FILENO);
 }

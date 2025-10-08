@@ -4,4 +4,4 @@
 #include "forward.h"
 
 typedef struct CoredumpConfig CoredumpConfig;
-typedef struct Context Context;
+typedef struct CoredumpContext CoredumpContext;
