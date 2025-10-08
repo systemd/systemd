@@ -98,11 +98,12 @@ lrwxrwxrwx. 1 root root   19 May 10 4711.user-privileged -> foobar.user-privileg
     users in groups. Specifically, for every pair of user/group where the user shall be a member of a group a
     file named
     <literal><replaceable>username</replaceable>:<replaceable>groupname</replaceable>.membership</literal>
-    should be created, i.e. the textual UNIX user name, followed by a colon, followed by the textual UNIX
-    group name, suffixed by <literal>.membership</literal>. The contents of these files are currently not
-    read, and the files should be created empty. The mere existence of these files is enough to affect a
-    user/group membership. If a program provides user and/or group record files in the searched directories,
-    it should always also create such files, both for primary and auxiliary group memberships.</para>
+    must be created, i.e. the textual UNIX user name, followed by a colon, followed by the textual UNIX group
+    name, suffixed by <literal>.membership</literal>. The contents of these files are currently not read,
+    however it is recommended to create them containing an empty JSON object
+    (i.e. <literal>{}</literal>). The mere existence of these files is enough to affect a user/group
+    membership. If a program provides user and/or group record files in the searched directories, it must
+    always also create such files, both for primary and auxiliary group memberships.</para>
 
     <para>Note that static user/group records generally do not override conflicting records in
     <filename>/etc/passwd</filename> or <filename>/etc/group</filename> or other account databases. In fact,
