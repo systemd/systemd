@@ -24,7 +24,11 @@ __systemd_osc_context_escape() {
 }
 
 __systemd_osc_context_common() {
-    printf ";user=%s;hostname=%s;machineid=%s;bootid=%s;pid=%s" "$USER" "$HOSTNAME" "$(</etc/machine-id)" "$(</proc/sys/kernel/random/boot_id)" "$$"
+    local machine_id
+    if [ -f /etc/machine-id ]; then
+        machine_id="$(</etc/machine-id)"
+    fi
+    printf ";user=%s;hostname=%s;machineid=%s;bootid=%s;pid=%s" "$USER" "$HOSTNAME" "$machine_id" "$(</proc/sys/kernel/random/boot_id)" "$$"
 }
 
 __systemd_osc_context_precmdline() {
