@@ -28,6 +28,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 19. [FINAL] Build and upload the documentation (on the -stable branch): `ninja -C build doc-sync`
 20. [FINAL] Change the Github Pages branch to the newly created branch (https://github.com/systemd/systemd/settings/pages) and set the 'Custom domain' to 'systemd.io'
 21. [FINAL] Update version number in `meson.version` to the devel version of the next release (e.g. from `256` to `257~devel`)
+22. [FINAL] Build and upload the documentation (on the main branch): `ninja -C build doc-sync`
 
 # Steps to a Successful Stable Release
 
