@@ -191,7 +191,7 @@ static int fix_xattr(int fd, const Context *context) {
 
         /* Attach some metadata to coredumps via extended attributes. Just because we can. */
 
-        for (unsigned i = 0; i < _META_MAX; i++) {
+        for (MetadataField i = 0; i < _META_MAX; i++) {
                 int k;
 
                 if (isempty(context->meta[i]) || !xattrs[i])

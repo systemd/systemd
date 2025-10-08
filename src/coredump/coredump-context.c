@@ -20,10 +20,11 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "special.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "user-util.h"
 
-const char * const meta_field_names[_META_MAX] = {
+static const char * const metadata_field_table[_META_MAX] = {
         [META_ARGV_PID]       = "COREDUMP_PID=",
         [META_ARGV_UID]       = "COREDUMP_UID=",
         [META_ARGV_GID]       = "COREDUMP_GID=",
@@ -38,6 +39,8 @@ const char * const meta_field_names[_META_MAX] = {
         [META_UNIT]           = "COREDUMP_UNIT=",
         [META_PROC_AUXV]      = "COREDUMP_PROC_AUXV=",
 };
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(metadata_field, MetadataField);
 
 void context_done(Context *c) {
         assert(c);
@@ -137,11 +140,12 @@ int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
                  * gather_pid_metadata_*(). */
                 assert(((char*) iovec->iov_base)[iovec->iov_len] == 0);
 
-                for (size_t i = 0; i < ELEMENTSOF(meta_field_names); i++) {
-                        const char *p = memory_startswith(iovec->iov_base, iovec->iov_len, meta_field_names[i]);
+                for (MetadataField i = 0; i < _META_MAX; i++) {
+                        const char *s = metadata_field_to_string(i);
+                        const char *p = memory_startswith(iovec->iov_base, iovec->iov_len, s);
                         if (p) {
                                 context->meta[i] = p;
-                                context->meta_size[i] = iovec->iov_len - strlen(meta_field_names[i]);
+                                context->meta_size[i] = iovec->iov_len - strlen(s);
                                 break;
                         }
                 }
@@ -151,10 +155,10 @@ int context_parse_iovw(Context *context, struct iovec_wrapper *iovw) {
         }
 
         /* The basic fields from argv[] should always be there, refuse early if not. */
-        for (int i = 0; i < _META_ARGV_REQUIRED; i++)
+        for (MetadataField i = 0; i < _META_ARGV_REQUIRED; i++)
                 if (!context->meta[i])
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "A required (%s) has not been sent, aborting.", meta_field_names[i]);
+                                               "A required (%s) has not been sent, aborting.", metadata_field_to_string(i));
 
         pid_t parsed_pid;
         r = parse_pid(context->meta[META_ARGV_PID], &parsed_pid);
@@ -230,7 +234,7 @@ int gather_pid_metadata_from_argv(
                                        "Not enough arguments passed by the kernel (%i, expected between %i and %i).",
                                        argc, _META_ARGV_REQUIRED, _META_ARGV_MAX);
 
-        for (int i = 0; i < MIN(argc, _META_ARGV_MAX); i++) {
+        for (MetadataField i = 0; i < MIN(argc, _META_ARGV_MAX); i++) {
                 _cleanup_free_ char *buf = NULL;
                 const char *t = argv[i];
 
@@ -289,7 +293,7 @@ int gather_pid_metadata_from_argv(
                         t = "1";
                 }
 
-                r = iovw_put_string_field(iovw, meta_field_names[i], t);
+                r = iovw_put_string_field(iovw, metadata_field_to_string(i), t);
                 if (r < 0)
                         return r;
         }

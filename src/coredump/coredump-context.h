@@ -4,7 +4,7 @@
 #include "coredump-forward.h"
 #include "pidref.h"
 
-typedef enum {
+typedef enum MetadataField {
         /* We use these as array indexes for our process metadata cache.
          *
          * The first indices of the cache stores the same metadata as the ones passed by the kernel via
@@ -39,10 +39,9 @@ typedef enum {
         META_EXE,
         META_UNIT,
         META_PROC_AUXV,
-        _META_MAX
-} meta_argv_t;
-
-extern const char * const meta_field_names[_META_MAX];
+        _META_MAX,
+        _META_INVALID = -EINVAL,
+} MetadataField;
 
 struct Context {
         PidRef pidref;
@@ -68,6 +67,8 @@ struct Context {
                 .gid = GID_INVALID,             \
                 .mount_tree_fd = -EBADF,        \
         }
+
+const char* metadata_field_to_string(MetadataField t) _const_;
 
 void context_done(Context *c);
 int acquire_pid_mount_tree_fd(const Context *context, int *ret_fd);

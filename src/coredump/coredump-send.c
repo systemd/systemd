@@ -259,7 +259,7 @@ int coredump_send_to_container(Context *context) {
                 (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
                 (void) iovw_put_string_field(iovw, "COREDUMP_FORWARDED=", "1");
 
-                for (int i = 0; i < _META_ARGV_MAX; i++) {
+                for (MetadataField i = 0; i < _META_ARGV_MAX; i++) {
                         char buf[DECIMAL_STR_MAX(pid_t)];
                         const char *t = context->meta[i];
 
@@ -285,7 +285,7 @@ int coredump_send_to_container(Context *context) {
                                 ;
                         }
 
-                        r = iovw_put_string_field(iovw, meta_field_names[i], t);
+                        r = iovw_put_string_field(iovw, metadata_field_to_string(i), t);
                         if (r < 0) {
                                 log_debug_errno(r, "Failed to construct iovec: %m");
                                 _exit(EXIT_FAILURE);

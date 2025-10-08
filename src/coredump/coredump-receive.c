@@ -143,7 +143,7 @@ int coredump_receive_and_submit(int fd) {
          * systemd-coredump from the outside, so we require only the basic set of fields that
          * was being sent when the support for sending to containers over a socket was added
          * in a108c43e36d3ceb6e34efe37c014fc2cda856000. */
-        meta_argv_t i;
+        MetadataField i;
         FOREACH_ARGUMENT(i,
                          META_ARGV_PID,
                          META_ARGV_UID,
@@ -156,7 +156,7 @@ int coredump_receive_and_submit(int fd) {
                 if (!context.meta[i])
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Mandatory argument %s not received on socket, aborting.",
-                                               meta_field_names[i]);
+                                               metadata_field_to_string(i));
 
         return coredump_submit(&context, &iovw, input_fd);
 }
