@@ -1971,7 +1971,7 @@ _public_ int sd_event_add_memory_pressure(
                  * not delegated to us, or PSI simply not available in the kernel). */
 
                 _cleanup_free_ char *cg = NULL;
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cg);
+                r = cg_pid_get_path(0, &cg);
                 if (r < 0)
                         return r;
 
