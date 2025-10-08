@@ -26,9 +26,11 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 17. Update IRC topic (`/msg chanserv TOPIC #systemd Version NNN released | Online resources https://systemd.io/`)
 18. [FINAL] Create an empty -stable branch: `git push systemd origin/main:refs/heads/v${version}-stable`.
 19. [FINAL] Build and upload the documentation (on the -stable branch): `ninja -C build doc-sync`
-20. [FINAL] Change the Github Pages branch to the newly created branch (https://github.com/systemd/systemd/settings/pages) and set the 'Custom domain' to 'systemd.io'
-21. [FINAL] Update version number in `meson.version` to the devel version of the next release (e.g. from `256` to `257~devel`)
-22. [FINAL] Build and upload the documentation (on the main branch): `ninja -C build doc-sync`
+20. [FINAL] Create a new `ci/v${version}-stable` branch for deb package builds on https://salsa.debian.org/systemd-team/systemd
+21. [FINAL] Switch `.semaphore/semaphore-runner.sh` and `mkosi/mkosi.conf.d/debian-ubuntu/mkosi.conf.d/pkgenv.conf` to the new `ci/v${version}-stable` branch on the -stable branch
+22. [FINAL] Change the Github Pages branch to the newly created branch (https://github.com/systemd/systemd/settings/pages) and set the 'Custom domain' to 'systemd.io'
+23. [FINAL] Update version number in `meson.version` to the devel version of the next release (e.g. from `256` to `257~devel`)
+24. [FINAL] Build and upload the documentation (on the main branch): `ninja -C build doc-sync`
 
 # Steps to a Successful Stable Release
 
