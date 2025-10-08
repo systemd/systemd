@@ -9,6 +9,7 @@ systemd_coredump_sources = files(
         'coredump-backtrace.c',
         'coredump-config.c',
         'coredump-context.c',
+        'coredump-submit.c',
 )
 systemd_coredump_extract_sources = files(
         'coredump-vacuum.c',
