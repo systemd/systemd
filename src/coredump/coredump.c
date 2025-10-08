@@ -22,6 +22,7 @@
 #include "compress.h"
 #include "conf-parser.h"
 #include "copy.h"
+#include "coredump-config.h"
 #include "coredump-util.h"
 #include "coredump-vacuum.h"
 #include "dirent-util.h"
@@ -56,33 +57,9 @@
 #include "uid-classification.h"
 #include "user-util.h"
 
-/* The maximum size up to which we process coredumps. We use 1G on 32-bit systems, and 32G on 64-bit systems */
-#if __SIZEOF_POINTER__ == 4
-#define PROCESS_SIZE_MAX ((uint64_t) (1LLU*1024LLU*1024LLU*1024LLU))
-#elif __SIZEOF_POINTER__ == 8
-#define PROCESS_SIZE_MAX ((uint64_t) (32LLU*1024LLU*1024LLU*1024LLU))
-#else
-#error "Unexpected pointer size"
-#endif
-
-/* The maximum size up to which we leave the coredump around on disk */
-#define EXTERNAL_SIZE_MAX PROCESS_SIZE_MAX
-
-/* The maximum size up to which we store the coredump in the journal */
-#ifndef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
-#define JOURNAL_SIZE_MAX ((size_t) (767LU*1024LU*1024LU))
-#else
-/* oss-fuzz limits memory usage. */
-#define JOURNAL_SIZE_MAX ((size_t) (10LU*1024LU*1024LU))
-#endif
-
 /* When checking for available memory and setting lower limits, don't
  * go below 4MB for writing core files to storage. */
 #define PROCESS_SIZE_MIN (4U*1024U*1024U)
-
-/* Make sure to not make this larger than the maximum journal entry
- * size. See DATA_SIZE_MAX in journal-importer.h. */
-assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
 #define MOUNT_TREE_ROOT "/run/systemd/mount-rootfs"
 
@@ -165,88 +142,11 @@ typedef struct Context {
                 .mount_tree_fd = -EBADF,        \
         }
 
-typedef enum CoredumpStorage {
-        COREDUMP_STORAGE_NONE,
-        COREDUMP_STORAGE_EXTERNAL,
-        COREDUMP_STORAGE_JOURNAL,
-        _COREDUMP_STORAGE_MAX,
-        _COREDUMP_STORAGE_INVALID = -EINVAL,
-} CoredumpStorage;
-
-static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
-        [COREDUMP_STORAGE_NONE]     = "none",
-        [COREDUMP_STORAGE_EXTERNAL] = "external",
-        [COREDUMP_STORAGE_JOURNAL]  = "journal",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage, CoredumpStorage);
-
-static CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
-static bool arg_compress = true;
-static uint64_t arg_process_size_max = PROCESS_SIZE_MAX;
-static uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
-static uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
-static uint64_t arg_keep_free = UINT64_MAX;
-static uint64_t arg_max_use = UINT64_MAX;
-#if HAVE_DWFL_SET_SYSROOT
-static bool arg_enter_namespace = false;
-#endif
-
 static void context_done(Context *c) {
         assert(c);
 
         pidref_done(&c->pidref);
         c->mount_tree_fd = safe_close(c->mount_tree_fd);
-}
-
-static int parse_config(void) {
-        static const ConfigTableItem items[] = {
-                { "Coredump", "Storage",         config_parse_coredump_storage,    0,                      &arg_storage           },
-                { "Coredump", "Compress",        config_parse_bool,                0,                      &arg_compress          },
-                { "Coredump", "ProcessSizeMax",  config_parse_iec_uint64,          0,                      &arg_process_size_max  },
-                { "Coredump", "ExternalSizeMax", config_parse_iec_uint64_infinity, 0,                      &arg_external_size_max },
-                { "Coredump", "JournalSizeMax",  config_parse_iec_size,            0,                      &arg_journal_size_max  },
-                { "Coredump", "KeepFree",        config_parse_iec_uint64,          0,                      &arg_keep_free         },
-                { "Coredump", "MaxUse",          config_parse_iec_uint64,          0,                      &arg_max_use           },
-#if HAVE_DWFL_SET_SYSROOT
-                { "Coredump", "EnterNamespace",  config_parse_bool,                0,                      &arg_enter_namespace   },
-#else
-                { "Coredump", "EnterNamespace",  config_parse_warn_compat,         DISABLED_CONFIGURATION, NULL                   },
-#endif
-                {}
-        };
-
-        int r;
-
-        r = config_parse_standard_file_with_dropins(
-                        "systemd/coredump.conf",
-                        "Coredump\0",
-                        config_item_table_lookup,
-                        items,
-                        CONFIG_PARSE_WARN,
-                        /* userdata= */ NULL);
-        if (r < 0)
-                return r;
-
-        /* Let's make sure we fix up the maximum size we send to the journal here on the client side, for
-         * efficiency reasons. journald wouldn't accept anything larger anyway. */
-        if (arg_journal_size_max > JOURNAL_SIZE_MAX) {
-                log_warning("JournalSizeMax= set to larger value (%s) than journald would accept (%s), lowering automatically.",
-                            FORMAT_BYTES(arg_journal_size_max), FORMAT_BYTES(JOURNAL_SIZE_MAX));
-                arg_journal_size_max = JOURNAL_SIZE_MAX;
-        }
-
-        return 0;
-}
-
-static uint64_t storage_size_max(void) {
-        if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
-                return arg_external_size_max;
-        if (arg_storage == COREDUMP_STORAGE_JOURNAL)
-                return arg_journal_size_max;
-        assert(arg_storage == COREDUMP_STORAGE_NONE);
-        return 0;
 }
 
 static int fix_acl(int fd, uid_t uid, bool allow_user) {
@@ -491,7 +391,7 @@ static int save_external_coredump(
                                       "Resource limits disable core dumping for process %s (%s).",
                                       context->meta[META_ARGV_PID], context->meta[META_COMM]);
 
-        process_limit = MAX(arg_process_size_max, storage_size_max());
+        process_limit = MAX(arg_process_size_max, coredump_storage_size_max());
         if (process_limit == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADSLT),
                                        "Limits for coredump processing and storage are both 0, not dumping core.");
@@ -2029,10 +1929,7 @@ static int run(int argc, char *argv[]) {
         (void) set_dumpable(SUID_DUMP_DISABLE);
 
         /* Ignore all parse errors */
-        (void) parse_config();
-
-        log_debug("Selected storage '%s'.", coredump_storage_to_string(arg_storage));
-        log_debug("Selected compression %s.", yes_no(arg_compress));
+        (void) coredump_parse_config();
 
         r = sd_listen_fds(false);
         if (r < 0)
