@@ -7,6 +7,7 @@ endif
 systemd_coredump_sources = files(
         'coredump.c',
         'coredump-config.c',
+        'coredump-context.c',
 )
 systemd_coredump_extract_sources = files(
         'coredump-vacuum.c',
