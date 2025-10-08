@@ -19,7 +19,7 @@ DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(resolve_support, ResolveSupport, RESOLVE
 static const char* const dnssec_mode_table[_DNSSEC_MODE_MAX] = {
         [DNSSEC_NO] = "no",
         [DNSSEC_ALLOW_DOWNGRADE] = "allow-downgrade",
-        [DNSSEC_TRUST_AD] = "trust-ad",
+        [DNSSEC_TRUST_SECURE_RESPONSE] = "trust-secure-response",
         [DNSSEC_YES] = "yes",
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dnssec_mode, DnssecMode, DNSSEC_YES);

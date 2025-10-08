@@ -712,7 +712,7 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                         return r;
 
                 /* If we trust the server, then request validation with the AD bit */
-                if (t->scope->dnssec_mode == DNSSEC_TRUST_AD)
+                if (t->scope->dnssec_mode == DNSSEC_TRUST_SECURE_RESPONSE)
                         DNS_PACKET_HEADER(t->sent)->flags = htobe16(UPDATE_FLAG(be16toh(DNS_PACKET_HEADER(t->sent)->flags),
                                   DNS_PACKET_FLAG_AD, true));
 
@@ -1246,7 +1246,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 return;
         }
 
-        trusted = ( t->scope->dnssec_mode == DNSSEC_TRUST_AD ) && encrypted && DNS_PACKET_AD(p);
+        trusted = ( t->scope->dnssec_mode == DNSSEC_TRUST_SECURE_RESPONSE ) && encrypted && DNS_PACKET_AD(p);
         if (trusted) {
                 DnsAnswerItem *item;
                 DNS_ANSWER_FOREACH_ITEM(item, p->answer) {

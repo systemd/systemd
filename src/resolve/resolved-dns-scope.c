@@ -377,9 +377,10 @@ int dns_scope_emit_udp(DnsScope *s, int fd, int af, DnsPacket *p) {
         assert((s->protocol == DNS_PROTOCOL_DNS) == (fd >= 0));
 
         /* If we trust this server, then request validation with the AD bit. */
-        if (s->dnssec_mode == DNSSEC_TRUST_AD) {
+        if (s->dnssec_mode == DNSSEC_TRUST_SECURE_RESPONSE) {
                 assert(p->protocol == DNS_PROTOCOL_DNS);
-                DNS_PACKET_HEADER(p)->flags |= htobe16(DNS_PACKET_MAKE_FLAGS(0, 0, 0, 0, 0, 0, 1, 0, 0));
+                DNS_PACKET_HEADER(t->sent)->flags = htobe16(UPDATE_FLAG(be16toh(DNS_PACKET_HEADER(t->sent)->flags),
+                          DNS_PACKET_FLAG_AD, true));
         }
 
         do {
