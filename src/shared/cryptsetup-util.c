@@ -70,6 +70,7 @@ DLSYM_PROTOTYPE(crypt_token_set_external_path) = NULL;
 DLSYM_PROTOTYPE(crypt_token_status) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_get) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
+DLSYM_PROTOTYPE(crypt_wipe) = NULL;
 
 static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 
@@ -274,7 +275,8 @@ int dlopen_cryptsetup(void) {
 #endif
                         DLSYM_ARG(crypt_token_status),
                         DLSYM_ARG(crypt_volume_key_get),
-                        DLSYM_ARG(crypt_volume_key_keyring));
+                        DLSYM_ARG(crypt_volume_key_keyring),
+                        DLSYM_ARG(crypt_wipe));
         if (r <= 0)
                 return r;
 

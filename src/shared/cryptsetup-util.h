@@ -68,6 +68,7 @@ extern DLSYM_PROTOTYPE(crypt_token_set_external_path);
 extern DLSYM_PROTOTYPE(crypt_token_status);
 extern DLSYM_PROTOTYPE(crypt_volume_key_get);
 extern DLSYM_PROTOTYPE(crypt_volume_key_keyring);
+extern DLSYM_PROTOTYPE(crypt_wipe);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, crypt_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, sym_crypt_free, NULL);
