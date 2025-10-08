@@ -192,7 +192,7 @@ static int receive_ucred(int transport_fd, struct ucred *ret_ucred) {
         return 0;
 }
 
-int coredump_send_to_container(CoredumpContext *context) {
+int coredump_send_to_container(CoredumpContext *context, int input_fd) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         pid_t child;
@@ -204,6 +204,7 @@ int coredump_send_to_container(CoredumpContext *context) {
         int r;
 
         assert(context);
+        assert(input_fd >= 0);
 
         _cleanup_(pidref_done) PidRef leader_pid = PIDREF_NULL;
         r = namespace_get_leader(&context->pidref, NAMESPACE_PID, &leader_pid);
@@ -295,7 +296,7 @@ int coredump_send_to_container(CoredumpContext *context) {
                         _exit(EXIT_FAILURE);
                 }
 
-                r = coredump_send(&child_context, STDIN_FILENO);
+                r = coredump_send(&child_context, input_fd);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to send iovec to coredump socket: %m");
                         _exit(EXIT_FAILURE);
