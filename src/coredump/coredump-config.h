@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "basic-forward.h"
+#include "conf-parser-forward.h"
+#include "coredump-forward.h"
 
 /* The maximum size up to which we process coredumps. We use 1G on 32-bit systems, and 32G on 64-bit systems */
 #if __SIZEOF_POINTER__ == 4
@@ -31,14 +32,32 @@ typedef enum CoredumpStorage {
         _COREDUMP_STORAGE_INVALID = -EINVAL,
 } CoredumpStorage;
 
-extern CoredumpStorage arg_storage;
-extern bool arg_compress;
-extern uint64_t arg_process_size_max;
-extern uint64_t arg_external_size_max;
-extern uint64_t arg_journal_size_max;
-extern uint64_t arg_keep_free;
-extern uint64_t arg_max_use;
-extern bool arg_enter_namespace;
+struct CoredumpConfig {
+        CoredumpStorage storage;
+        bool compress;
+        uint64_t process_size_max;
+        uint64_t external_size_max;
+        uint64_t journal_size_max;
+        uint64_t keep_free;
+        uint64_t max_use;
+        bool enter_namespace;
+};
 
-int coredump_parse_config(void);
-uint64_t coredump_storage_size_max(void);
+#define COREDUMP_CONFIG_NULL                            \
+        (CoredumpConfig) {                              \
+                .storage = COREDUMP_STORAGE_EXTERNAL,   \
+                .compress = true,                       \
+                .process_size_max = PROCESS_SIZE_MAX,   \
+                .external_size_max = EXTERNAL_SIZE_MAX, \
+                .journal_size_max = JOURNAL_SIZE_MAX,   \
+                .keep_free = UINT64_MAX,                \
+                .max_use = UINT64_MAX,                  \
+        }
+
+int coredump_parse_config(CoredumpConfig *config);
+uint64_t coredump_storage_size_max(const CoredumpConfig *config);
+
+/* Defined in generated coredump-gperf.c */
+const struct ConfigPerfItem* coredump_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_coredump_storage);
