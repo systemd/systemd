@@ -57,7 +57,7 @@ int coredump_kernel_helper(int argc, char *argv[]) {
         if (r == 0) {
                 /* If this fails, fallback to the old behavior so that
                  * there is still some record of the crash. */
-                r = coredump_send_to_container(&context);
+                r = coredump_send_to_container(&context, STDIN_FILENO);
                 if (r >= 0)
                         return 0;
 
