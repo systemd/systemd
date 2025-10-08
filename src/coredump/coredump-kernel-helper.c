@@ -2,6 +2,7 @@
 
 #include "sd-messages.h"
 
+#include "coredump-config.h"
 #include "coredump-context.h"
 #include "coredump-kernel-helper.h"
 #include "coredump-send.h"
@@ -24,6 +25,10 @@ int coredump_kernel_helper(int argc, char *argv[]) {
         r = rearrange_stdio(STDIN_FILENO, -EBADF, -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect stdout/stderr to /dev/null: %m");
+
+        /* Ignore all parse errors */
+        CoredumpConfig config = COREDUMP_CONFIG_NULL;
+        (void) coredump_parse_config(&config);
 
         log_debug("Processing coredump received from the kernel...");
 
@@ -61,7 +66,7 @@ int coredump_kernel_helper(int argc, char *argv[]) {
                 if (r >= 0)
                         return 0;
 
-                r = acquire_pid_mount_tree_fd(&context, &context.mount_tree_fd);
+                r = acquire_pid_mount_tree_fd(&config, &context, &context.mount_tree_fd);
                 if (r < 0)
                         log_warning_errno(r, "Failed to access the mount tree of a container, ignoring: %m");
         }
@@ -81,7 +86,7 @@ int coredump_kernel_helper(int argc, char *argv[]) {
         (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         if (context.is_journald || context.is_pid1)
-                return coredump_submit(&context, iovw, STDIN_FILENO);
+                return coredump_submit(&config, &context, iovw, STDIN_FILENO);
 
         return coredump_send(iovw, STDIN_FILENO, &context.pidref, context.mount_tree_fd);
 }
