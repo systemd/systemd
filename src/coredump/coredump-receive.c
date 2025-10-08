@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "coredump-config.h"
 #include "coredump-context.h"
 #include "coredump-receive.h"
 #include "coredump-submit.h"
@@ -25,8 +26,11 @@ int coredump_receive(int fd) {
         assert(fd >= 0);
 
         log_setup();
-
         log_debug("Processing coredump received via socket...");
+
+        /* Ignore all parse errors */
+        CoredumpConfig config = COREDUMP_CONFIG_NULL;
+        (void) coredump_parse_config(&config);
 
         for (;;) {
                 CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
@@ -158,5 +162,5 @@ int coredump_receive(int fd) {
                                                "Mandatory argument %s not received on socket, aborting.",
                                                meta_field_names[i]);
 
-        return coredump_submit(&context, &iovw, input_fd);
+        return coredump_submit(&config, &context, &iovw, input_fd);
 }
