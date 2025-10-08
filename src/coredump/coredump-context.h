@@ -2,6 +2,7 @@
 #pragma once
 
 #include "coredump-forward.h"
+#include "iovec-wrapper.h"
 #include "pidref.h"
 
 typedef enum MetadataField {
@@ -43,25 +44,24 @@ typedef enum MetadataField {
         _META_INVALID = -EINVAL,
 } MetadataField;
 
-struct Context {
+struct CoredumpContext {
         PidRef pidref;
         uid_t uid;
         gid_t gid;
-        unsigned dumpable;
         int signo;
         uint64_t rlimit;
+        unsigned dumpable;
+        bool got_pidfd;
         bool is_pid1;
         bool is_journald;
-        bool got_pidfd;
         int mount_tree_fd;
-
-        /* These point into external memory, are not owned by this object */
-        const char *meta[_META_MAX];
+        struct iovec_wrapper iovw;
+        const char *meta[_META_MAX]; /* These point into memory owned by iovw. */
         size_t meta_size[_META_MAX];
 };
 
-#define CONTEXT_NULL                            \
-        (Context) {                             \
+#define COREDUMP_CONTEXT_NULL                   \
+        (CoredumpContext) {                     \
                 .pidref = PIDREF_NULL,          \
                 .uid = UID_INVALID,             \
                 .gid = GID_INVALID,             \
@@ -70,8 +70,8 @@ struct Context {
 
 const char* metadata_field_to_string(MetadataField t) _const_;
 
-void context_done(Context *c);
-int acquire_pid_mount_tree_fd(const CoredumpConfig *config, const Context *context, int *ret_fd);
-int context_parse_iovw(Context *context, struct iovec_wrapper *iovw);
-int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *context, int argc, char **argv);
-int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context);
+void coredump_context_done(CoredumpContext *context);
+int coredump_context_acquire_mount_tree_fd(const CoredumpConfig *config, CoredumpContext *context);
+int coredump_context_parse_iovw(CoredumpContext *context);
+int coredump_context_parse_from_argv(CoredumpContext *context, int argc, char **argv);
+int coredump_context_parse_from_procfs(CoredumpContext *context);

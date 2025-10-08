@@ -12,8 +12,7 @@
 
 int coredump_backtrace(int argc, char *argv[]) {
         _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
-        _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
+        _cleanup_(coredump_context_done) CoredumpContext context = COREDUMP_CONTEXT_NULL;
         char *message;
         int r;
 
@@ -21,21 +20,17 @@ int coredump_backtrace(int argc, char *argv[]) {
 
         log_debug("Processing backtrace on stdin...");
 
-        iovw = iovw_new();
-        if (!iovw)
-                return log_oom();
-
-        (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_BACKTRACE_STR);
-        (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
+        (void) iovw_put_string_field(&context.iovw, "MESSAGE_ID=", SD_MESSAGE_BACKTRACE_STR);
+        (void) iovw_put_string_field(&context.iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         /* Collect all process metadata from argv[] by making sure to skip the
          * '--backtrace' option */
-        r = gather_pid_metadata_from_argv(iovw, &context, argc - 2, argv + 2);
+        r = coredump_context_parse_from_argv(&context, argc - 2, argv + 2);
         if (r < 0)
                 return r;
 
         /* Collect the rest of the process metadata retrieved from the runtime */
-        r = gather_pid_metadata_from_procfs(iovw, &context);
+        r = coredump_context_parse_from_procfs(&context);
         if (r < 0)
                 return r;
 
@@ -56,18 +51,18 @@ int coredump_backtrace(int argc, char *argv[]) {
                                   " of user ", context.meta[META_ARGV_UID],
                                   " failed with ", context.meta[META_ARGV_SIGNAL]);
 
-                r = iovw_put_string_field(iovw, "MESSAGE=", message);
+                r = iovw_put_string_field(&context.iovw, "MESSAGE=", message);
                 if (r < 0)
                         return r;
         } else {
                 /* The imported iovecs are not supposed to be freed by us so let's copy and merge them at the
                  * end of the array. */
-                r = iovw_append(iovw, &importer.iovw);
+                r = iovw_append(&context.iovw, &importer.iovw);
                 if (r < 0)
                         return r;
         }
 
-        r = sd_journal_sendv(iovw->iovec, iovw->count);
+        r = sd_journal_sendv(context.iovw.iovec, context.iovw.count);
         if (r < 0)
                 return log_error_errno(r, "Failed to log backtrace: %m");
 

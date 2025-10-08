@@ -54,7 +54,7 @@ static const char* coredump_tmpfile_name(const char *s) {
         return s ?: "(unnamed temporary file)";
 }
 
-static int make_filename(const Context *context, char **ret) {
+static int make_filename(const CoredumpContext *context, char **ret) {
         _cleanup_free_ char *c = NULL, *u = NULL, *p = NULL, *t = NULL;
         sd_id128_t boot = {};
         int r;
@@ -93,7 +93,7 @@ static int make_filename(const Context *context, char **ret) {
         return 0;
 }
 
-static int grant_user_access(int core_fd, const Context *context) {
+static int grant_user_access(int core_fd, const CoredumpContext *context) {
         int at_secure = -1;
         uid_t uid = UID_INVALID, euid = UID_INVALID;
         uid_t gid = GID_INVALID, egid = GID_INVALID;
@@ -172,7 +172,7 @@ static int fix_acl(int fd, uid_t uid, bool allow_user) {
         return 0;
 }
 
-static int fix_xattr(int fd, const Context *context) {
+static int fix_xattr(int fd, const CoredumpContext *context) {
         static const char * const xattrs[_META_MAX] = {
                 [META_ARGV_PID]       = "user.coredump.pid",
                 [META_ARGV_UID]       = "user.coredump.uid",
@@ -208,7 +208,7 @@ static int fix_permissions_and_link(
                 int fd,
                 const char *filename,
                 const char *target,
-                const Context *context,
+                const CoredumpContext *context,
                 bool allow_user) {
 
         int r;
@@ -231,7 +231,7 @@ static int fix_permissions_and_link(
 
 static int save_external_coredump(
                 const CoredumpConfig *config,
-                const Context *context,
+                const CoredumpContext *context,
                 int input_fd,
                 char **ret_filename,
                 int *ret_node_fd,
@@ -435,7 +435,7 @@ static int save_external_coredump(
 
 static int maybe_remove_external_coredump(
                 const CoredumpConfig *config,
-                const Context *context,
+                const CoredumpContext *context,
                 const char *filename,
                 uint64_t size) {
 
@@ -492,7 +492,7 @@ static int attach_mount_tree(int mount_tree_fd) {
         return 0;
 }
 
-static int change_uid_gid(const Context *context) {
+static int change_uid_gid(const CoredumpContext *context) {
         int r;
 
         assert(context);
@@ -547,8 +547,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
 
 int coredump_submit(
                 const CoredumpConfig *config,
-                const Context *context,
-                struct iovec_wrapper *iovw,
+                CoredumpContext *context,
                 int input_fd) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json_metadata = NULL;
@@ -562,7 +561,6 @@ int coredump_submit(
 
         assert(config);
         assert(context);
-        assert(iovw);
         assert(input_fd >= 0);
 
         /* Vacuum before we write anything again */
@@ -586,7 +584,7 @@ int coredump_submit(
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        (void) iovw_put_string_field(iovw, "COREDUMP_FILENAME=", filename);
+                        (void) iovw_put_string_field(&context->iovw, "COREDUMP_FILENAME=", filename);
                 else if (config->storage == COREDUMP_STORAGE_EXTERNAL)
                         log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
                                  coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size, config->external_size_max);
@@ -646,10 +644,10 @@ int coredump_submit(
                  * log target. The target was set previously to something safe. */
                 log_dispatch(LOG_ERR, 0, core_message);
 
-        (void) iovw_put_string_field(iovw, "MESSAGE=", core_message);
+        (void) iovw_put_string_field(&context->iovw, "MESSAGE=", core_message);
 
         if (truncated)
-                (void) iovw_put_string_field(iovw, "COREDUMP_TRUNCATED=", "1");
+                (void) iovw_put_string_field(&context->iovw, "COREDUMP_TRUNCATED=", "1");
 
         /* If we managed to parse any ELF metadata (build-id, ELF package meta),
          * attach it as journal metadata. */
@@ -660,7 +658,7 @@ int coredump_submit(
                 if (r < 0)
                         return log_error_errno(r, "Failed to format JSON package metadata: %m");
 
-                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_JSON=", formatted_json);
+                (void) iovw_put_string_field(&context->iovw, "COREDUMP_PACKAGE_JSON=", formatted_json);
         }
 
         /* In the unlikely scenario that context->meta[META_EXE] is not available,
@@ -675,11 +673,11 @@ int coredump_submit(
 
                         t = sd_json_variant_by_key(module_json, "name");
                         if (t)
-                                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_NAME=", sd_json_variant_string(t));
+                                (void) iovw_put_string_field(&context->iovw, "COREDUMP_PACKAGE_NAME=", sd_json_variant_string(t));
 
                         t = sd_json_variant_by_key(module_json, "version");
                         if (t)
-                                (void) iovw_put_string_field(iovw, "COREDUMP_PACKAGE_VERSION=", sd_json_variant_string(t));
+                                (void) iovw_put_string_field(&context->iovw, "COREDUMP_PACKAGE_VERSION=", sd_json_variant_string(t));
                 }
 
         /* Optionally store the entire coredump in the journal */
@@ -691,7 +689,7 @@ int coredump_submit(
 
                         r = allocate_journal_field(coredump_fd, (size_t) coredump_size, &coredump_data, &sz);
                         if (r >= 0) {
-                                if (iovw_put(iovw, coredump_data, sz) >= 0)
+                                if (iovw_put(&context->iovw, coredump_data, sz) >= 0)
                                         TAKE_PTR(coredump_data);
                         } else
                                 log_warning_errno(r, "Failed to attach the core to the journal entry: %m");
@@ -710,7 +708,7 @@ int coredump_submit(
                         return log_error_errno(r, "Failed to make journal socket non-blocking: %m");
         }
 
-        r = sd_journal_sendv(iovw->iovec, iovw->count);
+        r = sd_journal_sendv(context->iovw.iovec, context->iovw.count);
 
         if (context->is_journald) {
                 int k;
