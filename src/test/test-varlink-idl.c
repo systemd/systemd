@@ -16,19 +16,21 @@
 #include "varlink-io.systemd.BootControl.h"
 #include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.FactoryReset.h"
+#include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.Login.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
-#include "varlink-io.systemd.Manager.h"
 #include "varlink-io.systemd.ManagedOOM.h"
+#include "varlink-io.systemd.Manager.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-io.systemd.MuteConsole.h"
 #include "varlink-io.systemd.NamespaceResource.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-io.systemd.PCRLock.h"
+#include "varlink-io.systemd.Repart.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.Udev.h"
@@ -163,61 +165,46 @@ static void test_parse_format_one(const sd_varlink_interface *iface) {
 }
 
 TEST(parse_format) {
-        test_parse_format_one(&vl_interface_org_varlink_service);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_UserDatabase);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_MuteConsole);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_NamespaceResource);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Journal);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Resolve);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Resolve_Monitor);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_ManagedOOM);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_MountFileSystem);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Network);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_oom);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_PCRExtend);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_PCRLock);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_service);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_sysext);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Credentials);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_BootControl);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Import);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Machine);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_MachineImage);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Manager);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_AskPassword);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Udev);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Login);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_FactoryReset);
-        print_separator();
-        test_parse_format_one(&vl_interface_io_systemd_Unit);
-        print_separator();
-        test_parse_format_one(&vl_interface_xyz_test);
+        const sd_varlink_interface* const list[] = {
+                &vl_interface_io_systemd,
+                &vl_interface_io_systemd_AskPassword,
+                &vl_interface_io_systemd_BootControl,
+                &vl_interface_io_systemd_Credentials,
+                &vl_interface_io_systemd_FactoryReset,
+                &vl_interface_io_systemd_Hostname,
+                &vl_interface_io_systemd_Import,
+                &vl_interface_io_systemd_Journal,
+                &vl_interface_io_systemd_Login,
+                &vl_interface_io_systemd_Machine,
+                &vl_interface_io_systemd_MachineImage,
+                &vl_interface_io_systemd_ManagedOOM,
+                &vl_interface_io_systemd_Manager,
+                &vl_interface_io_systemd_MountFileSystem,
+                &vl_interface_io_systemd_MuteConsole,
+                &vl_interface_io_systemd_NamespaceResource,
+                &vl_interface_io_systemd_Network,
+                &vl_interface_io_systemd_PCRExtend,
+                &vl_interface_io_systemd_PCRLock,
+                &vl_interface_io_systemd_Repart,
+                &vl_interface_io_systemd_Resolve,
+                &vl_interface_io_systemd_Resolve_Monitor,
+                &vl_interface_io_systemd_Udev,
+                &vl_interface_io_systemd_Unit,
+                &vl_interface_io_systemd_UserDatabase,
+                &vl_interface_io_systemd_oom,
+                &vl_interface_io_systemd_service,
+                &vl_interface_io_systemd_sysext,
+                &vl_interface_org_varlink_service,
+                &vl_interface_xyz_test,
+        };
+
+        bool sep = false;
+        FOREACH_ELEMENT(i, list) {
+                if (sep)
+                        print_separator();
+                test_parse_format_one(*i);
+                sep = true;
+        }
 }
 
 TEST(parse) {
