@@ -3,6 +3,7 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
+#include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-track.h"
 #include "string-util.h"
@@ -11,6 +12,7 @@ struct track_item {
         unsigned n_ref;
         char *name;
         sd_bus_slot *slot;
+        sd_bus_track *track;
 };
 
 struct sd_bus_track {
@@ -163,18 +165,39 @@ static sd_bus_track *track_free(sd_bus_track *track) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_bus_track, sd_bus_track, track_free);
 
-static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        sd_bus_track *track = ASSERT_PTR(userdata);
+static int on_name_owner_changed(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
+        struct track_item *item = ASSERT_PTR(userdata);
         const char *name;
         int r;
 
         assert(message);
+        assert(item->track);
 
         r = sd_bus_message_read(message, "sss", &name, NULL, NULL);
         if (r < 0)
                 return 0;
 
-        bus_track_remove_name_fully(track, name);
+        bus_track_remove_name_fully(item->track, name);
+        return 0;
+}
+
+static int name_owner_changed_install_callback(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
+        struct track_item *item = ASSERT_PTR(userdata);
+        const sd_bus_error *e;
+        int r;
+
+        assert(message);
+        assert(item->track);
+        assert(item->name);
+
+        e = sd_bus_message_get_error(message);
+        if (!e)
+                return 0;
+
+        r = sd_bus_error_get_errno(e);
+        log_debug_errno(r, "Failed to install match for tracking name '%s': %s", item->name, bus_error_message(e, r));
+
+        bus_track_remove_name_fully(item->track, item->name);
         return 0;
 }
 
@@ -216,6 +239,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 
         *n = (struct track_item) {
                 .n_ref = 1,
+                .track = track,
         };
 
         n->name = strdup(name);
@@ -227,7 +251,7 @@ _public_ int sd_bus_track_add_name(sd_bus_track *track, const char *name) {
 
         bus_track_remove_from_queue(track); /* don't dispatch this while we work in it */
 
-        r = sd_bus_add_match_async(track->bus, &n->slot, match, on_name_owner_changed, NULL, track);
+        r = sd_bus_add_match_async(track->bus, &n->slot, match, on_name_owner_changed, name_owner_changed_install_callback, n);
         if (r < 0) {
                 bus_track_add_to_queue(track);
                 return r;

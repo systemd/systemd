@@ -1803,6 +1803,9 @@ Manager* manager_free(Manager *m) {
         free(m->switch_root);
         free(m->switch_root_init);
 
+        sd_bus_track_unref(m->subscribed);
+        strv_free(m->subscribed_as_strv);
+
         unit_defaults_done(&m->defaults);
 
         FOREACH_ARRAY(map, m->units_needing_mounts_for, _UNIT_MOUNT_DEPENDENCY_TYPE_MAX) {
@@ -2160,12 +2163,6 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
 
                 /* Connect to the bus if we are good for it */
                 manager_setup_bus(m);
-
-                /* Now that we are connected to all possible buses, let's deserialize who is tracking us. */
-                r = bus_track_coldplug(m, &m->subscribed, false, m->deserialized_subscribed);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to deserialized tracked clients, ignoring: %m");
-                m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
 
                 r = manager_varlink_init(m);
                 if (r < 0)
@@ -3830,14 +3827,15 @@ int manager_reload(Manager *m) {
         (void) manager_setup_handoff_timestamp_fd(m);
         (void) manager_setup_pidref_transport_fd(m);
 
+        /* Clean up deserialized bus track information. They're never consumed during reload (as opposed to
+         * reexec) since we do not disconnect from the bus. */
+        m->subscribed_as_strv = strv_free(m->subscribed_as_strv);
+
         /* Third, fire things up! */
         manager_coldplug(m);
 
         /* Clean up runtime objects no longer referenced */
         manager_vacuum(m);
-
-        /* Clean up deserialized tracked clients */
-        m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
 
         /* Consider the reload process complete now. */
         assert(m->n_reloading > 0);
