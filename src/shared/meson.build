@@ -167,6 +167,7 @@ shared_sources = files(
         'reboot-util.c',
         'recovery-key.c',
         'resize-fs.c',
+        'resolve-hook-util.c',
         'resolve-util.c',
         'rm-rf.c',
         'seccomp-util.c',
