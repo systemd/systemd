@@ -8,7 +8,7 @@
 #include "in-addr-util.h"
 #include "memory-util.h"
 #include "resolved-def.h"
-#include "resolved-forward.h"
+#include "shared-forward.h"
 #include "sparse-endian.h"
 
 typedef enum DnsProtocol {

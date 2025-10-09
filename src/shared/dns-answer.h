@@ -2,7 +2,7 @@
 #pragma once
 
 #include "ordered-set.h"
-#include "resolved-forward.h"
+#include "shared-forward.h"
 
 /* A simple array of resource records. We keep track of the originating ifindex for each RR where that makes
  * sense, so that we can qualify A and AAAA RRs referring to a local link with the right ifindex.
