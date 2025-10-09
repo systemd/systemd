@@ -110,6 +110,7 @@ int sd_varlink_process(sd_varlink *v);
 int sd_varlink_wait(sd_varlink *v, uint64_t timeout);
 
 int sd_varlink_is_idle(sd_varlink *v);
+int sd_varlink_is_connected(sd_varlink *v);
 
 int sd_varlink_flush(sd_varlink *v);
 int sd_varlink_close(sd_varlink *v);
