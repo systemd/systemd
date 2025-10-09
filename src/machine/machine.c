@@ -1219,7 +1219,8 @@ int machine_copy_from_to_operation(
                                         uid_shift == 0 ? GID_INVALID : 0,
                                         copy_flags,
                                         /* denylist = */ NULL,
-                                        /* subvolumes = */ NULL);
+                                        /* subvolumes = */ NULL,
+                                        /* subvolume_flags = */ 0);
                 else
                         r = copy_tree_at(
                                         host_fd,
@@ -1230,7 +1231,8 @@ int machine_copy_from_to_operation(
                                         uid_shift == 0 ? GID_INVALID : uid_shift,
                                         copy_flags,
                                         /* denylist = */ NULL,
-                                        /* subvolumes = */ NULL);
+                                        /* subvolumes = */ NULL,
+                                        /* subvolume_flags = */ 0);
                 if (r < 0)
                         log_debug_errno(r, "Failed to copy tree: %m");
 
