@@ -8,6 +8,8 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-rr.h"
 #include "env-file.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -18,8 +20,6 @@
 #include "netif-util.h"
 #include "parse-util.h"
 #include "resolved-dns-browse-services.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"

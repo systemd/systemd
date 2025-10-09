@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "dns-rr.h"
 #include "ordered-set.h"
-#include "resolved-forward.h"
 
 /* A simple array of resource records. We keep track of the originating ifindex for each RR where that makes
  * sense, so that we can qualify A and AAAA RRs referring to a local link with the right ifindex.
