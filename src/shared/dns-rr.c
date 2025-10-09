@@ -2558,3 +2558,16 @@ static const char* const sshfp_key_type_table[_SSHFP_KEY_TYPE_MAX_DEFINED] = {
         [SSHFP_KEY_TYPE_SHA256]   = "SHA-256",   /* RFC 4255 */
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_key_type, int, 255);
+
+int dns_json_dispatch_resource_key(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        DnsResourceKey **k = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *nk = NULL;
+        r = dns_resource_key_from_json(variant, &nk);
+        if (r < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid resource record key.", strna(name));
+
+        DNS_RESOURCE_KEY_REPLACE(*k, TAKE_PTR(nk));
+        return 0;
+}

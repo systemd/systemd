@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-json.h"
+
 #include "shared-forward.h"
 
 /* A simple array of resource keys */
@@ -57,6 +59,8 @@ static inline bool dns_question_isempty(DnsQuestion *q) {
 }
 
 int dns_question_merge(DnsQuestion *a, DnsQuestion *b, DnsQuestion **ret);
+
+int dns_json_dispatch_question(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsQuestion*, dns_question_unref);
 
