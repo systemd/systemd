@@ -61,7 +61,12 @@ shared_sources = files(
         'discover-image.c',
         'dissect-image.c',
         'dm-util.c',
+        'dns-answer.c',
         'dns-domain.c',
+        'dns-packet.c',
+        'dns-question.c',
+        'dns-rr.c',
+        'dns-type.c',
         'dropin.c',
         'edit-util.c',
         'efi-api.c',
@@ -311,6 +316,41 @@ ethtool_link_mode_xml = custom_target(
         command : [python, ethtool_link_mode_py, '--xml', cpp, system_include_args],
         capture : true)
 man_page_depends += ethtool_link_mode_xml
+
+dns_type_list_txt = custom_target(
+        input : ['generate-dns_type-list.sed', 'dns-type.h'],
+        output : 'dns_type-list.txt',
+        command : [sed, '-n', '-r', '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+gperf_file = custom_target(
+        input : dns_type_list_txt,
+        output : 'dns_type-from-name.gperf',
+        command : [files('generate-dns_type-gperf.py'),
+                   'dns_type',
+                   'DNS_TYPE_',
+                   '@INPUT@'],
+        capture : true)
+
+dns_type_from_name_inc = custom_target(
+        input : gperf_file,
+        output : 'dns_type-from-name.inc',
+        command : [gperf,
+                   '-L', 'ANSI-C', '-t', '--ignore-case',
+                   '-N', 'lookup_dns_type',
+                   '-H', 'hash_dns_type_name',
+                   '-p', '-C',
+                   '@INPUT@'],
+        capture : true)
+
+dns_type_to_name_inc = custom_target(
+        input : ['dns_type-to-name.awk', dns_type_list_txt],
+        output : 'dns_type-to-name.inc',
+        command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
+        capture : true)
+
+generated_sources += [dns_type_from_name_inc, dns_type_to_name_inc]
+shared_sources += [dns_type_from_name_inc, dns_type_to_name_inc]
 
 libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 

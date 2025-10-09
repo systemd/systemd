@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "resolved-forward.h"
+#include "dns-rr.h"
 
 /* A simple array of resource keys */
 

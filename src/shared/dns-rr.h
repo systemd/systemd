@@ -6,7 +6,6 @@
 #include "dns-def.h"
 #include "dns-type.h"
 #include "list.h"
-#include "resolved-forward.h"
 
 /* DNSKEY RR flags */
 #define DNSKEY_FLAG_SEP            (UINT16_C(1) << 0)
@@ -101,14 +100,14 @@ typedef struct DnsResourceKey {
 
 typedef struct DnsTxtItem {
         size_t length;
-        LIST_FIELDS(DnsTxtItem, items);
+        LIST_FIELDS(struct DnsTxtItem, items);
         uint8_t data[];
 } DnsTxtItem;
 
 typedef struct DnsSvcParam {
         uint16_t key;
         size_t length;
-        LIST_FIELDS(DnsSvcParam, params);
+        LIST_FIELDS(struct DnsSvcParam, params);
         union {
                 DECLARE_FLEX_ARRAY(uint8_t, value);
                 DECLARE_FLEX_ARRAY(struct in_addr, value_in_addr);
@@ -426,6 +425,8 @@ void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state);
 int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y);
 void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
 int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y);
+
+uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops;
