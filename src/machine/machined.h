@@ -32,6 +32,8 @@ typedef struct Manager {
 
         sd_varlink_server *varlink_userdb_server;
         sd_varlink_server *varlink_machine_server;
+        sd_varlink_server *varlink_resolve_hook_server;
+        Set *query_filter_subscriptions;
 
         RuntimeScope runtime_scope;
         char *state_dir;
