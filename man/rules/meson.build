@@ -912,6 +912,7 @@ manpages = [
    'sd_uid_get_sessions',
    'sd_uid_is_on_seat'],
   'HAVE_PAM'],
+ ['sd_varlink_is_connected', '3', ['sd_varlink_is_idle'], ''],
  ['sd_varlink_push_fd', '3', ['sd_varlink_push_dup_fd'], ''],
  ['sd_varlink_send', '3', ['sd_varlink_sendb', 'sd_varlink_sendbo'], ''],
  ['sd_varlink_server_new', '3', [], ''],
