@@ -26,5 +26,5 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 int bus_machine_method_open_root_directory(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_machine_method_get_uid_shift(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
-int machine_send_signal(Machine *m, bool new_machine);
+int machine_send_signal(Machine *m, const char *signal_name);
 int machine_send_create_reply(Machine *m, sd_bus_error *error);
