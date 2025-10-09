@@ -24,6 +24,7 @@
 #include "log.h"
 #include "machine.h"
 #include "machine-dbus.h"
+#include "machined-resolve-hook.h"
 #include "machined.h"
 #include "mkdir-label.h"
 #include "namespace-util.h"
@@ -674,6 +675,8 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
 
         machine_send_signal(m, "MachineNew");
 
+        (void) manager_notify_hook_filters(m->manager);
+
         return 0;
 }
 
@@ -732,6 +735,8 @@ int machine_finalize(Machine *m) {
         if (m->started) {
                 machine_send_signal(m, "MachineRemoved");
                 m->started = false;
+
+                (void) manager_notify_hook_filters(m->manager);
         }
 
         return 0;
