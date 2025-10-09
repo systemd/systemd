@@ -1232,7 +1232,7 @@ static int settle_scope(
         return 0;
 }
 
-static bool normalize_separator(char c) {
+static char normalize_separator(char c) {
         if (IN_SET(c, '-', '+', '_'))
                 return '_';
 
