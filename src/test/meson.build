@@ -276,6 +276,10 @@ executables += [
                 'link_with' : [libshared],
         },
         test_template + {
+                'sources' : files('test-coredump-stacktrace.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-cryptolib.c'),
                 'dependencies' : libopenssl,
                 'conditions' : ['HAVE_OPENSSL'],
