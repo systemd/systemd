@@ -1078,3 +1078,8 @@ global:
         sd_varlink_reset_fds;
         sd_varlink_server_listen_name;
 } LIBSYSTEMD_257;
+
+LIBSYSTEMD_259 {
+global:
+        sd_varlink_is_connected;
+} LIBSYSTEMD_258;
