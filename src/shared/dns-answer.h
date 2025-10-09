@@ -2,14 +2,14 @@
 #pragma once
 
 #include "ordered-set.h"
-#include "resolved-forward.h"
+#include "shared-forward.h"
 
 /* A simple array of resource records. We keep track of the originating ifindex for each RR where that makes
  * sense, so that we can qualify A and AAAA RRs referring to a local link with the right ifindex.
  *
  * Note that we usually encode the empty DnsAnswer object as a simple NULL. */
 
-typedef enum DnsAnswerFlags {
+enum DnsAnswerFlags {
         DNS_ANSWER_AUTHENTICATED       = 1 << 0, /* Item has been authenticated */
         DNS_ANSWER_CACHEABLE           = 1 << 1, /* Item is subject to caching */
         DNS_ANSWER_SHARED_OWNER        = 1 << 2, /* For mDNS: RRset may be owner by multiple peers */
@@ -23,7 +23,7 @@ typedef enum DnsAnswerFlags {
         DNS_ANSWER_MASK_SECTIONS      = DNS_ANSWER_SECTION_ANSWER|
                                         DNS_ANSWER_SECTION_AUTHORITY|
                                         DNS_ANSWER_SECTION_ADDITIONAL,
-} DnsAnswerFlags;
+};
 
 typedef struct DnsAnswerItem {
         unsigned n_ref;
@@ -34,10 +34,10 @@ typedef struct DnsAnswerItem {
         usec_t until;
 } DnsAnswerItem;
 
-typedef struct DnsAnswer {
+struct DnsAnswer {
         unsigned n_ref;
         OrderedSet *items;
-} DnsAnswer;
+};
 
 DnsAnswer *dns_answer_new(size_t n);
 DnsAnswer *dns_answer_ref(DnsAnswer *a);

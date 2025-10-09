@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "resolved-forward.h"
+#include "shared-forward.h"
 
 /* A simple array of resource keys */
 
@@ -14,11 +14,11 @@ typedef struct DnsQuestionItem {
         DnsQuestionFlags flags;
 } DnsQuestionItem;
 
-typedef struct DnsQuestion {
+struct DnsQuestion {
         unsigned n_ref;
         size_t n_keys, n_allocated;
         DnsQuestionItem items[];
-} DnsQuestion;
+};
 
 DnsQuestion *dns_question_new(size_t n);
 DnsQuestion *dns_question_ref(DnsQuestion *q);

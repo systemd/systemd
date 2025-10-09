@@ -8,16 +8,16 @@
 #include "in-addr-util.h"
 #include "memory-util.h"
 #include "resolved-def.h"
-#include "resolved-forward.h"
+#include "shared-forward.h"
 #include "sparse-endian.h"
 
-typedef enum DnsProtocol {
+enum DnsProtocol {
         DNS_PROTOCOL_DNS,
         DNS_PROTOCOL_MDNS,
         DNS_PROTOCOL_LLMNR,
         _DNS_PROTOCOL_MAX,
         _DNS_PROTOCOL_INVALID = -EINVAL,
-} DnsProtocol;
+};
 
 typedef struct DnsPacketHeader {
         uint16_t id;
@@ -51,7 +51,7 @@ assert_cc(sizeof(DnsPacketHeader) == 12);
 /* With EDNS0 we can use larger packets, default to 1232, which is what is commonly used */
 #define DNS_PACKET_UNICAST_SIZE_LARGE_MAX 1232u
 
-typedef struct DnsPacket {
+struct DnsPacket {
         unsigned n_ref;
         DnsProtocol protocol;
         size_t size, allocated, rindex, max_size, fragsize;
@@ -81,7 +81,7 @@ typedef struct DnsPacket {
         bool canonical_form;
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
-} DnsPacket;
+};
 
 static inline uint8_t* DNS_PACKET_DATA(const DnsPacket *p) {
         if (_unlikely_(!p))

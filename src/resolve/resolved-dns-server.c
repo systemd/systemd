@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -13,7 +14,6 @@
 #include "resolved-bus.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-delegate.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"

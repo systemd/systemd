@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "dns-packet.h"
 #include "dns-type.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
 #include "test-tables.h"
 #include "tests.h"
 
