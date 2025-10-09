@@ -529,6 +529,15 @@ disk images with `--image=` or similar:
   systems that may be mounted for automatically dissected disk images. If not
   specified defaults to something like: `ext4:btrfs:xfs:vfat:erofs:squashfs`
 
+* `$SYSTEMD_DISSECT_FSTYPE_<DESIGNATOR>=` – overrides the file system time to
+  use when mounting the partition of the indicated designator. The
+  `<DESIGNATOR>` string shall be one of `ROOT`, `USR`, `HOME`, `SRV`, `ESP`,
+  `XBOOTLDR`, `TMP`, `VAR` as per the [Discoverable Partitions
+  Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification/). If
+  unspecified the image dissection logic will automatically probe the file
+  system type (subject to `$SYSTEMD_DISSECT_FILE_SYSTEMS`, see above), except
+  for ESP and XBOOTLDR where the file system type is set to VFAT.
+
 * `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
   `LO_FLAGS_DIRECT_IO` (i.e. direct IO + asynchronous IO) on loopback block
   devices when opening them. Defaults to on, set this to "0" to disable this
