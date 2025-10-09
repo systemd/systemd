@@ -215,6 +215,7 @@ shared_sources = files(
         'varlink-io.systemd.PCRLock.c',
         'varlink-io.systemd.Repart.c',
         'varlink-io.systemd.Resolve.c',
+        'varlink-io.systemd.Resolve.Hook.c',
         'varlink-io.systemd.Resolve.Monitor.c',
         'varlink-io.systemd.Udev.c',
         'varlink-io.systemd.Unit.c',
