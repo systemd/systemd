@@ -19,6 +19,7 @@
 #include "resolved-dns-synthesize.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-etc-hosts.h"
+#include "resolved-hook.h"
 #include "resolved-manager.h"
 #include "resolved-timeouts.h"
 #include "set.h"
@@ -524,6 +525,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
 
         dns_service_browser_unref(q->service_browser_request);
 
+        hook_query_free(q->hook_query);
+
         if (q->manager) {
                 LIST_REMOVE(queries, q->manager->dns_queries, q);
                 q->manager->n_dns_queries--;
@@ -907,24 +910,17 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
         return 1;
 }
 
-int dns_query_go(DnsQuery *q) {
-        DnsScopeMatch found = DNS_SCOPE_NO;
-        DnsScope *first = NULL;
+static int dns_query_go_scopes(DnsQuery *q) {
         int r;
 
         assert(q);
+        assert(!q->hook_query);
+        assert(q->state == DNS_TRANSACTION_NULL);
 
-        if (q->state != DNS_TRANSACTION_NULL)
-                return 0;
+        /* Start the lookup via the scopes */
 
-        r = dns_query_try_etc_hosts(q);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                dns_query_complete(q, DNS_TRANSACTION_SUCCESS);
-                return 1;
-        }
-
+        DnsScopeMatch found = DNS_SCOPE_NO;
+        DnsScope *first = NULL;
         LIST_FOREACH(scopes, s, q->manager->dns_scopes) {
                 DnsScopeMatch match;
 
@@ -997,6 +993,72 @@ int dns_query_go(DnsQuery *q) {
 fail:
         dns_query_stop(q);
         return r;
+}
+
+static void on_hook_complete(HookQuery *hq, int rcode, DnsAnswer *answer, void *userdata) {
+        DnsQuery *q = ASSERT_PTR(userdata);
+        int r;
+
+        assert(hq);
+        assert(q->hook_query == hq);
+        assert(q->state == DNS_TRANSACTION_NULL);
+
+        q->hook_query = hook_query_free(q->hook_query);
+        TAKE_PTR(hq);
+
+        if (rcode < 0) {
+                log_debug("Hook yielded no results, proceeding.");
+                r = dns_query_go_scopes(q);
+                if (r < 0) {
+                        dns_query_reset_answer(q);
+                        q->answer_errno = r;
+                        dns_query_complete(q, DNS_TRANSACTION_ERRNO);
+                }
+
+                return;
+        }
+
+        dns_query_reset_answer(q);
+
+        q->answer = dns_answer_ref(answer);
+        q->answer_rcode = rcode;
+        q->answer_protocol = dns_synthesize_protocol(q->flags);
+        q->answer_family = dns_synthesize_family(q->flags);
+        q->answer_query_flags = SD_RESOLVED_FROM_HOOK;
+        dns_query_complete(q, rcode == DNS_RCODE_SUCCESS ? DNS_TRANSACTION_SUCCESS : DNS_TRANSACTION_RCODE_FAILURE);
+}
+
+int dns_query_go(DnsQuery *q) {
+        int r;
+
+        assert(q);
+
+        /* Already ongoing? Then suppress */
+        if (q->hook_query ||
+            q->state != DNS_TRANSACTION_NULL)
+                return 0;
+
+        r = dns_query_try_etc_hosts(q);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                dns_query_complete(q, DNS_TRANSACTION_SUCCESS);
+                return 1;
+        }
+
+        r = manager_hook_query(
+                        q->manager,
+                        q->question_bypass ? q->question_bypass->question : q->question_idna,
+                        q->question_bypass ? q->question_bypass->question : q->question_utf8,
+                        on_hook_complete,
+                        q,
+                        &q->hook_query);
+        if (r < 0)
+                return r;
+        if (r > 0) /* hook calls are pending */
+                return 0;
+
+        return dns_query_go_scopes(q);
 }
 
 static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
@@ -1136,6 +1198,9 @@ void dns_query_ready(DnsQuery *q) {
          * should hence not attempt to access the query or transaction
          * after calling this function, unless the block_ready
          * counter was explicitly bumped before doing so. */
+
+        if (q->hook_query)
+                return;
 
         if (q->block_ready > 0)
                 return;
