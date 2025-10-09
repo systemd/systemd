@@ -342,6 +342,36 @@ EOF
     systemctl reset-failed
 }
 
+testcase_prekill_hook() {
+    cat >/run/systemd/oomd.conf.d/99-oomd-prekill-test.conf <<'EOF'
+[OOM]
+EnablePrekillHook=yes
+PrekillHookTimeoutSec=5s
+EOF
+
+    # no hooks
+    systemctl reload systemd-oomd.service
+    systemd-run --wait -p MemoryHigh=3M stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep || true
+
+    # one hook
+    mkdir -p /run/systemd/oom/prekill/
+    nc -Ul /run/systemd/oom/prekill/althook >/tmp/oomd_event.json &
+    systemd-run --wait -p MemoryHigh=3M stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep || true
+    [[ $(jq -r .method </tmp/oomd_event.json) = 'org.freedesktop.oom1.Prekill' ]]
+
+    rm -f /run/systemd/oom/prekill/* /tmp/oomd_event.json
+
+    # many hooks
+    for i in {1..4}; do
+        nc -Ul "/run/systemd/oom/prekill/althook$i" >"/tmp/oomd_event$i.json" &
+    done
+
+    systemd-run --wait -p MemoryHigh=3M stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep || true
+    for j in /tmp/oomd_event*.json; do
+        [[ $(jq -r .method <"$j") = 'org.freedesktop.oom1.Prekill' ]]
+    done
+}
+
 run_testcases
 
 touch /testok
