@@ -17,14 +17,17 @@
 #include "machine.h"
 #include "machine-varlink.h"
 #include "machined.h"
+#include "machined-resolve-hook.h"
 #include "machined-varlink.h"
 #include "path-lookup.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Machine.h"
 #include "varlink-io.systemd.MachineImage.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
@@ -847,6 +850,57 @@ static int manager_varlink_init_machine(Manager *m) {
         return 0;
 }
 
+static void on_resolve_hook_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        if (set_remove(m->query_filter_subscriptions, link))
+                sd_varlink_unref(link);
+}
+
+static int manager_varlink_init_resolve_hook(Manager *m) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        int r;
+
+        assert(m);
+
+        if (m->varlink_resolve_hook_server)
+                return 0;
+        if (m->runtime_scope != RUNTIME_SCOPE_SYSTEM) /* no resolved in per-user mode! */
+                return 0;
+
+        r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate varlink server object: %m");
+
+        (void) sd_varlink_server_set_description(s, "varlink-resolve-hook");
+
+        r = sd_varlink_server_add_interface(s, &vl_interface_io_systemd_Resolve_Hook);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Resolve.Hook interface to varlink server: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        s,
+                        "io.systemd.Resolve.Hook.QueryFilter",   vl_method_query_filter,
+                        "io.systemd.Resolve.Hook.ResolveRecord", vl_method_resolve_record);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = sd_varlink_server_bind_disconnect(s, on_resolve_hook_disconnect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind on resolve hook disconnection events: %m");
+
+        r = sd_varlink_server_listen_address(s, "/run/systemd/resolve.hook/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+
+        r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
+
+        m->varlink_resolve_hook_server = TAKE_PTR(s);
+        return 0;
+}
+
 int manager_varlink_init(Manager *m) {
         int r;
 
@@ -858,6 +912,10 @@ int manager_varlink_init(Manager *m) {
         if (r < 0)
                 return r;
 
+        r = manager_varlink_init_resolve_hook(m);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
@@ -866,4 +924,5 @@ void manager_varlink_done(Manager *m) {
 
         m->varlink_userdb_server = sd_varlink_server_unref(m->varlink_userdb_server);
         m->varlink_machine_server = sd_varlink_server_unref(m->varlink_machine_server);
+        m->varlink_resolve_hook_server = sd_varlink_server_unref(m->varlink_resolve_hook_server);
 }
