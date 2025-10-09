@@ -251,8 +251,11 @@ systemd-run -t --property CoredumpFilter=default ls /tmp
 (! coredumpctl debug --debugger=/bin/true --debugger-arguments='"')
 
 # Test for EnterNamespace= feature
-if pkgconf --atleast-version 0.192 libdw ; then
-    # dwfl_set_sysroot() is supported only in libdw-0.192 or newer.
+#
+# dwfl_set_sysroot() is supported only in libdw-0.192 or newer.
+if pkgconf --atleast-version 0.192 libdw; then
+    command -v gcc
+
     cat >"$MAKE_STACKTRACE_DUMP" <<END
 #!/usr/bin/env bash
 mount -t tmpfs tmpfs /tmp
