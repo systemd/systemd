@@ -672,7 +672,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
         /* Save new machine data */
         machine_save(m);
 
-        machine_send_signal(m, true);
+        machine_send_signal(m, "MachineNew");
 
         return 0;
 }
@@ -730,7 +730,7 @@ int machine_finalize(Machine *m) {
         machine_add_to_gc_queue(m);
 
         if (m->started) {
-                machine_send_signal(m, false);
+                machine_send_signal(m, "MachineRemoved");
                 m->started = false;
         }
 
