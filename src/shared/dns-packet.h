@@ -5,10 +5,12 @@
 #include <netinet/ip6.h>
 #include <netinet/udp.h>
 
+#include "dns-answer.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "in-addr-util.h"
 #include "memory-util.h"
 #include "resolved-def.h"
-#include "resolved-forward.h"
 #include "sparse-endian.h"
 
 typedef enum DnsProtocol {
@@ -65,7 +67,7 @@ typedef struct DnsPacket {
         DnsResourceRecord *opt;
 
         /* For support of truncated packets */
-        DnsPacket *more;
+        struct DnsPacket *more;
 
         /* Packet reception metadata */
         usec_t timestamp; /* CLOCK_BOOTTIME (or CLOCK_MONOTONIC if the former doesn't exist) */

@@ -3,11 +3,11 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-rr.h"
 #include "log.h"
 #include "random-util.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-rr.h"
 #include "siphash24.h"
 #include "string-util.h"
 
