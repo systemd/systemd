@@ -58,6 +58,10 @@
 
 # Sort by brand, model
 
+# Any i2c device with a Mouse suffix in the name is not a pointing stick
+id-input:i2c:*:name:*Mouse:
+ ID_INPUT_POINTINGSTICK=0
+
 # Code Mercenaries Hard- und Software GmbH Virtual RC USB
 id-input:modalias:input:b0003v07C0p1125*
  ID_INPUT_MOUSE=
