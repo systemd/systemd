@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "sd-event.h"
 
 #include "dns-answer.h"
@@ -890,4 +892,10 @@ TEST(dns_query_go) {
         exercise_dns_query_go(&cfg, NULL);
 }
 
-DEFINE_TEST_MAIN(LOG_DEBUG);
+static int intro(void) {
+        /* Disable hooks in order to make test cases hermetic */
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_RESOLVED_HOOK", "0", /* overwrite= */ false));
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
