@@ -11,7 +11,6 @@
 #include "networkctl-util.h"
 
 int list_links(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -20,10 +19,6 @@ int list_links(int argc, char *argv[], void *userdata) {
 
         r = dump_description(argc, argv);
         if (r != 0)
-                return r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
                 return r;
 
         r = sd_netlink_open(&rtnl);

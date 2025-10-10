@@ -1058,10 +1058,9 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
 }
 
 int path_is_root_at(int dir_fd, const char *path) {
-        _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
-
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
+        _cleanup_close_ int fd = -EBADF;
         if (!isempty(path)) {
                 fd = openat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0)
@@ -1070,19 +1069,19 @@ int path_is_root_at(int dir_fd, const char *path) {
                 dir_fd = fd;
         }
 
-        pfd = openat(dir_fd, "..", O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (pfd < 0)
-                return errno == ENOTDIR ? false : -errno;
+        _cleanup_close_ int root_fd = openat(AT_FDCWD, "/", O_PATH|O_DIRECTORY|O_CLOEXEC);
+        if (root_fd < 0)
+                return -errno;
 
-        /* Even if the parent directory has the same inode, the fd may not point to the root directory "/",
-         * and we also need to check that the mount ids are the same. Otherwise, a construct like the
-         * following could be used to trick us:
+        /* Even if the root directory has the same inode as our fd, the fd may not point to the root
+         * directory "/", and we also need to check that the mount ids are the same. Otherwise, a construct
+         * like the following could be used to trick us:
          *
-         * $ mkdir /tmp/x /tmp/x/y
-         * $ mount --bind /tmp/x /tmp/x/y
+         * $ mkdir /tmp/x
+         * $ mount --bind / /tmp/x
          */
 
-        return fds_are_same_mount(dir_fd, pfd);
+        return fds_are_same_mount(dir_fd, root_fd);
 }
 
 int fds_are_same_mount(int fd1, int fd2) {

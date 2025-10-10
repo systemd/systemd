@@ -1359,6 +1359,10 @@ static void boot_entry_parse_tries(
         if (!strcaseeq16(counter, suffix))
                 return;
 
+        entry->id = xasprintf("%.*ls%ls",
+                        (int) prefix_len - 1,
+                        file,
+                        suffix);
         entry->tries_left = tries_left;
         entry->tries_done = tries_done;
         entry->path = xstrdup16(path);
@@ -1531,7 +1535,9 @@ static void boot_entry_add_type1(
                 return;
 
         entry->device = device;
-        entry->id = xstrdup16(file);
+
+        if (!entry->id)
+                entry->id = xstrdup16(file);
         strtolower16(entry->id);
 
         config_add_entry(config, entry);
