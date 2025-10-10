@@ -10,6 +10,8 @@ int fd_acl_make_writable_fallback(int fd);
 #include <acl/libacl.h> /* IWYU pragma: export */
 #include <sys/acl.h>    /* IWYU pragma: export */
 
+int devnode_acl(int fd, uid_t uid);
+
 int calc_acl_mask_if_needed(acl_t *acl_p);
 int add_base_acls_if_needed(acl_t *acl_p, const char *path);
 int acl_search_groups(const char* path, char ***ret_groups);
@@ -39,6 +41,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(gid_t*, acl_free_gid_tp, NULL);
 #define ACL_READ    0x04
 #define ACL_WRITE   0x02
 #define ACL_EXECUTE 0x01
+
+static inline int devnode_acl(int fd, uid_t uid) {
+        return -EOPNOTSUPP;
+}
 
 static inline int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask) {
         return -EOPNOTSUPP;
