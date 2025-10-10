@@ -3993,6 +3993,34 @@ ServerAddress=192.168.0.1/24</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>EmitDomain=</varname></term>
+
+        <listitem><para>Takes a boolean. Configures whether the DHCP leases handed out
+        to clients shall contain domain name information (DHCP option 15). Defaults to
+        <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Domain=</varname></term>
+
+        <listitem><para>Takes a domain name (such as <literal>example.com</literal>)
+        to pass to DHCP clients. This configures the DNS default domain for DHCP clients.
+        When set, DHCP clients will use this as their DNS search domain.</para>
+
+        <para>When <varname>EmitDomain=yes</varname> is set but <varname>Domain=</varname>
+        is not configured, the domain name will be automatically derived from the system's
+        fully qualified hostname. For example, if the system's hostname is
+        <literal>host.example.com</literal>, the domain <literal>example.com</literal>
+        will be sent to clients. If the system's hostname does not contain a domain part
+        (e.g., hostname is just <literal>host</literal>), no domain name will be sent to
+        DHCP clients. When empty or unset, defaults to no domain name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>BootServerAddress=</varname></term>
 
         <listitem>

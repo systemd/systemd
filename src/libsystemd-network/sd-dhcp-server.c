@@ -128,6 +128,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->boot_server_name);
         free(server->boot_filename);
         free(server->timezone);
+        free(server->domain_name);
 
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(server->servers[i].addr);
@@ -621,6 +622,15 @@ static int server_send_offer_or_ack(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_TZDB_TIMEZONE,
                                 strlen(server->timezone), server->timezone);
+                if (r < 0)
+                        return r;
+        }
+
+        if (server->domain_name) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_DOMAIN_NAME,
+                                strlen(server->domain_name), server->domain_name);
                 if (r < 0)
                         return r;
         }
@@ -1413,6 +1423,22 @@ int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
                 return r;
 
         return 1;
+}
+
+int sd_dhcp_server_set_domain_name(sd_dhcp_server *server, const char *domain_name) {
+        int r;
+
+        assert_return(server, -EINVAL);
+
+        if (domain_name) {
+                r = dns_name_is_valid(domain_name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL;
+        }
+
+        return free_and_strdup(&server->domain_name, domain_name);
 }
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint64_t t) {
