@@ -1097,6 +1097,11 @@ static int dissect_image(
                                 rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
+                                /* XBOOTLDR cannot be integrity protected (since firmware needs to access
+                                 * it), hence be restrictive with the fs choice when dissecting. */
+                                if (type.designator == PARTITION_XBOOTLDR)
+                                        fstype = "vfat";
+
                         } else if (type.designator == PARTITION_ESP) {
 
                                 if (FLAGS_SET(pflags, SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL)) {
@@ -1104,6 +1109,7 @@ static int dissect_image(
                                         continue;
                                 }
 
+                                /* Effectively the ESP has to be VFAT, let's enforce this */
                                 fstype = "vfat";
 
                         } else if (type.designator == PARTITION_ROOT) {
