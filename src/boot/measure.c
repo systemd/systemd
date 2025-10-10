@@ -198,7 +198,7 @@ uint32_t tpm_get_active_pcr_banks(void) {
 
         /* GetActivePcrBanks() was added only in version 1.1 of the spec */
         if (version.Major < 1 || (version.Major == 1 && version.Minor < 1)) {
-                log_debug("TCG protocol too old for GetActivePcrBanks(), claiming no active banks.");
+                /* log_debug("TCG protocol too old for GetActivePcrBanks(), claiming no active banks."); */
                 return 0;
         }
 
