@@ -118,6 +118,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DNSServer,
                 SD_VARLINK_FIELD_COMMENT("IPv4 or IPv6 address of the server."),
                 SD_VARLINK_DEFINE_FIELD(address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("IPv4 or IPv6 address of the server, formatted as a human-readable string."),
+                SD_VARLINK_DEFINE_FIELD(addressString, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Address family of the server, one of AF_INET or AF_INET6."),
                 SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Port number of the server."),
