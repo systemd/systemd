@@ -335,7 +335,7 @@ static usec_t extra_timeout_usec(void) {
 
         parsed = true;
 
-        e = getenv("SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC");
+        e = secure_getenv("SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC");
         if (!e)
                 return saved;
 

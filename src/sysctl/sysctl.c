@@ -353,6 +353,7 @@ static int help(void) {
                "     --tldr             Show non-comment parts of configuration\n"
                "     --prefix=PATH      Only apply rules with the specified prefix\n"
                "     --no-pager         Do not pipe output into a pager\n"
+               "     --strict           Fail on any kind of failures\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);

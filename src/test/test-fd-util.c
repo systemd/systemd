@@ -681,6 +681,134 @@ TEST(dir_fd_is_root) {
         assert_se(dir_fd_is_root_or_cwd(fd) == 0);
 }
 
+static void test_path_is_root_at_one(bool expected) {
+        ASSERT_OK_POSITIVE(path_is_root("/"));
+        ASSERT_OK_POSITIVE(path_is_root("/."));
+        ASSERT_OK_EQ(path_is_root("/./.."), expected);
+        ASSERT_OK_EQ(path_is_root("/.."), expected);
+        ASSERT_OK_EQ(path_is_root("/../"), expected);
+        ASSERT_OK_EQ(path_is_root("/../."), expected);
+        ASSERT_OK_EQ(path_is_root("/../.."), expected);
+
+        ASSERT_OK_ZERO(path_is_root("/usr"));
+        ASSERT_OK_ZERO(path_is_root("/./usr"));
+        ASSERT_OK_ZERO(path_is_root("/../usr"));
+        ASSERT_OK_ZERO(path_is_root("/.././usr"));
+        ASSERT_OK_ZERO(path_is_root("/../../usr"));
+
+        _cleanup_close_ int fd = -EBADF;
+        ASSERT_OK_ERRNO(fd = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
+
+        ASSERT_OK_POSITIVE(path_is_root_at(fd, NULL));
+        ASSERT_OK_POSITIVE(path_is_root_at(fd, ""));
+        ASSERT_OK_POSITIVE(path_is_root_at(fd, "."));
+        ASSERT_OK_EQ(path_is_root_at(fd, "./../"), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "../"), expected);
+        ASSERT_OK_POSITIVE(path_is_root_at(fd, "/"));
+        ASSERT_OK_POSITIVE(path_is_root_at(fd, "/."));
+        ASSERT_OK_EQ(path_is_root_at(fd, "/./.."), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "/.."), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "/../"), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "/../."), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "/../.."), expected);
+
+        ASSERT_OK_ZERO(path_is_root_at(fd, "usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "./usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "../usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "/usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "/./usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "/../usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "/.././usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "/../../usr"));
+
+        safe_close(fd);
+        ASSERT_OK_ERRNO(fd = open("/../", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
+
+        ASSERT_OK_EQ(path_is_root_at(fd, NULL), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, ""), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "."), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "./.."), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "../"), expected);
+        ASSERT_OK_POSITIVE(path_is_root_at(fd, "/"));
+        ASSERT_OK_POSITIVE(path_is_root_at(fd, "/."));
+        ASSERT_OK_EQ(path_is_root_at(fd, "/./.."), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "/.."), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "/../"), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "/../."), expected);
+        ASSERT_OK_EQ(path_is_root_at(fd, "/../.."), expected);
+
+        ASSERT_OK_ZERO(path_is_root_at(fd, "usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "./usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "../usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "/usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "/./usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "/../usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "/.././usr"));
+        ASSERT_OK_ZERO(path_is_root_at(fd, "/../../usr"));
+}
+
+TEST(path_is_root_at) {
+        int r;
+
+        test_path_is_root_at_one(true);
+
+        r = detach_mount_namespace();
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "Failed to detach mount namespace");
+
+        /* Interestingly, even after bind mount a path on "/", still "/" points to the previous root
+         * directory, but "/../" points to the new root directory. Hence, path_is_root("/") is true but
+         * path_is_root("/../") is false. Such spurious situation is resolved after chroot()ing to the new
+         * root directory. */
+        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "/", "/", NULL, MS_BIND|MS_REC, NULL));
+        log_debug("/* %s: bind mount(\"/\", \"/\") */", __func__);
+        test_path_is_root_at_one(false);
+
+        /* chroot("/") does not change anything. */
+        ASSERT_OK_ERRNO(chroot("/"));
+        log_debug("/* %s: chroot(\"/\") */", __func__);
+        test_path_is_root_at_one(false);
+
+        /* chdir("/") neither change anything. */
+        ASSERT_OK_ERRNO(chdir("/"));
+        log_debug("/* %s: chdir(\"/\") */", __func__);
+        test_path_is_root_at_one(false);
+
+        /* chdir("/../") neither change anything. */
+        ASSERT_OK_ERRNO(chdir("/../"));
+        log_debug("/* %s: chdir(\"/../\") */", __func__);
+        test_path_is_root_at_one(false);
+
+        /* After chroot("/../"), both "/" and "/../" point to the new root directory. */
+        ASSERT_OK_ERRNO(chroot("/../"));
+        log_debug("/* %s: chroot(\"/../\") */", __func__);
+        test_path_is_root_at_one(true);
+
+        /* chdir("/../") does not change anything. */
+        ASSERT_OK_ERRNO(chdir("/../"));
+        log_debug("/* %s: chdir(\"/../\") again */", __func__);
+        test_path_is_root_at_one(true);
+
+        /* bind mounting to non-root directory has no problem, of course. */
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-path_is_root-XXXXXX", &tmp));
+        ASSERT_OK(mount_nofollow_verbose(LOG_DEBUG, "/", tmp, NULL, MS_BIND|MS_REC, NULL));
+        log_debug("/* %s: bind mount(\"/\", \"%s\") */", __func__, tmp);
+        test_path_is_root_at_one(true);
+
+        ASSERT_OK_ERRNO(chdir(tmp));
+        log_debug("/* %s: chdir(\"%s\") */", __func__, tmp);
+        test_path_is_root_at_one(true);
+
+        ASSERT_OK_ERRNO(chroot(tmp));
+        log_debug("/* %s: chroot(\"%s\") */", __func__, tmp);
+        test_path_is_root_at_one(true);
+
+        ASSERT_OK_ERRNO(chdir(tmp));
+        log_debug("/* %s: chdir(\"%s\") again */", __func__, tmp);
+        test_path_is_root_at_one(true);
+}
+
 TEST(fds_are_same_mount) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF, fd3 = -EBADF, fd4 = -EBADF;
 
