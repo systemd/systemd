@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
+#include "hostname-setup.h"
 #include "network-common.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-server.h"
@@ -675,6 +676,27 @@ static int dhcp4_server_configure(Link *link) {
                         r = sd_dhcp_server_set_timezone(link->dhcp_server, tz);
                         if (r < 0)
                                 return log_link_error_errno(link, r, "Failed to set timezone for DHCP server: %m");
+                }
+        }
+
+        if (link->network->dhcp_server_emit_domain) {
+                _cleanup_free_ char *buffer = NULL;
+                const char *domain = NULL;
+
+                if (link->network->dhcp_server_domain)
+                        domain = link->network->dhcp_server_domain;
+                else {
+                        r = get_hostname_domain(&buffer);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to determine domain name from hostname, not sending domain: %m");
+                        else
+                                domain = buffer;
+                }
+
+                if (domain) {
+                        r = sd_dhcp_server_set_domain_name(link->dhcp_server, domain);
+                        if (r < 0)
+                                return log_link_error_errno(link, r, "Failed to set domain name for DHCP server: %m");
                 }
         }
 

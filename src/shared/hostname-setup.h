@@ -56,3 +56,5 @@ static inline char* gethostname_short_malloc(void) {
 
         return s;
 }
+
+int get_hostname_domain(char **ret);
