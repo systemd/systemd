@@ -2049,11 +2049,14 @@ static int dns_configuration_json_append(
                 DnsServer *dns_servers,
                 DnsSearchDomain *search_domains,
                 Set *negative_trust_anchors,
+                Set *dns_scopes,
                 sd_json_variant **configuration) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns_servers_json = NULL,
                                                           *search_domains_json = NULL,
-                                                          *current_dns_server_json = NULL;
+                                                          *current_dns_server_json = NULL,
+                                                          *scopes_json = NULL;
+        DnsScope *scope;
         int r;
 
         assert(configuration);
@@ -2072,6 +2075,23 @@ static int dns_configuration_json_append(
 
         if (current_dns_server) {
                 r = dns_server_dump_configuration_to_json(current_dns_server, &current_dns_server_json);
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(scope, dns_scopes) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v  = NULL;
+
+                r = dns_scope_dump_cache_to_json(scope, &v);
+                if (r < 0)
+                        return r;
+
+                /* The cache is not relevant to the configuration of the scope. */
+                r = sd_json_variant_filter(&v, STRV_MAKE("cache"));
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&scopes_json, v);
                 if (r < 0)
                         return r;
         }
@@ -2115,12 +2135,24 @@ static int dns_configuration_json_append(
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json),
                         SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(negative_trust_anchors),
                                                      "negativeTrustAnchors",
-                                                     JSON_BUILD_STRING_SET(negative_trust_anchors)));
+                                                     JSON_BUILD_STRING_SET(negative_trust_anchors)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("scopes", scopes_json));
 }
 
 static int global_dns_configuration_json_append(Manager *m, sd_json_variant **configuration) {
+        _cleanup_set_free_ Set *scopes = NULL;
+        int r;
+
         assert(m);
         assert(configuration);
+
+        scopes = set_new(NULL);
+        if (!scopes)
+                return log_oom();
+
+        r = set_put(scopes, m->unicast_scope);
+        if (r < 0)
+                return r;
 
         return dns_configuration_json_append(
                         /* ifname = */ NULL,
@@ -2131,12 +2163,50 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         m->dns_servers,
                         m->search_domains,
                         m->trust_anchor.negative_by_name,
+                        scopes,
                         configuration);
 }
 
 static int link_dns_configuration_json_append(Link *l, sd_json_variant **configuration) {
+        _cleanup_set_free_ Set *scopes = NULL;
+        int r;
+
         assert(l);
         assert(configuration);
+
+        scopes = set_new(NULL);
+        if (!scopes)
+                return log_oom();
+
+        if (l->unicast_scope) {
+                r = set_put(scopes, l->unicast_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->llmnr_ipv4_scope) {
+                r = set_put(scopes, l->llmnr_ipv4_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->llmnr_ipv6_scope) {
+                r = set_put(scopes, l->llmnr_ipv6_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->mdns_ipv4_scope) {
+                r = set_put(scopes, l->mdns_ipv4_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->mdns_ipv6_scope) {
+                r = set_put(scopes, l->mdns_ipv6_scope);
+                if (r < 0)
+                        return r;
+        }
 
         return dns_configuration_json_append(
                         l->ifname,
@@ -2147,12 +2217,24 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         l->dns_servers,
                         l->search_domains,
                         l->dnssec_negative_trust_anchors,
+                        scopes,
                         configuration);
 }
 
 static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_variant **configuration) {
+        _cleanup_set_free_ Set *scopes = NULL;
+        int r;
+
         assert(d);
         assert(configuration);
+
+        scopes = set_new(NULL);
+        if (!scopes)
+                return log_oom();
+
+        r = set_put(scopes, d->scope);
+        if (r < 0)
+                return r;
 
         return dns_configuration_json_append(
                         /* ifname = */ NULL,
@@ -2163,6 +2245,7 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                         d->dns_servers,
                         d->search_domains,
                         /* negative_trust_anchors = */ NULL,
+                        scopes,
                         configuration);
 }
 

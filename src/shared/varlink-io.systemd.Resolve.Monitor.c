@@ -139,6 +139,21 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                DNSScope,
+                SD_VARLINK_FIELD_COMMENT("Protocol associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD(protocol, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Address family associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface index associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Interface name associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD(ifname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNSSEC mode associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode associated with this scope."),
+                SD_VARLINK_DEFINE_FIELD(dnsOverTLS, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DNSConfiguration,
                 SD_VARLINK_FIELD_COMMENT("Interface name, if any, associated with this configuration. Empty for global configuration."),
                 SD_VARLINK_DEFINE_FIELD(ifname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -155,7 +170,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Array of configured search domains."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(searchDomains, SearchDomain, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Array of configured DNSSEC negative trust anchors."),
-                SD_VARLINK_DEFINE_FIELD(negativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(negativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of current DNS scopes."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(scopes, DNSScope, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 SubscribeDNSConfiguration,
@@ -188,5 +205,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_SearchDomain,
                 SD_VARLINK_SYMBOL_COMMENT("Encapsulates a global or per-link DNS configuration, including configured DNS servers, search domains, and more."),
                 &vl_type_DNSConfiguration,
+                SD_VARLINK_SYMBOL_COMMENT("Encapsulates a DNS scope specification."),
+                &vl_type_DNSScope,
                 SD_VARLINK_SYMBOL_COMMENT("Sends the complete global and per-link DNS configurations when any changes are made to them. The current configurations are given immediately when this method is invoked."),
                 &vl_method_SubscribeDNSConfiguration);
