@@ -2205,14 +2205,16 @@ int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret) {
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "class", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(struct params, class), SD_JSON_MANDATORY },
+                { "class", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(struct params, class), 0                 },
                 { "type",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(struct params, type),  SD_JSON_MANDATORY },
                 { "name",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct params, name),  SD_JSON_MANDATORY },
                 {}
         };
 
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        struct params p;
+        struct params p = {
+                .class = DNS_CLASS_IN,
+        };
         int r;
 
         assert(v);
