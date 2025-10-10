@@ -900,9 +900,14 @@ static int get_supplementary_groups(
          */
         bool keep_groups = false;
         if (user && gid_is_valid(gid) && gid != 0) {
-                /* First step, initialize groups from /etc/groups */
-                if (initgroups(user, gid) < 0)
-                        return -errno;
+                /* First step, initialize groups from /etc/groups
+                 *
+                 * If our primary gid is already the one specified in Group= however (i.e. we're running
+                 * in user mode), do not attempt to re-initgroup(), which we'd lack privilege of if the user's
+                 * group database is modified but hasn't been applied to user manager through re-login. */
+                if (gid != getgid())
+                        if (initgroups(user, gid) < 0)
+                                return -errno;
 
                 keep_groups = true;
         }
