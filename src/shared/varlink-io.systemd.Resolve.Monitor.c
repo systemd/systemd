@@ -167,6 +167,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(currentServer, DNSServer, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Array of configured DNS servers."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(servers, DNSServer, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of configured fallback DNS servers, set for global configuration only."),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(fallbackServers, DNSServer, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Array of configured search domains."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(searchDomains, SearchDomain, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Array of configured DNSSEC negative trust anchors."),
