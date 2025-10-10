@@ -23,7 +23,7 @@ Journal.Storage,              config_parse_storage,           0, offsetof(Journa
 Journal.Compress,             config_parse_compress,          0, offsetof(JournalConfig, compress)
 Journal.Seal,                 config_parse_tristate,          0, offsetof(JournalConfig, seal)
 Journal.ReadKMsg,             config_parse_tristate,          0, offsetof(JournalConfig, read_kmsg)
-Journal.Audit,                config_parse_tristate,          0, offsetof(JournalConfig, set_audit)
+Journal.Audit,                config_parse_audit_set_mode,    0, offsetof(JournalConfig, set_audit)
 Journal.SyncIntervalSec,      config_parse_sec,               0, offsetof(JournalConfig, sync_interval_usec)
 # The following is a legacy name for compatibility
 Journal.RateLimitInterval,    config_parse_sec,               0, offsetof(JournalConfig, ratelimit_interval)

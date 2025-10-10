@@ -13,23 +13,7 @@
 typedef struct {
         uint8_t Major;
         uint8_t Minor;
-        uint8_t RevMajor;
-        uint8_t RevMinor;
-} TCG_VERSION;
-
-typedef struct {
-        uint8_t Major;
-        uint8_t Minor;
 } EFI_TCG2_VERSION;
-
-typedef struct {
-        uint8_t Size;
-        TCG_VERSION StructureVersion;
-        TCG_VERSION ProtocolSpecVersion;
-        uint8_t HashAlgorithmBitmap;
-        bool TPMPresentFlag;
-        bool TPMDeactivatedFlag;
-} EFI_TCG_BOOT_SERVICE_CAPABILITY;
 
 typedef struct {
         uint8_t Size;

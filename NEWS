@@ -30,6 +30,8 @@ CHANGES WITH 258:
               ACTION!="remove", SUBSYSTEM=="hidraw", TAG+="uaccess"
           The following example does not work since v258:
               ACTION=="add", SUBSYSTEM=="hidraw", TAG+="uaccess"
+          Udev rules files setting the "uaccess" tag need to have a file name
+          starting with a number smaller than 73 to be applied.
 
         * systemd-run's --expand-environment= switch, which was disabled
           by default when combined with --scope, has been changed to be

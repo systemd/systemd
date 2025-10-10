@@ -288,15 +288,20 @@ int fchmod_opath(int fd, mode_t m) {
          * - fchmod(2) only operates on open files (i. e., fds with an open file description);
          * - fchmodat(2) does not have a flag arg like fchownat(2) does, so no way to pass AT_EMPTY_PATH;
          *   + it should not be confused with the libc fchmodat(3) interface, which adds 4th flag argument,
-         *     but does not support AT_EMPTY_PATH (only supports AT_SYMLINK_NOFOLLOW);
+         *     and supports AT_EMPTY_PATH since v2.39 (previously only supported AT_SYMLINK_NOFOLLOW). So if
+         *     the kernel has fchmodat2(2), since v2.39 glibc will call into it directly. If the kernel
+         *     doesn't, or glibc is older than v2.39, glibc's internal fallback will return EINVAL if
+         *     AT_EMPTY_PATH is passed.
          * - fchmodat2(2) supports all the AT_* flags, but is still very recent.
          *
-         * We try to use fchmodat2(), and, if it is not supported, resort
-         * to the /proc/self/fd dance. */
+         * We try to use fchmodat(3) first, and on EINVAL fall back to fchmodat2(), and, if that is also not
+         * supported, resort to the /proc/self/fd dance. */
 
         assert(fd >= 0);
 
-        if (fchmodat2(fd, "", m, AT_EMPTY_PATH) >= 0)
+        if (fchmodat(fd, "", m, AT_EMPTY_PATH) >= 0)
+                return 0;
+        if (errno == EINVAL && fchmodat2(fd, "", m, AT_EMPTY_PATH) >= 0) /* glibc too old? */
                 return 0;
         if (!IN_SET(errno, ENOSYS, EPERM)) /* Some container managers block unknown syscalls with EPERM */
                 return -errno;
