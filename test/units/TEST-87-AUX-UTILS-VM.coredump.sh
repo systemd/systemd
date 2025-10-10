@@ -251,7 +251,11 @@ systemd-run -t --property CoredumpFilter=default ls /tmp
 # Test for EnterNamespace= feature
 #
 # dwfl_set_sysroot() is supported only in libdw-0.192 or newer.
-if pkgconf --atleast-version 0.192 libdw; then
+#
+# FIXME: drop the objdump call once https://github.com/systemd/systemd/pull/39268#issuecomment-3390745718 is
+#        addressed
+if pkgconf --atleast-version 0.192 libdw &&
+    objdump -h -j /usr/lib/systemd/tests/unit-tests/manual/test-coredump-stacktrace; then
     MAKE_STACKTRACE_DUMP="/tmp/make-stacktrace-dump"
 
     # Simple script that mounts tmpfs on /tmp/ and copies the crashing test binary there, which in
