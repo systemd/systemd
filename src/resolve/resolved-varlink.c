@@ -1379,10 +1379,6 @@ static int vl_method_subscribe_dns_configuration(sd_varlink *link, sd_json_varia
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.subscribe-dns-configuration");
-        if (r <= 0)
-                return r;
-
         if (set_isempty(m->varlink_dns_configuration_subscription)) {
                 r = manager_start_dns_configuration_monitor(m);
                 if (r < 0)

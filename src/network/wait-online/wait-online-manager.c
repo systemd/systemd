@@ -440,10 +440,7 @@ static int manager_dns_configuration_listen(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind varlink reply callback: %m");
 
-        r = sd_varlink_observebo(
-                        vl,
-                        "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration",
-                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", false));
+        r = sd_varlink_observe(vl, "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration", NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue SubscribeDNSConfiguration: %m");
 
