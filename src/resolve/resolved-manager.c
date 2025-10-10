@@ -2048,6 +2048,7 @@ static int dns_configuration_json_append(
                 DnsServer *current_dns_server,
                 DnsServer *dns_servers,
                 DnsSearchDomain *search_domains,
+                Set *negative_trust_anchors,
                 sd_json_variant **configuration) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns_servers_json = NULL,
@@ -2113,7 +2114,10 @@ static int dns_configuration_json_append(
                                                           default_route > 0),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("currentServer", current_dns_server_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("servers", dns_servers_json),
-                        JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json));
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json),
+                        SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(negative_trust_anchors),
+                                                     "negativeTrustAnchors",
+                                                     JSON_BUILD_STRING_SET(negative_trust_anchors)));
 }
 
 static int global_dns_configuration_json_append(Manager *m, sd_json_variant **configuration) {
@@ -2128,6 +2132,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         manager_get_dns_server(m),
                         m->dns_servers,
                         m->search_domains,
+                        m->trust_anchor.negative_by_name,
                         configuration);
 }
 
@@ -2143,6 +2148,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         link_get_dns_server(l),
                         l->dns_servers,
                         l->search_domains,
+                        l->dnssec_negative_trust_anchors,
                         configuration);
 }
 
@@ -2158,6 +2164,7 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                         dns_delegate_get_dns_server(d),
                         d->dns_servers,
                         d->search_domains,
+                        /* negative_trust_anchors = */ NULL,
                         configuration);
 }
 
