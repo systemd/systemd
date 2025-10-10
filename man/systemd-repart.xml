@@ -202,12 +202,19 @@
       <varlistentry>
         <term><option>--discard=</option></term>
 
-        <listitem><para>Takes a boolean. If this switch is not specified ,<option>--discard=yes</option> is
-        the implied default. Controls whether to issue the <constant>BLKDISCARD</constant> I/O control
+        <listitem><para>Takes a boolean or <literal>auto</literal>. If this switch is not specified,
+        <option>--discard=auto</option> is the implied default.
+        Controls whether to issue the <constant>BLKDISCARD</constant> I/O control
         command on the space taken up by any added partitions or on the space in between them. Usually, it is
         a good idea to issue this request since it tells the underlying hardware that the covered blocks
         shall be considered empty, improving performance. If operating on a regular file instead of a block
         device node, a sparse file is generated.</para>
+
+        <para>When set to <literal>auto</literal>, discard is enabled only if the targeted block device
+        advertises discard support. When operating on image files instead of block devices,
+        <literal>auto</literal> behaves like <literal>yes</literal>. If discard capability cannot be
+        determined (for example, when <filename>/sys</filename> is not mounted), <literal>auto</literal>
+        also behaves like <literal>yes</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
