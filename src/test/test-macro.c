@@ -1228,4 +1228,20 @@ TEST(ASSERT) {
         ASSERT_SIGNAL(ASSERT_NE_ID128(SD_ID128_NULL, SD_ID128_NULL), SIGABRT);
 }
 
+static void test_once_impl(void) {
+        static unsigned count = 0;
+
+        if (ONCE) {
+                log_info("This should be logged only once.");
+                count++;
+        }
+
+        ASSERT_EQ(count, 1u);
+}
+
+TEST(once) {
+        for (unsigned i = 0; i < 20; i++)
+                test_once_impl();
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);

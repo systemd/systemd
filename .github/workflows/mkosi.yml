@@ -87,7 +87,7 @@ jobs:
             relabel: no
             vm: 0
           - distro: fedora
-            release: "42"
+            release: "43"
             sanitizers: address,undefined
             llvm: 1
             cflags: "-Og"

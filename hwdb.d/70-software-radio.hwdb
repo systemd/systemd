@@ -22,6 +22,17 @@
 #   ID_SOFTWARE_RADIO=0|1
 
 ##########################################
+# Airspy
+##########################################
+# Airspy R2
+usb:v1D50p60A1*
+ ID_SOFTWARE_RADIO=1
+
+# Airspy HF+
+usb:v03EBp800C*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
 # Analog Devices
 ##########################################
 # ADI pluto SDR
@@ -48,8 +59,52 @@ usb:v2500p0002*
 usb:v2500p0020*
 usb:v2500p0021*
 usb:v2500p0022*
+usb:v2500p0023*
 usb:v3923p7813*
 usb:v3923p7814*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# FUNcube
+##########################################
+# FUNcube Dongle Pro
+usb:v04D8pFB56*
+ ID_SOFTWARE_RADIO=1
+
+# FUNcube Dongle Pro+
+usb:v04D8pFB31*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# Great Scott Gadgets
+##########################################
+# HackRF Jawbreaker
+usb:v1D50p604B*
+ ID_SOFTWARE_RADIO=1
+
+# HackRF One
+usb:v1D50p6089*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# HydraSDR
+##########################################
+# HydraSDR RFOne
+usb:v38AFp0001*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# LimeSDR
+##########################################
+# XTRX (USB3380)
+usb:v0525p3380*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# Microtelecom
+##########################################
+# Perseus
+usb:v04B4p325C*
  ID_SOFTWARE_RADIO=1
 
 ##########################################
@@ -236,4 +291,35 @@ usb:v1F4DpD286*
 
 # PROlectrix DV107669 (FC0012)
 usb:v1F4DpD803*
+ ID_SOFTWARE_RADIO=1
+
+##########################################
+# SDRplay
+##########################################
+# RSP1
+usb:v1DF7p2500*
+ ID_SOFTWARE_RADIO=1
+
+# RSP1A
+usb:v1DF7p3000*
+ ID_SOFTWARE_RADIO=1
+
+# RSP2/RSP2pro
+usb:v1DF7p3010*
+ ID_SOFTWARE_RADIO=1
+
+# RSPduo
+usb:v1DF7p3020*
+ ID_SOFTWARE_RADIO=1
+
+# RSPdx
+usb:v1DF7p3030*
+ ID_SOFTWARE_RADIO=1
+
+# RSP1B
+usb:v1DF7p3050*
+ ID_SOFTWARE_RADIO=1
+
+# RSPdxR2
+usb:v1DF7p3060*
  ID_SOFTWARE_RADIO=1
