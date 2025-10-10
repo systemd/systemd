@@ -9,6 +9,7 @@
 static const char * const server_type_table[_SERVER_TYPE_MAX] = {
         [SERVER_SYSTEM]   = "system",
         [SERVER_FALLBACK] = "fallback",
+        [SERVER_NTSKE]    = "ntske",
         [SERVER_LINK]     = "link",
         [SERVER_RUNTIME]  = "runtime",
 };
@@ -116,6 +117,9 @@ int server_name_new(
         case SERVER_RUNTIME:
                 LIST_APPEND(names, m->runtime_servers, n);
                 break;
+        case SERVER_NTSKE:
+                LIST_APPEND(names, m->nts_ke_servers, n);
+                break;
         default:
                 assert_not_reached();
         }
@@ -154,6 +158,8 @@ ServerName *server_name_free(ServerName *n) {
                         LIST_REMOVE(names, n->manager->fallback_servers, n);
                 else if (n->type == SERVER_RUNTIME)
                         LIST_REMOVE(names, n->manager->runtime_servers, n);
+                else if (n->type == SERVER_NTSKE)
+                        LIST_REMOVE(names, n->manager->nts_ke_servers, n);
                 else
                         assert_not_reached();
 
