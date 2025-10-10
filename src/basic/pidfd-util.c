@@ -56,7 +56,7 @@ int pidfd_get_namespace(int fd, unsigned long ns_type_cmd) {
         if (have_pidfs == 0 || !cached_supported)
                 return -EOPNOTSUPP;
 
-        int nsfd = ioctl(fd, ns_type_cmd);
+        int nsfd = ioctl(fd, ns_type_cmd, 0);
         if (nsfd < 0) {
                 /* Kernel returns EOPNOTSUPP if the ns type in question is disabled. Hence we need to look
                  * at precise errno instead of generic ERRNO_IS_(IOCTL_)NOT_SUPPORTED. */
