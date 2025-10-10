@@ -2054,6 +2054,7 @@ static int dns_configuration_json_append(
                 DnsOverTlsMode dns_over_tls_mode,
                 ResolveSupport llmnr_support,
                 ResolveSupport mdns_support,
+                ResolvConfMode resolv_conf_mode,
                 sd_json_variant **configuration) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns_servers_json = NULL,
@@ -2144,6 +2145,7 @@ static int dns_configuration_json_append(
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnsOverTLS", dns_over_tls_mode_to_string(dns_over_tls_mode)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("llmnr", resolve_support_to_string(llmnr_support)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("mDNS", resolve_support_to_string(mdns_support)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("resolvConfMode", resolv_conf_mode_to_string(resolv_conf_mode)),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("scopes", scopes_json));
 }
 
@@ -2176,6 +2178,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         manager_get_dns_over_tls_mode(m),
                         m->llmnr_support,
                         m->mdns_support,
+                        resolv_conf_mode(),
                         configuration);
 }
 
@@ -2234,6 +2237,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         link_get_dns_over_tls_mode(l),
                         link_get_llmnr_support(l),
                         link_get_mdns_support(l),
+                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
                         configuration);
 }
 
@@ -2266,6 +2270,7 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                         /* dns_over_tls_mode = */ _DNS_OVER_TLS_MODE_INVALID,
                         /* llmnr_support = */ _RESOLVE_SUPPORT_INVALID,
                         /* mdns_support = */ _RESOLVE_SUPPORT_INVALID,
+                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
                         configuration);
 }
 
