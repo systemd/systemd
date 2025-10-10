@@ -300,4 +300,5 @@ EOF
     rm -f "$MAKE_STACKTRACE_DUMP" /run/systemd/coredump.conf.d/99-enter-namespace.conf /tmp/{not-,}symbolized.log
 else
     echo "libdw doesn't not support setting sysroot, skipping EnterNamespace= test"
+    exit 99
 fi
