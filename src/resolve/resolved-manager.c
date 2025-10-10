@@ -2050,6 +2050,10 @@ static int dns_configuration_json_append(
                 DnsSearchDomain *search_domains,
                 Set *negative_trust_anchors,
                 Set *dns_scopes,
+                DnssecMode dnssec_mode,
+                DnsOverTlsMode dns_over_tls_mode,
+                ResolveSupport llmnr_support,
+                ResolveSupport mdns_support,
                 sd_json_variant **configuration) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns_servers_json = NULL,
@@ -2136,6 +2140,10 @@ static int dns_configuration_json_append(
                         SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(negative_trust_anchors),
                                                      "negativeTrustAnchors",
                                                      JSON_BUILD_STRING_SET(negative_trust_anchors)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("dnssec", dnssec_mode_to_string(dnssec_mode)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("dnsOverTLS", dns_over_tls_mode_to_string(dns_over_tls_mode)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("llmnr", resolve_support_to_string(llmnr_support)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("mDNS", resolve_support_to_string(mdns_support)),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("scopes", scopes_json));
 }
 
@@ -2164,6 +2172,10 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         m->search_domains,
                         m->trust_anchor.negative_by_name,
                         scopes,
+                        manager_get_dnssec_mode(m),
+                        manager_get_dns_over_tls_mode(m),
+                        m->llmnr_support,
+                        m->mdns_support,
                         configuration);
 }
 
@@ -2218,6 +2230,10 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         l->search_domains,
                         l->dnssec_negative_trust_anchors,
                         scopes,
+                        link_get_dnssec_mode(l),
+                        link_get_dns_over_tls_mode(l),
+                        link_get_llmnr_support(l),
+                        link_get_mdns_support(l),
                         configuration);
 }
 
@@ -2246,6 +2262,10 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                         d->search_domains,
                         /* negative_trust_anchors = */ NULL,
                         scopes,
+                        /* dnssec_mode = */ _DNSSEC_MODE_INVALID,
+                        /* dns_over_tls_mode = */ _DNS_OVER_TLS_MODE_INVALID,
+                        /* llmnr_support = */ _RESOLVE_SUPPORT_INVALID,
+                        /* mdns_support = */ _RESOLVE_SUPPORT_INVALID,
                         configuration);
 }
 
