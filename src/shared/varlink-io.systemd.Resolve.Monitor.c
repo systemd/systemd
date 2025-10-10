@@ -195,6 +195,11 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("The current global and per-interface DNS configurations"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(configuration, DNSConfiguration, SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_METHOD(
+                DumpDNSConfiguration,
+                SD_VARLINK_FIELD_COMMENT("The current global and per-interface DNS configurations"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(configuration, DNSConfiguration, SD_VARLINK_ARRAY));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve_Monitor,
                 "io.systemd.Resolve.Monitor",
@@ -222,4 +227,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Encapsulates a DNS scope specification."),
                 &vl_type_DNSScope,
                 SD_VARLINK_SYMBOL_COMMENT("Sends the complete global and per-link DNS configurations when any changes are made to them. The current configurations are given immediately when this method is invoked."),
-                &vl_method_SubscribeDNSConfiguration);
+                &vl_method_SubscribeDNSConfiguration,
+                SD_VARLINK_SYMBOL_COMMENT("Current global and per-link DNS configurations."),
+                &vl_method_DumpDNSConfiguration);
