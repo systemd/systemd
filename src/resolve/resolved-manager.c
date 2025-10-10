@@ -2047,6 +2047,7 @@ static int dns_configuration_json_append(
                 int default_route,
                 DnsServer *current_dns_server,
                 DnsServer *dns_servers,
+                DnsServer *fallback_dns_servers,
                 DnsSearchDomain *search_domains,
                 Set *negative_trust_anchors,
                 Set *dns_scopes,
@@ -2058,6 +2059,7 @@ static int dns_configuration_json_append(
                 sd_json_variant **configuration) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns_servers_json = NULL,
+                                                          *fallback_dns_servers_json = NULL,
                                                           *search_domains_json = NULL,
                                                           *current_dns_server_json = NULL,
                                                           *scopes_json = NULL;
@@ -2080,6 +2082,12 @@ static int dns_configuration_json_append(
 
         if (current_dns_server) {
                 r = dns_server_dump_configuration_to_json(current_dns_server, &current_dns_server_json);
+                if (r < 0)
+                        return r;
+        }
+
+        if (fallback_dns_servers) {
+                r = sd_json_variant_new_array(&fallback_dns_servers_json, NULL, 0);
                 if (r < 0)
                         return r;
         }
@@ -2129,6 +2137,20 @@ static int dns_configuration_json_append(
                         return r;
         }
 
+        LIST_FOREACH(servers, s, fallback_dns_servers) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                assert(fallback_dns_servers_json);
+
+                r = dns_server_dump_configuration_to_json(s, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&fallback_dns_servers_json, v);
+                if (r < 0)
+                        return r;
+        }
+
         return sd_json_variant_append_arraybo(
                         configuration,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ifname", ifname),
@@ -2139,6 +2161,7 @@ static int dns_configuration_json_append(
                                                           default_route > 0),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("currentServer", current_dns_server_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("servers", dns_servers_json),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("fallbackServers", fallback_dns_servers_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json),
                         SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(negative_trust_anchors),
                                                      "negativeTrustAnchors",
@@ -2169,6 +2192,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         /* default_route = */ 0,
                         manager_get_dns_server(m),
                         m->dns_servers,
+                        m->fallback_dns_servers,
                         m->search_domains,
                         m->trust_anchor.negative_by_name,
                         scopes,
@@ -2224,6 +2248,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         link_get_default_route(l),
                         link_get_dns_server(l),
                         l->dns_servers,
+                        /* fallback_dns_servers = */ NULL,
                         l->search_domains,
                         l->dnssec_negative_trust_anchors,
                         scopes,
@@ -2253,6 +2278,7 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                         d->default_route,
                         dns_delegate_get_dns_server(d),
                         d->dns_servers,
+                        /* fallback_dns_servers = */ NULL,
                         d->search_domains,
                         /* negative_trust_anchors = */ NULL,
                         scopes,
