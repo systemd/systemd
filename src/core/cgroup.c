@@ -3033,22 +3033,22 @@ int unit_check_oom(Unit *u) {
 
         if (ctx->memory_oom_group) {
                 r = cg_get_keyed_attribute(
-                        "memory",
-                        crt->cgroup_path,
-                        "memory.events.local",
-                        STRV_MAKE("oom_group_kill"),
-                        &oom_kill);
+                                "memory",
+                                crt->cgroup_path,
+                                "memory.events.local",
+                                STRV_MAKE("oom_group_kill"),
+                                &oom_kill);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                         return log_unit_debug_errno(u, r, "Failed to read oom_group_kill field of memory.events.local cgroup attribute, ignoring: %m");
         }
 
         if (isempty(oom_kill)) {
                 r = cg_get_keyed_attribute(
-                        "memory",
-                        crt->cgroup_path,
-                        "memory.events",
-                        STRV_MAKE("oom_kill"),
-                        &oom_kill);
+                                "memory",
+                                crt->cgroup_path,
+                                "memory.events",
+                                STRV_MAKE("oom_kill"),
+                                &oom_kill);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                         return log_unit_debug_errno(u, r, "Failed to read oom_kill field of memory.events cgroup attribute: %m");
         }
