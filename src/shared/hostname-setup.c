@@ -344,3 +344,27 @@ int gethostname_full(GetHostnameFlags flags, char **ret) {
         *ret = TAKE_PTR(buf);
         return 0;
 }
+
+int get_hostname_domain(char **ret) {
+        _cleanup_free_ char *hostname = NULL;
+        const char *domain;
+        int r;
+
+        assert(ret);
+
+        /* Get the full hostname (FQDN if available) */
+        r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &hostname);
+        if (r < 0)
+                return r;
+
+        /* Find the first dot to extract the domain part */
+        domain = strchr(hostname, '.');
+        if (!domain)
+                return -ENOENT;  /* No domain part in hostname */
+
+        domain++;  /* Skip the dot */
+        if (isempty(domain))
+                return -ENOENT;  /* Empty domain after dot */
+
+        return strdup_to(ret, domain);
+}

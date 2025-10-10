@@ -1430,23 +1430,15 @@ int sd_dhcp_server_set_domain_name(sd_dhcp_server *server, const char *domain_na
 
         assert_return(server, -EINVAL);
 
-        if (isempty(domain_name))
-                return server->domain_name ? (server->domain_name = mfree(server->domain_name), 1) : 0;
+        if (domain_name) {
+                r = dns_name_is_valid(domain_name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL;
+        }
 
-        r = dns_name_is_valid(domain_name);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return -EINVAL;
-
-        if (streq_ptr(domain_name, server->domain_name))
-                return 0;
-
-        r = free_and_strdup(&server->domain_name, domain_name);
-        if (r < 0)
-                return r;
-
-        return 1;
+        return free_and_strdup(&server->domain_name, domain_name);
 }
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint64_t t) {

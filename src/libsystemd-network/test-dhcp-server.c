@@ -341,8 +341,11 @@ static void test_domain_name(void) {
         /* Test invalid domain name */
         ASSERT_ERROR(sd_dhcp_server_set_domain_name(server, "invalid..domain"), EINVAL);
 
-        /* Test empty string (should be treated as NULL) */
-        ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, ""));
+        /* Test empty string (treated differently from NULL) */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, ""));
+
+        /* Test clearing domain name with NULL */
+        ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, NULL));
 
         /* Test valid domain with subdomain */
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "sub.example.com"));
