@@ -185,6 +185,11 @@ varlinkctl info /run/systemd/io.systemd.Manager
 varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Manager
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
 
+# test io.systemd.Network
+varlinkctl info /run/systemd/netif/io.systemd.Network
+varlinkctl introspect /run/systemd/netif/io.systemd.Network io.systemd.Network
+varlinkctl call /run/systemd/netif/io.systemd.Network io.systemd.Network.Describe '{}'
+
 # test io.systemd.Unit
 varlinkctl info /run/systemd/io.systemd.Manager
 varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Unit
