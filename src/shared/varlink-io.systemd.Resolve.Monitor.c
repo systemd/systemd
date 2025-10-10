@@ -144,6 +144,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ifname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Interface index, if any, associated with this configuration. Empty for global configuration."),
                 SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Delegate name, if any, associated with this configuration. Empty for global or link configurations."),
+                SD_VARLINK_DEFINE_FIELD(delegate, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Indicates whether or not this link's DNS servers will be used for resolving domain names that do not match any link's configured domains."),
                 SD_VARLINK_DEFINE_FIELD(defaultRoute, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DNS server currently selected to use for lookups."),
