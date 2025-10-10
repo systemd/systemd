@@ -153,7 +153,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Array of configured DNS servers."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(servers, DNSServer, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Array of configured search domains."),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(searchDomains, SearchDomain, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(searchDomains, SearchDomain, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Array of configured DNSSEC negative trust anchors."),
+                SD_VARLINK_DEFINE_FIELD(negativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 SubscribeDNSConfiguration,
