@@ -1271,11 +1271,13 @@
         <para>This setting takes one of <constant>continue</constant>, <constant>stop</constant> or
         <constant>kill</constant>. If set to <constant>continue</constant> and a process in the unit is
         killed by the OOM killer, this is logged but the unit continues running. If set to
-        <constant>stop</constant> the event is logged but the unit is terminated cleanly by the service
-        manager. If set to <constant>kill</constant> and one of the unit's processes is killed by the OOM
-        killer the kernel is instructed to kill all remaining processes of the unit too, by setting the
-        <filename>memory.oom.group</filename> attribute to <constant>1</constant>; also see kernel
-        page <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Group v2</ulink>.
+        <constant>stop</constant> the event is logged and the unit's processes are terminated cleanly by the
+        service manager. If set to <constant>kill</constant> and one of the unit's processes is killed by the
+        OOM killer the kernel is instructed to kill all remaining processes of the unit too, by setting the
+        <filename>memory.oom.group</filename> attribute to <constant>1</constant>; also see kernel page
+        <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Group v2</ulink>. In case of
+        both <constant>stop</constant> and <constant>kill</constant>, the service ultimately ends up in the
+        <constant>oom-kill</constant> failed state after which <varname>Restart=</varname> may apply.
         </para>
 
         <para>Defaults to the setting <varname>DefaultOOMPolicy=</varname> in
