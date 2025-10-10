@@ -2112,6 +2112,34 @@ static int dns_configuration_json_append(
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json));
 }
 
+static int global_dns_configuration_json_append(Manager *m, sd_json_variant **configuration) {
+        assert(m);
+        assert(configuration);
+
+        return dns_configuration_json_append(
+                        /* ifname = */ NULL,
+                        /* ifindex = */ 0,
+                        /* default_route = */ 0,
+                        manager_get_dns_server(m),
+                        m->dns_servers,
+                        m->search_domains,
+                        configuration);
+}
+
+static int link_dns_configuration_json_append(Link *l, sd_json_variant **configuration) {
+        assert(l);
+        assert(configuration);
+
+        return dns_configuration_json_append(
+                        l->ifname,
+                        l->ifindex,
+                        link_get_default_route(l),
+                        link_get_dns_server(l),
+                        l->dns_servers,
+                        l->search_domains,
+                        configuration);
+}
+
 int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
         Link *l;
@@ -2121,27 +2149,13 @@ int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret) {
         assert(ret);
 
         /* Global DNS configuration */
-        r = dns_configuration_json_append(
-                        /* ifname = */ NULL,
-                        /* ifindex = */ 0,
-                        /* default_route = */ 0,
-                        manager_get_dns_server(m),
-                        m->dns_servers,
-                        m->search_domains,
-                        &configuration);
+        r = global_dns_configuration_json_append(m, &configuration);
         if (r < 0)
                 return r;
 
         /* Append configuration for each link */
         HASHMAP_FOREACH(l, m->links) {
-                r = dns_configuration_json_append(
-                                l->ifname,
-                                l->ifindex,
-                                link_get_default_route(l),
-                                link_get_dns_server(l),
-                                l->dns_servers,
-                                l->search_domains,
-                                &configuration);
+                r = link_dns_configuration_json_append(l, &configuration);
                 if (r < 0)
                         return r;
         }
