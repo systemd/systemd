@@ -2043,6 +2043,7 @@ void dns_manager_reset_statistics(Manager *m) {
 static int dns_configuration_json_append(
                 const char *ifname,
                 int ifindex,
+                const char *delegate,
                 int default_route,
                 DnsServer *current_dns_server,
                 DnsServer *dns_servers,
@@ -2106,7 +2107,10 @@ static int dns_configuration_json_append(
                         configuration,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ifname", ifname),
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
-                        SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "defaultRoute", SD_JSON_BUILD_BOOLEAN(default_route > 0)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("delegate", delegate),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(ifindex > 0 || !!delegate,
+                                                          "defaultRoute",
+                                                          default_route > 0),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("currentServer", current_dns_server_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("servers", dns_servers_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json));
@@ -2119,6 +2123,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
         return dns_configuration_json_append(
                         /* ifname = */ NULL,
                         /* ifindex = */ 0,
+                        /* delegate = */ NULL,
                         /* default_route = */ 0,
                         manager_get_dns_server(m),
                         m->dns_servers,
@@ -2133,6 +2138,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
         return dns_configuration_json_append(
                         l->ifname,
                         l->ifindex,
+                        /* delegate = */ NULL,
                         link_get_default_route(l),
                         link_get_dns_server(l),
                         l->dns_servers,
@@ -2140,9 +2146,25 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         configuration);
 }
 
+static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_variant **configuration) {
+        assert(d);
+        assert(configuration);
+
+        return dns_configuration_json_append(
+                        /* ifname = */ NULL,
+                        /* ifindex = */ 0,
+                        d->id,
+                        d->default_route,
+                        dns_delegate_get_dns_server(d),
+                        d->dns_servers,
+                        d->search_domains,
+                        configuration);
+}
+
 int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
         Link *l;
+        DnsDelegate *d;
         int r;
 
         assert(m);
@@ -2156,6 +2178,13 @@ int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret) {
         /* Append configuration for each link */
         HASHMAP_FOREACH(l, m->links) {
                 r = link_dns_configuration_json_append(l, &configuration);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Append configuration for each delegate */
+        HASHMAP_FOREACH(d, m->delegates) {
+                r = delegate_dns_configuration_json_append(d, &configuration);
                 if (r < 0)
                         return r;
         }
