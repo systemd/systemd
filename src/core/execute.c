@@ -735,6 +735,7 @@ void exec_context_done(ExecContext *c) {
         c->stdin_data = mfree(c->stdin_data);
         c->stdin_data_size = 0;
 
+        c->memory_thp = mfree(c->memory_thp);
         c->network_namespace_path = mfree(c->network_namespace_path);
         c->ipc_namespace_path = mfree(c->ipc_namespace_path);
 
@@ -1231,6 +1232,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->memory_ksm >= 0)
                 fprintf(f, "%sMemoryKSM: %s\n", prefix, yes_no(c->memory_ksm > 0));
+
+        if (c->memory_thp)
+                fprintf(f, "%sMemoryTHP: %s\n", prefix, c->memory_thp);
 
         if (c->nice_set)
                 fprintf(f, "%sNice: %i\n", prefix, c->nice);
