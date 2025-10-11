@@ -33,6 +33,7 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "glob-util.h"
+#include "hwclock-util.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
 #include "ima-util.h"
@@ -851,6 +852,26 @@ static int condition_test_needs_update(Condition *c, char **env) {
         return timespec_load_nsec(&usr.st_mtim) > timestamp;
 }
 
+static int condition_test_rtc(Condition *c, char **env) {
+        const char *p = NULL;
+
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_RTC);
+
+        if (!streq(c->parameter, "default")) {
+                if (!path_is_absolute(c->parameter))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified condition parameter '%s' is not absolute", c->parameter);
+
+                if (!path_is_safe(c->parameter))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified condition parameter '%s' is not valid", c->parameter);
+
+                p = c->parameter;
+        }
+
+        return hwclock_get(p, /* tm= */NULL) == 0;
+}
+
 static bool in_first_boot(void) {
         static int first_boot = -1;
         int r;
@@ -1244,6 +1265,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_CAPABILITY]               = condition_test_capability,
                 [CONDITION_HOST]                     = condition_test_host,
                 [CONDITION_AC_POWER]                 = condition_test_ac_power,
+                [CONDITION_RTC]                      = condition_test_rtc,
                 [CONDITION_ARCHITECTURE]             = condition_test_architecture,
                 [CONDITION_FIRMWARE]                 = condition_test_firmware,
                 [CONDITION_NEEDS_UPDATE]             = condition_test_needs_update,
@@ -1361,6 +1383,7 @@ static const char* const _condition_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_SECURITY]                 = "ConditionSecurity",
         [CONDITION_CAPABILITY]               = "ConditionCapability",
         [CONDITION_AC_POWER]                 = "ConditionACPower",
+        [CONDITION_RTC]                      = "ConditionRTC",
         [CONDITION_NEEDS_UPDATE]             = "ConditionNeedsUpdate",
         [CONDITION_FIRST_BOOT]               = "ConditionFirstBoot",
         [CONDITION_PATH_EXISTS]              = "ConditionPathExists",
@@ -1416,6 +1439,7 @@ static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_SECURITY]                 = "AssertSecurity",
         [CONDITION_CAPABILITY]               = "AssertCapability",
         [CONDITION_AC_POWER]                 = "AssertACPower",
+        [CONDITION_RTC]                      = "AssertRTC",
         [CONDITION_NEEDS_UPDATE]             = "AssertNeedsUpdate",
         [CONDITION_FIRST_BOOT]               = "AssertFirstBoot",
         [CONDITION_PATH_EXISTS]              = "AssertPathExists",

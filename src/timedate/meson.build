@@ -7,7 +7,6 @@ executables += [
                 'conditions' : ['ENABLE_TIMEDATED'],
                 'sources' : files(
                         'timedated.c',
-                        'hwclock-util.c',
                 ),
 
         },
