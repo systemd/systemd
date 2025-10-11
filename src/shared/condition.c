@@ -255,8 +255,13 @@ static int condition_test_version(Condition *c, char **env) {
         if (streq(word, "systemd"))
                 return condition_test_version_cmp(p, STRINGIFY(PROJECT_VERSION));
 
-        if (streq(word, "glibc"))
-                return condition_test_version_cmp(p, gnu_get_libc_version());
+        if (streq(word, "glibc")) {
+                const char *v = gnu_get_libc_version();
+                if (!v)
+                        return false; /* built with musl */
+
+                return condition_test_version_cmp(p, v);
+        }
 
         /* if no predicate has been set, default to "kernel" and use the whole parameter as condition */
         if (!streq(word, "kernel"))

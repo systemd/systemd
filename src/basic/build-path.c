@@ -34,11 +34,11 @@ static int get_runpath_from_dynamic(const ElfW(Dyn) *d, ElfW(Addr) bias, const c
                         break;
 
                 case DT_STRTAB:
-                        /* On MIPS and RISC-V DT_STRTAB records an offset, not a valid address, so it has to be adjusted
-                         * using the bias calculated earlier. */
+                        /* On MIPS, RISC-V, or with musl, DT_STRTAB records an offset, not a valid address,
+                         * so it has to be adjusted using the bias calculated earlier. */
                         if (d->d_un.d_val != 0)
                                 strtab = (const char *) ((uintptr_t) d->d_un.d_val
-#if defined(__mips__) || defined(__riscv)
+#if defined(__mips__) || defined(__riscv) || !defined(__GLIBC__)
                                          + bias
 #endif
                                 );

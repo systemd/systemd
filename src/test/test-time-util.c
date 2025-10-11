@@ -400,6 +400,25 @@ static void test_format_timestamp_impl(usec_t x) {
         const char *xx = FORMAT_TIMESTAMP(x);
         ASSERT_NOT_NULL(xx);
 
+#ifndef __GLIBC__
+        /* Because of the timezone change, format_timestamp() may set timezone that is currently unused.
+         * E.g. Africa/Juba may set EAT, but currently it uses CAT/CAST. */
+        const char *space;
+        ASSERT_NOT_NULL(space = strrchr(xx, ' '));
+        const char *tz = space + 1;
+        if (!streq_ptr(tz, tzname[0]) &&
+            !streq_ptr(tz, tzname[1]) &&
+            parse_gmtoff(tz, NULL) < 0) {
+
+                log_warning("@" USEC_FMT " → %s, timezone '%s' is currently unused, ignoring.", x, xx, tz);
+
+                /* Verify the generated string except for the timezone part. Of course, in most cases, parsed
+                 * time does not match with the input, hence only check if it is parsable. */
+                ASSERT_OK(parse_timestamp(strndupa_safe(xx, space - xx), NULL));
+                return;
+        }
+#endif
+
         usec_t y;
         ASSERT_OK(parse_timestamp(xx, &y));
         const char *yy = FORMAT_TIMESTAMP(y);
@@ -1110,7 +1129,12 @@ TEST(in_utc_timezone) {
         assert_se(setenv("TZ", "UTC", 1) >= 0);
         assert_se(in_utc_timezone());
         ASSERT_STREQ(tzname[0], "UTC");
+#ifdef __GLIBC__
         ASSERT_STREQ(tzname[1], "UTC");
+#else
+        /* musl sets an empty string to tzname[1] when DST is not used by the timezone. */
+        ASSERT_STREQ(tzname[1], "");
+#endif
         assert_se(timezone == 0);
         assert_se(daylight == 0);
 
