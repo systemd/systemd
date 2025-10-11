@@ -1037,6 +1037,7 @@ static void load_all_addons(
                 EFI_HANDLE image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char *uname,
+                const char16_t *entry_selected,
                 char16_t **cmdline_addons,
                 NamedAddon **dt_addons,
                 size_t *n_dt_addons,
@@ -1070,6 +1071,29 @@ static void load_all_addons(
                         n_ucode_addons);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading global addons, ignoring: %m");
+
+        _cleanup_free_ char16_t *entry_selected_dropin_dir = NULL;
+        if (entry_selected && loaded_image->DeviceHandle) {
+                _cleanup_free_ EFI_DEVICE_PATH *entry_path = NULL;
+                if (make_file_device_path(loaded_image->DeviceHandle, entry_selected, &entry_path) == EFI_SUCCESS)
+                        entry_selected_dropin_dir = get_extra_dir(entry_path);
+        }
+        if (entry_selected_dropin_dir) {
+                err = load_addons(
+                                image,
+                                loaded_image,
+                                entry_selected_dropin_dir,
+                                uname,
+                                cmdline_addons,
+                                dt_addons,
+                                n_dt_addons,
+                                initrd_addons,
+                                n_initrd_addons,
+                                ucode_addons,
+                                n_ucode_addons);
+                if (err != EFI_SUCCESS)
+                        log_error_status(err, "Error loading loader entry-specific addons, ignoring: %m");
+        }
 
         /* Some bootloaders always pass NULL in FilePath, so we need to check for it here. */
         _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
@@ -1248,10 +1272,12 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
+        _cleanup_free_ char16_t *entry_selected = NULL;
+        (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", &entry_selected);
         CLEANUP_ARRAY(dt_addons, n_dt_addons, named_addon_free_many);
         CLEANUP_ARRAY(initrd_addons, n_initrd_addons, named_addon_free_many);
         CLEANUP_ARRAY(ucode_addons, n_ucode_addons, named_addon_free_many);
-        load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons, &initrd_addons, &n_initrd_addons, &ucode_addons, &n_ucode_addons);
+        load_all_addons(image, loaded_image, uname, entry_selected, &cmdline_addons, &dt_addons, &n_dt_addons, &initrd_addons, &n_initrd_addons, &ucode_addons, &n_ucode_addons);
 
         /* If we have any extra command line to add via PE addons, load them now and append, and measure the
          * additions together, after the embedded options, but before the smbios ones, so that the order is
