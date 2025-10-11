@@ -10,6 +10,7 @@
 #include "copy.h"
 #include "curl-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "fs-util.h"
 #include "import-common.h"
 #include "import-util.h"
@@ -61,6 +62,8 @@ typedef struct TarPull {
         char *settings_temp_path;
 
         char *checksum;
+
+        int tree_fd;
 } TarPull;
 
 TarPull* tar_pull_unref(TarPull *i) {
@@ -85,6 +88,8 @@ TarPull* tar_pull_unref(TarPull *i) {
         free(i->image_root);
         free(i->local);
         free(i->checksum);
+
+        safe_close(i->tree_fd);
 
         return mfree(i);
 }
@@ -132,6 +137,7 @@ int tar_pull_new(
                 .event = TAKE_PTR(e),
                 .glue = TAKE_PTR(g),
                 .tar_pid = PIDREF_NULL,
+                .tree_fd = -EBADF,
         };
 
         i->glue->on_finished = pull_job_curl_on_finished;
@@ -512,6 +518,7 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
         i = j->userdata;
         assert(i->tar_job == j);
         assert(!pidref_is_set(&i->tar_pid));
+        assert(i->tree_fd < 0);
 
         if (i->flags & IMPORT_DIRECT)
                 where = i->local;
@@ -545,7 +552,11 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                 (void) import_assign_pool_quota_and_warn(where);
         }
 
-        j->disk_fd = import_fork_tar_x(where, &i->tar_pid);
+        i->tree_fd = open(where, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (i->tree_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", where);
+
+        j->disk_fd = import_fork_tar_x(i->tree_fd, &i->tar_pid);
         if (j->disk_fd < 0)
                 return j->disk_fd;
 

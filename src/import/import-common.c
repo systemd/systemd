@@ -1,71 +1,60 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sched.h>
-#include <sys/stat.h>
-#include <unistd.h>
+#include <sys/prctl.h>
 
 #include "sd-event.h"
 
-#include "alloc-util.h"
 #include "capability-util.h"
 #include "dirent-util.h"
 #include "fd-util.h"
-#include "fileio.h"
 #include "fs-util.h"
 #include "import-common.h"
+#include "libarchive-util.h"
 #include "log.h"
 #include "os-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "selinux-util.h"
 #include "stat-util.h"
+#include "tar-util.h"
 #include "tmpfile-util.h"
 
-int import_fork_tar_x(const char *path, PidRef *ret) {
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
-        bool use_selinux;
+int import_fork_tar_x(int tree_fd, PidRef *ret_pid) {
         int r;
 
-        assert(path);
-        assert(ret);
+        assert(tree_fd >= 0);
+        assert(ret_pid);
 
+        r = dlopen_libarchive();
+        if (r < 0)
+                return r;
+
+        TarFlags flags = mac_selinux_use() ? TAR_SELINUX : 0;
+
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
         (void) fcntl(pipefd[0], F_SETPIPE_SZ, IMPORT_BUFFER_SIZE);
 
-        use_selinux = mac_selinux_use();
-
         r = pidref_safe_fork_full(
-                        "(tar)",
-                        (int[]) { pipefd[0], -EBADF, STDERR_FILENO },
-                        NULL, 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
-                        &pid);
+                        "tar-x",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { tree_fd, pipefd[0] }, 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG,
+                        ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                const char *cmdline[] = {
-                       "tar",
-                       "--ignore-zeros",
-                       "--numeric-owner",
-                       "-C", path,
-                       "-pxf",
-                       "-",
-                       "--xattrs",
-                       "--xattrs-include=*",
-                       use_selinux ? "--selinux" : "--no-selinux",
-                       NULL
-                };
-
-                uint64_t retain =
+                static const uint64_t retain =
                         (1ULL << CAP_CHOWN) |
                         (1ULL << CAP_FOWNER) |
                         (1ULL << CAP_FSETID) |
                         (1ULL << CAP_MKNOD) |
                         (1ULL << CAP_SETFCAP) |
-                        (1ULL << CAP_DAC_OVERRIDE);
+                        (1ULL << CAP_DAC_OVERRIDE) |
+                        (1ULL << CAP_DAC_READ_SEARCH);
 
                 /* Child */
 
@@ -76,20 +65,14 @@ int import_fork_tar_x(const char *path, PidRef *ret) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                /* Try "gtar" before "tar". We only test things upstream with GNU tar. Some distros appear to
-                 * install a different implementation as "tar" (in particular some that do not support the
-                 * same command line switches), but then provide "gtar" as alias for the real thing, hence
-                 * let's prefer that. (Yes, it's a bad idea they do that, given they don't provide equivalent
-                 * command line support, but we are not here to argue, let's just expose the same
-                 * behaviour/implementation everywhere.) */
-                execvp("gtar", (char* const*) cmdline);
-                execvp("tar", (char* const*) cmdline);
+                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
+                        log_warning_errno(errno, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
 
-                log_error_errno(errno, "Failed to execute tar: %m");
-                _exit(EXIT_FAILURE);
+                if (tar_x(pipefd[0], tree_fd, flags) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
         }
-
-        *ret = TAKE_PIDREF(pid);
 
         return TAKE_FD(pipefd[1]);
 }
