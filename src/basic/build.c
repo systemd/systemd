@@ -250,6 +250,12 @@ const char* const systemd_features =
         " -LIBARCHIVE"
 #endif
 
+#if HAVE_LANDLOCK_CONFIG
+        " +LANDLOCK_CONFIG"
+#else
+        " -LANDLOCK_CONFIG"
+#endif
+
         ;
 
 static char* systemd_features_with_color(void) {

@@ -2502,6 +2502,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_item_escaped(f, "exec-context-landlock-config", c->landlock_config);
+        if (r < 0)
+                return r;
+
         fputc('\n', f); /* End marker */
 
         return 0;
@@ -3743,6 +3747,14 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = image_policy_from_string(val, &c->extension_image_policy);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "exec-context-landlock-config="))) {
+                        ssize_t k;
+                        char *p;
+
+                        k = cunescape(val, 0, &p);
+                        if (k < 0)
+                                return k;
+                        free_and_replace(c->landlock_config, p);
                 } else
                         log_warning("Failed to parse serialized line, ignoring: %s", l);
         }

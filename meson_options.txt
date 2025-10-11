@@ -399,6 +399,8 @@ option('ima', type : 'boolean',
        description : 'IMA support')
 option('ipe', type : 'boolean',
        description : 'IPE support')
+option('landlockconfig', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'Landlock configuration library support')
 
 option('acl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libacl support')
