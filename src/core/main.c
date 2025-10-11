@@ -2810,25 +2810,23 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                         log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
         }
 
-        /* Initialize some default rlimits for services if they haven't been configured */
-        fallback_rlimit_nofile(saved_rlimit_nofile);
-        fallback_rlimit_memlock(saved_rlimit_memlock);
-
-        /* Note that this also parses bits from the kernel command line, including "debug". */
-        log_parse_environment();
-
-        /* Initialize the show status setting if it hasn't been set explicitly yet */
+        /* Initialize the show status setting if it hasn't been explicitly set yet */
         if (arg_show_status == _SHOW_STATUS_INVALID)
                 arg_show_status = SHOW_STATUS_YES;
-
-        /* Slightly raise the OOM score for our services if we are running for unprivileged users. */
-        determine_default_oom_score_adjust();
 
         /* Push variables into the manager environment block */
         setenv_manager_environment();
 
-        /* Parse log environment variables again to take into account any new environment variables. */
+        /* Parse log environment variables to take into account any new environment variables.
+         * Note that this also parses bits from the kernel command line, including "debug". */
         log_parse_environment();
+
+        /* Initialize some default rlimits for services if they haven't been configured */
+        fallback_rlimit_nofile(saved_rlimit_nofile);
+        fallback_rlimit_memlock(saved_rlimit_memlock);
+
+        /* Slightly raise the OOM score for our services if we are running for unprivileged users. */
+        determine_default_oom_score_adjust();
 
         return 0;
 }
