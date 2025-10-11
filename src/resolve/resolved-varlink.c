@@ -1379,10 +1379,6 @@ static int vl_method_subscribe_dns_configuration(sd_varlink *link, sd_json_varia
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        r = verify_polkit(link, parameters, "org.freedesktop.resolve1.subscribe-dns-configuration");
-        if (r <= 0)
-                return r;
-
         if (set_isempty(m->varlink_dns_configuration_subscription)) {
                 r = manager_start_dns_configuration_monitor(m);
                 if (r < 0)
@@ -1409,6 +1405,27 @@ fail:
         return log_debug_errno(r, "Failed to subscribe client to DNS configuration monitor: %m");
 }
 
+static int vl_method_dump_dns_configuration(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
+        Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
+        Link *l;
+        int r;
+
+        assert(link);
+
+        /* Make sure the accessible flag is not stale. */
+        dns_server_reset_accessible_all(m->dns_servers);
+
+        HASHMAP_FOREACH(l, m->links)
+                dns_server_reset_accessible_all(l->dns_servers);
+
+        r = manager_dump_dns_configuration_json(m, &configuration);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, configuration);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1433,7 +1450,8 @@ static int varlink_monitor_server_init(Manager *m) {
                         "io.systemd.Resolve.Monitor.DumpServerState", vl_method_dump_server_state,
                         "io.systemd.Resolve.Monitor.DumpStatistics", vl_method_dump_statistics,
                         "io.systemd.Resolve.Monitor.ResetStatistics", vl_method_reset_statistics,
-                        "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration", vl_method_subscribe_dns_configuration);
+                        "io.systemd.Resolve.Monitor.SubscribeDNSConfiguration", vl_method_subscribe_dns_configuration,
+                        "io.systemd.Resolve.Monitor.DumpDNSConfiguration", vl_method_dump_dns_configuration);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
