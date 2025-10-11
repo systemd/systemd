@@ -276,6 +276,17 @@ executables += [
                 'link_with' : [libshared],
         },
         test_template + {
+                'sources' : files('test-coredump-stacktrace.c'),
+                'type' : 'manual',
+                # This test intentionally crashes with SIGSEGV by dereferencing a NULL pointer
+                # to generate a coredump with a predictable stack trace. To prevent sanitizers
+                # from catching the error first let's disable them explicitly, and also always
+                # build without optimizations to make the stack trace predictable no matter what
+                # we build systemd with
+                'override_options' : ['b_sanitize=none', 'strip=false', 'debug=true'],
+                'c_args' : ['-fno-sanitize=all', '-O0'],
+        },
+        test_template + {
                 'sources' : files('test-cryptolib.c'),
                 'dependencies' : libopenssl,
                 'conditions' : ['HAVE_OPENSSL'],
