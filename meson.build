@@ -405,7 +405,6 @@ possible_common_cc_flags = [
         '-Werror=shift-overflow=2',
         '-Werror=strict-flex-arrays',
         '-Werror=undef',
-        '-Werror=unused-variable',
         '-Wfloat-equal',
         # gperf prevents us from enabling this because it does not emit fallthrough
         # attribute with clang.
