@@ -6528,12 +6528,13 @@ static int context_mkfs(Context *context) {
                 assert(p->new_size != UINT64_MAX);
                 assert(p->new_size >= (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0));
 
-                /* If we're doing encryption, keep free space at the end which is required
-                 * for cryptsetup's offline encryption. */
-                r = partition_target_prepare(context, p,
-                                             p->new_size - (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0),
-                                             /*need_path=*/ true,
-                                             &t);
+                /* If we're doing encryptio offline, keep free space at the end which is required for
+                 * cryptsetup's offline encryption. */
+                r = partition_target_prepare(
+                                context, p,
+                                p->new_size - ((p->encrypt != ENCRYPT_OFF && !arg_offline) ? LUKS2_METADATA_KEEP_FREE : 0),
+                                /*need_path=*/ true,
+                                &t);
                 if (r < 0)
                         return r;
 
