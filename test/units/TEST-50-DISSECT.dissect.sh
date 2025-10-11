@@ -69,12 +69,12 @@ mv "$MINIMAL_IMAGE.fooverity" "$MINIMAL_IMAGE.verity"
 mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 
 mkdir -p "$IMAGE_DIR/mount" "$IMAGE_DIR/mount2"
-systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
+SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
 grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/usr/lib/os-release"
 grep -q -F -f "$OS_RELEASE" "$IMAGE_DIR/mount/etc/os-release"
 grep -q -F "MARKER=1" "$IMAGE_DIR/mount/usr/lib/os-release"
 # Verity volume should be shared (opened only once)
-systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount2"
+SYSTEMD_VERITY_SHARING=1 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount2"
 verity_count=$(find /dev/mapper/ -name "*verity*" | wc -l)
 # In theory we should check that count is exactly one. In practice, libdevmapper
 # randomly and unpredictably fails with an unhelpful EINVAL when a device is open

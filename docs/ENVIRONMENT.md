@@ -123,8 +123,12 @@ All tools:
 * `$SYSTEMD_NETLINK_DEFAULT_TIMEOUT` — specifies the default timeout of waiting
   replies for netlink messages from the kernel. Defaults to 25 seconds.
 
-* `$SYSTEMD_VERITY_SHARING=0` — if set, sharing dm-verity devices by
-  using a stable `<ROOTHASH>-verity` device mapper name will be disabled.
+* `$SYSTEMD_VERITY_SHARING=` — takes a boolean. If set, overrides whether
+  dm-verity devices shall be shared between multiple components by using a
+  stable `<ROOTHASH>-verity` device mapper name. The default for this depends
+  on the subsystem in question. Usually,
+  RootImage=/ExtensionImages=/MountImages= in unit files default to enabled,
+  while other uses default to disabled for this.
 
 `systemctl`:
 

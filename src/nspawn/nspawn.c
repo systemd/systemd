@@ -6301,6 +6301,7 @@ static int run(int argc, char *argv[]) {
                                         dissected_image,
                                         NULL,
                                         &arg_verity_settings,
+                                        arg_image_policy ?: &image_policy_container,
                                         dissect_image_flags);
                         if (r < 0)
                                 goto finish;

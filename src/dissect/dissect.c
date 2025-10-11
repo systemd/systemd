@@ -2281,6 +2281,7 @@ static int run(int argc, char *argv[]) {
                                         r = dissected_image_decrypt_interactively(
                                                         m, NULL,
                                                         &arg_verity_settings,
+                                                        arg_image_policy,
                                                         arg_flags);
                                         if (r < 0)
                                                 return r;
