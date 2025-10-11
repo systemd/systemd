@@ -1377,6 +1377,15 @@ static int add_volatile_root(void) {
                                      SYSTEM_DATA_UNIT_DIR "/" SPECIAL_VOLATILE_ROOT_SERVICE);
 }
 
+static int add_volatile_usr(void) {
+
+        if (arg_volatile_mode != VOLATILE_OVERLAY_USR)
+                return 0;
+
+        return generator_add_symlink(arg_dest, SPECIAL_INITRD_USR_FS_TARGET, "requires",
+                                     SYSTEM_DATA_UNIT_DIR "/" "systemd-volatile-usr.service");
+}
+
 static int add_volatile_var(void) {
 
         if (arg_volatile_mode != VOLATILE_STATE)
@@ -1672,6 +1681,7 @@ static int run_generator(void) {
                 RET_GATHER(r, add_sysroot_usr_mount_or_fallback());
 
                 RET_GATHER(r, add_volatile_root());
+                RET_GATHER(r, add_volatile_usr());
         } else
                 RET_GATHER(r, add_volatile_var());
 
