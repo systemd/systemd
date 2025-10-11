@@ -11,16 +11,37 @@
 #include "unit-def.h"
 #include "varlink-metrics.h"
 
-static int iterate_over_units(sd_varlink *link, const MetricFamily *mf, void *userdata) {
+static int unit_active_state_build_json(MetricFamilyContext *metric_family_context, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         Unit *unit;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
-        assert(link);
-        assert(mf);
+        HASHMAP_FOREACH(unit, manager->units) {
+                r = sd_json_variant_new_string(&v, unit_active_state_to_string(unit_active_state(unit)));
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to create sd_json_variant_new_string for object'%s' for active state: %m", unit->id);
+
+                r = metric_build_send(metric_family_context, unit->id, v, /* fields */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int unit_load_state_build_json(MetricFamilyContext *metric_family_context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Unit *unit;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
 
         HASHMAP_FOREACH(unit, manager->units) {
-                r = metric_build_body_json_one(link, mf, unit->id, unit);
+                r = sd_json_variant_new_string(&v, unit_load_state_to_string(unit->load_state));
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to create sd_json_variant_new_string for object '%s' for load state: %m", unit->id);
+
+                r = metric_build_send(metric_family_context, unit->id, v, /* fields */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -38,15 +59,17 @@ static int metric_fill_unit_load_state(sd_json_variant **v, void *userdata) {
         return metric_set_value_string(v, unit_load_state_to_string(unit->load_state));
 }
 
-static int iterate_over_services(sd_varlink *link, const MetricFamily *mf, void *userdata) {
+static int nrestarts_build_json(MetricFamilyContext *metric_family_context, void *userdata) { // YAPING: check to pass MetricFamilyContext pointer
         Manager *manager = ASSERT_PTR(userdata);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL; // Is this correct?
         int r;
 
-        assert(link);
-        assert(mf);
-
         LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
-                r = metric_build_body_json_one(link, mf, unit->id, unit);
+                r = sd_json_variant_new_unsigned(&v, SERVICE(unit)->n_restarts);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to create sd_json_variant_new_unsigned for object '%s' for nrestart: %m", unit->id);
+
+                r = metric_build_send(metric_family_context, unit->id, v, /* fields */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -59,7 +82,7 @@ static int metric_fill_service_nrestarts(sd_json_variant **v, void *userdata) {
         return metric_set_value_unsigned(v, SERVICE(unit)->n_restarts);
 }
 
-static int units_by_type_total_build_json(sd_varlink *link, const MetricFamily *mf, void *userdata) {
+static int units_by_type_total_build_json(MetricFamilyContext *metric_family_context, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         int r;
 
@@ -75,8 +98,8 @@ static int units_by_type_total_build_json(sd_varlink *link, const MetricFamily *
                         return r;
 
                 r = metric_build_full_json_one(
-                                link,
-                                mf,
+                                metric_family_context->link,
+                                metric_family_context->metric_family,
                                 /* object= */ NULL,
                                 value,
                                 STRV_MAKE("type", unit_type_to_string(type)));
@@ -87,14 +110,11 @@ static int units_by_type_total_build_json(sd_varlink *link, const MetricFamily *
         return 0;
 }
 
-static int units_by_state_total_build_json(sd_varlink *link, const MetricFamily *mf, void *userdata) {
+static int units_by_state_total_build_json(MetricFamilyContext *metric_family_context, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         UnitActiveState counters[_UNIT_ACTIVE_STATE_MAX] = {};
         Unit *unit;
         int r;
-
-        assert(link);
-        assert(mf);
 
         /* TODO need a rework probably with state counter */
         HASHMAP_FOREACH(unit, manager->units)
@@ -107,8 +127,8 @@ static int units_by_state_total_build_json(sd_varlink *link, const MetricFamily 
                         return r;
 
                 r = metric_build_full_json_one(
-                                link,
-                                mf,
+                                metric_family_context->link,
+                                metric_family_context->metric_family,
                                 /* object= */ NULL,
                                 value,
                                 STRV_MAKE("state", unit_active_state_to_string(state)));
@@ -124,22 +144,19 @@ const MetricFamily metric_family_table[] = {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "unit_active_state",
                 .description = "Per unit metric: active state",
                 .type = METRIC_FAMILY_TYPE_STRING,
-                .iterate_cb = iterate_over_units,
-                .fill_metric_cb = metric_fill_unit_active_state,
+                .iterate_cb = unit_active_state_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "unit_load_state",
                 .description = "Per unit metric: load state",
                 .type = METRIC_FAMILY_TYPE_STRING,
-                .iterate_cb = iterate_over_units,
-                .fill_metric_cb = metric_fill_unit_load_state,
+                .iterate_cb = unit_load_state_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "nrestarts",
                 .description = "Per unit metric: number of restarts",
                 .type = METRIC_FAMILY_TYPE_COUNTER,
-                .iterate_cb = iterate_over_services,
-                .fill_metric_cb = metric_fill_service_nrestarts,
+                .iterate_cb = nrestarts_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "units_by_type_total",

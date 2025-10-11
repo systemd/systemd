@@ -145,7 +145,13 @@ int metrics_method_list(const MetricFamily metric_family_table[], sd_varlink *li
 
         for (const MetricFamily *mf = metric_family_table; mf && mf->name; mf++) {
                 assert(mf->iterate_cb);
-                r = mf->iterate_cb(link, mf, userdata);
+
+                MetricFamilyContext ctx = {
+                        .metric_family = mf,
+                        .link = link,
+                        .previous = NULL};
+
+                r = mf->iterate_cb(&ctx, userdata);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to list metrics for metric family '%s': %m", mf->name);
         }
@@ -219,4 +225,42 @@ int metric_set_fields(sd_json_variant **v, char **fields) {
         }
 
         return sd_json_variant_set_field(ASSERT_PTR(v), "fields", fields_v);
+}
+
+int metric_build_send(MetricFamilyContext* context, const char *object, sd_json_variant *value, char **fields) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r;
+
+        assert(context);
+        assert(object);
+        assert(value);
+        assert(context->link);
+        assert(context->metric_family);
+
+        r = sd_json_buildo(
+                        &v,
+                        SD_JSON_BUILD_PAIR_STRING("name", context->metric_family->name),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("object", object),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("value", value));
+                        /* TODO JSON_BUILD_PAIR_OBJECT_STRV_NOT_NULL */
+        if (r < 0)
+                return r;
+
+        if (fields) { /* NULL => no fields object, empty strv => field: {} */
+                r = metric_set_fields(&v, fields);
+                if (r < 0)
+                        return r;
+        }
+
+        if (context->previous) {
+                r = sd_varlink_notify(context->link, context->previous);
+                if (r < 0)
+                        return r;
+
+                // sd_json_variant_unrefp(TAKE_PTR(&context->previous)); // Yaping: check &
+        }
+
+        context->previous = TAKE_PTR(v);
+
+        return 0;
 }

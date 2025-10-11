@@ -14,7 +14,14 @@ typedef enum MetricFamilyType {
 } MetricFamilyType;
 
 typedef struct MetricFamily MetricFamily;
-typedef int (*metric_family_iterate_cb_t) (sd_varlink *link, const MetricFamily *mf, void *userdata);
+
+typedef struct MetricFamilyContext {
+        const MetricFamily* metric_family;
+        sd_varlink *link;
+        sd_json_variant *previous;
+} MetricFamilyContext;
+
+typedef int (*metric_family_iterate_cb_t) (MetricFamilyContext *mfc, void *userdata);
 typedef int (*metric_family_fill_metric_cb_t) (sd_json_variant **v, void *userdata);
 
 typedef struct MetricFamily {
@@ -43,3 +50,5 @@ int metric_build_body_json_one(sd_varlink *link, const MetricFamily *mf, const c
 int metric_set_value_string(sd_json_variant **v, const char *value);
 int metric_set_value_unsigned(sd_json_variant **v, uint64_t value);
 int metric_set_fields(sd_json_variant **v, char **fields);
+// need appropriate typed wrappers to not deal with jsonized value directly
+int metric_build_send(MetricFamilyContext* context, const char *object, sd_json_variant *value, char **fields);

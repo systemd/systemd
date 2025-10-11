@@ -33,11 +33,8 @@ static int metrics_on_query_reply(
         }
 
         sd_json_variant_dump(parameters, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, stdout, NULL);
-        // this will terminate and gives you back the prompt after outputting one metric
-        // sd_event_exit(ASSERT_PTR(sd_varlink_get_event(link)), EXIT_SUCCESS);
 
-        printf("sd_varlink_is_idle: %d\n", sd_varlink_is_idle(link));
-        if (sd_varlink_is_idle(link) > 0)
+        if (sd_varlink_is_idle(link) > 0) // This was never true
                 sd_event_exit(ASSERT_PTR(sd_varlink_get_event(link)), EXIT_SUCCESS);
 
         return 0;
@@ -56,11 +53,6 @@ static int metrics_call(const char *path, sd_event *event, sd_varlink *vl) {
         r = sd_varlink_connect_address(&vl, path);
         if (r < 0)
                 return log_debug_errno(r, "Unable to connect to %s: %m", path);
-
-        // // r = sd_varlink_set_relative_timeout(vl, USEC_INFINITY); /* We want the monitor to run basically forever */
-        // r = sd_varlink_set_relative_timeout(vl, 10000);
-        // if (r < 0)
-        //         return log_error_errno(r, "Failed to set varlink timeout: %m");
 
         r = sd_varlink_attach_event(vl, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
