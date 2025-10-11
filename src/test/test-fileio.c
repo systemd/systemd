@@ -400,7 +400,15 @@ TEST(write_string_stream) {
 
         f = fdopen(fd, "r");
         assert_se(f);
-        assert_se(write_string_stream(f, "boohoo", 0) < 0);
+#ifdef __GLIBC__
+        ASSERT_ERROR(write_string_stream(f, "boohoo", 0), EBADF);
+#else
+        /* Even the file is opened with the read-only mode, fputs() and fputc() by musl succeed but nothing
+         * actually written, thus write_string_stream() also succeeds. */
+        ASSERT_OK(write_string_stream(f, "boohoo", 0));
+        rewind(f);
+        ASSERT_NULL(fgets(buf, sizeof(buf), f));
+#endif
         f = safe_fclose(f);
 
         f = fopen(fn, "r+");
