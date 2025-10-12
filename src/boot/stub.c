@@ -819,6 +819,7 @@ static void initrds_free(struct iovec (*initrds)[_INITRD_MAX]) {
 
 static void generate_sidecar_initrds(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
+                const char16_t *entry_selected,
                 struct iovec initrds[static _INITRD_MAX],
                 int *parameters_measured,
                 int *sysext_measured,
@@ -858,6 +859,28 @@ static void generate_sidecar_initrds(
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(parameters_measured, m);
 
+        /* Load BLS#1 entry-specific credentials if available */
+        _cleanup_free_ char16_t *entry_selected_dropin_dir = NULL;
+        if (entry_selected && loaded_image->DeviceHandle) {
+                _cleanup_free_ EFI_DEVICE_PATH *entry_path = NULL;
+                if (make_file_device_path(loaded_image->DeviceHandle, entry_selected, &entry_path) == EFI_SUCCESS)
+                        entry_selected_dropin_dir = get_extra_dir(entry_path);
+        }
+        if (entry_selected_dropin_dir) {
+                if (pack_cpio(loaded_image,
+                              entry_selected_dropin_dir,
+                              u".cred",
+                              /* exclude_suffix= */ NULL,
+                              ".extra/credentials",
+                              /* dir_mode= */ 0500,
+                              /* access_mode= */ 0400,
+                              /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                              u"Entry credentials initrd",
+                              initrds + INITRD_CREDENTIAL,
+                              &m) == EFI_SUCCESS)
+                        combine_measured_flag(parameters_measured, m);
+        }
+
         if (pack_cpio(loaded_image,
                       /* dropin_dir= */ NULL,
                       u".raw",         /* ideally we'd pick up only *.sysext.raw here, but for compat we pick up *.raw instead … */
@@ -884,6 +907,22 @@ static void generate_sidecar_initrds(
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(sysext_measured, m);
 
+        /* Load BLS#1 entry-specific sysexts if available */
+        if (entry_selected_dropin_dir) {
+                if (pack_cpio(loaded_image,
+                              entry_selected_dropin_dir,
+                              u".raw",
+                              u".confext.raw",
+                              ".extra/sysext",
+                              /* dir_mode= */ 0555,
+                              /* access_mode= */ 0444,
+                              /* tpm_pcr= */ TPM2_PCR_SYSEXTS,
+                              u"Entry system extension initrd",
+                              initrds + INITRD_SYSEXT,
+                              &m) == EFI_SUCCESS)
+                        combine_measured_flag(sysext_measured, m);
+        }
+
         if (pack_cpio(loaded_image,
                       /* dropin_dir= */ NULL,
                       u".confext.raw",
@@ -909,6 +948,22 @@ static void generate_sidecar_initrds(
                       initrds + INITRD_GLOBAL_CONFEXT,
                       &m) == EFI_SUCCESS)
                 combine_measured_flag(confext_measured, m);
+
+        /* Load BLS#1 entry-specific confexts if available */
+        if (entry_selected_dropin_dir) {
+                if (pack_cpio(loaded_image,
+                              entry_selected_dropin_dir,
+                              u".confext.raw",
+                              /* exclude_suffix= */ NULL,
+                              ".extra/confext",
+                              /* dir_mode= */ 0555,
+                              /* access_mode= */ 0444,
+                              /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                              u"Entry configuration extension initrd",
+                              initrds + INITRD_CONFEXT,
+                              &m) == EFI_SUCCESS)
+                        combine_measured_flag(confext_measured, m);
+        }
 }
 
 static void generate_embedded_initrds(
@@ -1037,6 +1092,7 @@ static void load_all_addons(
                 EFI_HANDLE image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char *uname,
+                const char16_t *entry_selected,
                 char16_t **cmdline_addons,
                 NamedAddon **dt_addons,
                 size_t *n_dt_addons,
@@ -1070,6 +1126,29 @@ static void load_all_addons(
                         n_ucode_addons);
         if (err != EFI_SUCCESS)
                 log_error_status(err, "Error loading global addons, ignoring: %m");
+
+        _cleanup_free_ char16_t *entry_selected_dropin_dir = NULL;
+        if (entry_selected && loaded_image->DeviceHandle) {
+                _cleanup_free_ EFI_DEVICE_PATH *entry_path = NULL;
+                if (make_file_device_path(loaded_image->DeviceHandle, entry_selected, &entry_path) == EFI_SUCCESS)
+                        entry_selected_dropin_dir = get_extra_dir(entry_path);
+        }
+        if (entry_selected_dropin_dir) {
+                err = load_addons(
+                                image,
+                                loaded_image,
+                                entry_selected_dropin_dir,
+                                uname,
+                                cmdline_addons,
+                                dt_addons,
+                                n_dt_addons,
+                                initrd_addons,
+                                n_initrd_addons,
+                                ucode_addons,
+                                n_ucode_addons);
+                if (err != EFI_SUCCESS)
+                        log_error_status(err, "Error loading loader entry-specific addons, ignoring: %m");
+        }
 
         /* Some bootloaders always pass NULL in FilePath, so we need to check for it here. */
         _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
@@ -1248,10 +1327,12 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         /* Now that we have the UKI sections loaded, also load global first and then local (per-UKI)
          * addons. The data is loaded at once, and then used later. */
+        _cleanup_free_ char16_t *entry_selected = NULL;
+        (void) efivar_get_str16(MAKE_GUID_PTR(LOADER), u"LoaderEntrySelected", &entry_selected);
         CLEANUP_ARRAY(dt_addons, n_dt_addons, named_addon_free_many);
         CLEANUP_ARRAY(initrd_addons, n_initrd_addons, named_addon_free_many);
         CLEANUP_ARRAY(ucode_addons, n_ucode_addons, named_addon_free_many);
-        load_all_addons(image, loaded_image, uname, &cmdline_addons, &dt_addons, &n_dt_addons, &initrd_addons, &n_initrd_addons, &ucode_addons, &n_ucode_addons);
+        load_all_addons(image, loaded_image, uname, entry_selected, &cmdline_addons, &dt_addons, &n_dt_addons, &initrd_addons, &n_initrd_addons, &ucode_addons, &n_ucode_addons);
 
         /* If we have any extra command line to add via PE addons, load them now and append, and measure the
          * additions together, after the embedded options, but before the smbios ones, so that the order is
@@ -1268,7 +1349,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         install_addon_devicetrees(&dt_state, dt_addons, n_dt_addons, &parameters_measured);
 
         /* Generate & find all initrds */
-        generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
+        generate_sidecar_initrds(loaded_image, entry_selected, initrds, &parameters_measured, &sysext_measured, &confext_measured);
         generate_embedded_initrds(loaded_image, sections, initrds);
         lookup_embedded_initrds(loaded_image, sections, initrds);
 
