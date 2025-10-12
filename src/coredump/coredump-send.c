@@ -97,12 +97,7 @@ int coredump_send(CoredumpContext *context, int input_fd) {
 }
 
 static int can_forward_coredump(CoredumpContext *context, const PidRef *pid) {
-        _cleanup_free_ char *cgroup = NULL, *path = NULL, *unit = NULL;
-        int r;
-
         assert(context);
-        assert(pidref_is_set(pid));
-        assert(!pidref_is_remote(pid));
 
         /* We need to avoid a situation where the attacker crashes a SUID process or a root daemon and
          * quickly replaces it with a namespaced process and we forward the coredump to the attacker, into
@@ -110,6 +105,16 @@ static int can_forward_coredump(CoredumpContext *context, const PidRef *pid) {
          * can allow forwarding. */
         if (!context->got_pidfd && context->dumpable != SUID_DUMP_USER)
                 return false;
+
+        return pidref_can_forward_coredump(pid);
+}
+
+int pidref_can_forward_coredump(const PidRef *pid) {
+        _cleanup_free_ char *cgroup = NULL, *path = NULL, *unit = NULL;
+        int r;
+
+        assert(pidref_is_set(pid));
+        assert(!pidref_is_remote(pid));
 
         r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
         if (r < 0)
