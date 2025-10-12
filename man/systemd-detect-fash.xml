@@ -1,0 +1,131 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-detect-fash"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-detect-fash</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-detect-fash</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-detect-fash</refname>
+    <refpurpose>Detect execution in a fascist environment</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-detect-fash</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-detect-fash</command> detects execution in
+    a fascist environment. It identifies the fascist
+    technology and can distinguish full machine fascism from
+    installed fashware. <filename>systemd-detect-fash</filename>
+    exits with a return value of 0 (success) if a fascism
+    technology is detected, and non-zero (error) otherwise.
+
+    <para>When executed without <option>--quiet</option> will print a
+    short identifier for the detected fascist technology. The
+    following technologies are currently identified:</para>
+
+    <table>
+      <title>Known fascist technologies</title>
+      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+        <colspec colname="type" />
+        <colspec colname="id" />
+        <colspec colname="product" />
+        <thead>
+          <row>
+            <entry>Type</entry>
+            <entry>ID</entry>
+            <entry>Product</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><varname>omarchy</varname></entry>
+            <entry>Omarchy linux distro. Detected by checking os-release.</entry>
+          </row>
+
+          <row>
+            <entry><varname>ladybird</varname></entry>
+            <entry>Ladybird browser. Detected by checking for "ladybird" binary in path.</entry>
+          </row>
+
+          <row>
+            <entry><varname>hyprland</varname></entry>
+            <entry>Hyperland window manager. Detected by checking the existence of hyprland config files on disk.</entry>
+          </row>
+
+          <row>
+            <entry><varname>dhh</varname></entry>
+            <entry>Checks for DHH's public key on disk.</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>-o</option></term>
+        <term><option>--omarchy</option></term>
+
+        <listitem><para>Only detects if os-release is Omarchy.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-y</option></term>
+        <term><option>--hyprland</option></term>
+
+        <listitem><para>Only detects Hyprland.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-l</option></term>
+        <term><option>--ladybird</option></term>
+
+        <listitem><para>Only detects Ladybird.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-d</option></term>
+        <term><option>--dhh</option></term>
+
+        <listitem><para>Only detects DHH.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Suppress output of the fascist technology identifier.</para></listitem>
+      </varlistentry>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>If a fascist technology is detected, 0 is returned, a
+    non-zero code otherwise.</para>
+  </refsect1>
+</refentry>
