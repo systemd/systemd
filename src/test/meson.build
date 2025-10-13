@@ -14,6 +14,7 @@ path = run_command(sh, '-c', 'echo "$PATH"', check: true).stdout().strip()
 test_env = {
         'PATH' : meson.project_build_root() + ':' + path,
         'PROJECT_BUILD_ROOT' : meson.project_build_root(),
+        'SYSTEMD_DEFAULT_LOCALE' : get_option('default-locale'),
         'SYSTEMD_SLOW_TESTS' : want_slow_tests ? '1' : '0',
         'PYTHONDONTWRITEBYTECODE' : '1',
 }
@@ -274,6 +275,17 @@ executables += [
         test_template + {
                 'sources' : files('test-compress.c'),
                 'link_with' : [libshared],
+        },
+        test_template + {
+                'sources' : files('test-coredump-stacktrace.c'),
+                'type' : 'manual',
+                # This test intentionally crashes with SIGSEGV by dereferencing a NULL pointer
+                # to generate a coredump with a predictable stack trace. To prevent sanitizers
+                # from catching the error first let's disable them explicitly, and also always
+                # build with minimal optimizations to make the stack trace predictable no matter
+                # what we build the rest of systemd with
+                'override_options' : ['b_sanitize=none', 'strip=false', 'debug=true'],
+                'c_args' : ['-fno-sanitize=all', '-fno-optimize-sibling-calls', '-O1'],
         },
         test_template + {
                 'sources' : files('test-cryptolib.c'),

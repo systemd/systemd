@@ -291,7 +291,7 @@ rmdir "$BOOT_ROOT/hoge"
 ###########################################
 output="$("$kernel_install" -v --json=pretty inspect 1.1.1 "$D/sources/linux")"
 
-diff -u <(echo "$output") - <<EOF
+diff -u <(echo "$output") - >&2 <<EOF
 {
 	"MachineID" : "3e0484f3634a418b8e6a39e8828b03e3",
 	"KernelImageType" : "unknown",
@@ -309,7 +309,7 @@ diff -u <(echo "$output") - <<EOF
 		"$D/00-skip.install"
 	],
 	"PluginEnvironment" : [
-		"LC_COLLATE=C.UTF-8",
+		"LC_COLLATE=$SYSTEMD_DEFAULT_LOCALE",
 		"KERNEL_INSTALL_VERBOSE=1",
 		"KERNEL_INSTALL_IMAGE_TYPE=unknown",
 		"KERNEL_INSTALL_MACHINE_ID=3e0484f3634a418b8e6a39e8828b03e3",

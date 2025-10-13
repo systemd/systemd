@@ -81,7 +81,7 @@
         factory reset operation is by starting the <filename>factory-reset.target</filename>
         unit.</para>
 
-        <para>This sets the <varname>FactoryResetRequested</varname> EFI variable, see below.</para>
+        <para>This sets the <varname>FactoryResetRequest</varname> EFI variable, see below.</para>
 
         <para>This operation is executed when the <filename>systemd-factory-reset-request.service</filename>
         unit is started (which is typically one of the services hooked into
