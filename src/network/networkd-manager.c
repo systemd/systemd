@@ -595,7 +595,7 @@ int manager_setup(Manager *m) {
         if (m->test_mode)
                 return 0;
 
-        r = manager_connect_varlink(m, TAKE_FD(varlink_fd));
+        r = manager_varlink_init(m, TAKE_FD(varlink_fd));
         if (r < 0)
                 return r;
 
