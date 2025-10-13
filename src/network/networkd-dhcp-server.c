@@ -32,6 +32,30 @@
 #include "string-util.h"
 #include "strv.h"
 
+static int get_hostname_domain(char **ret) {
+        _cleanup_free_ char *hostname = NULL;
+        const char *domain;
+        int r;
+
+        assert(ret);
+
+        /* Get the full hostname (FQDN if available) */
+        r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &hostname);
+        if (r < 0)
+                return r;
+
+        /* Find the first dot to extract the domain part */
+        domain = strchr(hostname, '.');
+        if (!domain)
+                return -ENOENT;  /* No domain part in hostname */
+
+        domain++;  /* Skip the dot */
+        if (isempty(domain))
+                return -ENOENT;  /* Empty domain after dot */
+
+        return strdup_to(ret, domain);
+}
+
 static bool link_dhcp4_server_enabled(Link *link) {
         assert(link);
 
@@ -688,9 +712,11 @@ static int dhcp4_server_configure(Link *link) {
                 else {
                         r = get_hostname_domain(&buffer);
                         if (r < 0)
-                                log_link_warning_errno(link, r, "Failed to determine domain name from hostname, not sending domain: %m");
-                        else
+                                log_link_warning_errno(link, r, "Failed to determine domain name from host's hostname, will not send domain in DHCP leases: %m");
+                        else {
                                 domain = buffer;
+                                log_link_debug(link, "Using autodetected domain name '%s' for DHCP server.", domain);
+                        }
                 }
 
                 if (domain) {
