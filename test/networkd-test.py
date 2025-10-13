@@ -65,6 +65,7 @@ def setUpModule():
     for u in [
         'systemd-networkd.socket',
         'systemd-networkd-varlink.socket',
+        'systemd-networkd-resolve-hook.socket',
         'systemd-networkd.service',
         'systemd-resolved-varlink.socket',
         'systemd-resolved-monitor.socket',
