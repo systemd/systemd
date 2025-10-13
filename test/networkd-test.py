@@ -65,6 +65,7 @@ def setUpModule():
     for u in [
         'systemd-networkd.socket',
         'systemd-networkd-varlink.socket',
+        'systemd-networkd-resolve-hook.socket',
         'systemd-networkd.service',
         'systemd-resolved-varlink.socket',
         'systemd-resolved-monitor.socket',
@@ -931,9 +932,11 @@ class NetworkdClientTest(ClientTestBase, unittest.TestCase):
 set -eu
 mkdir -p /run/systemd/network
 mkdir -p /run/systemd/netif
+mkdir -p /run/systemd/resolve.hook
 mkdir -p /var/lib/systemd/network
 mount -t tmpfs none /run/systemd/network
 mount -t tmpfs none /run/systemd/netif
+mount -t tmpfs none /run/systemd/resolve.hook
 mount -t tmpfs none /var/lib/systemd/network
 [ ! -e /run/dbus ] || mount -t tmpfs none /run/dbus
 # create router/client veth pair
@@ -983,6 +986,7 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=/
                                '-p', 'InaccessibleDirectories=-/etc/systemd/network',
                                '-p', 'InaccessibleDirectories=-/run/systemd/network',
                                '-p', 'InaccessibleDirectories=-/run/systemd/netif',
+                               '-p', 'InaccessibleDirectories=-/run/systemd/resolve.hook',
                                '-p', 'InaccessibleDirectories=-/var/lib/systemd/network',
                                '--service-type=notify', script])
 
