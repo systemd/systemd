@@ -30,3 +30,4 @@ IPv6SendRA=yes
 
 [DHCPServer]
 PersistLeases=runtime
+LocalLeaseDomain=_dhcp
