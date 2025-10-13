@@ -27,7 +27,12 @@ int dns_label_unescape(const char **name, char *dest, size_t sz, DNSLabelFlags f
         int r = 0;
 
         assert(name);
-        assert(*name);
+
+        if (isempty(*name)) {
+                if (dest && sz >= 1)
+                        dest[0] = 0;
+                return 0;
+        }
 
         n = *name;
         d = dest;
@@ -649,12 +654,10 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
         int r, q;
 
         assert(name);
-        assert(old_suffix);
-        assert(new_suffix);
         assert(ret);
 
         n = name;
-        s = old_suffix;
+        s = strempty(old_suffix);
 
         for (;;) {
                 char ln[DNS_LABEL_MAX+1], ls[DNS_LABEL_MAX+1];
