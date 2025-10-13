@@ -56,3 +56,5 @@ static inline char* gethostname_short_malloc(void) {
 
         return s;
 }
+
+int pidref_gethostname_full(PidRef *pidref, GetHostnameFlags flags, char **ret);
