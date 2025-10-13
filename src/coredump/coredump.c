@@ -16,11 +16,12 @@ static int run(int argc, char *argv[]) {
         if (streq_ptr(argv[1], "--backtrace"))
                 return coredump_backtrace(argc, argv);
 
-        /* First, log to a safe place, since we don't know what crashed and it might
-         * be journald which we'd rather not log to then. */
+        /* First, log to a safe place, since we don't know what crashed and it might be journald which we'd
+         * rather not log to then. */
+        log_parse_environment();
         log_set_target_and_open(LOG_TARGET_KMSG);
 
-        /* Make sure we never enter a loop */
+        /* Make sure we never enter a loop. */
         (void) set_dumpable(SUID_DUMP_DISABLE);
 
         r = sd_listen_fds(false);
