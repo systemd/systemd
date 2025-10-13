@@ -1621,3 +1621,38 @@ int sd_dhcp_server_set_lease_file(sd_dhcp_server *server, int dir_fd, const char
 
         return 0;
 }
+
+static int find_lease_address(Hashmap *h, const char *name, struct in_addr *ret) {
+        int r;
+
+        assert(name);
+
+        sd_dhcp_server_lease *lease;
+        HASHMAP_FOREACH(lease, h) {
+                if (!lease->hostname)
+                        continue;
+
+                r = dns_name_equal(lease->hostname, name);
+                if (r <= 0)
+                        continue;
+
+                if (ret)
+                        ret->s_addr = lease->address;
+                return 1;
+        }
+
+        return -ENOENT;
+}
+
+int sd_dhcp_server_get_lease_address_by_name(sd_dhcp_server *server, const char *name, struct in_addr *ret) {
+        int r;
+
+        assert_return(server, -EINVAL);
+        assert_return(dns_name_is_valid(name), -EINVAL);
+
+        r = find_lease_address(server->static_leases_by_address, name, ret);
+        if (r != -ENOENT)
+                return r;
+
+        return find_lease_address(server->bound_leases_by_address, name, ret);
+}

@@ -92,6 +92,8 @@ int sd_dhcp_server_is_in_relay_mode(sd_dhcp_server *server);
 int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr* address);
 int sd_dhcp_server_set_relay_agent_information(sd_dhcp_server *server, const char* circuit_id, const char* remote_id);
 
+int sd_dhcp_server_get_lease_address_by_name(sd_dhcp_server *server, const char *name, struct in_addr *ret);
+
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_server, sd_dhcp_server_unref);
 
 _SD_END_DECLARATIONS;
