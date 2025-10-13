@@ -7,6 +7,7 @@
 
 #include "fileio.h"
 #include "log.h"
+#include "log-assert-critical.h"
 
 /* The entry point into the fuzzer */
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
