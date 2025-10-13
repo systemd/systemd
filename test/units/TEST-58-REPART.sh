@@ -1679,6 +1679,54 @@ EOF
     grep -q 'UUID=[0-9a-f-]* /home btrfs discard,rw,nodev,suid,exec,subvol=@home,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
 }
 
+testcase_luks2_integrity() {
+    local defs imgs output root
+
+    if [[ "$OFFLINE" != "no" ]]; then
+        return 0
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/test-repart.root.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for LUKS2 integrity ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+Encrypt=key-file
+Integrity=luks2
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/encint.img"
+
+    loop="$(losetup -P --show --find "$imgs/encint.img")"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    volume="test-repart-luksint-$RANDOM"
+    dmstatus="$imgs/dmsetup-$RANDOM"
+
+    touch "$imgs/empty-password"
+    cryptsetup open --type=luks2 --key-file="$imgs/empty-password" "${loop}p1" "$volume"
+    dmsetup status > "$dmstatus"
+    cryptsetup close "$volume"
+    losetup -d "$loop"
+    # Check that there's a dm-integrity entry
+    grep -q "$volume""_dif.* integrity " "$dmstatus"
+}
+
 testcase_varlink_list_devices() {
     REPART="$(which systemd-repart)"
     varlinkctl introspect "$REPART"
