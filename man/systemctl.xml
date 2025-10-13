@@ -375,10 +375,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term>
-            <command>list-dependencies</command>
-            <optional><replaceable>UNIT</replaceable>...</optional>
-          </term>
+          <term><command>list-dependencies</command> <optional><replaceable>UNIT</replaceable>…</optional></term>
 
           <listitem>
             <para>Shows units required and wanted by the specified
@@ -694,12 +691,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term>
-            <command>bind</command>
-            <replaceable>UNIT</replaceable>
-            <replaceable>PATH</replaceable>
-            [<replaceable>PATH</replaceable>]
-          </term>
+          <term><command>bind</command> <replaceable>UNIT</replaceable> <replaceable>PATH</replaceable> [<replaceable>PATH</replaceable>]</term>
 
           <listitem><para>Bind-mounts a file or directory from the host into the specified unit's mount
           namespace. The first path argument is the source file or directory on the host, the second path
@@ -726,13 +718,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term>
-            <command>mount-image</command>
-            <replaceable>UNIT</replaceable>
-            <replaceable>IMAGE</replaceable>
-            [<replaceable>PATH</replaceable>
-            [<replaceable>PARTITION_NAME</replaceable>:<replaceable>MOUNT_OPTIONS</replaceable>]]
-          </term>
+          <term><command>mount-image</command> <replaceable>UNIT</replaceable> <replaceable>IMAGE</replaceable> [<replaceable>PATH</replaceable> [<replaceable>PARTITION_NAME</replaceable>:<replaceable>MOUNT_OPTIONS</replaceable>]]</term>
 
           <listitem><para>Mounts an image from the host into the specified unit's mount namespace. The first
           path argument is the source image on the host, the second path argument is the destination
@@ -1215,10 +1201,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
-          <term><command>add-wants <replaceable>TARGET</replaceable>
-          <replaceable>UNIT</replaceable>…</command></term>
-          <term><command>add-requires <replaceable>TARGET</replaceable>
-          <replaceable>UNIT</replaceable>…</command></term>
+          <term><command>add-wants <replaceable>TARGET</replaceable> <replaceable>UNIT</replaceable>…</command></term>
+          <term><command>add-requires <replaceable>TARGET</replaceable> <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
             <para>Adds <literal>Wants=</literal> or <literal>Requires=</literal>
@@ -1444,10 +1428,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           </listitem>
         </varlistentry>
         <varlistentry>
-          <term>
-            <command>import-environment</command>
-            <replaceable>VARIABLE…</replaceable>
-          </term>
+          <term><command>import-environment</command> <replaceable>VARIABLE…</replaceable></term>
 
           <listitem>
             <para>Import all, one or more environment variables set on the client into the systemd manager
