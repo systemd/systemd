@@ -3,11 +3,11 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "dns-packet.h"
+#include "dns-rr.h"
 #include "fileio.h"
 #include "glob-util.h"
 #include "log.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-rr.h"
 #include "siphash24.h"
 #include "strv.h"
 #include "tests.h"

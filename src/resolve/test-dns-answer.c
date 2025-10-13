@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "dns-answer.h"
+#include "dns-rr.h"
 #include "dns-type.h"
 #include "memstream-util.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-rr.h"
 #include "strv.h"
 #include "tests.h"
 
