@@ -233,6 +233,7 @@ typedef struct Network {
         usec_t dhcp_server_ipv6_only_preferred_usec;
         bool dhcp_server_rapid_commit;
         DHCPServerPersistLeases dhcp_server_persist_leases;
+        char *dhcp_server_local_lease_domain;
 
         /* link-local addressing support */
         AddressFamily link_local;
