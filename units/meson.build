@@ -317,6 +317,24 @@ units = [
           'conditions' : ['ENABLE_COREDUMP'],
         },
         {
+          'file' : 'systemd-coredump-container.socket',
+          'conditions' : ['ENABLE_COREDUMP'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-coredump-container@.service.in',
+          'conditions' : ['ENABLE_COREDUMP'],
+        },
+        {
+          'file' : 'systemd-coredump-kernel.socket.in',
+          'conditions' : ['ENABLE_COREDUMP'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-coredump-kernel@.service.in',
+          'conditions' : ['ENABLE_COREDUMP'],
+        },
+        {
           'file' : 'systemd-creds.socket',
           'symlinks' : ['sockets.target.wants/'],
         },
