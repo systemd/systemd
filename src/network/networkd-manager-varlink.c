@@ -324,7 +324,7 @@ int manager_connect_varlink(Manager *m, int fd) {
         else
                 r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to API Varlink socket: %m");
 
         TAKE_FD(fd_close);
 
@@ -334,10 +334,4 @@ int manager_connect_varlink(Manager *m, int fd) {
 
         m->varlink_server = TAKE_PTR(s);
         return 0;
-}
-
-void manager_varlink_done(Manager *m) {
-        assert(m);
-
-        m->varlink_server = sd_varlink_server_unref(m->varlink_server);
 }
