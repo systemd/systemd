@@ -22,6 +22,8 @@
 #include "bus-message-util.h"
 #include "bus-util.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-rr.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -42,8 +44,6 @@
 #include "resolve-util.h"
 #include "resolvectl.h"
 #include "resolved-def.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-rr.h"
 #include "resolved-util.h"
 #include "socket-netlink.h"
 #include "sort-util.h"
@@ -236,13 +236,14 @@ static void print_source(uint64_t flags, usec_t rtt) {
                ansi_normal());
 
         if ((flags & (SD_RESOLVED_FROM_MASK|SD_RESOLVED_SYNTHETIC)) != 0)
-                printf("%s-- Data from:%s%s%s%s%s%s\n",
+                printf("%s-- Data from:%s%s%s%s%s%s%s\n",
                        ansi_grey(),
                        FLAGS_SET(flags, SD_RESOLVED_SYNTHETIC) ? " synthetic" : "",
                        FLAGS_SET(flags, SD_RESOLVED_FROM_CACHE) ? " cache" : "",
                        FLAGS_SET(flags, SD_RESOLVED_FROM_ZONE) ? " zone" : "",
                        FLAGS_SET(flags, SD_RESOLVED_FROM_TRUST_ANCHOR) ? " trust-anchor" : "",
                        FLAGS_SET(flags, SD_RESOLVED_FROM_NETWORK) ? " network" : "",
+                       FLAGS_SET(flags, SD_RESOLVED_FROM_HOOK) ? " hook" : "",
                        ansi_normal());
 }
 

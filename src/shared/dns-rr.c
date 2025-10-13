@@ -4,17 +4,16 @@
 
 #include "alloc-util.h"
 #include "bitmap.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-rr.h"
 #include "dns-type.h"
 #include "escape.h"
 #include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "json-util.h"
 #include "memory-util.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-rr.h"
 #include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -975,6 +974,32 @@ static char *format_svc_params(DnsSvcParam *first) {
         }
 
         return strv_join(params, " ");
+}
+
+uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke) {
+        const uint8_t *p;
+        uint32_t sum, f;
+
+        /* The algorithm from RFC 4034, Appendix B. */
+
+        assert(dnskey);
+        assert(dnskey->key->type == DNS_TYPE_DNSKEY);
+
+        f = (uint32_t) dnskey->dnskey.flags;
+
+        if (mask_revoke)
+                f &= ~DNSKEY_FLAG_REVOKE;
+
+        sum = f + ((((uint32_t) dnskey->dnskey.protocol) << 8) + (uint32_t) dnskey->dnskey.algorithm);
+
+        p = dnskey->dnskey.key;
+
+        for (size_t i = 0; i < dnskey->dnskey.key_size; i++)
+                sum += (i & 1) == 0 ? (uint32_t) p[i] << 8 : (uint32_t) p[i];
+
+        sum += (sum >> 16) & UINT32_C(0xFFFF);
+
+        return sum & UINT32_C(0xFFFF);
 }
 
 const char* dns_resource_record_to_string(DnsResourceRecord *rr) {
@@ -2180,14 +2205,16 @@ int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret) {
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "class", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(struct params, class), SD_JSON_MANDATORY },
+                { "class", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(struct params, class), 0                 },
                 { "type",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(struct params, type),  SD_JSON_MANDATORY },
                 { "name",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(struct params, name),  SD_JSON_MANDATORY },
                 {}
         };
 
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        struct params p;
+        struct params p = {
+                .class = DNS_CLASS_IN,
+        };
         int r;
 
         assert(v);
@@ -2540,3 +2567,18 @@ static const char* const sshfp_key_type_table[_SSHFP_KEY_TYPE_MAX_DEFINED] = {
         [SSHFP_KEY_TYPE_SHA256]   = "SHA-256",   /* RFC 4255 */
 };
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sshfp_key_type, int, 255);
+
+int dns_json_dispatch_resource_key(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        DnsResourceKey **k = ASSERT_PTR(userdata);
+        int r;
+
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *nk = NULL;
+        r = dns_resource_key_from_json(variant, &nk);
+        if (r < 0)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid resource record key.", strna(name));
+
+        dns_resource_key_unref(*k);
+        *k = TAKE_PTR(nk);
+
+        return 0;
+}

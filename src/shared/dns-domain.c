@@ -650,7 +650,6 @@ int dns_name_change_suffix(const char *name, const char *old_suffix, const char 
 
         assert(name);
         assert(old_suffix);
-        assert(new_suffix);
         assert(ret);
 
         n = name;
