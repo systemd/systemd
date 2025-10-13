@@ -7,6 +7,8 @@
 
 int pidfd_get_namespace(int fd, unsigned long ns_type_cmd);
 
+int pidfd_get_info(int fd, struct pidfd_info *info);
+
 int pidfd_get_pid(int fd, pid_t *ret);
 int pidfd_verify_pid(int pidfd, pid_t pid);
 

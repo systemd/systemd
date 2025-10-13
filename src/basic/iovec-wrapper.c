@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
@@ -74,6 +76,22 @@ int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const c
                 TAKE_PTR(x);
 
         return r;
+}
+
+int iovw_put_string_fieldf(struct iovec_wrapper *iovw, const char *field, const char *format, ...) {
+        _cleanup_free_ char *value = NULL;
+        va_list ap;
+        int r;
+
+        assert(format);
+
+        va_start(ap, format);
+        r = vasprintf(&value, format, ap);
+        va_end(ap);
+        if (r < 0)
+                return r;
+
+        return iovw_put_string_field(iovw, field, value);
 }
 
 int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, char *value) {
