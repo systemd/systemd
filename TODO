@@ -128,6 +128,14 @@ Deprecations and removals:
 
 Features:
 
+* networkd/machined: implement reverse name lookups in the resolved hook
+
+* networkd's resolved hook: optionally map all lease IP addresses handed out to
+  the same hostname which is configured on the .network file. Optionally, even
+  derive this single name from the network interface name (i.e. probably
+  altname or so). This way, when spawning a VM the host could pick the hostname
+  for it and the client gets no say.
+
 * systemd-repart: add --ghost, that creates file systems, updates the kernel's
   partition table but does *not* update partition table on disk. This way, we
   have disk backed file systems that go effectively disappear on reboot. This
@@ -219,12 +227,6 @@ Features:
   dispatching by that. Enable this on the native + syslog sockets in journald,
   so that we add correct ordering between the two. Use MSG_PEEK + SCM_TIMESTAMP
   for this.
-
-* maybe replace nss-machines with logic in networkd that registers records with
-  systemd-resolved, based on DHCP leases, so that we gain compat with VMs.
-  Implementation idea: encode in an ifaltname the intended local name to expose this
-  under and then parse that out and map it to the combined A/AAAA of all handed
-  out leases.
 
 * bsod: add target "bsod.target" or so, which invokes systemd-bsod.target and
   waits and then reboots. Then use OnFailure=bsod.target from various jobs that
@@ -2145,7 +2147,6 @@ Features:
     names, so that for the container case we can establish the same name
     (maybe "host") for referencing the server, everywhere.
   - allow clients to request DNSSEC for a single lookup even if DNSSEC is off (?)
-  - hook up resolved with machined-based address resolution
 
 * refcounting in sd-resolve is borked
 
