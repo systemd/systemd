@@ -702,12 +702,15 @@ int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
                 }
         }
 
+        log_error("coredump_context_build_iovw")
         r = coredump_context_build_iovw(context);
         if (r < 0)
                 return r;
 
+        log_error("coredump_context_update_signal")
         (void) coredump_context_update_signal(context);
 
+        log_error("generating message")
         _cleanup_free_ char *core_message = NULL;
         if (asprintf(&core_message, "Process "PID_FMT" (%s) of user "UID_FMT" %s",
                      context->pidref.pid, context->comm, context->uid,
