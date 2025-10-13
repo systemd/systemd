@@ -378,10 +378,11 @@ SecureBootMode efi_get_secure_boot_mode(void) {
         int audit    = read_flag(EFI_GLOBAL_VARIABLE_STR("AuditMode"));
         int deployed = read_flag(EFI_GLOBAL_VARIABLE_STR("DeployedMode"));
         int setup    = read_flag(EFI_GLOBAL_VARIABLE_STR("SetupMode"));
-        log_debug("Secure boot variables: SecureBoot=%d AuditMode=%d DeployedMode=%d SetupMode=%d",
-                  secure, audit, deployed, setup);
+        int moksb    = read_flag(EFI_SHIMLOCK_VARIABLE_STR("MokSBStateRT"));
+        log_debug("Secure boot variables: SecureBoot=%d AuditMode=%d DeployedMode=%d SetupMode=%d MokSBStateRT=%d",
+                  secure, audit, deployed, setup, moksb);
 
-        return (cache = decode_secure_boot_mode(secure, audit > 0, deployed > 0, setup > 0));
+        return (cache = decode_secure_boot_mode(secure, audit > 0, deployed > 0, setup > 0, moksb > 0));
 }
 #endif
 
