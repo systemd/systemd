@@ -93,6 +93,7 @@ static void boot_entry_free(BootEntry *entry) {
         boot_entry_addons_done(&entry->local_addons);
         free(entry->kernel);
         free(entry->efi);
+        free(entry->uki);
         strv_free(entry->initrd);
         free(entry->device_tree);
         strv_free(entry->device_tree_overlay);
@@ -403,6 +404,8 @@ static int boot_entry_load_type1(
                         r = parse_path_one(tmp.path, line, field, &tmp.kernel, p);
                 else if (streq(field, "efi"))
                         r = parse_path_one(tmp.path, line, field, &tmp.efi, p);
+                else if (streq(field, "uki"))
+                        r = parse_path_one(tmp.path, line, field, &tmp.uki, p);
                 else if (streq(field, "initrd"))
                         r = parse_path_strv(tmp.path, line, field, &tmp.initrd, p);
                 else if (streq(field, "devicetree"))
@@ -1896,6 +1899,8 @@ int show_boot_entry(
                 boot_entry_file_list("linux", e->root, e->kernel, &status);
         if (e->efi)
                 boot_entry_file_list("efi", e->root, e->efi, &status);
+        if (e->uki)
+                boot_entry_file_list("uki", e->root, e->uki, &status);
 
         STRV_FOREACH(s, e->initrd)
                 boot_entry_file_list(s == e->initrd ? "initrd" : NULL,
@@ -1957,9 +1962,8 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_STRING(opts)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->kernel, "linux", SD_JSON_BUILD_STRING(e->kernel)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->efi, "efi", SD_JSON_BUILD_STRING(e->efi)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", SD_JSON_BUILD_STRV(e->initrd)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!e->device_tree, "devicetree", SD_JSON_BUILD_STRING(e->device_tree)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", SD_JSON_BUILD_STRV(e->device_tree_overlay)));
+                        SD_JSON_BUILD_PAIR_CONDITION(!!e->uki, "uki", SD_JSON_BUILD_STRING(e->uki)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", SD_JSON_BUILD_STRV(e->initrd)));
         if (r < 0)
                 return log_oom();
 
@@ -1968,6 +1972,8 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
          * at once. */
         r = sd_json_variant_merge_objectbo(
                         &v,
+                        SD_JSON_BUILD_PAIR_CONDITION(!!e->device_tree, "devicetree", SD_JSON_BUILD_STRING(e->device_tree)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", SD_JSON_BUILD_STRV(e->device_tree_overlay)),
                         SD_JSON_BUILD_PAIR("isReported", SD_JSON_BUILD_BOOLEAN(e->reported_by_loader)),
                         SD_JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", SD_JSON_BUILD_UNSIGNED(e->tries_left)),
                         SD_JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", SD_JSON_BUILD_UNSIGNED(e->tries_done)),

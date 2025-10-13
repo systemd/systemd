@@ -404,9 +404,11 @@ int machine_load(Machine *m) {
                         log_warning_errno(r, "Failed to parse AF_VSOCK CID, ignoring: %s", vsock_cid);
         }
 
-        r = parse_uid(uid, &m->uid);
-        if (r < 0)
-                log_warning_errno(r, "Failed to parse owning UID, ignoring: %s", uid);
+        if (uid) {
+                r = parse_uid(uid, &m->uid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse owning UID, ignoring: %s", uid);
+        }
 
         return r;
 }

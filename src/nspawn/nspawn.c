@@ -1247,7 +1247,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_userns_ownership = user_namespace_ownership_from_string(optarg);
                         if (arg_userns_ownership < 0)
-                                return log_error_errno(arg_userns_ownership, "Cannot parse --user-namespace-ownership= value: %s", optarg);
+                                return log_error_errno(arg_userns_ownership, "Cannot parse --private-users-ownership= value: %s", optarg);
 
                         arg_settings_mask |= SETTING_USERNS;
                         break;

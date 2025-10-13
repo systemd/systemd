@@ -1279,6 +1279,12 @@ static void boot_entry_add_type1(
                 } else if (streq8(key, "sort-key")) {
                         free(entry->sort_key);
                         entry->sort_key = xstr8_to_16(value);
+                } else if (streq8(key, "profile")) {
+                        uint64_t u;
+                        if (parse_number8(value, &u, NULL) && u <= UINT_MAX)
+                                entry->profile = (unsigned)u;
+                        else
+                                log_warning_status(EFI_SUCCESS, "Error parsing 'profile' entry option, ignoring: %s", value);
 
                 } else if (streq8(key, "version")) {
                         free(entry->version);
