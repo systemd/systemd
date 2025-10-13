@@ -466,7 +466,7 @@
         <filename>*.pcrlock.d/*.pcrlock</filename> files from. May be used more than once to specify multiple
         such directories. If not specified, defaults to <filename>/etc/pcrlock.d/</filename>,
         <filename>/run/pcrlock.d/</filename>, <filename>/var/lib/pcrlock.d/</filename>,
-        <filename>/usr/local/pcrlock.d/</filename>, <filename>/usr/lib/pcrlock.d/</filename>.</para>
+        <filename>/usr/local/lib/pcrlock.d/</filename>, <filename>/usr/lib/pcrlock.d/</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
