@@ -426,14 +426,16 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                         v->next_elapse += random_offset;
 
-                        /* To make the delay due to RandomizedDelaySec= work even at boot, if the scheduled
-                         * time has already passed, set the time when systemd first started as the scheduled
-                         * time. Note that we base this on the monotonic timestamp of the boot, not the
-                         * realtime one, since the wallclock might have been off during boot. */
-                        rebased = map_clock_usec(UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic,
-                                                 CLOCK_MONOTONIC, CLOCK_REALTIME);
-                        if (v->next_elapse < rebased)
-                                v->next_elapse = rebased;
+                        if (!dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp)) {
+                                /* To make the delay due to RandomizedDelaySec= work even at boot, if the scheduled
+                                 * time has already passed, set the time when systemd first started as the scheduled
+                                 * time. Note that we base this on the monotonic timestamp of the boot, not the
+                                 * realtime one, since the wallclock might have been off during boot. */
+                                rebased = map_clock_usec(UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic,
+                                                         CLOCK_MONOTONIC, CLOCK_REALTIME);
+                                if (v->next_elapse < rebased)
+                                        v->next_elapse = rebased;
+                        }
 
                         if (!found_realtime)
                                 t->next_elapse_realtime = v->next_elapse;
