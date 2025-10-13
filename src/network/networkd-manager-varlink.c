@@ -259,9 +259,9 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         return sd_varlink_reply(vlink, NULL);
 }
 
-int manager_connect_varlink(Manager *m, int fd) {
+int manager_varlink_init(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        _unused_ _cleanup_close_ int fd_close = fd;
+        _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
         int r;
 
         assert(m);
