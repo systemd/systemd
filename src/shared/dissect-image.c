@@ -117,6 +117,17 @@ int dissect_fstype_ok(const char *fstype) {
         return false;
 }
 
+static const char *getenv_fstype(PartitionDesignator d) {
+
+        if (d < 0 ||
+            partition_designator_is_verity(d) ||
+            d == PARTITION_SWAP)
+                return NULL;
+
+        char *v = strjoina("SYSTEMD_DISSECT_FSTYPE_", partition_designator_to_string(d));
+        return secure_getenv(ascii_strupper(v));
+}
+
 int probe_sector_size(int fd, uint32_t *ret) {
 
         /* Disk images might be for 512B or for 4096 sector sizes, let's try to auto-detect that by searching
@@ -1032,7 +1043,7 @@ static int dissect_image(
                 }
 
                 if (is_gpt) {
-                        const char *fstype = NULL, *label;
+                        const char *label;
                         sd_id128_t type_id, id;
                         GptPartitionType type;
                         bool rw = true, growfs = false;
@@ -1085,6 +1096,8 @@ static int dissect_image(
                                 continue;
                         }
 
+                        const char *fstype = getenv_fstype(type.designator);
+
                         if (IN_SET(type.designator,
                                    PARTITION_HOME,
                                    PARTITION_SRV,
@@ -1097,6 +1110,11 @@ static int dissect_image(
                                 rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
+                                /* XBOOTLDR cannot be integrity protected (since firmware needs to access
+                                 * it), hence be restrictive with the fs choice when dissecting. */
+                                if (type.designator == PARTITION_XBOOTLDR && !fstype)
+                                        fstype = "vfat";
+
                         } else if (type.designator == PARTITION_ESP) {
 
                                 if (FLAGS_SET(pflags, SD_GPT_FLAG_NO_BLOCK_IO_PROTOCOL)) {
@@ -1104,7 +1122,9 @@ static int dissect_image(
                                         continue;
                                 }
 
-                                fstype = "vfat";
+                                /* Effectively the ESP has to be VFAT, let's enforce this */
+                                if (!fstype)
+                                        fstype = "vfat";
 
                         } else if (type.designator == PARTITION_ROOT) {
 
