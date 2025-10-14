@@ -89,6 +89,7 @@ typedef struct MountImageParameters {
         int growfs;
         char *password;
         ImagePolicy *image_policy;
+        bool verity_sharing;
 } MountImageParameters;
 
 static void mount_image_parameters_done(MountImageParameters *p) {
@@ -283,12 +284,13 @@ static int vl_method_mount_image(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "imageFileDescriptor",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, image_fd_idx),  SD_JSON_MANDATORY },
-                { "userNamespaceFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, userns_fd_idx), 0 },
-                { "readOnly",                    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, read_only),     0 },
-                { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, growfs),        0 },
-                { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,    offsetof(MountImageParameters, password),      0 },
-                { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy, offsetof(MountImageParameters, image_policy),  0 },
+                { "imageFileDescriptor",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, image_fd_idx),   SD_JSON_MANDATORY },
+                { "userNamespaceFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, userns_fd_idx),  0 },
+                { "readOnly",                    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, read_only),      0 },
+                { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, growfs),         0 },
+                { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,    offsetof(MountImageParameters, password),       0 },
+                { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy, offsetof(MountImageParameters, image_policy),   0 },
+                { "veritySharing",               SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,   offsetof(MountImageParameters, verity_sharing), 0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -403,6 +405,7 @@ static int vl_method_mount_image(
                 DISSECT_IMAGE_FSCK |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
+                (p.verity_sharing ? DISSECT_IMAGE_VERITY_SHARE : 0) |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
         /* Let's see if we have acquired the privilege to mount untrusted images already */
@@ -561,8 +564,8 @@ static int vl_method_mount_image(
                                 SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(pp->uuid), "partitionUuid", SD_JSON_BUILD_UUID(pp->uuid)),
                                 SD_JSON_BUILD_PAIR("fileSystemType", SD_JSON_BUILD_STRING(dissected_partition_fstype(pp))),
                                 SD_JSON_BUILD_PAIR_CONDITION(!!pp->label, "partitionLabel", SD_JSON_BUILD_STRING(pp->label)),
-                                SD_JSON_BUILD_PAIR("size", SD_JSON_BUILD_INTEGER(pp->size)),
-                                SD_JSON_BUILD_PAIR("offset", SD_JSON_BUILD_INTEGER(pp->offset)),
+                                SD_JSON_BUILD_PAIR("size", SD_JSON_BUILD_UNSIGNED(pp->size)),
+                                SD_JSON_BUILD_PAIR("offset", SD_JSON_BUILD_UNSIGNED(pp->offset)),
                                 SD_JSON_BUILD_PAIR("mountFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx)),
                                 JSON_BUILD_PAIR_STRV_NON_EMPTY("mountPoint", l));
                 if (r < 0)
@@ -575,8 +578,8 @@ static int vl_method_mount_image(
                         link,
                         SD_JSON_BUILD_PAIR("partitions", SD_JSON_BUILD_VARIANT(aj)),
                         SD_JSON_BUILD_PAIR("imagePolicy", SD_JSON_BUILD_STRING(ps)),
-                        SD_JSON_BUILD_PAIR("imageSize", SD_JSON_BUILD_INTEGER(di->image_size)),
-                        SD_JSON_BUILD_PAIR("sectorSize", SD_JSON_BUILD_INTEGER(di->sector_size)),
+                        SD_JSON_BUILD_PAIR("imageSize", SD_JSON_BUILD_UNSIGNED(di->image_size)),
+                        SD_JSON_BUILD_PAIR("sectorSize", SD_JSON_BUILD_UNSIGNED(di->sector_size)),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(di->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(di->image_uuid)));
 }
 

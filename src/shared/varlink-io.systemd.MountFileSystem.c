@@ -60,6 +60,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Takes an image policy string (see systemd.image-policy(7) for details) to apply while mounting the image"),
                 SD_VARLINK_DEFINE_INPUT(imagePolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether to automatically reuse already set up dm-verity devices that share the same roothash."),
+                SD_VARLINK_DEFINE_INPUT(veritySharing, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_FIELD_COMMENT("An array with information about contained partitions that have been prepared for mounting, as well as their mount file descriptors."),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(partitions, PartitionInfo, SD_VARLINK_ARRAY),
