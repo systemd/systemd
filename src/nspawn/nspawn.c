@@ -3830,6 +3830,7 @@ static DissectImageFlags determine_dissect_image_flags(void) {
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 (arg_read_only ? DISSECT_IMAGE_READ_ONLY : DISSECT_IMAGE_FSCK|DISSECT_IMAGE_GROWFS) |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
+                DISSECT_IMAGE_VERITY_SHARE |
                 (arg_console_mode == CONSOLE_INTERACTIVE && arg_ask_password ? DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH : 0) |
                 ((arg_userns_ownership == USER_NAMESPACE_OWNERSHIP_FOREIGN) ? DISSECT_IMAGE_FOREIGN_UID :
                  (arg_userns_ownership != USER_NAMESPACE_OWNERSHIP_AUTO) ? DISSECT_IMAGE_IDENTITY_UID : 0);
