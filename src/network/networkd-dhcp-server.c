@@ -23,6 +23,7 @@
 #include "networkd-network.h"
 #include "networkd-ntp.h"
 #include "networkd-queue.h"
+#include "networkd-resolve-hook.h"
 #include "networkd-route-util.h"
 #include "path-util.h"
 #include "set.h"
@@ -703,6 +704,8 @@ static int dhcp4_server_configure(Link *link) {
         r = link_start_dhcp4_server(link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");
+
+        manager_notify_hook_filters(link->manager);
 
         return 0;
 }
