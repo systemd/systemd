@@ -15,11 +15,11 @@ set -o pipefail
 . "$(dirname "$0")"/util.sh
 
 UNIT_NAME="timer-RandomizedDelaySec-$RANDOM"
-TARGET_TS="$(date --date="tomorrow 00:10")"
+TARGET_TS="$(date --date="tomorrow 00:10" "+%a %Y-%m-%d %H:%M:%S %Z")"
 TARGET_TS_S="$(date --date="$TARGET_TS" "+%s")"
 # Maximum possible next elapse timestamp: $TARGET_TS (OnCalendar=) + 22 hours (RandomizedDelaySec=)
 MAX_NEXT_ELAPSE_REALTIME_S="$((TARGET_TS_S + 22 * 60 * 60))"
-MAX_NEXT_ELAPSE_REALTIME="$(date --date="@$MAX_NEXT_ELAPSE_REALTIME_S")"
+MAX_NEXT_ELAPSE_REALTIME="$(date --date="@$MAX_NEXT_ELAPSE_REALTIME_S" "+%a %Y-%m-%d %H:%M:%S %Z")"
 
 # Let's make sure to return the date & time back to the original state once we're done with our time
 # shenigans. One way to do this would be to use hwclock, but the RTC in VMs can be unreliable or slow to
