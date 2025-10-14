@@ -72,6 +72,11 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.gpt" \
         test -e "/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity"
+
+    systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.raw" \
+        --property ExtensionImages=/tmp/app0.raw \
+        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\""
 fi
 
 # Install key in keychain

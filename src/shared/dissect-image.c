@@ -4513,6 +4513,7 @@ int verity_dissect_and_mount(
                                 src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
                                 userns_fd,
                                 image_policy,
+                                verity,
                                 dissect_image_flags,
                                 &dissected_image);
                 if (r < 0)
@@ -4679,6 +4680,7 @@ int mountfsd_mount_image(
                 const char *path,
                 int userns_fd,
                 const ImagePolicy *image_policy,
+                const VeritySettings *verity,
                 DissectImageFlags flags,
                 DissectedImage **ret) {
 
@@ -4695,13 +4697,14 @@ int mountfsd_mount_image(
         };
 
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
-        _cleanup_close_ int image_fd = -EBADF;
+        _cleanup_close_ int image_fd = -EBADF, verity_data_fd = -EBADF;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_free_ char *ps = NULL;
         const char *error_id;
         int r;
 
         assert(path);
+        assert(verity);
         assert(ret);
 
         r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
@@ -4736,6 +4739,16 @@ int mountfsd_mount_image(
                         return log_error_errno(r, "Failed to format image policy to string: %m");
         }
 
+        if (verity->data_path) {
+                verity_data_fd = open(verity->data_path, O_RDONLY|O_CLOEXEC);
+                if (verity_data_fd < 0)
+                        return log_error_errno(errno, "Failed to open verity data file '%s': %m", verity->data_path);
+
+                r = sd_varlink_push_dup_fd(vl, verity_data_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to push verity data fd into varlink connection: %m");
+        }
+
         sd_json_variant *reply = NULL;
         r = varlink_callbo_and_log(
                         vl,
@@ -4748,6 +4761,9 @@ int mountfsd_mount_image(
                         SD_JSON_BUILD_PAIR("growFileSystems", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_GROWFS))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!ps, "imagePolicy", SD_JSON_BUILD_STRING(ps)),
                         SD_JSON_BUILD_PAIR("veritySharing", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!verity->data_path, "verityDataFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd >= 0 ? 2 : 1)),
+                        JSON_BUILD_PAIR_IOVEC_BASE64("verityRootHash", &((struct iovec) { .iov_base = verity->root_hash, .iov_len = verity->root_hash_size })),
+                        JSON_BUILD_PAIR_IOVEC_BASE64("verityRootHashSignature", &((struct iovec) { .iov_base = verity->root_hash_sig, .iov_len = verity->root_hash_sig_size })),
                         SD_JSON_BUILD_PAIR("allowInteractiveAuthentication", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH))));
         if (r < 0)
                 return r;
