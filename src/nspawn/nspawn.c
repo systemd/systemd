@@ -6349,6 +6349,7 @@ static int run(int argc, char *argv[]) {
                                         arg_image,
                                         userns_fd,
                                         arg_image_policy,
+                                        &arg_verity_settings,
                                         dissect_image_flags,
                                         &dissected_image);
                         if (r < 0)
