@@ -137,7 +137,7 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: no
+            relabel: yes
             vm: 0
             no_qemu: 0
             no_kvm: 0
