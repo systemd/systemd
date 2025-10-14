@@ -1477,7 +1477,7 @@ int make_userns(uid_t uid_shift,
         return TAKE_FD(userns_fd);
 }
 
-int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned int flags, struct mount_attr *attr) {
+int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned flags, struct mount_attr *attr) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -1504,6 +1504,42 @@ int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned int flag
         if (mount_setattr(fd, "", AT_EMPTY_PATH | (flags & AT_RECURSIVE), attr, sizeof(struct mount_attr)) < 0)
                 return log_debug_errno(errno, "Failed to change mount attributes: %m");
 
+        return TAKE_FD(fd);
+}
+
+int open_tree_try_drop_idmap(int dir_fd, const char *path, unsigned flags) {
+        /* Tries to drop MOUNT_ATTR_IDMAP while calling open_tree_attr(), but if that doesn't work just uses
+         * a regular open_tree() */
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        if (isempty(path)) {
+                path = "";
+                flags |= AT_EMPTY_PATH;
+        }
+
+        _cleanup_close_ int fd = open_tree_attr_with_fallback(
+                        dir_fd,
+                        path,
+                        flags,
+                        &(struct mount_attr) {
+                                .attr_clr = MOUNT_ATTR_IDMAP,
+                        });
+        if (fd < 0) {
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                        return log_debug_errno(fd, "Failed to clear idmap of directory with open_tree_attr(): %m");
+
+                log_debug_errno(fd, "Failed to clear idmap with open_tree_attr(), retrying open_tree() without clearing idmap: %m");
+
+                fd = RET_NERRNO(open_tree(dir_fd, path, flags));
+                if (fd < 0)
+                        return log_debug_errno(fd, "Both open_tree() and open_tree_attr() failed, giving up: %m");
+
+                log_debug("open_tree() without clearing idmap worked.");
+                return TAKE_FD(fd);
+        }
+
+        log_debug("Successfully acquired mount fd with cleared idmap.");
         return TAKE_FD(fd);
 }
 

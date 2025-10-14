@@ -826,17 +826,16 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
          * caller's userns *without* any mount idmapping in place. To get that uid, we clone the
          * mount source tree and clear any existing idmapping and temporarily mount that tree over
          * the mount source before we stat the mount source to figure out the source uid. */
-        _cleanup_close_ int fd_clone = open_tree_attr_with_fallback(
+        _cleanup_close_ int fd_clone =
+                idmapping == REMOUNT_IDMAPPING_NONE ?
+                RET_NERRNO(open_tree(
                         AT_FDCWD,
                         m->source,
-                        open_tree_flags,
-                        &(struct mount_attr) {
-                                .attr_clr = idmapping != REMOUNT_IDMAPPING_NONE ? MOUNT_ATTR_IDMAP : 0,
-                        });
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(fd_clone))
-                /* We can only clear idmapped mounts with open_tree_attr(), but there might not be one in
-                 * the first place, so we keep going if we get a not supported error. */
-                fd_clone = open_tree(AT_FDCWD, m->source, open_tree_flags);
+                        open_tree_flags)) :
+                open_tree_try_drop_idmap(
+                        AT_FDCWD,
+                        m->source,
+                        open_tree_flags);
         if (fd_clone < 0)
                 return log_error_errno(errno, "Failed to clone %s: %m", m->source);
 
