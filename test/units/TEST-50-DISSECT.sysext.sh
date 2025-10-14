@@ -287,6 +287,18 @@ extension_verify_after_unmerge() (
     extension_verify "$root" "$hierarchy" "after unmerge" "$@"
 )
 
+extension_verify_mount_option() (
+    local target=${1:?}
+    local option=${2:?}
+
+    grep "^sysext" /proc/mounts | while read -r _ tgt _ opts _ _; do
+        if [[ "$target" == "$tgt" && ! "$opts" =~ .*"$option".* ]]; then
+            echo >&2 "Mount options ($opts) do not include expected option ($option)"
+            exit 1
+        fi
+    done
+)
+
 run_systemd_sysext() {
     local root=${1:-}
     shift
@@ -328,6 +340,25 @@ extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
 run_systemd_sysext "$fake_root" unmerge
 extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 (! touch "$fake_root$hierarchy/should-still-fail-on-read-only-fs")
+)
+
+
+( init_trap
+: "No extension data in /var/lib/extensions.mutable/…, R/O hierarchy, mutability disabled by default, read-only merged, default, mount options"
+fake_root=${roots_dir:+"$roots_dir/simple-read-only-with-read-only-hierarchy-options"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS="metacopy=off,noatime"\
+ run_systemd_sysext "$fake_root" merge
+
+extension_verify_mount_option "$hierarchy" metacopy=off
+extension_verify_mount_option "$hierarchy" noatime
+
+run_systemd_sysext "$fake_root" unmerge
 )
 
 
@@ -434,6 +465,39 @@ run_systemd_sysext "$fake_root" unmerge
 extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 test -f "$extension_data_dir/now-is-mutable"
 test ! -f "$fake_root$hierarchy/now-is-mutable"
+)
+
+
+( init_trap
+: "Extension data in /var/lib/extensions.mutable/…, R/O hierarchy, auto-mutability, mutable merged, mount options"
+fake_root=${roots_dir:+"$roots_dir/simple-mutable-with-read-only-hierarchy-options"}
+hierarchy=/opt
+extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+
+[[ "$FSTYPE" == "fuseblk" ]] && exit 0
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_extension_mutable_dir "$extension_data_dir"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" --mutable=auto merge
+
+cat /proc/mounts | grep "^sysext"
+
+extension_verify_mount_option "$fake_root$hierarchy" index=off
+extension_verify_mount_option "$fake_root$hierarchy" metacopy=off
+extension_verify_mount_option "$fake_root$hierarchy" noatime
+(! extension_verify_mount_option "$fake_root$hierarchy" redirect_dir=off)
+
+SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS="relatime,metacopy=on"\
+ run_systemd_sysext "$fake_root" --mutable=auto refresh
+
+(! extension_verify_mount_option "$fake_root$hierarchy" metacopy=off)
+(! extension_verify_mount_option "$fake_root$hierarchy" noatime)
+extension_verify_mount_option "$fake_root$hierarchy" relatime
+
+run_systemd_sysext "$fake_root" unmerge
 )
 
 
