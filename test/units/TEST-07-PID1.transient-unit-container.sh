@@ -77,7 +77,7 @@ temporary_mount_hack() {
 # FS; 4) the host's /usr directory read only.
 make_mounts() {
     # Host bind mount for the output file. Systemd will make the container's version.
-    mkdir -p "$HOST_OUT_DIR"
+    mkdir -p "$HOST_OUT_DIR"/.etc-overlay/{upper,work}
     CLEANUP_PATHS+=("$HOST_OUT_DIR")
 
     temporary_mount_hack
@@ -93,13 +93,21 @@ make_mounts() {
     # using -p BindReadOnlyPaths=/usr instead of this, but that didn't work.
     # Debugging that got hairy, so I'm going with this for now.
     mkdir -p "${CONTAINER_ROOT_FS}/usr"
+    mkdir -p "${CONTAINER_ROOT_FS}/etc"
 
-    mount --bind /usr "${CONTAINER_ROOT_FS}/usr"
-    mount -o remount,bind,ro "${CONTAINER_ROOT_FS}/usr"
+    mount -o bind,ro /usr "${CONTAINER_ROOT_FS}/usr"
+    # We need some files from /etc/ in the container, yet we want to modify other files under
+    # it without touching host's /etc/. To get around this, prepare a writable overlay with
+    # the host's /etc/ that we can use in the container.
+    mount -t overlay -o "lowerdir=/etc,upperdir=${HOST_OUT_DIR}/.etc-overlay/upper,workdir=${HOST_OUT_DIR}/.etc-overlay/work" /etc "${CONTAINER_ROOT_FS}/etc"
 
     # Make sure /root/usr is unmounted before /root.
     # Don't add to CLEANUP_PATHS because it will be removed when /root is.
-    CLEANUP_MOUNTS=( "${CONTAINER_ROOT_FS}/usr" "${CLEANUP_MOUNTS[@]}" )
+    CLEANUP_MOUNTS=(
+        "${CONTAINER_ROOT_FS}/usr"
+        "${CONTAINER_ROOT_FS}/etc"
+        "${CLEANUP_MOUNTS[@]}"
+    )
 }
 
 # Create a test-service unit file that will run via the container's systemd and
