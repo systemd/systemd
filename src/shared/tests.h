@@ -7,6 +7,7 @@
 #include "errno-util.h"
 #include "forward.h"
 #include "log.h"
+#include "log-assert-critical.h"
 #include "static-destruct.h"
 #include "signal-util.h"
 #include "stdio-util.h"
