@@ -472,8 +472,8 @@ RootImage=$MINIMAL_IMAGE.raw
 ExtensionImages=/tmp/app0.raw /tmp/app1.raw:nosuid
 # Relevant only for sanitizer runs
 UnsetEnvironment=LD_PRELOAD
-ExecStart=bash -c '/opt/script0.sh | grep ID'
-ExecStart=bash -c '/opt/script1.sh | grep ID'
+ExecStart=bash -o pipefail -c '/opt/script0.sh | grep ID'
+ExecStart=bash -o pipefail -c '/opt/script1.sh | grep ID'
 Type=oneshot
 RemainAfterExit=yes
 EOF
@@ -490,7 +490,7 @@ mkdir "$VDIR" "$EMPTY_VDIR"
 ln -s /tmp/app0.raw "$VDIR/${VBASE}_0.raw"
 ln -s /tmp/app1.raw "$VDIR/${VBASE}_1.raw"
 
-systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" bash -c '/opt/script1.sh | grep ID'
+systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" bash -o pipefail -c '/opt/script1.sh | grep ID'
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
@@ -587,7 +587,7 @@ EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
 ExtensionDirectories=-${VDIR}
-ExecStart=bash -x -c ' \\
+ExecStart=bash -o pipefail -x -c ' \\
     trap "{ \\
         systemd-notify --reloading; \\
         (ls /etc | grep marker || echo no-marker) >/tmp/markers/50g; \\
@@ -628,7 +628,7 @@ EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
 ExtensionImages=-$VDIR2
-ExecStart=bash -x -c ' \\
+ExecStart=bash -o pipefail -x -c ' \\
     trap "{ \\
         systemd-notify --reloading; \\
         (ls /etc | grep marker || echo no-marker) >/tmp/markers/50h; \\
@@ -666,7 +666,7 @@ BindPaths=/tmp/markers/
 RootImage=$MINIMAL_IMAGE.raw
 ExtensionDirectories=-${VDIR}
 NotifyAccess=all
-ExecStart=bash -x -c ' \
+ExecStart=bash -x -o pipefail -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
         stdbuf -o1K printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -701,7 +701,7 @@ BindPaths=/tmp/markers/
 RootDirectory=/tmp/vpickminimg
 ExtensionDirectories=-${VDIR}
 NotifyAccess=all
-ExecStart=bash -x -c ' \
+ExecStart=bash -x -o pipefail -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
         stdbuf -o1K printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
@@ -731,7 +731,7 @@ RootImage=$MINIMAL_IMAGE.raw
 ExtensionImages=-$VDIR2 /tmp/app0.raw
 PrivateUsers=yes
 NotifyAccess=all
-ExecStart=bash -x -c ' \
+ExecStart=bash -x -o pipefail -c ' \
     trap '"'"' \
         now=\$\$(grep "^now" /proc/timer_list | cut -d" " -f3 | rev | cut -c 4- | rev); \
         stdbuf -o1K printf "RELOADING=1\\nMONOTONIC_USEC=\$\${now}\\n" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; \
