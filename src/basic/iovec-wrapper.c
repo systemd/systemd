@@ -59,7 +59,7 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         return 0;
 }
 
-int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const char *value) {
+int iovw_put_string_field_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *value) {
         _cleanup_free_ char *x = NULL;
         int r;
 
@@ -68,6 +68,14 @@ int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const c
         x = strjoin(field, value);
         if (!x)
                 return -ENOMEM;
+
+        if (replace)
+                FOREACH_ARRAY(iovec, iovw->iovec, iovw->count)
+                        if (memory_startswith(iovec->iov_base, iovec->iov_len, field)) {
+                                iovec->iov_len = strlen(x);
+                                free_and_replace(iovec->iov_base, x);
+                                return 0;
+                        }
 
         r = iovw_put(iovw, x, strlen(x));
         if (r >= 0)
