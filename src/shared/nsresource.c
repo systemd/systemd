@@ -400,8 +400,8 @@ int nsresource_add_netif_tap(
                 return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to add network to user namespace: %s", error_id);
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "hostInterfaceName",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(InterfaceParams, host_interface_name),      SD_JSON_MANDATORY },
-                { "interfaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,   offsetof(InterfaceParams, namespace_interface_name), SD_JSON_MANDATORY },
+                { "hostInterfaceName",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(InterfaceParams, host_interface_name), SD_JSON_MANDATORY },
+                { "interfaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,   offsetof(InterfaceParams, interface_fd_index),  SD_JSON_MANDATORY },
         };
 
         _cleanup_(interface_params_done) InterfaceParams p = {};
