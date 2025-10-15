@@ -2311,6 +2311,7 @@ static int run(int argc, char *argv[]) {
                                         arg_image,
                                         userns_fd,
                                         arg_image_policy,
+                                        &arg_verity_settings,
                                         arg_flags,
                                         &m);
                         if (r < 0)
