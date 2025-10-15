@@ -375,6 +375,60 @@ static int loop_configure(
         return 0;
 }
 
+/*
+ * Reads /sys/dev/block/<major>:<minor>/queue/discard_max_bytes for a given block device.
+ * In the kernel, this value is derived from the queue parameter max_discard_sectors (uint32_t)
+ * by shifting it left by 9 bits to convert sectors to bytes.
+ *
+ * As a result, discard_max_bytes can never exceed 41 bits. Using int64_t here is therefore safe to
+ * return both the value and use negative values to indicate errors
+ */
+static int64_t fd_get_max_discard(int fd) {
+        struct stat st;
+        char sysfs_path[STRLEN("/sys/dev/block/" ":" "/queue/discard_max_bytes") + DECIMAL_STR_MAX(dev_t) * 2 + 1];
+        _cleanup_free_ char *buffer = NULL;
+        int64_t max_discard_bytes;
+        int r;
+
+        if (fstat(ASSERT_FD(fd), &st) < 0)
+                return -errno;
+
+        if (!S_ISBLK(st.st_mode))
+                return -ENOTBLK;
+
+        xsprintf(sysfs_path, "/sys/dev/block/" DEVNUM_FORMAT_STR "/queue/discard_max_bytes", DEVNUM_FORMAT_VAL(st.st_rdev));
+
+        r = read_one_line_file(sysfs_path, &buffer);
+        if (r < 0)
+                return r;
+
+        r = safe_atoi64(buffer, &max_discard_bytes);
+        if (r < 0)
+                return r;
+
+        return max_discard_bytes;
+}
+
+static int fd_set_max_discard(int fd, uint64_t max_discard) {
+        struct stat st;
+        char sysfs_path[STRLEN("/sys/dev/block/" ":" "/queue/discard_max_bytes") + DECIMAL_STR_MAX(dev_t) * 2 + 1];
+        int r;
+
+        if (fstat(ASSERT_FD(fd), &st) < 0)
+                return -errno;
+
+        if (!S_ISBLK(st.st_mode))
+                return -ENOTBLK;
+
+        xsprintf(sysfs_path, "/sys/dev/block/" DEVNUM_FORMAT_STR "/queue/discard_max_bytes", DEVNUM_FORMAT_VAL(st.st_rdev));
+
+        r = write_string_filef(sysfs_path, 0, "%" PRIu64, max_discard);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int loop_device_make_internal(
                 const char *path,
                 int fd,
@@ -392,6 +446,7 @@ static int loop_device_make_internal(
         struct loop_config config;
         int r, f_flags;
         struct stat st;
+        int64_t discard_max_bytes;
 
         assert(ret);
         assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
@@ -570,6 +625,15 @@ static int loop_device_make_internal(
                                         UINT64_C(240) * USEC_PER_MSEC * n_attempts/64);
                 log_debug("Trying again after %s.", FORMAT_TIMESPAN(usec, USEC_PER_MSEC));
                 (void) usleep_safe(usec);
+        }
+
+        discard_max_bytes = fd_get_max_discard(fd);
+        /* If we could not determine discard_max_bytes, e.g. if the fd is a regular file not a block device
+         * or when running in a chroot without /sys mounted, keep loop dev defaults */
+        if (discard_max_bytes >= 0) {
+                r = fd_set_max_discard(d->fd, (uint64_t) discard_max_bytes);
+                if (r < 0)
+                        return r;
         }
 
         d->backing_file = TAKE_PTR(backing_file);
