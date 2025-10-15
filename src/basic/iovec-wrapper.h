@@ -33,7 +33,13 @@ static inline bool iovw_isempty(const struct iovec_wrapper *iovw) {
         return !iovw || iovw->count == 0;
 }
 
-int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const char *value);
+int iovw_put_string_field_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *value);
+static inline int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const char *value) {
+        return iovw_put_string_field_full(iovw, false, field, value);
+}
+static inline int iovw_replace_string_field(struct iovec_wrapper *iovw, const char *field, const char *value) {
+        return iovw_put_string_field_full(iovw, true, field, value);
+}
 int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, char *value);
 void iovw_rebase(struct iovec_wrapper *iovw, void *old, void *new);
 size_t iovw_size(const struct iovec_wrapper *iovw);
