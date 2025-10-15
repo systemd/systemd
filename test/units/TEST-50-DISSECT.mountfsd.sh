@@ -70,7 +70,6 @@ systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/
 # If the kernel support is present unprivileged user units should be able to use verity images too
 if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     systemd-run -M testuser@ --user --pipe --wait \
-        --property PrivateUsers=yes \
         --property RootImage="$MINIMAL_IMAGE.gpt" \
         test -e "/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity"
 fi
