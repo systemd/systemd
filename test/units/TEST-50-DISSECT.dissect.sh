@@ -9,6 +9,9 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+# For unprivileged tests
+loginctl enable-linger testuser
+
 # Requires kernel built with certain kconfigs, as listed in README:
 # https://oracle.github.io/kconfigs/?config=UTS_RELEASE&config=DM_VERITY_VERIFY_ROOTHASH_SIG&config=DM_VERITY_VERIFY_ROOTHASH_SIG_SECONDARY_KEYRING&config=DM_VERITY_VERIFY_ROOTHASH_SIG_PLATFORM_KEYRING&config=IMA_ARCH_POLICY&config=INTEGRITY_MACHINE_KEYRING
 if grep -q "$(openssl x509 -noout -subject -in /usr/share/mkosi.crt | sed 's/^.*CN=//')" /proc/keys && \
@@ -143,6 +146,14 @@ systemd-run -P \
             cat /usr/lib/os-release | grep -q -F "MARKER=1"
 mv "$MINIMAL_IMAGE.fooverity" "$MINIMAL_IMAGE.verity"
 mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
+
+# In combination with mountfsd and PrivateUsers we should be able to use a verity image
+# in a user unit too
+run0 -u testuser \
+    systemd-run --user -P \
+                --property PrivateUsers=yes \
+                --property RootImage="$MINIMAL_IMAGE.raw" \
+                test -e "/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity"
 
 # Derive partition UUIDs from root hash, in UUID syntax
 ROOT_UUID="$(systemd-id128 -u show "$(head -c 32 "$MINIMAL_IMAGE.roothash")" -u | tail -n 1 | cut -b 6-)"

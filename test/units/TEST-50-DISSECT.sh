@@ -25,6 +25,8 @@ at_exit() {
     done < <(find "${IMAGE_DIR}" -mindepth 1 -maxdepth 1 -type d)
 
     rm -rf "$IMAGE_DIR"
+
+    loginctl disable-linger testuser
 }
 
 trap at_exit EXIT
@@ -102,6 +104,7 @@ fi
 udevadm control --log-level=debug
 
 IMAGE_DIR="$(mktemp -d --tmpdir="" TEST-50-IMAGES.XXX)"
+chmod go+rx "$IMAGE_DIR"
 cp -v /usr/share/minimal* "$IMAGE_DIR/"
 MINIMAL_IMAGE="$IMAGE_DIR/minimal_0"
 MINIMAL_IMAGE_ROOTHASH="$(<"$MINIMAL_IMAGE.roothash")"
