@@ -257,10 +257,20 @@ static void process_arguments(
         EFI_SHELL_PARAMETERS_PROTOCOL *shell;
         if (BS->HandleProtocol(stub_image, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), (void **) &shell) != EFI_SUCCESS) {
 
-                /* We also do a superficial check whether first character of passed command line
-                 * is printable character (for compat with some Dell systems which fill in garbage?). */
-                if (loaded_image->LoadOptionsSize < sizeof(char16_t) || ((const char16_t *) loaded_image->LoadOptions)[0] <= 0x1F)
+                if (loaded_image->LoadOptionsSize < sizeof(char16_t))
                         goto nothing;
+
+                /* Superficial check to ensure the load options data looks like it might be a printable
+                 * string. Some Dell and other systems fill in binary data in UEFI entries that are generated
+                 * by the firmware. The UEFI specification allows this. See
+                 * https://uefi.org/specs/UEFI/2.10/03_Boot_Manager.html#load-options */
+                for (uint32_t i = 0; i != loaded_image->LoadOptionsSize; i++) {
+                        char16_t c = ((const char16_t *) loaded_image->LoadOptions)[i];
+                        if (c == L'\0')
+                                break;
+                        if (c <= 0x1F)
+                                goto nothing;
+                }
 
                 /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
                  * it could actually be anything! */
