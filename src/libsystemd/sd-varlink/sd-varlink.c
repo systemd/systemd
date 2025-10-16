@@ -1688,6 +1688,14 @@ _public_ int sd_varlink_is_idle(sd_varlink *v) {
         return IN_SET(v->state, VARLINK_DISCONNECTED, VARLINK_IDLE_CLIENT, VARLINK_IDLE_SERVER);
 }
 
+_public_ int sd_varlink_is_connected(sd_varlink *v) {
+        assert_return(v, -EINVAL);
+
+        /* Returns true if the connection is still connected */
+
+        return v->state != VARLINK_DISCONNECTED;
+}
+
 _public_ int sd_varlink_get_fd(sd_varlink *v) {
 
         assert_return(v, -EINVAL);
