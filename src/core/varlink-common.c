@@ -36,6 +36,7 @@ int rlimit_build_json(sd_json_variant **ret, const char *name, void *userdata) {
 }
 
 int rlimit_table_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         struct rlimit **rl = ASSERT_PTR(userdata);
         int r;
 
@@ -43,11 +44,13 @@ int rlimit_table_build_json(sd_json_variant **ret, const char *name, void *userd
 
         for (int i = 0; i < _RLIMIT_MAX; i++) {
                 r = sd_json_variant_merge_objectbo(
-                        ret,
+                        &v,
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL(rlimit_to_string(i), rlimit_build_json, rl[i]));
                 if (r < 0)
                         return r;
         }
+
+        *ret = TAKE_PTR(v);
 
         return 0;
 }
