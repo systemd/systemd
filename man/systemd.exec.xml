@@ -275,7 +275,7 @@
         image. There's currently no option to configure the root hash for the <filename>/usr/</filename> file
         system via the unit file directly.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
@@ -298,7 +298,7 @@
         configure the root hash signature for the <filename>/usr/</filename> via the unit file
         directly.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
@@ -319,7 +319,7 @@
         <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">
           Discoverable Partitions Specification</ulink>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>

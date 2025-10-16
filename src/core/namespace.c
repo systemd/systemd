@@ -2604,6 +2604,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                         p->root_image,
                                         userns_fd,
                                         p->root_image_policy,
+                                        p->verity,
                                         dissect_image_flags,
                                         &dissected_image);
                         if (r < 0)
