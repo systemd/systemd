@@ -4,7 +4,7 @@
 #include <linux/nl80211.h>
 
 #include "conf-parser-forward.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef struct NetMatch {
         Set *hw_addr;

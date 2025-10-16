@@ -3,7 +3,7 @@
 
 #include "sd-device.h" /* IWYU pragma: export */
 
-#include "forward.h"
+#include "sd-forward.h"
 
 int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum);
 int device_new_from_nulstr(sd_device **ret, char *nulstr, size_t len);

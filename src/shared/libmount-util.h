@@ -5,7 +5,7 @@
 #include <libmount.h> /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 extern DLSYM_PROTOTYPE(mnt_free_iter);
 extern DLSYM_PROTOTYPE(mnt_free_table);

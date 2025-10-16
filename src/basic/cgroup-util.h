@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
 #define SYSTEMD_CGROUP_CONTROLLER_HYBRID "name=unified"

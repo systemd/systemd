@@ -2,7 +2,7 @@
 #pragma once
 
 #include "ask-password-api.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "iovec-util.h"
 #include "sha256.h"
 

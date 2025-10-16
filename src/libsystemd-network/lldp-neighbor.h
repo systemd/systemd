@@ -5,7 +5,7 @@
 
 #include "sd-lldp-rx.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "memory-util.h"
 #include "time-util.h"
 

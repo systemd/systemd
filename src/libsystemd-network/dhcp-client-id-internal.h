@@ -6,7 +6,7 @@
 #include "sd-dhcp-client-id.h"
 
 #include "dhcp-duid-internal.h"
-#include "forward.h"
+#include "sd-forward.h"
 #include "sparse-endian.h"
 
 /* RFC 2132 section 9.14: its minimum length is 2.

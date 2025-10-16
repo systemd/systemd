@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 
 /* Various calls for interfacing with EFI variables from the official UEFI specs. */
 

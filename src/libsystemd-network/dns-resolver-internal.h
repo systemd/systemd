@@ -3,7 +3,7 @@
 
 #include "sd-dns-resolver.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "socket-netlink.h"
 
 /* https://www.iana.org/assignments/dns-svcb/dns-svcb.xhtml#dns-svcparamkeys */

@@ -5,7 +5,7 @@
 #include <string.h>
 #include <syslog.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef enum LogTarget{
         LOG_TARGET_CONSOLE,

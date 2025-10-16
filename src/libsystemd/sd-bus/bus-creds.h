@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "sd-forward.h"
 
 typedef struct sd_bus_creds {
         bool allocated;

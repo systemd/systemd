@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "log-link.h"
 #include "sparse-endian.h"
 #include "time-util.h"

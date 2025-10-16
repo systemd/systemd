@@ -6,7 +6,7 @@
 #include "sd-varlink.h"
 
 #include "list.h"
-#include "forward.h"
+#include "sd-forward.h"
 
 typedef enum VarlinkState {
         /* Client side states */

@@ -3,7 +3,7 @@
 
 #include <sys/pidfd.h>          /* IWYU pragma: export */
 
-#include "forward.h"
+#include "basic-forward.h"
 
 int pidfd_get_namespace(int fd, unsigned long ns_type_cmd);
 

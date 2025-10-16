@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef enum ProcCmdlineFlags {
         PROC_CMDLINE_STRIP_RD_PREFIX    = 1 << 0, /* automatically strip "rd." prefix if it is set (and we are in the initrd, since otherwise we'd not consider it anyway) */

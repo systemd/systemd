@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 
 #include "constants.h"
-#include "forward.h"
+#include "sd-forward.h"
 
 #define NETWORK_DIRS ((const char* const*) CONF_PATHS_STRV("systemd/network"))
 #define NETWORK_DIRS_NULSTR CONF_PATHS_NULSTR("systemd/network")
