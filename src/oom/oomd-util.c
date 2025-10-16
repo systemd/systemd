@@ -9,6 +9,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "memstream-util.h"
+#include "oomd-manager.h"
 #include "oomd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -22,14 +23,6 @@
 #include "string-util.h"
 #include "time-util.h"
 #include "varlink-util.h"
-
-struct OomdKillState {
-        unsigned int n_ref;
-        char *path;
-        bool recurse;
-        usec_t prekill_timeout;
-        sd_event *event;
-};
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 oomd_cgroup_ctx_hash_ops,
@@ -279,12 +272,6 @@ int oomd_cgroup_kill(const char *path, bool recurse) {
                 log_debug_errno(r, "Failed to set user.oomd_kill on kill: %m");
 
         return !set_isempty(pids_killed);
-}
-
-static void oom_kill_state_free(struct OomdKillState *ks) {
-        if (ks)
-                free(ks->path);
-        free(ks);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct OomdKillState*, oom_kill_state_free, NULL);

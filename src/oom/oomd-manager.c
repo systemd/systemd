@@ -788,6 +788,18 @@ static int manager_varlink_init(Manager *m, int fd) {
         return 0;
 }
 
+static int oomd_kill_state_exit_free(sd_event_source *s, void *userdata) {
+        struct OomdKillState **ksp = userdata;
+
+        if (!ksp)
+                return 0;
+
+        oom_kill_state_free(*ksp);
+        *ksp = NULL;
+
+        return 0;
+}
+
 int manager_start(
                 Manager *m,
                 bool dry_run,
@@ -816,6 +828,10 @@ int manager_start(
                 return r;
 
         r = monitor_swap_contexts(m);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_exit(m->event, NULL, oomd_kill_state_exit_free, &m->last_kill_state);
         if (r < 0)
                 return r;
 
