@@ -881,7 +881,7 @@ static int dissect_image(
                         encrypted = streq_ptr(fstype, "crypto_LUKS");
 
                         if (verity_settings_data_covers(verity, PARTITION_ROOT))
-                                found_flags = verity->root_hash_sig ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
+                                found_flags = verity->root_hash_sig_size > 0 ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
                         else
                                 found_flags = encrypted ? PARTITION_POLICY_ENCRYPTED : PARTITION_POLICY_UNPROTECTED;
 
