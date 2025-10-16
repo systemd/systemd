@@ -4491,6 +4491,9 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                context->n_temporary_filesystems > 0 ||
                context->root_directory ||
                !strv_isempty(context->extension_directories) ||
+               context->root_image ||
+               context->n_mount_images > 0 ||
+               context->n_extension_images > 0 ||
                context->protect_system != PROTECT_SYSTEM_NO ||
                context->protect_home != PROTECT_HOME_NO ||
                exec_needs_pid_namespace(context, params) ||

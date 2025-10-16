@@ -60,6 +60,7 @@
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "resize-fs.h"
+#include "runtime-scope.h"
 #include "signal-util.h"
 #include "siphash24.h"
 #include "stat-util.h"
@@ -4416,11 +4417,13 @@ int verity_dissect_and_mount(
                 const ExtensionReleaseData *extension_release_data,
                 ImageClass required_class,
                 VeritySettings *verity,
+                RuntimeScope runtime_scope,
                 DissectedImage **ret_image) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(verity_settings_done) VeritySettings local_verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_close_ int userns_fd = -EBADF;
         DissectImageFlags dissect_image_flags;
         bool relax_extension_release_check;
         int r;
@@ -4451,55 +4454,70 @@ int verity_dissect_and_mount(
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
                 DISSECT_IMAGE_VERITY_SHARE;
 
-        /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
-         * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
-        r = loop_device_make_by_path(
-                        src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
-                        /* open_flags= */ -1,
-                        /* sector_size= */ UINT32_MAX,
-                        verity->data_path ? 0 : LO_FLAGS_PARTSCAN,
-                        LOCK_SH,
-                        &loop_device);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to create loop device for image: %m");
+        if (runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
+                * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
+                r = loop_device_make_by_path(
+                                src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
+                                /* open_flags= */ -1,
+                                /* sector_size= */ UINT32_MAX,
+                                verity->data_path ? 0 : LO_FLAGS_PARTSCAN,
+                                LOCK_SH,
+                                &loop_device);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to create loop device for image: %m");
 
-        r = dissect_loop_device(
-                        loop_device,
-                        verity,
-                        options,
-                        image_policy,
-                        image_filter,
-                        dissect_image_flags,
-                        &dissected_image);
-        /* No partition table? Might be a single-filesystem image, try again */
-        if (!verity->data_path && r == -ENOPKG)
-                 r = dissect_loop_device(
+                r = dissect_loop_device(
                                 loop_device,
                                 verity,
                                 options,
                                 image_policy,
                                 image_filter,
-                                dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
+                                dissect_image_flags,
                                 &dissected_image);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to dissect image: %m");
+                /* No partition table? Might be a single-filesystem image, try again */
+                if (!verity->data_path && r == -ENOPKG)
+                        r = dissect_loop_device(
+                                        loop_device,
+                                        verity,
+                                        options,
+                                        image_policy,
+                                        image_filter,
+                                        dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
+                                        &dissected_image);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to dissect image: %m");
 
-        r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, verity);
-        if (r < 0)
-                return r;
+                r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, verity);
+                if (r < 0)
+                        return r;
 
-        r = dissected_image_guess_verity_roothash(dissected_image, verity);
-        if (r < 0)
-                return r;
+                r = dissected_image_guess_verity_roothash(dissected_image, verity);
+                if (r < 0)
+                        return r;
 
-        r = dissected_image_decrypt(
-                        dissected_image,
-                        NULL,
-                        verity,
-                        image_policy,
-                        dissect_image_flags);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+                r = dissected_image_decrypt(
+                                dissected_image,
+                                NULL,
+                                verity,
+                                image_policy,
+                                dissect_image_flags);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+        } else {
+                userns_fd = namespace_open_by_type(NAMESPACE_USER);
+                if (userns_fd < 0)
+                        return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
+
+                r = mountfsd_mount_image(
+                                src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
+                                userns_fd,
+                                image_policy,
+                                dissect_image_flags,
+                                &dissected_image);
+                if (r < 0)
+                        return r;
+        }
 
         if (dest) {
                 r = mkdir_p_label(dest, 0755);
@@ -4515,14 +4533,16 @@ int verity_dissect_and_mount(
                         dest,
                         /* uid_shift= */ UID_INVALID,
                         /* uid_range= */ UID_INVALID,
-                        /* userns_fd= */ -EBADF,
+                        userns_fd,
                         dissect_image_flags);
         if (r < 0)
                 return log_debug_errno(r, "Failed to mount image: %m");
 
-        r = loop_device_flock(loop_device, LOCK_UN);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to unlock loopback device: %m");
+        if (loop_device) {
+                r = loop_device_flock(loop_device, LOCK_UN);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to unlock loopback device: %m");
+        }
 
         /* If we got os-release values from the caller, then we need to match them with the image's
          * extension-release.d/ content. Return -EINVAL if there's any mismatch.

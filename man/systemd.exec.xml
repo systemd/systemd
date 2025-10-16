@@ -201,7 +201,7 @@
 
         <xi:include href="vpick.xml" xpointer="image"/>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
@@ -225,7 +225,7 @@
         <constant>esp</constant>, <constant>xbootldr</constant>, <constant>tmp</constant>,
         <constant>var</constant>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
@@ -523,7 +523,7 @@
         <varname>PrivateDevices=</varname> below, as it may change the setting of
         <varname>DevicePolicy=</varname>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
@@ -590,7 +590,7 @@
 
         <xi:include href="vpick.xml" xpointer="image"/>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
