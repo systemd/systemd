@@ -3,7 +3,7 @@
 
 #include <sys/stat.h>
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "iterator.h"
 #include "sparse-endian.h"
 

@@ -2,7 +2,7 @@
 #pragma once
 
 #include "bus-map-properties.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 int verb_list_machines(int argc, char *argv[], void *userdata);
 

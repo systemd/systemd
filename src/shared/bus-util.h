@@ -4,7 +4,7 @@
 #include "sd-bus.h" /* IWYU pragma: export */
 
 #include "log.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum BusTransport {
         BUS_TRANSPORT_LOCAL,

@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum PromptFlags {
         PROMPT_MAY_SKIP        = 1 << 0, /* Question may be skipped */

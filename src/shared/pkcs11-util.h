@@ -12,7 +12,7 @@
 
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 bool pkcs11_uri_valid(const char *uri);
 

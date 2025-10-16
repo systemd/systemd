@@ -4,7 +4,7 @@
 #include <curl/curl.h>
 #include <sys/stat.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "import-compress.h"
 #include "openssl-util.h"
 

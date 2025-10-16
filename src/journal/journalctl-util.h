@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "logs-show.h"
 
 /* The lists below are supposed to return the superset of unit names possibly matched by rules added with

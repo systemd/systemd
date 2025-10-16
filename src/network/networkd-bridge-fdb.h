@@ -8,7 +8,7 @@
 #include <linux/neighbour.h>
 #include <net/ethernet.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "in-addr-util.h"
 #include "networkd-forward.h"
 

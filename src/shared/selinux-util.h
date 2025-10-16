@@ -3,7 +3,7 @@
 
 #include <sys/socket.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 #if HAVE_SELINUX
 #include <selinux/avc.h>

@@ -4,7 +4,7 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "gpt.h"
 #include "list.h"
 
