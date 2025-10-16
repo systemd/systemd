@@ -5,7 +5,7 @@
 
 #include "alloc-util.h"
 #include "conf-parser-forward.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "log.h"
 
 /* An abstract parser for simple, line based, shallow configuration files consisting of variable assignments only. */

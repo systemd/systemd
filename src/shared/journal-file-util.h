@@ -2,7 +2,7 @@
 #pragma once
 
 #include "journal-file.h" /* IWYU pragma: export */
-#include "forward.h"
+#include "shared-forward.h"
 
 int journal_file_set_offline(JournalFile *f, bool wait);
 bool journal_file_is_offlining(JournalFile *f);

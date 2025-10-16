@@ -2,7 +2,7 @@
 #pragma once
 
 #include "conf-parser-forward.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "in-addr-util.h"
 
 struct in_addr_prefix {
