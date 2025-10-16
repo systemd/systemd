@@ -408,7 +408,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
 
                 threshold = m->system_context.swap_total * THRESHOLD_SWAP_USED_PERCENT / 100;
-                r = oomd_kill_by_swap_usage(candidates, threshold, m->dry_run, &selected);
+                r = oomd_kill_by_swap_usage(candidates, threshold, m->dry_run, &selected, &(struct PreKillContext){m->prekill_timeout, m->event});
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
@@ -528,7 +528,11 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates,
                                                      /* prefix= */ t->path,
                                                      /* dry_run= */ m->dry_run,
-                                                     &selected);
+                                                     &selected,
+                                                     &(struct PreKillContext){
+                                                        m->prekill_timeout,
+                                                        m->event
+                                                     });
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
@@ -784,6 +788,18 @@ static int manager_varlink_init(Manager *m, int fd) {
         return 0;
 }
 
+static int oomd_kill_state_exit_free(sd_event_source *s, void *userdata) {
+        struct OomdKillState **ksp = userdata;
+
+        if (!ksp)
+                return 0;
+
+        oom_kill_state_free(*ksp);
+        *ksp = NULL;
+
+        return 0;
+}
+
 int manager_start(
                 Manager *m,
                 bool dry_run,
@@ -812,6 +828,10 @@ int manager_start(
                 return r;
 
         r = monitor_swap_contexts(m);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_exit(m->event, NULL, oomd_kill_state_exit_free, &m->last_kill_state);
         if (r < 0)
                 return r;
 
