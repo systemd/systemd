@@ -79,6 +79,7 @@ extern DLSYM_PROTOTYPE(crypt_set_data_offset);
 extern DLSYM_PROTOTYPE(crypt_header_restore);
 extern DLSYM_PROTOTYPE(crypt_volume_key_keyring);
 extern DLSYM_PROTOTYPE(crypt_wipe);
+extern DLSYM_PROTOTYPE(crypt_get_integrity_info);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, crypt_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, sym_crypt_free, NULL);
