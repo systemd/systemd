@@ -47,6 +47,7 @@ int varlink_method_ping(sd_varlink *link, sd_json_variant *parameters, sd_varlin
         int r;
 
         assert(link);
+        assert(parameters);
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
