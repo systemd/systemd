@@ -2,11 +2,11 @@
 
 #include "sd-event.h"
 
-#include "resolved-dns-answer.h"
-#include "resolved-dns-packet.h"
+#include "dns-answer.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
