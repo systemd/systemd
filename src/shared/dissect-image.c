@@ -395,6 +395,112 @@ static int image_policy_check_protection(
         return 0;
 }
 
+/* internal LUKS2 header defines */
+#define LUKS2_FIXED_HDR_SIZE 0x1000
+#define LUKS2_MAGIC "LUKS\xba\xbe"
+
+/* cryptsetup needs a loop device to work with a partition which has offset/size but
+ * dissect may be running unpriviliged. Implement a minimal custom LUKS header parser
+ * checking integrity protection information. */
+static int partition_is_luks2_integrity(int part_fd, uint64_t offset, uint64_t size) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ char *json = NULL;
+        sd_json_variant *w, *x, *y, *z;
+        const char *key, *type;
+        char luks_magic[sizeof(LUKS2_MAGIC) - 1];
+        be16_t version;
+        be64_t hdr_len;
+        ssize_t sz, json_len;
+        int r;
+
+        if (size < LUKS2_FIXED_HDR_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Partition is too small to contain a LUKS header.");
+
+        if (lseek(part_fd, offset, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to seek to the beginning of the partition.");
+
+        sz = read(part_fd, luks_magic, sizeof(luks_magic));
+        if (sz < 0)
+                return log_error_errno(errno, "Failed to read LUKS magic.");
+        if (sz != sizeof(luks_magic))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read LUKS magic.");
+
+        if (memcmp(luks_magic, LUKS2_MAGIC, sizeof(luks_magic)) != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Partition's magic is not LUKS.");
+
+        sz = read(part_fd, &version, sizeof(version));
+        if (sz < 0)
+                return log_error_errno(errno, "Failed to read LUKS version.");
+        if (sz != sizeof(version))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read LUKS version.");
+        if (be16toh(version) != 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported LUKS header version: %d.", be16toh(version));
+
+        sz = read(part_fd, &hdr_len, sizeof(hdr_len));
+        if (sz < 0)
+                return log_error_errno(errno, "Failed to read LUKS header length.");
+        if (sz != sizeof(hdr_len))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read LUKS header length.");
+
+        if (size > 0 && be64toh(hdr_len) > size)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS header length exceeds partition size.");
+
+        if (be64toh(hdr_len) <= LUKS2_FIXED_HDR_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid LUKS header length: %lu.", be64toh(hdr_len));
+
+        json_len = be64toh(hdr_len) - LUKS2_FIXED_HDR_SIZE;
+        json = malloc0(json_len);
+        if (!json)
+                return -ENOMEM;
+
+        if (lseek(part_fd, offset + LUKS2_FIXED_HDR_SIZE, SEEK_SET) < 0)
+                return log_error_errno(errno, "Failed to seek to the beginning of JSON header.");
+
+        sz = read(part_fd, json, json_len);
+        if (sz < 0)
+                return log_error_errno(errno, "Failed to read LUKS JSON header.");
+        if (sz != json_len)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read LUKS JSON header.");
+
+        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse LUKS JSON header.");
+
+        w = sd_json_variant_by_key(v, "segments");
+        if (!w || !sd_json_variant_is_object(w)) {
+                log_debug("LUKS JSON header lacks 'segments' information, assuming no integrity.");
+                return 0;
+        }
+
+        /* Verify that all segments have integrity protection */
+        JSON_VARIANT_OBJECT_FOREACH(key, x, w) {
+                if (!x || !sd_json_variant_is_object(x)) {
+                        log_debug("Unexpected segment '%s' information.", key);
+                        return 0;
+                }
+
+                y = sd_json_variant_by_key(x, "integrity");
+                if (!y || !sd_json_variant_is_object(y)) {
+                        log_debug("Segment %s lacks 'integrity' information, assuming no integrity.", key);
+                        return 0;
+                }
+
+                z = sd_json_variant_by_key(y, "type");
+                if (!z || !sd_json_variant_is_string(z)) {
+                        log_debug("Integrity information for segment %s lacks 'type', assuming no integrity.", key);
+                        return 0;
+                }
+
+                type = sd_json_variant_string(z);
+                /* We don't require a particular integrity algorithm, everything but 'none' (which shouldn't
+                 * be there in the first place but is theoretically possible) works. */
+                if (streq(type, "none"))
+                        return 0;
+        }
+
+        return 1;
+}
+
 static int image_policy_check_partition_flags(
                 const ImagePolicy *policy,
                 PartitionDesignator designator,
@@ -455,7 +561,16 @@ static int dissected_image_probe_filesystems(
 
                 if (streq_ptr(p->fstype, "crypto_LUKS")) {
                         m->encrypted = true;
-                        found_flags = PARTITION_POLICY_UNUSED|PARTITION_POLICY_ENCRYPTED; /* found this one, and its definitely encrypted */
+
+                        if (p->mount_node_fd >= 0)
+                                r = partition_is_luks2_integrity(p->mount_node_fd, 0, UINT64_MAX);
+                        else
+                                r = partition_is_luks2_integrity(fd, p->offset, p->size);
+                        if (r < 0)
+                                return r;
+
+                        /* found this one, it's definitely encrypted + with or without integrity checking */
+                        found_flags = PARTITION_POLICY_UNUSED|(r > 0 ? PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY : PARTITION_POLICY_ENCRYPTED);
                 } else
                         /* found it, but it's definitely not encrypted, hence mask the encrypted flag, but
                          * set all other ways that indicate "present". */
@@ -954,10 +1069,20 @@ static int dissect_image(
 
                         encrypted = streq_ptr(fstype, "crypto_LUKS");
 
+
                         if (verity_settings_data_covers(verity, PARTITION_ROOT))
                                 found_flags = verity->root_hash_sig_size > 0 ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
-                        else
-                                found_flags = encrypted ? PARTITION_POLICY_ENCRYPTED : PARTITION_POLICY_UNPROTECTED;
+                        else {
+                                if (encrypted) {
+                                        r = partition_is_luks2_integrity(fd, 0, UINT64_MAX);
+                                        if (r < 0)
+                                                return r;
+
+                                        found_flags = r > 0 ? PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY : PARTITION_POLICY_ENCRYPTED;
+                                } else
+                                        found_flags = PARTITION_POLICY_UNPROTECTED;
+
+                        }
 
                         r = image_policy_check_protection(policy, PARTITION_ROOT, found_flags);
                         if (r < 0)
@@ -1746,7 +1871,7 @@ static int dissect_image(
                 /* Determine the verity protection level for this partition. */
                 PartitionPolicyFlags found_flags;
                 if (m->partitions[di].found) {
-                        found_flags = PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED;
+                        found_flags = PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED;
 
                         PartitionDesignator vi = partition_verity_hash_of(di);
                         if (vi >= 0 && m->partitions[vi].found) {
