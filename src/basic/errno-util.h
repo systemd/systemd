@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* strerror(3) says that glibc uses a maximum length of 1024 bytes. */
 #define ERRNO_BUF_LEN           1024

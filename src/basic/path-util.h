@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #define PATH_SPLIT_BIN(x) x "sbin:" x "bin"
 #define PATH_SPLIT_BIN_NULSTR(x) x "sbin\0" x "bin\0"

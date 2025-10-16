@@ -2,7 +2,7 @@
 #pragma once
 
 #include "cgroup-util.h"
-#include "forward.h"
+#include "basic-forward.h"
 #include "stdio-util.h"
 
 assert_cc(sizeof(pid_t) == sizeof(int32_t));

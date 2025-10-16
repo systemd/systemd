@@ -6,7 +6,7 @@
 #include "cpu-set-util.h"
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "list.h"
 #include "net-condition.h"
 

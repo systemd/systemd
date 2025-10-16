@@ -2,7 +2,7 @@
 #pragma once
 
 #include "dns-def.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "list.h"
 #include "ratelimit.h"
 #include "resolve-util.h"

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 int parse_env_filev(FILE *f, const char *fname, va_list ap);
 int parse_env_file_fdv(int fd, const char *fname, va_list ap);

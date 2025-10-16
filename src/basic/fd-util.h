@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* maximum length of fdname */
 #define FDNAME_MAX 255

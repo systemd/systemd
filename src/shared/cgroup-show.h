@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int show_cgroup_by_path(const char *path, const char *prefix, size_t n_columns, OutputFlags flags);
 int show_cgroup(const char *controller, const char *path, const char *prefix, size_t n_columns, OutputFlags flags);

@@ -3,7 +3,7 @@
 
 #include <sys/stat.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef enum ConfFilesFlags {
         CONF_FILES_EXECUTABLE               = 1 << 0,

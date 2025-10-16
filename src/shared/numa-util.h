@@ -4,7 +4,7 @@
 #include <sys/mempolicy.h>
 
 #include "cpu-set-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 static inline bool mpol_is_valid(int t) {
         return t >= MPOL_DEFAULT && t <= MPOL_LOCAL;

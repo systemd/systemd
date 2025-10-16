@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* Erase characters until the end of the line */
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"

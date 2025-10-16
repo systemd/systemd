@@ -2,7 +2,7 @@
 #pragma once
 
 #include "bitfield.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "openssl-util.h"
 
 typedef enum TPM2Flags {

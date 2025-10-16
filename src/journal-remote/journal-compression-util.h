@@ -3,7 +3,7 @@
 
 #include "compress.h"
 #include "conf-parser-forward.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef struct CompressionConfig {
         Compression algorithm;

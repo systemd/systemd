@@ -3,7 +3,7 @@
 
 #include "sd-varlink.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 
 int varlink_get_peer_pidref(sd_varlink *v, PidRef *ret);
 

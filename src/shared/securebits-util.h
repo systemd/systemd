@@ -3,7 +3,7 @@
 
 #include <linux/securebits.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int secure_bits_to_string_alloc(int i, char **s);
 int secure_bits_from_string(const char *s);

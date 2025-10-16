@@ -13,7 +13,7 @@
 #include "dhcp-duid-internal.h"
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
-#include "forward.h"
+#include "sd-forward.h"
 #include "network-common.h"
 #include "sparse-endian.h"
 

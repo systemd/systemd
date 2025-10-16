@@ -5,7 +5,7 @@
 #include <nss.h>
 #include <pwd.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "userdb.h"
 
 UserDBFlags nss_glue_userdb_flags(void);

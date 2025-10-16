@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 extern const BusObjectImplementation dnssd_object;
 
