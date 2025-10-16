@@ -205,7 +205,7 @@ def property_grammar():
                    for name, val in props]
     kbd_props = [Regex(r'KEYBOARD_KEY_[0-9a-f]+')('NAME')
                  - Suppress('=') -
-                 ('!' ^ (Optional('!') - Word(alphanums + '_')))('VALUE')
+                 Group('!' ^ (Optional('!') - Word(alphanums + '_')))('VALUE')
                 ]
     abs_props = [Regex(r'EVDEV_ABS_[0-9a-f]{2}')('NAME')
                  - Suppress('=') -
