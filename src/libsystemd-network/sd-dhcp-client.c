@@ -26,6 +26,7 @@
 #include "iovec-util.h"
 #include "memory-util.h"
 #include "network-common.h"
+#include "path-util.h"
 #include "random-util.h"
 #include "set.h"
 #include "socket-util.h"
@@ -103,6 +104,7 @@ struct sd_dhcp_client {
         bool socket_priority_set;
         bool ipv6_acquired;
         bool bootp;
+        int lease_dir_fd;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -2589,3 +2591,28 @@ static const char* const dhcp_state_table[_DHCP_STATE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
+
+int sd_dhcp_client_set_lease_file(sd_dhcp_client *client, int dir_fd, const char *path) {
+        assert_return(client, -EINVAL);
+        assert_return(!path || (dir_fd >= 0 || dir_fd == AT_FDCWD), -EBADF);
+
+        if (!path) {
+                client->lease_dir_fd = safe_close(client->lease_dir_fd);
+                return 0;
+        }
+
+        if (!path_is_safe(path))
+                return -EINVAL;
+
+        _cleanup_close_ int fd = AT_FDCWD;
+
+        if (dir_fd >= 0) {
+                fd = fd_reopen (dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (fd < 0)
+                        return fd;
+        }
+
+        close_and_replace(client->lease_dir_fd, fd);
+
+        return 0;
+}
