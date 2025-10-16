@@ -3,7 +3,7 @@
 
 #include <sys/stat.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "locale-util.h"
 
 typedef struct LocaleContext {

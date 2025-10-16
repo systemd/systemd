@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 int dlopen_gcrypt(void);
 

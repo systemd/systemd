@@ -10,7 +10,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 #include "memory-util.h"
 #include "missing-network.h"
 

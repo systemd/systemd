@@ -3,7 +3,7 @@
 
 #include <sys/uio.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int acquire_tpm2_key(
                 const char *volume_name,

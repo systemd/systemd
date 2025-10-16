@@ -2,7 +2,7 @@
 #pragma once
 
 #include "errno-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 #if HAVE_SECCOMP
 #include <seccomp.h> /* IWYU pragma: export */

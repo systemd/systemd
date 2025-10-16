@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 
 #include "common-signal.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "list.h"
 #include "resolve-util.h"
 #include "resolved-dns-browse-services.h"

@@ -3,7 +3,7 @@
 
 #include <sys/sysmacros.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "stdio-util.h"
 
 #define SYS_BLOCK_PATH_MAX(suffix)                                      \

@@ -7,7 +7,7 @@
 #include <pwd.h>
 #include <resolv.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "signal-util.h"
 
 extern sd_json_dispatch_flags_t nss_json_dispatch_flags;

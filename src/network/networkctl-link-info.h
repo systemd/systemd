@@ -6,7 +6,7 @@
 
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "in-addr-util.h"
 
 typedef struct VxLanInfo {

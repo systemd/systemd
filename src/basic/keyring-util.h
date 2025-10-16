@@ -3,7 +3,7 @@
 
 #include <sys/keyctl.h>         /* IWYU pragma: export */
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* Like TAKE_PTR() but for key_serial_t, resetting them to -1 */
 #define TAKE_KEY_SERIAL(key_serial) TAKE_GENERIC(key_serial, key_serial_t, -1)

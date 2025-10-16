@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* The limit used for /dev itself. 4MB should be enough since device nodes and symlinks don't
  * consume any space and udev isn't supposed to create regular file either. There's no limit on the
