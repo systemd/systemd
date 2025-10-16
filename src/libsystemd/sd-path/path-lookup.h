@@ -3,7 +3,7 @@
 
 #include "sd-path.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "runtime-scope.h"
 
 typedef enum LookupPathsFlags {

@@ -4,7 +4,7 @@
 #include "sd-id128.h"
 
 #include "fd-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 #define CREDENTIAL_NAME_MAX FDNAME_MAX
 

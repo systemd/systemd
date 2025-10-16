@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 size_t sc_arg_max(void);
 

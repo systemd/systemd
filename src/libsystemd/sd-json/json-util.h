@@ -5,7 +5,7 @@
 
 #include "sd-json.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "log.h"
 #include "string-util.h"
 

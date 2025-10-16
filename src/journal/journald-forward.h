@@ -2,7 +2,7 @@
 #pragma once
 
 #include "conf-parser-forward.h"    /* IWYU pragma: export */
-#include "forward.h"                /* IWYU pragma: export */
+#include "shared-forward.h"         /* IWYU pragma: export */
 
 typedef enum Storage Storage;
 typedef enum SplitMode SplitMode;

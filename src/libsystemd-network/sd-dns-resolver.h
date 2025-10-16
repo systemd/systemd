@@ -3,7 +3,7 @@
 
 #include "_sd-common.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 
 _SD_BEGIN_DECLARATIONS;
 

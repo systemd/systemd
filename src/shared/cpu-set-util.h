@@ -4,7 +4,7 @@
 #include <sched.h>
 
 #include "conf-parser-forward.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 /* This wraps the libc interface with a variable to keep the allocated size. */
 typedef struct CPUSet {

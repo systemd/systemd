@@ -3,7 +3,7 @@
 
 #include <signal.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes
  * continuously. This combines a PID, a modern Linux pidfd and the 64bit inode number of the pidfd into one

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* The enum order is used to order unit jobs in the job queue
  * when other criteria (cpu weight, nice level) are identical.

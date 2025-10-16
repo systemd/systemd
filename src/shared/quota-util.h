@@ -4,7 +4,7 @@
 #include <linux/quota.h>        /* IWYU pragma: export */
 #include <sys/quota.h>          /* IWYU pragma: export */
 
-#include "forward.h"
+#include "shared-forward.h"
 
 /* Wrapper around the QCMD() macro of linux/quota.h that removes some undefined behaviour. A typical quota
  * command such as QCMD(Q_GETQUOTA, USRQUOTA) cannot be resolved on platforms where "int" is 32-bit, as it is

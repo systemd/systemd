@@ -4,7 +4,7 @@
 #include <linux/netlink.h>
 #include <sys/socket.h>
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "list.h"
 #include "netlink-types.h"
 

@@ -6,7 +6,7 @@
 #include "cgroup.h"
 #include "common-signal.h"
 #include "execute.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "log.h"
 #include "path-lookup.h"
 #include "show-status.h"

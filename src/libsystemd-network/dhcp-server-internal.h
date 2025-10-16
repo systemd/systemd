@@ -10,7 +10,7 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-option.h"
-#include "forward.h"
+#include "sd-forward.h"
 #include "network-common.h"
 #include "sparse-endian.h"
 

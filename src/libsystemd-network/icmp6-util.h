@@ -7,7 +7,7 @@
 
 #include <netinet/in.h>
 
-#include "forward.h"
+#include "sd-forward.h"
 
 #define IN6_ADDR_ALL_ROUTERS_MULTICAST                                  \
         ((const struct in6_addr) { { {                                  \

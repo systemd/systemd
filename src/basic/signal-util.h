@@ -3,7 +3,7 @@
 
 #include <signal.h>     /* IWYU pragma: export */
 
-#include "forward.h"
+#include "basic-forward.h"
 
 int reset_all_signal_handlers(void);
 int reset_signal_mask(void);
