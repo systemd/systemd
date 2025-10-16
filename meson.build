@@ -1439,9 +1439,9 @@ libarchive = dependency('libarchive',
                         required : get_option('libarchive'))
 conf.set10('HAVE_LIBARCHIVE', libarchive.found())
 conf.set10('HAVE_LIBARCHIVE_UID_IS_SET',
-           libblkid.found() and cc.has_function('archive_entry_uid_is_set', dependencies : libarchive))
+           libarchive.found() and cc.has_function('archive_entry_uid_is_set', dependencies : libarchive))
 conf.set10('HAVE_LIBARCHIVE_HARDLINK_IS_SET',
-           libblkid.found() and cc.has_function('archive_entry_hardlink_is_set', dependencies : libarchive))
+           libarchive.found() and cc.has_function('archive_entry_hardlink_is_set', dependencies : libarchive))
 
 libxkbcommon = dependency('xkbcommon',
                           version : '>= 0.3.0',
