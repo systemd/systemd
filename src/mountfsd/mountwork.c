@@ -23,6 +23,7 @@
 #include "hashmap.h"
 #include "image-policy.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "loop-util.h"
 #include "main-func.h"
@@ -92,6 +93,9 @@ typedef struct MountImageParameters {
         char *password;
         ImagePolicy *image_policy;
         bool verity_sharing;
+        struct iovec verity_root_hash;
+        struct iovec verity_root_hash_sig;
+        unsigned verity_data_fd_idx;
 } MountImageParameters;
 
 static void mount_image_parameters_done(MountImageParameters *p) {
@@ -99,6 +103,8 @@ static void mount_image_parameters_done(MountImageParameters *p) {
 
         p->password = erase_and_free(p->password);
         p->image_policy = image_policy_free(p->image_policy);
+        iovec_done(&p->verity_root_hash);
+        iovec_done(&p->verity_root_hash_sig);
 }
 
 static int validate_image_fd(int fd, MountImageParameters *p) {
@@ -286,13 +292,16 @@ static int vl_method_mount_image(
                 void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "imageFileDescriptor",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, image_fd_idx),   SD_JSON_MANDATORY },
-                { "userNamespaceFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,      offsetof(MountImageParameters, userns_fd_idx),  0 },
-                { "readOnly",                    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, read_only),      0 },
-                { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,  offsetof(MountImageParameters, growfs),         0 },
-                { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,    offsetof(MountImageParameters, password),       0 },
-                { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy, offsetof(MountImageParameters, image_policy),   0 },
-                { "veritySharing",               SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,   offsetof(MountImageParameters, verity_sharing), 0 },
+                { "imageFileDescriptor",         SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, image_fd_idx),         SD_JSON_MANDATORY },
+                { "userNamespaceFileDescriptor", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, userns_fd_idx),        0 },
+                { "readOnly",                    SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,    offsetof(MountImageParameters, read_only),            0 },
+                { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,    offsetof(MountImageParameters, growfs),               0 },
+                { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(MountImageParameters, password),             0 },
+                { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy,   offsetof(MountImageParameters, image_policy),         0 },
+                { "veritySharing",               SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(MountImageParameters, verity_sharing),       0 },
+                { "verityDataFileDescriptor",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, verity_data_fd_idx),   0 },
+                { "verityRootHash",              SD_JSON_VARIANT_STRING,   json_dispatch_unhex_iovec,    offsetof(MountImageParameters, verity_root_hash),     0 },
+                { "verityRootHashSignature",     SD_JSON_VARIANT_STRING,   json_dispatch_unbase64_iovec, offsetof(MountImageParameters, verity_root_hash_sig), 0 },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
@@ -301,13 +310,14 @@ static int vl_method_mount_image(
         _cleanup_(mount_image_parameters_done) MountImageParameters p = {
                 .image_fd_idx = UINT_MAX,
                 .userns_fd_idx = UINT_MAX,
+                .verity_data_fd_idx = UINT_MAX,
                 .read_only = -1,
                 .growfs = -1,
         };
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
-        _cleanup_close_ int image_fd = -EBADF, userns_fd = -EBADF;
+        _cleanup_close_ int image_fd = -EBADF, userns_fd = -EBADF, verity_data_fd = -EBADF;
         _cleanup_(image_policy_freep) ImagePolicy *use_policy = NULL;
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_free_ char *ps = NULL;
@@ -322,6 +332,13 @@ static int vl_method_mount_image(
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
+
+        /* Verity data and roothash have to be either both set, or both unset. The sig can be set only if
+         * the roothash is set. */
+        if ((p.verity_data_fd_idx != UINT_MAX) != (p.verity_root_hash.iov_len > 0))
+                return sd_varlink_error_invalid_parameter_name(link, "verityDataFileDescriptor");
+        if (p.verity_root_hash_sig.iov_len > 0 && p.verity_root_hash.iov_len == 0)
+                return sd_varlink_error_invalid_parameter_name(link, "verityRootHashSignature");
 
         if (p.image_fd_idx != UINT_MAX) {
                 image_fd = sd_varlink_peek_dup_fd(link, p.image_fd_idx);
@@ -347,6 +364,30 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
         image_is_trusted = r;
+
+        if (p.verity_data_fd_idx != UINT_MAX) {
+                verity_data_fd = sd_varlink_peek_dup_fd(link, p.verity_data_fd_idx);
+                if (verity_data_fd < 0)
+                        return log_debug_errno(verity_data_fd, "Failed to peek verity data fd from client: %m");
+
+                r = fd_verify_safe_flags(verity_data_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Verity data file descriptor has unsafe flags set: %m");
+
+                verity.data_path = strdup(FORMAT_PROC_FD_PATH(verity_data_fd));
+                if (!verity.data_path)
+                        return -ENOMEM;
+
+                verity.designator = PARTITION_ROOT;
+
+                verity.root_hash = TAKE_PTR(p.verity_root_hash.iov_base);
+                verity.root_hash_size = p.verity_root_hash.iov_len;
+                p.verity_root_hash.iov_len = 0;
+
+                verity.root_hash_sig = TAKE_PTR(p.verity_root_hash_sig.iov_base);
+                verity.root_hash_sig_size = p.verity_root_hash_sig.iov_len;
+                p.verity_root_hash_sig.iov_len = 0;
+        }
 
         const char *polkit_details[] = {
                 "read_only", one_zero(p.read_only > 0),
@@ -408,6 +449,7 @@ static int vl_method_mount_image(
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 (p.verity_sharing ? DISSECT_IMAGE_VERITY_SHARE : 0) |
+                (p.verity_data_fd_idx != UINT_MAX ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
         /* Let's see if we have acquired the privilege to mount untrusted images already */
