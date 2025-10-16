@@ -77,6 +77,20 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
         sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\""
+
+    # Without a signature this should not work, as mountfsd should reject it, even if we explicitly ask to
+    # trust it
+    mv /tmp/app0.roothash.p7s /tmp/app0.roothash.p7s.bak
+    (! systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.raw" \
+        --property ExtensionImages=/tmp/app0.raw \
+        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+    (! systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.raw" \
+        --property ExtensionImages=/tmp/app0.raw \
+        --property ExtensionImagePolicy=root=verity+signed+absent:usr=verity+signed+absent \
+        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+    mv /tmp/app0.roothash.p7s.bak /tmp/app0.roothash.p7s
 fi
 
 # Install key in keychain
