@@ -250,6 +250,12 @@ enum {
 #define JSON_BUILD_PAIR_TRISTATE(name, i) SD_JSON_BUILD_PAIR(name, JSON_BUILD_TRISTATE(i))
 #define JSON_BUILD_PAIR_PIDREF(name, p) SD_JSON_BUILD_PAIR(name, JSON_BUILD_PIDREF(p))
 #define JSON_BUILD_PAIR_DEVNUM(name, d) SD_JSON_BUILD_PAIR(name, JSON_BUILD_DEVNUM(d))
+#define JSON_BUILD_PAIR_YES_NO(name, b) SD_JSON_BUILD_PAIR(name, SD_JSON_BUILD_STRING(yes_no(b)))
+
+#define JSON_BUILD_PAIR_CONDITION_UNSIGNED(condition, name, value) \
+        SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_UNSIGNED(value))
+#define JSON_BUILD_PAIR_CONDITION_BOOLEAN(condition, name, value) \
+        SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_BOOLEAN(value))
 
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref);
 int json_variant_new_devnum(sd_json_variant **ret, dev_t devnum);

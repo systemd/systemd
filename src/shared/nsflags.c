@@ -5,6 +5,7 @@
 #include "namespace-util.h"
 #include "nsflags.h"
 #include "string-util.h"
+#include "strv.h"
 
 int namespace_flags_from_string(const char *name, unsigned long *ret) {
         unsigned long flags = 0;
@@ -40,19 +41,41 @@ int namespace_flags_from_string(const char *name, unsigned long *ret) {
 }
 
 int namespace_flags_to_string(unsigned long flags, char **ret) {
+        _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(ret);
+
+        r = namespace_flags_to_strv(flags, &l);
+        if (r < 0)
+                return r;
+
+        s = strv_join(l, NULL);
+        if (!s)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(s);
+        return 0;
+}
+
+int namespace_flags_to_strv(unsigned long flags, char ***ret) {
+        _cleanup_strv_free_ char **s = NULL;
         unsigned i;
+        int r;
+
+        assert(ret);
 
         for (i = 0; namespace_info[i].proc_name; i++) {
                 if ((flags & namespace_info[i].clone_flag) != namespace_info[i].clone_flag)
                         continue;
 
-                if (!strextend_with_separator(&s, " ", namespace_info[i].proc_name))
-                        return -ENOMEM;
+                r = strv_extend(&s, namespace_info[i].proc_name);
+                if (r < 0)
+                        return r;
         }
 
         *ret = TAKE_PTR(s);
-
         return 0;
 }
 
