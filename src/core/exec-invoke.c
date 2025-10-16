@@ -1230,6 +1230,11 @@ static int exec_context_get_tty_for_pam(const ExecContext *context, char **ret) 
                 return 1;
         }
 
+        if (!IN_SET(context->std_input, EXEC_INPUT_TTY, EXEC_INPUT_TTY_FAIL, EXEC_INPUT_TTY_FORCE)) {
+                *ret = NULL;
+                return 0;
+        }
+
         /* Next, let's try to use the TTY specified in TTYPath=. */
         const char *t = exec_context_tty_path(context);
         if (!t) {
