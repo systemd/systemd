@@ -8,6 +8,7 @@
 #include "alloc-util.h"
 #include "dns-def.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
 #include "dns-resolver-internal.h"
 #include "ether-addr-util.h"
 #include "hash-funcs.h"

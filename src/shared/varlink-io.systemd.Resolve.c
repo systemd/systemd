@@ -4,8 +4,8 @@
 
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ResourceKey,
-                SD_VARLINK_FIELD_COMMENT("The RR class, almost always IN, i.e 0x01."),
-                SD_VARLINK_DEFINE_FIELD(class, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("The RR class, almost always IN, i.e 0x01. If unspecified defaults to IN."),
+                SD_VARLINK_DEFINE_FIELD(class, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The RR types, one of A, AAAA, PTR, …"),
                 SD_VARLINK_DEFINE_FIELD(type, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("The domain name."),

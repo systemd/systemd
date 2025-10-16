@@ -6,7 +6,7 @@
 #include "dns-def.h"
 #include "dns-type.h"
 #include "list.h"
-#include "resolved-forward.h"
+#include "shared-forward.h"
 
 /* DNSKEY RR flags */
 #define DNSKEY_FLAG_SEP            (UINT16_C(1) << 0)
@@ -81,11 +81,11 @@ enum {
 /* A helper to align printed output */
 #define SSHFP_KEY_TYPE_FMT "%-7s"
 
-typedef struct DnsResourceKey {
+struct DnsResourceKey {
         unsigned n_ref; /* (unsigned -1) for const keys, see below */
         uint16_t class, type;
         char *_name; /* don't access directly, use dns_resource_key_name()! */
-} DnsResourceKey;
+};
 
 /* Creates a temporary resource key. This is only useful to quickly
  * look up something, without allocating a full DnsResourceKey object
@@ -99,13 +99,13 @@ typedef struct DnsResourceKey {
                 ._name = (char*) n,                     \
         })
 
-typedef struct DnsTxtItem {
+struct DnsTxtItem {
         size_t length;
         LIST_FIELDS(DnsTxtItem, items);
         uint8_t data[];
-} DnsTxtItem;
+};
 
-typedef struct DnsSvcParam {
+struct DnsSvcParam {
         uint16_t key;
         size_t length;
         LIST_FIELDS(DnsSvcParam, params);
@@ -114,9 +114,9 @@ typedef struct DnsSvcParam {
                 DECLARE_FLEX_ARRAY(struct in_addr, value_in_addr);
                 DECLARE_FLEX_ARRAY(struct in6_addr, value_in6_addr);
         };
-} DnsSvcParam;
+};
 
-typedef struct DnsResourceRecord {
+struct DnsResourceRecord {
         unsigned n_ref;
         uint32_t ttl;
         usec_t expiry; /* RRSIG signature expiry */
@@ -297,7 +297,7 @@ typedef struct DnsResourceRecord {
         };
 
         /* Note: fields should be ordered to minimize alignment gaps. Use pahole! */
-} DnsResourceRecord;
+};
 
 /* We use uint8_t for label counts above, and UINT8_MAX/-1 has special meaning. */
 assert_cc(DNS_N_LABELS_MAX < UINT8_MAX);
@@ -426,6 +426,8 @@ void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *state);
 int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y);
 void dns_resource_record_hash_func(const DnsResourceRecord *i, struct siphash *state);
 int dns_resource_record_compare_func(const DnsResourceRecord *x, const DnsResourceRecord *y);
+
+uint16_t dnssec_keytag(DnsResourceRecord *dnskey, bool mask_revoke);
 
 extern const struct hash_ops dns_resource_key_hash_ops;
 extern const struct hash_ops dns_resource_record_hash_ops;
