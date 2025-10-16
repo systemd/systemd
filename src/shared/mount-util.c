@@ -27,6 +27,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -1005,6 +1006,7 @@ static int mount_in_namespace_legacy(
                                 /* extension_release_data= */ NULL,
                                 /* required_class= */ _IMAGE_CLASS_INVALID,
                                 /* verity= */ NULL,
+                                RUNTIME_SCOPE_SYSTEM,
                                 /* ret_image= */ NULL);
         else
                 r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
@@ -1227,6 +1229,7 @@ static int mount_in_namespace(
                                 /* extension_release_data= */ NULL,
                                 /* required_class= */ _IMAGE_CLASS_INVALID,
                                 /* verity= */ NULL,
+                                RUNTIME_SCOPE_SYSTEM,
                                 &img);
                 if (r < 0)
                         return log_debug_errno(r,
