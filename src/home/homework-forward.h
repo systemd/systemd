@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h" /* IWYU pragma: export */
+#include "shared-forward.h" /* IWYU pragma: export */
 
 typedef enum HomeSetupFlags HomeSetupFlags;
 

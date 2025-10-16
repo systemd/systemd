@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int fd_acl_make_read_only_fallback(int fd);
 int fd_acl_make_writable_fallback(int fd);

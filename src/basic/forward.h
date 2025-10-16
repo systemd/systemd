@@ -93,6 +93,7 @@ typedef enum RuntimeScope RuntimeScope;
 typedef enum TimestampStyle TimestampStyle;
 typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
+typedef enum UnitType UnitType;
 
 typedef struct Hashmap Hashmap;
 typedef struct HashmapBase HashmapBase;
@@ -233,75 +234,6 @@ typedef struct sd_resolve sd_resolve;
 typedef struct sd_resolve_query sd_resolve_query;
 
 typedef struct sd_hwdb sd_hwdb;
-
-/* shared/ forward declarations */
-
-typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, uint64_t bytes_per_second, void *userdata);
-typedef int (*copy_progress_path_t)(const char *path, const struct stat *st, void *userdata);
-
-struct local_address;
-struct in_addr_prefix;
-struct in_addr_full;
-
-typedef enum AskPasswordFlags AskPasswordFlags;
-typedef enum BootEntryTokenType BootEntryTokenType;
-typedef enum BusPrintPropertyFlags BusPrintPropertyFlags;
-typedef enum BusTransport BusTransport;
-typedef enum CatFlags CatFlags;
-typedef enum CertificateSourceType CertificateSourceType;
-typedef enum DnsCacheMode DnsCacheMode;
-typedef enum DnsOverTlsMode DnsOverTlsMode;
-typedef enum DnssecMode DnssecMode;
-typedef enum Fido2EnrollFlags Fido2EnrollFlags;
-typedef enum KeySourceType KeySourceType;
-typedef enum LabelFixFlags LabelFixFlags;
-typedef enum MountInNamespaceFlags MountInNamespaceFlags;
-typedef enum NamePolicy NamePolicy;
-typedef enum OutputFlags OutputFlags;
-typedef enum OutputMode OutputMode;
-typedef enum PagerFlags PagerFlags;
-typedef enum PatternCompileCase PatternCompileCase;
-typedef enum RemoveFlags RemoveFlags;
-typedef enum ResolveSupport ResolveSupport;
-typedef enum TPM2Flags TPM2Flags;
-typedef enum Tpm2Support Tpm2Support;
-typedef enum Tpm2UserspaceEventType Tpm2UserspaceEventType;
-typedef enum UnitFileFlags UnitFileFlags;
-typedef enum UnitFilePresetMode UnitFilePresetMode;
-typedef enum UnitFileState UnitFileState;
-typedef enum UnitType UnitType;
-typedef enum UserDBFlags UserDBFlags;
-typedef enum UserRecordLoadFlags UserRecordLoadFlags;
-typedef enum UserStorage UserStorage;
-
-typedef struct Bitmap Bitmap;
-typedef struct BPFProgram BPFProgram;
-typedef struct BusObjectImplementation BusObjectImplementation;
-typedef struct CalendarSpec CalendarSpec;
-typedef struct Condition Condition;
-typedef struct ConfigSection ConfigSection;
-typedef struct ConfigTableItem ConfigTableItem;
-typedef struct CPUSet CPUSet;
-typedef struct FDSet FDSet;
-typedef struct Fido2HmacSalt Fido2HmacSalt;
-typedef struct GroupRecord GroupRecord;
-typedef struct Image Image;
-typedef struct ImagePolicy ImagePolicy;
-typedef struct InstallInfo InstallInfo;
-typedef struct LookupPaths LookupPaths;
-typedef struct LoopDevice LoopDevice;
-typedef struct MachineBindUserContext MachineBindUserContext;
-typedef struct MachineCredentialContext MachineCredentialContext;
-typedef struct MountOptions MountOptions;
-typedef struct OpenFile OpenFile;
-typedef struct Pkcs11EncryptedKey Pkcs11EncryptedKey;
-typedef struct Table Table;
-typedef struct Tpm2Context Tpm2Context;
-typedef struct Tpm2Handle Tpm2Handle;
-typedef struct Tpm2PCRValue Tpm2PCRValue;
-typedef struct UnitInfo UnitInfo;
-typedef struct UserRecord UserRecord;
-typedef struct VeritySettings VeritySettings;
 
 /* Constants */
 

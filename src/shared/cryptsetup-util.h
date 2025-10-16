@@ -2,7 +2,7 @@
 #pragma once
 
 #include "dlfcn-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 #if HAVE_LIBCRYPTSETUP
 #include <libcryptsetup.h> /* IWYU pragma: export */

@@ -3,7 +3,7 @@
 
 #include "sd-json.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "log.h"
 #include "pager.h"
 

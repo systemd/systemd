@@ -5,7 +5,7 @@
   Copyright © 2016 Djalal Harouni
 ***/
 
-#include "forward.h"
+#include "core-forward.h"
 #include "list.h"
 #include "runtime-scope.h"
 

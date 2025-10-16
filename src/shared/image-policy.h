@@ -2,7 +2,7 @@
 #pragma once
 
 #include "conf-parser-forward.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "gpt.h"
 
 typedef enum PartitionPolicyFlags {

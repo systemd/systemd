@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum BootEntryType {
         BOOT_ENTRY_TYPE1,     /* Boot Loader Specification Type #1 entries: *.conf files */

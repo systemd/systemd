@@ -5,7 +5,7 @@
 
 #include "bitfield.h"
 #include "rlimit-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum UserDisposition {
         USER_INTRINSIC,   /* root and nobody */
