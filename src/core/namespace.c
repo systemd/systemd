@@ -1617,7 +1617,8 @@ static int mount_mqueuefs(const MountEntry *m) {
 static int mount_image(
                 MountEntry *m,
                 const char *root_directory,
-                const ImagePolicy *image_policy) {
+                const ImagePolicy *image_policy,
+                RuntimeScope runtime_scope) {
 
         _cleanup_(extension_release_data_done) ExtensionReleaseData rdata = {};
         ImageClass required_class = _IMAGE_CLASS_INVALID;
@@ -1652,6 +1653,7 @@ static int mount_image(
                         &rdata,
                         required_class,
                         &m->verity,
+                        runtime_scope,
                         /* ret_image= */ NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
@@ -2038,10 +2040,10 @@ static int apply_one_mount(
                 return mount_mqueuefs(m);
 
         case MOUNT_IMAGE:
-                return mount_image(m, NULL, p->mount_image_policy);
+                return mount_image(m, NULL, p->mount_image_policy, p->runtime_scope);
 
         case MOUNT_EXTENSION_IMAGE:
-                return mount_image(m, root_directory, p->extension_image_policy);
+                return mount_image(m, root_directory, p->extension_image_policy, p->runtime_scope);
 
         case MOUNT_OVERLAY:
                 return mount_overlay(m);
