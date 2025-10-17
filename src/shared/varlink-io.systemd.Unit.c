@@ -928,6 +928,19 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.kill.html#WatchdogSignal="),
                 SD_VARLINK_DEFINE_FIELD(WatchdogSignal, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+/* AutomountContext
+ * https://www.freedesktop.org/software/systemd/man/latest/systemd.automount.html */
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                AutomountContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.automount.html#Where="),
+                SD_VARLINK_DEFINE_FIELD(Where, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.automount.html#ExtraOptions="),
+                SD_VARLINK_DEFINE_FIELD(ExtraOptions, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.automount.html#DirectoryMode="),
+                SD_VARLINK_DEFINE_FIELD(DirectoryMode, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.automount.html#TimeoutIdleSec="),
+                SD_VARLINK_DEFINE_FIELD(TimeoutIdleUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
 /* UnitContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Condition,
@@ -1087,8 +1100,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The exec context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The kill context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Kill, KillContext, SD_VARLINK_NULLABLE));
-
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Kill, KillContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The automount context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Automount, AutomountContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ActivationDetails,
@@ -1162,6 +1176,19 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The number of processes of this unit killed by systemd-oomd"),
                 SD_VARLINK_DEFINE_FIELD(ManagedOOMKills, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                AutomountResult,
+                SD_VARLINK_DEFINE_ENUM_VALUE(success),
+                SD_VARLINK_DEFINE_ENUM_VALUE(resources),
+                SD_VARLINK_DEFINE_ENUM_VALUE(start_limit_hit),
+                SD_VARLINK_DEFINE_ENUM_VALUE(mount_start_limit_hit),
+                SD_VARLINK_DEFINE_ENUM_VALUE(unmounted));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                AutomountRuntime,
+                SD_VARLINK_FIELD_COMMENT("Result of automount operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Result, AutomountResult, 0));
+
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitRuntime,
                 SD_VARLINK_FIELD_COMMENT("If not empty, the field contains the name of another unit that this unit follows in state"),
@@ -1219,7 +1246,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Provides details about why a unit was activated"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ActivationDetails, ActivationDetails, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The cgroup runtime of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupRuntime, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The automount runtime of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Automount, AutomountRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
@@ -1350,6 +1379,9 @@ SD_VARLINK_DEFINE_INTERFACE(
                 /* other contexts */
                 &vl_type_KillMode,
                 &vl_type_KillContext,
+                &vl_type_AutomountContext,
+                &vl_type_AutomountResult,
+                &vl_type_AutomountRuntime,
 
                 /* UnitContext enums */
                 &vl_type_CollectMode,
