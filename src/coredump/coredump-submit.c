@@ -463,7 +463,7 @@ static int maybe_remove_external_coredump(
         return true;
 }
 
-int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpContext *context) {
+static int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpContext *context) {
 #if HAVE_DWFL_SET_SYSROOT
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, fd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
@@ -537,10 +537,17 @@ int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpContext *con
 #endif
 }
 
-static int attach_mount_tree(int mount_tree_fd) {
+static int attach_mount_tree(const CoredumpConfig *config, CoredumpContext *context) {
         int r;
 
-        assert(mount_tree_fd >= 0);
+        assert(config);
+        assert(context);
+
+        r = acquire_pid_mount_tree_fd(config, context);
+        if (r < 0)
+                return r;
+
+        assert(context->mount_tree_fd >= 0);
 
         r = detach_mount_namespace();
         if (r < 0)
@@ -550,7 +557,7 @@ static int attach_mount_tree(int mount_tree_fd) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to create directory: %m");
 
-        r = mount_setattr(mount_tree_fd, "", AT_EMPTY_PATH,
+        r = mount_setattr(context->mount_tree_fd, "", AT_EMPTY_PATH,
                           &(struct mount_attr) {
                                   /* MOUNT_ATTR_NOSYMFOLLOW is left out on purpose to allow libdwfl to resolve symlinks.
                                    * libdwfl will use openat2() with RESOLVE_IN_ROOT so there is no risk of symlink escape.
@@ -561,7 +568,7 @@ static int attach_mount_tree(int mount_tree_fd) {
         if (r < 0)
                 return log_warning_errno(errno, "Failed to change properties of mount tree: %m");
 
-        r = move_mount(mount_tree_fd, "", -EBADF, MOUNT_TREE_ROOT, MOVE_MOUNT_F_EMPTY_PATH);
+        r = move_mount(context->mount_tree_fd, "", -EBADF, MOUNT_TREE_ROOT, MOVE_MOUNT_F_EMPTY_PATH);
         if (r < 0)
                 return log_warning_errno(errno, "Failed to attach mount tree: %m");
 
@@ -666,7 +673,7 @@ int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
                 (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, config->keep_free, config->max_use);
         }
 
-        if (context->mount_tree_fd >= 0 && attach_mount_tree(context->mount_tree_fd) >= 0)
+        if (attach_mount_tree(config, context) >= 0)
                 root = MOUNT_TREE_ROOT;
 
         /* Now, let's drop privileges to become the user who owns the segfaulted process and allocate the
