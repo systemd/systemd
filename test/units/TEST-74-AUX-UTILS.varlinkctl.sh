@@ -200,6 +200,9 @@ varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"
 # test for AutomountContext/Runtime
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "boot.automount"}' | jq -e '.context.Automount'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "boot.automount"}' | jq -e '.runtime.Automount'
+# test for MountContext/Runtime
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "boot.mount"}' | jq -e '.context.Mount'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"name": "boot.mount"}' | jq -e '.runtime.Mount'
 
 # test io.systemd.Manager in user manager
 testuser_uid=$(id -u testuser)

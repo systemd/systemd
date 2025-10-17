@@ -70,6 +70,7 @@ libcore_sources = files(
         'varlink-execute.c',
         'varlink-kill.c',
         'varlink-manager.c',
+        'varlink-mount.c',
         'varlink-unit.c',
 )
 
