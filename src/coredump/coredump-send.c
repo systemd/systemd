@@ -13,6 +13,7 @@
 #include "log.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "socket-util.h"
@@ -94,45 +95,77 @@ int coredump_send(CoredumpContext *context) {
         return 0;
 }
 
-static int can_forward_coredump(CoredumpContext *context, const PidRef *pid) {
-        _cleanup_free_ char *cgroup = NULL, *path = NULL, *unit = NULL;
+static int can_forward_coredump(PidRef *pidref, PidRef *leader) {
         int r;
 
-        assert(context);
-        assert(pidref_is_set(pid));
-        assert(!pidref_is_remote(pid));
+        assert(pidref_is_set(pidref));
+        assert(pidref_is_set(leader));
 
-        /* We need to avoid a situation where the attacker crashes a SUID process or a root daemon and
-         * quickly replaces it with a namespaced process and we forward the coredump to the attacker, into
-         * the namespace. With %F/pidfd we can reliably check the namespace of the original process, hence we
-         * can allow forwarding. */
-        if (!context->got_pidfd && context->dumpable != SUID_DUMP_USER)
+        if (pidref_equal(pidref, leader)) {
+                log_debug("The system service manager crashed.");
                 return false;
+        }
 
-        r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
+        /* Check if the PID1 in the namespace is still running. */
+        r = pidref_kill(leader, 0);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to send kill(0) to the service manager, maybe it is crashed, ignoring: %m");
 
+        if (leader->fd >= 0) {
+                struct pidfd_info info = {
+                        .mask = PIDFD_INFO_EXIT | PIDFD_INFO_COREDUMP,
+                };
+
+                r = pidfd_get_info(leader->fd, &info);
+                if (r >= 0) {
+                        if (FLAGS_SET(info.mask, PIDFD_INFO_EXIT)) {
+                                log_debug("PID1 has already exited.");
+                                return false;
+                        }
+
+                        if (FLAGS_SET(info.mask, PIDFD_INFO_COREDUMP) && FLAGS_SET(info.coredump_mask, PIDFD_COREDUMPED)) {
+                                log_debug("PID1 has already dumped core.");
+                                return false;
+                        }
+                } else if (r != -EOPNOTSUPP)
+                        return log_debug_errno(r, "ioctl(PIDFD_GET_INFO) for the service manager failed, maybe crashed, ignoring: %m");
+        }
+
+        _cleanup_free_ char *cgroup = NULL;
+        r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, leader, &cgroup);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get cgroup of the leader process, ignoring: %m");
+
+        _cleanup_free_ char *path = NULL;
         r = path_extract_directory(cgroup, &path);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to get the parent directory of \"%s\", ignoring: %m", cgroup);
 
+        _cleanup_free_ char *unit = NULL;
         r = cg_path_get_unit_path(path, &unit);
         if (r == -ENOMEM)
-                return log_oom();
+                return log_oom_debug();
         if (r == -ENXIO)
                 /* No valid units in this path. */
                 return false;
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to get unit path from cgroup \"%s\", ignoring: %m", path);
 
         /* We require that this process belongs to a delegated cgroup
          * (i.e. Delegate=yes), with CoredumpReceive=yes also. */
         r = cg_is_delegated(unit);
-        if (r <= 0)
-                return r;
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine if cgroup \"%s\" is delegated, ignoring: %m", unit);
+        if (r == 0)
+                return false;
 
-        return cg_has_coredump_receive(unit);
+        r = cg_has_coredump_receive(unit);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine if cgroup \"%s\" can receive coredump, ignoring: %m", unit);
+        if (r == 0)
+                return false;
+
+        return true;
 }
 
 static int send_ucred(int transport_fd, const struct ucred *ucred) {
@@ -203,17 +236,24 @@ int coredump_send_to_container(CoredumpContext *context) {
 
         assert(context);
 
+        if (context->same_pidns)
+                return 0;
+
+        /* We need to avoid a situation where the attacker crashes a SUID process or a root daemon and
+         * quickly replaces it with a namespaced process and we forward the coredump to the attacker, into
+         * the namespace. With %F/pidfd we can reliably check the namespace of the original process, hence we
+         * can allow forwarding. */
+        if (!context->got_pidfd && context->dumpable != SUID_DUMP_USER)
+                return 0;
+
         _cleanup_(pidref_done) PidRef leader_pid = PIDREF_NULL;
         r = namespace_get_leader(&context->pidref, NAMESPACE_PID, &leader_pid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get namespace leader: %m");
 
-        r = can_forward_coredump(context, &leader_pid);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to check if coredump can be forwarded: %m");
-        if (r == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
-                                       "Coredump will not be forwarded because no target cgroup was found.");
+        r = can_forward_coredump(&context->pidref, &leader_pid);
+        if (r <= 0)
+                return r;
 
         r = RET_NERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair));
         if (r < 0)
@@ -291,5 +331,5 @@ int coredump_send_to_container(CoredumpContext *context) {
         if (r != EXIT_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to process coredump in container.");
 
-        return 0;
+        return 1; /* sent */
 }
