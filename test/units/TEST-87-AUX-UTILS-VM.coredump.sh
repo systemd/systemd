@@ -26,7 +26,7 @@ journalctl --sync
 journalctl --rotate
 
 # Check that we're the ones to receive coredumps
-sysctl kernel.core_pattern | grep systemd-coredump
+sysctl kernel.core_pattern | grep -E '(systemd-coredump|@/run/systemd/coredump-kernel)'
 
 # Prepare "fake" binaries for coredumps, so we can properly exercise
 # the matching stuff too
