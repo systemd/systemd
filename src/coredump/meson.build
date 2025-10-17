@@ -6,10 +6,30 @@ endif
 
 systemd_coredump_sources = files(
         'coredump.c',
+        'coredump-backtrace.c',
+        'coredump-client.c',
+        'coredump-config.c',
+        'coredump-context.c',
+        'coredump-kernel-helper.c',
+        'coredump-receive.c',
+        'coredump-register.c',
+        'coredump-send.c',
+        'coredump-server.c',
+        'coredump-socket.c',
+        'coredump-submit.c',
+        'coredump-worker.c',
 )
 systemd_coredump_extract_sources = files(
         'coredump-vacuum.c',
 )
+
+coredump_gperf_c = custom_target(
+        input : 'coredump-gperf.gperf',
+        output : 'coredump-gperf.c',
+        command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
+
+generated_sources += coredump_gperf_c
+systemd_coredump_sources += coredump_gperf_c
 
 common_dependencies = [
         liblz4_cflags,
@@ -22,6 +42,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-coredump',
                 'sources' : systemd_coredump_sources + systemd_coredump_extract_sources,
+                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'extract' : systemd_coredump_extract_sources,
                 'link_with' : [libshared],
                 'dependencies' : common_dependencies,
