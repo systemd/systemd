@@ -192,15 +192,21 @@ int log_dump_internal(
 
 #if BUILD_MODE_DEVELOPER && !defined(TEST_CODE)
 #  define ASSERT_NON_ZERO(x) assert((x) != 0)
+#  define ASSERT_UNDERFLOW(x) assert((x) >= INT_MIN)
 #else
 #  define ASSERT_NON_ZERO(x)
+#  define ASSERT_UNDERFLOW(x)
 #endif
 
+/* We often call log macros with ssize_t instead of int, so check for underflows,
+ * as ssize_t is not guaranteed to be the same as int, and we usually do
+ * 'return log_errno...' from functions that return 'int' */
 #define log_full_errno(level, error, ...)                               \
         ({                                                              \
-                int _error = (error);                                   \
+                int64_t _error = (error);                               \
+                ASSERT_UNDERFLOW(_error);                               \
                 ASSERT_NON_ZERO(_error);                                \
-                log_full_errno_zerook(level, _error, __VA_ARGS__);      \
+                log_full_errno_zerook(level, (int)_error, __VA_ARGS__); \
         })
 
 #define log_full(level, fmt, ...)                                      \
