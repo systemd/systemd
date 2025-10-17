@@ -49,13 +49,8 @@ int coredump_kernel_helper(int argc, char *argv[]) {
                  context.pidref.pid, context.comm, context.uid, context.signo,
                  signal_to_string(context.signo));
 
-        if (!context.same_pidns) {
-                /* If this fails, fallback to the old behavior so that
-                 * there is still some record of the crash. */
-                r = coredump_send_to_container(&context);
-                if (r >= 0)
-                        return 0;
-        }
+        if (coredump_send_to_container(&context) > 0)
+                return 0;
 
         /* If this is PID 1, disable coredump collection, we'll unlikely be able to process
          * it later on.
