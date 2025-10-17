@@ -92,11 +92,16 @@ static int arg_noexec = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_varlink = false;
 static MutableMode arg_mutable = MUTABLE_NO;
+static const char *arg_overlayfs_mount_options = NULL;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
 
 #define MUTABLE_EXTENSIONS_BASE_DIR "/var/lib/extensions.mutable"
+
+/* redirect_dir=on and noatime prevent unnecessary upcopies, metacopy=off prevents broken
+ * files from partial upcopies after umount, index=off allows reuse of the upper/work dirs */
+#define MUTABLE_EXTENSIONS_MOUNT_OPTIONS "redirect_dir=on,noatime,metacopy=off,index=off"
 
 STATIC_DESTRUCTOR_REGISTER(arg_hierarchies, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -114,6 +119,7 @@ static const struct {
         const char *scope_env;
         const char *name_env;
         const char *mode_env;
+        const char *opts_env;
         const ImagePolicy *default_image_policy;
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
@@ -127,6 +133,7 @@ static const struct {
                 .scope_env = "SYSEXT_SCOPE",
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
                 .mode_env = "SYSTEMD_SYSEXT_MUTABLE_MODE",
+                .opts_env = "SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS",
                 .default_image_policy = &image_policy_sysext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
@@ -140,6 +147,7 @@ static const struct {
                 .scope_env = "CONFEXT_SCOPE",
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
                 .mode_env = "SYSTEMD_CONFEXT_MUTABLE_MODE",
+                .opts_env = "SYSTEMD_CONFEXT_OVERLAYFS_MOUNT_OPTIONS",
                 .default_image_policy = &image_policy_confext,
                 .default_mount_flags = MS_RDONLY|MS_NODEV|MS_NOSUID|MS_NOEXEC,
         }
@@ -733,7 +741,8 @@ static int mount_overlayfs(
                 const char *where,
                 char **layers,
                 const char *upper_dir,
-                const char *work_dir) {
+                const char *work_dir,
+                const char *mount_options) {
 
         _cleanup_free_ char *options = NULL;
         bool separator = false;
@@ -769,11 +778,14 @@ static int mount_overlayfs(
                 r = append_overlayfs_path_option(&options, ",", "workdir", work_dir);
                 if (r < 0)
                         return r;
-                /* redirect_dir=on and noatime prevent unnecessary upcopies, metacopy=off prevents broken
-                 * files from partial upcopies after umount, index=off allows reuse of the upper/work dirs */
-                if (!strextend(&options, ",redirect_dir=on,noatime,metacopy=off,index=off"))
-                        return log_oom();
+
+                if (!mount_options)
+                        mount_options = MUTABLE_EXTENSIONS_MOUNT_OPTIONS;
         }
+
+
+        if (!isempty(mount_options) && !strextend(&options, ",", mount_options))
+                return log_oom();
 
         /* Now mount the actual overlayfs */
         r = mount_nofollow_verbose(LOG_ERR, image_class_info[image_class].short_identifier, where, "overlay", flags, options);
@@ -1339,7 +1351,8 @@ static int mount_overlayfs_with_op(
                 ImageClass image_class,
                 int noexec,
                 const char *overlay_path,
-                const char *meta_path) {
+                const char *meta_path,
+                const char *mount_options) {
 
         int r;
         const char *top_layer = NULL;
@@ -1389,7 +1402,7 @@ static int mount_overlayfs_with_op(
         if (chmod(top_layer, op->hierarchy_mode) < 0)
                 return log_error_errno(errno, "Failed to set permissions of '%s' to %04o: %m", top_layer, op->hierarchy_mode);
 
-        r = mount_overlayfs(image_class, noexec, overlay_path, op->lower_dirs, op->upper_dir, op->work_dir);
+        r = mount_overlayfs(image_class, noexec, overlay_path, op->lower_dirs, op->upper_dir, op->work_dir, mount_options);
         if (r < 0)
                 return r;
 
@@ -1664,7 +1677,7 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        r = mount_overlayfs_with_op(op, image_class, noexec, overlay_path, meta_path);
+        r = mount_overlayfs_with_op(op, image_class, noexec, overlay_path, meta_path, arg_overlayfs_mount_options);
         if (r < 0)
                 return r;
 
@@ -2606,6 +2619,34 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int parse_env(void) {
+        const char *env_var;
+        int r;
+
+        env_var = secure_getenv(image_class_info[arg_image_class].mode_env);
+        if (env_var) {
+                r = parse_mutable_mode(env_var);
+                if (r < 0)
+                        log_warning("Failed to parse %s environment variable value '%s'. Ignoring.",
+                                    image_class_info[arg_image_class].mode_env, env_var);
+                else
+                        arg_mutable = r;
+        }
+
+        env_var = secure_getenv(image_class_info[arg_image_class].opts_env);
+        if (env_var)
+                arg_overlayfs_mount_options = env_var;
+
+        /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
+         * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
+         * switch. */
+        r = parse_env_extension_hierarchies(&arg_hierarchies, image_class_info[arg_image_class].name_env);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse %s environment variable: %m", image_class_info[arg_image_class].name_env);
+
+        return 0;
+}
+
 static int sysext_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
@@ -2622,23 +2663,16 @@ static int sysext_main(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        const char *env_var;
         int r;
 
         log_setup();
 
         arg_image_class = invoked_as(argv, "systemd-confext") ? IMAGE_CONFEXT : IMAGE_SYSEXT;
 
-        /* Parse environment variable first */
-        env_var = getenv(image_class_info[arg_image_class].mode_env);
-        if (env_var) {
-                r = parse_mutable_mode(env_var);
-                if (r < 0)
-                        log_warning("Failed to parse %s environment variable value '%s'. Ignoring.",
-                                    image_class_info[arg_image_class].mode_env, env_var);
-                else
-                        arg_mutable = r;
-        }
+        /* Parse environment variables first */
+        r = parse_env();
+        if (r < 0)
+                return r;
 
         /* Parse configuration file */
         r = parse_config_file(arg_image_class);
@@ -2649,13 +2683,6 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
-
-        /* For debugging purposes it might make sense to do this for other hierarchies than /usr/ and
-         * /opt/, but let's make that a hacker/debugging feature, i.e. env var instead of cmdline
-         * switch. */
-        r = parse_env_extension_hierarchies(&arg_hierarchies, image_class_info[arg_image_class].name_env);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse environment variable: %m");
 
         if (arg_varlink) {
                 _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;

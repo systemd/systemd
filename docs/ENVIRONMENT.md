@@ -409,6 +409,14 @@ All tools:
   variable. Similarly, `$SYSTEMD_CONFEXT_MUTABLE_MODE` works for confext images
   and supports the systemd-confext multi-call functionality of sysext.
 
+* `$SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS` — this variable may be used to
+  override the overlayfs mount options applied for hierarchies managed by
+  `systemd-sysext`. Similarly, `$SYSTEMD_CONFEXT_OVERLAYFS_MOUNT_OPTIONS` works
+  for confext images and supports the systemd-confext multi-call functionality
+  of sysext. Read-only hierarchies have no mount options added by
+  default. Mutable hierarchies have the following mount options added by
+  default: `redirect_dir=on,noatime,metacopy=off,index=off`.
+
 `systemd-tmpfiles`:
 
 * `$SYSTEMD_TMPFILES_FORCE_SUBVOL` — if unset, `v`/`q`/`Q` lines will create
