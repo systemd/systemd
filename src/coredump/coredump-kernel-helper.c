@@ -10,7 +10,6 @@
 #include "format-util.h"
 #include "iovec-wrapper.h"
 #include "log.h"
-#include "namespace-util.h"
 #include "signal-util.h"
 
 int coredump_kernel_helper(int argc, char *argv[]) {
@@ -50,10 +49,7 @@ int coredump_kernel_helper(int argc, char *argv[]) {
                  context.pidref.pid, context.comm, context.uid, context.signo,
                  signal_to_string(context.signo));
 
-        r = pidref_in_same_namespace(/* pid1 = */ NULL, &context.pidref, NAMESPACE_PID);
-        if (r < 0)
-                log_debug_errno(r, "Failed to check pidns of crashing process, ignoring: %m");
-        if (r == 0) {
+        if (!context.same_pidns) {
                 /* If this fails, fallback to the old behavior so that
                  * there is still some record of the crash. */
                 r = coredump_send_to_container(&context);
