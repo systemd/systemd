@@ -39,7 +39,7 @@
     <para>This service is only enabled if volatile usr mode is selected, for example by specifying
     <literal>systemd.volatile=overlay-usr</literal> on the kernel command line. This service runs only in the initrd,
     before the system transitions to the host's root directory. This service is not used for other
-    volatile modes such as <literal>systemd.volatile=overlay</literal> or <literal>systemd.volatile=yes</literal>.
+    volatile modes such as <literal>systemd.volatile=overlay-root</literal> or <literal>systemd.volatile=yes</literal>.
     </para>
   </refsect1>
 
