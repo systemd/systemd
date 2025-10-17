@@ -57,6 +57,7 @@ typedef struct Manager {
         sd_varlink_server *varlink_server;
 
         usec_t prekill_timeout;
+        Set *prekill_ctxs;
 } Manager;
 
 Manager* manager_free(Manager *m);
