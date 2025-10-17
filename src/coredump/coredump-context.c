@@ -391,6 +391,19 @@ int coredump_context_build_iovw(CoredumpContext *context) {
         return 0;
 }
 
+static void coredump_context_check_pidns(CoredumpContext *context) {
+        int r;
+
+        assert(context);
+        assert(pidref_is_set(&context->pidref));
+
+        r = pidref_in_same_namespace(/* pid1 = */ NULL, &context->pidref, NAMESPACE_PID);
+        if (r < 0)
+                log_debug_errno(r, "Failed to check pidns of crashing process, ignoring: %m");
+
+        context->same_pidns = r != 0;
+}
+
 static int coredump_context_parse_from_procfs(CoredumpContext *context) {
         int r;
 
@@ -607,6 +620,7 @@ int coredump_context_parse_iovw(CoredumpContext *context) {
                                                "Mandatory argument %s not received on socket.",
                                                metadata_field_to_string(i));
 
+        coredump_context_check_pidns(context);
         return 0;
 }
 
@@ -632,5 +646,6 @@ int coredump_context_parse_from_argv(CoredumpContext *context, int argc, char **
                         return r;
         }
 
+        coredump_context_check_pidns(context);
         return coredump_context_parse_from_procfs(context);
 }
