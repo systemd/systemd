@@ -902,6 +902,32 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#UtmpMode="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(UtmpMode, ExecUtmpMode, 0));
 
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                KillMode,
+                SD_VARLINK_DEFINE_ENUM_VALUE(control_group),
+                SD_VARLINK_DEFINE_ENUM_VALUE(process),
+                SD_VARLINK_DEFINE_ENUM_VALUE(mixed),
+                SD_VARLINK_DEFINE_ENUM_VALUE(none));
+
+/* KillContext
+ * https://www.freedesktop.org/software/systemd/man/latest/systemd.kill.html */
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                KillContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.kill.html#KillMode="),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(KillMode, KillMode, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.kill.html#KillSignal="),
+                SD_VARLINK_DEFINE_FIELD(KillSignal, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.kill.html#RestartKillSignal="),
+                SD_VARLINK_DEFINE_FIELD(RestartKillSignal, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.kill.html#SendSIGHUP="),
+                SD_VARLINK_DEFINE_FIELD(SendSIGHUP, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.kill.html#SendSIGKILL="),
+                SD_VARLINK_DEFINE_FIELD(SendSIGKILL, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.kill.html#FinalKillSignal="),
+                SD_VARLINK_DEFINE_FIELD(FinalKillSignal, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.kill.html#WatchdogSignal="),
+                SD_VARLINK_DEFINE_FIELD(WatchdogSignal, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 /* UnitContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Condition,
@@ -1059,7 +1085,10 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The exec context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Exec, ExecContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The kill context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Kill, KillContext, SD_VARLINK_NULLABLE));
+
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ActivationDetails,
@@ -1317,6 +1346,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_SetCredential,
                 SD_VARLINK_SYMBOL_COMMENT("Exec context of a unit"),
                 &vl_type_ExecContext,
+
+                /* other contexts */
+                &vl_type_KillMode,
+                &vl_type_KillContext,
 
                 /* UnitContext enums */
                 &vl_type_CollectMode,

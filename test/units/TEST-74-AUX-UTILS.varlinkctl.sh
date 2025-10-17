@@ -230,6 +230,8 @@ set -o pipefail
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"cgroup": "/init.scope"}'
 invocation_id="$(systemctl show -P InvocationID systemd-journald.service)"
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"invocationID\": \"$invocation_id\"}"
+# test for KillContext
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"pid": {"pid": 0}}' | jq -e '.context.Kill'
 
 # test io.systemd.Metrics
 varlinkctl info /run/systemd/report/io.systemd.Manager
