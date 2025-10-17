@@ -45,6 +45,7 @@
 #include "resolved-dns-packet.h"
 #include "resolved-dns-rr.h"
 #include "resolved-util.h"
+#include "set.h"
 #include "socket-netlink.h"
 #include "sort-util.h"
 #include "stdio-util.h"
@@ -1772,6 +1773,166 @@ static char** global_protocol_status(const GlobalInfo *info) {
         return TAKE_PTR(s);
 }
 
+static int status_json_filter_fields(sd_json_variant **configuration, StatusMode mode) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        sd_json_variant *w = NULL;
+        const char *field;
+        int r;
+
+        assert(configuration);
+
+        switch (mode) {
+
+        case STATUS_ALL:
+                return 0;
+
+        case STATUS_DNS:
+                field = "servers";
+                break;
+
+        case STATUS_DOMAIN:
+                field = "searchDomains";
+                break;
+
+        case STATUS_DEFAULT_ROUTE:
+                field = "defaultRoute";
+                break;
+
+        case STATUS_LLMNR:
+                field = "llmnr";
+                break;
+
+        case STATUS_MDNS:
+                field = "mDNS";
+                break;
+
+        case STATUS_PRIVATE:
+                field = "dnsOverTLS";
+                break;
+
+        case STATUS_DNSSEC:
+                field = "dnssec";
+                break;
+
+        case STATUS_NTA:
+                field = "negativeTrustAnchors";
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        JSON_VARIANT_ARRAY_FOREACH(w, *configuration) {
+                /* Always include identifier fields like ifname or delegate, and include the requested
+                 * field even if it is empty in the configuration. */
+                r = sd_json_variant_append_arraybo(
+                                &v,
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("ifname", sd_json_variant_by_key(w, "ifname")),
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("ifindex", sd_json_variant_by_key(w, "ifindex")),
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("delegate", sd_json_variant_by_key(w, "delegate")),
+                                SD_JSON_BUILD_PAIR_VARIANT(field, sd_json_variant_by_key(w, field)));
+                if (r < 0)
+                        return r;
+        }
+
+        JSON_VARIANT_REPLACE(*configuration, TAKE_PTR(v));
+        return 0;
+}
+
+static int status_json_filter_links(sd_json_variant **configuration, char **links) {
+        _cleanup_set_free_ Set *links_by_index = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        sd_json_variant *w = NULL;
+        int r;
+
+        assert(configuration);
+
+        if (links) {
+                links_by_index = set_new(NULL);
+                if (!links_by_index)
+                        return log_oom();
+
+                STRV_FOREACH(ifname, links) {
+                        int ifindex;
+
+                        ifindex = rtnl_resolve_interface_or_warn(NULL, *ifname);
+                        if (ifindex < 0)
+                                return ifindex;
+
+                        r = set_put(links_by_index, INT_TO_PTR(ifindex));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        JSON_VARIANT_ARRAY_FOREACH(w, *configuration) {
+                int ifindex = sd_json_variant_unsigned(sd_json_variant_by_key(w, "ifindex"));
+
+                if (links_by_index) {
+                        if (ifindex <= 0)
+                                /* Possibly invalid, but most likely unset because this is global
+                                 * or delegate configuration. */
+                                continue;
+
+                        if (!set_contains(links_by_index, INT_TO_PTR(ifindex)))
+                                continue;
+
+                } else if (ifindex == LOOPBACK_IFINDEX)
+                        /* By default, exclude the loopback interface. */
+                        continue;
+
+                r = sd_json_variant_append_array(&v, w);
+                if (r < 0)
+                        return r;
+        }
+
+        JSON_VARIANT_REPLACE(*configuration, TAKE_PTR(v));
+        return 0;
+}
+
+static int varlink_dump_dns_configuration(sd_json_variant **ret) {
+        sd_json_variant *v = NULL, *reply = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        assert(ret);
+
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to service /run/systemd/resolve/io.systemd.Resolve: %m");
+
+        r = varlink_call_and_log(vl, "io.systemd.Resolve.DumpDNSConfiguration", NULL, &reply);
+        if (r < 0)
+                return r;
+
+        v = sd_json_variant_by_key(reply, "configuration");
+
+        if (!sd_json_variant_is_array(v))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "DumpDNSConfiguration() response missing 'configuration' key.");
+
+        *ret = sd_json_variant_ref(v);
+        return 0;
+}
+
+static int status_json(StatusMode mode, char **links) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
+        int r;
+
+        r = varlink_dump_dns_configuration(&configuration);
+        if (r < 0)
+                return r;
+
+        r = status_json_filter_links(&configuration, links);
+        if (r < 0)
+                return log_error_errno(r, "Failed to filter configuration JSON links: %m");
+
+        r = status_json_filter_fields(&configuration, mode);
+        if (r < 0)
+                return log_error_errno(r, "Failed to filter configuration JSON fields: %m");
+
+        return sd_json_variant_dump(configuration, arg_json_format_flags, NULL, NULL);
+}
+
 static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
         static const struct bus_properties_map property_map[] = {
                 { "ScopesMask",                 "t",        NULL,                           offsetof(LinkInfo, scopes_mask)      },
@@ -1807,6 +1968,9 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
 
                 name = ifname;
         }
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                return status_json(mode, STRV_MAKE(name));
 
         xsprintf(ifi, "%i", ifindex);
         r = sd_bus_path_encode("/org/freedesktop/resolve1/link", ifi, &p);
@@ -2403,6 +2567,9 @@ static int status_all(sd_bus *bus, StatusMode mode) {
 
         assert(bus);
 
+        if (sd_json_format_enabled(arg_json_format_flags))
+                return status_json(mode, NULL);
+
         r = status_global(bus, mode, &empty_line);
         if (r < 0)
                 return r;
@@ -2423,6 +2590,9 @@ static int verb_status(int argc, char **argv, void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         bool empty_line = false;
         int r, ret = 0;
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                return status_json(STATUS_ALL, argc > 1 ? strv_skip(argv, 1) : NULL);
 
         r = acquire_bus(&bus);
         if (r < 0)
