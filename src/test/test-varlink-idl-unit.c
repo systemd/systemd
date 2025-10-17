@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "automount.h"
 #include "cgroup.h"
 #include "ioprio-util.h"
 #include "kill.h"
@@ -50,6 +51,9 @@ TEST(unit_enums_idl) {
         TEST_IDL_ENUM(ManagedOOMPreference, managed_oom_preference, vl_type_ManagedOOMPreference);
         TEST_IDL_ENUM(CGroupPressureWatch, cgroup_pressure_watch, vl_type_CGroupPressureWatch);
         TEST_IDL_ENUM(CGroupController, cgroup_controller, vl_type_CGroupController);
+
+        /* AutomountRuntime enums */
+        TEST_IDL_ENUM(AutomountResult, automount_result, vl_type_AutomountResult);
 
         /* UnitContext enums */
         TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);

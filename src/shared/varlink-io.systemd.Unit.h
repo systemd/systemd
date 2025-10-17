@@ -28,5 +28,6 @@ extern const sd_varlink_symbol vl_type_IOSchedulingClass;
 extern const sd_varlink_symbol vl_type_NUMAPolicy;
 extern const sd_varlink_symbol vl_type_MountPropagationFlag;
 extern const sd_varlink_symbol vl_type_KillMode;
+extern const sd_varlink_symbol vl_type_AutomountResult;
 extern const sd_varlink_symbol vl_type_CollectMode;
 extern const sd_varlink_symbol vl_type_JobMode;
