@@ -60,12 +60,13 @@ void coredump_context_done(CoredumpContext *context) {
 
 bool coredump_context_is_pid1(CoredumpContext *context) {
         assert(context);
-        return context->pidref.pid == 1 || streq_ptr(context->unit, SPECIAL_INIT_SCOPE);
+        return context->pidref.pid == 1 ||
+                (context->same_pidns && streq_ptr(context->unit, SPECIAL_INIT_SCOPE));
 }
 
 bool coredump_context_is_journald(CoredumpContext *context) {
         assert(context);
-        return streq_ptr(context->unit, SPECIAL_JOURNALD_SERVICE);
+        return context->same_pidns && streq_ptr(context->unit, SPECIAL_JOURNALD_SERVICE);
 }
 
 int coredump_context_acquire_mount_tree_fd(const CoredumpConfig *config, CoredumpContext *context) {
