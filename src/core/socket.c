@@ -1582,6 +1582,15 @@ static int socket_address_listen_in_cgroup(
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to acquire runtime: %m");
 
+        if (s->exec_context.user_namespace_path &&
+                s->exec_runtime &&
+                s->exec_runtime->shared &&
+                s->exec_runtime->shared->userns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(s->exec_runtime->shared->userns_storage_socket, s->exec_context.user_namespace_path, CLONE_NEWUSER);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to open user namespace path %s: %m", s->exec_context.user_namespace_path);
+        }
+
         if (s->exec_context.network_namespace_path &&
             s->exec_runtime &&
             s->exec_runtime->shared &&
