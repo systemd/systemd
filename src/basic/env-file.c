@@ -649,7 +649,7 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l, Writ
         }
 
         r = fopen_tmpfile_linkable_at(dir_fd, fname, O_WRONLY|O_CLOEXEC, &p, &f);
-        int k = call_label_ops_post ? label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fname, /* created= */ !!f) : 0;
+        int k = call_label_ops_post ? label_ops_post(fileno(f), /* path= */ NULL, /* created= */ true) : 0;
         if (r < 0)
                 return r;
         CLEANUP_TMPFILE_AT(dir_fd, p);

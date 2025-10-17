@@ -110,8 +110,10 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                         r = device_get_sysattr_u64(dev, "size", &size);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to acquire size of device '%s', ignoring: %m", node);
-                        else
+                        else {
+                                assert(UINT64_MAX / 512 >= size); /* Overflow check for coverity */
                                 size *= 512; /* the 'size' sysattr is always in multiples of 512, even on 4K sector block devices! */
+                        }
 
                         if (size == 0 && FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_EMPTY)) {
                                 log_debug("Device '%s' has a zero size, assuming drive without a medium, skipping.", node);
