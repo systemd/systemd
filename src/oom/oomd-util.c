@@ -29,6 +29,7 @@ struct OomdKillState {
         bool recurse;
         usec_t prekill_timeout;
         sd_event *event;
+        Set *prekill_ctxs;
 };
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
@@ -282,8 +283,10 @@ int oomd_cgroup_kill(const char *path, bool recurse) {
 }
 
 static void oom_kill_state_free(struct OomdKillState *ks) {
-        if (ks)
+        if (ks) {
+                set_remove(ks->prekill_ctxs, ks);
                 free(ks->path);
+        }
         free(ks);
 }
 
@@ -298,6 +301,21 @@ static struct OomdKillState* oomd_kill_state_dec(struct OomdKillState *ks) {
 }
 
 DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(struct OomdKillState, oomd_kill_state, oomd_kill_state_dec);
+
+int clean_prekills(sd_event_source *e, void *userdata)
+{
+        struct Set *prekill_ctxs = userdata;
+        struct OomdKillState *ks;
+
+        assert(prekill_ctxs);
+
+        SET_FOREACH(ks, prekill_ctxs) {
+                log_debug("Cleaning up unfinished prekill hook state for cgroup %s", ks->path);
+                oom_kill_state_free(ks);
+        }
+
+        return 0;
+}
 
 static int prekill_callback(
                 sd_varlink *link,
@@ -395,6 +413,7 @@ static int oomd_prekill_hook(const char *path, struct PreKillContext *pk_ctx) {
                 .recurse = true,
                 .prekill_timeout = pk_ctx->timeout,
                 .event = pk_ctx->event,
+                .prekill_ctxs = pk_ctx->prekill_ctxs,
         };
         if (!ks->path)
                 return log_oom_debug();
@@ -403,6 +422,8 @@ static int oomd_prekill_hook(const char *path, struct PreKillContext *pk_ctx) {
         r = sd_json_buildo(&cparams, SD_JSON_BUILD_PAIR_STRING("cgroup", path));
         if (r < 0)
                 return log_oom_debug();
+
+        set_put(pk_ctx->prekill_ctxs, ks);
 
         FOREACH_DIRENT(de, d, return -errno)
                 if (IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))

@@ -48,6 +48,7 @@ struct OomdSystemContext {
 struct PreKillContext {
         usec_t timeout;
         sd_event *event;
+        Set *prekill_ctxs;
 };
 
 OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx);
@@ -148,3 +149,4 @@ void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_
 void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
 void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
 void oomd_dump_system_context(const OomdSystemContext *ctx, FILE *f, const char *prefix);
+int clean_prekills(sd_event_source *e, void *userdata);
