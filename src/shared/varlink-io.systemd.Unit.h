@@ -26,6 +26,7 @@ extern const sd_varlink_symbol vl_type_ManagedOOMMode;
 extern const sd_varlink_symbol vl_type_ManagedOOMPreference;
 extern const sd_varlink_symbol vl_type_CGroupPressureWatch;
 extern const sd_varlink_symbol vl_type_CGroupController;
+extern const sd_varlink_symbol vl_type_KillMode;
 extern const sd_varlink_symbol vl_type_CollectMode;
 extern const sd_varlink_symbol vl_type_EmergencyAction;
 extern const sd_varlink_symbol vl_type_JobMode;

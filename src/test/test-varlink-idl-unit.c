@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "cgroup.h"
+#include "kill.h"
 #include "tests.h"
 #include "test-varlink-idl-util.h"
 #include "unit.h"
@@ -24,6 +25,9 @@ TEST(unit_enums_idl) {
         TEST_IDL_ENUM(ProtectControlGroups, protect_control_groups, vl_type_ProtectControlGroups);
         TEST_IDL_ENUM(PrivatePIDs, private_pids, vl_type_PrivatePIDs);
         TEST_IDL_ENUM(PrivateBPF, private_bpf, vl_type_PrivateBPF);
+
+        /* KillContext enums */
+        TEST_IDL_ENUM(KillMode, kill_mode, vl_type_KillMode);
 
         /* CGroupContext enums */
         TEST_IDL_ENUM(CGroupDevicePolicy, cgroup_device_policy, vl_type_CGroupDevicePolicy);
