@@ -208,6 +208,11 @@ automount_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.syst
 test -n "$automount_id"
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$automount_id\"}" | jq -e '.context.Automount'
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$automount_id\"}" | jq -e '.runtime.Automount'
+# test for MountContext/Runtime
+mount_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | select(.context.Type == "mount") .context.ID' | grep -v null | tail -n 1)
+test -n "$mount_id"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$mount_id\"}" | jq -e '.context.Mount'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"name\": \"$mount_id\"}" | jq -e '.runtime.Mount'
 
 # test io.systemd.Manager in user manager
 testuser_uid=$(id -u testuser)
