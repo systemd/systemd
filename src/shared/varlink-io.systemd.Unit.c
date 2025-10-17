@@ -582,6 +582,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(PrivatePIDs, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#PrivateUsers="),
                 SD_VARLINK_DEFINE_FIELD(PrivateUsers, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#UserNamespacePath="),
+                SD_VARLINK_DEFINE_FIELD(UserNamespacePath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#ProtectHostname="),
                 SD_VARLINK_DEFINE_FIELD(ProtectHostname, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#ProtectClock="),
