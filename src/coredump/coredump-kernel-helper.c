@@ -55,8 +55,6 @@ int coredump_kernel_helper(int argc, char *argv[]) {
                 r = coredump_send_to_container(&context);
                 if (r >= 0)
                         return 0;
-
-                (void) acquire_pid_mount_tree_fd(&config, &context);
         }
 
         /* If this is PID 1, disable coredump collection, we'll unlikely be able to process
