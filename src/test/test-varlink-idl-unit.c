@@ -4,6 +4,7 @@
 #include "cgroup.h"
 #include "ioprio-util.h"
 #include "kill.h"
+#include "mount.h"
 #include "numa-util.h"
 #include "process-util.h"
 #include "tests.h"
@@ -54,6 +55,9 @@ TEST(unit_enums_idl) {
 
         /* AutomountRuntime enums */
         TEST_IDL_ENUM(AutomountResult, automount_result, vl_type_AutomountResult);
+
+        /* MountRuntime enums */
+        TEST_IDL_ENUM(MountResult, mount_result, vl_type_MountResult);
 
         /* UnitContext enums */
         TEST_IDL_ENUM(CollectMode, collect_mode, vl_type_CollectMode);
