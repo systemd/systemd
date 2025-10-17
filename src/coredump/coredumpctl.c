@@ -543,7 +543,7 @@ static int resolve_filename(const char *root, char **p) {
 static int print_list(FILE* file, sd_journal *j, Table *t) {
         _cleanup_free_ char
                 *mid = NULL, *pid = NULL, *uid = NULL, *gid = NULL,
-                *sgnl = NULL, *exe = NULL, *comm = NULL, *cmdline = NULL,
+                *sgnl = NULL, *exe = NULL, *comm = NULL,
                 *filename = NULL, *truncated = NULL, *coredump = NULL;
         const void *d;
         size_t l;
@@ -568,14 +568,16 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
                 RETRIEVE(d, l, "COREDUMP_SIGNAL", sgnl);
                 RETRIEVE(d, l, "COREDUMP_EXE", exe);
                 RETRIEVE(d, l, "COREDUMP_COMM", comm);
-                RETRIEVE(d, l, "COREDUMP_CMDLINE", cmdline);
                 RETRIEVE(d, l, "COREDUMP_FILENAME", filename);
                 RETRIEVE(d, l, "COREDUMP_TRUNCATED", truncated);
                 RETRIEVE(d, l, "COREDUMP", coredump);
         }
 
-        if (!pid && !uid && !gid && !sgnl && !exe && !comm && !cmdline && !filename)
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Empty coredump log entry");
+        if (!pid || !uid || !gid || !sgnl || !comm) {
+                log_warning("Found a coredump entry without mandatory fields (PID=%s, UID=%s, GID=%s, SIGNAL=%s, COMM=%s), ignoring.",
+                            strna(pid), strna(uid), strna(gid), strna(sgnl), strna(comm));
+                return 0;
+        }
 
         (void) parse_uid(uid, &uid_as_int);
         (void) parse_gid(gid, &gid_as_int);
@@ -614,7 +616,7 @@ static int print_list(FILE* file, sd_journal *j, Table *t) {
                         TABLE_SIGNAL, normal_coredump ? signal_as_int : 0,
                         TABLE_STRING, present,
                         TABLE_SET_COLOR, color,
-                        TABLE_STRING, exe ?: comm ?: cmdline,
+                        TABLE_STRING, exe ?: comm,
                         TABLE_SIZE, size);
         if (r < 0)
                 return table_log_add_error(r);
