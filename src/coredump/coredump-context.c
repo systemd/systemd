@@ -78,11 +78,12 @@ int coredump_context_acquire_mount_tree_fd(const CoredumpConfig *config, Coredum
         assert(config);
         assert(context);
 
-        if (!config->enter_namespace) {
-                context->mount_tree_fd = -EHOSTDOWN;
-                log_debug("EnterNamespace=no so we won't use mount tree of the crashed process for generating backtrace.");
+        if (context->mount_tree_fd >= 0)
                 return 0;
-        }
+
+        if (!context->same_pidns && !config->enter_namespace)
+                return log_debug_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
+                                       "EnterNamespace=no so we won't use mount tree of the crashed process for generating backtrace.");
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_error_errno(errno, "Failed to create socket pair: %m");
@@ -135,12 +136,11 @@ int coredump_context_acquire_mount_tree_fd(const CoredumpConfig *config, Coredum
                 return log_error_errno(fd, "Failed to receive mount tree: %m");
 
         context->mount_tree_fd = TAKE_FD(fd);
+        return 0;
 #else
         /* Don't bother preparing environment if we can't pass it to libdwfl. */
-        context->mount_tree_fd = -EOPNOTSUPP;
-        log_debug("dwfl_set_sysroot() is not supported.");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "dwfl_set_sysroot() is not supported.");
 #endif
-        return 0;
 }
 
 /* Joins /proc/[pid]/fd/ and /proc/[pid]/fdinfo/ into the following lines:
