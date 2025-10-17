@@ -321,6 +321,7 @@ void unit_types_list(void);
 
 DECLARE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
 DECLARE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
+const char* unit_type_to_capitalized_string(UnitType t);
 
 DECLARE_STRING_TABLE_LOOKUP(freezer_state, FreezerState);
 FreezerState freezer_state_finish(FreezerState state) _const_;
