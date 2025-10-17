@@ -59,6 +59,7 @@ struct CoredumpContext {
         char *auxv;        /* META_AUXV */
         size_t auxv_size;  /* META_AUXV */
         bool got_pidfd;    /* META_ARGV_PIDFD */
+        bool same_pidns;
         bool forwarded;
         int input_fd;
         int mount_tree_fd;
