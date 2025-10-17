@@ -2,8 +2,6 @@
 
 #include <unistd.h>
 
-#include "sd-messages.h"
-
 #include "coredump-context.h"
 #include "coredump-send.h"
 #include "coredump-util.h"
@@ -19,12 +17,12 @@
 #include "process-util.h"
 #include "socket-util.h"
 
-int coredump_send(const struct iovec_wrapper *iovw, int input_fd, PidRef *pidref, int mount_tree_fd) {
+int coredump_send(CoredumpContext *context) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(iovw);
-        assert(input_fd >= 0);
+        assert(context);
+        assert(context->input_fd >= 0);
 
         fd = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0);
         if (fd < 0)
@@ -34,9 +32,9 @@ int coredump_send(const struct iovec_wrapper *iovw, int input_fd, PidRef *pidref
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to coredump service: %m");
 
-        for (size_t i = 0; i < iovw->count; i++) {
+        FOREACH_ARRAY(iovec, context->iovw.iovec, context->iovw.count) {
                 struct msghdr mh = {
-                        .msg_iov = iovw->iovec + i,
+                        .msg_iov = iovec,
                         .msg_iovlen = 1,
                 };
                 struct iovec copy[2];
@@ -57,7 +55,7 @@ int coredump_send(const struct iovec_wrapper *iovw, int input_fd, PidRef *pidref
                                          * iovecs, where the first is a (truncated) copy of
                                          * what we want to send, and the second one contains
                                          * the trailing dots. */
-                                        copy[0] = iovw->iovec[i];
+                                        copy[0] = *iovec;
                                         copy[1] = IOVEC_MAKE(((const char[]){'.', '.', '.'}), 3);
 
                                         mh.msg_iov = copy;
@@ -73,30 +71,30 @@ int coredump_send(const struct iovec_wrapper *iovw, int input_fd, PidRef *pidref
         }
 
         /* First sentinel: the coredump fd */
-        r = send_one_fd(fd, input_fd, 0);
+        r = send_one_fd(fd, context->input_fd, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send coredump fd: %m");
 
         /* The optional second sentinel: the pidfd */
-        if (!pidref_is_set(pidref) || pidref->fd < 0) /* If we have no pidfd, stop now */
+        if (!pidref_is_set(&context->pidref) || context->pidref.fd < 0) /* If we have no pidfd, stop now */
                 return 0;
 
-        r = send_one_fd(fd, pidref->fd, 0);
+        r = send_one_fd(fd, context->pidref.fd, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send pidfd: %m");
 
         /* The optional third sentinel: the mount tree fd */
-        if (mount_tree_fd < 0) /* If we have no mount tree, stop now */
+        if (context->mount_tree_fd < 0) /* If we have no mount tree, stop now */
                 return 0;
 
-        r = send_one_fd(fd, mount_tree_fd, 0);
+        r = send_one_fd(fd, context->mount_tree_fd, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to send mount tree fd: %m");
 
         return 0;
 }
 
-static int can_forward_coredump(Context *context, const PidRef *pid) {
+static int can_forward_coredump(CoredumpContext *context, const PidRef *pid) {
         _cleanup_free_ char *cgroup = NULL, *path = NULL, *unit = NULL;
         int r;
 
@@ -192,7 +190,7 @@ static int receive_ucred(int transport_fd, struct ucred *ret_ucred) {
         return 0;
 }
 
-int coredump_send_to_container(Context *context) {
+int coredump_send_to_container(CoredumpContext *context) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         pid_t child;
@@ -249,63 +247,26 @@ int coredump_send_to_container(Context *context) {
                         _exit(EXIT_FAILURE);
                 }
 
-                _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = iovw_new();
-                if (!iovw) {
-                        log_oom();
-                        _exit(EXIT_FAILURE);
-                }
-
-                (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
-                (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
-                (void) iovw_put_string_field(iovw, "COREDUMP_FORWARDED=", "1");
-
-                for (int i = 0; i < _META_ARGV_MAX; i++) {
-                        char buf[DECIMAL_STR_MAX(pid_t)];
-                        const char *t = context->meta[i];
-
-                        /* Patch some of the fields with the translated ucred data */
-                        switch (i) {
-
-                        case META_ARGV_PID:
-                                xsprintf(buf, PID_FMT, ucred.pid);
-                                t = buf;
-                                break;
-
-                        case META_ARGV_UID:
-                                xsprintf(buf, UID_FMT, ucred.uid);
-                                t = buf;
-                                break;
-
-                        case META_ARGV_GID:
-                                xsprintf(buf, GID_FMT, ucred.gid);
-                                t = buf;
-                                break;
-
-                        default:
-                                ;
-                        }
-
-                        r = iovw_put_string_field(iovw, meta_field_names[i], t);
-                        if (r < 0) {
-                                log_debug_errno(r, "Failed to construct iovec: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-                }
-
-                _cleanup_(context_done) Context child_context = CONTEXT_NULL;
-                r = context_parse_iovw(&child_context, iovw);
+                PidRef pidref;
+                r = pidref_set_pid(&pidref, ucred.pid);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to save context: %m");
+                        log_error_errno(r, "Failed to set pid to pidref: %m");
                         _exit(EXIT_FAILURE);
                 }
 
-                r = gather_pid_metadata_from_procfs(iovw, &child_context);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to gather metadata from procfs: %m");
-                        _exit(EXIT_FAILURE);
-                }
+                pidref_done(&context->pidref);
+                context->pidref = TAKE_PIDREF(pidref);
 
-                r = coredump_send(iovw, STDIN_FILENO, &context->pidref, /* mount_tree_fd= */ -EBADF);
+                context->uid = ucred.uid;
+                context->gid = ucred.gid;
+
+                r = coredump_context_build_iovw(context);
+                if (r < 0)
+                        _exit(EXIT_FAILURE);
+
+                (void) iovw_put_string_field(&context->iovw, "COREDUMP_FORWARDED=", "1");
+
+                r = coredump_send(context);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to send iovec to coredump socket: %m");
                         _exit(EXIT_FAILURE);
