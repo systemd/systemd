@@ -3,8 +3,4 @@
 
 #include "coredump-forward.h"
 
-int coredump_submit(
-                const CoredumpConfig *config,
-                const Context *context,
-                struct iovec_wrapper *iovw,
-                int input_fd);
+int coredump_submit(const CoredumpConfig *config, CoredumpContext *context);
