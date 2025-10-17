@@ -4555,8 +4555,6 @@ int verity_dissect_and_mount(
                 _cleanup_strv_free_ char **extension_release = NULL;
                 ImageClass class = IMAGE_SYSEXT;
 
-                assert(!isempty(extension_release_data->os_release_id));
-
                 r = load_extension_release_pairs(dest, required_class >= 0 ? required_class : IMAGE_SYSEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);
                 if (r == -ENOENT) {
                         if (required_class >= 0)
