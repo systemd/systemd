@@ -55,10 +55,6 @@ int coredump_kernel_helper(int argc, char *argv[]) {
                 r = coredump_send_to_container(&context);
                 if (r >= 0)
                         return 0;
-
-                r = coredump_context_acquire_mount_tree_fd(&config, &context);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to access the mount tree of a container, ignoring: %m");
         }
 
         /* If this is PID 1, disable coredump collection, we'll unlikely be able to process
