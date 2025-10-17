@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
 #include "in-addr-util.h"
 #include "list.h"
 #include "resolved-conf.h"

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
 #include "list.h"
 #include "resolved-dns-packet.h"
 #include "resolved-dnstls.h"

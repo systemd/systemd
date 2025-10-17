@@ -2,7 +2,6 @@
 #pragma once
 
 #include "firewall-util.h"
-#include "shared-forward.h"
 #include "in-addr-util.h"
 #include "networkd-forward.h"
 #include "networkd-util.h"
