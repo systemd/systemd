@@ -21,6 +21,7 @@
 #include "varlink-common.h"
 #include "varlink-execute.h"
 #include "varlink-kill.h"
+#include "varlink-mount.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
 
@@ -116,6 +117,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
         /* TODO missing callbacks */
         static const sd_json_build_callback_t unit_type_callbacks[_UNIT_TYPE_MAX] = {
                 [UNIT_AUTOMOUNT] = automount_context_build_json,
+                [UNIT_MOUNT]     = mount_context_build_json,
         };
 
         return sd_json_buildo(
@@ -280,6 +282,7 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
         /* TODO missing callbacks */
         static const sd_json_build_callback_t unit_type_callbacks[_UNIT_TYPE_MAX] = {
                 [UNIT_AUTOMOUNT] = automount_runtime_build_json,
+                [UNIT_MOUNT]     = mount_runtime_build_json,
         };
 
         return sd_json_buildo(
