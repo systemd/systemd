@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sched.h>
 #include <stdio.h>
 #include <sys/utsname.h>
 #include <unistd.h>
@@ -15,8 +16,12 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "initrd-util.h"
+#include "io-util.h"
 #include "log.h"
+#include "namespace-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
+#include "process-util.h"
 #include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -343,4 +348,67 @@ int gethostname_full(GetHostnameFlags flags, char **ret) {
 
         *ret = TAKE_PTR(buf);
         return 0;
+}
+
+int pidref_gethostname_full(PidRef *pidref, GetHostnameFlags flags, char **ret) {
+        int r;
+
+        assert(pidref);
+        assert(ret);
+
+        r = pidref_in_same_namespace(pidref, NULL, NAMESPACE_UTS);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return gethostname_full(flags, ret);
+
+        _cleanup_close_ int utsns_fd = r = pidref_namespace_open_by_type(pidref, NAMESPACE_UTS);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
+        r = pipe2(errno_pipe, O_CLOEXEC);
+        if (r < 0)
+                return -errno;
+
+        _cleanup_close_pair_ int result_pipe[2] = EBADF_PAIR;
+        r = pipe2(result_pipe, O_CLOEXEC);
+        if (r < 0)
+                return -errno;
+
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
+        r = pidref_safe_fork("(gethostname)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &child);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                errno_pipe[0] = safe_close(errno_pipe[0]);
+                result_pipe[0] = safe_close(result_pipe[0]);
+
+                if (setns(utsns_fd, CLONE_NEWUTS) < 0)
+                        report_errno_and_exit(errno_pipe[1], -errno);
+
+                char *t;
+                r = gethostname_full(flags, &t);
+                if (r < 0)
+                        report_errno_and_exit(errno_pipe[1], r);
+
+                r = loop_write(result_pipe[1], t, strlen(t) + 1);
+                report_errno_and_exit(errno_pipe[1], r);
+        }
+
+        errno_pipe[1] = safe_close(errno_pipe[1]);
+        result_pipe[1] = safe_close(result_pipe[1]);
+
+        r = read_errno(errno_pipe[0]);
+        if (r < 0)
+                return r;
+
+        char buf[HOST_NAME_MAX+1];
+        ssize_t n = loop_read(result_pipe[0], buf, sizeof(buf), /* do_poll = */ false);
+        if (n < 0)
+                return n;
+        if (n == 0 || buf[n - 1] != '\0')
+                return -EPROTO;
+
+        return strdup_to(ret, buf);
 }
