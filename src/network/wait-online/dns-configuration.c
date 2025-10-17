@@ -198,7 +198,7 @@ static int dispatch_dns_configuration(const char *name, sd_json_variant *variant
 }
 
 int dns_configuration_from_json(sd_json_variant *variant, DNSConfiguration **ret) {
-        return dispatch_dns_configuration(NULL, variant, SD_JSON_LOG, ret);
+        return dispatch_dns_configuration(NULL, variant, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, ret);
 }
 
 bool dns_is_accessible(DNSConfiguration *c) {
