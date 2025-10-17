@@ -748,6 +748,37 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.automount.html#TimeoutIdleSec="),
                 SD_VARLINK_DEFINE_FIELD(TimeoutIdleUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
+/* MountContext
+ * https://www.freedesktop.org/software/systemd/man/latest/systemd.mount.html */
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                MountContext,
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.mount.html#What="),
+                SD_VARLINK_DEFINE_FIELD(What, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.mount.html#Where="),
+                SD_VARLINK_DEFINE_FIELD(Where, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.mount.html#Type="),
+                SD_VARLINK_DEFINE_FIELD(Type, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.mount.html#Options="),
+                SD_VARLINK_DEFINE_FIELD(Options, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.mount.html#SloppyOptions="),
+                SD_VARLINK_DEFINE_FIELD(SloppyOptions, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.mount.html#LazyUnmount="),
+                SD_VARLINK_DEFINE_FIELD(LazyUnmount, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.mount.html#ReadWriteOnly="),
+                SD_VARLINK_DEFINE_FIELD(ReadWriteOnly, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.mount.html#ForceUnmount="),
+                SD_VARLINK_DEFINE_FIELD(ForceUnmount, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.mount.html#DirectoryMode="),
+                SD_VARLINK_DEFINE_FIELD(DirectoryMode, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.mount.html#TimeoutSec="),
+                SD_VARLINK_DEFINE_FIELD(TimeoutUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Mount command"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecMount, ExecCommand, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Unmount command"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecUnmount, ExecCommand, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Remount command"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ExecRemount, ExecCommand, SD_VARLINK_NULLABLE));
+
 /* UnitContext */
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Condition,
@@ -909,7 +940,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The kill context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Kill, KillContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The automount context of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Automount, AutomountContext, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Automount, AutomountContext, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The mount context of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mount, MountContext, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ActivationDetails,
@@ -989,6 +1022,21 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Result, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                MountRuntime,
+                SD_VARLINK_FIELD_COMMENT("Result of automount operation"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(ControlPID, ProcessId, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Result of mount operation"),
+                SD_VARLINK_DEFINE_FIELD(Result, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Result of remount operation"),
+                SD_VARLINK_DEFINE_FIELD(ReloadResult, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Result of cleaning operation"),
+                SD_VARLINK_DEFINE_FIELD(CleanResult, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Reference UID"),
+                SD_VARLINK_DEFINE_FIELD(UID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Reference GID"),
+                SD_VARLINK_DEFINE_FIELD(GID, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 UnitRuntime,
                 SD_VARLINK_FIELD_COMMENT("If not empty, the field contains the name of another unit that this unit follows in state"),
                 SD_VARLINK_DEFINE_FIELD(Following, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -1047,7 +1095,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("The cgroup runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupRuntime, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The automount runtime of the unit"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Automount, AutomountRuntime, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Automount, AutomountRuntime, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The mount runtime of the unit"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Mount, MountRuntime, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(
                 NoSuchUnit,
@@ -1135,6 +1185,9 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_KillContext,
                 &vl_type_AutomountContext,
                 &vl_type_AutomountRuntime,
+                &vl_type_ExecCommand,
+                &vl_type_MountContext,
+                &vl_type_MountRuntime,
 
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
