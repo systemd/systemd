@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+
 #include "alloc-util.h"
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
@@ -59,7 +61,7 @@ int iovw_put(struct iovec_wrapper *iovw, void *data, size_t len) {
         return 0;
 }
 
-int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const char *value) {
+int iovw_put_string_field_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *value) {
         _cleanup_free_ char *x = NULL;
         int r;
 
@@ -69,11 +71,35 @@ int iovw_put_string_field(struct iovec_wrapper *iovw, const char *field, const c
         if (!x)
                 return -ENOMEM;
 
+        if (replace)
+                FOREACH_ARRAY(iovec, iovw->iovec, iovw->count)
+                        if (memory_startswith(iovec->iov_base, iovec->iov_len, field)) {
+                                iovec->iov_len = strlen(x);
+                                free_and_replace(iovec->iov_base, x);
+                                return 0;
+                        }
+
         r = iovw_put(iovw, x, strlen(x));
         if (r >= 0)
                 TAKE_PTR(x);
 
         return r;
+}
+
+int iovw_put_string_fieldf_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *format, ...) {
+        _cleanup_free_ char *value = NULL;
+        va_list ap;
+        int r;
+
+        assert(format);
+
+        va_start(ap, format);
+        r = vasprintf(&value, format, ap);
+        va_end(ap);
+        if (r < 0)
+                return -ENOMEM;
+
+        return iovw_put_string_field_full(iovw, replace, field, value);
 }
 
 int iovw_put_string_field_free(struct iovec_wrapper *iovw, const char *field, char *value) {
