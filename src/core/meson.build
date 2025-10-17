@@ -64,6 +64,7 @@ libcore_sources = files(
         'unit-serialize.c',
         'unit.c',
         'varlink.c',
+        'varlink-automount.c',
         'varlink-cgroup.c',
         'varlink-common.c',
         'varlink-dynamic-user.c',
