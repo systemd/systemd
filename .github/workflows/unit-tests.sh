@@ -99,7 +99,7 @@ for phase in "${PHASES[@]}"; do
             fi
 
             MESON_ARGS+=(--fatal-meson-warnings)
-            run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
+            run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true -Dbpf-framework=disabled "${MESON_ARGS[@]}" build
             ninja -C build -v
             # Ensure setting a timezone (like the reproducible build tests do) does not break time/date unit tests
             TZ=GMT+12 meson test "${MESON_TEST_ARGS[@]}" -C build --print-errorlogs
@@ -122,7 +122,7 @@ for phase in "${PHASES[@]}"; do
                 fi
             fi
             MESON_ARGS+=(--fatal-meson-warnings)
-            run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Db_sanitize=address,undefined "${MESON_ARGS[@]}" build
+            run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Db_sanitize=address,undefined -Dbpf-framework=disabled "${MESON_ARGS[@]}" build
             ninja -C build -v
 
             export ASAN_OPTIONS=strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1
