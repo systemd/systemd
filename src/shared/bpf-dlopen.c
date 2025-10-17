@@ -49,6 +49,8 @@ DLSYM_PROTOTYPE(ring_buffer__free) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__new) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__poll) = NULL;
 
+static void* bpf_dl = NULL;
+
 /* new symbols available from libbpf 0.7.0 */
 int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
 struct bpf_map* (*sym_bpf_object__next_map)(const struct bpf_object *obj, const struct bpf_map *map);
@@ -71,8 +73,8 @@ static int bpf_print_func(enum libbpf_print_level level, const char *fmt, va_lis
 }
 
 int dlopen_bpf_full(int log_level) {
+        _cleanup_(dlclosep) void *dl = NULL;
         static int cached = 0;
-        void *dl;
         int r;
 
         if (cached != 0)
@@ -176,6 +178,8 @@ int dlopen_bpf_full(int log_level) {
         (void) sym_libbpf_set_print(bpf_print_func);
 
         REENABLE_WARNING;
+
+        bpf_dl = TAKE_PTR(dl);
 
         return cached = true;
 }
