@@ -164,9 +164,8 @@ int efi_get_variable(
 }
 
 int efi_get_variable_string(const char *variable, char **ret) {
-        _cleanup_free_ void *s = NULL;
+        _cleanup_free_ void *s = NULL, *x = NULL;
         size_t ss = 0;
-        char *x;
         int r;
 
         assert(variable);
@@ -180,7 +179,7 @@ int efi_get_variable_string(const char *variable, char **ret) {
                 return -ENOMEM;
 
         if (ret)
-                *ret = x;
+                *ret = TAKE_PTR(x);
 
         return 0;
 }
