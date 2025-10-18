@@ -55,7 +55,7 @@ jobs:
         # TODO: drop after we switch to ubuntu 26.04
         bpftool_binary=$(find /usr/lib/linux-tools/ /usr/lib/linux-tools-* -name 'bpftool' -perm /u=x 2>/dev/null | sort -r | head -n1)
         if [ -n "$bpftool_binary" ]; then
-          sudo rm -f /usr/bin/bpftool
+          sudo rm -f /usr/{bin,sbin}/bpftool
           sudo ln -s "$bpftool_binary" /usr/bin/
         fi
 
