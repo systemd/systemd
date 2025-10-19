@@ -53,7 +53,6 @@ typedef enum ServiceExecCommand {
 } ServiceExecCommand;
 
 typedef enum NotifyState {
-        NOTIFY_UNKNOWN,
         NOTIFY_READY,
         NOTIFY_RELOADING,
         NOTIFY_STOPPING,
