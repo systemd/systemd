@@ -2723,7 +2723,6 @@ static void service_enter_reload_signal_exec(Service *s) {
         assert(s);
 
         service_unwatch_control_pid(s);
-        s->reload_result = SERVICE_SUCCESS;
 
         usec_t ts = now(CLOCK_MONOTONIC);
 
@@ -2816,7 +2815,6 @@ static void service_enter_refresh_extensions(Service *s) {
                 return service_enter_reload_signal_exec(s);
 
         service_unwatch_control_pid(s);
-        s->reload_result = SERVICE_SUCCESS;
         s->control_command = NULL;
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
 
@@ -3097,6 +3095,8 @@ static int service_reload(Unit *u) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
         assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
+
+        s->reload_result = SERVICE_SUCCESS;
 
         service_enter_refresh_extensions(s);
 
