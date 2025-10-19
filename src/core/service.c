@@ -4793,8 +4793,6 @@ static void service_notify_message(
                 if (IN_SET(s->state, SERVICE_RUNNING, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_REFRESH_EXTENSIONS))
                         service_enter_stop_by_notify(s);
 
-                notify_dbus = true;
-
         } else if (strv_contains(tags, "READY=1")) {
 
                 s->notify_state = NOTIFY_READY;
@@ -4829,8 +4827,6 @@ static void service_notify_message(
                 if (s->state == SERVICE_RELOAD_NOTIFY)
                         service_enter_running(s, SERVICE_SUCCESS);
 
-                notify_dbus = true;
-
         } else if (strv_contains(tags, "RELOADING=1")) {
 
                 s->notify_state = NOTIFY_RELOADING;
@@ -4848,8 +4844,6 @@ static void service_notify_message(
 
                 if (s->state == SERVICE_RUNNING)
                         service_enter_reload_by_notify(s);
-
-                notify_dbus = true;
         }
 
         /* Interpret STATUS= */
