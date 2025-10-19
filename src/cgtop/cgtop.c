@@ -172,7 +172,7 @@ static int process_memory(Group *g) {
         else {
                 _cleanup_free_ char *p = NULL, *v = NULL;
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, g->path, "memory.current", &p);
+                r = cg_get_path(g->path, "memory.current", &p);
                 if (r < 0)
                         return r;
 
@@ -202,7 +202,7 @@ static int process_io(Group *g, unsigned iteration) {
 
         assert(g);
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, g->path, "io.stat", &p);
+        r = cg_get_path(g->path, "io.stat", &p);
         if (r < 0)
                 return r;
 
@@ -288,7 +288,7 @@ static int process_cpu(Group *g, unsigned iteration) {
                 _cleanup_free_ char *val = NULL;
                 uint64_t u;
 
-                r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, g->path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
+                r = cg_get_keyed_attribute(g->path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
                 if (IN_SET(r, -ENOENT, -ENXIO))
                         return 0;
                 if (r < 0)
@@ -367,7 +367,7 @@ static int process(
                 _cleanup_fclose_ FILE *f = NULL;
                 pid_t pid;
 
-                r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, path, &f);
+                r = cg_enumerate_processes(path, &f);
                 if (r < 0 && r != -ENOENT)
                         return r;
                 if (r >= 0) {
@@ -395,7 +395,7 @@ static int process(
                 } else {
                         _cleanup_free_ char *p = NULL, *v = NULL;
 
-                        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, "pids.current", &p);
+                        r = cg_get_path(path, "pids.current", &p);
                         if (r < 0)
                                 return r;
 
@@ -458,7 +458,7 @@ static int refresh(
         if (r < 0)
                 return r;
 
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, path, &d);
+        r = cg_enumerate_subgroups(path, &d);
         if (r == -ENOENT) {
                 if (ret)
                         *ret = NULL;
