@@ -4815,7 +4815,7 @@ static void service_notify_message(
                                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                                 /* Propagate a reload explicitly for plain RELOADING=1 (semantically equivalent to
-                                 * service_enter_reload_mounting() call in below) */
+                                 * service_enter_reload_by_notify() call in below) */
                                 r = manager_propagate_reload(UNIT(s)->manager, UNIT(s), JOB_FAIL, &error);
                                 if (r < 0)
                                         log_unit_warning(UNIT(s), "Failed to schedule propagation of reload, ignoring: %s",
