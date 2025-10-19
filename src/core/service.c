@@ -4333,8 +4333,11 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 break;
 
                         case SERVICE_REFRESH_EXTENSIONS:
-                                /* Remounting extensions asynchronously done, proceed to signal */
-                                service_enter_reload_signal_exec(s);
+                                if (f == SERVICE_SUCCESS)
+                                        /* Remounting extensions asynchronously done, proceed to signal */
+                                        service_enter_reload_signal_exec(s);
+                                else
+                                        service_reload_finish(s, f);
                                 break;
 
                         case SERVICE_MOUNTING:
