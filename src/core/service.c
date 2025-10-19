@@ -128,6 +128,8 @@ static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void 
 static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
 
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
+
+static void service_reload_finish(Service *s, ServiceResult f);
 static void service_enter_reload_by_notify(Service *s);
 
 static bool SERVICE_STATE_WITH_MAIN_PROCESS(ServiceState state) {
@@ -2693,9 +2695,7 @@ static void service_enter_reload_by_notify(Service *s) {
         r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
-                s->reload_result = SERVICE_FAILURE_RESOURCES;
-                service_enter_running(s, SERVICE_SUCCESS);
-                return;
+                return service_reload_finish(s, SERVICE_FAILURE_RESOURCES);
         }
 
         service_set_state(s, SERVICE_RELOAD_NOTIFY);
@@ -2749,10 +2749,8 @@ static void service_enter_reload_signal_exec(Service *s) {
                 }
 
                 service_set_state(s, SERVICE_RELOAD_SIGNAL);
-        } else {
-                service_enter_running(s, SERVICE_SUCCESS);
-                return;
-        }
+        } else
+                return service_reload_finish(s, SERVICE_SUCCESS);
 
         /* Store the timestamp when we started reloading: when reloading via SIGHUP we won't leave the reload
          * state until we received both RELOADING=1 and READY=1 with MONOTONIC_USEC= set to a value above
@@ -2762,8 +2760,7 @@ static void service_enter_reload_signal_exec(Service *s) {
         return;
 
 fail:
-        s->reload_result = SERVICE_FAILURE_RESOURCES;
-        service_enter_running(s, SERVICE_SUCCESS);
+        service_reload_finish(s, SERVICE_FAILURE_RESOURCES);
 }
 
 static bool service_should_reload_extensions(Service *s) {
@@ -2867,8 +2864,7 @@ static void service_enter_refresh_extensions(Service *s) {
         return;
 
 fail:
-        s->reload_result = SERVICE_FAILURE_RESOURCES;
-        service_enter_running(s, SERVICE_SUCCESS);
+        service_reload_finish(s, SERVICE_FAILURE_RESOURCES);
 }
 
 static void service_run_next_control(Service *s) {
@@ -2901,10 +2897,9 @@ static void service_run_next_control(Service *s) {
                         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
                 else if (s->state == SERVICE_STOP_POST)
                         service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ true);
-                else if (s->state == SERVICE_RELOAD) {
-                        s->reload_result = SERVICE_FAILURE_RESOURCES;
-                        service_enter_running(s, SERVICE_SUCCESS);
-                } else
+                else if (s->state == SERVICE_RELOAD)
+                        service_reload_finish(s, SERVICE_FAILURE_RESOURCES);
+                else
                         service_enter_stop(s, SERVICE_FAILURE_RESOURCES);
         }
 }
@@ -3026,6 +3021,20 @@ static void service_live_mount_finish(Service *s, ServiceResult f, const char *e
         }
 
         s->mount_request = sd_bus_message_unref(s->mount_request);
+}
+
+static void service_reload_finish(Service *s, ServiceResult f) {
+        assert(s);
+
+        s->reload_result = f;
+        s->reload_begin_usec = USEC_INFINITY;
+
+        /* If notify state is still in dangling NOTIFY_RELOADING, reset it so service_enter_running()
+         * won't get confused (see #37515) */
+        if (s->notify_state == NOTIFY_RELOADING)
+                s->notify_state = _NOTIFY_STATE_INVALID;
+
+        service_enter_running(s, SERVICE_SUCCESS);
 }
 
 static int service_stop(Unit *u) {
@@ -4317,16 +4326,15 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         if (service_load_pid_file(s, true) < 0)
                                                 service_search_main_pid(s);
 
-                                s->reload_result = f;
-
                                 /* If the last notification we received from the service process indicates
                                  * we are still reloading, then don't leave reloading state just yet, just
                                  * transition into SERVICE_RELOAD_NOTIFY, to wait for the READY=1 coming,
                                  * too. */
-                                if (s->notify_state == NOTIFY_RELOADING)
+                                if (s->notify_state == NOTIFY_RELOADING) {
+                                        s->reload_result = f;
                                         service_set_state(s, SERVICE_RELOAD_NOTIFY);
-                                else
-                                        service_enter_running(s, SERVICE_SUCCESS);
+                                } else
+                                        service_reload_finish(s, f);
                                 break;
 
                         case SERVICE_REFRESH_EXTENSIONS:
@@ -4435,8 +4443,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
         case SERVICE_REFRESH_EXTENSIONS:
                 log_unit_warning(UNIT(s), "Reload operation timed out. Killing reload process.");
                 service_kill_control_process(s);
-                s->reload_result = SERVICE_FAILURE_TIMEOUT;
-                service_enter_running(s, SERVICE_SUCCESS);
+                service_reload_finish(s, SERVICE_FAILURE_TIMEOUT);
                 break;
 
         case SERVICE_MOUNTING:
@@ -4774,7 +4781,7 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                             monotonic_usec != USEC_INFINITY &&
                             monotonic_usec >= s->reload_begin_usec)
                                 /* Valid Type=notify-reload protocol? Then we're all good. */
-                                service_enter_running(s, SERVICE_SUCCESS);
+                                service_reload_finish(s, SERVICE_SUCCESS);
 
                         else if (s->state == SERVICE_RUNNING) {
                                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -4795,7 +4802,7 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
 
                 /* Sending READY=1 while we are reloading informs us that the reloading is complete. */
                 if (s->state == SERVICE_RELOAD_NOTIFY)
-                        service_enter_running(s, SERVICE_SUCCESS);
+                        service_reload_finish(s, SERVICE_SUCCESS);
 
         } else if (strv_contains(tags, "RELOADING=1")) {
 
