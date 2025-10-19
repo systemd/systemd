@@ -46,6 +46,7 @@ typedef enum ServiceExecCommand {
         SERVICE_EXEC_START,
         SERVICE_EXEC_START_POST,
         SERVICE_EXEC_RELOAD,
+        SERVICE_EXEC_RELOAD_POST,
         SERVICE_EXEC_STOP,
         SERVICE_EXEC_STOP_POST,
         _SERVICE_EXEC_COMMAND_MAX,
@@ -55,6 +56,7 @@ typedef enum ServiceExecCommand {
 typedef enum NotifyState {
         NOTIFY_READY,
         NOTIFY_RELOADING,
+        NOTIFY_RELOAD_READY,
         NOTIFY_STOPPING,
         _NOTIFY_STATE_MAX,
         _NOTIFY_STATE_INVALID = -EINVAL,
