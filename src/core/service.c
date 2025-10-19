@@ -4749,7 +4749,14 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                 if (IN_SET(s->state, SERVICE_RUNNING, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_REFRESH_EXTENSIONS))
                         service_enter_stop_by_notify(s);
 
-        } else if (strv_contains(tags, "READY=1")) {
+                return;
+        }
+
+        /* Disallow resurrecting a dying service */
+        if (s->notify_state == NOTIFY_STOPPING)
+                return;
+
+        if (strv_contains(tags, "READY=1")) {
 
                 s->notify_state = NOTIFY_READY;
 
