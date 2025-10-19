@@ -64,11 +64,13 @@ monitor_check_rr() (
 )
 
 restart_resolved() {
+    systemctl stop systemd-resolved-monitor.socket systemd-resolved-varlink.socket
     systemctl stop systemd-resolved.service
     (! systemctl is-failed systemd-resolved.service)
     # Reset the restart counter since we call this method a bunch of times
     # and can occasionally hit the default rate limit
     systemctl reset-failed systemd-resolved.service
+    systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket
     systemctl start systemd-resolved.service
 }
 
@@ -333,6 +335,7 @@ manual_testcase_02_mdns_llmnr() {
     } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     restart_resolved
     # make sure networkd is not running.
+    systemctl stop systemd-networkd.socket systemd-networkd-varlink.socket
     systemctl stop systemd-networkd.service
     assert_in 'no' "$(resolvectl mdns hoge)"
     assert_in 'no' "$(resolvectl llmnr hoge)"
@@ -1367,7 +1370,9 @@ testcase_15_wait_online_dns() {
     resolvectl domain dns0 ""
 
     # Stop systemd-resolved before calling systemd-networkd-wait-online. It should retry connections.
+    systemctl stop systemd-resolved-monitor.socket systemd-resolved-varlink.socket
     systemctl stop systemd-resolved.service
+    systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket
 
     # Begin systemd-networkd-wait-online --dns
     systemd-run -u "$unit" -p "Environment=SYSTEMD_LOG_LEVEL=debug" -p "Environment=SYSTEMD_LOG_TARGET=journal" --service-type=exec \
