@@ -184,6 +184,7 @@ static void service_init(Unit *u) {
                 EXEC_KEYRING_PRIVATE : EXEC_KEYRING_INHERIT;
 
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;
+        s->notify_state = _NOTIFY_STATE_INVALID;
 
         s->watchdog_original_usec = USEC_INFINITY;
 
@@ -2167,8 +2168,9 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
         /* The next restart might not be a manual stop, hence reset the flag indicating manual stops */
         s->forbid_restart = false;
 
-        /* Reset NotifyAccess override */
+        /* Reset notify states */
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;
+        s->notify_state = _NOTIFY_STATE_INVALID;
 
         /* We want fresh tmpdirs and ephemeral snapshots in case the service is started again immediately. */
         s->exec_runtime = exec_runtime_destroy(s->exec_runtime);
@@ -2983,7 +2985,7 @@ static int service_start(Unit *u) {
         s->status_varlink_error = mfree(s->status_varlink_error);
 
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;
-        s->notify_state = NOTIFY_UNKNOWN;
+        s->notify_state = _NOTIFY_STATE_INVALID;
 
         s->watchdog_original_usec = s->watchdog_usec;
         s->watchdog_override_enable = false;
@@ -5721,7 +5723,6 @@ static const char* const service_exec_ex_command_table[_SERVICE_EXEC_COMMAND_MAX
 DEFINE_STRING_TABLE_LOOKUP(service_exec_ex_command, ServiceExecCommand);
 
 static const char* const notify_state_table[_NOTIFY_STATE_MAX] = {
-        [NOTIFY_UNKNOWN]   = "unknown",
         [NOTIFY_READY]     = "ready",
         [NOTIFY_RELOADING] = "reloading",
         [NOTIFY_STOPPING]  = "stopping",
