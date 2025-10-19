@@ -1072,7 +1072,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                 /* for now pick a random free address from the pool */
                 if (static_lease) {
-                        if (existing_lease != hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address)))
+                        sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address));
+                        if (l && l != existing_lease)
                                 /* The address is already assigned to another host. Refusing. */
                                 return 0;
 
@@ -1186,7 +1187,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                 /* The client requested an address which is different from the static lease. Refusing. */
                                 return server_send_nak_or_ignore(server, init_reboot, req);
 
-                        if (existing_lease != hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address)))
+                        sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
+                        if (l && l != existing_lease)
                                 /* The requested address is already assigned to another host. Refusing. */
                                 return server_send_nak_or_ignore(server, init_reboot, req);
 
