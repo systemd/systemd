@@ -39,7 +39,7 @@ static int dump_link_description(sd_varlink *vl, char * const *patterns) {
         assert(vl);
         assert(patterns);
 
-        r = varlink_call_and_log(vl, "io.systemd.Network.Describe", NULL, &v);
+        r = varlink_call_and_log(vl, "io.systemd.Network.Describe", /* parameters = */ NULL, &v);
         if (r < 0)
                 return r;
 
