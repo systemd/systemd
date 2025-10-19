@@ -2856,6 +2856,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasasttttuii) ExecReloadEx = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
+      readonly a(sasbttttuii) ExecReloadPost = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
+      readonly a(sasasttttuii) ExecReloadPostEx = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasbttttuii) ExecStop = [...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("invalidates")
       readonly a(sasasttttuii) ExecStopEx = [...];
@@ -3537,6 +3541,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <!--property ExecReloadEx is not documented!-->
 
+    <!--property ExecReloadPostEx is not documented!-->
+
     <!--property ExecStopEx is not documented!-->
 
     <!--property ExecStopPostEx is not documented!-->
@@ -4209,6 +4215,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecReloadEx"/>
 
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecReloadPost"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExecReloadPostEx"/>
+
     <variablelist class="dbus-property" generated="True" extra-ref="ExecStop"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="ExecStopEx"/>
@@ -4839,10 +4849,10 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       last watchdog ping received from the service, or 0 if none was ever received.</para>
 
       <para><varname>ExecStartPre</varname>, <varname>ExecStart</varname>, <varname>ExecStartPost</varname>,
-      <varname>ExecReload</varname>, <varname>ExecStop</varname>, and <varname>ExecStopPost</varname> are arrays
-      of structures where each struct contains: the binary path to execute; an array with all arguments to
-      pass to the executed command, starting with argument 0; a boolean whether it should be considered a
-      failure if the process exits uncleanly; two pairs of
+      <varname>ExecReload</varname>, <varname>ExecReloadPost</varname>, <varname>ExecStop</varname>, and
+      <varname>ExecStopPost</varname> are arrays of structures where each struct contains: the binary path
+      to execute; an array with all arguments to pass to the executed command, starting with argument 0;
+      a boolean whether it should be considered a failure if the process exits uncleanly; two pairs of
       <constant>CLOCK_REALTIME</constant>/<constant>CLOCK_MONOTONIC</constant> microsecond timestamps when
       the process began and finished running the last time, or 0 if it never ran or never finished running;
       the PID of the process, or 0 if it has not run yet; the exit code and status of the last run. This
@@ -12540,8 +12550,10 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>LogsDirectoryAccounting</varname>, and
       <function>KillSubgroup()</function> were added in version 258.</para>
       <para><varname>UserNamespacePath</varname>,
-      <varname>OOMKills</varname>, and
-      <varname>ManagedOOMKills</varname> were added in 259.</para>
+      <varname>OOMKills</varname>,
+      <varname>ManagedOOMKills</varname>,
+      <varname>ExecReloadPost</varname>, and
+      <varname>ExecReloadPostEx</varname> were added in version 259.</para>
     </refsect2>
     <refsect2>
       <title>Socket Unit Objects</title>
