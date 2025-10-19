@@ -275,18 +275,18 @@ i.e. somewhere below `/var/` or similar.
 |                   1…4 | 0x00000001…0x00000004 |          4 | System users                      | Distributions | `/etc/passwd`                 |
 |                     5 |            0x00000005 |          1 | `tty` group                       | `systemd`     | `/etc/passwd`                 |
 |                 6…999 | 0x00000006…0x000003E7 |        994 | System users                      | Distributions | `/etc/passwd`                 |
-|            1000…60000 | 0x000003E8…0x00001770 |      59000 | Regular users                     | Distributions | `/etc/passwd` + LDAP/NIS/…    |
+|            1000…60000 | 0x000003E8…0x0000EA60 |      59001 | Regular users                     | Distributions | `/etc/passwd` + LDAP/NIS/…    |
 |           60001…60513 | 0x0000EA61…0x0000EC61 |        513 | Human users (homed)               | `systemd`     | `nss-systemd`                 |
 |           60514…60577 | 0x0000EC62…0x0000ECA1 |         64 | Host users mapped into containers | `systemd`     | `systemd-nspawn`              |
 |           60578…60705 | 0x0000ECA2…0x0000ED21 |        128 | Dynamic greeter users             | `systemd`     | `nss-systemd`                 |
 |           60706…61183 | 0x0000ED22…0x0000EEFF |        478 | *unused*                          |               |                               |
 |           61184…65519 | 0x0000EF00…0x0000FFEF |       4336 | Dynamic service users             | `systemd`     | `nss-systemd`                 |
-|           65520…65533 | 0x0000FFF0…0x0000FFFD |         13 | *unused*                          |               |                               |
+|           65520…65533 | 0x0000FFF0…0x0000FFFD |         14 | *unused*                          |               |                               |
 |                 65534 |            0x0000FFFE |          1 | `nobody` user                     | Linux         | `/etc/passwd` + `nss-systemd` |
 |                 65535 |            0x0000FFFF |          1 | 16-bit `(uid_t) -1`               | Linux         |                               |
 |          65536…524287 | 0x00010000…0x0007FFFF |     458752 | *unused*                          |               |                               |
 |     524288…1879048191 | 0x00080000…0x6FFFFFFF | 1878523904 | Container UID ranges              | `systemd`     | `nss-systemd`                 |
-| 1879048192…2147352575 | 0x70000000…0x7FFDFFFF | 1879048192 | *unused*                          |               |                               |
+| 1879048192…2147352575 | 0x70000000…0x7FFDFFFF |  268304384 | *unused*                          |               |                               |
 | 2147352576…2147418111 | 0x7FFE0000…0x7FFEFFFF |      65536 | Foreign UID range                 | `systemd`     | `nss-systemd`                 |
 | 2147418112…2147483647 | 0x7FFF0000…0x7FFFFFFF |      65536 | *unused*                          |               |                               |
 | 2147483648…4294967294 | 0x80000000…0xFFFFFFFE | 2147483647 | *HIC SVNT LEONES*                 |               |                               |
