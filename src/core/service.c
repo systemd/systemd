@@ -2872,8 +2872,6 @@ static void service_enter_reload_mounting(Service *s) {
 
         assert(s);
 
-        usec_t ts = now(CLOCK_MONOTONIC);
-
         r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
@@ -2881,8 +2879,6 @@ static void service_enter_reload_mounting(Service *s) {
                 service_enter_running(s, SERVICE_SUCCESS);
                 return;
         }
-
-        s->reload_begin_usec = ts;
 
         service_enter_refresh_extensions(s);
 }
