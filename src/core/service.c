@@ -2799,12 +2799,18 @@ static void service_enter_refresh_extensions(Service *s) {
 
         /* If we don't have extensions to reload, immediately go to the signal step */
         if (!service_should_reload_extensions(s))
-                return (void) service_enter_reload_signal_exec(s);
+                return service_enter_reload_signal_exec(s);
 
         service_unwatch_control_pid(s);
         s->reload_result = SERVICE_SUCCESS;
         s->control_command = NULL;
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+
+        r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
+        if (r < 0) {
+                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
+                goto fail;
+        }
 
         /* Given we are running from PID1, avoid doing potentially heavy I/O operations like opening images
          * directly, and instead fork a worker process. */
@@ -2861,22 +2867,6 @@ static void service_enter_refresh_extensions(Service *s) {
 fail:
         s->reload_result = SERVICE_FAILURE_RESOURCES;
         service_enter_running(s, SERVICE_SUCCESS);
-}
-
-static void service_enter_reload_mounting(Service *s) {
-        int r;
-
-        assert(s);
-
-        r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
-        if (r < 0) {
-                log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
-                s->reload_result = SERVICE_FAILURE_RESOURCES;
-                service_enter_running(s, SERVICE_SUCCESS);
-                return;
-        }
-
-        service_enter_refresh_extensions(s);
 }
 
 static void service_run_next_control(Service *s) {
@@ -3106,7 +3096,7 @@ static int service_reload(Unit *u) {
 
         assert(IN_SET(s->state, SERVICE_RUNNING, SERVICE_EXITED));
 
-        service_enter_reload_mounting(s);
+        service_enter_refresh_extensions(s);
 
         return 1;
 }
