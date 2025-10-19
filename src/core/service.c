@@ -56,6 +56,8 @@
 #include "unit-name.h"
 #include "utf8.h"
 
+#define STATUS_TEXT_MAX (16U*1024U)
+
 #define service_spawn(...) service_spawn_internal(__func__, __VA_ARGS__)
 
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
