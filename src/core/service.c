@@ -4749,68 +4749,17 @@ finish:
         return 1;
 }
 
-static void service_notify_message(
-                Unit *u,
-                PidRef *pidref,
-                const struct ucred *ucred,
-                char * const *tags,
-                FDSet *fds) {
-
-        Service *s = ASSERT_PTR(SERVICE(u));
+static void service_notify_message_process_state(Service *s, char * const *tags) {
+        usec_t monotonic_usec = USEC_INFINITY;
         int r;
 
-        assert(pidref_is_set(pidref));
-        assert(ucred);
+        assert(s);
 
-        if (!service_notify_message_authorized(s, pidref))
-                return;
-
-        if (DEBUG_LOGGING) {
-                _cleanup_free_ char *cc = strv_join(tags, ", ");
-                log_unit_debug(u, "Got notification message from PID "PID_FMT": %s", pidref->pid, empty_to_na(cc));
-        }
-
-        usec_t monotonic_usec = USEC_INFINITY;
-        bool notify_dbus = false;
-        const char *e;
-
-        /* Interpret MAINPID= (+ MAINPIDFDID=) / MAINPIDFD=1 */
-        _cleanup_(pidref_done) PidRef new_main_pid = PIDREF_NULL;
-
-        r = service_notify_message_parse_new_pid(u, tags, fds, &new_main_pid);
-        if (r > 0 &&
-            IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING,
-                             SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_REFRESH_EXTENSIONS,
-                             SERVICE_STOP, SERVICE_STOP_SIGTERM) &&
-            (!s->main_pid_known || !pidref_equal(&new_main_pid, &s->main_pid))) {
-
-                r = service_is_suitable_main_pid(s, &new_main_pid, LOG_WARNING);
-                if (r == 0) {
-                        /* The new main PID is a bit suspicious, which is OK if the sender is privileged. */
-
-                        if (ucred->uid == 0) {
-                                log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, but we'll accept it as the request to change it came from a privileged process.", new_main_pid.pid);
-                                r = 1;
-                        } else
-                                log_unit_warning(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid.pid);
-                }
-                if (r > 0) {
-                        (void) service_set_main_pidref(s, TAKE_PIDREF(new_main_pid), /* start_timestamp = */ NULL);
-
-                        r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
-                        if (r < 0)
-                                log_unit_warning_errno(UNIT(s), r, "Failed to watch new main PID "PID_FMT" for service: %m", s->main_pid.pid);
-
-                        notify_dbus = true;
-                }
-        }
-
-        /* Parse MONOTONIC_USEC= */
-        e = strv_find_startswith(tags, "MONOTONIC_USEC=");
+        const char *e = strv_find_startswith(tags, "MONOTONIC_USEC=");
         if (e) {
                 r = safe_atou64(e, &monotonic_usec);
                 if (r < 0)
-                        log_unit_warning_errno(u, r, "Failed to parse MONOTONIC_USEC= field in notification message, ignoring: %s", e);
+                        log_unit_warning_errno(UNIT(s), r, "Failed to parse MONOTONIC_USEC= field in notification message, ignoring: %s", e);
         }
 
         /* Interpret READY=/STOPPING=/RELOADING=. STOPPING= wins over the others, and READY= over RELOADING= */
@@ -4872,6 +4821,64 @@ static void service_notify_message(
                 if (s->state == SERVICE_RUNNING)
                         service_enter_reload_by_notify(s);
         }
+}
+
+static void service_notify_message(
+                Unit *u,
+                PidRef *pidref,
+                const struct ucred *ucred,
+                char * const *tags,
+                FDSet *fds) {
+
+        Service *s = ASSERT_PTR(SERVICE(u));
+        int r;
+
+        assert(pidref_is_set(pidref));
+        assert(ucred);
+
+        if (!service_notify_message_authorized(s, pidref))
+                return;
+
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *cc = strv_join(tags, ", ");
+                log_unit_debug(u, "Got notification message from PID "PID_FMT": %s", pidref->pid, empty_to_na(cc));
+        }
+
+        bool notify_dbus = false;
+        const char *e;
+
+        /* Interpret MAINPID= (+ MAINPIDFDID=) / MAINPIDFD=1 */
+        _cleanup_(pidref_done) PidRef new_main_pid = PIDREF_NULL;
+
+        r = service_notify_message_parse_new_pid(u, tags, fds, &new_main_pid);
+        if (r > 0 &&
+            IN_SET(s->state, SERVICE_START, SERVICE_START_POST, SERVICE_RUNNING,
+                             SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_REFRESH_EXTENSIONS,
+                             SERVICE_STOP, SERVICE_STOP_SIGTERM) &&
+            (!s->main_pid_known || !pidref_equal(&new_main_pid, &s->main_pid))) {
+
+                r = service_is_suitable_main_pid(s, &new_main_pid, LOG_WARNING);
+                if (r == 0) {
+                        /* The new main PID is a bit suspicious, which is OK if the sender is privileged. */
+
+                        if (ucred->uid == 0) {
+                                log_unit_debug(u, "New main PID "PID_FMT" does not belong to service, but we'll accept it as the request to change it came from a privileged process.", new_main_pid.pid);
+                                r = 1;
+                        } else
+                                log_unit_warning(u, "New main PID "PID_FMT" does not belong to service, refusing.", new_main_pid.pid);
+                }
+                if (r > 0) {
+                        (void) service_set_main_pidref(s, TAKE_PIDREF(new_main_pid), /* start_timestamp = */ NULL);
+
+                        r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
+                        if (r < 0)
+                                log_unit_warning_errno(UNIT(s), r, "Failed to watch new main PID "PID_FMT" for service: %m", s->main_pid.pid);
+
+                        notify_dbus = true;
+                }
+        }
+
+        service_notify_message_process_state(s, tags);
 
         /* Interpret STATUS= */
         e = strv_find_startswith(tags, "STATUS=");
