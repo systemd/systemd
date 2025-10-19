@@ -151,6 +151,14 @@ static bool SERVICE_STATE_WITH_CONTROL_PROCESS(ServiceState state) {
                       SERVICE_CLEANING);
 }
 
+static bool SERVICE_STATE_WITH_WATCHDOG(ServiceState state) {
+        return IN_SET(state,
+                      SERVICE_START_POST,
+                      SERVICE_RUNNING,
+                      SERVICE_REFRESH_EXTENSIONS, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                      SERVICE_MOUNTING);
+}
+
 static void service_init(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -1319,7 +1327,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (state != SERVICE_START)
                 s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
-        if (!IN_SET(state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_REFRESH_EXTENSIONS, SERVICE_MOUNTING))
+        if (!SERVICE_STATE_WITH_WATCHDOG(state))
                 service_stop_watchdog(s);
 
         if (state != SERVICE_MOUNTING) /* Just in case */
@@ -1431,7 +1439,7 @@ static int service_coldplug(Unit *u) {
                     SERVICE_DEAD_RESOURCES_PINNED))
                 (void) unit_setup_exec_runtime(u);
 
-        if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY, SERVICE_REFRESH_EXTENSIONS, SERVICE_MOUNTING) &&
+        if (SERVICE_STATE_WITH_WATCHDOG(s->deserialized_state) &&
             freezer_state_objective(u->freezer_state) == FREEZER_RUNNING)
                 service_start_watchdog(s);
 
