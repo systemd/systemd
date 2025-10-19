@@ -3292,6 +3292,8 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         if (s->notify_access_override >= 0)
                 (void) serialize_item(f, "notify-access-override", notify_access_to_string(s->notify_access_override));
+        if (s->notify_state >= 0)
+                (void) serialize_item(f, "notify-state", notify_state_to_string(s->notify_state));
 
         r = serialize_item_escaped(f, "status-text", s->status_text);
         if (r < 0)
@@ -3602,6 +3604,16 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         log_unit_debug(u, "Failed to parse notify-access-override value: %s", value);
                 else
                         s->notify_access_override = notify_access;
+
+        } else if (streq(key, "notify-state")) {
+                NotifyState notify_state;
+
+                notify_state = notify_state_from_string(value);
+                if (notify_state < 0)
+                        log_unit_debug(u, "Failed to parse notify-state value: %s", value);
+                else
+                        s->notify_state = notify_state;
+
         } else if (streq(key, "n-restarts")) {
                 r = safe_atou(value, &s->n_restarts);
                 if (r < 0)
