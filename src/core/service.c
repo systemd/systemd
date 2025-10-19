@@ -2207,7 +2207,6 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
         s->control_command = s->exec_command[SERVICE_EXEC_STOP_POST];
         if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_STOP_POST;
-                pidref_done(&s->control_pid);
 
                 r = service_spawn(s,
                                   s->control_command,
@@ -2320,7 +2319,6 @@ static void service_enter_stop(Service *s, ServiceResult f) {
         s->control_command = s->exec_command[SERVICE_EXEC_STOP];
         if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_STOP;
-                pidref_done(&s->control_pid);
 
                 r = service_spawn(s,
                                   s->control_command,
@@ -2406,7 +2404,6 @@ static void service_enter_start_post(Service *s) {
         s->control_command = s->exec_command[SERVICE_EXEC_START_POST];
         if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_START_POST;
-                pidref_done(&s->control_pid);
 
                 r = service_spawn(s,
                                   s->control_command,
@@ -2540,7 +2537,6 @@ static void service_enter_start(Service *s) {
 
         case SERVICE_FORKING:
                 /* For forking services we wait until the start process exited. */
-                pidref_done(&s->control_pid);
                 s->control_pid = TAKE_PIDREF(pidref);
                 return service_set_state(s, SERVICE_START);
 
@@ -2614,7 +2610,6 @@ static void service_enter_condition(Service *s) {
                         goto fail;
 
                 s->control_command_id = SERVICE_EXEC_CONDITION;
-                pidref_done(&s->control_pid);
 
                 r = service_spawn(s,
                                   s->control_command,
@@ -2735,7 +2730,6 @@ static void service_enter_reload_signal_exec(Service *s) {
         s->control_command = s->exec_command[SERVICE_EXEC_RELOAD];
         if (s->control_command) {
                 s->control_command_id = SERVICE_EXEC_RELOAD;
-                pidref_done(&s->control_pid);
 
                 r = service_spawn(s,
                                   s->control_command,
@@ -2897,8 +2891,6 @@ static void service_run_next_control(Service *s) {
                 timeout = s->timeout_start_usec;
         else
                 timeout = s->timeout_stop_usec;
-
-        pidref_done(&s->control_pid);
 
         r = service_spawn(s,
                           s->control_command,
