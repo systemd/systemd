@@ -1161,7 +1161,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         if (strv_extend(&arg_property, "IgnoreSIGPIPE=no") < 0)
                 return log_oom();
 
-        if (!arg_background && arg_stdio == ARG_STDIO_PTY && shall_tint_background()) {
+        if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
                 double hue;
 
                 if (privileged_execution())
