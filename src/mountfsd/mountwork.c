@@ -489,6 +489,15 @@ static int vl_method_mount_image(
                                 /* image_filter= */ NULL,
                                 dissect_flags,
                                 &di);
+                if (r == -ENOPKG && !(dissect_flags & DISSECT_IMAGE_NO_PARTITION_TABLE)) /* Maybe it's a bare filesystem, try again */
+                        r = dissect_loop_device(
+                                        loop,
+                                        &verity,
+                                        /* mount_options= */ NULL,
+                                        use_policy,
+                                        /* image_filter= */ NULL,
+                                        dissect_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
+                                        &di);
                 if (r == -ENOPKG)
                         return sd_varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", NULL);
                 if (r == -ENOTUNIQ)
