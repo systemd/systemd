@@ -904,3 +904,46 @@ int blockdev_get_root(int level, dev_t *ret) {
 
         return 1;
 }
+
+int partition_node_of(const char *node, unsigned nr, char **ret) {
+        int r;
+
+        assert(node);
+        assert(nr > 0);
+        assert(ret);
+
+        /* Given a device node path to a block device returns the device node path to the partition block
+         * device of the specified partition */
+
+        _cleanup_free_ char *fn = NULL;
+        r = path_extract_filename(node, &fn);
+        if (r < 0)
+                return r;
+        if (r == O_DIRECTORY)
+                return -EISDIR;
+
+        _cleanup_free_ char *dn = NULL;
+        r = path_extract_directory(node, &dn);
+        if (r < 0 && r != -EDESTADDRREQ) /* allow if only filename is specified */
+                return r;
+
+        size_t l = strlen(fn);
+        assert(l > 0); /* underflow check for the subtraction below */
+
+        bool need_p = ascii_isdigit(fn[l-1]); /* Last char a digit? */
+
+        _cleanup_free_ char *subnode = NULL;
+        if (asprintf(&subnode, "%s%s%u", fn, need_p ? "p" : "", nr) < 0)
+                return -ENOMEM;
+
+        if (dn) {
+                _cleanup_free_ char *j = path_join(dn, subnode);
+                if (!j)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(j);
+        } else
+                *ret = TAKE_PTR(subnode);
+
+        return 0;
+}
