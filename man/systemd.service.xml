@@ -206,7 +206,7 @@
             identify the main process of the service. The manager will proceed with starting follow-up units
             after the parent process exits.</para></listitem>
 
-            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>simple</option>;
+            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>exec</option>;
             however, the service manager will consider the unit up after the main process exits. It will then
             start follow-up units. <varname>RemainAfterExit=</varname> is particularly useful for this type
             of service. <varname>Type=</varname><option>oneshot</option> is the implied default if neither
