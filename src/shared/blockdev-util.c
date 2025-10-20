@@ -24,7 +24,7 @@
 #include "path-util.h"
 #include "string-util.h"
 
-static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
+static int fd_get_devnum(int fd, BlockDeviceLookupFlags flags, dev_t *ret) {
         struct stat st;
         dev_t devnum;
         int r;
@@ -148,7 +148,7 @@ int block_device_get_originating(sd_device *dev, sd_device **ret) {
         return 0;
 }
 
-int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **ret) {
+int block_device_new_from_fd(int fd, BlockDeviceLookupFlags flags, sd_device **ret) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         dev_t devnum;
         int r;
@@ -194,7 +194,7 @@ int block_device_new_from_fd(int fd, BlockDeviceLookupFlag flags, sd_device **re
         return 0;
 }
 
-int block_device_new_from_path(const char *path, BlockDeviceLookupFlag flags, sd_device **ret) {
+int block_device_new_from_path(const char *path, BlockDeviceLookupFlags flags, sd_device **ret) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(path);
