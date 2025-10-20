@@ -13,6 +13,7 @@
 #include "execute-serialize.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fdset.h"
 #include "hexdecoct.h"
 #include "image-policy.h"
 #include "in-addr-prefix-util.h"
@@ -1581,7 +1582,7 @@ static int serialize_std_out_err(const ExecContext *c, FILE *f, int fileno) {
         return serialize_item(f, key, value);
 }
 
-static int exec_context_serialize(const ExecContext *c, FILE *f) {
+static int exec_context_serialize(const ExecContext *c, FILE *f, FDSet *fds) {
         int r;
 
         assert(f);
@@ -1624,6 +1625,20 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         r = serialize_item_escaped(f, "exec-context-root-image", c->root_image);
         if (r < 0)
                 return r;
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                if (c->root_image_fsmount_fds[i] < 0)
+                        continue;
+
+                _cleanup_free_ char *key = NULL;
+                key = strjoin("exec-context-root-image-fds-", partition_designator_to_string(i));
+                if (!key)
+                        return log_oom_debug();
+
+                r = serialize_fd(f, fds, key, c->root_image_fsmount_fds[i]);
+                if (r < 0)
+                        return r;
+        }
 
         if (c->root_image_options) {
                 _cleanup_free_ char *options = NULL;
@@ -2422,6 +2437,19 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                                 return log_oom_debug();
                 }
 
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                        if (mount->fsmount_fds[i] < 0)
+                                continue;
+
+                        int copy = fdset_put_dup(fds, mount->fsmount_fds[i]);
+                        if (copy < 0)
+                                return copy;
+
+                        r = strextendf(&s, " fsmount_fd_%s=%i", partition_designator_to_string(i), copy);
+                        if (r < 0)
+                                return r;
+                }
+
                 r = serialize_item(f, "exec-context-mount-image", s);
                 if (r < 0)
                         return r;
@@ -2455,6 +2483,19 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                                        ":",
                                        escaped))
                                 return log_oom_debug();
+                }
+
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                        if (mount->fsmount_fds[i] < 0)
+                                continue;
+
+                        int copy = fdset_put_dup(fds, mount->fsmount_fds[i]);
+                        if (copy < 0)
+                                return copy;
+
+                        r = strextendf(&s, " fsmount_fd_%s=%i", partition_designator_to_string(i), copy);
+                        if (r < 0)
+                                return r;
                 }
 
                 r = serialize_item(f, "exec-context-extension-image", s);
@@ -2512,7 +2553,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         return 0;
 }
 
-static int exec_context_deserialize(ExecContext *c, FILE *f) {
+static int exec_context_deserialize(ExecContext *c, FILE *f, FDSet *fds) {
         int r;
 
         assert(f);
@@ -2570,6 +2611,24 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (k < 0)
                                 return k;
                         free_and_replace(c->root_image, p);
+                } else if ((val = startswith(l, "exec-context-root-image-fds-"))) {
+                        _cleanup_free_ char *pd_str = NULL, *fd_str = NULL;
+
+                        r = extract_many_words(&val, "=", 0, &pd_str, &fd_str);
+                        if (r < 0)
+                                return r;
+                        if (r != 2)
+                                continue;
+
+                        PartitionDesignator pd = partition_designator_from_string(pd_str);
+                        if (pd < 0)
+                                continue;
+
+                        int fd = deserialize_fd(fds, fd_str);
+                        if (fd < 0)
+                                continue;
+
+                        close_and_replace(c->root_image_fsmount_fds[pd], fd);
                 } else if ((val = startswith(l, "exec-context-root-image-options="))) {
                         for (;;) {
                                 _cleanup_free_ char *word = NULL, *mount_options = NULL, *partition = NULL;
@@ -3520,8 +3579,18 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                 } else if ((val = startswith(l, "exec-context-mount-image="))) {
                         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
                         _cleanup_free_ char *source = NULL, *destination = NULL;
+                        size_t n_fsmount_fds = _PARTITION_DESIGNATOR_MAX;
+                        int *fsmount_fds = NULL;
                         bool permissive = false;
                         char *s;
+
+                        fsmount_fds = new(int, _PARTITION_DESIGNATOR_MAX);
+                        if (!fsmount_fds)
+                                return log_oom_debug();
+                        for (size_t i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                                fsmount_fds[i] = -EBADF;
+
+                        CLEANUP_ARRAY(fsmount_fds, n_fsmount_fds, close_many_and_free);
 
                         r = extract_many_words(&val,
                                                NULL,
@@ -3546,13 +3615,36 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 _cleanup_free_ char *tuple = NULL, *partition = NULL, *opts = NULL;
                                 PartitionDesignator partition_designator;
                                 MountOptions *o = NULL;
-                                const char *p;
+                                const char *p, *designator;
 
                                 r = extract_first_word(&val, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
                                         break;
+
+                                if ((designator = startswith(tuple, "fsmount_fd_"))) {
+                                        _cleanup_free_ char *pd_str = NULL, *fd_str = NULL;
+
+                                        r = extract_many_words(&designator, "=", 0, &pd_str, &fd_str);
+                                        if (r < 0)
+                                                return r;
+                                        if (r != 2)
+                                                continue;
+
+                                        PartitionDesignator pd = partition_designator_from_string(pd_str);
+                                        if (pd < 0)
+                                                continue;
+
+                                        if (fsmount_fds[pd] == -EBADF) {
+                                                int fd = deserialize_fd(fds, fd_str);
+                                                if (fd < 0)
+                                                        return fd;
+                                                fsmount_fds[pd] = fd;
+                                        }
+
+                                        continue;
+                                }
 
                                 p = tuple;
                                 r = extract_many_words(&p,
@@ -3591,26 +3683,39 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 LIST_APPEND(mount_options, options, o);
                         }
 
-                        r = mount_image_add(&c->mount_images, &c->n_mount_images,
-                                        &(MountImage) {
-                                                .source = s,
-                                                .destination = destination,
-                                                .mount_options = options,
-                                                .ignore_enoent = permissive,
-                                                .type = MOUNT_IMAGE_DISCRETE,
-                                        });
+                        MountImage m = {
+                                .source = s,
+                                .destination = destination,
+                                .mount_options = options,
+                                .ignore_enoent = permissive,
+                                .type = MOUNT_IMAGE_DISCRETE,
+                        };
+                        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                                m.fsmount_fds[i] = TAKE_FD(fsmount_fds[i]);
+
+                        r = mount_image_add(&c->mount_images, &c->n_mount_images, &m);
                         if (r < 0)
                                 return log_oom_debug();
                 } else if ((val = startswith(l, "exec-context-extension-image="))) {
                         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
                         _cleanup_free_ char *source = NULL;
+                        size_t n_fsmount_fds = _PARTITION_DESIGNATOR_MAX;
+                        int *fsmount_fds = NULL;
                         bool permissive = false;
                         char *s;
 
-                        r = extract_first_word(&val,
-                                               &source,
+                        fsmount_fds = new(int, _PARTITION_DESIGNATOR_MAX);
+                        if (!fsmount_fds)
+                                return log_oom_debug();
+                        for (size_t i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                                fsmount_fds[i] = -EBADF;
+
+                        CLEANUP_ARRAY(fsmount_fds, n_fsmount_fds, close_many_and_free);
+
+                        r = extract_many_words(&val,
                                                NULL,
-                                               EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
+                                               EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
+                                               &source);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -3626,13 +3731,36 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 _cleanup_free_ char *tuple = NULL, *partition = NULL, *opts = NULL;
                                 PartitionDesignator partition_designator;
                                 MountOptions *o = NULL;
-                                const char *p;
+                                const char *p, *designator;
 
                                 r = extract_first_word(&val, &tuple, NULL, EXTRACT_UNQUOTE|EXTRACT_RETAIN_ESCAPE);
                                 if (r < 0)
                                         return r;
                                 if (r == 0)
                                         break;
+
+                                if ((designator = startswith(tuple, "fsmount_fd_"))) {
+                                        _cleanup_free_ char *pd_str = NULL, *fd_str = NULL;
+
+                                        r = extract_many_words(&designator, "=", 0, &pd_str, &fd_str);
+                                        if (r < 0)
+                                                return r;
+                                        if (r != 2)
+                                                continue;
+
+                                        PartitionDesignator pd = partition_designator_from_string(pd_str);
+                                        if (pd < 0)
+                                                continue;
+
+                                        if (fsmount_fds[pd] == -EBADF) {
+                                                int fd = deserialize_fd(fds, fd_str);
+                                                if (fd < 0)
+                                                        return fd;
+                                                fsmount_fds[pd] = fd;
+                                        }
+
+                                        continue;
+                                }
 
                                 p = tuple;
                                 r = extract_many_words(&p,
@@ -3670,14 +3798,16 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 };
                                 LIST_APPEND(mount_options, options, o);
                         }
+                        MountImage m = {
+                                .source = s,
+                                .mount_options = options,
+                                .ignore_enoent = permissive,
+                                .type = MOUNT_IMAGE_DISCRETE,
+                        };
+                        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                                m.fsmount_fds[i] = TAKE_FD(fsmount_fds[i]);
 
-                        r = mount_image_add(&c->extension_images, &c->n_extension_images,
-                                        &(MountImage) {
-                                                .source = s,
-                                                .mount_options = options,
-                                                .ignore_enoent = permissive,
-                                                .type = MOUNT_IMAGE_EXTENSION,
-                                        });
+                        r = mount_image_add(&c->extension_images, &c->n_extension_images, &m);
                         if (r < 0)
                                 return log_oom_debug();
                 } else if ((val = startswith(l, "exec-context-extension-directories="))) {
@@ -3837,7 +3967,7 @@ int exec_serialize_invocation(
         assert(f);
         assert(fds);
 
-        r = exec_context_serialize(ctx, f);
+        r = exec_context_serialize(ctx, f, fds);
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize context: %m");
 
@@ -3874,7 +4004,7 @@ int exec_deserialize_invocation(
         assert(f);
         assert(fds);
 
-        r = exec_context_deserialize(ctx, f);
+        r = exec_context_deserialize(ctx, f, fds);
         if (r < 0)
                 return log_debug_errno(r, "Failed to deserialize context: %m");
 
