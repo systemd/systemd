@@ -227,6 +227,9 @@
 
         <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
+        <xi:include href="system-or-user-ns-mountfsd-mount-options.xml" xpointer="plural"/>
+        <xi:include href="system-or-user-ns-mountfsd-mount-options.xml" xpointer="example"/>
+
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
@@ -525,6 +528,9 @@
 
         <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
+        <xi:include href="system-or-user-ns-mountfsd-mount-options.xml" xpointer="plural"/>
+        <xi:include href="system-or-user-ns-mountfsd-mount-options.xml" xpointer="example"/>
+
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
 
@@ -591,6 +597,9 @@
         <xi:include href="vpick.xml" xpointer="image"/>
 
         <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
+
+        <xi:include href="system-or-user-ns-mountfsd-mount-options.xml" xpointer="plural"/>
+        <xi:include href="system-or-user-ns-mountfsd-mount-options.xml" xpointer="example"/>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
