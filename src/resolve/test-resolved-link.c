@@ -5,8 +5,8 @@
 #include "sd-event.h"
 #include "sd-netlink.h"
 
+#include "dns-packet.h"
 #include "netlink-internal.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-server.h"
 #include "resolved-link.h"
