@@ -1363,19 +1363,6 @@ static int mount_start(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
 
-        /* We cannot fulfill this request right now, try again later
-         * please! */
-        if (IN_SET(m->state,
-                   MOUNT_UNMOUNTING,
-                   MOUNT_UNMOUNTING_SIGTERM,
-                   MOUNT_UNMOUNTING_SIGKILL,
-                   MOUNT_CLEANING))
-                return -EAGAIN;
-
-        /* Already on it! */
-        if (IN_SET(m->state, MOUNT_MOUNTING, MOUNT_MOUNTING_DONE))
-                return 0;
-
         assert(IN_SET(m->state, MOUNT_DEAD, MOUNT_FAILED));
 
         r = unit_acquire_invocation_id(u);
@@ -2385,6 +2372,10 @@ static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
 static int mount_can_start(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
+
+        /* Already on it! */
+        if (IN_SET(m->state, MOUNT_MOUNTING, MOUNT_MOUNTING_DONE))
+                return 0;
 
         r = unit_test_start_limit(u);
         if (r < 0) {

@@ -864,19 +864,6 @@ static int swap_start(Unit *u) {
         int r;
 
         assert(s);
-
-        /* We cannot fulfill this request right now, try again later please! */
-        if (IN_SET(s->state,
-                   SWAP_DEACTIVATING,
-                   SWAP_DEACTIVATING_SIGTERM,
-                   SWAP_DEACTIVATING_SIGKILL,
-                   SWAP_CLEANING))
-                return -EAGAIN;
-
-        /* Already on it! */
-        if (s->state == SWAP_ACTIVATING)
-                return 0;
-
         assert(IN_SET(s->state, SWAP_DEAD, SWAP_FAILED));
 
         if (detect_container() > 0)
@@ -1524,6 +1511,9 @@ static int swap_can_clean(Unit *u, ExecCleanMask *ret) {
 static int swap_can_start(Unit *u) {
         Swap *s = ASSERT_PTR(SWAP(u));
         int r;
+
+        if (s->state == SWAP_ACTIVATING)
+                return 0;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
