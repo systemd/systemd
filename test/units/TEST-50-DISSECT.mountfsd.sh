@@ -71,12 +71,15 @@ systemd-dissect --image-policy='root=verity+signed:=absent+unused' --mtree /var/
 if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.gpt" \
-        test -e "/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity"
+        --property RootImageOptions="root:ro,noatime,nosuid home:ro,dev nosuid,dev" \
+        --property RootImageOptions="home:ro,dev nosuid,dev,%%foo" \
+        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && mount | grep -F squashfs | grep -q -F noatime"
 
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
-        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\""
+        --property MountImages=/tmp/app0.raw:/var/tmp:noatime,nosuid \
+        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\" && mount | grep -F /var/tmp | grep -q -F noatime"
 
     # Without a signature this should not work, as mountfsd should reject it, even if we explicitly ask to
     # trust it
