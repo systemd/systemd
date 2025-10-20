@@ -46,6 +46,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("A relative path indicating the intended mount point for this file system, if applicable. May contain multiple paths, for certain partitions that can be mounted to multiple distinct places."),
                 SD_VARLINK_DEFINE_FIELD(mountPoint, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                PartitionMountOptions,
+                SD_VARLINK_FIELD_COMMENT("The partition designator to which the options apply"),
+                SD_VARLINK_DEFINE_FIELD(partitionDesignator, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The mount options for this partition"),
+                SD_VARLINK_DEFINE_FIELD(options, SD_VARLINK_STRING, 0));
+
 static SD_VARLINK_DEFINE_METHOD(
                 MountImage,
                 SD_VARLINK_FIELD_COMMENT("File descriptor of the image file to mount and to assign to the user namespace. Must be a regular, i.e. non-O_PATH file descriptor."),
@@ -60,6 +67,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Takes an image policy string (see systemd.image-policy(7) for details) to apply while mounting the image"),
                 SD_VARLINK_DEFINE_INPUT(imagePolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The mount options to be used for the partitions of the image. Requires elevated privileges via polkit if specified, the polkit request details will list them in the 'mount_options' field."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mountOptions, PartitionMountOptions, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether to automatically reuse already set up dm-verity devices that share the same roothash."),
                 SD_VARLINK_DEFINE_INPUT(veritySharing, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("File descriptor of the file containing the dm-verity data, if the image is a bare filesystem rather than a DDI."),
@@ -135,6 +144,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_PartitionDesignator,
                 SD_VARLINK_SYMBOL_COMMENT("Information about a specific partition."),
                 &vl_type_PartitionInfo,
+                SD_VARLINK_SYMBOL_COMMENT("Mount options for a specific partition."),
+                &vl_type_PartitionMountOptions,
                 SD_VARLINK_SYMBOL_COMMENT("Selects the type of UID/GID mapping to apply."),
                 &vl_type_MountMapMode,
                 SD_VARLINK_SYMBOL_COMMENT("Takes a disk image file descriptor as input, returns a set of mount file descriptors for it, plus meta information about the image and the partitions selected for mounting."),
