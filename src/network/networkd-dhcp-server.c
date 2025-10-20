@@ -8,6 +8,7 @@
 #include "conf-parser.h"
 #include "dhcp-protocol.h"
 #include "dhcp-server-lease-internal.h"
+#include "dns-domain.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -31,30 +32,6 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
-
-static int get_hostname_domain(char **ret) {
-        _cleanup_free_ char *hostname = NULL;
-        const char *domain;
-        int r;
-
-        assert(ret);
-
-        /* Get the full hostname (FQDN if available) */
-        r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &hostname);
-        if (r < 0)
-                return r;
-
-        /* Find the first dot to extract the domain part */
-        domain = strchr(hostname, '.');
-        if (!domain)
-                return -ENOENT;  /* No domain part in hostname */
-
-        domain++;  /* Skip the dot */
-        if (isempty(domain))
-                return -ENOENT;  /* Empty domain after dot */
-
-        return strdup_to(ret, domain);
-}
 
 static bool link_dhcp4_server_enabled(Link *link) {
         assert(link);
@@ -553,6 +530,36 @@ static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         return sd_dhcp_server_set_dns(link->dhcp_server, addresses, n_addresses);
 }
 
+static int dhcp_server_set_domain(Link *link) {
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(link->dhcp_server);
+
+        if (!link->network->dhcp_server_emit_domain)
+                return 0;
+
+        if (link->network->dhcp_server_domain)
+                return sd_dhcp_server_set_domain_name(link->dhcp_server, link->network->dhcp_server_domain);
+
+        /* When domain is not specified, use the domain part of the current hostname. */
+        _cleanup_free_ char *hostname = NULL;
+        r = gethostname_full(GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &hostname);
+        if (r < 0)
+                return r;
+
+        const char *domain = hostname;
+        r = dns_name_parent(&domain);
+        if (r < 0)
+                return r;
+
+        if (isempty(domain))
+                return -ENXIO;
+
+        return sd_dhcp_server_set_domain_name(link->dhcp_server, domain);
+}
+
 static int dhcp4_server_configure(Link *link) {
         bool acquired_uplink = false;
         sd_dhcp_option *p;
@@ -703,28 +710,11 @@ static int dhcp4_server_configure(Link *link) {
                 }
         }
 
-        if (link->network->dhcp_server_emit_domain) {
-                _cleanup_free_ char *buffer = NULL;
-                const char *domain = NULL;
-
-                if (link->network->dhcp_server_domain)
-                        domain = link->network->dhcp_server_domain;
-                else {
-                        r = get_hostname_domain(&buffer);
-                        if (r < 0)
-                                log_link_warning_errno(link, r, "Failed to determine domain name from host's hostname, will not send domain in DHCP leases: %m");
-                        else {
-                                domain = buffer;
-                                log_link_debug(link, "Using autodetected domain name '%s' for DHCP server.", domain);
-                        }
-                }
-
-                if (domain) {
-                        r = sd_dhcp_server_set_domain_name(link->dhcp_server, domain);
-                        if (r < 0)
-                                return log_link_error_errno(link, r, "Failed to set domain name for DHCP server: %m");
-                }
-        }
+        r = dhcp_server_set_domain(link);
+        if (r == -ENXIO)
+                log_link_warning_errno(link, r, "Cannot get domain from the current hostname, DHCP server will not emit domain option.");
+        else if (r < 0)
+                return log_link_error_errno(link, r, "Failed to set domain name for DHCP server: %m");
 
         ORDERED_HASHMAP_FOREACH(p, link->network->dhcp_server_send_options) {
                 r = sd_dhcp_server_add_option(link->dhcp_server, p);
