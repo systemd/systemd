@@ -18,13 +18,13 @@
 #include "string-util.h"
 #include "volatile-util.h"
 
-static int make_volatile(const char *path) {
+static int make_volatile(const char *root) {
         _cleanup_free_ char *old_usr = NULL;
         int r;
 
-        assert(path);
+        assert(root);
 
-        r = chase("/usr", path, CHASE_PREFIX_ROOT, &old_usr, NULL);
+        r = chase("/usr", root, CHASE_PREFIX_ROOT, &old_usr, NULL);
         if (r < 0)
                 return log_error_errno(r, "/usr not available in old root: %m");
 
@@ -51,16 +51,16 @@ static int make_volatile(const char *path) {
                 goto finish_umount;
         }
 
-        r = umount_recursive(path, 0);
+        r = umount_recursive(root, 0);
         if (r < 0) {
-                log_error_errno(r, "Failed to unmount %s: %m", path);
+                log_error_errno(r, "Failed to unmount %s: %m", root);
                 goto finish_umount;
         }
 
         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
-                log_warning_errno(errno, "Failed to remount %s MS_SLAVE|MS_REC, ignoring: %m", path);
+                log_warning_errno(errno, "Failed to remount %s MS_SLAVE|MS_REC, ignoring: %m", root);
 
-        r = mount_nofollow_verbose(LOG_ERR, "/run/systemd/volatile-sysroot", path, NULL, MS_MOVE, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, "/run/systemd/volatile-sysroot", root, NULL, MS_MOVE, NULL);
 
 finish_umount:
         (void) umount_recursive("/run/systemd/volatile-sysroot", 0);
@@ -71,13 +71,13 @@ finish_rmdir:
         return r;
 }
 
-static int make_overlay(const char *path) {
+static int make_overlay(const char *root) {
         _cleanup_free_ char *escaped_path = NULL;
         bool tmpfs_mounted = false;
         const char *options = NULL;
         int r;
 
-        assert(path);
+        assert(root);
 
         r = mkdir_p("/run/systemd/overlay-sysroot", 0700);
         if (r < 0)
@@ -99,14 +99,14 @@ static int make_overlay(const char *path) {
                 goto finish;
         }
 
-        escaped_path = shell_escape(path, ",:");
+        escaped_path = shell_escape(root, ",:");
         if (!escaped_path) {
                 r = log_oom();
                 goto finish;
         }
 
         options = strjoina("lowerdir=", escaped_path, ",upperdir=/run/systemd/overlay-sysroot/upper,workdir=/run/systemd/overlay-sysroot/work");
-        r = mount_nofollow_verbose(LOG_ERR, "overlay", path, "overlay", 0, options);
+        r = mount_nofollow_verbose(LOG_ERR, "overlay", root, "overlay", 0, options);
 
 finish:
         if (tmpfs_mounted)
@@ -118,7 +118,7 @@ finish:
 
 static int run(int argc, char *argv[]) {
         VolatileMode m = _VOLATILE_MODE_INVALID;
-        const char *path;
+        const char *root;
         dev_t devt;
         int r;
 
@@ -139,17 +139,17 @@ static int run(int argc, char *argv[]) {
         }
 
         if (argc < 3)
-                path = "/sysroot";
+                root = "/sysroot";
         else {
-                path = argv[2];
+                root = argv[2];
 
-                if (isempty(path))
+                if (isempty(root))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Directory name cannot be empty.");
-                if (!path_is_absolute(path))
+                if (!path_is_absolute(root))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Directory must be specified as absolute path.");
-                if (path_equal(path, "/"))
+                if (path_equal(root, "/"))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Directory cannot be the root directory.");
         }
@@ -157,17 +157,17 @@ static int run(int argc, char *argv[]) {
         if (!IN_SET(m, VOLATILE_YES, VOLATILE_OVERLAY))
                 return 0;
 
-        r = path_is_mount_point_full(path, /* root= */ NULL, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point_full(root, /* root= */ NULL, AT_SYMLINK_FOLLOW);
         if (r < 0)
-                return log_error_errno(r, "Couldn't determine whether %s is a mount point: %m", path);
+                return log_error_errno(r, "Couldn't determine whether %s is a mount point: %m", root);
         if (r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a mount point.", path);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "%s is not a mount point.", root);
 
-        r = path_is_temporary_fs(path);
+        r = path_is_temporary_fs(root);
         if (r < 0)
-                return log_error_errno(r, "Couldn't determine whether %s is a temporary file system: %m", path);
+                return log_error_errno(r, "Couldn't determine whether %s is a temporary file system: %m", root);
         if (r > 0) {
-                log_info("%s already is a temporary file system.", path);
+                log_info("%s already is a temporary file system.", root);
                 return 0;
         }
 
@@ -175,9 +175,9 @@ static int run(int argc, char *argv[]) {
          * replaced here, hence let's save that information as a symlink we can later use. (This is particularly
          * relevant for the overlayfs case where we'll fully obstruct the view onto the underlying device, hence
          * querying the backing device node from the file system directly is no longer possible. */
-        r = get_block_device_harder(path, &devt);
+        r = get_block_device_harder(root, &devt);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine device major/minor of %s: %m", path);
+                return log_error_errno(r, "Failed to determine device major/minor of %s: %m", root);
         else if (r > 0) { /* backed by block device */
                 _cleanup_free_ char *dn = NULL;
 
@@ -190,10 +190,10 @@ static int run(int argc, char *argv[]) {
         }
 
         if (m == VOLATILE_YES)
-                return make_volatile(path);
+                return make_volatile(root);
         else {
                 assert(m == VOLATILE_OVERLAY);
-                return make_overlay(path);
+                return make_overlay(root);
         }
 }
 
