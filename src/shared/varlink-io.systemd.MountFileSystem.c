@@ -20,6 +20,13 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(var));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                PartitionMountOptions,
+                SD_VARLINK_FIELD_COMMENT("The partition designator to which the options apply"),
+                SD_VARLINK_DEFINE_FIELD(partitionDesignator, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The mount options for this partition"),
+                SD_VARLINK_DEFINE_FIELD(options, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 PartitionInfo,
                 SD_VARLINK_FIELD_COMMENT("The designator of this partition."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(designator, PartitionDesignator, 0),
@@ -60,6 +67,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(password, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Takes an image policy string (see systemd.image-policy(7) for details) to apply while mounting the image"),
                 SD_VARLINK_DEFINE_INPUT(imagePolicy, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The mount options to use for the partitions of the image"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(mountOptions, PartitionMountOptions, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether to automatically reuse already set up dm-verity devices that share the same roothash."),
                 SD_VARLINK_DEFINE_INPUT(veritySharing, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("File descriptor of the file containing the dm-verity data, if the image is a bare filesystem rather than a DDI."),
