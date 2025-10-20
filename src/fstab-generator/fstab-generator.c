@@ -316,7 +316,7 @@ static bool mount_is_network(const char *fstype, const char *options) {
 
 static bool mount_in_initrd(const char *where, const char *options, bool accept_root) {
         return fstab_test_option(options, "x-initrd.mount\0") ||
-                (where && PATH_IN_SET(where, "/usr", accept_root ? "/" : NULL));
+                (where && PATH_IN_SET(where, "/usr", "/var", accept_root ? "/" : NULL));
 }
 
 static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
