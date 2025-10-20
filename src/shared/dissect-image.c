@@ -2579,14 +2579,13 @@ static int decrypt_partition(
         assert(m);
         assert(d);
 
+        const char *source_node = m->decrypted_node ?: m->node;
+
         if (!m->found || !m->node || !m->fstype)
                 return 0;
 
         if (!streq(m->fstype, "crypto_LUKS"))
                 return 0;
-
-        if (!passphrase)
-                return -ENOKEY;
 
         if (!FLAGS_SET(policy_flags, PARTITION_POLICY_ENCRYPTED))
                 return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL), "Attempted to unlock partition via LUKS, but it's prohibited.");
@@ -2595,14 +2594,14 @@ static int decrypt_partition(
         if (r < 0)
                 return r;
 
-        r = make_dm_name_and_node(m->node, "-decrypted", &name, &node);
+        r = make_dm_name_and_node(source_node, "-decrypted", &name, &node);
         if (r < 0)
                 return r;
 
         if (!GREEDY_REALLOC0(d->decrypted, d->n_decrypted + 1))
                 return -ENOMEM;
 
-        r = sym_crypt_init(&cd, m->node);
+        r = sym_crypt_init(&cd, source_node);
         if (r < 0)
                 return log_debug_errno(r, "Failed to initialize dm-crypt: %m");
 
@@ -2612,12 +2611,39 @@ static int decrypt_partition(
         if (r < 0)
                 return log_debug_errno(r, "Failed to load LUKS metadata: %m");
 
-        r = sym_crypt_activate_by_passphrase(cd, name, CRYPT_ANY_SLOT, passphrase, strlen(passphrase),
-                                             ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY) ? CRYPT_ACTIVATE_READONLY : 0) |
-                                             ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
-        if (r < 0) {
-                log_debug_errno(r, "Failed to activate LUKS device: %m");
-                return r == -EPERM ? -EKEYREJECTED : r;
+        if (passphrase) {
+                r = sym_crypt_activate_by_passphrase(
+                                cd,
+                                name,
+                                CRYPT_ANY_SLOT,
+                                passphrase,
+                                strlen(passphrase),
+                                ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY)  ? CRYPT_ACTIVATE_READONLY : 0) |
+                                ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to activate LUKS device: %m");
+                        return r == -EPERM ? -EKEYREJECTED : r;
+                }
+        } else {
+#if HAVE_CRYPT_ACTIVATE_BY_TOKEN_PIN
+                r = sym_crypt_activate_by_token_pin(
+                                cd,
+                                name,
+                                /* type= */ NULL,
+                                CRYPT_ANY_TOKEN,
+                                /* pin= */ NULL,
+                                /* pin_size= */ 0,
+                                /* usrptr= */ NULL,
+                                ((flags & DISSECT_IMAGE_DEVICE_READ_ONLY)  ? CRYPT_ACTIVATE_READONLY : 0) |
+                                ((flags & DISSECT_IMAGE_DISCARD_ON_CRYPTO) ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0));
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to activate LUKS device: %m");
+                        return r == -EEXIST ? -EEXIST : -ENOKEY;
+                }
+#else
+                log_debug("Build lacks libcryptsetup support for token-based activation.");
+                return -ENOKEY;
+#endif
         }
 
         fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
@@ -2628,8 +2654,7 @@ static int decrypt_partition(
                 .name = TAKE_PTR(name),
                 .device = TAKE_PTR(cd),
         };
-
-        m->decrypted_node = TAKE_PTR(node);
+        free_and_replace(m->decrypted_node, node);
         close_and_replace(m->mount_node_fd, fd);
 
         return 0;
@@ -3165,16 +3190,16 @@ int dissected_image_decrypt(
 
                 PartitionPolicyFlags fl = image_policy_get_exhaustively(policy, i);
 
-                r = decrypt_partition(p, passphrase, flags, fl, d);
-                if (r < 0)
-                        return r;
-
                 k = partition_verity_hash_of(i);
                 if (k >= 0) {
                         r = verity_partition(i, p, m->partitions + k, verity, flags, fl, d);
                         if (r < 0)
                                 return r;
                 }
+
+                r = decrypt_partition(p, passphrase, flags, fl, d);
+                if (r < 0)
+                        return r;
 
                 if (!p->decrypted_fstype && p->mount_node_fd >= 0 && p->decrypted_node) {
                         r = probe_filesystem_full(p->mount_node_fd, p->decrypted_node, 0, UINT64_MAX, /* bool restrict_fstypes= */ true, &p->decrypted_fstype);
