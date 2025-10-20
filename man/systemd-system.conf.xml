@@ -673,7 +673,7 @@
         These variables are merged into the existing environment block of the manager process. In particular,
         in case of the system manager, this block includes variables set by the kernel based on the kernel
         command line, and in case of the user manager, the variables passed by the system manager. After
-        those variables have been merged, they will persist until overriden, even if the manager is reloaded
+        those variables have been merged, they will persist until overridden, even if the manager is reloaded
         or reexecuted. In case of the user manager, these variables are also inherited by processes spawned
         by the manager. As with <varname>DefaultEnvironment=</varname>, this environment block is internal,
         and changes are not reflected in the manager's <filename>/proc/PID/environ</filename>.</para>
