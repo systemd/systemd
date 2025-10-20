@@ -13,9 +13,12 @@
 #include "set.h"
 #include "strv.h"
 #include "unit.h"
+#include "varlink-automount.h"
 #include "varlink-cgroup.h"
 #include "varlink-common.h"
 #include "varlink-execute.h"
+#include "varlink-kill.h"
+#include "varlink-mount.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
 
@@ -108,6 +111,21 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
          * If it make sense to place a property into a config/unit file it belongs to Context.
          * Otherwise it's a 'Runtime'. */
 
+        /* TODO missing callbacks */
+        static const sd_json_build_callback_t unit_type_callbacks[] = {
+                [UNIT_AUTOMOUNT] = automount_context_build_json,
+                [UNIT_DEVICE] = NULL,
+                [UNIT_MOUNT] = mount_context_build_json,
+                [UNIT_PATH] = NULL,
+                [UNIT_SCOPE] = NULL,
+                [UNIT_SERVICE] = NULL,
+                [UNIT_SLICE] = NULL,
+                [UNIT_SOCKET] = NULL,
+                [UNIT_SWAP] = NULL,
+                [UNIT_TARGET] = NULL,
+                [UNIT_TIMER] = NULL,
+        };
+
         return sd_json_buildo(
                         ASSERT_PTR(ret),
                         SD_JSON_BUILD_PAIR_STRING("Type", unit_type_to_string(u->type)),
@@ -185,18 +203,9 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
 
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, u),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", unit_exec_context_build_json, u));
-
-        // TODO follow up PRs:
-        // JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", exec_context_build_json, u)
-        // JSON_BUILD_PAIR_CALLBACK_NON_NULL("Kill", kill_context_build_json, u)
-        // Mount/Automount context
-        // Path context
-        // Scope context
-        // Swap context
-        // Timer context
-        // Service context
-        // Socket context
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", unit_exec_context_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("Kill", unit_kill_context_build_json, unit_get_kill_context(u)),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL(unit_type_to_capitalized_string(u->type), unit_type_callbacks[u->type], u));
 }
 
 static int can_clean_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -276,6 +285,21 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
         Unit *u = ASSERT_PTR(userdata);
         Unit *f = unit_following(u);
 
+        /* TODO missing callbacks */
+        static const sd_json_build_callback_t unit_type_callbacks[] = {
+                [UNIT_AUTOMOUNT] = automount_runtime_build_json,
+                [UNIT_DEVICE] = NULL,
+                [UNIT_MOUNT] = mount_runtime_build_json,
+                [UNIT_PATH] = NULL,
+                [UNIT_SCOPE] = NULL,
+                [UNIT_SERVICE] = NULL,
+                [UNIT_SLICE] = NULL,
+                [UNIT_SOCKET] = NULL,
+                [UNIT_SWAP] = NULL,
+                [UNIT_TARGET] = NULL,
+                [UNIT_TIMER] = NULL,
+        };
+
         return sd_json_buildo(
                         ASSERT_PTR(ret),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("Following", f ? f->id : NULL),
@@ -305,7 +329,8 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(u->invocation_id), "InvocationID", SD_JSON_BUILD_UUID(u->invocation_id)),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Markers", markers_build_json, &u->markers),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("ActivationDetails", activation_details_build_json, u->activation_details),
-                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_runtime_build_json, u));
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_runtime_build_json, u),
+                        JSON_BUILD_PAIR_CALLBACK_NON_NULL(unit_type_to_capitalized_string(u->type), unit_type_callbacks[u->type], u));
 }
 
 static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
