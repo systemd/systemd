@@ -804,27 +804,6 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         return k < 0 ? k : has_partitions;
 }
 
-
-int blockdev_reread_partition_table(sd_device *dev) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(dev);
-
-        /* Try to re-read the partition table. This only succeeds if none of the devices is busy. */
-
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (fd < 0)
-                return fd;
-
-        if (flock(fd, LOCK_EX|LOCK_NB) < 0)
-                return -errno;
-
-        if (ioctl(fd, BLKRRPART, 0) < 0)
-                return -errno;
-
-        return 0;
-}
-
 int blockdev_get_sector_size(int fd, uint32_t *ret) {
         int ssz = 0;
 
