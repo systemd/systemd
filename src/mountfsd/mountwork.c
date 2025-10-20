@@ -17,6 +17,7 @@
 #include "dissect-image.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "format-util.h"
@@ -61,6 +62,45 @@ static const ImagePolicy image_policy_untrusted = {
         .default_flags = PARTITION_POLICY_IGNORE,
 };
 
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_partition_designator, PartitionDesignator, partition_designator_from_string);
+
+static int json_dispatch_image_options(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        MountOptions **p = ASSERT_PTR(userdata);
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *p = mount_options_free_all(*p);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "partitionDesignator", SD_JSON_VARIANT_STRING, dispatch_partition_designator, offsetof(MountOptions, partition_designator), SD_JSON_MANDATORY },
+                        { "options",             SD_JSON_VARIANT_STRING, sd_json_dispatch_string,       offsetof(MountOptions, options),              SD_JSON_MANDATORY },
+                        {}
+                };
+
+                _cleanup_(mount_options_free_allp) MountOptions *mo = new0(MountOptions, 1);
+                if (!mo)
+                        return -ENOMEM;
+
+                r = sd_json_dispatch(e, dispatch_table, SD_JSON_LOG, mo);
+                if (r < 0)
+                        return r;
+
+                LIST_APPEND(mount_options, options, TAKE_PTR(mo));
+        }
+
+        mount_options_free_all(*p);
+        *p = TAKE_PTR(options);
+        return 0;
+}
+
 static int json_dispatch_image_policy(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_(image_policy_freep) ImagePolicy *q = NULL;
         ImagePolicy **p = ASSERT_PTR(userdata);
@@ -92,6 +132,7 @@ typedef struct MountImageParameters {
         int growfs;
         char *password;
         ImagePolicy *image_policy;
+        MountOptions *options;
         bool verity_sharing;
         struct iovec verity_root_hash;
         struct iovec verity_root_hash_sig;
@@ -105,6 +146,7 @@ static void mount_image_parameters_done(MountImageParameters *p) {
         p->image_policy = image_policy_free(p->image_policy);
         iovec_done(&p->verity_root_hash);
         iovec_done(&p->verity_root_hash_sig);
+        p->options = mount_options_free_all(p->options);
 }
 
 static int validate_image_fd(int fd, MountImageParameters *p) {
@@ -298,6 +340,7 @@ static int vl_method_mount_image(
                 { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,    offsetof(MountImageParameters, growfs),               0 },
                 { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(MountImageParameters, password),             0 },
                 { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy,   offsetof(MountImageParameters, image_policy),         0 },
+                { "mountOptions",                SD_JSON_VARIANT_ARRAY,    json_dispatch_image_options,  offsetof(MountImageParameters, options),              0 },
                 { "veritySharing",               SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(MountImageParameters, verity_sharing),       0 },
                 { "verityDataFileDescriptor",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, verity_data_fd_idx),   0 },
                 { "verityRootHash",              SD_JSON_VARIANT_STRING,   json_dispatch_unhex_iovec,    offsetof(MountImageParameters, verity_root_hash),     0 },
@@ -360,10 +403,14 @@ static int vl_method_mount_image(
         if (r != 0)
                 return r;
 
-        r = verify_trusted_image_fd_by_path(image_fd);
-        if (r < 0)
-                return r;
-        image_is_trusted = r;
+        /* Mount options could be used to thwart security measures such as ACLs or SELinux so if they are
+         * specified don't mark the image as trusted so that it requires additional privileges to use. */
+        if (!p.options) {
+                r = verify_trusted_image_fd_by_path(image_fd);
+                if (r < 0)
+                        return r;
+                image_is_trusted = r;
+        }
 
         if (p.verity_data_fd_idx != UINT_MAX) {
                 verity_data_fd = sd_varlink_peek_dup_fd(link, p.verity_data_fd_idx);
@@ -389,8 +436,32 @@ static int vl_method_mount_image(
                 p.verity_root_hash_sig.iov_len = 0;
         }
 
+        /* Let the polkit rule know what mount options the caller tries to use, so that rules can decide
+         * whether to allow or deny the operation based on what the options are. */
+        _cleanup_free_ char *mount_options_concat = NULL;
+        LIST_FOREACH(mount_options, o, p.options) {
+                _cleanup_free_ char *escaped = NULL;
+
+                if (isempty(o->options))
+                        continue;
+
+                escaped = shell_escape(o->options, ":");
+                if (!escaped)
+                        return log_oom_debug();
+
+                r = strextendf_with_separator(
+                                &mount_options_concat,
+                                ",",
+                                "%s:%s",
+                                partition_designator_to_string(o->partition_designator),
+                                escaped);
+                if (r < 0)
+                        return r;
+        }
+
         const char *polkit_details[] = {
                 "read_only", one_zero(p.read_only > 0),
+                !isempty(mount_options_concat) ? "mount_options" : NULL, mount_options_concat,
                 NULL,
         };
 
@@ -414,7 +485,7 @@ static int vl_method_mount_image(
         r = varlink_verify_polkit_async_full(
                         link,
                         /* bus= */ NULL,
-                        polkit_action,
+                        p.options ? polkit_untrusted_action : polkit_action, /* Using mount options requires higher privs */
                         polkit_details,
                         /* good_user= */ UID_INVALID,
                         polkit_flags,
@@ -484,7 +555,7 @@ static int vl_method_mount_image(
                 r = dissect_loop_device(
                                 loop,
                                 &verity,
-                                /* mount_options= */ NULL,
+                                p.options,
                                 use_policy,
                                 /* image_filter= */ NULL,
                                 dissect_flags,
@@ -496,7 +567,7 @@ static int vl_method_mount_image(
                         r = dissect_loop_device(
                                         loop,
                                         &verity,
-                                        /* mount_options= */ NULL,
+                                        p.options,
                                         use_policy,
                                         /* image_filter= */ NULL,
                                         dissect_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
