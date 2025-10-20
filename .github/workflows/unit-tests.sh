@@ -18,6 +18,7 @@ ADDITIONAL_DEPS=(
     libtss2-dev
     libxkbcommon-dev
     libzstd-dev
+    linux-tools-generic
     python3-libevdev
     python3-pip
     python3-pyelftools
@@ -74,6 +75,12 @@ for phase in "${PHASES[@]}"; do
             capsh --drop=all -- -c "stat $PWD/meson.build"
             ;;
         RUN|RUN_GCC|RUN_CLANG|RUN_CLANG_RELEASE)
+            # TODO: drop after we switch to ubuntu 26.04
+            bpftool_dir=$(dirname "$(find /usr/lib/linux-tools/ /usr/lib/linux-tools-* -name 'bpftool' -perm /u=x 2>/dev/null | sort -r | head -n1)")
+            if [ -n "$bpftool_dir" ]; then
+                export PATH="$bpftool_dir:$PATH"
+            fi
+
             if [[ "$phase" =~ ^RUN_CLANG ]]; then
                 export CC=clang
                 export CXX=clang++
@@ -105,6 +112,12 @@ for phase in "${PHASES[@]}"; do
             TZ=GMT+12 meson test "${MESON_TEST_ARGS[@]}" -C build --print-errorlogs
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN_NO_DEPS)
+            # TODO: drop after we switch to ubuntu 26.04
+            bpftool_dir=$(dirname "$(find /usr/lib/linux-tools/ /usr/lib/linux-tools-* -name 'bpftool' -perm /u=x 2>/dev/null | sort -r | head -n1)")
+            if [ -n "$bpftool_dir" ]; then
+                export PATH="$bpftool_dir:$PATH"
+            fi
+
             MESON_ARGS=(--optimization=1)
 
             if [[ "$phase" =~ ^RUN_CLANG_ASAN_UBSAN ]]; then
