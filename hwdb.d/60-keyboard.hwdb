@@ -344,6 +344,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnNotebook:pnW65_67SZ:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNS50_70MU:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNV4XMB,ME,MZ:*
 evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnNS5x_NS7xPU:*
+evdev:atkbd:dmi:bvn*:bvr*:svnNotebook:pnV64x_V65xAU:*
  KEYBOARD_KEY_f7=touchpad_toggle                        # Touchpad Toggle
  KEYBOARD_KEY_f8=touchpad_toggle                        # Touchpad Toggle
 
