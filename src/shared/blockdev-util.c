@@ -414,6 +414,13 @@ int blockdev_partscan_enabled(sd_device *dev) {
 
         assert(dev);
 
+        const char *subsys;
+        r = sd_device_get_subsystem(dev, &subsys);
+        if (r < 0)
+                return r;
+        if (!streq_ptr(subsys, "block"))
+                return -ENOTBLK;
+
         /* For v6.10 or newer. */
         r = device_get_sysattr_bool(dev, "partscan");
         if (r != -ENOENT)
