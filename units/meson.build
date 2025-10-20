@@ -706,6 +706,11 @@ units = [
           'symlinks' : ['initrd.target.wants/'],
         },
         {
+          'file' : 'systemd-sysext-sysroot@.service',
+          'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
+          'symlinks' : ['initrd.target.wants/'],
+        },
+        {
           'file' : 'systemd-sysext.socket',
           'conditions' : ['ENABLE_SYSEXT'],
           'symlinks' : ['sockets.target.wants/'],
