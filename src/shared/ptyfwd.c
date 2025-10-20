@@ -19,6 +19,7 @@
 #include "hostname-setup.h"
 #include "io-util.h"
 #include "log.h"
+#include "pretty-print.h"
 #include "ptyfwd.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -1212,6 +1213,9 @@ int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height)
 
 int pty_forward_set_background_color(PTYForward *f, const char *color) {
         assert(f);
+
+        if (!shall_tint_background())
+                return 0;
 
         return free_and_strdup(&f->background_color, color);
 }
