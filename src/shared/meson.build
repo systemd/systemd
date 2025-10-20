@@ -167,6 +167,7 @@ shared_sources = files(
         'quota-util.c',
         'reboot-util.c',
         'recovery-key.c',
+        'reread-partition-table.c',
         'resize-fs.c',
         'resolve-util.c',
         'rm-rf.c',
