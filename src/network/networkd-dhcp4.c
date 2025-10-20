@@ -1762,7 +1762,13 @@ int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(link->network);
+
+        /* On stopping/restarting networkd, we may drop IPv6 connectivity (which depends on KeepConfiguration=
+         * setting). Do not (re)start DHCPv4 client in that case. See issue #39299. */
+        if (link->manager->state != MANAGER_RUNNING)
+                return 0;
 
         if (!link->dhcp_client)
                 return 0;
