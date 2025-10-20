@@ -924,7 +924,7 @@
 
         <para><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>--shift</option> switch may be used to shift UID/GID ownership from or to the 0, foreign or
-        specific container UID/GID base outside of any <command>systemd-nspawn</command></para> invocation.
+        specific container UID/GID base outside of any <command>systemd-nspawn</command> invocation.</para>
 
         <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
