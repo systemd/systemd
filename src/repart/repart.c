@@ -855,6 +855,16 @@ static Context* context_free(Context *context) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
 
+static void context_disarm_auto_removal(Context *context) {
+        assert(context);
+
+        /* Make sure automatic removal of half-written artifacts is disarmed */
+        context->node = mfree(context->node);
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                p->split_path = mfree(p->split_path);
+}
+
 static int context_add_free_area(
                 Context *context,
                 uint64_t size,
@@ -10177,10 +10187,7 @@ static int run(int argc, char *argv[]) {
 
         (void) context_dump(context, /*late=*/ true);
 
-        context->node = mfree(context->node);
-
-        LIST_FOREACH(partitions, p, context->partitions)
-                p->split_path = mfree(p->split_path);
+        context_disarm_auto_removal(context);
 
         return 0;
 }
