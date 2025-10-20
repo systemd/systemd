@@ -2188,6 +2188,7 @@ static int run(int argc, char *argv[]) {
                         r = mountfsd_mount_image(
                                         arg_image,
                                         userns_fd,
+                                        /* options= */ NULL,
                                         arg_image_policy,
                                         &arg_verity_settings,
                                         arg_flags,

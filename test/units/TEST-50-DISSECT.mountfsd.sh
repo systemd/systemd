@@ -91,6 +91,43 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
         --property ExtensionImagePolicy=root=verity+signed+absent:usr=verity+signed+absent \
         bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
     mv /tmp/app0.roothash.p7s.bak /tmp/app0.roothash.p7s
+
+    # Mount options should not be allowed without elevated privileges
+    (! systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.gpt" \
+        --property RootImageOptions="root:ro,noatime,nosuid home:ro,dev nosuid,dev" \
+        --property RootImageOptions="home:ro,dev nosuid,dev,%%foo" \
+        true)
+    (! systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.raw" \
+        --property ExtensionImages=/tmp/app0.raw \
+        --property MountImages=/tmp/app0.raw:/var/tmp:noatime,nosuid \
+        true)
+
+    mkdir -p /etc/polkit-1/rules.d
+    cat >/etc/polkit-1/rules.d/mountoptions.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.systemd.mount-file-system.mount-untrusted-image-privately" &&
+            action.lookup("mount_options") == "root:nosuid") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+    systemctl try-reload-or-restart polkit.service
+
+    systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.gpt" \
+        --property RootImageOptions="root:nosuid" \
+        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && mount | grep -F squashfs | grep -q -F nosuid"
+
+    systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.raw" \
+        --property ExtensionImages=/tmp/app0.raw \
+        --property MountImages=/tmp/app0.raw:/var/tmp:nosuid \
+        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\" && mount | grep -F /var/tmp | grep -q -F nosuid"
+
+    rm -f /etc/polkit-1/rules.d/mountoptions.rules
+    systemctl try-reload-or-restart polkit.service
 fi
 
 # Bare squashfs without any verity or signature also should be rejected, even if we ask to trust it
