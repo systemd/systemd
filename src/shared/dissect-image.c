@@ -627,14 +627,9 @@ static int make_partition_devname(
                         if (!s)
                                 return -ENOMEM;
                 } else {
-                        size_t l = strlen(whole_devname);
-                        if (l < 1) /* underflow check for the subtraction below */
-                                return -EINVAL;
-
-                        bool need_p = ascii_isdigit(whole_devname[l-1]); /* Last char a digit? */
-
-                        if (asprintf(&s, "%s%s%i", whole_devname, need_p ? "p" : "", nr) < 0)
-                                return -ENOMEM;
+                        r = partition_node_of(whole_devname, nr, &s);
+                        if (r < 0)
+                                return r;
                 }
         } else {
                 if (nr < 0) /* whole disk? */

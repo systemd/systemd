@@ -414,6 +414,13 @@ int blockdev_partscan_enabled(sd_device *dev) {
 
         assert(dev);
 
+        const char *subsys;
+        r = sd_device_get_subsystem(dev, &subsys);
+        if (r < 0)
+                return r;
+        if (!streq_ptr(subsys, "block"))
+                return -ENOTBLK;
+
         /* For v6.10 or newer. */
         r = device_get_sysattr_bool(dev, "partscan");
         if (r != -ENOENT)
@@ -798,27 +805,6 @@ int block_device_remove_all_partitions(sd_device *dev, int fd) {
         return k < 0 ? k : has_partitions;
 }
 
-
-int blockdev_reread_partition_table(sd_device *dev) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(dev);
-
-        /* Try to re-read the partition table. This only succeeds if none of the devices is busy. */
-
-        fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (fd < 0)
-                return fd;
-
-        if (flock(fd, LOCK_EX|LOCK_NB) < 0)
-                return -errno;
-
-        if (ioctl(fd, BLKRRPART, 0) < 0)
-                return -errno;
-
-        return 0;
-}
-
 int blockdev_get_sector_size(int fd, uint32_t *ret) {
         int ssz = 0;
 
@@ -897,4 +883,47 @@ int blockdev_get_root(int level, dev_t *ret) {
                 *ret = devno;
 
         return 1;
+}
+
+int partition_node_of(const char *node, unsigned nr, char **ret) {
+        int r;
+
+        assert(node);
+        assert(nr > 0);
+        assert(ret);
+
+        /* Given a device node path to a block device returns the device node path to the partition block
+         * device of the specified partition */
+
+        _cleanup_free_ char *fn = NULL;
+        r = path_extract_filename(node, &fn);
+        if (r < 0)
+                return r;
+        if (r == O_DIRECTORY)
+                return -EISDIR;
+
+        _cleanup_free_ char *dn = NULL;
+        r = path_extract_directory(node, &dn);
+        if (r < 0 && r != -EDESTADDRREQ) /* allow if only filename is specified */
+                return r;
+
+        size_t l = strlen(fn);
+        assert(l > 0); /* underflow check for the subtraction below */
+
+        bool need_p = ascii_isdigit(fn[l-1]); /* Last char a digit? */
+
+        _cleanup_free_ char *subnode = NULL;
+        if (asprintf(&subnode, "%s%s%u", fn, need_p ? "p" : "", nr) < 0)
+                return -ENOMEM;
+
+        if (dn) {
+                _cleanup_free_ char *j = path_join(dn, subnode);
+                if (!j)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(j);
+        } else
+                *ret = TAKE_PTR(subnode);
+
+        return 0;
 }
