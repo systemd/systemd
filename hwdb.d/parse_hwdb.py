@@ -75,7 +75,7 @@ UDEV_TAG = Word(string.ascii_uppercase, alphanums + '_')
 TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
          'evdev':    ('name', 'atkbd', 'input'),
          'fb':       ('pci', 'vmbus'),
-         'id-input': ('modalias'),
+         'id-input': ('modalias', 'bluetooth', 'i2c', 'usb'),
          'touchpad': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'joystick': ('i8042', 'rmi', 'bluetooth', 'usb'),
          'keyboard': ('name', ),
