@@ -93,6 +93,15 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     mv /tmp/app0.roothash.p7s.bak /tmp/app0.roothash.p7s
 fi
 
+# Bare squashfs without any verity or signature also should be rejected, even if we ask to trust it
+(! systemd-run -M testuser@ --user --pipe --wait \
+    --property ExtensionImages=/tmp/app1.raw \
+    true)
+(! systemd-run -M testuser@ --user --pipe --wait \
+    --property ExtensionImages=/tmp/app1.raw \
+    --property ExtensionImagePolicy=root=verity+signed+unprotected+absent:usr=verity+signed+unprotected+absent \
+    true)
+
 # Install key in keychain
 mkdir -p /run/verity.d
 cp /tmp/test-50-unpriv-cert.crt /run/verity.d/
