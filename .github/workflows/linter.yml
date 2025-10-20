@@ -49,6 +49,12 @@ jobs:
           [Build]
           ToolsTreeDistribution=fedora
           ToolsTreeRelease=rawhide
+
+          [Content]
+          Packages=
+                libgcrypt-devel
+                libgpg-error-devel
+                musl-gcc
           EOF
 
           mkosi -f box -- true
@@ -77,3 +83,6 @@ jobs:
 
       - name: Run clang-tidy
         run: mkosi box -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit
+
+      - name: Build with musl
+        run: mkosi box -- .github/workflows/build-test-musl.sh
