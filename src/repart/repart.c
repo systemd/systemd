@@ -65,6 +65,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "ratelimit.h"
+#include "rereadpt.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
 #include "set.h"
@@ -7270,12 +7271,8 @@ static int context_write_partition_table(Context *context) {
         else if (capable < 0)
                 return log_error_errno(capable, "Failed to check if block device supports partition scanning: %m");
         else if (capable > 0) {
-                log_info("Telling kernel to reread partition table.");
-
-                if (context->from_scratch)
-                        r = fdisk_reread_partition_table(context->fdisk_context);
-                else
-                        r = fdisk_reread_changes(context->fdisk_context, original_table);
+                log_info("Informing kernel about changed partitions...");
+                r = reread_partition_table_fd(fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to reread partition table: %m");
         } else
