@@ -57,3 +57,5 @@ int blockdev_get_sector_size(int fd, uint32_t *ret);
 int blockdev_get_device_size(int fd, uint64_t *ret);
 
 int blockdev_get_root(int level, dev_t *ret);
+
+int partition_node_of(const char *node, unsigned nr, char **ret);
