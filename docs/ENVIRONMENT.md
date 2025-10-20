@@ -783,15 +783,14 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 
 `systemd-run`, `run0`, `systemd-nspawn`, `systemd-vmspawn`:
 
-* `$SYSTEMD_TINT_BACKGROUND` – Takes a boolean. When false the automatic
-  tinting of the background for containers, VMs, and interactive `systemd-run`
-  and `run0` invocations is turned off. Note that this environment variable has
-  no effect if the background color is explicitly selected via the relevant
-  `--background=` switch of the tool.
+* `$SYSTEMD_TINT_BACKGROUND` – Takes a boolean. When false the automatic and
+  explicit tinting of the background (via `--background=`) for containers, VMs,
+  `systemd-pty-forward` and interactive  `systemd-run` and `run0` invocations is
+  turned off.
 
 * `$SYSTEMD_ADJUST_TERMINAL_TITLE` – Takes a boolean. When false the terminal
-  window title will not be updated for interactive invocation of the mentioned
-  tools.
+  window title will not be updated for interactive invocation of the tools
+  mentioned above.
 
 `systemd-hostnamed`, `systemd-importd`, `systemd-localed`, `systemd-machined`,
 `systemd-portabled`, `systemd-timedated`:
