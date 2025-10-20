@@ -1936,7 +1936,7 @@ int unit_start(Unit *u, ActivationDetails *details) {
         state = unit_active_state(u);
         if (UNIT_IS_ACTIVE_OR_RELOADING(state))
                 return -EALREADY;
-        if (state == UNIT_MAINTENANCE)
+        if (IN_SET(state, UNIT_DEACTIVATING, UNIT_MAINTENANCE))
                 return -EAGAIN;
 
         /* Units that aren't loaded cannot be started */
@@ -1983,10 +1983,11 @@ int unit_start(Unit *u, ActivationDetails *details) {
         if (u->freezer_state != FREEZER_RUNNING)
                 return -EDEADLK;
 
-        /* Check our ability to start early so that failure conditions don't cause us to enter a busy loop. */
-        if (UNIT_VTABLE(u)->can_start) {
-                r = UNIT_VTABLE(u)->can_start(u);
-                if (r < 0)
+        /* Check our ability to start early so that ratelimited or already starting/started units don't
+         * cause us to enter a busy loop. */
+        if (UNIT_VTABLE(u)->test_startable) {
+                r = UNIT_VTABLE(u)->test_startable(u);
+                if (r <= 0)
                         return r;
         }
 
