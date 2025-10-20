@@ -3585,62 +3585,6 @@ static int setup_ephemeral(
         return 1;
 }
 
-static int verity_settings_prepare(
-                VeritySettings *verity,
-                const char *root_image,
-                const void *root_hash,
-                size_t root_hash_size,
-                const char *root_hash_path,
-                const void *root_hash_sig,
-                size_t root_hash_sig_size,
-                const char *root_hash_sig_path,
-                const char *verity_data_path) {
-
-        int r;
-
-        assert(verity);
-
-        if (root_hash) {
-                void *d;
-
-                d = memdup(root_hash, root_hash_size);
-                if (!d)
-                        return -ENOMEM;
-
-                free_and_replace(verity->root_hash, d);
-                verity->root_hash_size = root_hash_size;
-                verity->designator = PARTITION_ROOT;
-        }
-
-        if (root_hash_sig) {
-                void *d;
-
-                d = memdup(root_hash_sig, root_hash_sig_size);
-                if (!d)
-                        return -ENOMEM;
-
-                free_and_replace(verity->root_hash_sig, d);
-                verity->root_hash_sig_size = root_hash_sig_size;
-                verity->designator = PARTITION_ROOT;
-        }
-
-        if (verity_data_path) {
-                r = free_and_strdup(&verity->data_path, verity_data_path);
-                if (r < 0)
-                        return r;
-        }
-
-        r = verity_settings_load(
-                        verity,
-                        root_image,
-                        root_hash_path,
-                        root_hash_sig_path);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to load root hash: %m");
-
-        return 0;
-}
-
 static int pick_versions(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -3721,7 +3665,6 @@ static int apply_mount_namespace(
                 int bpffs_errno_pipe,
                 char **reterr_path) {
 
-        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
@@ -3843,22 +3786,18 @@ static int apply_mount_namespace(
                 }
         }
 
-        if (root_image) {
-                r = verity_settings_prepare(
-                        &verity,
-                        root_image,
-                        context->root_hash, context->root_hash_size, context->root_hash_path,
-                        context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
-                        context->root_verity);
-                if (r < 0)
-                        return r;
-        }
-
         NamespaceParameters parameters = {
                 .runtime_scope = params->runtime_scope,
 
                 .root_directory = root_dir,
                 .root_image = root_image,
+                .root_hash = context->root_hash,
+                .root_hash_size = context->root_hash_size,
+                .root_hash_path = context->root_hash_path,
+                .root_hash_sig = context->root_hash_sig,
+                .root_hash_sig_size = context->root_hash_sig_size,
+                .root_hash_sig_path = context->root_hash_sig_path,
+                .root_verity = context->root_verity,
                 .root_image_options = context->root_image_options,
                 .root_image_policy = context->root_image_policy ?: &image_policy_service,
 
@@ -3888,8 +3827,6 @@ static int apply_mount_namespace(
                 .creds_path = creds_path,
                 .log_namespace = context->log_namespace,
                 .mount_propagation_flag = context->mount_propagation_flag,
-
-                .verity = &verity,
 
                 .extension_images = context->extension_images,
                 .n_extension_images = context->n_extension_images,
@@ -3937,6 +3874,9 @@ static int apply_mount_namespace(
                 .bpffs_socket_fd = bpffs_socket_fd,
                 .bpffs_errno_pipe = bpffs_errno_pipe,
         };
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                parameters.root_image_fsmount_fds[i] = context->root_image_fsmount_fds[i];
 
         r = setup_namespace(&parameters, reterr_path);
         /* If we couldn't set up the namespace this is probably due to a missing capability. setup_namespace() reports
@@ -4997,7 +4937,7 @@ static int setup_term_environment(const ExecContext *context, char ***env) {
 
 int exec_invoke(
                 const ExecCommand *command,
-                const ExecContext *context,
+                ExecContext *context,
                 ExecParameters *params,
                 ExecRuntime *runtime,
                 const CGroupContext *cgroup_context,
@@ -5034,6 +4974,7 @@ int exec_invoke(
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         size_t n_fds, /* fds to pass to the child */
+               n_image_fds = 0, /* fds of pre-loaded images */
                n_keep_fds; /* total number of fds not to close */
         int secure_bits;
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
@@ -5077,6 +5018,18 @@ int exec_invoke(
         }
         n_fds = n_socket_fds + n_storage_fds + n_extra_fds;
 
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                if (context->root_image_fsmount_fds[i] >= 0)
+                        ++n_image_fds;
+        FOREACH_ARRAY(mount, context->extension_images, context->n_extension_images)
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                        if (mount->fsmount_fds[i] >= 0)
+                                ++n_image_fds;
+        FOREACH_ARRAY(mount, context->mount_images, context->n_mount_images)
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                        if (mount->fsmount_fds[i] >= 0)
+                                ++n_image_fds;
+
         r = exec_context_named_iofds(context, params, named_iofds);
         if (r < 0)
                 return log_error_errno(r, "Failed to load a named file descriptor: %m");
@@ -5119,7 +5072,7 @@ int exec_invoke(
                 return log_error_errno(r, "Failed to get OpenFile= file descriptors: %m");
         }
 
-        int keep_fds[n_fds + 4];
+        int keep_fds[n_fds + n_image_fds + 4];
         memcpy_safe(keep_fds, params->fds, n_fds * sizeof(int));
         n_keep_fds = n_fds;
 
@@ -5142,6 +5095,33 @@ int exec_invoke(
                 return log_error_errno(r, "Failed to collect shifted fd: %m");
         }
 #endif
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &context->root_image_fsmount_fds[i]);
+                if (r < 0) {
+                        *exit_status = EXIT_FDS;
+                        return log_error_errno(r, "Failed to collect shifted fd: %m");
+                }
+        }
+
+        FOREACH_ARRAY(mount, context->extension_images, context->n_extension_images)
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &mount->fsmount_fds[i]);
+                        if (r < 0) {
+                                *exit_status = EXIT_FDS;
+                                return log_error_errno(r, "Failed to collect shifted fd: %m");
+                        }
+                }
+
+        FOREACH_ARRAY(mount, context->mount_images, context->n_mount_images) {
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &mount->fsmount_fds[i]);
+                        if (r < 0) {
+                                *exit_status = EXIT_FDS;
+                                return log_error_errno(r, "Failed to collect shifted fd: %m");
+                        }
+                }
+        }
 
         r = close_remaining_fds(params, runtime, socket_fd, keep_fds, n_keep_fds);
         if (r < 0) {
