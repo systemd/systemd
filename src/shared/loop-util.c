@@ -611,6 +611,10 @@ static int loop_device_make_internal(
         }
 
         if (S_ISBLK(st.st_mode)) {
+                /* Propagate backing device's discard byte limit to our loopback block device. We do this in
+                 * order to avoid that (supposedly quick) discard requests on the loopback device get turned
+                 * into (likely slow) zero-out requests on backing devices that do not support discarding
+                 * natively, but do support zero-out. */
                 uint64_t discard_max_bytes;
 
                 r = fd_get_max_discard(fd, &discard_max_bytes);
