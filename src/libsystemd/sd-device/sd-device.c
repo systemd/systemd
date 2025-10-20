@@ -2319,6 +2319,27 @@ int device_get_property_int(sd_device *device, const char *key, int *ret) {
         return 0;
 }
 
+int device_get_property_uint(sd_device *device, const char *key, unsigned *ret) {
+        const char *value;
+        int r;
+
+        assert(device);
+        assert(key);
+
+        r = sd_device_get_property_value(device, key, &value);
+        if (r < 0)
+                return r;
+
+        unsigned v;
+        r = safe_atou(value, &v);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = v;
+        return 0;
+}
+
 _public_ int sd_device_get_trigger_uuid(sd_device *device, sd_id128_t *ret) {
         const char *s;
         sd_id128_t id;
