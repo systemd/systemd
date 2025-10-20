@@ -12,23 +12,23 @@ Description=Merge System Extension Images into /usr/ and /opt/
 Documentation=man:systemd-sysext.service(8)
 
 ConditionCapability=CAP_SYS_ADMIN
-ConditionDirectoryNotEmpty=|/etc/extensions
-ConditionDirectoryNotEmpty=|/run/extensions
-ConditionDirectoryNotEmpty=|/var/lib/extensions
-ConditionPathExists=!/etc/initrd-release
+ConditionDirectoryNotEmpty=|/sysroot/etc/extensions
+ConditionDirectoryNotEmpty=|/sysroot/run/extensions
+ConditionDirectoryNotEmpty=|/sysroot/var/lib/extensions
+ConditionPathExists=/etc/initrd-release
 
 DefaultDependencies=no
-After=local-fs.target
-Before=sysinit.target systemd-tmpfiles-setup.service
+After=sysroot.mount sysroot-usr.mount
+Before=local-fs-pre.target cryptsetup-pre.target systemd-tmpfiles-setup.service initrd-root-fs.target
 Conflicts=shutdown.target
 Before=shutdown.target
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=systemd-sysext refresh
-ExecReload=systemd-sysext refresh
-ExecStop=systemd-sysext unmerge
+ExecStart=systemd-sysext --root=/sysroot refresh
+ExecReload=systemd-sysext --root=/sysroot refresh
+ExecStop=systemd-sysext --root=/sysroot unmerge
 
 [Install]
-WantedBy=sysinit.target
+WantedBy=initrd.target

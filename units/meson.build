@@ -707,8 +707,8 @@ units = [
         },
         {
           'file' : 'systemd-sysext.socket',
-          'conditions' : ['ENABLE_SYSEXT'],
-          'symlinks' : ['sockets.target.wants/'],
+          'conditions' : ['ENABLE_INITRD', 'ENABLE_SYSEXT'],
+          'symlinks' : ['initrd.target.wants/'],
         },
         {
           'file' : 'systemd-sysext@.service',
