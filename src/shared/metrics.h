@@ -20,13 +20,13 @@ typedef struct MetricFamilyContext {
         sd_json_variant *previous;
 } MetricFamilyContext;
 
-typedef int (*metric_family_iterate_cb_t) (MetricFamilyContext *mfc, void *userdata);
+typedef int (*metric_family_generate_cb_t) (MetricFamilyContext *mfc, void *userdata);
 
 typedef struct MetricFamily {
         const char *name;
         const char *description;
         MetricFamilyType type;
-        metric_family_iterate_cb_t iterate_cb;
+        metric_family_generate_cb_t generate_cb;
 } MetricFamily;
 
 int metrics_setup_varlink_server(
