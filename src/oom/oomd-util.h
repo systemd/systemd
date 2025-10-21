@@ -126,13 +126,14 @@ int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix)
 
 /* Returns a negative value on error, 0 if no processes were killed, or 1 if processes were killed. */
 int oomd_cgroup_kill(const char *path, bool recurse);
+int oomd_cgroup_kill_mark(const char *path, bool recurse, bool dry_run, struct PreKillContext *pk_ctx);
 
 /* The following oomd_kill_by_* functions return 1 if processes were killed, or negative otherwise. */
 /* If `prefix` is supplied, only cgroups whose paths start with `prefix` are eligible candidates. Otherwise,
  * everything in `h` is a candidate.
  * Returns the killed cgroup in ret_selected. */
-int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected, struct PreKillContext *pk_ctx);
-int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected, struct PreKillContext *pk_ctx);
+int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, char **ret_selected);
+int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, char **ret_selected);
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret);
 int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *ret);
