@@ -2441,7 +2441,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (arg_forward_journal) {
-                _cleanup_free_ char *listen_address = NULL, *cred = NULL;
+                _cleanup_free_ char *listen_address = NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
@@ -2459,11 +2459,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 pidref_done(&child);
                 children[n_children++] = TAKE_PTR(source);
 
-                cred = strjoin("journal.forward_to_socket:", listen_address);
-                if (!cred)
-                        return log_oom();
-
-                r = machine_credential_set(&arg_credentials, cred);
+                r = machine_credential_add(&arg_credentials, "journal.forward_to_socket", listen_address, SIZE_MAX);
                 if (r < 0)
                         return r;
         }
@@ -2509,13 +2505,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 /* on distros that provide their own sshd@.service file we need to provide a dropin which
                  * picks up our public key credential */
-                r = machine_credential_set(
+                r = machine_credential_add(
                                 &arg_credentials,
-                                "systemd.unit-dropin.sshd-vsock@.service:"
+                                "systemd.unit-dropin.sshd-vsock@.service",
                                 "[Service]\n"
                                 "ExecStart=\n"
                                 "ExecStart=-sshd -i -o 'AuthorizedKeysFile=%d/ssh.ephemeral-authorized_keys-all .ssh/authorized_keys'\n"
-                                "ImportCredential=ssh.ephemeral-authorized_keys-all\n");
+                                "ImportCredential=ssh.ephemeral-authorized_keys-all\n",
+                                SIZE_MAX);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set credential systemd.unit-dropin.sshd-vsock@.service: %m");
         }
