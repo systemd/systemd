@@ -81,8 +81,8 @@ int metrics_listen_varlink_address(sd_varlink_server *server, const char *addres
 
 static const char * const metric_family_type_table[_METRIC_FAMILY_TYPE_MAX] = {
         [METRIC_FAMILY_TYPE_COUNTER] = "counter",
-        [METRIC_FAMILY_TYPE_GAUGE] = "gauge",
-        [METRIC_FAMILY_TYPE_STRING] = "string",
+        [METRIC_FAMILY_TYPE_GAUGE]   = "gauge",
+        [METRIC_FAMILY_TYPE_STRING]  = "string",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(metric_family_type, MetricFamilyType);
@@ -139,12 +139,12 @@ int metrics_method_describe(
                 previous = mf;
         }
 
-        if (previous) {
-                r = metric_family_build_send(link, previous, /* more= */ false);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to describe metric family '%s': %m", previous->name);
-        } else
+        if (!previous)
                 return sd_varlink_error(link, "io.systemd.Metrics.NoSuchMetric", NULL);
+
+        r = metric_family_build_send(link, previous, /* more= */ false);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to describe metric family '%s': %m", previous->name);
 
         return 0;
 }
@@ -201,7 +201,7 @@ static int metric_set_fields(sd_json_variant **v, char **field_pairs) {
         if (n % 2 != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ERANGE), "Odd number of field pairs: %zu", n);
 
-        sd_json_variant **array = new(sd_json_variant *, n);
+        sd_json_variant **array = new0(sd_json_variant *, n);
         if (!array)
                 return log_oom();
 
