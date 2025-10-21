@@ -3139,6 +3139,7 @@ int dissected_image_decrypt(
          *      -EDESTADDRREQ → dm-verity: there's something to setup but no signature was supplied
          *      -EBUSY        → dm-verity: Generic Verity error (kernel is not very explanatory)
          *      -ERFKILL      → image policy not compatible with request
+         *      -EEXIST       → DM device already exists under the specified name
          */
 
         if (verity && verity->root_hash && verity->root_hash_size < sizeof(sd_id128_t))
