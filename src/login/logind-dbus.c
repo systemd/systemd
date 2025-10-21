@@ -1946,7 +1946,11 @@ static int send_prepare_for(Manager *m, const HandleActionData *a, bool _active)
 
         assert(m);
         assert(a);
-        assert(IN_SET(a->inhibit_what, INHIBIT_SHUTDOWN, INHIBIT_SLEEP));
+        assert(IN_SET(a->inhibit_what, INHIBIT_SHUTDOWN, INHIBIT_SLEEP, _INHIBIT_WHAT_INVALID));
+
+        /* Only sleep/shutdown actions emit a signal */
+        if (a->inhibit_what < 0)
+                return 0;
 
         /* We need to send both old and new signal for backward compatibility. The newer one allows clients
          * to know which type of reboot is going to happen, as they might be doing different actions (e.g.:
