@@ -434,7 +434,7 @@ static int oomd_prekill_hook(const char *path, struct PreKillContext *pk_ctx) {
         return 1;
 }
 
-static int oomd_cgroup_kill_mark(const char *path, bool recurse, bool dry_run, struct PreKillContext *pk_ctx) {
+int oomd_cgroup_kill_mark(const char *path, bool recurse, bool dry_run, struct PreKillContext *pk_ctx) {
         int r;
 
         assert(path);
@@ -498,10 +498,10 @@ static int dump_kill_candidates(
         return memstream_dump(LOG_INFO, &m);
 }
 
-int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected, struct PreKillContext *pk_ctx) {
+int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         const OomdCGroupContext *killed = NULL;
-        int n, r, ret = 0;
+        int n, r;
 
         assert(h);
         assert(ret_selected);
@@ -509,6 +509,8 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
         n = oomd_sort_cgroup_contexts(h, compare_pgscan_rate_and_memory_usage, prefix, &sorted);
         if (n < 0)
                 return n;
+
+        (void) dump_kill_candidates(sorted, n, killed, oomd_dump_memory_pressure_cgroup_context);
 
         FOREACH_ARRAY(i, sorted, n) {
                 const OomdCGroupContext *c = *i;
@@ -518,31 +520,20 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                 if (c->pgscan == 0 && c->current_memory_usage == 0)
                         continue;
 
-                r = oomd_cgroup_kill_mark(c->path, /* recurse= */ true, dry_run, pk_ctx);
-                if (r == -ENOMEM)
-                        return r; /* Treat oom as a hard error */
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        continue; /* Try to find something else to kill */
-                }
-
-                ret = r;
                 r = strdup_to(ret_selected, c->path);
                 if (r < 0)
                         return r;
 
-                killed = c;
-                break;
+                return 1;
         }
 
-        (void) dump_kill_candidates(sorted, n, killed, oomd_dump_memory_pressure_cgroup_context);
-        return ret;
+        return 0;
 }
 
-int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected, struct PreKillContext *pk_ctx) {
+int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, char **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         const OomdCGroupContext *killed = NULL;
-        int n, r, ret = 0;
+        int n, r;
 
         assert(h);
         assert(ret_selected);
@@ -550,6 +541,8 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
         n = oomd_sort_cgroup_contexts(h, compare_swap_usage, NULL, &sorted);
         if (n < 0)
                 return n;
+
+        (void) dump_kill_candidates(sorted, n, killed, oomd_dump_swap_cgroup_context);
 
         /* Try to kill cgroups with non-zero swap usage until we either succeed in killing or we get to a cgroup with
          * no swap usage. Threshold killing only cgroups with more than threshold swap usage. */
@@ -562,25 +555,14 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                 if (c->swap_usage <= threshold_usage)
                         continue;
 
-                r = oomd_cgroup_kill_mark(c->path, /* recurse= */ true, dry_run, pk_ctx);
-                if (r == -ENOMEM)
-                        return r; /* Treat oom as a hard error */
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        continue; /* Try to find something else to kill */
-                }
-
-                ret = r;
                 r = strdup_to(ret_selected, c->path);
                 if (r < 0)
                         return r;
 
-                killed = c;
-                break;
+                return 1;
         }
 
-        (void) dump_kill_candidates(sorted, n, killed, oomd_dump_swap_cgroup_context);
-        return ret;
+        return 0;
 }
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {

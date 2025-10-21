@@ -408,7 +408,11 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         log_debug_errno(r, "Failed to get monitored swap cgroup candidates, ignoring: %m");
 
                 threshold = m->system_context.swap_total * THRESHOLD_SWAP_USED_PERCENT / 100;
-                r = oomd_kill_by_swap_usage(candidates, threshold, m->dry_run, &selected, &(struct PreKillContext){m->prekill_timeout, m->event, m->prekill_ctxs});
+                r = oomd_select_by_swap_usage(candidates, threshold, &selected);
+                if (r < 0)
+                        return log_notice_errno(r, "Failed to select any cgroups based on swap: %m");
+
+                r = oomd_cgroup_kill_mark(selected, /* recurse= */ true, m->dry_run, &(struct PreKillContext){m->prekill_timeout, m->event, m->prekill_ctxs});
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
@@ -525,15 +529,13 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         else
                                 clear_candidates = NULL;
 
-                        r = oomd_kill_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates,
-                                                     /* prefix= */ t->path,
-                                                     /* dry_run= */ m->dry_run,
-                                                     &selected,
-                                                     &(struct PreKillContext){
-                                                        m->prekill_timeout,
-                                                        m->event,
-                                                        m->prekill_ctxs
-                                                     });
+                        r = oomd_select_by_pgscan_rate(m->monitored_mem_pressure_cgroup_contexts_candidates,
+                                                       /* prefix= */ t->path,
+                                                       &selected);
+                        if (r < 0)
+                                return log_notice_errno(r, "Failed to select any cgroups based on swap: %m");
+
+                        r = oomd_cgroup_kill_mark(selected, /* recurse= */ true, m->dry_run, &(struct PreKillContext){m->prekill_timeout, m->event, m->prekill_ctxs});
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
