@@ -1472,8 +1472,7 @@ static int install_image(
                               GID_INVALID,
                               COPY_REFLINK | COPY_FSYNC | COPY_FSYNC_FULL | COPY_SYNCFS,
                               /* denylist= */ NULL,
-                              /* subvolumes= */ NULL,
-                              /* subvolume_flags= */ 0);
+                              /* subvolumes= */ NULL);
                 if (r < 0)
                         return log_debug_errno(
                                         r,
