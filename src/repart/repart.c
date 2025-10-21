@@ -310,8 +310,10 @@ static void copy_files_free_many(CopyFiles *f, size_t n) {
 }
 
 typedef enum SubvolumeFlags {
-        SUBVOLUME_RO               = 1 << 0,
-        _SUBVOLUME_FLAGS_MASK      = SUBVOLUME_RO,
+        SUBVOLUME_RO               = BTRFS_SUBVOL_RO,
+        SUBVOLUME_NODATACOW        = BTRFS_SUBVOL_NODATACOW,
+        SUBVOLUME_NODATASUM        = BTRFS_SUBVOL_NODATASUM,
+        _SUBVOLUME_FLAGS_MASK      = SUBVOLUME_NODATASUM|SUBVOLUME_NODATACOW|SUBVOLUME_RO,
         _SUBVOLUME_FLAGS_INVALID   = -EINVAL,
         _SUBVOLUME_FLAGS_ERRNO_MAX = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
 } SubvolumeFlags;
@@ -323,6 +325,12 @@ static SubvolumeFlags subvolume_flags_from_string_one(const char *s) {
 
         if (streq(s, "ro"))
                 return SUBVOLUME_RO;
+
+        if (streq(s, "nodatacow"))
+                return SUBVOLUME_NODATACOW;
+
+        if (streq(s, "nodatasum"))
+                return SUBVOLUME_NODATASUM;
 
         return _SUBVOLUME_FLAGS_INVALID;
 }
@@ -5851,6 +5859,36 @@ static int make_subvolumes_strv(const Partition *p, char ***ret) {
         return 0;
 }
 
+static int make_subvolumes_hashmap(const Partition *p, Hashmap **ret) {
+        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
+        _cleanup_free_ char *path = NULL;
+        Subvolume *subvolume;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        ORDERED_HASHMAP_FOREACH(subvolume, p->subvolumes) {
+                path = strdup(subvolume->path);
+                if (!path)
+                        return log_oom();
+
+                r = hashmap_ensure_put(&hashmap, &string_hash_ops_free, path, UINT_TO_PTR(subvolume->flags));
+                if (r < 0)
+                        return log_oom();
+                if (r == 0)
+                        log_debug("Found duplicate subvolume path %s for the same partition", path);
+                TAKE_PTR(path);
+        }
+
+        if (p->suppressing)
+                if (make_subvolumes_hashmap(p->suppressing, &hashmap) < 0)
+                        return r;
+
+        *ret = TAKE_PTR(hashmap);
+        return 0;
+}
+
 static int make_subvolumes_set(
                 const Partition *p,
                 const char *source,
@@ -5953,13 +5991,13 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
 }
 
 static int do_copy_files(Context *context, Partition *p, const char *root) {
-        _cleanup_strv_free_ char **subvolumes = NULL;
+        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
         int r;
 
         assert(p);
         assert(root);
 
-        r = make_subvolumes_strv(p, &subvolumes);
+        r = make_subvolumes_hashmap(p, &subvolumes);
         if (r < 0)
                 return r;
 
@@ -6006,6 +6044,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                 _cleanup_set_free_ Set *subvolumes_by_source_inode = NULL;
                 _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
                 usec_t ts = epoch_or_infinity();
+                BtrfsSubvolFlags flags;
 
                 r = make_copy_files_denylist(context, p, line->source, line->target, &denylist);
                 if (r < 0)
@@ -6054,19 +6093,20 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
                                 if (pfd < 0)
                                         return log_error_errno(pfd, "Failed to open parent directory of target: %m");
 
+                                flags = PTR_TO_UINT(hashmap_get(subvolumes, line->target));
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 pfd, fn,
                                                 UID_INVALID, GID_INVALID,
                                                 line->flags,
-                                                denylist, subvolumes_by_source_inode);
+                                                denylist, subvolumes_by_source_inode, flags);
                         } else
                                 r = copy_tree_at(
                                                 sfd, ".",
                                                 tfd, ".",
                                                 UID_INVALID, GID_INVALID,
                                                 line->flags,
-                                                denylist, subvolumes_by_source_inode);
+                                                denylist, subvolumes_by_source_inode, 0);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s%s' to '%s%s': %m",
                                                        strempty(arg_copy_source), line->source, strempty(root), line->target);
@@ -6128,14 +6168,14 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 }
 
 static int do_make_directories(Partition *p, const char *root) {
-        _cleanup_strv_free_ char **subvolumes = NULL;
+        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
         _cleanup_free_ char **override_dirs = NULL;
         int r;
 
         assert(p);
         assert(root);
 
-        r = make_subvolumes_strv(p, &subvolumes);
+        r = make_subvolumes_hashmap(p, &subvolumes);
         if (r < 0)
                 return r;
 
@@ -6463,6 +6503,35 @@ static int append_btrfs_subvols(char ***l, OrderedHashmap *subvolumes, const cha
         return 0;
 }
 
+static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
+        Subvolume *subvolume;
+        int r;
+
+        assert(l);
+
+        ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
+                _cleanup_free_ char *s = NULL;
+
+                if (FLAGS_SET(subvolume->flags, SUBVOLUME_NODATACOW) && !strextend_with_separator(&s, ",", "nodatacow"))
+                        return log_oom();
+
+                if (FLAGS_SET(subvolume->flags, SUBVOLUME_NODATASUM) && !strextend_with_separator(&s, ",", "nodatasum"))
+                        return log_oom();
+
+                if (!s)
+                        continue;
+
+                if (!strextend_with_separator(&s, ":", subvolume->path))
+                        return log_oom();
+
+                r = strv_extend_many(l, "--inode-flags", s);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
         _cleanup_strv_free_ char **sv = NULL;
         int r;
@@ -6481,8 +6550,16 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
                 if (r < 0)
                         return r;
 
+                r = append_btrfs_inode_flags(&sv, p->subvolumes);
+                if (r < 0)
+                        return r;
+
                 if (p->suppressing) {
                         r = append_btrfs_subvols(&sv, p->suppressing->subvolumes, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = append_btrfs_inode_flags(&sv, p->suppressing->subvolumes);
                         if (r < 0)
                                 return r;
                 }
