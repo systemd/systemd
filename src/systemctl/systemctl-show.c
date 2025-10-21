@@ -4,6 +4,7 @@
 
 #include "sd-bus.h"
 #include "sd-journal.h"
+#include "sd-varlink.h"
 
 #include "af-list.h"
 #include "bus-error.h"
@@ -14,6 +15,7 @@
 #include "bus-util.h"
 #include "cgroup-show.h"
 #include "cpu-set-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "exec-util.h"
 #include "exit-status.h"
@@ -51,6 +53,7 @@
 #include "systemctl-util.h"
 #include "terminal-util.h"
 #include "utf8.h"
+#include "varlink-util.h"
 
 static OutputFlags get_output_flags(void) {
         return
@@ -2488,6 +2491,58 @@ static int show_system_status(sd_bus *bus) {
         return 0;
 }
 
+static int show_manager_varlink_json(void) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        _cleanup_free_ char *address = NULL;
+        const char *socket_path;
+        int r;
+
+        /* Determine the socket path based on scope */
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
+                const char *runtime_dir = secure_getenv("XDG_RUNTIME_DIR");
+                if (!runtime_dir)
+                        return log_error_errno(SYNTHETIC_ERRNO(EUNATCH), "XDG_RUNTIME_DIR not set.");
+
+                socket_path = strjoina(runtime_dir, "/systemd/io.systemd.Manager");
+        } else
+                socket_path = "/run/systemd/io.systemd.Manager";
+
+        /* Build the appropriate varlink URL based on transport type */
+        switch (arg_transport) {
+        case BUS_TRANSPORT_LOCAL:
+        case BUS_TRANSPORT_CAPSULE:
+                address = strdup(socket_path);
+                break;
+
+        case BUS_TRANSPORT_REMOTE:
+                if (!arg_host)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Remote host not specified.");
+
+                address = strjoin("ssh:", arg_host, ":", socket_path);
+                break;
+
+        case BUS_TRANSPORT_MACHINE:
+                /* TODO: Implement container support via exec: URL scheme with nsenter */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTSUP), "Varlink not yet supported for --machine=, falling back to D-Bus.");
+
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "Unsupported transport type.");
+        }
+        if (!address)
+                return log_oom();
+
+        r = sd_varlink_connect_url(&vl, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to %s: %m", address);
+
+        r = varlink_call_and_log(vl, "io.systemd.Manager.Describe", NULL, &reply);
+        if (r < 0)
+                return r;
+
+        return sd_json_variant_dump(reply, output_mode_to_json_format_flags(arg_output), stdout, NULL);
+}
+
 int verb_show(int argc, char *argv[], void *userdata) {
         bool new_line = false, ellipsized = false;
         SystemctlShowMode show_mode;
@@ -2521,9 +2576,13 @@ int verb_show(int argc, char *argv[], void *userdata) {
                  */
 
                 if (!arg_states && !arg_types) {
-                        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES)
+                        if (show_mode == SYSTEMCTL_SHOW_PROPERTIES) {
                                 /* systemctl show --all → show properties of the manager */
+                                if (show_manager_varlink_json() >= 0)
+                                        return 0;
+
                                 return show_one(bus, "/org/freedesktop/systemd1", NULL, show_mode, &new_line, &ellipsized);
+                        }
 
                         r = show_system_status(bus);
                         if (r < 0)
