@@ -61,6 +61,59 @@ static const ImagePolicy image_policy_untrusted = {
         .default_flags = PARTITION_POLICY_IGNORE,
 };
 
+static int json_dispatch_image_options(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        MountOptions **p = ASSERT_PTR(userdata);
+
+        if (sd_json_variant_is_null(variant)) {
+                *p = mount_options_free_all(*p);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                if (!sd_json_variant_is_object(e))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not an object.");
+
+                sd_json_variant *designator = sd_json_variant_by_key(e, "partitionDesignator");
+                if (!designator)
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "Mount options object has no 'partitionDesignator' field.");
+                if (!sd_json_variant_is_string(designator))
+                        return json_log(designator, flags, SYNTHETIC_ERRNO(EINVAL), "Mount options 'partitionDesignator' field is not a string.");
+
+                PartitionDesignator pd = partition_designator_from_string(sd_json_variant_string(designator));
+                if (pd < 0)
+                        return json_log(designator, flags, SYNTHETIC_ERRNO(EINVAL), "Invalid partition designator '%s'.", strna(sd_json_variant_string(designator)));
+
+                sd_json_variant *opts = sd_json_variant_by_key(e, "options");
+                if (!opts)
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "Mount options object has no 'options' field.");
+                if (!sd_json_variant_is_string(opts))
+                        return json_log(opts, flags, SYNTHETIC_ERRNO(EINVAL), "Mount options for designator '%s' is not a string.", partition_designator_to_string(pd));
+
+                _cleanup_free_ char *options_str = strdup(sd_json_variant_string(opts));
+                if (!options_str)
+                        return json_log(opts, flags, -ENOMEM, "Failed to allocate memory for mount options string for designator '%s'.", partition_designator_to_string(pd));
+
+                MountOptions *mo = new(MountOptions, 1);
+                if (!mo)
+                        return json_log(opts, flags, -ENOMEM, "Failed to allocate mount options for designator '%s'.", partition_designator_to_string(pd));
+
+                *mo = (MountOptions) {
+                        .partition_designator = pd,
+                        .options = TAKE_PTR(options_str),
+                };
+                LIST_APPEND(mount_options, options, TAKE_PTR(mo));
+        }
+
+        mount_options_free_all(*p);
+        *p = TAKE_PTR(options);
+        return 0;
+}
+
 static int json_dispatch_image_policy(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_(image_policy_freep) ImagePolicy *q = NULL;
         ImagePolicy **p = ASSERT_PTR(userdata);
@@ -92,6 +145,7 @@ typedef struct MountImageParameters {
         int growfs;
         char *password;
         ImagePolicy *image_policy;
+        MountOptions *options;
         bool verity_sharing;
         struct iovec verity_root_hash;
         struct iovec verity_root_hash_sig;
@@ -105,6 +159,7 @@ static void mount_image_parameters_done(MountImageParameters *p) {
         p->image_policy = image_policy_free(p->image_policy);
         iovec_done(&p->verity_root_hash);
         iovec_done(&p->verity_root_hash_sig);
+        p->options = mount_options_free_all(p->options);
 }
 
 static int validate_image_fd(int fd, MountImageParameters *p) {
@@ -298,6 +353,7 @@ static int vl_method_mount_image(
                 { "growFileSystems",             SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_tristate,    offsetof(MountImageParameters, growfs),               0 },
                 { "password",                    SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(MountImageParameters, password),             0 },
                 { "imagePolicy",                 SD_JSON_VARIANT_STRING,   json_dispatch_image_policy,   offsetof(MountImageParameters, image_policy),         0 },
+                { "mountOptions",                SD_JSON_VARIANT_ARRAY,    json_dispatch_image_options,  offsetof(MountImageParameters, options),              0 },
                 { "veritySharing",               SD_JSON_VARIANT_BOOLEAN,  sd_json_dispatch_stdbool,     offsetof(MountImageParameters, verity_sharing),       0 },
                 { "verityDataFileDescriptor",    SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint,        offsetof(MountImageParameters, verity_data_fd_idx),   0 },
                 { "verityRootHash",              SD_JSON_VARIANT_STRING,   json_dispatch_unhex_iovec,    offsetof(MountImageParameters, verity_root_hash),     0 },
@@ -484,11 +540,20 @@ static int vl_method_mount_image(
                 r = dissect_loop_device(
                                 loop,
                                 &verity,
-                                /* mount_options= */ NULL,
+                                p.options,
                                 use_policy,
                                 /* image_filter= */ NULL,
                                 dissect_flags,
                                 &di);
+                if (r == -ENOPKG && !(dissect_flags & DISSECT_IMAGE_NO_PARTITION_TABLE)) /* Maybe it's a bare filesystem, try again */
+                        r = dissect_loop_device(
+                                        loop,
+                                        &verity,
+                                        p.options,
+                                        use_policy,
+                                        /* image_filter= */ NULL,
+                                        dissect_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
+                                        &di);
                 if (r == -ENOPKG)
                         return sd_varlink_error(link, "io.systemd.MountFileSystem.IncompatibleImage", NULL);
                 if (r == -ENOTUNIQ)
