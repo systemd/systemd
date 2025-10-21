@@ -168,7 +168,7 @@ static int test_load_config(Manager *manager) {
  *        assert_se(network_should_reload(manager) == true);
 */
 
-        r = manager_load_config(manager);
+        r = manager_config_load(manager);
         if (r == -EPERM)
                 return r;
         assert_se(r >= 0);

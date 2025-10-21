@@ -98,16 +98,21 @@ typedef struct sd_netlink {
 } sd_netlink;
 
 struct netlink_attribute {
-        size_t offset; /* offset from hdr to attribute */
+        size_t *offsets; /* offset from hdr to attribute */
+        size_t offsets_count;
         bool nested:1;
         bool net_byteorder:1;
+};
+
+struct netlink_attributes {
+        uint16_t max_attribute; /* the maximum attribute in container */
+        struct netlink_attribute attributes[];
 };
 
 struct netlink_container {
         const struct NLAPolicySet *policy_set; /* the policy set of the container */
         size_t offset; /* offset from hdr to the start of the container */
-        struct netlink_attribute *attributes;
-        uint16_t max_attribute; /* the maximum attribute in container */
+        struct netlink_attributes *attributes;
 };
 
 typedef struct sd_netlink_message {
