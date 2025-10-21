@@ -82,6 +82,7 @@ extern const char *arg_host;
 extern unsigned arg_lines;
 extern OutputMode arg_output;
 extern bool arg_plain;
+extern bool arg_completion_names;
 extern bool arg_firmware_setup;
 extern usec_t arg_boot_loader_menu;
 extern const char *arg_boot_loader_entry;

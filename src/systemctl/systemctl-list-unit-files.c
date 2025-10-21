@@ -279,6 +279,27 @@ int verb_list_unit_files(int argc, char *argv[], void *userdata) {
                         return bus_log_parse_error(r);
         }
 
+        /* Handle completion-names mode: just output unit file names and base names for .service units */
+        if (arg_completion_names) {
+                FOREACH_ARRAY(u, units, c) {
+                        _cleanup_free_ char *id = NULL;
+                        r = path_extract_filename(u->path, &id);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to extract unit name from path %s, ignoring: %m", u->path);
+                                continue;
+                        }
+
+                        printf("%s\n", id);
+
+                        /* For .service units, also output the name without .service suffix */
+                        if (endswith(id, ".service")) {
+                                printf("%.*s\n", (int) (strlen(id) - 8), id); /* 8 = strlen(".service") */
+                        }
+                }
+
+                return 0;
+        }
+
         pager_open(arg_pager_flags);
 
         typesafe_qsort(units, c, compare_unit_file_list);

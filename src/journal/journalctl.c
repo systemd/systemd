@@ -91,6 +91,7 @@ int arg_invocation_offset = 0;
 char *arg_field = NULL;
 bool arg_catalog = false;
 bool arg_reverse = false;
+bool arg_completion_names = false;
 int arg_journal_type = 0;
 int arg_journal_additional_open_flags = 0;
 int arg_namespace_flags = 0;
@@ -295,6 +296,7 @@ static int help(void) {
                "     --version               Show package version\n"
                "  -N --fields                List all field names currently used\n"
                "  -F --field=FIELD           List all values that a specified field takes\n"
+               "     --completion-names      List unit names for shell completion\n"
                "     --list-boots            Show terse information about recorded boots\n"
                "     --list-invocations      Show invocation IDs of specified unit\n"
                "     --list-namespaces       Show list of journal namespaces\n"
@@ -371,6 +373,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NAMESPACE,
                 ARG_LIST_NAMESPACES,
                 ARG_SYNCHRONIZE_ON_EXIT,
+                ARG_COMPLETION_NAMES,
         };
 
         static const struct option options[] = {
@@ -445,6 +448,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
                 { "list-namespaces",      no_argument,       NULL, ARG_LIST_NAMESPACES      },
                 { "synchronize-on-exit",  required_argument, NULL, ARG_SYNCHRONIZE_ON_EXIT  },
+                { "completion-names",     no_argument,       NULL, ARG_COMPLETION_NAMES     },
                 {}
         };
 
@@ -994,6 +998,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_COMPLETION_NAMES:
+                        arg_completion_names = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1049,6 +1057,10 @@ static int parse_argv(int argc, char *argv[]) {
         if ((arg_boot || arg_action == ACTION_LIST_BOOTS) && arg_merge)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Using --boot or --list-boots with --merge is not supported.");
+
+        if (arg_completion_names && arg_action != ACTION_LIST_FIELDS)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--completion-names can only be used with -F/--field.");
 
         if (!strv_isempty(arg_system_units) && arg_journal_type == SD_JOURNAL_CURRENT_USER) {
                 /* Specifying --user and --unit= at the same time makes no sense (as the former excludes the user
