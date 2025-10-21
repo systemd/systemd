@@ -115,7 +115,7 @@ static int restrict_ifaces_install_impl(Unit *u) {
         if (!crt)
                 return 0;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &cgroup_path);
+        r = cg_get_path(crt->cgroup_path, /* suffix = */ NULL, &cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "restrict-interfaces: Failed to get cgroup path: %m");
 
