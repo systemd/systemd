@@ -2511,21 +2511,20 @@ static int show_manager_varlink_json(void) {
         /* Build the appropriate varlink URL based on transport type */
         switch (arg_transport) {
         case BUS_TRANSPORT_LOCAL:
+        case BUS_TRANSPORT_CAPSULE:
                 address = strdup(socket_path);
                 break;
 
         case BUS_TRANSPORT_REMOTE:
-        case BUS_TRANSPORT_MACHINE:
                 if (!arg_host)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Remote host not specified.");
 
                 address = strjoin("ssh:", arg_host, ":", socket_path);
                 break;
 
-        case BUS_TRANSPORT_CAPSULE:
-                /* Capsules are treated as local */
-                address = strdup(socket_path);
-                break;
+        case BUS_TRANSPORT_MACHINE:
+                /* TODO: Implement container support via exec: URL scheme with nsenter */
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOTSUP), "Varlink not yet supported for --machine=, falling back to D-Bus.");
 
         default:
                 return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "Unsupported transport type.");
