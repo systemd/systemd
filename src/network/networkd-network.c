@@ -761,6 +761,7 @@ static Network *network_free(Network *network) {
                 free(network->dhcp_server_emit[t].addresses);
         ordered_hashmap_free(network->dhcp_server_send_options);
         ordered_hashmap_free(network->dhcp_server_send_vendor_options);
+        free(network->dhcp_server_local_lease_domain);
 
         /* DHCP client */
         free(network->dhcp_vendor_class_identifier);
