@@ -5,6 +5,7 @@
 #include "constants.h"
 #include "errno-util.h"
 #include "manager.h"
+#include "metrics.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "string-util.h"
@@ -18,6 +19,7 @@
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-manager.h"
+#include "varlink-metrics.h"
 #include "varlink-serialize.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"
@@ -422,6 +424,31 @@ int manager_setup_varlink_server(Manager *m) {
         return 1;
 }
 
+static int manager_varlink_metrics_init(Manager *m) {
+        sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        assert(m);
+
+        if (MANAGER_IS_SYSTEM(m))
+                flags |= SD_VARLINK_SERVER_ACCOUNT_UID;
+
+        r = runtime_directory_generic(m->runtime_scope, "systemd/metrics/io.systemd.Manager", &address);
+        if (r < 0)
+                return r;
+
+        r = metrics_setup_varlink_server(
+                        &m->metrics_varlink_server, flags, m->event, vl_method_list, vl_method_describe, m);
+        if (r < 0)
+                return r;
+
+        if (MANAGER_IS_TEST_RUN(m))
+                return 0;
+
+        return metrics_listen_varlink_address(m->metrics_varlink_server, address);
+}
+
 static int manager_varlink_init_system(Manager *m) {
         int r;
 
@@ -446,6 +473,10 @@ static int manager_varlink_init_system(Manager *m) {
                                 return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
                 }
         }
+
+        r = manager_varlink_metrics_init(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up metrics varlink server: %m");
 
         return 1;
 }
@@ -478,6 +509,10 @@ static int manager_varlink_init_user(Manager *m) {
                         return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
         }
 
+        r = manager_varlink_metrics_init(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up metrics varlink server: %m");
+
         return manager_varlink_managed_oom_connect(m);
 }
 
@@ -496,6 +531,7 @@ void manager_varlink_done(Manager *m) {
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
+        m->metrics_varlink_server = sd_varlink_server_unref(m->metrics_varlink_server);
 }
 
 void manager_varlink_send_pending_reload_message(Manager *m) {
