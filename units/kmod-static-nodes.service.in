@@ -9,6 +9,7 @@
 
 [Unit]
 Description=Create List of Static Device Nodes
+Documentation=man:kmod(8)
 DefaultDependencies=no
 Before=sysinit.target systemd-tmpfiles-setup-dev-early.service
 ConditionCapability=CAP_SYS_MODULE

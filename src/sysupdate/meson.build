@@ -32,7 +32,6 @@ executables += [
                         libshared_fdisk,
                 ],
                 'dependencies' : [
-                        libblkid,
                         libfdisk,
                         libopenssl,
                         threads,

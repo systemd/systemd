@@ -17,10 +17,11 @@ Before=systemd-user-sessions.service first-boot-complete.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=homectl firstboot --prompt-new-user
+ExecStart=homectl firstboot --prompt-new-user --prompt-shell=no --prompt-groups=no --mute-console=yes
 StandardOutput=tty
 StandardInput=tty
 StandardError=tty
+TTYReset=yes
 ImportCredential=home.*
 
 [Install]

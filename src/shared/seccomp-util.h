@@ -1,14 +1,29 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "errno-util.h"
+#include "shared-forward.h"
+
 #if HAVE_SECCOMP
 #include <seccomp.h> /* IWYU pragma: export */
-#endif
 
-#include "errno-util.h"
-#include "forward.h"
+#include "dlfcn-util.h"
 
-#if HAVE_SECCOMP
+extern DLSYM_PROTOTYPE(seccomp_api_get);
+extern DLSYM_PROTOTYPE(seccomp_arch_add);
+extern DLSYM_PROTOTYPE(seccomp_arch_exist);
+extern DLSYM_PROTOTYPE(seccomp_arch_native);
+extern DLSYM_PROTOTYPE(seccomp_arch_remove);
+extern DLSYM_PROTOTYPE(seccomp_attr_set);
+extern DLSYM_PROTOTYPE(seccomp_init);
+extern DLSYM_PROTOTYPE(seccomp_load);
+extern DLSYM_PROTOTYPE(seccomp_release);
+extern DLSYM_PROTOTYPE(seccomp_rule_add_array);
+extern DLSYM_PROTOTYPE(seccomp_rule_add_exact);
+extern DLSYM_PROTOTYPE(seccomp_syscall_resolve_name);
+extern DLSYM_PROTOTYPE(seccomp_syscall_resolve_num_arch);
+
+int dlopen_libseccomp(void);
 
 const char* seccomp_arch_to_string(uint32_t c);
 int seccomp_arch_from_string(const char *n, uint32_t *ret);
@@ -135,7 +150,7 @@ static inline bool ERRNO_IS_NEG_SECCOMP_FATAL(intmax_t r) {
 }
 _DEFINE_ABS_WRAPPER(SECCOMP_FATAL);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(scmp_filter_ctx, seccomp_release, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(scmp_filter_ctx, sym_seccomp_release, seccomp_releasep, NULL);
 
 int parse_syscall_archs(char **l, Set **ret_archs);
 
@@ -149,6 +164,10 @@ int seccomp_suppress_sync(void);
 
 static inline bool is_seccomp_available(void) {
         return false;
+}
+
+static inline int dlopen_libseccomp(void) {
+        return -EOPNOTSUPP;
 }
 
 #endif

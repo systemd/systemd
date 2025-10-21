@@ -126,12 +126,6 @@ const char* const systemd_features =
         " -IDN"
 #endif
 
-#if HAVE_LIBIPTC
-        " +IPTC"
-#else
-        " -IPTC"
-#endif
-
 #if HAVE_KMOD
         " +KMOD"
 #else

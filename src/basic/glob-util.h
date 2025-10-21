@@ -3,7 +3,7 @@
 
 #include <glob.h>       /* IWYU pragma: export */
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef DIR* (*opendir_t)(const char *);
 

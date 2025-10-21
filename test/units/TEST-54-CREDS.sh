@@ -6,8 +6,6 @@ set -eux
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemd-analyze log-level debug
-
 run_with_cred_compare() (
     local cred="${1:?}"
     local exp="${2?}"
@@ -24,7 +22,7 @@ run_with_cred_compare() (
 )
 
 test_mount_with_credential() {
-    local credfile tmpdir unit
+    local credfile tmpdir unit mount_path mount_test
     credfile="/tmp/mount-cred"
     tmpdir="/tmp/test-54-mount"
     unit=$(systemd-escape --suffix mount --path "$tmpdir")
@@ -42,14 +40,16 @@ LoadCredential=loadcred:$credfile
 EOF
 
     # Set up test mount type
-    cat >/usr/sbin/mount.thisisatest <<EOF
+    mount_path="$(command -v mount 2>/dev/null)"
+    mount_test="${mount_path/\/bin/\/sbin}.thisisatest"
+    cat >"$mount_test" <<EOF
 #!/usr/bin/env bash
 # Mount after verifying credential file content
 if [ \$(cat \${CREDENTIALS_DIRECTORY}/loadcred) = "foo" ]; then
     mount -t tmpfs \$1 \$2
 fi
 EOF
-    chmod +x /usr/sbin/mount.thisisatest
+    chmod +x "$mount_test"
 
     # Verify mount succeeds
     systemctl daemon-reload
@@ -62,7 +62,7 @@ EOF
 
     # Stop unit and delete files
     systemctl stop "$unit"
-    rm -f "$credfile" /run/systemd/system/"$unit" /usr/sbin/mount.thisisatest
+    rm -f "$credfile" /run/systemd/system/"$unit" "$mount_test"
     rm -rf "$tmpdir"
 }
 
@@ -482,13 +482,33 @@ fi
 
 # Decrypt/encrypt via varlink
 
-echo '{"data":"Zm9vYmFyCg=="}' > /tmp/vlcredsdata
+DATA="Zm9vYmFyCg=="
+echo "{\"data\":\"$DATA\"}" > /tmp/vlcredsdata
 
 varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "$(cat /tmp/vlcredsdata)" | \
     varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt > /tmp/vlcredsdata2
 
 cmp /tmp/vlcredsdata /tmp/vlcredsdata2
+rm /tmp/vlcredsdata2
+
+# Pick a key type explicitly
+varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"host\"}" | \
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt > /tmp/vlcredsdata2
+
+cmp /tmp/vlcredsdata /tmp/vlcredsdata2
+rm /tmp/vlcredsdata2
+
+varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"null\"}" | \
+    jq '.["allowNull"] = true' |
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt > /tmp/vlcredsdata2
+
+cmp /tmp/vlcredsdata /tmp/vlcredsdata2
 rm /tmp/vlcredsdata /tmp/vlcredsdata2
+
+# Ensure allowNull works
+(! varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "{\"data\":\"$DATA\",\"withKey\":\"null\"}" | \
+    jq '.["allowNull"] = false' |
+    varlinkctl call --json=short /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt )
 
 clean_usertest() {
     rm -f /tmp/usertest.data /tmp/usertest.data /tmp/brummbaer.data
@@ -526,7 +546,5 @@ dd if=/dev/urandom of=/tmp/brummbaer.data bs=4096 count=1
 run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
 run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
 run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
-
-systemd-analyze log-level info
 
 touch /testok

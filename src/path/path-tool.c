@@ -146,7 +146,7 @@ static int list_paths(void) {
                 printf("%s%s:%s %s\n", ansi_highlight(), t, ansi_normal(), p);
         }
 
-        return r;
+        return ret;
 }
 
 static int print_path(const char *n) {

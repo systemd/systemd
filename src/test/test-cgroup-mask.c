@@ -32,7 +32,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
 
         /* Prepare the manager. */
         _cleanup_free_ char *unit_dir = NULL;
-        ASSERT_OK(get_testdata_dir("units", &unit_dir));
+        ASSERT_OK(get_testdata_dir("test-cgroup-mask", &unit_dir));
         ASSERT_OK(setenv_unit_path(unit_dir));
         assert_se(runtime_dir = setup_fake_runtime_dir());
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_BASIC, &m);

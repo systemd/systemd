@@ -23,14 +23,9 @@ if [[ -d "pkg/$PKG_SUBDIR/.git" ]]; then
     fi
 
     # If work is being done on the packaging rules in a separate branch, don't touch the checkout.
-    if ! git -C "pkg/$PKG_SUBDIR" merge-base --is-ancestor HEAD "origin/$GIT_BRANCH"; then
-        EXIT_STATUS=$?
-        if [[ $EXIT_STATUS -eq 1 ]]; then
-            echo "Currently checked out pkg/$PKG_SUBDIR commit is not an ancestor of origin/$GIT_BRANCH, not checking out commit $GIT_COMMIT" >&2
-            exit 0
-        else
-            exit $EXIT_STATUS
-        fi
+    if [[ -z "$(git -C "pkg/$PKG_SUBDIR" branch --remotes --list "origin/*" --contains HEAD)" ]]; then
+        echo "Currently checked out pkg/$PKG_SUBDIR commit is not part of any origin branch, not checking out commit $GIT_COMMIT" >&2
+        exit 0
     fi
 fi
 

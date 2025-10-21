@@ -6,7 +6,6 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
-#include "cgroup-util.h"
 #include "dropin.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -25,6 +24,14 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
+
+static int symlink_unless_exists(const char *target, const char *linkpath) {
+        (void) mkdir_parents(linkpath, 0755);
+
+        if (symlink(target, linkpath) < 0 && errno != EEXIST)
+                return log_error_errno(errno, "Failed to create symlink %s: %m", linkpath);
+        return 0;
+}
 
 int generator_open_unit_file_full(
                 const char *dir,
@@ -134,12 +141,7 @@ int generator_add_symlink_full(
         if (!to)
                 return log_oom();
 
-        (void) mkdir_parents_label(to, 0755);
-
-        if (symlink(from, to) < 0 && errno != EEXIST)
-                return log_error_errno(errno, "Failed to create symlink \"%s\": %m", to);
-
-        return 0;
+        return symlink_unless_exists(from, to);
 }
 
 static int generator_add_ordering(
@@ -159,7 +161,7 @@ static int generator_add_ordering(
         assert(order);
         assert(dst);
 
-        /* Adds in an explicit ordering dependency of type <order> from <src> to <dst>. If <instance> is
+        /* Adds an explicit ordering dependency of type <order> from <src> to <dst>. If <instance> is
          * specified, it is inserted into <dst>. */
 
         if (instance) {
@@ -331,19 +333,16 @@ int generator_write_fsck_deps(
         }
 
         if (path_equal(where, "/")) {
-                const char *lnk;
-
                 /* We support running the fsck instance for the root fs while it is already mounted, for
                  * compatibility with non-initrd boots. It's ugly, but it is how it is. Since – unlike for
                  * regular file systems – this means the ordering is reversed (i.e. mount *before* fsck) we
                  * have a separate fsck unit for this, independent of systemd-fsck@.service. */
 
-                lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/" SPECIAL_FSCK_ROOT_SERVICE);
+                const char *lnk = strjoina(dir, "/" SPECIAL_LOCAL_FS_TARGET ".wants/" SPECIAL_FSCK_ROOT_SERVICE);
 
-                (void) mkdir_parents(lnk, 0755);
-                if (symlink(SYSTEM_DATA_UNIT_DIR "/" SPECIAL_FSCK_ROOT_SERVICE, lnk) < 0)
-                        return log_error_errno(errno, "Failed to create symlink %s: %m", lnk);
-
+                r = symlink_unless_exists(SYSTEM_DATA_UNIT_DIR "/" SPECIAL_FSCK_ROOT_SERVICE, lnk);
+                if (r < 0)
+                        return r;
         } else {
                 _cleanup_free_ char *_fsck = NULL;
                 const char *fsck, *dep;

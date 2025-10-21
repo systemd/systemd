@@ -837,8 +837,10 @@
         partition should be mounted. The second field specifies extra mount options to append to the default
         mount options. These fields correspond to the second and fourth column of the
         <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        format. This setting may be specified multiple times to mount the partition multiple times. This can
-        be used to add mounts for different
+        format. As a colon is used for separating fields, each field needs to be quoted when it contains
+        colons. E.g. <programlisting>MountPoint="/path/with:colon":"zstd:1,noatime,lazytime"</programlisting>
+        This setting may be specified multiple times to mount the partition multiple times. This can be used
+        to add mounts for different
         <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         subvolumes located on the same btrfs partition.</para>
 
@@ -865,6 +867,31 @@
         is specified on the <command>systemd-repart</command> command line.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TPM2PCRs=</varname></term>
+
+        <listitem><para>Configures the list of PCRs to use for LUKS2 volumes configured with
+        the <varname>Encrypt=tpm2</varname> setting in partition files.
+        This option take the same parameters as the similarly named options to
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and have the same effect on partitions where TPM2 enrollment is requested.
+        This option will be overridden by the global <varname>--tpm2-pcrs=</varname> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>KeyFile=</varname></term>
+
+        <listitem><para>Takes a file system path. This path must be absolute, otherwise the option is ignored.
+        Configures the encryption key to use when setting up LUKS2 volumes configured with the
+        <varname>Encrypt=key-file</varname> setting in partition files. Please refer to the documentation of
+        <varname>--key-file=</varname> for more details. This option will be overridden by the global
+        <varname>--key-file=</varname> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>

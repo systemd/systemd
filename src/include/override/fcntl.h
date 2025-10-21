@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include_next <fcntl.h>
+#include_next <fcntl.h>         /* IWYU pragma: export */
 
 /* This is defined since glibc-2.41. */
 #ifndef F_DUPFD_QUERY

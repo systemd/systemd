@@ -250,8 +250,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
 }
 
 int open_tmpfile_unlinkable(const char *directory, int flags) {
-        char *p;
-        int fd, r;
+        int r;
 
         if (!directory) {
                 r = tmp_dir(&directory);
@@ -263,12 +262,14 @@ int open_tmpfile_unlinkable(const char *directory, int flags) {
         /* Returns an unlinked temporary file that cannot be linked into the file system anymore */
 
         /* Try O_TMPFILE first, if it is supported */
-        fd = open(directory, flags|O_TMPFILE|O_EXCL, S_IRUSR|S_IWUSR);
+        int fd = open(directory, flags|O_TMPFILE|O_EXCL, S_IRUSR|S_IWUSR);
         if (fd >= 0)
                 return fd;
 
         /* Fall back to unguessable name + unlinking */
-        p = strjoina(directory, "/systemd-tmp-XXXXXX");
+        _cleanup_free_ char *p = path_join(directory, "/systemd-tmp-XXXXXX");
+        if (!p)
+                return -ENOMEM;
 
         fd = mkostemp_safe(p);
         if (fd < 0)
@@ -280,8 +281,7 @@ int open_tmpfile_unlinkable(const char *directory, int flags) {
 }
 
 int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **ret_path) {
-        _cleanup_free_ char *tmp = NULL;
-        int r, fd;
+        int r;
 
         assert(target);
         assert(ret_path);
@@ -293,7 +293,7 @@ int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **r
          * which case "ret_path" will be returned as NULL. If not possible the temporary path name used is returned in
          * "ret_path". Use link_tmpfile() below to rename the result after writing the file in full. */
 
-        fd = open_parent_at(dir_fd, target, O_TMPFILE|flags, 0640);
+        int fd = open_parent_at(dir_fd, target, O_TMPFILE|flags, 0640);
         if (fd >= 0) {
                 *ret_path = NULL;
                 return fd;
@@ -301,6 +301,7 @@ int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **r
 
         log_debug_errno(fd, "Failed to use O_TMPFILE for %s: %m", target);
 
+        _cleanup_free_ char *tmp = NULL;
         r = tempfn_random(target, NULL, &tmp);
         if (r < 0)
                 return r;
@@ -435,4 +436,18 @@ int mkdtemp_open(const char *template, int flags, char **ret) {
                 *ret = TAKE_PTR(p);
 
         return fd;
+}
+
+void cleanup_tmpfile_data_done(struct cleanup_tmpfile_data *d) {
+        assert(d);
+
+        if (!d->dir_fd ||
+            *d->dir_fd < 0 ||
+            !d->filename ||
+            !*d->filename)
+                return;
+
+        (void) unlinkat(*d->dir_fd, *d->filename, 0);
+        d->dir_fd = NULL;
+        d->filename = NULL;
 }

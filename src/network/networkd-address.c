@@ -669,6 +669,10 @@ static int address_set_masquerade(Address *address, bool add) {
 
         assert(address);
         assert(address->link);
+        assert(address->link->manager);
+
+        if (!address->link->manager->nfnl)
+                return 0;
 
         if (!address->link->network)
                 return 0;
@@ -687,7 +691,7 @@ static int address_set_masquerade(Address *address, bool add) {
         if (r < 0)
                 return r;
 
-        r = fw_add_masquerade(&address->link->manager->fw_ctx, add, address->family, &masked, address->prefixlen);
+        r = fw_nftables_add_masquerade(address->link->manager->nfnl, add, address->family, &masked, address->prefixlen);
         if (r < 0)
                 return r;
 
@@ -702,13 +706,8 @@ static void address_modify_nft_set_context(Address *address, bool add, NFTSetCon
         assert(address);
         assert(address->link);
         assert(address->link->manager);
+        assert(address->link->manager->nfnl);
         assert(nft_set_context);
-
-        if (!address->link->manager->fw_ctx) {
-                r = fw_ctx_new_full(&address->link->manager->fw_ctx, /* init_tables= */ false);
-                if (r < 0)
-                        return;
-        }
 
         FOREACH_ARRAY(nft_set, nft_set_context->sets, nft_set_context->n_sets) {
                 uint32_t ifindex;
@@ -717,16 +716,16 @@ static void address_modify_nft_set_context(Address *address, bool add, NFTSetCon
 
                 switch (nft_set->source) {
                 case NFT_SET_SOURCE_ADDRESS:
-                        r = nft_set_element_modify_ip(address->link->manager->fw_ctx, add, nft_set->nfproto, address->family, nft_set->table, nft_set->set,
+                        r = nft_set_element_modify_ip(address->link->manager->nfnl, add, nft_set->nfproto, address->family, nft_set->table, nft_set->set,
                                                       &address->in_addr);
                         break;
                 case NFT_SET_SOURCE_PREFIX:
-                        r = nft_set_element_modify_iprange(address->link->manager->fw_ctx, add, nft_set->nfproto, address->family, nft_set->table, nft_set->set,
+                        r = nft_set_element_modify_iprange(address->link->manager->nfnl, add, nft_set->nfproto, address->family, nft_set->table, nft_set->set,
                                                            &address->in_addr, address->prefixlen);
                         break;
                 case NFT_SET_SOURCE_IFINDEX:
                         ifindex = address->link->ifindex;
-                        r = nft_set_element_modify_any(address->link->manager->fw_ctx, add, nft_set->nfproto, nft_set->table, nft_set->set,
+                        r = nft_set_element_modify_any(address->link->manager->nfnl, add, nft_set->nfproto, nft_set->table, nft_set->set,
                                                        &ifindex, sizeof(ifindex));
                         break;
                 default:
@@ -749,6 +748,10 @@ static void address_modify_nft_set_context(Address *address, bool add, NFTSetCon
 static void address_modify_nft_set(Address *address, bool add) {
         assert(address);
         assert(address->link);
+        assert(address->link->manager);
+
+        if (!address->link->manager->nfnl)
+                return;
 
         if (!IN_SET(address->family, AF_INET, AF_INET6))
                 return;

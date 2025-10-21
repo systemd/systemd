@@ -851,7 +851,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         if (!table_isempty(t)) {
                 r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                        return r;
         }
 
         if (arg_legend) {
@@ -970,7 +970,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         if (!table_isempty(t)) {
                 r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                        return r;
         }
 
         if (arg_legend) {
@@ -1127,10 +1127,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERIFY:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
 
                         r = import_verify_from_string(optarg);
                         if (r < 0)

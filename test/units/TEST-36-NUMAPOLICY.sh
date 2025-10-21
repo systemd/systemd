@@ -21,9 +21,6 @@ at_exit() {
 
 trap at_exit EXIT
 
-systemd-analyze log-level debug
-systemd-analyze log-target journal
-
 # Log files
 straceLog='strace.log'
 journalLog='journal.log'
@@ -351,7 +348,5 @@ fi
 # Cleanup
 rm -rf "$confDir"
 systemctl daemon-reload
-
-systemd-analyze log-level info
 
 touch /testok

@@ -9,7 +9,6 @@
 #include "cgroup-util.h"
 #include "dbus-cgroup.h"
 #include "escape.h"
-#include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "limits-util.h"
 #include "manager.h"

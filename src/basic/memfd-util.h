@@ -3,7 +3,7 @@
 
 #include <sys/mman.h>           /* IWYU pragma: export */
 
-#include "forward.h"
+#include "basic-forward.h"
 
 int memfd_create_wrapper(const char *name, unsigned mode);
 

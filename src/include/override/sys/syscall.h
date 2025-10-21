@@ -9,7 +9,7 @@
  */
 #pragma once
 
-#include_next <sys/syscall.h>
+#include_next <sys/syscall.h>   /* IWYU pragma: export */
 
 #ifdef ARCH_MIPS
 #include <asm/sgidefs.h>

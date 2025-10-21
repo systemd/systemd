@@ -3,7 +3,7 @@
 
 #include <linux/if_link.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "in-addr-util.h"
 #include "netdev.h"
 

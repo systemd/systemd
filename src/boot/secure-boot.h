@@ -18,10 +18,18 @@ typedef enum {
         _SECURE_BOOT_ENROLL_ACTION_MAX,
 } secure_boot_enroll_action;
 
+enum {
+        ENROLL_TIMEOUT_HIDDEN  = 0,
+        ENROLL_TIMEOUT_MIN     = 1,
+        ENROLL_TIMEOUT_DEFAULT = 15,
+        ENROLL_TIMEOUT_MAX     = UINT32_MAX,
+};
+
 bool secure_boot_enabled(void);
 SecureBootMode secure_boot_mode(void);
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force, secure_boot_enroll_action action);
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force,
+                                 secure_boot_enroll_action action, uint64_t timeout_sec);
 
 typedef bool (*security_validator_t)(
                 const void *ctx,

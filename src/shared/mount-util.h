@@ -1,9 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <mntent.h>
-
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef struct SubMount {
         char *path;
@@ -36,9 +34,6 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
 static inline int mount_switch_root(const char *path, unsigned long mount_propagation_flag) {
         return mount_switch_root_full(path, mount_propagation_flag, false);
 }
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, endmntent, NULL);
-#define _cleanup_endmntent_ _cleanup_(endmntentp)
 
 int mount_verbose_full(
                 int error_log_level,
@@ -150,7 +145,8 @@ typedef enum RemountIdmapping {
         _REMOUNT_IDMAPPING_INVALID = -EINVAL,
 } RemountIdmapping;
 
-int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned int flags, struct mount_attr *attr);
+int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned flags, struct mount_attr *attr);
+int open_tree_try_drop_idmap(int dir_fd, const char *path, unsigned flags);
 
 int make_userns(uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
 int remount_idmap_fd(char **p, int userns_fd, uint64_t extra_mount_attr_set);

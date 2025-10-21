@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 #include "fileio.h"
 #include "log.h"

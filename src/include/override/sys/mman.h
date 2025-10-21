@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include_next <sys/mman.h>
+#include_next <sys/mman.h>      /* IWYU pragma: export */
 
 #include <assert.h>
 

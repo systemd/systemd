@@ -3,7 +3,6 @@
 
 #include "sd-event.h"
 
-#include "forward.h"
 #include "list.h"
 #include "udev-config.h"
 #include "udev-forward.h"

@@ -35,12 +35,12 @@ preprocess() {
 }
 
 compare() {
-    if ! diff -u "$TESTDIR/etc/passwd" <(preprocess "$1.expected-passwd" "$3"); then
+    if ! diff -u "$TESTDIR/etc/passwd" <(preprocess "$1.expected-passwd" "$3") >&2; then
         echo >&2 "**** Unexpected output for $f $2"
         exit 1
     fi
 
-    if ! diff -u "$TESTDIR/etc/group" <(preprocess "$1.expected-group" "$3"); then
+    if ! diff -u "$TESTDIR/etc/group" <(preprocess "$1.expected-group" "$3") >&2; then
         echo >&2 "**** Unexpected output for $f $2"
         exit 1
     fi
@@ -167,7 +167,7 @@ for f in $(find "$SOURCE"/unhappy-*.input | sort -V); do
     prepare_testdir "${f%.input}"
     cp "$f" "$TESTDIR/usr/lib/sysusers.d/test.conf"
     SYSTEMD_LOG_LEVEL=info "$SYSUSERS" --root="$TESTDIR" 2>&1 | tail -n1 | sed -r 's/^[^:]+:[^:]+://' >"$TESTDIR/err"
-    if ! diff -u "$TESTDIR/err"  "${f%.*}.expected-err"; then
+    if ! diff -u "$TESTDIR/err"  "${f%.*}.expected-err" >&2; then
         echo >&2 "**** Unexpected error output for $f"
         cat >&2 "$TESTDIR/err"
         exit 1

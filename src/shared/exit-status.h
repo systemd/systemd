@@ -2,7 +2,7 @@
 #pragma once
 
 #include "bitmap.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 /* This defines pretty names for the LSB 'start' verb exit codes. Note that they shouldn't be confused with
  * the LSB 'status' verb exit codes which are defined very differently. For details see:

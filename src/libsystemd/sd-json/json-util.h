@@ -5,7 +5,7 @@
 
 #include "sd-json.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "log.h"
 #include "string-util.h"
 
@@ -108,6 +108,7 @@ int json_log_internal(sd_json_variant *variant, int level, int error, const char
 #define json_log_oom(variant, flags) \
         json_log(variant, flags, SYNTHETIC_ERRNO(ENOMEM), "Out of memory.")
 
+int json_dispatch_unhex_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_unbase64_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_byte_array_iovec(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_user_group_name(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
@@ -116,8 +117,11 @@ int json_dispatch_const_unit_name(const char *name, sd_json_variant *variant, sd
 int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_const_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_strv_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_filename(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_const_filename(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_version(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
+int json_dispatch_const_version(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_pidref(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_devnum(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 int json_dispatch_ifindex(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
@@ -167,6 +171,7 @@ enum {
         _JSON_BUILD_PAIR_STRV_NON_EMPTY,
         _JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY,
         _JSON_BUILD_PAIR_VARIANT_NON_NULL,
+        _JSON_BUILD_PAIR_VARIANT_NON_EMPTY,
         /* _SD_JSON_BUILD_PAIR_VARIANT_ARRAY_NON_EMPTY, */
         _JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY,
         _JSON_BUILD_PAIR_IN4_ADDR_NON_NULL,
@@ -215,6 +220,7 @@ enum {
 #define JSON_BUILD_PAIR_STRV_NON_EMPTY(name, l) _JSON_BUILD_PAIR_STRV_NON_EMPTY, (const char*) { name }, (char**) { l }
 #define JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY(name, l) _JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY, (const char*) { name }, (char**) { l }
 #define JSON_BUILD_PAIR_VARIANT_NON_NULL(name, v) _JSON_BUILD_PAIR_VARIANT_NON_NULL, (const char*) { name }, (sd_json_variant*) { v }
+#define JSON_BUILD_PAIR_VARIANT_NON_EMPTY(name, v) _JSON_BUILD_PAIR_VARIANT_NON_EMPTY, (const char*) { name }, (sd_json_variant*) { v }
 #define JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
 #define JSON_BUILD_PAIR_IN4_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_IN4_ADDR_NON_NULL, (const char*) { name }, (const struct in_addr*) { v }
 #define JSON_BUILD_PAIR_IN6_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_IN6_ADDR_NON_NULL, (const char*) { name }, (const struct in6_addr*) { v }
@@ -245,6 +251,12 @@ enum {
 #define JSON_BUILD_PAIR_TRISTATE(name, i) SD_JSON_BUILD_PAIR(name, JSON_BUILD_TRISTATE(i))
 #define JSON_BUILD_PAIR_PIDREF(name, p) SD_JSON_BUILD_PAIR(name, JSON_BUILD_PIDREF(p))
 #define JSON_BUILD_PAIR_DEVNUM(name, d) SD_JSON_BUILD_PAIR(name, JSON_BUILD_DEVNUM(d))
+#define JSON_BUILD_PAIR_YES_NO(name, b) SD_JSON_BUILD_PAIR(name, SD_JSON_BUILD_STRING(yes_no(b)))
+
+#define JSON_BUILD_PAIR_CONDITION_UNSIGNED(condition, name, value) \
+        SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_UNSIGNED(value))
+#define JSON_BUILD_PAIR_CONDITION_BOOLEAN(condition, name, value) \
+        SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_BOOLEAN(value))
 
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref);
 int json_variant_new_devnum(sd_json_variant **ret, dev_t devnum);

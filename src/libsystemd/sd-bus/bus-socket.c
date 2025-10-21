@@ -886,16 +886,16 @@ static int bus_socket_inotify_setup(sd_bus *b) {
                 }
 
                 wd = inotify_add_watch(b->inotify_fd, prefix, IN_DELETE_SELF|IN_MOVE_SELF|IN_ATTRIB|IN_CREATE|IN_MOVED_TO|IN_DONT_FOLLOW);
-                log_debug("Added inotify watch for %s on bus %s: %i", prefix, strna(b->description), wd);
-
                 if (wd < 0) {
                         if (IN_SET(errno, ENOENT, ELOOP))
                                 break; /* This component doesn't exist yet, or the path contains a cyclic symlink right now */
 
                         r = log_debug_errno(errno, "Failed to add inotify watch on %s: %m", empty_to_root(prefix));
                         goto fail;
-                } else
+                } else {
+                        log_debug("Added inotify watch %i for %s on bus %s.", wd, prefix, strna(b->description));
                         new_watches[n++] = wd;
+                }
 
                 /* Check if this is possibly a symlink. If so, let's follow it and watch it too. */
                 r = readlink_malloc(prefix, &destination);

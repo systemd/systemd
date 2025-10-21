@@ -243,13 +243,13 @@ int execute_strv(
         pid_t executor_pid;
         int r;
 
+        assert(name);
         assert(!FLAGS_SET(flags, EXEC_DIR_PARALLEL | EXEC_DIR_SKIP_REMAINING));
 
         if (strv_isempty(paths))
                 return 0;
 
         if (callbacks) {
-                assert(name);
                 assert(callbacks[STDOUT_GENERATE]);
                 assert(callbacks[STDOUT_COLLECT]);
                 assert(callbacks[STDOUT_CONSUME]);
@@ -257,14 +257,16 @@ int execute_strv(
 
                 fd = open_serialization_fd(name);
                 if (fd < 0)
-                        return log_error_errno(fd, "Failed to open serialization file: %m");
+                        return log_error_errno(fd, "Failed to open serialization file for %s: %m", name);
         }
 
         /* Executes all binaries in the directories serially or in parallel and waits for
          * them to finish. Optionally a timeout is applied. If a file with the same name
          * exists in more than one directory, the earliest one wins. */
 
-        r = safe_fork("(sd-exec-strv)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pid);
+        const char *process_name = strjoina("(", name, ")");
+
+        r = safe_fork(process_name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -272,7 +274,7 @@ int execute_strv(
                 _exit(r < 0 ? EXIT_FAILURE : r);
         }
 
-        r = wait_for_terminate_and_check("(sd-exec-strv)", executor_pid, 0);
+        r = wait_for_terminate_and_check(process_name, executor_pid, 0);
         if (r < 0)
                 return r;
         if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
@@ -283,16 +285,17 @@ int execute_strv(
 
         r = finish_serialization_fd(fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to finish serialization fd: %m");
+                return log_error_errno(r, "Failed to finish serialization fd for %s: %m", name);
 
         r = callbacks[STDOUT_CONSUME](TAKE_FD(fd), callback_args[STDOUT_CONSUME]);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse returned data: %m");
+                return log_error_errno(r, "Failed to parse returned data for %s: %m", name);
 
         return 0;
 }
 
 int execute_directories(
+                const char *name,
                 const char * const *directories,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],
@@ -302,9 +305,9 @@ int execute_directories(
                 ExecDirFlags flags) {
 
         _cleanup_strv_free_ char **paths = NULL;
-        _cleanup_free_ char *name = NULL;
         int r;
 
+        assert(name);
         assert(!strv_isempty((char* const*) directories));
 
         r = conf_files_list_strv(
@@ -314,17 +317,11 @@ int execute_directories(
                         CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
                         directories);
         if (r < 0)
-                return log_error_errno(r, "Failed to enumerate executables: %m");
+                return log_error_errno(r, "%s: failed to enumerate executables: %m", name);
 
         if (strv_isempty(paths)) {
-                log_debug("No executables found.");
+                log_debug("%s: no executables found.", name);
                 return 0;
-        }
-
-        if (callbacks) {
-                r = path_extract_filename(directories[0], &name);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract file name from '%s': %m", directories[0]);
         }
 
         return execute_strv(name, paths, /* root = */ NULL, timeout, callbacks, callback_args, argv, envp, flags);

@@ -47,7 +47,7 @@ typedef struct RawImport {
 
         sd_event_source *input_event_source;
 
-        uint8_t buffer[16*1024];
+        uint8_t buffer[IMPORT_BUFFER_SIZE];
         size_t buffer_size;
 
         uint64_t written_compressed;

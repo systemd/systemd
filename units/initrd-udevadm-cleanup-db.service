@@ -9,6 +9,7 @@
 
 [Unit]
 Description=Cleanup udev Database
+Documentation=man:bootup(7)
 DefaultDependencies=no
 AssertPathExists=/etc/initrd-release
 Conflicts=systemd-udevd.service systemd-udev-trigger.service systemd-udev-settle.service

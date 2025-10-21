@@ -274,7 +274,7 @@ static int help(void) {
                "     --show-cursor           Print the cursor after all the entries\n"
                "     --utc                   Express time in Coordinated Universal Time (UTC)\n"
                "  -x --catalog               Add message explanations where available\n"
-               "     --no-hostname           Suppress output of hostname field\n"
+               "  -W --no-hostname           Suppress output of hostname field\n"
                "     --no-full               Ellipsize fields\n"
                "  -a --all                   Show all fields, including long and unprintable\n"
                "  -f --follow                Follow the journal\n"
@@ -367,7 +367,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VACUUM_SIZE,
                 ARG_VACUUM_FILES,
                 ARG_VACUUM_TIME,
-                ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
                 ARG_LIST_NAMESPACES,
@@ -441,7 +440,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "vacuum-size",          required_argument, NULL, ARG_VACUUM_SIZE          },
                 { "vacuum-files",         required_argument, NULL, ARG_VACUUM_FILES         },
                 { "vacuum-time",          required_argument, NULL, ARG_VACUUM_TIME          },
-                { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
+                { "no-hostname",          no_argument,       NULL, 'W'                      },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
                 { "list-namespaces",      no_argument,       NULL, ARG_LIST_NAMESPACES      },
@@ -454,7 +453,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:u:INF:xrM:i:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:u:INF:xrM:i:W", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -477,10 +476,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
 
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
@@ -907,7 +904,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_action = ACTION_LIST_FIELD_NAMES;
                         break;
 
-                case ARG_NO_HOSTNAME:
+                case 'W':
                         arg_no_hostname = true;
                         break;
 

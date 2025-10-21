@@ -628,7 +628,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM_STATE:
-                        if (path_is_absolute(optarg) && path_is_valid(optarg)) {
+                        if (path_is_valid(optarg) && (path_is_absolute(optarg) || path_startswith(optarg, "./"))) {
                                 r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm_state_path);
                                 if (r < 0)
                                         return r;
@@ -1183,7 +1183,15 @@ static int start_tpm(
         if (r < 0)
                 return log_error_errno(r, "Failed to find swtpm_setup binary: %m");
 
-        _cleanup_strv_free_ char **argv = strv_new(swtpm_setup, "--tpm-state", state_dir, "--tpm2", "--pcr-banks", "sha256", "--not-overwrite");
+        /* Try passing --profile-name default-v2 first, in order to support RSA4096 pcrsig keys, which was
+         * added in 0.11. */
+        _cleanup_strv_free_ char **argv = strv_new(
+                        swtpm_setup,
+                        "--tpm-state", state_dir,
+                        "--tpm2",
+                        "--pcr-banks", "sha256",
+                        "--not-overwrite",
+                        "--profile-name", "default-v2");
         if (!argv)
                 return log_oom();
 
@@ -1194,6 +1202,22 @@ static int start_tpm(
                 log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
                 _exit(EXIT_FAILURE);
         }
+        if (r == -EPROTO) {
+                /* If swtpm_setup fails, try again removing the default-v2 profile, as it might be an older
+                 * version. */
+                strv_remove(argv, "--profile-name");
+                strv_remove(argv, "default-v2");
+
+                r = safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
+                if (r == 0) {
+                        /* Child */
+                        execvp(argv[0], argv);
+                        log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
+                        _exit(EXIT_FAILURE);
+                }
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to run swtpm_setup: %m");
 
         strv_free(argv);
         argv = strv_new(sd_socket_activate, "--listen", listen_address, swtpm, "socket", "--tpm2", "--tpmstate");
@@ -1996,10 +2020,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         case CONSOLE_GUI:
+                /* Enable support for the qemu guest agent for clipboard sharing, resolution scaling, etc. */
                 r = strv_extend_many(
                                 &cmdline,
                                 "-vga",
-                                "virtio");
+                                "virtio",
+                                "-device", "virtio-serial",
+                                "-chardev", "spicevmc,id=vdagent,debug=0,name=vdagent",
+                                "-device", "virtserialport,chardev=vdagent,name=org.qemu.guest_agent.0");
                 break;
 
         case CONSOLE_NATIVE:
@@ -2073,12 +2101,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        if (strv_length(arg_extra_drives) > 0) {
-                r = strv_extend_many(&cmdline, "-device", "virtio-scsi-pci,id=scsi");
-                if (r < 0)
-                        return log_oom();
-        }
-
         if (kernel) {
                 r = strv_extend_many(&cmdline, "-kernel", kernel);
                 if (r < 0)
@@ -2094,24 +2116,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (arg_image) {
-                _cleanup_free_ char *escaped_image = NULL;
-
                 assert(!arg_directory);
 
-                r = strv_extend(&cmdline, "-drive");
-                if (r < 0)
+                if (strv_extend(&cmdline, "-drive") < 0)
                         return log_oom();
 
-                escaped_image = escape_qemu_value(arg_image);
+                _cleanup_free_ char *escaped_image = escape_qemu_value(arg_image);
                 if (!escaped_image)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=raw,discard=%s", escaped_image, on_off(arg_discard_disk));
-                if (r < 0)
+                if (strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=raw,discard=%s", escaped_image, on_off(arg_discard_disk)) < 0)
                         return log_oom();
 
-                r = strv_extend_many(&cmdline, "-device", "virtio-blk-pci,drive=vmspawn,bootindex=1");
+                _cleanup_free_ char *image_fn = NULL;
+                r = path_extract_filename(arg_image, &image_fn);
                 if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", image_fn);
+
+                _cleanup_free_ char *escaped_image_fn = escape_qemu_value(image_fn);
+                if (!escaped_image_fn)
+                        return log_oom();
+
+                if (strv_extend(&cmdline, "-device") < 0)
+                        return log_oom();
+
+                if (strv_extendf(&cmdline, "virtio-blk-pci,drive=vmspawn,bootindex=1,serial=%s", escaped_image_fn) < 0)
                         return log_oom();
 
                 r = grow_image(arg_image, arg_grow_image);
@@ -2186,21 +2215,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         size_t i = 0;
         STRV_FOREACH(drive, arg_extra_drives) {
-                _cleanup_free_ char *escaped_drive = NULL;
-                const char *driver = NULL;
-                struct stat st;
-
-                r = strv_extend(&cmdline, "-blockdev");
-                if (r < 0)
+                if (strv_extend(&cmdline, "-blockdev") < 0)
                         return log_oom();
 
-                escaped_drive = escape_qemu_value(*drive);
+                _cleanup_free_ char *escaped_drive = escape_qemu_value(*drive);
                 if (!escaped_drive)
                         return log_oom();
 
+                struct stat st;
                 if (stat(*drive, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", *drive);
 
+                const char *driver = NULL;
                 if (S_ISREG(st.st_mode))
                         driver = "file";
                 else if (S_ISBLK(st.st_mode))
@@ -2208,16 +2234,22 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", *drive);
 
-                r = strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", driver, escaped_drive, i);
-                if (r < 0)
+                if (strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", driver, escaped_drive, i) < 0)
                         return log_oom();
 
-                r = strv_extend(&cmdline, "-device");
+                _cleanup_free_ char *drive_fn = NULL;
+                r = path_extract_filename(*drive, &drive_fn);
                 if (r < 0)
+                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", *drive);
+
+                _cleanup_free_ char *escaped_drive_fn = escape_qemu_value(drive_fn);
+                if (!escaped_drive_fn)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "scsi-hd,drive=vmspawn_extra_%zu", i++);
-                if (r < 0)
+                if (strv_extend(&cmdline, "-device") < 0)
+                        return log_oom();
+
+                if (strv_extendf(&cmdline, "virtio-blk-pci,drive=vmspawn_extra_%zu,serial=%s", i++, escaped_drive_fn) < 0)
                         return log_oom();
         }
 
@@ -2713,7 +2745,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
-                if (!arg_background && shall_tint_background()) {
+                if (!arg_background) {
                         _cleanup_free_ char *bg = NULL;
 
                         r = terminal_tint_color(130 /* green */, &bg);

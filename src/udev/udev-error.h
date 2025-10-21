@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "forward.h"
+#include "udev-forward.h"
 
 int device_add_errno(sd_device *dev, int error);
 int device_add_exit_status(sd_device *dev, int status);

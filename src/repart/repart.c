@@ -9,6 +9,7 @@
 
 #include "sd-id128.h"
 #include "sd-json.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
@@ -79,6 +80,8 @@
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "utf8.h"
+#include "varlink-io.systemd.Repart.h"
+#include "varlink-util.h"
 #include "xattr-util.h"
 
 /* If not configured otherwise use a minimal partition size of 10M */
@@ -169,8 +172,7 @@ static bool arg_size_auto = false;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
-static void *arg_key = NULL;
-static size_t arg_key_size = 0;
+static struct iovec arg_key = {};
 static char *arg_private_key = NULL;
 static KeySourceType arg_private_key_source_type = OPENSSL_KEY_SOURCE_FILE;
 static char *arg_private_key_source = NULL;
@@ -202,12 +204,14 @@ static AppendMode arg_append_fstab = APPEND_NO;
 static char *arg_generate_fstab = NULL;
 static char *arg_generate_crypttab = NULL;
 static Set *arg_verity_settings = NULL;
+static bool arg_relax_copy_block_security = false;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key, iovec_done_erase);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
@@ -412,6 +416,9 @@ typedef struct Partition {
         OrderedHashmap *subvolumes;
         char *default_subvolume;
         EncryptMode encrypt;
+        struct iovec key;
+        Tpm2PCRValue *tpm2_hash_pcr_values;
+        size_t tpm2_n_hash_pcr_values;
         VerityMode verity;
         char *verity_match_key;
         MinimizeMode minimize;
@@ -675,9 +682,12 @@ static Partition* partition_free(Partition *p) {
         strv_free(p->make_symlinks);
         ordered_hashmap_free(p->subvolumes);
         free(p->default_subvolume);
+        free(p->tpm2_hash_pcr_values);
         free(p->verity_match_key);
         free(p->compression);
         free(p->compression_level);
+
+        iovec_done_erase(&p->key);
 
         copy_files_free_many(p->copy_files, p->n_copy_files);
 
@@ -716,9 +726,12 @@ static void partition_foreignize(Partition *p) {
         p->make_symlinks = strv_free(p->make_symlinks);
         p->subvolumes = ordered_hashmap_free(p->subvolumes);
         p->default_subvolume = mfree(p->default_subvolume);
+        p->tpm2_hash_pcr_values = mfree(p->tpm2_hash_pcr_values);
         p->verity_match_key = mfree(p->verity_match_key);
         p->compression = mfree(p->compression);
         p->compression_level = mfree(p->compression_level);
+
+        iovec_done_erase(&p->key);
 
         copy_files_free_many(p->copy_files, p->n_copy_files);
         p->copy_files = NULL;
@@ -780,7 +793,11 @@ static Partition* partition_unlink_and_free(Context *context, Partition *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Partition*, partition_free);
 
-static Context* context_new(sd_id128_t seed, X509 *certificate, EVP_PKEY *private_key) {
+static Context* context_new(
+                sd_id128_t seed,
+                X509 *certificate,
+                EVP_PKEY *private_key) {
+
         Context *context;
 
         /* Note: This function takes ownership of the certificate and private_key arguments. */
@@ -2466,6 +2483,78 @@ static int config_parse_encrypted_volume(
         return 0;
 }
 
+static int config_parse_tpm2_pcrs(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *partition = ASSERT_PTR(data);
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Clear existing PCR values if empty */
+                partition->tpm2_hash_pcr_values = mfree(partition->tpm2_hash_pcr_values);
+                partition->tpm2_n_hash_pcr_values = 0;
+                return 0;
+        }
+
+        return tpm2_parse_pcr_argument_append(rvalue, &partition->tpm2_hash_pcr_values,
+                                              &partition->tpm2_n_hash_pcr_values);
+}
+
+static int parse_key_file(const char *filename, struct iovec *key) {
+        _cleanup_(erase_and_freep) char *k = NULL;
+        size_t n = 0;
+        int r;
+
+        r = read_full_file_full(
+                        AT_FDCWD, filename,
+                        /* offset= */ UINT64_MAX,
+                        /* size= */ SIZE_MAX,
+                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
+                        /* bind_name= */ NULL,
+                        &k, &n);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read key file '%s': %m", filename);
+
+        iovec_done_erase(key);
+        *key = IOVEC_MAKE(TAKE_PTR(k), n);
+
+        return 0;
+}
+
+static int config_parse_key_file(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Partition *partition = ASSERT_PTR(userdata);
+
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                iovec_done_erase(&partition->key);
+                return 0;
+        }
+
+        return parse_key_file(rvalue, &partition->key);
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF);
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF);
 
@@ -2571,6 +2660,8 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,        0,                                  &p->verity_hash_block_size  },
                 { "Partition", "MountPoint",               config_parse_mountpoint,        0,                                  p                           },
                 { "Partition", "EncryptedVolume",          config_parse_encrypted_volume,  0,                                  p                           },
+                { "Partition", "TPM2PCRs",                 config_parse_tpm2_pcrs,         0,                                  p                           },
+                { "Partition", "KeyFile",                  config_parse_key_file,          0,                                  p                           },
                 { "Partition", "Compression",              config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression             },
                 { "Partition", "CompressionLevel",         config_parse_string,            CONFIG_PARSE_STRING_SAFE_AND_ASCII, &p->compression_level       },
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
@@ -2718,7 +2809,7 @@ static int partition_read_definition(Partition *p, const char *path, const char 
         }
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
-        if ((partition_designator_is_verity(p->type.designator) || p->verity == VERITY_DATA) && p->read_only < 0)
+        if ((partition_designator_is_verity_hash(p->type.designator) || p->verity == VERITY_DATA) && p->read_only < 0)
                 p->read_only = true;
 
         /* Default to "growfs" on, unless read-only */
@@ -3362,7 +3453,7 @@ static int context_load_partition_table(Context *context) {
                         /* Use the fallback values if we have no better idea */
                         context->sector_size = fdisk_get_sector_size(c);
                         context->default_fs_sector_size = fs_secsz;
-                        context->grain_size = 4096;
+                        context->grain_size = MAX(context->sector_size, 4096U);
                         return /* from_scratch = */ true;
                 }
 
@@ -4180,6 +4271,7 @@ static bool context_changed(const Context *context) {
 }
 
 static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) {
+#if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe probe = NULL;
         int r;
 
@@ -4187,36 +4279,44 @@ static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) 
         assert(offset != UINT64_MAX);
         assert(size != UINT64_MAX);
 
-        probe = blkid_new_probe();
+        r = dlopen_libblkid();
+        if (r < 0)
+                return log_error_errno(r, "Failed to load libblkid: %m");
+
+        probe = sym_blkid_new_probe();
         if (!probe)
                 return log_oom();
 
         errno = 0;
-        r = blkid_probe_set_device(probe, fdisk_get_devfd(context->fdisk_context), offset, size);
+        r = sym_blkid_probe_set_device(probe, fdisk_get_devfd(context->fdisk_context), offset, size);
         if (r < 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to allocate device probe for wiping.");
 
         errno = 0;
-        if (blkid_probe_enable_superblocks(probe, true) < 0 ||
-            blkid_probe_set_superblocks_flags(probe, BLKID_SUBLKS_MAGIC|BLKID_SUBLKS_BADCSUM) < 0 ||
-            blkid_probe_enable_partitions(probe, true) < 0 ||
-            blkid_probe_set_partitions_flags(probe, BLKID_PARTS_MAGIC) < 0)
+        if (sym_blkid_probe_enable_superblocks(probe, true) < 0 ||
+            sym_blkid_probe_set_superblocks_flags(probe, BLKID_SUBLKS_MAGIC|BLKID_SUBLKS_BADCSUM) < 0 ||
+            sym_blkid_probe_enable_partitions(probe, true) < 0 ||
+            sym_blkid_probe_set_partitions_flags(probe, BLKID_PARTS_MAGIC) < 0)
                 return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to enable superblock and partition probing.");
 
         for (;;) {
                 errno = 0;
-                r = blkid_do_probe(probe);
+                r = sym_blkid_do_probe(probe);
                 if (r < 0)
                         return log_error_errno(errno_or_else(EIO), "Failed to probe for file systems.");
                 if (r > 0)
                         break;
 
                 errno = 0;
-                if (blkid_do_wipe(probe, false) < 0)
+                if (sym_blkid_do_wipe(probe, false) < 0)
                         return log_error_errno(errno_or_else(EIO), "Failed to wipe file system signature.");
         }
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Cannot wipe partition signatures, libblkid support is not compiled in.");
+#endif
 }
 
 static int context_wipe_partition(Context *context, Partition *p) {
@@ -4792,18 +4892,21 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
 
         if (IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2)) {
+                /* Use partition-specific key if available, otherwise fall back to global key */
+                struct iovec *iovec_key = arg_key.iov_base ? &arg_key : &p->key;
+
                 r = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 NULL,
                                 VOLUME_KEY_SIZE,
-                                strempty(arg_key),
-                                arg_key_size);
+                                strempty(iovec_key->iov_base),
+                                iovec_key->iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add LUKS2 key: %m");
 
-                passphrase = strempty(arg_key);
-                passphrase_size = arg_key_size;
+                passphrase = strempty(iovec_key->iov_base);
+                passphrase_size = iovec_key->iov_len;
         }
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
@@ -4814,8 +4917,10 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 ssize_t base64_encoded_size;
                 int keyslot;
                 TPM2Flags flags = 0;
+                Tpm2PCRValue *pcr_values = arg_tpm2_n_hash_pcr_values > 0 ? arg_tpm2_hash_pcr_values : p->tpm2_hash_pcr_values;
+                size_t n_pcr_values = arg_tpm2_n_hash_pcr_values > 0 ? arg_tpm2_n_hash_pcr_values : p->tpm2_n_hash_pcr_values;
 
-                if (arg_tpm2_n_hash_pcr_values == 0 &&
+                if (n_pcr_values == 0 &&
                     arg_tpm2_public_key_pcr_mask == 0 &&
                     !arg_tpm2_pcrlock)
                         log_notice("Notice: encrypting future partition %" PRIu64 ", locking against TPM2 with an empty policy, i.e. without any state or access restrictions.\n"
@@ -4855,7 +4960,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         if (r < 0)
                                 return r;
 
-                        if (!tpm2_pcr_values_has_all_values(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values))
+                        if (!tpm2_pcr_values_has_all_values(pcr_values, n_pcr_values))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Must provide all PCR values when using TPM2 device key.");
                 } else {
@@ -4863,8 +4968,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         if (r < 0)
                                 return r;
 
-                        if (!tpm2_pcr_values_has_all_values(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values)) {
-                                r = tpm2_pcr_read_missing_values(tpm2_context, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values);
+                        if (!tpm2_pcr_values_has_all_values(pcr_values, n_pcr_values)) {
+                                r = tpm2_pcr_read_missing_values(tpm2_context, pcr_values, n_pcr_values);
                                 if (r < 0)
                                         return log_error_errno(r, "Could not read pcr values: %m");
                         }
@@ -4872,17 +4977,17 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 uint16_t hash_pcr_bank = 0;
                 uint32_t hash_pcr_mask = 0;
-                if (arg_tpm2_n_hash_pcr_values > 0) {
+                if (n_pcr_values > 0) {
                         size_t hash_count;
-                        r = tpm2_pcr_values_hash_count(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, &hash_count);
+                        r = tpm2_pcr_values_hash_count(pcr_values, n_pcr_values, &hash_count);
                         if (r < 0)
                                 return log_error_errno(r, "Could not get hash count: %m");
 
                         if (hash_count > 1)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Multiple PCR banks selected.");
 
-                        hash_pcr_bank = arg_tpm2_hash_pcr_values[0].hash;
-                        r = tpm2_pcr_values_to_mask(arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, hash_pcr_bank, &hash_pcr_mask);
+                        hash_pcr_bank = pcr_values[0].hash;
+                        r = tpm2_pcr_values_to_mask(pcr_values, n_pcr_values, hash_pcr_bank, &hash_pcr_mask);
                         if (r < 0)
                                 return log_error_errno(r, "Could not get hash mask: %m");
                 }
@@ -4895,8 +5000,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 /* If both PCR public key unlock and pcrlock unlock is selected, then shard the encryption key. */
                 r = tpm2_calculate_sealing_policy(
-                                arg_tpm2_hash_pcr_values,
-                                arg_tpm2_n_hash_pcr_values,
+                                pcr_values,
+                                n_pcr_values,
                                 iovec_is_set(&pubkey) ? &public : NULL,
                                 /* use_pin= */ false,
                                 arg_tpm2_pcrlock && !iovec_is_set(&pubkey) ? &pcrlock_policy : NULL,
@@ -4906,8 +5011,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 if (arg_tpm2_pcrlock && iovec_is_set(&pubkey)) {
                         r = tpm2_calculate_sealing_policy(
-                                        arg_tpm2_hash_pcr_values,
-                                        arg_tpm2_n_hash_pcr_values,
+                                        pcr_values,
+                                        n_pcr_values,
                                         /* public= */ NULL,      /* Turn this one off for the 2nd shard */
                                         /* use_pin= */ false,
                                         &pcrlock_policy,         /* But turn this one on */
@@ -5376,7 +5481,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         return 0;
 }
 
-static int progress_bytes(uint64_t n_bytes, void *userdata) {
+static int progress_bytes(uint64_t n_bytes, uint64_t bps, void *userdata) {
         Partition *p = ASSERT_PTR(userdata);
         unsigned percent;
 
@@ -5394,14 +5499,25 @@ static int progress_bytes(uint64_t n_bytes, void *userdata) {
         if (!ratelimit_below(&p->progress_ratelimit))
                 return 0;
 
-        (void) draw_progress_barf(
-                        percent,
-                        "%s %s %s %s/%s",
-                        strna(p->copy_blocks_path),
-                        glyph(GLYPH_ARROW_RIGHT),
-                        strna(p->definition_path),
-                        FORMAT_BYTES(p->copy_blocks_done),
-                        FORMAT_BYTES(p->copy_blocks_size));
+        if (bps != UINT64_MAX)
+                (void) draw_progress_barf(
+                                percent,
+                                "%s %s %s %s/%s %s/s",
+                                strna(p->copy_blocks_path),
+                                glyph(GLYPH_ARROW_RIGHT),
+                                strna(p->definition_path),
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_done),
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_size),
+                                FORMAT_BYTES_WITH_POINT(bps));
+        else
+                (void) draw_progress_barf(
+                                percent,
+                                "%s %s %s %s/%s",
+                                strna(p->copy_blocks_path),
+                                glyph(GLYPH_ARROW_RIGHT),
+                                strna(p->definition_path),
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_done),
+                                FORMAT_BYTES_WITH_POINT(p->copy_blocks_size));
 
         p->last_percent = percent;
 
@@ -7250,6 +7366,7 @@ static int resolve_copy_blocks_auto_candidate(
                 dev_t restrict_devno,
                 sd_id128_t *ret_uuid) {
 
+#if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
@@ -7285,20 +7402,24 @@ static int resolve_copy_blocks_auto_candidate(
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(whole_devno));
 
-        b = blkid_new_probe();
+        r = dlopen_libblkid();
+        if (r < 0)
+                return log_error_errno(r, "Failed to find libblkid: %m");
+
+        b = sym_blkid_new_probe();
         if (!b)
                 return log_oom();
 
         errno = 0;
-        r = blkid_probe_set_device(b, fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, fd, 0, 0);
         if (r != 0)
                 return log_error_errno(errno_or_else(ENOMEM), "Failed to open block device '%s': %m", p);
 
-        (void) blkid_probe_enable_partitions(b, 1);
-        (void) blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+        (void) sym_blkid_probe_enable_partitions(b, 1);
+        (void) sym_blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
 
         errno = 0;
-        r = blkid_do_safeprobe(b);
+        r = sym_blkid_do_safeprobe(b);
         if (r == _BLKID_SAFEPROBE_ERROR)
                 return log_error_errno(errno_or_else(EIO), "Unable to probe for partition table of '%s': %m", p);
         if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND)) {
@@ -7308,18 +7429,18 @@ static int resolve_copy_blocks_auto_candidate(
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
         if (!streq_ptr(pttype, "gpt")) {
                 log_debug("Didn't find a GPT partition table on '%s'.", p);
                 return false;
         }
 
         errno = 0;
-        pl = blkid_probe_get_partitions(b);
+        pl = sym_blkid_probe_get_partitions(b);
         if (!pl)
                 return log_error_errno(errno_or_else(EIO), "Unable read partition table of '%s': %m", p);
 
-        pp = blkid_partlist_devno_to_partition(pl, partition_devno);
+        pp = sym_blkid_partlist_devno_to_partition(pl, partition_devno);
         if (!pp) {
                 log_debug("Partition %u:%u has no matching partition table entry on '%s'.",
                           major(partition_devno), minor(partition_devno), p);
@@ -7358,6 +7479,10 @@ static int resolve_copy_blocks_auto_candidate(
                 *ret_uuid = u;
 
         return true;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "Cannot check partition type UUID and device location, libblkid support is not compiled in.");
+#endif
 }
 
 static int resolve_copy_blocks_auto_candidate_harder(
@@ -7375,7 +7500,7 @@ static int resolve_copy_blocks_auto_candidate_harder(
          * verity/verity-sig partition for it, based on udev metadata. */
 
         const char *property;
-        if (partition_designator_is_verity(partition_type.designator))
+        if (partition_designator_is_verity_hash(partition_type.designator))
                 property = "ID_DISSECT_PART_VERITY_DEVICE";
         else if (partition_designator_is_verity_sig(partition_type.designator))
                 property = "ID_DISSECT_PART_VERITY_SIG_DEVICE";
@@ -7859,7 +7984,7 @@ static int context_fstab(Context *context) {
         fputs(AUTOMATIC_FSTAB_HEADER_START "\n", f);
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_free_ char *what = NULL, *options = NULL;
+                _cleanup_free_ char *what = NULL;
 
                 if (!need_fstab_one(p))
                         continue;
@@ -7869,6 +7994,8 @@ static int context_fstab(Context *context) {
                         return r;
 
                 FOREACH_ARRAY(mountpoint, p->mountpoints, p->n_mountpoints) {
+                        _cleanup_free_ char *options = NULL;
+
                         r = partition_pick_mount_options(
                                         p->type.designator,
                                         p->format,
@@ -8565,7 +8692,13 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY **ret_private_key, OpenSSLAskPasswordUI **ret_ui) {
+static int parse_argv(
+                int argc,
+                char *argv[],
+                X509 **ret_certificate,
+                EVP_PKEY **ret_private_key,
+                OpenSSLAskPasswordUI **ret_ui) {
+
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
@@ -8735,6 +8868,9 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
+
+                        arg_relax_copy_block_security = false;
+
                         break;
 
                 case ARG_IMAGE_POLICY:
@@ -8812,20 +8948,9 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         break;
 
                 case ARG_KEY_FILE: {
-                        _cleanup_(erase_and_freep) char *k = NULL;
-                        size_t n = 0;
-
-                        r = read_full_file_full(
-                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &k, &n);
+                        r = parse_key_file(optarg, &arg_key);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to read key file '%s': %m", optarg);
-
-                        erase_and_free(arg_key);
-                        arg_key = TAKE_PTR(k);
-                        arg_key_size = n;
+                                return r;
                         break;
                 }
 
@@ -9060,7 +9185,7 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         break;
 
                 case ARG_LIST_DEVICES:
-                        r = blockdev_list(BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM);
+                        r = blockdev_list(BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM, /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
                         if (r < 0)
                                 return r;
 
@@ -9155,6 +9280,8 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
                         arg_root = strdup("/sysusr");
                 if (!arg_root)
                         return log_oom();
+
+                arg_relax_copy_block_security = true;
         }
 
         if (argc > optind) {
@@ -9241,6 +9368,14 @@ static int parse_argv(int argc, char *argv[], X509 **ret_certificate, EVP_PKEY *
 
         if (arg_append_fstab && !arg_generate_fstab)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No --generate-fstab= specified for --append-fstab=%s.", append_mode_to_string(arg_append_fstab));
+
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0) {
+                arg_varlink = true;
+                arg_pager_flags |= PAGER_DISABLE;
+        }
 
         *ret_certificate = TAKE_PTR(certificate);
         *ret_private_key = TAKE_PTR(private_key);
@@ -9666,6 +9801,106 @@ static int determine_auto_size(Context *c) {
         return 0;
 }
 
+static int vl_method_list_candidate_devices(
+                sd_varlink *link,
+                sd_json_variant *parameters,
+                sd_varlink_method_flags_t flags,
+                void *userdata) {
+
+        struct {
+                bool ignore_root;
+                bool ignore_empty;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ignoreRoot",  SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, voffsetof(p, ignore_root),  0 },
+                { "ignoreEmpty", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, voffsetof(p, ignore_empty), 0 },
+                {}
+        };
+
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        BlockDevice *l = NULL;
+        size_t n = 0;
+        CLEANUP_ARRAY(l, n, block_device_array_free);
+
+        r = blockdev_list(
+                        BLOCKDEV_LIST_SHOW_SYMLINKS|
+                        BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING|
+                        BLOCKDEV_LIST_IGNORE_ZRAM|
+                        (p.ignore_empty ? BLOCKDEV_LIST_IGNORE_EMPTY : 0)|
+                        (p.ignore_root ? BLOCKDEV_LIST_IGNORE_ROOT : 0),
+                        &l,
+                        &n);
+        if (r < 0)
+                return r;
+
+        if (n == 0)
+                return sd_varlink_error(link, "io.systemd.Repart.NoCandidateDevices", NULL);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        FOREACH_ARRAY(d, l, n) {
+                if (v) {
+                        r = sd_varlink_notify(link, v);
+                        if (r < 0)
+                                return r;
+
+                        v = sd_json_variant_unref(v);
+                }
+
+                r = sd_json_buildo(
+                                &v,
+                                SD_JSON_BUILD_PAIR_STRING("node", d->node),
+                                JSON_BUILD_PAIR_STRV_NON_EMPTY("symlinks", d->symlinks),
+                                SD_JSON_BUILD_PAIR_CONDITION(d->diskseq != UINT64_MAX, "diskseq", SD_JSON_BUILD_INTEGER(d->diskseq)),
+                                SD_JSON_BUILD_PAIR_CONDITION(d->size != UINT64_MAX, "sizeBytes", SD_JSON_BUILD_INTEGER(d->size)));
+                if (r < 0)
+                        return r;
+        }
+
+        assert(v);
+        return sd_varlink_reply(link, v);
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        /* Invocation as Varlink service */
+
+        r = varlink_server_new(
+                        &varlink_server,
+                        SD_VARLINK_SERVER_ROOT_ONLY,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Repart);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server,
+                        "io.systemd.Repart.ListCandidateDevices", vl_method_list_candidate_devices);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(X509_freep) X509 *certificate = NULL;
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
@@ -9682,6 +9917,13 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
+#if HAVE_LIBCRYPTSETUP
+        cryptsetup_enable_logging(NULL);
+#endif
+
+        if (arg_varlink)
+                return vl_server();
+
         r = parse_proc_cmdline_factory_reset();
         if (r < 0)
                 return r;
@@ -9689,10 +9931,6 @@ static int run(int argc, char *argv[]) {
         r = parse_efi_variable_factory_reset();
         if (r < 0)
                 return r;
-
-#if HAVE_LIBCRYPTSETUP
-        cryptsetup_enable_logging(NULL);
-#endif
 
         if (arg_image) {
                 assert(!arg_root);
@@ -9829,7 +10067,9 @@ static int run(int argc, char *argv[]) {
         r = context_open_copy_block_paths(
                         context,
                         loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
-                                      arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
+                                      /* if --root= is specified, don't accept any block device, unless it
+                                       * was set automatically because we are in the initrd  */
+                                      arg_root && !arg_image && !arg_relax_copy_block_security ? 0 :
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
         if (r < 0)
                 return r;

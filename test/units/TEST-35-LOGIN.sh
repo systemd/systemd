@@ -21,7 +21,7 @@ cleanup_test_user() (
 
 setup_test_user() {
     mkdir -p /var/spool/cron /var/spool/mail
-    useradd -m -s /bin/bash logind-test-user
+    useradd -m -s /usr/bin/bash logind-test-user
     trap cleanup_test_user EXIT
 }
 
@@ -351,7 +351,7 @@ create_session() {
 [Service]
 Type=simple
 ExecStart=
-ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
+ExecStart=-agetty --autologin logind-test-user --noclear %I $TERM
 Restart=no
 EOF
     systemctl daemon-reload
@@ -590,7 +590,10 @@ testcase_list_users_sessions_seats() {
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" no
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $4 }')" active
 
-    loginctl enable-linger logind-test-user
+    systemd-run --quiet --service-type=notify --unit=test-linger-signal-wait --pty \
+                -p Environment=SYSTEMD_LOG_LEVEL=debug \
+                -p ExecStartPost="loginctl enable-linger logind-test-user" \
+		busctl --timeout=30 wait "/org/freedesktop/login1/user/_$(id -ru logind-test-user)" org.freedesktop.DBus.Properties PropertiesChanged | grep -qF '"Linger" b true'
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" yes
 
     for s in $(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }'); do
@@ -679,7 +682,7 @@ session required   pam_unix.so
 EOF
 
     cat > "$SCRIPT" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 typeset -i AMB MASK
 AMB="0x$(grep 'CapAmb:' /proc/self/status | cut -d: -f2 | tr -d '[:space:]')"

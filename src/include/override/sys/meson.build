@@ -34,7 +34,7 @@ syscall_lists = []
 foreach arch: arch_list
         # We don't use files() here so that the 'update-syscall-tables' call
         # above can run if arch_list is extended.
-        syscall_lists += meson.current_source_dir() / 'syscalls-@0@.txt'.format(arch)
+        syscall_lists += meson.current_source_dir() / f'syscalls-@arch@.txt'
 endforeach
 
 run_target(

@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "os-util.h"
 
 typedef enum ImageType {
@@ -55,21 +55,21 @@ int image_from_path(const char *path, Image **ret);
 int image_find_harder(RuntimeScope scope, ImageClass class, const char *name_or_path, const char *root, Image **ret);
 int image_discover(RuntimeScope scope, ImageClass class, const char *root, Hashmap **images);
 
-int image_remove(Image *i);
+int image_remove(Image *i, RuntimeScope scope);
 int image_rename(Image *i, const char *new_name, RuntimeScope scope);
 int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope);
-int image_read_only(Image *i, bool b);
+int image_read_only(Image *i, bool b, RuntimeScope scope);
 
 const char* image_type_to_string(ImageType t) _const_;
 ImageType image_type_from_string(const char *s) _pure_;
 
-int image_path_lock(const char *path, int operation, LockFile *global, LockFile *local);
-int image_name_lock(const char *name, int operation, LockFile *ret);
+int image_path_lock(RuntimeScope scope, const char *path, int operation, LockFile *global, LockFile *local);
+int image_name_lock(RuntimeScope scope, const char *name, int operation, LockFile *ret);
 
 int image_set_limit(Image *i, uint64_t referenced_max);
-int image_set_pool_limit(ImageClass class, uint64_t referenced_max);
+int image_set_pool_limit(RuntimeScope scope, ImageClass class, uint64_t referenced_max);
 
-int image_read_metadata(Image *i, const ImagePolicy *image_policy);
+int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope scope);
 
 bool image_in_search_path(RuntimeScope scope, ImageClass class, const char *root, const char *image);
 

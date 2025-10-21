@@ -1375,6 +1375,16 @@ EOF
     assert_in "${loop}p3 : start= *${start}, size= *${size}, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=DB081670-07AE-48CA-9F5E-813D5E40B976, name=\"linux-generic-2\"" "$output"
 }
 
+testcase_sector() {
+    # Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
+    # must be powers of 2. Which leaves exactly four different ones to test on
+    # typical hardware
+    test_sector 512
+    test_sector 1024
+    test_sector 2048
+    test_sector 4096
+}
+
 testcase_dropped_partitions() {
     local workdir image defs
 
@@ -1618,6 +1628,68 @@ EOF
     assert_in "${image}2 : start=      286680, size=      532480, type=${esp_guid}" "$output"
 }
 
+testcase_btrfs() {
+    local defs imgs output root
+
+    if ! systemd-analyze compare-versions "$(btrfs --version | head -n 1 | awk '{ print $2 }')" ge v6.12; then
+        echo "btrfs-progs is not installed or older than v6.12, skipping test."
+        return 0
+    fi
+
+    if [[ "$OFFLINE" != "yes" ]]; then
+        return 0
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/test-repart.root.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for btrfs ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=btrfs
+MakeDirectories=/@ /@home
+Subvolumes=/@ /@home
+DefaultSubvolume=/@
+MountPoint=/:"subvol=@,zstd:1,noatime,lazytime"
+MountPoint=/home:"subvol=@home,zstd:1,noatime,lazytime"
+EOF
+
+    mkdir -p "$root"/etc
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=1G \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=yes \
+                   --generate-fstab "$root"/etc/fstab \
+                   "$imgs/btrfs.img"
+
+    sfdisk --dump "$imgs/btrfs.img"
+
+    cat "$root"/etc/fstab
+    grep -q 'UUID=[0-9a-f-]* / btrfs discard,rw,nodev,suid,exec,subvol=@,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
+    grep -q 'UUID=[0-9a-f-]* /home btrfs discard,rw,nodev,suid,exec,subvol=@home,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
+}
+
+testcase_varlink_list_devices() {
+    REPART="$(which systemd-repart)"
+    varlinkctl introspect "$REPART"
+    varlinkctl call "$REPART" --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{}'
+    varlinkctl call "$REPART" --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreRoot":true}'
+    varlinkctl call "$REPART" --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true}'
+    varlinkctl call "$REPART" --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
+
+    varlinkctl call /run/systemd/io.systemd.Repart --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
+}
+
 OFFLINE="yes"
 run_testcases
 
@@ -1626,13 +1698,5 @@ if ! systemd-detect-virt --container; then
     OFFLINE="no"
     run_testcases
 fi
-
-# Valid block sizes on the Linux block layer are >= 512 and <= PAGE_SIZE, and
-# must be powers of 2. Which leaves exactly four different ones to test on
-# typical hardware
-test_sector 512
-test_sector 1024
-test_sector 2048
-test_sector 4096
 
 touch /testok

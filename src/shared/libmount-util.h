@@ -4,10 +4,45 @@
 /* This needs to be after sys/mount.h */
 #include <libmount.h> /* IWYU pragma: export */
 
-#include "forward.h"
+#include "dlfcn-util.h"
+#include "shared-forward.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct libmnt_table*, mnt_free_table, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct libmnt_iter*, mnt_free_iter, NULL);
+extern DLSYM_PROTOTYPE(mnt_free_iter);
+extern DLSYM_PROTOTYPE(mnt_free_table);
+extern DLSYM_PROTOTYPE(mnt_fs_get_fs_options);
+extern DLSYM_PROTOTYPE(mnt_fs_get_fstype);
+extern DLSYM_PROTOTYPE(mnt_fs_get_id);
+extern DLSYM_PROTOTYPE(mnt_fs_get_option);
+extern DLSYM_PROTOTYPE(mnt_fs_get_options);
+extern DLSYM_PROTOTYPE(mnt_fs_get_passno);
+extern DLSYM_PROTOTYPE(mnt_fs_get_propagation);
+extern DLSYM_PROTOTYPE(mnt_fs_get_source);
+extern DLSYM_PROTOTYPE(mnt_fs_get_target);
+extern DLSYM_PROTOTYPE(mnt_fs_get_vfs_options);
+extern DLSYM_PROTOTYPE(mnt_get_builtin_optmap);
+extern DLSYM_PROTOTYPE(mnt_init_debug);
+extern DLSYM_PROTOTYPE(mnt_monitor_enable_kernel);
+extern DLSYM_PROTOTYPE(mnt_monitor_enable_userspace);
+extern DLSYM_PROTOTYPE(mnt_monitor_get_fd);
+extern DLSYM_PROTOTYPE(mnt_monitor_next_change);
+extern DLSYM_PROTOTYPE(mnt_new_iter);
+extern DLSYM_PROTOTYPE(mnt_new_monitor);
+extern DLSYM_PROTOTYPE(mnt_new_table);
+extern DLSYM_PROTOTYPE(mnt_optstr_get_flags);
+extern DLSYM_PROTOTYPE(mnt_table_find_devno);
+extern DLSYM_PROTOTYPE(mnt_table_find_target);
+extern DLSYM_PROTOTYPE(mnt_table_next_child_fs);
+extern DLSYM_PROTOTYPE(mnt_table_next_fs);
+extern DLSYM_PROTOTYPE(mnt_table_parse_file);
+extern DLSYM_PROTOTYPE(mnt_table_parse_mtab);
+extern DLSYM_PROTOTYPE(mnt_table_parse_stream);
+extern DLSYM_PROTOTYPE(mnt_table_parse_swaps);
+extern DLSYM_PROTOTYPE(mnt_unref_monitor);
+
+int dlopen_libmount(void);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_table*, sym_mnt_free_table, mnt_free_tablep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_iter*, sym_mnt_free_iter, mnt_free_iterp, NULL);
 
 int libmount_parse_full(
                 const char *path,

@@ -46,7 +46,7 @@ void journal_config_set_defaults(JournalConfig *c) {
                 .compress.threshold_bytes = UINT64_MAX,
                 .seal = -1,
                 .read_kmsg = -1,
-                .set_audit = -1,
+                .set_audit = _AUDIT_SET_MODE_INVALID,
                 .ratelimit_interval = DEFAULT_RATE_LIMIT_INTERVAL,
                 .ratelimit_burst = DEFAULT_RATE_LIMIT_BURST,
                 .forward_to_syslog = -1,
@@ -59,6 +59,7 @@ void journal_config_set_defaults(JournalConfig *c) {
                 .max_level_console = -1,
                 .max_level_wall = -1,
                 .max_level_socket = -1,
+                .split_mode = _SPLIT_INVALID,
         };
 
         journal_reset_metrics(&c->system_storage_metrics);
@@ -122,7 +123,7 @@ void manager_merge_configs(Manager *m) {
         MERGE_NON_NEGATIVE(read_kmsg, !m->namespace);
         /* By default, kernel auditing is enabled by the main namespace instance, and not controlled by
          * non-default namespace instances. */
-        MERGE_NON_NEGATIVE(set_audit, m->namespace ? -1 : true);
+        MERGE_NON_NEGATIVE(set_audit, m->namespace ? AUDIT_KEEP : AUDIT_YES);
         MERGE_NON_ZERO(sync_interval_usec, DEFAULT_SYNC_INTERVAL_USEC);
 
         /* TODO: also merge them when comdline or credentials support to configure them. */
@@ -400,6 +401,16 @@ static const char* const split_mode_table[_SPLIT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_split_mode, split_mode, SplitMode);
+
+static const char* const audit_set_mode_table[_AUDIT_SET_MODE_MAX] = {
+        [AUDIT_NO]   = "no",
+        [AUDIT_YES]  = "yes",
+        [AUDIT_KEEP] = "keep",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(audit_set_mode, AuditSetMode, AUDIT_YES);
+/* For backward compatibility, an empty string has special meaning and equals to 'keep'. */
+DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_audit_set_mode, audit_set_mode, AuditSetMode, AUDIT_KEEP);
 
 int config_parse_line_max(
                 const char *unit,

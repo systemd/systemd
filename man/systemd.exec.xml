@@ -201,7 +201,7 @@
 
         <xi:include href="vpick.xml" xpointer="image"/>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
@@ -225,7 +225,7 @@
         <constant>esp</constant>, <constant>xbootldr</constant>, <constant>tmp</constant>,
         <constant>var</constant>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
@@ -275,7 +275,7 @@
         image. There's currently no option to configure the root hash for the <filename>/usr/</filename> file
         system via the unit file directly.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
@@ -298,7 +298,7 @@
         configure the root hash signature for the <filename>/usr/</filename> via the unit file
         directly.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
@@ -319,7 +319,7 @@
         <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">
           Discoverable Partitions Specification</ulink>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
@@ -523,7 +523,7 @@
         <varname>PrivateDevices=</varname> below, as it may change the setting of
         <varname>DevicePolicy=</varname>.</para>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
@@ -590,7 +590,7 @@
 
         <xi:include href="vpick.xml" xpointer="image"/>
 
-        <xi:include href="system-only.xml" xpointer="singular"/>
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
@@ -3914,6 +3914,13 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <para>When multiple credentials of the same name are found, credentials found by
         <varname>LoadCredential=</varname> and <varname>LoadCredentialEncrypted=</varname> take priority over
         credentials found by <varname>ImportCredential=</varname>.</para>
+
+        <para>Note that if decryption or authentication of a credential picked up as result of
+        <varname>ImportCredential=</varname> fails it will be skipped gracefully (a warning is generated, but
+        the credential will not be made available to the invoked service). This is different for those
+        configured via
+        <varname>SetCredentialEncrypted=</varname>/<varname>LoadCredentialEncrypted=</varname>, where failed
+        decryption/authentication will result in service failure.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>

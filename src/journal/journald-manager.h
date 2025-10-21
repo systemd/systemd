@@ -7,7 +7,6 @@
 #include "journald-forward.h"
 #include "list.h"
 #include "ratelimit.h"
-#include "socket-util.h"
 
 typedef struct JournalStorageSpace {
         usec_t   timestamp;

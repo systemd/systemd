@@ -338,9 +338,9 @@
         volumes configured with the <varname>Encrypt=key-file</varname> setting in partition files. Should
         refer to a regular file containing the key, or an <constant>AF_UNIX</constant> stream socket in the
         file system. In the latter case, a connection is made to it and the key read from it. If this switch
-        is not specified, the empty key (i.e. zero length key) is used. This behaviour is useful for setting
-        up encrypted partitions during early first boot that receive their user-supplied password only in a
-        later setup step.</para>
+        is not specified, and no <varname>KeyFile=</varname> is specified in the partition file, the empty
+        key (i.e. zero length key) is used. This behaviour is useful for setting up encrypted partitions during
+        early first boot that receive their user-supplied password only in a later setup step.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>

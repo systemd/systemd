@@ -130,8 +130,6 @@ static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
 
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(varlink_hash_ops, void, trivial_hash_func, trivial_compare_func, sd_varlink, sd_varlink_unref);
-
 static Transfer *transfer_unref(Transfer *t) {
         if (!t)
                 return NULL;
@@ -2019,6 +2017,7 @@ static int run(int argc, char *argv[]) {
                                "VM and container image import and export service.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

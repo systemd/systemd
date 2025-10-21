@@ -2,7 +2,6 @@
 
 #include <grp.h>
 #include <pwd.h>
-#include <unistd.h>
 
 #include "alloc-util.h"
 #include "chase.h"

@@ -64,13 +64,14 @@ monitor_check_rr() (
 )
 
 restart_resolved() {
+    systemctl stop systemd-resolved-monitor.socket systemd-resolved-varlink.socket
     systemctl stop systemd-resolved.service
     (! systemctl is-failed systemd-resolved.service)
     # Reset the restart counter since we call this method a bunch of times
     # and can occasionally hit the default rate limit
     systemctl reset-failed systemd-resolved.service
+    systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket
     systemctl start systemd-resolved.service
-    systemctl service-log-level systemd-resolved.service debug
 }
 
 setup() {
@@ -135,7 +136,7 @@ EOF
         echo "FallbackDNS="
         echo "DNSSEC=allow-downgrade"
         echo "DNSOverTLS=opportunistic"
-    } >/run/systemd/resolved.conf.d/test.conf
+    } >/run/systemd/resolved.conf.d/10-test.conf
     ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
     # Override the default NTA list, which turns off DNSSEC validation for (among
     # others) the test. domain
@@ -183,8 +184,8 @@ EOF
         chown -R knot:knot /run/knot
     fi
     systemctl start knot
-    # Wait a bit for the keys to propagate
-    sleep 4
+    # Wait for signed.test's zone DS records to get pushed to the parent zone
+    timeout 30s bash -xec 'until knotc zone-read test. signed.test. ds | grep -E "signed\.test\. [0-9]+ DS"; do sleep 2; done'
 
     systemctl status resolved-dummy-server
     networkctl status
@@ -232,7 +233,6 @@ manual_testcase_01_resolvectl() {
     # Cleanup
     # shellcheck disable=SC2317
     cleanup() {
-        rm -f /run/systemd/resolved.conf.d/mdns-llmnr.conf
         ip link del hoge
         ip link del hoge.foo
     }
@@ -320,7 +320,7 @@ manual_testcase_02_mdns_llmnr() {
 
     # Cleanup
     cleanup() {
-        rm -f /run/systemd/resolved.conf.d/mdns-llmnr.conf
+        rm -f /run/systemd/resolved.conf.d/90-mdns-llmnr.conf
         ip link del hoge
         ip link del hoge.foo
     }
@@ -332,9 +332,10 @@ manual_testcase_02_mdns_llmnr() {
         echo "[Resolve]"
         echo "MulticastDNS=no"
         echo "LLMNR=no"
-    } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+    } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     restart_resolved
     # make sure networkd is not running.
+    systemctl stop systemd-networkd.socket systemd-networkd-varlink.socket
     systemctl stop systemd-networkd.service
     assert_in 'no' "$(resolvectl mdns hoge)"
     assert_in 'no' "$(resolvectl llmnr hoge)"
@@ -343,7 +344,7 @@ manual_testcase_02_mdns_llmnr() {
         echo "[Resolve]"
         echo "MulticastDNS=yes"
         echo "LLMNR=yes"
-    } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+    } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     systemctl reload systemd-resolved.service
     # defaults to yes (both the global and per-link settings are yes)
     assert_in 'yes' "$(resolvectl mdns hoge)"
@@ -367,7 +368,7 @@ manual_testcase_02_mdns_llmnr() {
         echo "[Resolve]"
         echo "MulticastDNS=resolve"
         echo "LLMNR=resolve"
-    } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+    } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     systemctl reload systemd-resolved.service
     # set per-link setting
     resolvectl mdns hoge yes
@@ -387,7 +388,7 @@ manual_testcase_02_mdns_llmnr() {
         echo "[Resolve]"
         echo "MulticastDNS=no"
         echo "LLMNR=no"
-    } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
+    } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     systemctl reload systemd-resolved.service
     (! lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep -q ":mdns\|:5353")
     # set per-link setting
@@ -792,10 +793,62 @@ testcase_08_resolved() {
 }
 
 testcase_09_resolvectl_showcache() {
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-resolved.conf
+        rm -f /run/systemd/network/10-dns2.netdev
+        rm -f /run/systemd/network/10-dns2.network
+        networkctl reload
+        systemctl reload systemd-resolved.service
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN
+
     ### Test resolvectl show-cache
     run resolvectl show-cache
     run resolvectl show-cache --json=short
     run resolvectl show-cache --json=pretty
+
+    # Use resolvectl show-cache to check that reloding resolved updates scope
+    # DNSSEC and DNSOverTLS modes.
+    {
+        echo "[NetDev]"
+        echo "Name=dns2"
+        echo "Kind=dummy"
+    } > /run/systemd/network/10-dns2.netdev
+    {
+        echo "[Match]"
+        echo "Name=dns2"
+        echo "[Network]"
+        echo "IPv6AcceptRA=no"
+        echo "Address=10.123.0.1/24"
+        echo "DNS=10.0.0.1"
+    } > /run/systemd/network/10-dns2.network
+    networkctl reload
+    networkctl reconfigure dns2
+
+    mkdir -p /run/systemd/resolved.conf.d/
+    {
+        echo "[Resolve]"
+        echo "DNSSEC=no"
+        echo "DNSOverTLS=no"
+    } > /run/systemd/resolved.conf.d/90-resolved.conf
+    systemctl reload systemd-resolved.service
+
+    test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns2" and .protocol == "dns") | .dnssec')" == 'no'
+    test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns2" and .protocol == "dns") | .dnsOverTLS')" == 'no'
+
+    {
+        echo "[Resolve]"
+        echo "DNSSEC=allow-downgrade"
+        echo "DNSOverTLS=opportunistic"
+    } > /run/systemd/resolved.conf.d/90-resolved.conf
+    systemctl reload systemd-resolved.service
+
+    test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns2" and .protocol == "dns") | .dnssec')" == 'allow-downgrade'
+    test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns2" and .protocol == "dns") | .dnsOverTLS')" == 'opportunistic'
 }
 
 testcase_10_resolvectl_json() {
@@ -857,7 +910,7 @@ testcase_11_nft() {
     {
         echo "[Resolve]"
         echo "StaleRetentionSec=1d"
-    } >/run/systemd/resolved.conf.d/test.conf
+    } >/run/systemd/resolved.conf.d/10-test.conf
     systemctl reload systemd-resolved.service
 
     run dig stale1.unsigned.test -t A
@@ -919,7 +972,7 @@ testcase_11_nft() {
     } >/run/systemd/system/test-nft.socket
     {
         echo "[Service]"
-        echo "ExecStart=/usr/bin/sleep 10000"
+        echo "ExecStart=sleep 10000"
     } >/run/systemd/system/test-nft.service
     systemctl daemon-reload
     systemctl start test-nft.socket
@@ -948,7 +1001,7 @@ testcase_12_resolvectl2() {
     # Cleanup
     # shellcheck disable=SC2317
     cleanup() {
-        rm -f /run/systemd/resolved.conf.d/reload.conf
+        rm -f /run/systemd/resolved.conf.d/90-reload.conf
         systemctl reload systemd-resolved.service
         resolvectl revert dns0
     }
@@ -1003,7 +1056,7 @@ testcase_12_resolvectl2() {
         echo "[Resolve]"
         echo "DNS=8.8.8.8"
         echo "DNSStubListenerExtra=127.0.0.153"
-    } >/run/systemd/resolved.conf.d/reload.conf
+    } >/run/systemd/resolved.conf.d/90-reload.conf
     resolvectl dns dns0 1.1.1.1
     systemctl reload systemd-resolved.service
     resolvectl status
@@ -1021,7 +1074,7 @@ testcase_12_resolvectl2() {
         echo "[Resolve]"
         echo "DNS=8.8.4.4"
         echo "DNSStubListenerExtra=127.0.0.154"
-    } >/run/systemd/resolved.conf.d/reload.conf
+    } >/run/systemd/resolved.conf.d/90-reload.conf
     systemctl reload systemd-resolved.service
     resolvectl status
 
@@ -1053,7 +1106,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
         echo "===== io.systemd.Resolve.Monitor.SubscribeDNSConfiguration output: ====="
         cat "$tmpfile"
         echo "=========="
-        rm -f /run/systemd/resolved.conf.d/global-dns.conf
+        rm -f /run/systemd/resolved.conf.d/90-global-dns.conf
         restart_resolved
         resolvectl revert dns0
     }
@@ -1071,7 +1124,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
     {
         echo "[Resolve]"
         echo "DNS="
-    } > /run/systemd/resolved.conf.d/global-dns.conf
+    } >/run/systemd/resolved.conf.d/90-global-dns.conf
     systemctl reload systemd-resolved.service
     resolvectl dns dns0 ""
     resolvectl domain dns0 ""
@@ -1089,7 +1142,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
         echo "[Resolve]"
         echo "DNS=8.8.8.8"
         echo "Domains=lan"
-    } > /run/systemd/resolved.conf.d/global-dns.conf
+    } >/run/systemd/resolved.conf.d/90-global-dns.conf
     systemctl reload systemd-resolved.service
 
     # Update a link configuration.
@@ -1127,7 +1180,7 @@ testcase_13_varlink_subscribe_dns_configuration() {
 testcase_14_refuse_record_types() {
     # shellcheck disable=SC2317
     cleanup() {
-        rm -f /run/systemd/resolved.conf.d/refuserecords.conf
+        rm -f /run/systemd/resolved.conf.d/90-refuserecords.conf
         restart_resolved
     }
     trap cleanup RETURN ERR
@@ -1136,7 +1189,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=AAAA SRV TXT"
-    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    } >/run/systemd/resolved.conf.d/90-refuserecords.conf
     systemctl reload systemd-resolved.service
 
     run dig localhost -t AAAA
@@ -1185,7 +1238,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=AAAA"
-    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    } >/run/systemd/resolved.conf.d/90-refuserecords.conf
     systemctl reload systemd-resolved.service
 
     run dig localhost -t SRV
@@ -1234,7 +1287,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=A AAAA"
-    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    } >/run/systemd/resolved.conf.d/90-refuserecords.conf
     systemctl reload systemd-resolved.service
 
     run resolvectl service _mysvc._tcp signed.test
@@ -1256,7 +1309,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=AAAA TXT"
-    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    } >/run/systemd/resolved.conf.d/90-refuserecords.conf
     systemctl reload systemd-resolved.service
 
     run resolvectl service _mysvc._tcp signed.test
@@ -1277,7 +1330,7 @@ testcase_14_refuse_record_types() {
     {
         echo "[Resolve]"
         echo "RefuseRecordTypes=SRV"
-    } >/run/systemd/resolved.conf.d/refuserecords.conf
+    } >/run/systemd/resolved.conf.d/90-refuserecords.conf
     systemctl reload systemd-resolved.service
 
     (! run resolvectl service _mysvc._tcp signed.test)
@@ -1311,13 +1364,15 @@ testcase_15_wait_online_dns() {
         echo "[Resolve]"
         echo "DNS="
         echo "FallbackDNS="
-    } > "$override"
+    } >"$override"
     systemctl reload systemd-resolved.service
     resolvectl dns dns0 ""
     resolvectl domain dns0 ""
 
     # Stop systemd-resolved before calling systemd-networkd-wait-online. It should retry connections.
+    systemctl stop systemd-resolved-monitor.socket systemd-resolved-varlink.socket
     systemctl stop systemd-resolved.service
+    systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket
 
     # Begin systemd-networkd-wait-online --dns
     systemd-run -u "$unit" -p "Environment=SYSTEMD_LOG_LEVEL=debug" -p "Environment=SYSTEMD_LOG_TARGET=journal" --service-type=exec \
@@ -1331,7 +1386,7 @@ testcase_15_wait_online_dns() {
     {
         echo "[Resolve]"
         echo "DNS=10.0.0.1"
-    } > "$override"
+    } >"$override"
     systemctl restart systemd-resolved.service
 
     # Wait for the monitor to exit gracefully.
@@ -1339,10 +1394,10 @@ testcase_15_wait_online_dns() {
     journalctl --sync
 
     # Check that a disconnect happened, and was handled.
-    journalctl -b -u "$unit" --grep="DNS configuration monitor disconnected, reconnecting..." > /dev/null
+    journalctl -b -u "$unit" --grep="DNS configuration monitor disconnected, reconnecting..." >/dev/null
 
     # Check that dns0 was found to be online.
-    journalctl -b -u "$unit" --grep="dns0: link is configured by networkd and online." > /dev/null
+    journalctl -b -u "$unit" --grep="dns0: link is configured by networkd and online." >/dev/null
 }
 
 testcase_delegate() {
@@ -1389,7 +1444,6 @@ EOF
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
-systemctl service-log-level systemd-resolved.service debug
 
 # Need to be run before SETUP, otherwise things will break
 manual_testcase_01_resolvectl

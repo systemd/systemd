@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <sys/uio.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -31,104 +32,111 @@ int efi_get_variable(
                 void **ret_value,
                 size_t *ret_size) {
 
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_free_ void *buf = NULL;
-        struct stat st;
         usec_t begin = 0; /* Unnecessary initialization to appease gcc */
-        uint32_t a;
-        ssize_t n;
 
         assert(variable);
 
         const char *p = strjoina("/sys/firmware/efi/efivars/", variable);
-
-        if (!ret_value && !ret_size && !ret_attribute) {
-                /* If caller is not interested in anything, just check if the variable exists and is
-                 * readable. */
-                if (access(p, R_OK) < 0)
-                        return -errno;
-
-                return 0;
-        }
 
         if (DEBUG_LOGGING) {
                 log_debug("Reading EFI variable %s.", p);
                 begin = now(CLOCK_MONOTONIC);
         }
 
-        fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        _cleanup_close_ int fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return log_debug_errno(errno, "open(\"%s\") failed: %m", p);
 
-        if (fstat(fd, &st) < 0)
-                return log_debug_errno(errno, "fstat(\"%s\") failed: %m", p);
-        if (st.st_size < 4)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "EFI variable %s is shorter than 4 bytes, refusing.", p);
-        if (st.st_size > 4*1024*1024 + 4)
-                return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "EFI variable %s is ridiculously large, refusing.", p);
+        uint32_t attr;
+        _cleanup_free_ char *buf = NULL;
+        ssize_t n;
 
-        if (ret_value || ret_attribute) {
-                /* The kernel ratelimits reads from the efivarfs because EFI is inefficient, and we'll
-                 * occasionally fail with EINTR here. A slowdown is better than a failure for us, so
-                 * retry a few times and eventually fail with -EBUSY.
-                 *
-                 * See https://github.com/torvalds/linux/blob/master/fs/efivarfs/file.c#L75
-                 * and
-                 * https://github.com/torvalds/linux/commit/bef3efbeb897b56867e271cdbc5f8adaacaeb9cd.
-                 */
-                for (unsigned try = 0;; try++) {
-                        n = read(fd, &a, sizeof(a));
-                        if (n >= 0)
-                                break;
-                        log_debug_errno(errno, "Reading from \"%s\" failed: %m", p);
-                        if (errno != EINTR)
-                                return -errno;
-                        if (try >= EFI_N_RETRIES_TOTAL)
-                                return -EBUSY;
+        /* The kernel ratelimits reads from the efivarfs because EFI is inefficient, and we'll occasionally
+         * fail with EINTR here. A slowdown is better than a failure for us, so retry a few times and
+         * eventually fail with -EBUSY.
+         *
+         * See https://github.com/torvalds/linux/blob/master/fs/efivarfs/file.c#L75 and
+         * https://github.com/torvalds/linux/commit/bef3efbeb897b56867e271cdbc5f8adaacaeb9cd.
+         *
+         * The variable may also be overwritten between the stat and read. If we find out that the new
+         * contents are longer, try again.
+         */
+        for (unsigned try = 0;; try++) {
+                struct stat st;
 
-                        if (try >= EFI_N_RETRIES_NO_DELAY)
-                                (void) usleep_safe(EFI_RETRY_DELAY);
-                }
-
-                /* Unfortunately kernel reports EOF if there's an inconsistency between efivarfs var list
-                 * and what's actually stored in firmware, c.f. #34304. A zero size env var is not allowed in
-                 * efi and hence the variable doesn't really exist in the backing store as long as it is zero
-                 * sized, and the kernel calls this "uncommitted". Hence we translate EOF back to ENOENT here,
-                 * as with kernel behavior before
-                 * https://github.com/torvalds/linux/commit/3fab70c165795431f00ddf9be8b84ddd07bd1f8f
-                 *
-                 * If the kernel changes behaviour (to flush dentries on resume), we can drop
-                 * this at some point in the future. But note that the commit is 11
-                 * years old at this point so we'll need to deal with the current behaviour for
-                 * a long time.
-                 */
-                if (n == 0)
+                if (fstat(fd, &st) < 0)
+                        return log_debug_errno(errno, "fstat(\"%s\") failed: %m", p);
+                if (st.st_size == 0)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
                                                "EFI variable %s is uncommitted", p);
+                if (st.st_size < 4)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "EFI variable %s is shorter than 4 bytes, refusing.", p);
+                if (st.st_size > 4*1024*1024 + 4)
+                        return log_debug_errno(SYNTHETIC_ERRNO(E2BIG), "EFI variable %s is ridiculously large, refusing.", p);
 
-                if (n != sizeof(a))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Read %zi bytes from EFI variable %s, expected %zu.",  n, p, sizeof(a));
+                if (!ret_attribute && !ret_value) {
+                        /* No need to read anything, return the reported size. */
+                        n = st.st_size;
+                        break;
+                }
+
+                /* We want +1 for the read call, and +3 for the additional terminating bytes added below. */
+                char *t = realloc(buf, (size_t) st.st_size + MAX(1, 3));
+                if (!t)
+                        return -ENOMEM;
+                buf = t;
+
+                const struct iovec iov[] = {
+                        { &attr, sizeof(attr) },
+                        { buf, (size_t) st.st_size + 1 },
+                };
+
+                n = readv(fd, iov, 2);
+                assert(n <= st.st_size + 1);
+                if (n == st.st_size + 1)
+                        /* We need to try again with a bigger buffer. */
+                        continue;
+                if (n >= 0)
+                        break;
+
+                log_debug_errno(errno, "Reading from \"%s\" failed: %m", p);
+                if (errno != EINTR)
+                        return -errno;
+                if (try >= EFI_N_RETRIES_TOTAL)
+                        return -EBUSY;
+                if (try >= EFI_N_RETRIES_NO_DELAY)
+                        (void) usleep_safe(EFI_RETRY_DELAY);
         }
 
+        /* Unfortunately kernel reports EOF if there's an inconsistency between efivarfs var list and
+         * what's actually stored in firmware, c.f. #34304. A zero size env var is not allowed in EFI
+         * and hence the variable doesn't really exist in the backing store as long as it is zero
+         * sized, and the kernel calls this "uncommitted". Hence we translate EOF back to ENOENT
+         * here, as with kernel behavior before
+         * https://github.com/torvalds/linux/commit/3fab70c165795431f00ddf9be8b84ddd07bd1f8f.
+         *
+         * If the kernel changes behaviour (to flush dentries on resume), we can drop this at some
+         * point in the future. But note that the commit is 11 years old at this point so we'll need
+         * to deal with the current behaviour for a long time.
+         */
+        if (n == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "EFI variable %s is uncommitted", p);
+        if (n < 4)
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Read %zi bytes from EFI variable %s, expected >= 4", n, p);
+
+        if (ret_attribute)
+                *ret_attribute = attr;
         if (ret_value) {
-                buf = malloc(st.st_size - 4 + 3);
-                if (!buf)
-                        return -ENOMEM;
-
-                n = read(fd, buf, (size_t) st.st_size - 4);
-                if (n < 0)
-                        return log_debug_errno(errno, "Failed to read value of EFI variable %s: %m", p);
-                assert(n <= st.st_size - 4);
-
-                /* Always NUL-terminate (3 bytes, to properly protect UTF-16, even if truncated in the middle
-                 * of a character) */
-                ((char*) buf)[n] = 0;
-                ((char*) buf)[n + 1] = 0;
-                ((char*) buf)[n + 2] = 0;
-        } else
-                /* Assume that the reported size is accurate */
-                n = st.st_size - 4;
+                assert(buf);
+                /* Always NUL-terminate (3 bytes, to properly protect UTF-16, even if truncated in
+                 * the middle of a character) */
+                buf[n - 4] = 0;
+                buf[n - 4 + 1] = 0;
+                buf[n - 4 + 2] = 0;
+                *ret_value = TAKE_PTR(buf);
+        }
 
         if (DEBUG_LOGGING) {
                 usec_t end = now(CLOCK_MONOTONIC);
@@ -140,22 +148,15 @@ int efi_get_variable(
         /* Note that efivarfs interestingly doesn't require ftruncate() to update an existing EFI variable
          * with a smaller value. */
 
-        if (ret_attribute)
-                *ret_attribute = a;
-
-        if (ret_value)
-                *ret_value = TAKE_PTR(buf);
-
         if (ret_size)
-                *ret_size = n;
+                *ret_size = n - 4;
 
         return 0;
 }
 
 int efi_get_variable_string(const char *variable, char **ret) {
-        _cleanup_free_ void *s = NULL;
+        _cleanup_free_ void *s = NULL, *x = NULL;
         size_t ss = 0;
-        char *x;
         int r;
 
         assert(variable);
@@ -169,7 +170,7 @@ int efi_get_variable_string(const char *variable, char **ret) {
                 return -ENOMEM;
 
         if (ret)
-                *ret = x;
+                *ret = TAKE_PTR(x);
 
         return 0;
 }
@@ -208,10 +209,10 @@ static int efi_verify_variable(const char *variable, uint32_t attr, const void *
 int efi_set_variable(const char *variable, const void *value, size_t size) {
         static const uint32_t attr = EFI_VARIABLE_NON_VOLATILE|EFI_VARIABLE_BOOTSERVICE_ACCESS|EFI_VARIABLE_RUNTIME_ACCESS;
 
-        struct var {
+        _cleanup_free_ struct var {
                 uint32_t attr;
                 char buf[];
-        } _packed_ * _cleanup_free_ buf = NULL;
+        } _packed_ *buf = NULL;
         _cleanup_close_ int fd = -EBADF;
         bool saved_flags_valid = false;
         unsigned saved_flags;

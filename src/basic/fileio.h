@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #define LONG_LINE_MAX (1U*1024U*1024U)
 
@@ -92,7 +92,7 @@ int script_get_shebang_interpreter(const char *path, char **ret);
 
 int get_proc_field(const char *path, const char *key, char **ret);
 
-DIR* xopendirat(int dir_fd, const char *name, int flags);
+DIR* xopendirat(int dir_fd, const char *path, int flags);
 
 typedef enum XfopenFlags {
         XFOPEN_UNLOCKED = 1 << 0, /* call __fsetlocking(FSETLOCKING_BYCALLER) after opened */

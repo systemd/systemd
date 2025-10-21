@@ -12,6 +12,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-messages.h"
+#include "sd-netlink.h"
 #include "sd-path.h"
 
 #include "all-units.h"
@@ -136,7 +137,7 @@ static usec_t manager_watch_jobs_next_time(Manager *m) {
                 /* Let the user manager without a timeout show status quickly, so the system manager can make
                  * use of it, if it wants to. */
                 timeout = JOBS_IN_PROGRESS_WAIT_USEC * 2 / 3;
-        else if (show_status_on(m->show_status))
+        else if (manager_get_show_status_on(m))
                 /* When status is on, just use the usual timeout. */
                 timeout = JOBS_IN_PROGRESS_WAIT_USEC;
         else
@@ -1753,7 +1754,7 @@ Manager* manager_free(Manager *m) {
         free(m->watchdog_pretimeout_governor);
         free(m->watchdog_pretimeout_governor_overridden);
 
-        fw_ctx_free(m->fw_ctx);
+        sd_netlink_unref(m->nfnl);
 
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
@@ -3416,7 +3417,7 @@ void manager_send_unit_audit(Manager *m, Unit *u, int type, bool success) {
         }
 
         msg = strjoina("unit=", p);
-        if (audit_log_user_comm_message(audit_fd, type, msg, "systemd", NULL, NULL, NULL, success) < 0) {
+        if (sym_audit_log_user_comm_message(audit_fd, type, msg, "systemd", NULL, NULL, NULL, success) < 0) {
                 if (ERRNO_IS_PRIVILEGE(errno)) {
                         /* We aren't allowed to send audit messages?  Then let's not retry again. */
                         log_debug_errno(errno, "Failed to send audit message, closing audit socket: %m");
@@ -3953,6 +3954,7 @@ static int manager_run_environment_generators(Manager *m) {
 
         WITH_UMASK(0022)
                 r = execute_directories(
+                                "environment-generators",
                                 (const char* const*) paths,
                                 DEFAULT_TIMEOUT_USEC,
                                 gather_environment,
@@ -4070,6 +4072,7 @@ static int manager_execute_generators(Manager *m, char * const *paths, bool remo
 
         BLOCK_WITH_UMASK(0022);
         return execute_directories(
+                        "generators",
                         (const char* const*) paths,
                         DEFAULT_TIMEOUT_USEC,
                         /* callbacks= */ NULL, /* callback_args= */ NULL,
@@ -4522,10 +4525,10 @@ static bool manager_should_show_status(Manager *m, StatusType type) {
                 return false;
 
         /* If we cannot find out the status properly, just proceed. */
-        if (type != STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
+        if (type < STATUS_TYPE_EMERGENCY && manager_check_ask_password(m) > 0)
                 return false;
 
-        if (type == STATUS_TYPE_NOTICE && m->show_status != SHOW_STATUS_NO)
+        if (type >= STATUS_TYPE_NOTICE && manager_get_show_status(m) != SHOW_STATUS_NO)
                 return true;
 
         return manager_get_show_status_on(m);

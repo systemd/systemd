@@ -472,10 +472,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_RECURSIVE_ERRORS:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(recursive_errors, RecursiveErrors, _RECURSIVE_ERRORS_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(recursive_errors, RecursiveErrors, _RECURSIVE_ERRORS_MAX);
+
                         r = recursive_errors_from_string(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Unknown mode passed to --recursive-errors='%s'.", optarg);

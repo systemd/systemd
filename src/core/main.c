@@ -255,6 +255,22 @@ static int console_setup(void) {
         return 0;
 }
 
+static int parse_timeout(const char *value, usec_t *ret) {
+        int r = 0;
+
+        assert(value);
+        assert(ret);
+
+        if (streq(value, "default"))
+                *ret = USEC_INFINITY;
+        else if (streq(value, "off"))
+                *ret = 0;
+        else
+                r = parse_sec(value, ret);
+
+        return r;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
 
@@ -456,16 +472,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (streq(value, "default"))
-                        arg_runtime_watchdog = USEC_INFINITY;
-                else if (streq(value, "off"))
-                        arg_runtime_watchdog = 0;
-                else {
-                        r = parse_sec(value, &arg_runtime_watchdog);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to parse systemd.watchdog_sec= argument '%s', ignoring: %m", value);
-                                return 0;
-                        }
+                r = parse_timeout(value, &arg_runtime_watchdog);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse systemd.watchdog_sec= argument '%s', ignoring: %m", value);
+                        return 0;
                 }
 
                 arg_kexec_watchdog = arg_reboot_watchdog = arg_runtime_watchdog;
@@ -475,16 +485,10 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (streq(value, "default"))
-                        arg_pretimeout_watchdog = USEC_INFINITY;
-                else if (streq(value, "off"))
-                        arg_pretimeout_watchdog = 0;
-                else {
-                        r = parse_sec(value, &arg_pretimeout_watchdog);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to parse systemd.watchdog_pre_sec= argument '%s', ignoring: %m", value);
-                                return 0;
-                        }
+                r = parse_timeout(value, &arg_pretimeout_watchdog);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse systemd.watchdog_pre_sec= argument '%s', ignoring: %m", value);
+                        return 0;
                 }
 
         } else if (proc_cmdline_key_streq(key, "systemd.watchdog_pretimeout_governor")) {
@@ -2806,25 +2810,23 @@ static int parse_configuration(const struct rlimit *saved_rlimit_nofile,
                         log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
         }
 
-        /* Initialize some default rlimits for services if they haven't been configured */
-        fallback_rlimit_nofile(saved_rlimit_nofile);
-        fallback_rlimit_memlock(saved_rlimit_memlock);
-
-        /* Note that this also parses bits from the kernel command line, including "debug". */
-        log_parse_environment();
-
-        /* Initialize the show status setting if it hasn't been set explicitly yet */
+        /* Initialize the show status setting if it hasn't been explicitly set yet */
         if (arg_show_status == _SHOW_STATUS_INVALID)
                 arg_show_status = SHOW_STATUS_YES;
-
-        /* Slightly raise the OOM score for our services if we are running for unprivileged users. */
-        determine_default_oom_score_adjust();
 
         /* Push variables into the manager environment block */
         setenv_manager_environment();
 
-        /* Parse log environment variables again to take into account any new environment variables. */
+        /* Parse log environment variables to take into account any new environment variables.
+         * Note that this also parses bits from the kernel command line, including "debug". */
         log_parse_environment();
+
+        /* Initialize some default rlimits for services if they haven't been configured */
+        fallback_rlimit_nofile(saved_rlimit_nofile);
+        fallback_rlimit_memlock(saved_rlimit_memlock);
+
+        /* Slightly raise the OOM score for our services if we are running for unprivileged users. */
+        determine_default_oom_score_adjust();
 
         return 0;
 }

@@ -3,9 +3,9 @@
 
 /* To make struct xattr_args defined, which is used by setxattrat(). Note, the kernel header must be
  * included before the glibc header, otherwise the struct will not be defined. */
-#include <linux/xattr.h>
+#include <linux/xattr.h>        /* IWYU pragma: export */
 
-#include_next <sys/xattr.h>
+#include_next <sys/xattr.h>     /* IWYU pragma: export */
 
 /* Supported since kernel v6.13 (6140be90ec70c39fa844741ca3cc807dd0866394). */
 #if !HAVE_SETXATTRAT

@@ -67,7 +67,7 @@ options    root=PARTUUID=084917b7-8be2-4e86-838d-f771a9902e08
 title      My kernel with initrd
 linux      /bzImage
 initrd     /initrd.img
-options    root=PARTUUID=084917b7-8be2-4e86-838d-f771a9902e08 quiet`
+options    root=PARTUUID=084917b7-8be2-4e86-838d-f771a9902e08 quiet
 ```
 
 

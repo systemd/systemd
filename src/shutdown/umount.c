@@ -69,17 +69,17 @@ int mount_points_list_get(FILE *f, MountPoint **head) {
                 bool try_remount_ro, is_api_vfs, is_network;
                 _cleanup_free_ MountPoint *m = NULL;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1) /* EOF */
                         break;
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                path = mnt_fs_get_target(fs);
+                path = sym_mnt_fs_get_target(fs);
                 if (!path)
                         continue;
 
-                fstype = mnt_fs_get_fstype(fs);
+                fstype = sym_mnt_fs_get_fstype(fs);
 
                 /* Combine the generic VFS options with the FS-specific options. Duplicates are not a problem
                  * here, because the only options that should come up twice are typically ro/rw, which are
@@ -87,9 +87,9 @@ int mount_points_list_get(FILE *f, MountPoint **head) {
                  *
                  * Even if there are duplicates later in mount_option_mangle() they shouldn't hurt anyways as
                  * they override each other. */
-                if (!strextend_with_separator(&options, ",", mnt_fs_get_vfs_options(fs)))
+                if (!strextend_with_separator(&options, ",", sym_mnt_fs_get_vfs_options(fs)))
                         return log_oom();
-                if (!strextend_with_separator(&options, ",", mnt_fs_get_fs_options(fs)))
+                if (!strextend_with_separator(&options, ",", sym_mnt_fs_get_fs_options(fs)))
                         return log_oom();
 
                 /* Ignore mount points we can't unmount because they are API or because we are keeping them
@@ -122,7 +122,7 @@ int mount_points_list_get(FILE *f, MountPoint **head) {
                          * were when the filesystem was mounted, except for the desired changes. So we
                          * reconstruct both here and adjust them for the later remount call too. */
 
-                        r = mnt_fs_get_propagation(fs, &remount_flags);
+                        r = sym_mnt_fs_get_propagation(fs, &remount_flags);
                         if (r < 0) {
                                 log_warning_errno(r, "mnt_fs_get_propagation() failed for %s, ignoring: %m", path);
                                 continue;

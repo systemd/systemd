@@ -9,7 +9,7 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-option.h"
-#include "forward.h"
+#include "sd-forward.h"
 #include "list.h"
 
 struct sd_dhcp_route {

@@ -10,8 +10,6 @@ set -o pipefail
 # kernels where the concept was still new.
 
 if test -f /sys/fs/cgroup/system.slice/TEST-32-OOMPOLICY.service/memory.oom.group; then
-    systemd-analyze log-level debug
-
     # Run a service that is guaranteed to be the first candidate for OOM killing
     systemd-run --unit=oomtest.service \
                 -p Type=exec -p OOMScoreAdjust=1000 -p OOMPolicy=stop -p MemoryAccounting=yes \
@@ -29,8 +27,6 @@ if test -f /sys/fs/cgroup/system.slice/TEST-32-OOMPOLICY.service/memory.oom.grou
 
     RESULT="$(systemctl show -P Result oomtest.service)"
     test "$RESULT" = "oom-kill"
-
-    systemd-analyze log-level info
 fi
 
 touch /testok

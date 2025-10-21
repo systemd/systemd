@@ -12,6 +12,7 @@
 #include "format-util.h"
 #include "import-common.h"
 #include "log.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ratelimit.h"
@@ -19,8 +20,6 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
-
-#define COPY_BUFFER_SIZE (16*1024)
 
 typedef struct TarExport {
         sd_event *event;
@@ -45,7 +44,7 @@ typedef struct TarExport {
         uint64_t written_compressed;
         uint64_t written_uncompressed;
 
-        pid_t tar_pid;
+        PidRef tar_pid;
 
         struct stat st;
         uint64_t quota_referenced;
@@ -63,8 +62,7 @@ TarExport *tar_export_unref(TarExport *e) {
 
         sd_event_source_unref(e->output_event_source);
 
-        if (e->tar_pid > 1)
-                sigkill_wait(e->tar_pid);
+        pidref_done_sigkill_wait(&e->tar_pid);
 
         if (e->temp_path) {
                 (void) btrfs_subvol_remove(e->temp_path, BTRFS_REMOVE_QUOTA);
@@ -105,6 +103,7 @@ int tar_export_new(
                 .quota_referenced = UINT64_MAX,
                 .last_percent = UINT_MAX,
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
+                .tar_pid = PIDREF_NULL,
         };
 
         if (event)
@@ -160,10 +159,13 @@ static int tar_export_finish(TarExport *e) {
         assert(e);
         assert(e->tar_fd >= 0);
 
-        if (e->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", TAKE_PID(e->tar_pid), WAIT_LOG);
+        if (pidref_is_set(&e->tar_pid)) {
+                r = pidref_wait_for_terminate_and_check("tar", &e->tar_pid, WAIT_LOG);
                 if (r < 0)
                         return r;
+
+                pidref_done(&e->tar_pid);
+
                 if (r != EXIT_SUCCESS)
                         return -EPROTO;
         }
@@ -181,7 +183,7 @@ static int tar_export_process(TarExport *e) {
 
         if (!e->tried_splice && e->compress.type == IMPORT_COMPRESS_UNCOMPRESSED) {
 
-                l = splice(e->tar_fd, NULL, e->output_fd, NULL, COPY_BUFFER_SIZE, 0);
+                l = splice(e->tar_fd, NULL, e->output_fd, NULL, IMPORT_BUFFER_SIZE, 0);
                 if (l < 0) {
                         if (errno == EAGAIN)
                                 return 0;
@@ -201,7 +203,7 @@ static int tar_export_process(TarExport *e) {
         }
 
         while (e->buffer_size <= 0) {
-                uint8_t input[COPY_BUFFER_SIZE];
+                uint8_t input[IMPORT_BUFFER_SIZE];
 
                 if (e->eof) {
                         r = tar_export_finish(e);

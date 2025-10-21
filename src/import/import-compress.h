@@ -10,7 +10,7 @@
 #include <zstd.h>
 #endif
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum ImportCompressType {
         IMPORT_COMPRESS_UNKNOWN,

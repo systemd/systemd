@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include_next <malloc.h>
+#include_next <malloc.h>        /* IWYU pragma: export */
 
 #if !HAVE_MALLINFO2
 struct mallinfo2 {

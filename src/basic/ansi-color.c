@@ -3,7 +3,6 @@
 #include <stdlib.h>
 
 #include "ansi-color.h"
-#include "log.h"
 #include "process-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -36,18 +35,20 @@ void reset_ansi_feature_caches(void) {
 ColorMode parse_systemd_colors(void) {
         const char *e;
 
+        /* Note: do not log in this function, to avoid infinite recursion issues, as the log functions call
+         * this when deciding whether to color the output. */
+
         e = getenv("SYSTEMD_COLORS");
         if (!e)
                 return _COLOR_MODE_INVALID;
 
-        ColorMode m = color_mode_from_string(e);
-        if (m < 0)
-                return log_debug_errno(m, "Failed to parse $SYSTEMD_COLORS value '%s', ignoring: %m", e);
-
-        return m;
+        return color_mode_from_string(e);
 }
 
 static ColorMode get_color_mode_impl(void) {
+        /* Note: do not log in this function, to avoid infinite recursion issues, as the log functions call
+         * this when deciding whether to color the output. */
+
         /* Returns the mode used to choose output colors. The possible modes are COLOR_OFF for no colors,
          * COLOR_16 for only the base 16 ANSI colors, COLOR_256 for more colors, and COLOR_24BIT for
          * unrestricted color output. */

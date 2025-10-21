@@ -14,7 +14,7 @@ executables += [
                         libshared_fdisk,
                 ],
                 'dependencies' : [
-                        libblkid,
+                        libblkid_cflags,
                         libfdisk,
                         libopenssl,
                         threads,
@@ -33,7 +33,7 @@ executables += [
                         libsystemd_static,
                 ],
                 'dependencies' : [
-                        libblkid,
+                        libblkid_cflags,
                         libfdisk,
                         libopenssl,
                         threads,

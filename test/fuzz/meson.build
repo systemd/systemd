@@ -23,7 +23,7 @@ unit_directives = []
 foreach section : ['Automount', 'Mount', 'Path', 'Scope', 'Service', 'Slice', 'Socket', 'Swap', 'Timer']
         unit_type = section.to_lower()
         sec_rx = section == 'Service' ? '(Service|Unit|Install)' : section
-        name = 'directives.@0@'.format(unit_type)
+        name = f'directives.@unit_type@'
         unit_directives += custom_target(
                 output: name,
                 command: [generate_directives_py, load_fragment_gperf_gperf, sec_rx, unit_type],

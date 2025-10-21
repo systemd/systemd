@@ -6,10 +6,10 @@
 #include <unistd.h>
 
 #include "sd-event.h"
+#include "sd-json.h"
 #include "sd-lldp-rx.h"
 
 #include "fd-util.h"
-#include "json-util.h"
 #include "lldp-neighbor.h"
 #include "lldp-network.h"
 #include "tests.h"

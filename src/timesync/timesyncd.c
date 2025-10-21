@@ -151,6 +151,7 @@ static int run(int argc, char *argv[]) {
         r = service_parse_argv("systemd-timesyncd.service",
                                "Network time synchronization",
                                BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

@@ -121,8 +121,8 @@ After=basic.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'echo "$EXPECTED_OUTPUT"  > "$guest_output"'
-ExecStartPost=/usr/bin/systemctl --no-block exit 0
+ExecStart=sh -c 'echo "$EXPECTED_OUTPUT"  > "$guest_output"'
+ExecStartPost=systemctl --no-block exit 0
 TimeoutStopSec=15s
 
 [Install]

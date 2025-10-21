@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <mntent.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -33,6 +32,7 @@
 #include "hexdecoct.h"
 #include "json-util.h"
 #include "libfido2-util.h"
+#include "libmount-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memory-util.h"
@@ -732,26 +732,37 @@ static char* disk_description(const char *path) {
         return NULL;
 }
 
-static char *disk_mount_point(const char *label) {
+static char* disk_mount_point(const char *label) {
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_free_ char *device = NULL;
-        _cleanup_endmntent_ FILE *f = NULL;
-        struct mntent *m;
+        int r;
 
         /* Yeah, we don't support native systemd unit files here for now */
+
+        assert(label);
 
         device = strjoin("/dev/mapper/", label);
         if (!device)
                 return NULL;
 
-        f = setmntent(fstab_path(), "re");
-        if (!f)
+        r = libmount_parse_fstab(&table, &iter);
+        if (r < 0)
                 return NULL;
 
-        while ((m = getmntent(f)))
-                if (path_equal(m->mnt_fsname, device))
-                        return strdup(m->mnt_dir);
+        for (;;) {
+                struct libmnt_fs *fs;
 
-        return NULL;
+                r = sym_mnt_table_next_fs(table, iter, &fs);
+                if (r != 0)
+                        return NULL;
+
+                if (path_equal(sym_mnt_fs_get_source(fs), device)) {
+                        const char *target = sym_mnt_fs_get_target(fs);
+                        if (target)
+                                return strdup(target);
+                }
+        }
 }
 
 static char *friendly_disk_name(const char *src, const char *vol) {

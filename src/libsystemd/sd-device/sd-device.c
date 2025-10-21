@@ -150,8 +150,8 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                 r = chase(_syspath, NULL, 0, &syspath, &fd);
                 if (r == -ENOENT)
                          /* the device does not exist (any more?) */
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
-                                               "sd-device: Failed to chase symlinks in \"%s\".", _syspath);
+                        return log_trace_errno(SYNTHETIC_ERRNO(ENODEV),
+                                               "sd-device: Device \"%s\" not found.", _syspath);
                 if (r < 0)
                         return log_debug_errno(r, "sd-device: Failed to get target of '%s': %m", _syspath);
 
@@ -2643,6 +2643,25 @@ int device_get_sysattr_u32(sd_device *device, const char *sysattr, uint32_t *ret
 
         uint32_t v;
         r = safe_atou32(value, &v);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to parse '%s' attribute: %m", sysattr);
+
+        if (ret_value)
+                *ret_value = v;
+        /* We return "true" if the value is positive. */
+        return v > 0;
+}
+
+int device_get_sysattr_u64(sd_device *device, const char *sysattr, uint64_t *ret_value) {
+        const char *value;
+        int r;
+
+        r = sd_device_get_sysattr_value(device, sysattr, &value);
+        if (r < 0)
+                return r;
+
+        uint64_t v;
+        r = safe_atou64(value, &v);
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to parse '%s' attribute: %m", sysattr);
 

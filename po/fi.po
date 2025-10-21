@@ -2,13 +2,13 @@
 #
 # Finnish translation of systemd.
 # Jan Kuparinen <copper_fin@hotmail.com>, 2021, 2022, 2023.
-# Ricky Tigg <ricky.tigg@gmail.com>, 2022, 2024.
+# Ricky Tigg <ricky.tigg@gmail.com>, 2022, 2024, 2025.
 # Jiri Grönroos <jiri.gronroos@iki.fi>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2024-12-20 15:38+0000\n"
+"PO-Revision-Date: 2025-09-04 00:52+0000\n"
 "Last-Translator: Ricky Tigg <ricky.tigg@gmail.com>\n"
 "Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
 "main/fi/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.9.1\n"
+"X-Generator: Weblate 5.13\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -147,14 +147,13 @@ msgstr "Todennus vaaditaan käyttäjän kotialueen aktivoimiseksi."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Hallitse kotihakemiston allekirjoitusavaimia"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Todennus vaaditaan järjestelmäpalvelujen tai muiden yksiköiden hallintaan."
+"Todennus vaaditaan kotihakemistojen allekirjoitusavaimien hallitsemista "
+"varten."
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
@@ -886,18 +885,14 @@ msgid ""
 msgstr "Todennus vaaditaan paikallisen virtuaalikoneen tai säilön luomiseen."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "Luo paikallinen virtuaalikone tai säilö"
+msgstr "Rekisteröi paikallinen virtuaalikone tai kontti"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
-msgstr "Todennus vaaditaan paikallisen virtuaalikoneen tai säilön luomiseen."
+msgstr ""
+"Todennus vaaditaan paikallisen virtuaalikoneen tai kontin rekisteröimiseksi."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -1130,13 +1125,11 @@ msgstr "Todennus vaaditaan kyselytulosten tilaamiseen."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Tilaa DNS-määritys"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "Todennus vaaditaan kyselytulosten tilaamiseen."
+msgstr "Todennus vaaditaan DNS-määrityksen tilaamista varten."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1279,15 +1272,12 @@ msgstr ""
 "Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
-"Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
+"Todennus vaaditaan UNIX-signaalin lähettämiseksi '$(unit)'-aliryhmän "
+"prosesseille."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."

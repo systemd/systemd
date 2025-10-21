@@ -734,6 +734,9 @@ static int count_known_files(const BootConfig *config, const char* root, Hashmap
                 r = ref_file(&known_files, e->efi, +1);
                 if (r < 0)
                         return r;
+                r = ref_file(&known_files, e->uki, +1);
+                if (r < 0)
+                        return r;
                 STRV_FOREACH(s, e->initrd) {
                         r = ref_file(&known_files, *s, +1);
                         if (r < 0)
@@ -792,6 +795,7 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
 
         deref_unlink_file(&known_files, e->kernel, e->root);
         deref_unlink_file(&known_files, e->efi, e->root);
+        deref_unlink_file(&known_files, e->uki, e->root);
         STRV_FOREACH(s, e->initrd)
                 deref_unlink_file(&known_files, *s, e->root);
         deref_unlink_file(&known_files, e->device_tree, e->root);
@@ -927,10 +931,6 @@ int verb_list(int argc, char *argv[], void *userdata) {
                         r = unlink_entry(&config, arg_xbootldr_path, argv[1]);
                 return RET_GATHER(r, unlink_entry(&config, arg_esp_path, argv[1]));
         }
-}
-
-int verb_unlink(int argc, char *argv[], void *userdata) {
-        return verb_list(argc, argv, userdata);
 }
 
 int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

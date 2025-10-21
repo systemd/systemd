@@ -288,15 +288,20 @@ int fchmod_opath(int fd, mode_t m) {
          * - fchmod(2) only operates on open files (i. e., fds with an open file description);
          * - fchmodat(2) does not have a flag arg like fchownat(2) does, so no way to pass AT_EMPTY_PATH;
          *   + it should not be confused with the libc fchmodat(3) interface, which adds 4th flag argument,
-         *     but does not support AT_EMPTY_PATH (only supports AT_SYMLINK_NOFOLLOW);
+         *     and supports AT_EMPTY_PATH since v2.39 (previously only supported AT_SYMLINK_NOFOLLOW). So if
+         *     the kernel has fchmodat2(2), since v2.39 glibc will call into it directly. If the kernel
+         *     doesn't, or glibc is older than v2.39, glibc's internal fallback will return EINVAL if
+         *     AT_EMPTY_PATH is passed.
          * - fchmodat2(2) supports all the AT_* flags, but is still very recent.
          *
-         * We try to use fchmodat2(), and, if it is not supported, resort
-         * to the /proc/self/fd dance. */
+         * We try to use fchmodat(3) first, and on EINVAL fall back to fchmodat2(), and, if that is also not
+         * supported, resort to the /proc/self/fd dance. */
 
         assert(fd >= 0);
 
-        if (fchmodat2(fd, "", m, AT_EMPTY_PATH) >= 0)
+        if (fchmodat(fd, "", m, AT_EMPTY_PATH) >= 0)
+                return 0;
+        if (errno == EINVAL && fchmodat2(fd, "", m, AT_EMPTY_PATH) >= 0) /* glibc too old? */
                 return 0;
         if (!IN_SET(errno, ENOSYS, EPERM)) /* Some container managers block unknown syscalls with EPERM */
                 return -errno;
@@ -423,76 +428,76 @@ int touch(const char *path) {
         return touch_file(path, false, USEC_INFINITY, UID_INVALID, GID_INVALID, MODE_INVALID);
 }
 
-int symlinkat_idempotent(const char *from, int atfd, const char *to, bool make_relative) {
+int symlinkat_idempotent(const char *target, int atfd, const char *linkpath, bool make_relative) {
         _cleanup_free_ char *relpath = NULL;
         int r;
 
-        assert(from);
-        assert(to);
+        assert(target);
+        assert(linkpath);
 
         if (make_relative) {
-                r = path_make_relative_parent(to, from, &relpath);
+                r = path_make_relative_parent(linkpath, target, &relpath);
                 if (r < 0)
                         return r;
 
-                from = relpath;
+                target = relpath;
         }
 
-        if (symlinkat(from, atfd, to) < 0) {
+        if (symlinkat(target, atfd, linkpath) < 0) {
                 _cleanup_free_ char *p = NULL;
 
                 if (errno != EEXIST)
                         return -errno;
 
-                r = readlinkat_malloc(atfd, to, &p);
+                r = readlinkat_malloc(atfd, linkpath, &p);
                 if (r == -EINVAL) /* Not a symlink? In that case return the original error we encountered: -EEXIST */
                         return -EEXIST;
                 if (r < 0) /* Any other error? In that case propagate it as is */
                         return r;
 
-                if (!streq(p, from)) /* Not the symlink we want it to be? In that case, propagate the original -EEXIST */
+                if (!streq(p, target)) /* Not the symlink we want it to be? In that case, propagate the original -EEXIST */
                         return -EEXIST;
         }
 
         return 0;
 }
 
-int symlinkat_atomic_full(const char *from, int atfd, const char *to, SymlinkFlags flags) {
+int symlinkat_atomic_full(const char *target, int atfd, const char *linkpath, SymlinkFlags flags) {
         int r;
 
-        assert(from);
-        assert(to);
+        assert(target);
+        assert(linkpath);
 
         _cleanup_free_ char *relpath = NULL;
         if (FLAGS_SET(flags, SYMLINK_MAKE_RELATIVE)) {
-                r = path_make_relative_parent(to, from, &relpath);
+                r = path_make_relative_parent(linkpath, target, &relpath);
                 if (r < 0)
                         return r;
 
-                from = relpath;
+                target = relpath;
         }
 
         _cleanup_free_ char *t = NULL;
-        r = tempfn_random(to, NULL, &t);
+        r = tempfn_random(linkpath, NULL, &t);
         if (r < 0)
                 return r;
 
         bool call_label_ops_post = false;
         if (FLAGS_SET(flags, SYMLINK_LABEL)) {
-                r = label_ops_pre(atfd, to, S_IFLNK);
+                r = label_ops_pre(atfd, linkpath, S_IFLNK);
                 if (r < 0)
                         return r;
 
                 call_label_ops_post = true;
         }
 
-        r = RET_NERRNO(symlinkat(from, atfd, t));
+        r = RET_NERRNO(symlinkat(target, atfd, t));
         if (call_label_ops_post)
                 RET_GATHER(r, label_ops_post(atfd, t, /* created= */ r >= 0));
         if (r < 0)
                 return r;
 
-        r = RET_NERRNO(renameat(atfd, t, atfd, to));
+        r = RET_NERRNO(renameat(atfd, t, atfd, linkpath));
         if (r < 0) {
                 (void) unlinkat(atfd, t, 0);
                 return r;

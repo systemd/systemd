@@ -4,7 +4,7 @@
 #include "sd-id128.h"
 
 #include "fd-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 #define CREDENTIAL_NAME_MAX FDNAME_MAX
 
@@ -54,11 +54,12 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret);
 int get_credential_user_password(const char *username, char **ret_password, bool *ret_is_hashed);
 
 typedef enum CredentialFlags {
-        CREDENTIAL_ALLOW_NULL            = 1 << 0, /* allow decryption of NULL key, even if TPM is around */
-        CREDENTIAL_ANY_SCOPE             = 1 << 1, /* allow decryption of both system and user credentials */
+        CREDENTIAL_ALLOW_NULL            = 1 << 0, /* allow decryption with NULL key, even if TPM is around */
+        CREDENTIAL_REFUSE_NULL           = 1 << 1, /* deny decryption with NULL key, even if SecureBoot is off */
+        CREDENTIAL_ANY_SCOPE             = 1 << 2, /* allow decryption of both system and user credentials */
 
         /* Only used by ipc_{encrypt,decrypt}_credential */
-        CREDENTIAL_IPC_ALLOW_INTERACTIVE = 1 << 2,
+        CREDENTIAL_IPC_ALLOW_INTERACTIVE = 1 << 3,
 } CredentialFlags;
 
 /* The four modes we support: keyed only by on-disk key, only by TPM2 HMAC key, and by the combination of
@@ -102,3 +103,12 @@ typedef struct PickUpCredential {
 } PickUpCredential;
 
 int pick_up_credentials(const PickUpCredential *table, size_t n_table_entry);
+
+typedef struct CredentialsVarlinkError {
+        const char *id;
+        int errnum;
+        const char *msg;
+} CredentialsVarlinkError;
+
+const CredentialsVarlinkError* credentials_varlink_error_by_id(const char *id) _pure_;
+const CredentialsVarlinkError* credentials_varlink_error_by_errno(int errnum) _const_;

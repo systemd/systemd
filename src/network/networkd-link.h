@@ -4,7 +4,6 @@
 #include <linux/nl80211.h>
 
 #include "ether-addr-util.h"
-#include "forward.h"
 #include "network-util.h"
 #include "networkd-bridge-vlan.h"
 #include "networkd-forward.h"

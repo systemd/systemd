@@ -75,7 +75,6 @@ _arguments \
     '(-p --print-esp-path)'{-p,--print-esp-path}'[Print path to the EFI system partition]' \
     '(-x --print-boot-path)'{-x,--print-boot-path}'[Print path to the $BOOT partition]' \
     '--make-machine-id-directory=[Control creation and deletion of the top-level machine ID directory.]:options:(yes no auto)' \
-    '--no-variables[Do not touch EFI variables]' \
     '--no-pager[Do not pipe output into a pager]' \
     '--graceful[Do not fail when locating ESP or writing fails]' \
     '--dry-run[Dry run (unlink and cleanup)]' \
@@ -83,4 +82,5 @@ _arguments \
     '--image=[Operate on the specified image]:PATH' \
     '--install-source[Where to pick files when using --root=/--image=]:options:(image host auto)' \
     '--random-seed[Whether to create random-seed file during install]:options:(yes no)' \
+    '--variables=[Touch EFI variables]:options:(yes no)' \
     '*::bootctl command:_bootctl_commands'

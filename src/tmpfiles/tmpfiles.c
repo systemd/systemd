@@ -1271,22 +1271,26 @@ static int parse_acl_cond_exec(
         assert(cond_exec);
         assert(ret);
 
+        r = dlopen_libacl();
+        if (r < 0)
+                return r;
+
         if (!S_ISDIR(st->st_mode)) {
                 _cleanup_(acl_freep) acl_t old = NULL;
 
-                old = acl_get_file(path, ACL_TYPE_ACCESS);
+                old = sym_acl_get_file(path, ACL_TYPE_ACCESS);
                 if (!old)
                         return -errno;
 
                 has_exec = false;
 
-                for (r = acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
+                for (r = sym_acl_get_entry(old, ACL_FIRST_ENTRY, &entry);
                      r > 0;
-                     r = acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
+                     r = sym_acl_get_entry(old, ACL_NEXT_ENTRY, &entry)) {
 
                         acl_tag_t tag;
 
-                        if (acl_get_tag_type(entry, &tag) < 0)
+                        if (sym_acl_get_tag_type(entry, &tag) < 0)
                                 return -errno;
 
                         if (tag == ACL_MASK)
@@ -1296,10 +1300,10 @@ static int parse_acl_cond_exec(
                         if (!append && IN_SET(tag, ACL_USER, ACL_GROUP))
                                 continue;
 
-                        if (acl_get_permset(entry, &permset) < 0)
+                        if (sym_acl_get_permset(entry, &permset) < 0)
                                 return -errno;
 
-                        r = acl_get_perm(permset, ACL_EXECUTE);
+                        r = sym_acl_get_perm(permset, ACL_EXECUTE);
                         if (r < 0)
                                 return -errno;
                         if (r > 0) {
@@ -1312,14 +1316,14 @@ static int parse_acl_cond_exec(
 
                 /* Check if we're about to set the execute bit in acl_access */
                 if (!has_exec && access) {
-                        for (r = acl_get_entry(access, ACL_FIRST_ENTRY, &entry);
+                        for (r = sym_acl_get_entry(access, ACL_FIRST_ENTRY, &entry);
                              r > 0;
-                             r = acl_get_entry(access, ACL_NEXT_ENTRY, &entry)) {
+                             r = sym_acl_get_entry(access, ACL_NEXT_ENTRY, &entry)) {
 
-                                if (acl_get_permset(entry, &permset) < 0)
+                                if (sym_acl_get_permset(entry, &permset) < 0)
                                         return -errno;
 
-                                r = acl_get_perm(permset, ACL_EXECUTE);
+                                r = sym_acl_get_perm(permset, ACL_EXECUTE);
                                 if (r < 0)
                                         return -errno;
                                 if (r > 0) {
@@ -1333,28 +1337,28 @@ static int parse_acl_cond_exec(
         } else
                 has_exec = true;
 
-        _cleanup_(acl_freep) acl_t parsed = access ? acl_dup(access) : acl_init(0);
+        _cleanup_(acl_freep) acl_t parsed = access ? sym_acl_dup(access) : sym_acl_init(0);
         if (!parsed)
                 return -errno;
 
-        for (r = acl_get_entry(cond_exec, ACL_FIRST_ENTRY, &entry);
+        for (r = sym_acl_get_entry(cond_exec, ACL_FIRST_ENTRY, &entry);
              r > 0;
-             r = acl_get_entry(cond_exec, ACL_NEXT_ENTRY, &entry)) {
+             r = sym_acl_get_entry(cond_exec, ACL_NEXT_ENTRY, &entry)) {
 
                 acl_entry_t parsed_entry;
 
-                if (acl_create_entry(&parsed, &parsed_entry) < 0)
+                if (sym_acl_create_entry(&parsed, &parsed_entry) < 0)
                         return -errno;
 
-                if (acl_copy_entry(parsed_entry, entry) < 0)
+                if (sym_acl_copy_entry(parsed_entry, entry) < 0)
                         return -errno;
 
                 /* We substituted 'X' with 'x' in parse_acl(), so drop execute bit here if not applicable. */
                 if (!has_exec) {
-                        if (acl_get_permset(parsed_entry, &permset) < 0)
+                        if (sym_acl_get_permset(parsed_entry, &permset) < 0)
                                 return -errno;
 
-                        if (acl_delete_perm(permset, ACL_EXECUTE) < 0)
+                        if (sym_acl_delete_perm(permset, ACL_EXECUTE) < 0)
                                 return -errno;
                 }
         }
@@ -1386,6 +1390,10 @@ static int path_set_acl(
 
         assert(c);
 
+        r = dlopen_libacl();
+        if (r < 0)
+                return r;
+
         /* Returns 0 for success, positive error if already warned, negative error otherwise. */
 
         if (modify) {
@@ -1397,7 +1405,7 @@ static int path_set_acl(
                 if (r < 0)
                         return r;
         } else {
-                dup = acl_dup(acl);
+                dup = sym_acl_dup(acl);
                 if (!dup)
                         return -errno;
 
@@ -1408,14 +1416,14 @@ static int path_set_acl(
         if (r < 0)
                 return r;
 
-        t = acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
+        t = sym_acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
         log_action("Would set", "Setting",
                    "%s %s ACL %s on %s",
                    type == ACL_TYPE_ACCESS ? "access" : "default",
                    strna(t), pretty);
 
         if (!arg_dry_run &&
-            acl_set_file(path, type, dup) < 0) {
+            sym_acl_set_file(path, type, dup) < 0) {
                 if (ERRNO_IS_NOT_SUPPORTED(errno))
                         /* No error if filesystem doesn't support ACLs. Return negative. */
                         return -errno;
@@ -1459,8 +1467,8 @@ static int fd_set_acls(
                                        "Refusing to set ACLs on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
                                        path);
 
-        if (S_ISLNK(st->st_mode)) {
-                log_debug("Skipping ACL fix for symlink %s.", path);
+        if (!inode_type_can_acl(st->st_mode)) {
+                log_debug("Skipping ACL fix for '%s' (inode type does not support ACLs).", path);
                 return 0;
         }
 
@@ -3295,13 +3303,13 @@ static void item_free_contents(Item *i) {
 
 #if HAVE_ACL
         if (i->acl_access)
-                acl_free(i->acl_access);
+                sym_acl_free(i->acl_access);
 
         if (i->acl_access_exec)
-                acl_free(i->acl_access_exec);
+                sym_acl_free(i->acl_access_exec);
 
         if (i->acl_default)
-                acl_free(i->acl_default);
+                sym_acl_free(i->acl_default);
 #endif
 }
 

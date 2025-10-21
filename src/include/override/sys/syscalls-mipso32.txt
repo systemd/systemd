@@ -16,6 +16,7 @@ atomic_barrier
 atomic_cmpxchg_32
 bind	4169
 bpf	4355
+breakpoint
 brk	4045
 cachectl	4148
 cacheflush	4147
@@ -113,6 +114,7 @@ futimesat	4292
 get_mempolicy	4269
 get_robust_list	4310
 get_thread_area
+get_tls
 getcpu	4312
 getcwd	4203
 getdents	4141
@@ -404,6 +406,7 @@ set_mempolicy_home_node	4450
 set_robust_list	4309
 set_thread_area	4283
 set_tid_address	4252
+set_tls
 setdomainname	4121
 setfsgid	4139
 setfsgid32
@@ -512,6 +515,8 @@ unlinkat	4294
 unshare	4303
 uretprobe
 userfaultfd	4357
+usr26
+usr32
 ustat	4062
 utime	4030
 utimensat	4316

@@ -19,6 +19,7 @@
 #include "fstab-util.h"
 #include "generator.h"
 #include "gpt.h"
+#include "hexdecoct.h"
 #include "image-policy.h"
 #include "initrd-util.h"
 #include "loop-util.h"
@@ -46,6 +47,7 @@ static const char *arg_dest_late = NULL;
 static bool arg_enabled = true;
 static GptAutoRoot arg_auto_root = _GPT_AUTO_ROOT_INVALID;
 static GptAutoRoot arg_auto_usr = _GPT_AUTO_ROOT_INVALID;
+static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static bool arg_swap_enabled = true;
 static char *arg_root_fstype = NULL;
 static char *arg_root_options = NULL;
@@ -1063,15 +1065,6 @@ static int enumerate_partitions(dev_t devnum) {
         _cleanup_free_ char *devname = NULL;
         int r;
 
-        static const PartitionDesignator ignore_designators[] = {
-                PARTITION_ROOT,
-                PARTITION_ROOT_VERITY,
-                PARTITION_ROOT_VERITY_SIG,
-                PARTITION_USR,
-                PARTITION_USR_VERITY,
-                PARTITION_USR_VERITY_SIG,
-        };
-
         assert(!in_initrd());
 
         /* Run on the final root fs (not in the initrd), to mount auxiliary partitions, and hook in rw
@@ -1087,14 +1080,6 @@ static int enumerate_partitions(dev_t devnum) {
                 return log_debug_errno(r, "Failed to get device node of " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devnum));
 
-        _cleanup_(image_policy_freep) ImagePolicy *image_policy = NULL;
-        r = image_policy_ignore_designators(
-                        arg_image_policy ?: &image_policy_host,
-                        ignore_designators, ELEMENTSOF(ignore_designators),
-                        &image_policy);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to mark root/usr designators as ignore in image policy: %m");
-
         /* Let's take a LOCK_SH lock on the block device, in case udevd is already running. If we don't take
          * the lock, udevd might end up issuing BLKRRPART in the middle, and we don't want that, since that
          * might remove all partitions while we are operating on them. */
@@ -1104,9 +1089,9 @@ static int enumerate_partitions(dev_t devnum) {
 
         r = dissect_loop_device(
                         loop,
-                        /* verity= */ NULL,
+                        &arg_verity_settings,
                         /* mount_options= */ NULL,
-                        image_policy,
+                        arg_image_policy ?: &image_policy_host,
                         arg_image_filter,
                         DISSECT_IMAGE_GPT_ONLY|
                         DISSECT_IMAGE_USR_NO_ROOT|
@@ -1203,6 +1188,25 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 arg_auto_root = GPT_AUTO_ROOT_OFF;
                 log_debug("Disabling root partition auto-detection, roothash= is set.");
+
+                arg_verity_settings.designator = PARTITION_ROOT;
+
+                free(arg_verity_settings.root_hash);
+                r = unhexmem(value, &arg_verity_settings.root_hash, &arg_verity_settings.root_hash_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse roothash= from kernel command line: %m");
+
+        } else if (streq(key, "usrhash")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                arg_verity_settings.designator = PARTITION_USR;
+
+                free(arg_verity_settings.root_hash);
+                r = unhexmem(value, &arg_verity_settings.root_hash, &arg_verity_settings.root_hash_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse usrhash= from kernel command line: %m");
 
         } else if (streq(key, "rootfstype")) {
 

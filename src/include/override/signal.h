@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include_next <signal.h>
+#include_next <signal.h>        /* IWYU pragma: export */
 
 #if !HAVE_RT_TGSIGQUEUEINFO
 int missing_rt_tgsigqueueinfo(pid_t tgid, pid_t tid, int sig, siginfo_t *info);

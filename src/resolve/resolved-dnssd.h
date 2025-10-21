@@ -63,7 +63,7 @@ int dnssd_signal_conflict(Manager *manager, const char *name);
 
 const struct ConfigPerfItem* resolved_dnssd_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_registered_service_name);
-CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_registered_service_subtype);
-CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_registered_service_type);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_name);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_subtype);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_txt);

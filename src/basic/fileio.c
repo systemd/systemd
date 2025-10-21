@@ -240,24 +240,28 @@ static int write_string_file_atomic_at(
         }
 
         r = fopen_temporary_at(dir_fd, fn, &f, &p);
-        if (call_label_ops_post)
-                /* If fopen_temporary_at() failed in the above, propagate the error code, and ignore failures
-                 * in label_ops_post(). */
-                RET_GATHER(r, label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fn, /* created= */ !!f));
+        int k = call_label_ops_post ? label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fn, /* created= */ !!f) : 0;
+        /* If fopen_temporary_at() failed in the above, propagate the error code, and ignore failures in
+         * label_ops_post(). */
         if (r < 0)
-                goto fail;
+                return r;
+        CLEANUP_TMPFILE_AT(dir_fd, p);
+        if (k < 0)
+                return k;
 
         r = write_string_stream_full(f, line, flags, ts);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = fchmod_umask(fileno(f), mode);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = RET_NERRNO(renameat(dir_fd, p, dir_fd, fn));
         if (r < 0)
-                goto fail;
+                return r;
+
+        p = mfree(p); /* disarm CLEANUP_TMPFILE_AT() */
 
         if (FLAGS_SET(flags, WRITE_STRING_FILE_SYNC)) {
                 /* Sync the rename, too */
@@ -267,11 +271,6 @@ static int write_string_file_atomic_at(
         }
 
         return 0;
-
-fail:
-        if (f)
-                (void) unlinkat(dir_fd, p, 0);
-        return r;
 }
 
 int write_string_file_full(
@@ -929,17 +928,22 @@ int get_proc_field(const char *path, const char *key, char **ret) {
         }
 }
 
-DIR* xopendirat(int dir_fd, const char *name, int flags) {
+DIR* xopendirat(int dir_fd, const char *path, int flags) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(name);
         assert(!(flags & (O_CREAT|O_TMPFILE)));
 
-        if (dir_fd == AT_FDCWD && flags == 0)
-                return opendir(name);
+        if ((dir_fd == AT_FDCWD || path_is_absolute(path)) &&
+            (flags &~ O_DIRECTORY) == 0)
+                return opendir(path);
 
-        fd = openat(dir_fd, name, O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
+        if (isempty(path)) {
+                path = ".";
+                flags |= O_NOFOLLOW;
+        }
+
+        fd = openat(dir_fd, path, O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|flags);
         if (fd < 0)
                 return NULL;
 

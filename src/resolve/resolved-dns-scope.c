@@ -7,20 +7,20 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "dns-type.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "random-util.h"
-#include "resolved-dns-answer.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-delegate.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -1427,6 +1427,14 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
                 fputs(s->delegate->id, f);
         }
 
+        if (s->protocol == DNS_PROTOCOL_DNS) {
+                fputs(" DNSSEC=", f);
+                fputs(dnssec_mode_to_string(s->dnssec_mode), f);
+
+                fputs(" DNSOverTLS=", f);
+                fputs(dns_over_tls_mode_to_string(s->dns_over_tls_mode), f);
+        }
+
         fputs("]\n", f);
 
         if (!dns_zone_is_empty(&s->zone)) {
@@ -1802,7 +1810,13 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", SD_JSON_BUILD_INTEGER(scope->family)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(dns_scope_ifindex(scope))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(dns_scope_ifname(scope))),
-                        SD_JSON_BUILD_PAIR_VARIANT("cache", cache));
+                        SD_JSON_BUILD_PAIR_VARIANT("cache", cache),
+                        SD_JSON_BUILD_PAIR_CONDITION(scope->protocol == DNS_PROTOCOL_DNS,
+                                                     "dnssec",
+                                                     SD_JSON_BUILD_STRING(dnssec_mode_to_string(scope->dnssec_mode))),
+                        SD_JSON_BUILD_PAIR_CONDITION(scope->protocol == DNS_PROTOCOL_DNS,
+                                                     "dnsOverTLS",
+                                                     SD_JSON_BUILD_STRING(dns_over_tls_mode_to_string(scope->dns_over_tls_mode))));
 }
 
 int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol) {

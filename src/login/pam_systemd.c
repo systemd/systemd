@@ -3,13 +3,8 @@
 #include <endian.h>
 #include <fcntl.h>
 #include <pwd.h>
-#include <security/_pam_macros.h>
-#include <security/pam_ext.h>
 #include <security/pam_misc.h>
-#include <security/pam_modules.h>
-#include <security/pam_modutil.h>
 #include <sys/file.h>
-#include "time-util.h"
 #include <sys/stat.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
@@ -52,6 +47,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -925,12 +921,14 @@ static void session_context_mangle(
         assert(c);
         assert(ur);
 
+        /* The session class can be overridden via the PAM environment, and we try to honor that selection. */
         if (streq_ptr(c->service, "systemd-user")) {
                 /* If we detect that we are running in the "systemd-user" PAM stack, then let's patch the class to
                  * 'manager' if not set, simply for robustness reasons. */
                 c->type = "unspecified";
-                c->class = IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) ?
-                        "manager-early" : "manager";
+                if (isempty(c->class))
+                        c->class = IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) ?
+                                "manager-early" : "manager";
                 c->tty = NULL;
 
         } else if (c->tty && strchr(c->tty, ':')) {
@@ -946,14 +944,16 @@ static void session_context_mangle(
                  * (as they otherwise even try to update it!) — but cron doesn't actually allocate a TTY for its forked
                  * off processes.) */
                 c->type = "unspecified";
-                c->class = "background";
+                if (isempty(c->class))
+                        c->class = "background";
                 c->tty = NULL;
 
         } else if (streq_ptr(c->tty, "ssh")) {
                 /* ssh has been setting PAM_TTY to "ssh" (for the same reason as cron does this, see above. For further
                  * details look for "PAM_TTY_KLUDGE" in the openssh sources). */
                 c->type = "tty";
-                c->class = "user";
+                if (isempty(c->class))
+                        c->class = "user";
                 c->tty = NULL; /* This one is particularly sad, as this means that ssh sessions — even though
                                * usually associated with a pty — won't be tracked by their tty in
                                * logind. This is because ssh does the PAM session registration early for new
@@ -1152,7 +1152,7 @@ static int register_session(
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", c->remote_host));
                         if (r < 0)
                                 return pam_syslog_errno(handle, LOG_ERR, r,
-                                                        "Failed to register session: %s", error_id);
+                                                        "Failed to issue io.systemd.Login.CreateSession varlink call: %m");
                         if (streq_ptr(error_id, "io.systemd.Login.AlreadySessionMember")) {
                                 /* We are already in a session, don't do anything */
                                 pam_debug_syslog(handle, debug, "Not creating session: %s", error_id);
@@ -1161,7 +1161,7 @@ static int register_session(
                         }
                         if (error_id)
                                 return pam_syslog_errno(handle, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
-                                                        "Failed to issue CreateSession() varlink call: %s", error_id);
+                                                        "Varlink call io.systemd.Login.CreateSession failed: %s", error_id);
 
                         struct {
                                 const char *id;
@@ -1712,9 +1712,10 @@ static int close_osc_context(pam_handle_t *handle) {
         if (r < 0)
                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to prepare OSC sequence: %m");
 
+        /* When we are closing things, the TTY might not take our writes anymore. Accept that gracefully. */
         r = loop_write(fd, osc, SIZE_MAX);
         if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to write OSC sequence to TTY: %m");
+                pam_syslog_errno(handle, LOG_DEBUG, r, "Failed to write OSC sequence to TTY, ignoring: %m");
 
         return PAM_SUCCESS;
 }
@@ -1727,6 +1728,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         int r;
 
         assert(handle);
+
+        r = dlopen_libpam();
+        if (r < 0)
+                return PAM_SERVICE_ERR;
 
         pam_log_setup();
 
@@ -1859,10 +1864,11 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                                         &error_id,
                                         SD_JSON_BUILD_PAIR_STRING("Id", id));
                         if (r < 0)
-                                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to register session: %s", error_id);
+                                return pam_syslog_errno(handle, LOG_ERR, r,
+                                                        "Failed to issue io.systemd.Login.ReleaseSession varlink call: %m");
                         if (error_id)
                                 return pam_syslog_errno(handle, LOG_ERR, sd_varlink_error_to_errno(error_id, vreply),
-                                                        "Failed to issue ReleaseSession() varlink call: %s", error_id);
+                                                        "Varlink call io.systemd.Login.ReleaseSession failed: %s", error_id);
 
                         done = true;
                 }

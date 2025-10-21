@@ -104,6 +104,7 @@ static const char* arg_format = NULL;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
 static unsigned arg_max_addresses = 1;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
@@ -2099,6 +2100,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-ask-password        Do not ask for system passwords\n"
                "  -H --host=[USER@]HOST       Operate on remote host\n"
                "  -M --machine=CONTAINER      Operate on local container\n"
+               "     --system                 Connect to system machine manager\n"
+               "     --user                   Connect to user machine manager\n"
                "  -p --property=NAME          Show only properties by this name\n"
                "     --value                  When showing properties, only print the value\n"
                "  -P NAME                     Equivalent to --value --property=NAME\n"
@@ -2152,6 +2155,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORMAT,
                 ARG_UID,
                 ARG_MAX_ADDRESSES,
+                ARG_SYSTEM,
+                ARG_USER,
         };
 
         static const struct option options[] = {
@@ -2181,6 +2186,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "uid",             required_argument, NULL, ARG_UID             },
                 { "setenv",          required_argument, NULL, 'E'                 },
                 { "max-addresses",   required_argument, NULL, ARG_MAX_ADDRESSES   },
+                { "user",            no_argument,       NULL, ARG_USER            },
+                { "system",          no_argument,       NULL, ARG_SYSTEM          },
                 {}
         };
 
@@ -2288,10 +2295,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
 
                         r = output_mode_from_string(optarg);
                         if (r < 0)
@@ -2347,10 +2352,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERIFY:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
 
                         r = import_verify_from_string(optarg);
                         if (r < 0)
@@ -2402,6 +2405,14 @@ static int parse_argv(int argc, char *argv[]) {
                         else if (safe_atou(optarg, &arg_max_addresses) < 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid number of addresses: %s", optarg);
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
 
                 case '?':
@@ -2488,9 +2499,9 @@ static int run(int argc, char *argv[]) {
                           "list-transfers", "cancel-transfer"))
                 return chainload_importctl(argc, argv);
 
-        r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
+        r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 

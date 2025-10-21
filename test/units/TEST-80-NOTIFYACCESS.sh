@@ -98,8 +98,6 @@ systemd-analyze fdstore "$MYUNIT" --json=short | grep -P -q '\[{"fdname":"quux",
 systemctl stop "$MYUNIT"
 rm "$MYSCRIPT"
 
-systemd-analyze log-level debug
-
 # Test fdstore pinning (this will pull in fdstore-pin.service fdstore-nopin.service)
 systemctl start fdstore-pin.target
 

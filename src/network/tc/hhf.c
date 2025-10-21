@@ -37,7 +37,7 @@ static int heavy_hitter_filter_fill_message(Link *link, QDisc *qdisc, sd_netlink
         return 0;
 }
 
-int config_parse_heavy_hitter_filter_packet_limit(
+int config_parse_hhf_packet_limit(
                 const char *unit,
                 const char *filename,
                 unsigned line,

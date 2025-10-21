@@ -128,6 +128,19 @@ Deprecations and removals:
 
 Features:
 
+* systemd-repart: add --ghost, that creates file systems, updates the kernel's
+  partition table but does *not* update partition table on disk. This way, we
+  have disk backed file systems that go effectively disappear on reboot. This
+  is useful when booting from a "live" usb stick that is writable, as it means
+  we do not have to place everything in memory. Moreover, we could then migrate
+  the file systems to disk later (using btrfs device replacement), if needed as
+  part of an installer logic.
+
+* add a concept of overlay directory stacks to image discovery, i.e. have a dir
+  with a name suffix of ".ovl" or so that contains DDIs and plain dirs (and
+  possible .v dirs) that are glued together on use via overlayfs. one special
+  subdir should be used as writable top layer.
+
 * journald: log pidfid as another field, i.e. _PIDFDID=
 
 * systemd-nspawn: something like --volatile= but that isn't volatile, but
@@ -245,7 +258,6 @@ Features:
   - io.systemd.Hostname
   - io.systemd.ManagedOOM
   - io.systemd.Network
-  - io.systemd.PCRExtend
   - io.systemd.PCRLock
   - io.systemd.Resolve.Monitor
   - io.systemd.Resolve
@@ -522,11 +534,6 @@ Features:
   other env vars we might send).
 
 * port copy.c over to use LabelOps for all labelling.
-
-* port remaining getmntent() users over to libmount. There are subtle
-  differences in the parsers (see #25371 for example), and it hence makes sense
-  if we stick to one set of parsers on this, not mix both. Specifically:
-  systemd-fstab-generator, cryptsetup, remount-fs.
 
 * get rid of compat with libidn.so.11 (retain only for libidn.so.12)
 
@@ -1633,13 +1640,6 @@ Features:
   work for ECDSA keys since their signatures contain a random component, but
   will work for RSA and Ed25519 keys.
 
-* add tiny service that decrypts encrypted user records passed via initrd
-  credential logic and drops them into /run where nss-systemd can pick them up,
-  similar to /run/host/userdb/. Use case: drop a root user JSON record there,
-  and use it in the initrd to log in as root with locally selected password,
-  for debugging purposes. Other use case: boot into qemu with regular user
-  mounted from host. maybe put this in systemd-user-sessions.service?
-
 * drop dependency on libcap, replace by direct syscalls based on
   CapabilityQuintet we already have. (This likely allows us to drop libcap
   dep in the base OS image)
@@ -1785,11 +1785,6 @@ Features:
 * pid1: also remove PID files of a service when the service starts, not just
   when it exits
 
-* make us use dynamically fewer deps for containers in general purpose distros:
-  o turn into dlopen() deps:
-    - libblkid (only in RootImage= handling in PID 1, but not elsewhere)
-    - libpam (only when called from PID 1)
-
 * seccomp: maybe use seccomp_merge() to merge our filters per-arch if we can.
   Apparently kernel performance is much better with fewer larger seccomp
   filters than with more smaller seccomp filters.
@@ -1811,7 +1806,7 @@ Features:
 * unify on openssl:
   - figure out what to do about libmicrohttpd, which has a hard dependency on
     gnutls
-  - port fsprg over to a dlopen lib, then switch it to openssl
+  - port fsprg over to openssl
 
 * add growvol and makevol options for /etc/crypttab, similar to
   x-systemd.growfs and x-systemd-makefs.

@@ -66,6 +66,7 @@ libcore_sources = files(
         'varlink-cgroup.c',
         'varlink-common.c',
         'varlink-dynamic-user.c',
+        'varlink-execute.c',
         'varlink-manager.c',
         'varlink-unit.c',
 )
@@ -131,15 +132,13 @@ libcore_static = static_library(
         include_directories : [includes, include_directories('.')],
         implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
-        dependencies : [libacl,
-                        libaudit,
-                        libblkid,
+        dependencies : [libaudit_cflags,
                         libdl,
                         libm,
-                        libmount,
+                        libmount_cflags,
                         librt,
-                        libseccomp,
-                        libselinux,
+                        libseccomp_cflags,
+                        libselinux_cflags,
                         threads,
                         userspace],
         build_by_default : false)
@@ -201,8 +200,8 @@ executables += [
                 'dependencies' : [
                         libapparmor_cflags,
                         libkmod_cflags,
-                        libseccomp,
-                        libselinux,
+                        libseccomp_cflags,
+                        libselinux_cflags,
                 ],
         },
         libexec_template + {
@@ -213,9 +212,9 @@ executables += [
                 'link_with' : executor_libs,
                 'dependencies' : [
                         libapparmor_cflags,
-                        libpam,
-                        libseccomp,
-                        libselinux,
+                        libpam_cflags,
+                        libseccomp_cflags,
+                        libselinux_cflags,
                 ],
         },
         fuzz_template + {
@@ -224,7 +223,7 @@ executables += [
                         libcore,
                         libshared
                 ],
-                'dependencies' : libmount,
+                'dependencies' : libmount_cflags,
         },
         fuzz_template + {
                 'sources' : files('fuzz-manager-serialize.c'),

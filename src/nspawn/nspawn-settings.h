@@ -6,7 +6,7 @@
 #include "capability-util.h"
 #include "conf-parser-forward.h"
 #include "cpu-set-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "rlimit-util.h"
 #include "seccomp-util.h"
 #include "volatile-util.h"
@@ -82,6 +82,7 @@ typedef enum TimezoneMode {
 } TimezoneMode;
 
 typedef enum ConsoleMode {
+        CONSOLE_AUTOPIPE,
         CONSOLE_INTERACTIVE,
         CONSOLE_READ_ONLY,
         CONSOLE_PASSIVE,
@@ -281,6 +282,9 @@ ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;
 
 const char* timezone_mode_to_string(TimezoneMode a) _const_;
 TimezoneMode timezone_mode_from_string(const char *s) _pure_;
+
+const char* console_mode_to_string(ConsoleMode m) _const_;
+ConsoleMode console_mode_from_string(const char *s) _pure_;
 
 const char* user_namespace_ownership_to_string(UserNamespaceOwnership a) _const_;
 UserNamespaceOwnership user_namespace_ownership_from_string(const char *s) _pure_;

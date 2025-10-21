@@ -123,8 +123,12 @@ All tools:
 * `$SYSTEMD_NETLINK_DEFAULT_TIMEOUT` — specifies the default timeout of waiting
   replies for netlink messages from the kernel. Defaults to 25 seconds.
 
-* `$SYSTEMD_VERITY_SHARING=0` — if set, sharing dm-verity devices by
-  using a stable `<ROOTHASH>-verity` device mapper name will be disabled.
+* `$SYSTEMD_VERITY_SHARING=` — takes a boolean. If set, overrides whether
+  dm-verity devices shall be shared between multiple components by using a
+  stable `<ROOTHASH>-verity` device mapper name. The default for this depends
+  on the subsystem in question. Usually,
+  RootImage=/ExtensionImages=/MountImages= in unit files default to enabled,
+  while other uses default to disabled for this.
 
 `systemctl`:
 
@@ -380,6 +384,9 @@ All tools:
   default keymap directories (/usr/share/keymaps/, /usr/share/kbd/keymaps/, and
   /usr/lib/kbd/keymaps/) will be used.
 
+* `$SYSTEMD_XKB_DIRECTORY=` — The directory must be absolute and normalized.
+  If unset, the default XKB directory (/usr/share/X11/xkb) will be used.
+
 `systemd-resolved`:
 
 * `$SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME` — if set to "0", `systemd-resolved`
@@ -405,6 +412,14 @@ All tools:
   command line still overrides the effect of the environment
   variable. Similarly, `$SYSTEMD_CONFEXT_MUTABLE_MODE` works for confext images
   and supports the systemd-confext multi-call functionality of sysext.
+
+* `$SYSTEMD_SYSEXT_OVERLAYFS_MOUNT_OPTIONS` — this variable may be used to
+  override the overlayfs mount options applied for hierarchies managed by
+  `systemd-sysext`. Similarly, `$SYSTEMD_CONFEXT_OVERLAYFS_MOUNT_OPTIONS` works
+  for confext images and supports the systemd-confext multi-call functionality
+  of sysext. Read-only hierarchies have no mount options added by
+  default. Mutable hierarchies have the following mount options added by
+  default: `redirect_dir=on,noatime,metacopy=off,index=off`.
 
 `systemd-tmpfiles`:
 
@@ -521,6 +536,15 @@ disk images with `--image=` or similar:
 * `$SYSTEMD_DISSECT_FILE_SYSTEMS=` — takes a colon-separated list of file
   systems that may be mounted for automatically dissected disk images. If not
   specified defaults to something like: `ext4:btrfs:xfs:vfat:erofs:squashfs`
+
+* `$SYSTEMD_DISSECT_FSTYPE_<DESIGNATOR>=` – overrides the file system time to
+  use when mounting the partition of the indicated designator. The
+  `<DESIGNATOR>` string shall be one of `ROOT`, `USR`, `HOME`, `SRV`, `ESP`,
+  `XBOOTLDR`, `TMP`, `VAR` as per the [Discoverable Partitions
+  Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification/). If
+  unspecified the image dissection logic will automatically probe the file
+  system type (subject to `$SYSTEMD_DISSECT_FILE_SYSTEMS`, see above), except
+  for ESP and XBOOTLDR where the file system type is set to VFAT.
 
 * `$SYSTEMD_LOOP_DIRECT_IO` – takes a boolean, which controls whether to enable
   `LO_FLAGS_DIRECT_IO` (i.e. direct IO + asynchronous IO) on loopback block
@@ -759,15 +783,14 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 
 `systemd-run`, `run0`, `systemd-nspawn`, `systemd-vmspawn`:
 
-* `$SYSTEMD_TINT_BACKGROUND` – Takes a boolean. When false the automatic
-  tinting of the background for containers, VMs, and interactive `systemd-run`
-  and `run0` invocations is turned off. Note that this environment variable has
-  no effect if the background color is explicitly selected via the relevant
-  `--background=` switch of the tool.
+* `$SYSTEMD_TINT_BACKGROUND` – Takes a boolean. When false the automatic and
+  explicit tinting of the background (via `--background=`) for containers, VMs,
+  `systemd-pty-forward` and interactive  `systemd-run` and `run0` invocations is
+  turned off.
 
 * `$SYSTEMD_ADJUST_TERMINAL_TITLE` – Takes a boolean. When false the terminal
-  window title will not be updated for interactive invocation of the mentioned
-  tools.
+  window title will not be updated for interactive invocation of the tools
+  mentioned above.
 
 `systemd-hostnamed`, `systemd-importd`, `systemd-localed`, `systemd-machined`,
 `systemd-portabled`, `systemd-timedated`:

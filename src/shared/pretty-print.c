@@ -14,7 +14,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "fs-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "pretty-print.h"

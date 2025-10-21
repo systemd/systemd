@@ -1569,7 +1569,7 @@ TEST(run_tests_without_unshare) {
         if (prepare_ns("(test-execute-without-unshare)") == 0) {
                 _cleanup_hashmap_free_ Hashmap *s = NULL;
 
-                r = seccomp_syscall_resolve_name("unshare");
+                r = sym_seccomp_syscall_resolve_name("unshare");
                 ASSERT_NE(r, __NR_SCMP_ERROR);
                 ASSERT_OK(hashmap_ensure_put(&s, NULL, UINT32_TO_PTR(r + 1), INT_TO_PTR(-1)));
                 ASSERT_OK(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, s, SCMP_ACT_ERRNO(EOPNOTSUPP), true));
@@ -1612,6 +1612,9 @@ static int intro(void) {
         /* It is needed otherwise cgroup creation fails */
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
                 return log_tests_skipped("not privileged");
+
+        if (running_in_chroot() > 0)
+                return log_tests_skipped("running in chroot");
 
         if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");

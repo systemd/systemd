@@ -36,6 +36,7 @@
 #include "log.h"
 #include "parse-util.h"
 #include "pidref.h"
+#include "printk-util.h"
 #include "process-util.h"
 #include "reboot-util.h"
 #include "rlimit-util.h"
@@ -272,42 +273,14 @@ int sync_with_progress(int fd) {
         return r;
 }
 
-static int read_current_sysctl_printk_log_level(void) {
-        _cleanup_free_ char *sysctl_printk_vals = NULL, *sysctl_printk_curr = NULL;
-        int current_lvl;
-        const char *p;
-        int r;
-
-        r = sysctl_read("kernel/printk", &sysctl_printk_vals);
-        if (r < 0)
-                return log_debug_errno(r, "Cannot read sysctl kernel.printk: %m");
-
-        p = sysctl_printk_vals;
-        r = extract_first_word(&p, &sysctl_printk_curr, NULL, 0);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to split out kernel printk priority: %m");
-        if (r == 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Short read while reading kernel.printk sysctl");
-
-        r = safe_atoi(sysctl_printk_curr, &current_lvl);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse kernel.printk sysctl: %s", sysctl_printk_vals);
-
-        return current_lvl;
-}
-
 static void bump_sysctl_printk_log_level(int min_level) {
-        int current_lvl, r;
-
         /* Set the logging level to be able to see messages with log level smaller or equal to min_level */
 
-        current_lvl = read_current_sysctl_printk_log_level();
+        int current_lvl = sysctl_printk_read();
         if (current_lvl < 0 || current_lvl >= min_level + 1)
                 return;
 
-        r = sysctl_writef("kernel/printk", "%i", min_level + 1);
-        if (r < 0)
-                log_debug_errno(r, "Failed to bump kernel.printk to %i: %m", min_level + 1);
+        (void) sysctl_printk_write(min_level + 1);
 }
 
 static void init_watchdog(void) {
@@ -575,7 +548,15 @@ int main(int argc, char *argv[]) {
                 arg_verb,
                 NULL,
         };
-        (void) execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, (char**) arguments, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        (void) execute_directories(
+                        "system-shutdown",
+                        dirs,
+                        DEFAULT_TIMEOUT_USEC,
+                        /* callbacks= */ NULL,
+                        /* callback_args= */ NULL,
+                        (char**) arguments,
+                        /* envp= */ NULL,
+                        EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         (void) rlimit_nofile_safe();
 

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "journald-manager.h"
+#include "journald-config.h"
 #include "test-tables.h"
 #include "tests.h"
 

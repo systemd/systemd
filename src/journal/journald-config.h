@@ -27,6 +27,14 @@ typedef struct JournalCompressOptions {
         uint64_t threshold_bytes;
 } JournalCompressOptions;
 
+typedef enum AuditSetMode {
+        AUDIT_NO = 0, /* Disables the kernel audit subsystem on start. */
+        AUDIT_YES,    /* Enables the kernel audit subsystem on start. */
+        AUDIT_KEEP,   /* Keep the current kernel audit subsystem state. */
+        _AUDIT_SET_MODE_MAX,
+        _AUDIT_SET_MODE_INVALID = -EINVAL,
+} AuditSetMode;
+
 typedef struct JournalConfig {
         /* Storage=, cred: journal.storage */
         Storage storage;
@@ -37,7 +45,7 @@ typedef struct JournalConfig {
         /* ReadKMsg= */
         int read_kmsg;
         /* Audit= */
-        int set_audit;
+        AuditSetMode set_audit;
         /* SyncIntervalSec= */
         usec_t sync_interval_usec;
         /* RateLimitIntervalSec= */
@@ -102,3 +110,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_line_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_compress);
 CONFIG_PARSER_PROTOTYPE(config_parse_forward_to_socket);
 CONFIG_PARSER_PROTOTYPE(config_parse_split_mode);
+CONFIG_PARSER_PROTOTYPE(config_parse_audit_set_mode);

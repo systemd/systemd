@@ -2079,6 +2079,7 @@ static int run(int argc, char *argv[]) {
                                "System update management service.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

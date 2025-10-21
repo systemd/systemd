@@ -46,10 +46,16 @@ static inline void *xmalloc_multiply(size_t n, size_t size) {
 /* Use malloc attribute as this never returns p like userspace realloc. */
 _malloc_ _alloc_(3) _returns_nonnull_ _warn_unused_result_
 static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
+        assert(p || old_size == 0);
+
         void *t = xmalloc(new_size);
-        new_size = MIN(old_size, new_size);
-        if (new_size > 0)
-                memcpy(t, p, new_size);
+
+        size_t size = MIN(old_size, new_size);
+        if (size > 0) {
+                assert(p);
+                memcpy(t, p, size);
+        }
+
         free(p);
         return t;
 }
@@ -146,6 +152,7 @@ static inline void unload_imagep(EFI_HANDLE *image) {
 #define GUID_FORMAT_VAL(g) (g).Data1, (g).Data2, (g).Data3, (g).Data4[0], (g).Data4[1], \
         (g).Data4[2], (g).Data4[3], (g).Data4[4], (g).Data4[5], (g).Data4[6], (g).Data4[7]
 
+void set_attribute_safe(size_t attr);
 void print_at(size_t x, size_t y, size_t attr, const char16_t *str);
 void clear_screen(size_t attr);
 

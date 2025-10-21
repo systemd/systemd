@@ -6,8 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemctl log-level debug
-
 # Test that a path unit continuously triggering a service that fails condition checks eventually fails with
 # the trigger-limit-hit error.
 rm -f /tmp/nonexistent
@@ -119,7 +117,5 @@ diff /tmp/copyme /tmp/copied
 echo test2 > /tmp/copyme
 exec {lock}<&-
 timeout 30 bash -c 'until diff /tmp/copyme /tmp/copied >/dev/null; do sleep .2; done'
-
-systemctl log-level info
 
 touch /testok

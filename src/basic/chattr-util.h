@@ -3,7 +3,7 @@
 
 #include <linux/fs.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* The chattr() flags to apply when creating a new file *before* writing to it. In particular, flags such as
  * FS_NOCOW_FL don't work if applied a-posteriori. All other flags are fine (or even necessary, think
@@ -63,3 +63,5 @@ int set_proj_id_recursive(int fd, uint32_t proj_id);
 static inline int chattr_secret(int fd, ChattrApplyFlags flags) {
         return chattr_full(fd, NULL, CHATTR_SECRET_FLAGS, CHATTR_SECRET_FLAGS, NULL, NULL, flags|CHATTR_FALLBACK_BITWISE);
 }
+
+bool inode_type_can_chattr(mode_t mode);

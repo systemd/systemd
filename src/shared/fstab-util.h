@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 bool fstab_enabled_full(int enabled);
 static inline bool fstab_enabled(void) {

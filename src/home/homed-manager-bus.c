@@ -969,23 +969,8 @@ static int method_add_signing_key(sd_bus_message *message, void *userdata, sd_bu
         if (streq(fn, "local.public"))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Refusing to write local public key.");
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
-        r = openssl_pubkey_from_pem(pem, /* pem_size= */ SIZE_MAX, &pkey);
-        if (r == -EIO)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key invalid: %s", fn);
-        if (r < 0)
-                return r;
-
         if (hashmap_contains(m->public_keys, fn))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key name already exists: %s", fn);
-
-        /* Make sure the local key is loaded before can detect conflicts */
-        r = manager_acquire_key_pair(m);
-        if (r < 0)
-                return r;
-
-        if (manager_has_public_key(m, pkey))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key already exists: %s", fn);
 
         r = bus_verify_polkit_async(
                         message,
@@ -997,6 +982,21 @@ static int method_add_signing_key(sd_bus_message *message, void *userdata, sd_bu
                 return r;
         if (r == 0)
                 return 1; /* Will call us back */
+
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        r = openssl_pubkey_from_pem(pem, /* pem_size= */ SIZE_MAX, &pkey);
+        if (r == -EIO)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key invalid: %s", fn);
+        if (r < 0)
+                return r;
+
+        /* Make sure the local key is loaded before can detect conflicts */
+        r = manager_acquire_key_pair(m);
+        if (r < 0)
+                return r;
+
+        if (manager_has_public_key(m, pkey))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Public key already exists: %s", fn);
 
         _cleanup_free_ char *pem_reformatted = NULL;
         r = openssl_pubkey_to_pem(pkey, &pem_reformatted);

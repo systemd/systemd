@@ -353,7 +353,7 @@
         particular, if the device is used for a mount point, the mount point itself also needs to
         have the <option>nofail</option> option, or the boot will fail if the device is not unlocked
         successfully. If a keyfile and/or a <option>header</option> are specified, the dependencies on
-        their respective directories will also not be fatal, so that umounting said directories will
+        their respective directories will also not be fatal, so that unmounting said directories will
         not cause the generated cryptset unit to be deactivated.</para>
 
         <xi:include href="version-info.xml" xpointer="v186"/></listitem>

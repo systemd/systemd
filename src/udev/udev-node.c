@@ -190,7 +190,7 @@ static int stack_directory_find_prioritized_devnode(sd_device *dev, int dirfd, b
                         return -ENOMEM;
         }
 
-        dir = xopendirat(dirfd, ".", O_NOFOLLOW);
+        dir = xopendirat(dirfd, /* path= */ NULL, /* flags= */ 0);
         if (!dir)
                 return -errno;
 

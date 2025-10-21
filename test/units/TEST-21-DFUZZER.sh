@@ -4,7 +4,7 @@ set -eux
 set -o pipefail
 
 # check dfuzzer is present before testing
-if ! command -v dfuzzer &>/dev/null; then
+if ! command -v dfuzzer >/dev/null; then
     echo "dfuzzer is not installed, skipping" | tee --append /skipped
     exit 77
 fi
@@ -14,32 +14,12 @@ if [[ ! -v ASAN_OPTIONS && ! -v UBSAN_OPTIONS && "${TEST_RUN_DFUZZER:-0}" == "0"
     exit 77
 fi
 
-# Save the end.service state before we start fuzzing, as it might get changed
-# on the fly by one of the fuzzers
-systemctl list-jobs | grep -F 'end.service' && SHUTDOWN_AT_EXIT=1 || SHUTDOWN_AT_EXIT=0
-
-# shellcheck disable=SC2317
-at_exit() {
-    set +e
-    # We have to call the end.service/poweroff explicitly even if it's specified on
-    # the kernel cmdline via systemd.wants=end.service, since dfuzzer calls
-    # org.freedesktop.systemd1.Manager.ClearJobs() which drops the service
-    # from the queue
-    if [[ $SHUTDOWN_AT_EXIT -ne 0 ]] && ! systemctl poweroff; then
-        # PID1 is down let's try to save the journal
-        journalctl --sync      # journal can be down as well so let's ignore exit codes here
-        systemctl -ff poweroff # sync() and reboot(RB_POWER_OFF)
-    fi
-}
-
 add_suppression() {
     local interface="${1:?}"
     local suppression="${2:?}"
 
     sed -i "\%\[$interface\]%a$suppression" /etc/dfuzzer.conf
 }
-
-trap at_exit EXIT
 
 systemctl log-level info
 

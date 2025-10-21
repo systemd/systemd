@@ -119,7 +119,7 @@ conf.set('HIGH_RLIMIT_NOFILE',          512*1024)
 # are absolute or relative.
 prefixdir = get_option('prefix')
 if not prefixdir.startswith('/')
-        error('Prefix is not absolute: "@0@"'.format(prefixdir))
+        error(f'Prefix is not absolute: "@prefixdir@"')
 endif
 
 prefixdir_noslash = '/' + prefixdir.strip('/')
@@ -485,6 +485,7 @@ possible_link_flags = [
         '-Wl,--fatal-warnings',
         '-Wl,-z,now',
         '-Wl,-z,relro',
+        '-Wl,-z,gcs-report-dynamic=none',
         '-Wl,--gc-sections',
 ]
 
@@ -568,7 +569,7 @@ long_max = cc.compute_int(
         guess : 0x7FFFFFFFFFFFFFFF,
         high : 0x7FFFFFFFFFFFFFFF)
 assert(long_max > 100000)
-conf.set_quoted('LONG_MAX_STR', '@0@'.format(long_max))
+conf.set_quoted('LONG_MAX_STR', f'@long_max@')
 
 foreach ident : [
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
@@ -627,30 +628,34 @@ stat   = find_program('stat')
 
 ln_s = ln.full_path() + ' -frsT -- "${DESTDIR:-}@0@" "${DESTDIR:-}@1@"'
 
-# If -Dxxx-path option is found, use that. Otherwise, check in $PATH,
-# /usr/sbin, /sbin, and fall back to the default from middle column.
-progs = [['quotaon',    '/usr/sbin/quotaon'    ],
-         ['quotacheck', '/usr/sbin/quotacheck' ],
+# If -Dxxx-path option is found, use that. Otherwise, use the default from the
+# middle column; a full path is used directly, a relative path is converted to
+# /usr/bin/foo or /usr/sbin/foo, depending on whether split-bin is enabled.
+progs = [['quotaon',    'quotaon'              ],
+         ['quotacheck', 'quotacheck'           ],
          ['kmod',       '/usr/bin/kmod'        ],
-         ['kexec',      '/usr/sbin/kexec'      ],
-         ['sulogin',    '/usr/sbin/sulogin'    ],
+         ['kexec',      'kexec'                ],
+         ['sulogin',    'sulogin'              ],
+         ['swapon',     'swapon'               ],
+         ['swapoff',    'swapoff'              ],
+         ['agetty',     'agetty'               ],
          ['mount',      '/usr/bin/mount',      'MOUNT_PATH'],
          ['umount',     '/usr/bin/umount',     'UMOUNT_PATH'],
          ['loadkeys',   '/usr/bin/loadkeys',   'KBD_LOADKEYS'],
          ['setfont',    '/usr/bin/setfont',    'KBD_SETFONT'],
-         ['nologin',    '/usr/sbin/nologin',   ],
+         ['nologin',    'nologin',             ],
         ]
 foreach prog : progs
         path = get_option(prog[0] + '-path')
-        if path != ''
-                message('Using @1@ for @0@'.format(prog[0], path))
-        else
-                exe = find_program(prog[0],
-                                   '/usr/sbin/' + prog[0],
-                                   '/sbin/' + prog[0],
-                                   required: false)
-                path = exe.found() ? exe.full_path() : prog[1]
+        if path == ''
+                if prog[1].startswith('/')
+                        path = prog[1]
+                else
+                        path = '/usr' / (split_bin ? 'sbin' : 'bin') / prog[1]
+                endif
         endif
+        message('Using @1@ for @0@'.format(prog[0], path))
+
         name = prog.length() > 2 ? prog[2] : prog[0].to_upper()
         conf.set_quoted(name, path)
 endforeach
@@ -679,7 +684,7 @@ else
                 error('unable to determine gperf len type')
         endif
 endif
-message('gperf len type is @0@'.format(gperf_len_type))
+message(f'gperf len type is @gperf_len_type@')
 conf.set('GPERF_LEN_TYPE', gperf_len_type,
          description : 'The type of gperf "len" parameter')
 
@@ -691,7 +696,7 @@ foreach header : [
 ]
 
         if not cc.has_header(header)
-                error('Header file @0@ not found.'.format(header))
+                error(f'Header file @header@ not found')
         endif
 endforeach
 
@@ -826,7 +831,7 @@ if not meson.is_cross_build()
                         name = ret.stdout().split(':')[0]
                         if name != nobody_user
                                 warning('\n' +
-                                        'The local user with the UID 65534 does not match the configured user name "@0@" of the nobody user (its name is @1@).\n'.format(nobody_user, name) +
+                                        f'The local user with the UID 65534 does not match the configured user name "@nobody_user@" of the nobody user (its name is @name@).\n' +
                                         'Your build will result in an user table setup that is incompatible with the local system.')
                         endif
                 endif
@@ -837,7 +842,7 @@ if not meson.is_cross_build()
                         uid = ret.stdout().strip().to_int()
                         if uid != 65534
                                 warning('\n' +
-                                        'The local user with the configured user name "@0@" of the nobody user does not have UID 65534 (it has @1@).\n'.format(nobody_user, uid) +
+                                        f'The local user with the configured user name "@nobody_user@" of the nobody user does not have UID 65534 (it has @uid@).\n' +
                                         'Your build will result in an user table setup that is incompatible with the local system.')
                         endif
                 endif
@@ -849,7 +854,7 @@ if not meson.is_cross_build()
                         name = ret.stdout().split(':')[0]
                         if name != nobody_group
                                 warning('\n' +
-                                        'The local group with the GID 65534 does not match the configured group name "@0@" of the nobody group (its name is @1@).\n'.format(nobody_group, name) +
+                                        f'The local group with the GID 65534 does not match the configured group name "@nobody_group@" of the nobody group (its name is @name@).\n' +
                                         'Your build will result in an group table setup that is incompatible with the local system.')
                         endif
                 endif
@@ -860,7 +865,7 @@ if not meson.is_cross_build()
                         gid = ret.stdout().strip().to_int()
                         if gid != 65534
                                 warning('\n' +
-                                        'The local group with the configured group name "@0@" of the nobody group does not have GID 65534 (it has @1@).\n'.format(nobody_group, gid) +
+                                        f'The local group with the configured group name "@nobody_group@" of the nobody group does not have GID 65534 (it has @gid@).\n' +
                                         'Your build will result in an group table setup that is incompatible with the local system.')
                         endif
                 endif
@@ -868,7 +873,7 @@ if not meson.is_cross_build()
 endif
 if nobody_user != nobody_group and not (nobody_user == 'nobody' and nobody_group == 'nogroup')
         warning('\n' +
-                'The configured user name "@0@" and group name "@1@" of the nobody user/group are not equivalent.\n'.format(nobody_user, nobody_group) +
+                f'The configured user name "@nobody_user@" and group name "@nobody_group@" of the nobody user/group are not equivalent.\n' +
                 'Please re-check that both "nobody-user" and "nobody-group" options are correctly set.')
 endif
 
@@ -904,7 +909,7 @@ foreach option : ['adm-gid',
         # Ensure provided GID argument is positive, otherwise fall back to default assignment
         conf.set(name, val > 0 ? val : '-')
         if val > 0
-                static_ugids += '@0@:@1@'.format(option, val)
+                static_ugids += f'@option@:@val@'
         endif
 endforeach
 
@@ -921,9 +926,9 @@ tty_mode = get_option('tty-mode')
 # The setting is used as both octal integer and string through STRINGIFY().
 # Here, only check if the value starts with '06', and further check will be done in terminal-util.h.
 if not tty_mode.startswith('06')
-        error('Unexpected access mode "@0@" is specified for TTY/PTS device nodes, it must be "06xx".'.format(tty_mode))
+        error(f'Unexpected access mode "@tty_mode@" is specified for TTY/PTS device nodes, it must be "06xx"')
 elif tty_mode != '0600' and tty_mode != '0620'
-        warning('Unexpected access mode "@0@" is specified for TTY/PTS device nodes, typically it should be "0600" or "0620", proceeding anyway.'.format(tty_mode))
+        warning(f'Unexpected access mode "@tty_mode@" is specified for TTY/PTS device nodes, typically it should be "0600" or "0620", proceeding anyway')
 endif
 # Do not use set_quoted() here, so that the value is available as an integer.
 conf.set('TTY_MODE', tty_mode)
@@ -977,7 +982,7 @@ foreach name : get_option('debug-extra')
         elif name == 'siphash'
                 enable_debug_siphash = true
         else
-                message('unknown debug option "@0@", ignoring'.format(name))
+                message(f'unknown debug option "@name@", ignoring')
         endif
 endforeach
 conf.set10('ENABLE_DEBUG_HASHMAP', enable_debug_hashmap)
@@ -1117,6 +1122,7 @@ libmount = dependency('mount',
                       version : fuzzer_build ? '>= 0' : '>= 2.30',
                       disabler : true,
                       required : get_option('libmount'))
+libmount_cflags = libmount.partial_dependency(includes: true, compile_args: true)
 
 libfdisk = dependency('fdisk',
                       version : '>= 2.32',
@@ -1142,11 +1148,13 @@ libseccomp = dependency('libseccomp',
                         version : '>= 2.3.1',
                         required : get_option('seccomp'))
 conf.set10('HAVE_SECCOMP', libseccomp.found())
+libseccomp_cflags = libseccomp.partial_dependency(includes: true, compile_args: true)
 
 libselinux = dependency('libselinux',
                         version : '>= 2.1.9',
                         required : get_option('selinux'))
 conf.set10('HAVE_SELINUX', libselinux.found())
+libselinux_cflags = libselinux.partial_dependency(includes: true, compile_args: true)
 
 libapparmor = dependency('libapparmor',
                          version : '>= 2.13',
@@ -1178,16 +1186,19 @@ conf.set10('ENABLE_POLKIT', install_polkit)
 libacl = dependency('libacl',
                     required : get_option('acl'))
 conf.set10('HAVE_ACL', libacl.found())
+libacl_cflags = libacl.partial_dependency(includes: true, compile_args: true)
 
 libaudit = dependency('audit',
                       required : get_option('audit'))
 conf.set10('HAVE_AUDIT', libaudit.found())
+libaudit_cflags = libaudit.partial_dependency(includes: true, compile_args: true)
 
 libblkid = dependency('blkid',
                       required : get_option('blkid'))
 conf.set10('HAVE_BLKID', libblkid.found())
 conf.set10('HAVE_BLKID_PROBE_SET_HINT',
            libblkid.found() and cc.has_function('blkid_probe_set_hint', dependencies : libblkid))
+libblkid_cflags = libblkid.partial_dependency(includes: true, compile_args: true)
 
 libkmod = dependency('libkmod',
                      version : '>= 15',
@@ -1214,6 +1225,7 @@ if not libpam_misc.found()
         libpam_misc = cc.find_library('pam_misc', required : feature)
 endif
 conf.set10('HAVE_PAM', libpam.found() and libpam_misc.found())
+libpam_cflags = libpam.partial_dependency(includes: true, compile_args: true)
 
 libmicrohttpd = dependency('libmicrohttpd',
                            version : '>= 0.9.33',
@@ -1299,11 +1311,6 @@ if not have
 endif
 conf.set10('HAVE_LIBIDN', not have and libidn.found())
 conf.set10('HAVE_LIBIDN2', have)
-
-libiptc = dependency('libiptc',
-                     required : get_option('libiptc'))
-conf.set10('HAVE_LIBIPTC', libiptc.found())
-libiptc_cflags = libiptc.partial_dependency(includes: true, compile_args: true)
 
 libqrencode = dependency('libqrencode',
                          version : '>= 3',
@@ -1431,6 +1438,10 @@ libarchive = dependency('libarchive',
                         version : '>= 3.0',
                         required : get_option('libarchive'))
 conf.set10('HAVE_LIBARCHIVE', libarchive.found())
+conf.set10('HAVE_LIBARCHIVE_UID_IS_SET',
+           libarchive.found() and cc.has_function('archive_entry_uid_is_set', dependencies : libarchive))
+conf.set10('HAVE_LIBARCHIVE_HARDLINK_IS_SET',
+           libarchive.found() and cc.has_function('archive_entry_hardlink_is_set', dependencies : libarchive))
 
 libxkbcommon = dependency('xkbcommon',
                           version : '>= 0.3.0',
@@ -1943,7 +1954,7 @@ if use_provided_vmlinux_h
                 error('Path to provided vmlinux.h does not exist.')
         endif
         bpf_o_unstripped_cmd += ['-I' + fs.parent(provided_vmlinux_h_path)]
-        message('Using provided @0@'.format(provided_vmlinux_h_path))
+        message(f'Using provided @provided_vmlinux_h_path@')
 elif use_generated_vmlinux_h
         vmlinux_h_dependency = custom_target(
                 output: 'vmlinux.h',
@@ -2072,6 +2083,7 @@ basic_includes = [
 
 libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-bus',
+        'src/libsystemd/sd-common',
         'src/libsystemd/sd-device',
         'src/libsystemd/sd-event',
         'src/libsystemd/sd-hwdb',
@@ -2292,6 +2304,19 @@ pam_template = {
                 libshared_static,
         ],
         'dependencies' : [
+                # Note: our PAM modules also call dlopen_libpam() and use
+                # symbols acquired through that, hence the explicit dep here is
+                # strictly speaking unnecessary. We put it in place anyway,
+                # since for the PAM modules we cannot avoid libpam anyway,
+                # after all they are loaded *by* libpam, and hence there's no
+                # loss in having explicit deps here, but there's a win: it
+                # makes the deps more visible.
+                #
+                # (In case you wonder why we do dlopen_libpam() from the PAM
+                # modules in the first place: that's mostly so that all our PAM
+                # code (regardless if our PAM modules or our PAM consuming
+                # programs) can use the same helpers, which hence go via
+                # dlopen_libpam().
                 libpam_misc,
                 libpam,
                 threads,
@@ -2360,9 +2385,10 @@ subdir('src/login')
 subdir('src/machine')
 subdir('src/machine-id-setup')
 subdir('src/measure')
-subdir('src/mountfsd')
 subdir('src/modules-load')
 subdir('src/mount')
+subdir('src/mountfsd')
+subdir('src/mute-console')
 subdir('src/network')
 subdir('src/notify')
 subdir('src/nspawn')
@@ -2396,6 +2422,7 @@ subdir('src/socket-activate')
 subdir('src/socket-proxy')
 subdir('src/ssh-generator')
 subdir('src/stdio-bridge')
+subdir('src/storagetm')
 subdir('src/sulogin-shell')
 subdir('src/sysctl')
 subdir('src/sysext')
@@ -2404,7 +2431,6 @@ subdir('src/systemctl')
 subdir('src/sysupdate')
 subdir('src/sysusers')
 subdir('src/sysv-generator')
-subdir('src/storagetm')
 subdir('src/timedate')
 subdir('src/timesync')
 subdir('src/tmpfiles')
@@ -2553,9 +2579,9 @@ foreach dict : executables
                 endif
 
                 if type == 'manual'
-                        message('@0@/@1@ is a manual test'.format(suite, name))
+                        message(f'@suite@/@name@ is a manual test')
                 elif type == 'unsafe' and want_tests != 'unsafe'
-                        message('@0@/@1@ is an unsafe test'.format(suite, name))
+                        message(f'@suite@/@name@ is an unsafe test')
                 elif dict.get('build_by_default')
                         test(name, exe,
                              env : test_env,
@@ -2656,7 +2682,7 @@ foreach dict : modules
         if is_nss
                 # We cannot use shared_module because it does not support version suffix.
                 # Unfortunately shared_library insists on creating the symlink…
-                meson.add_install_script(sh, '-c', 'rm -f $DESTDIR@0@/lib@1@.so'.format(libdir, name),
+                meson.add_install_script(sh, '-c', f'rm -f $DESTDIR@libdir@/lib@name@.so',
                                          install_tag : 'nss')
                 nss_targets += lib
         endif
@@ -2722,11 +2748,11 @@ foreach executable : ['systemd-journal-remote', 'systemd-sbsign', 'systemd-keyut
 endforeach
 
 if mkosi.found()
-        custom_target('mkosi',
+        custom_target(
                 build_always_stale : true,
                 build_by_default: false,
                 console : true,
-                output : '.',
+                output : 'mkosi',
                 command : [
                         mkosi,
                         '--directory', meson.current_source_dir(),
@@ -2872,7 +2898,7 @@ if git.found()
                 command : [git, 'archive',
                            '-o', '@0@/systemd-@1@.tar.gz'.format(meson.project_source_root(),
                                                                  git_head_short),
-                           '--prefix', 'systemd-@0@/'.format(git_head),
+                           '--prefix', f'systemd-@git_head@/',
                            'HEAD'])
 endif
 
@@ -2919,6 +2945,8 @@ run_target(
                    libsystemd.full_path(),
                    libudev.full_path()])
 
+alias_target('man', man)
+alias_target('html', html)
 alias_target('update-dbus-docs', update_dbus_docs)
 alias_target('update-man-rules', update_man_rules)
 
@@ -2951,68 +2979,68 @@ if conf.get('ENABLE_HWDB') == 1
         alias_target('hwdb', auto_suspend_rules, executables_by_name.get('systemd-hwdb'), hwdb_units)
 endif
 
-alt_time_epoch = run_command('date', '-Is', '-u', '-d', '@@0@'.format(time_epoch),
+alt_time_epoch = run_command('date', '-Is', '-u', '-d', f'@@time_epoch@',
                              check : true).stdout().strip()
 
 summary({
-        'split bin-sbin' :                  split_bin,
-        'prefix directory' :                prefixdir,
-        'sysconf directory' :               sysconfdir,
-        'include directory' :               includedir,
-        'lib directory' :                   libdir,
-        'SysV init scripts' :               sysvinit_path,
-        'SysV rc?.d directories' :          sysvrcnd_path,
-        'SysV rc.local script' :            sysvrclocal_path,
-        'PAM modules directory' :           pamlibdir,
-        'PAM configuration directory' :     pamconfdir,
-        'ssh server configuration directory' : sshdconfdir,
+        'split bin-sbin'                            : split_bin,
+        'prefix directory'                          : prefixdir,
+        'sysconf directory'                         : sysconfdir,
+        'include directory'                         : includedir,
+        'lib directory'                             : libdir,
+        'SysV init scripts'                         : sysvinit_path,
+        'SysV rc?.d directories'                    : sysvrcnd_path,
+        'SysV rc.local script'                      : sysvrclocal_path,
+        'PAM modules directory'                     : pamlibdir,
+        'PAM configuration directory'               : pamconfdir,
+        'ssh server configuration directory'        : sshdconfdir,
         'ssh server privilege separation directory' : sshdprivsepdir,
-        'ssh client configuration directory' : sshconfdir,
-        'libcryptsetup plugins directory' : libcryptsetup_plugins_dir,
-        'Shell profile directory' :         shellprofiledir,
-        'RPM macros directory' :            rpmmacrosdir,
-        'modprobe.d directory' :            modprobedir,
-        'D-Bus policy directory' :          dbuspolicydir,
-        'D-Bus session directory' :         dbussessionservicedir,
-        'D-Bus system directory' :          dbussystemservicedir,
-        'D-Bus interfaces directory' :      dbus_interfaces_dir,
-        'bash completions directory' :      bashcompletiondir,
-        'zsh completions directory' :       zshcompletiondir,
-        'private shared lib version tag' :  shared_lib_tag,
-        'debug shell' :                     '@0@ @ @1@'.format(get_option('debug-shell'),
-                                                               get_option('debug-tty')),
-        'system UIDs' :                     '<=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
-                                                                         conf.get('SYSTEM_ALLOC_UID_MIN')),
-        'system GIDs' :                     '<=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),
-                                                                         conf.get('SYSTEM_ALLOC_GID_MIN')),
-        'greeter UIDs' :                    '@0@…@1@'.format(greeter_uid_min, greeter_uid_max),
-        'dynamic UIDs' :                    '@0@…@1@'.format(dynamic_uid_min, dynamic_uid_max),
-        'container UID bases' :             '@0@…@1@'.format(container_uid_base_min, container_uid_base_max),
-        'foreign UID base' :                '@0@'.format(foreign_uid_base),
-        'static UID/GID allocations' :      ' '.join(static_ugids),
-        '/dev/kvm access mode' :            get_option('dev-kvm-mode'),
-        'render group access mode' :        get_option('group-render-mode'),
-        'certificate root directory' :      get_option('certificate-root'),
-        'support URL' :                     support_url,
-        'nobody user name' :                nobody_user,
-        'nobody group name' :               nobody_group,
-        'fallback hostname' :               get_option('fallback-hostname'),
-        'default compression method' :      compression,
-        'default DNSSEC mode' :             default_dnssec,
-        'default DNS-over-TLS mode' :       default_dns_over_tls,
-        'default mDNS mode' :               default_mdns,
-        'default LLMNR mode' :              default_llmnr,
-        'default DNS servers' :             dns_servers.split(' '),
-        'default NTP servers' :             ntp_servers.split(' '),
-        'default net.naming_scheme= value': default_net_naming_scheme,
-        'default KillUserProcesses= value': kill_user_processes,
-        'default locale' :                  default_locale,
-        'default nspawn locale' :           nspawn_locale,
-        'default status unit format' :      status_unit_format_default,
-        'default user $PATH' :
-                default_user_path != '' ? default_user_path : '(same as system services)',
-        'systemd service watchdog' :        service_watchdog == '' ? 'disabled' : service_watchdog,
-        'time epoch' :                      '@0@ (@1@)'.format(time_epoch, alt_time_epoch)})
+        'ssh client configuration directory'        : sshconfdir,
+        'libcryptsetup plugins directory'           : libcryptsetup_plugins_dir,
+        'Shell profile directory'                   : shellprofiledir,
+        'RPM macros directory'                      : rpmmacrosdir,
+        'modprobe.d directory'                      : modprobedir,
+        'D-Bus policy directory'                    : dbuspolicydir,
+        'D-Bus session directory'                   : dbussessionservicedir,
+        'D-Bus system directory'                    : dbussystemservicedir,
+        'D-Bus interfaces directory'                : dbus_interfaces_dir,
+        'bash completions directory'                : bashcompletiondir,
+        'zsh completions directory'                 : zshcompletiondir,
+        'private shared lib version tag'            : shared_lib_tag,
+        'debug shell'                               : '@0@ @ @1@'.format(get_option('debug-shell'),
+                                                                         get_option('debug-tty')),
+        'system UIDs'                               : '<=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_UID_MAX'),
+                                                      conf.get('SYSTEM_ALLOC_UID_MIN')),
+        'system GIDs'                               : '<=@0@ (alloc >=@1@)'.format(conf.get('SYSTEM_GID_MAX'),
+                                                      conf.get('SYSTEM_ALLOC_GID_MIN')),
+        'greeter UIDs'                              : f'@greeter_uid_min@…@greeter_uid_max@',
+        'dynamic UIDs'                              : f'@dynamic_uid_min@…@dynamic_uid_max@',
+        'container UID bases'                       : f'@container_uid_base_min@…@container_uid_base_max@',
+        'foreign UID base'                          : f'@foreign_uid_base@',
+        'static UID/GID allocations'                : ' '.join(static_ugids),
+        '/dev/kvm access mode'                      : get_option('dev-kvm-mode'),
+        'render group access mode'                  : get_option('group-render-mode'),
+        'certificate root directory'                : get_option('certificate-root'),
+        'support URL'                               : support_url,
+        'nobody user name'                          : nobody_user,
+        'nobody group name'                         : nobody_group,
+        'fallback hostname'                         : get_option('fallback-hostname'),
+        'default compression method'                : compression,
+        'default DNSSEC mode'                       : default_dnssec,
+        'default DNS-over-TLS mode'                 : default_dns_over_tls,
+        'default mDNS mode'                         : default_mdns,
+        'default LLMNR mode'                        : default_llmnr,
+        'default DNS servers'                       : dns_servers.split(' '),
+        'default NTP servers'                       : ntp_servers.split(' '),
+        'default net.naming_scheme= value'          : default_net_naming_scheme,
+        'default KillUserProcesses= value'          : kill_user_processes,
+        'default locale'                            : default_locale,
+        'default nspawn locale'                     : nspawn_locale,
+        'default status unit format'                : status_unit_format_default,
+        'default user $PATH'                        : default_user_path != '' ? default_user_path : '(same as system services)',
+        'systemd service watchdog'                  : service_watchdog == '' ? 'disabled' : service_watchdog,
+        'time epoch'                                : f'@time_epoch@ (@alt_time_epoch@)',
+})
 
 # TODO:
 # CFLAGS:   ${OUR_CFLAGS} ${CFLAGS}
@@ -3046,7 +3074,6 @@ foreach tuple : [
         ['libfido2'],
         ['libidn'],
         ['libidn2'],
-        ['libiptc'],
         ['microhttpd'],
         ['openssl'],
         ['p11kit'],
@@ -3171,16 +3198,17 @@ endforeach
 if static_libsystemd == 'false'
         missing += 'static-libsystemd'
 else
-        found += 'static-libsystemd(@0@)'.format(static_libsystemd)
+        found += f'static-libsystemd(@static_libsystemd@)'
 endif
 
 if static_libudev == 'false'
         missing += 'static-libudev'
 else
-        found += 'static-libudev(@0@)'.format(static_libudev)
+        found += f'static-libudev(@static_libudev@)'
 endif
 
 summary({
-        'enabled' :  ', '.join(found),
-        'disabled' : ', '.join(missing)},
+                'enabled'  : ', '.join(found),
+                'disabled' : ', '.join(missing)
+        },
         section : 'Features')

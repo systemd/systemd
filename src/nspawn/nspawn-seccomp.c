@@ -163,7 +163,7 @@ static int add_syscall_filters(
 
 #if (SCMP_VER_MAJOR == 2 && SCMP_VER_MINOR >= 5) || SCMP_VER_MAJOR > 2
         /* We have a large filter here, so let's turn on the binary tree mode if possible. */
-        r = seccomp_attr_set(ctx, SCMP_FLTATR_CTL_OPTIMIZE, 2);
+        r = sym_seccomp_attr_set(ctx, SCMP_FLTATR_CTL_OPTIMIZE, 2);
         if (r < 0)
                 log_warning_errno(r, "Failed to set SCMP_FLTATR_CTL_OPTIMIZE, ignoring: %m");
 #endif
@@ -195,7 +195,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
                 if (r < 0)
                         return r;
 
-                r = seccomp_load(seccomp);
+                r = sym_seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
                         return log_error_errno(r, "Failed to install seccomp filter: %m");
                 if (r < 0)
@@ -220,7 +220,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
                   as indication that audit is disabled in the kernel.
                 */
 
-                r = seccomp_rule_add_exact(
+                r = sym_seccomp_rule_add_exact(
                                 seccomp,
                                 SCMP_ACT_ERRNO(EAFNOSUPPORT),
                                 SCMP_SYS(socket),
@@ -232,7 +232,7 @@ int setup_seccomp(uint64_t cap_list_retain, char **syscall_allow_list, char **sy
                         continue;
                 }
 
-                r = seccomp_load(seccomp);
+                r = sym_seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
                         return log_error_errno(r, "Failed to install seccomp audit filter: %m");
                 if (r < 0)

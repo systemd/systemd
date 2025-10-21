@@ -116,7 +116,7 @@ typedef struct BootEntry {
         EFI_STATUS (*call)(const struct BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
         int tries_done;
         int tries_left;
-        char16_t *path;
+        char16_t *directory;
         char16_t *current_name;
         char16_t *next_name;
         unsigned profile;
@@ -144,6 +144,7 @@ typedef struct {
         RebootOnError reboot_on_error;
         secure_boot_enroll secure_boot_enroll;
         secure_boot_enroll_action secure_boot_enroll_action;
+        uint64_t secure_boot_enroll_timeout_sec;
         bool force_menu;
         bool use_saved_entry;
         bool use_saved_entry_efivar;
@@ -243,7 +244,7 @@ static char16_t* update_timeout_efivar(Config *config, bool inc) {
         case TIMEOUT_MENU_HIDDEN:
                 return xstrdup16(u"Menu hidden. Hold down key at bootup to show menu.");
         default:
-                return xasprintf("Menu timeout set to %u s.", (uint32_t)config->timeout_sec_efivar);
+                return xasprintf("Menu timeout set to %"PRIu64"s.", config->timeout_sec_efivar);
         }
 }
 
@@ -278,7 +279,7 @@ static void print_timeout_status(const char *label, uint64_t t) {
         case TIMEOUT_MENU_HIDDEN:
                 return (void) printf("%s: menu-hidden\n", label);
         default:
-                return (void) printf("%s: %u s\n", label, (uint32_t)t);
+                return (void) printf("%s: %"PRIu64"s\n", label, t);
         }
 }
 
@@ -319,47 +320,50 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
         if (!ps_continue())
                 return;
 
-        print_timeout_status("      timeout (config)", config->timeout_sec_config);
-        print_timeout_status("     timeout (EFI var)", config->timeout_sec_efivar);
+        print_timeout_status("              timeout (config)", config->timeout_sec_config);
+        print_timeout_status("             timeout (EFI var)", config->timeout_sec_efivar);
 
         if (config->entry_default_config)
-                printf("      default (config): %ls\n", config->entry_default_config);
+                printf("              default (config): %ls\n", config->entry_default_config);
         if (config->entry_default_efivar)
-                printf("     default (EFI var): %ls\n", config->entry_default_efivar);
+                printf("             default (EFI var): %ls\n", config->entry_default_efivar);
         if (config->entry_oneshot)
-                printf("    default (one-shot): %ls\n", config->entry_oneshot);
+                printf("            default (one-shot): %ls\n", config->entry_oneshot);
         if (config->entry_sysfail)
-                printf("               sysfail: %ls\n", config->entry_sysfail);
+                printf("                       sysfail: %ls\n", config->entry_sysfail);
         if (config->entry_saved)
-                printf("             saved entry: %ls\n", config->entry_saved);
-        printf("                   editor: %ls\n", yes_no(config->editor));
-        printf("             auto-entries: %ls\n", yes_no(config->auto_entries));
-        printf("            auto-firmware: %ls\n", yes_no(config->auto_firmware));
-        printf("            auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
-        printf("              auto-reboot: %ls\n", yes_no(config->auto_reboot));
-        printf("                     beep: %ls\n", yes_no(config->beep));
-        printf("     reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
-        printf("          reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
-        printf("       secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
-        printf("secure-boot-enroll-action: %s\n",  secure_boot_enroll_action_to_string(config->secure_boot_enroll_action));
+                printf("                   saved entry: %ls\n", config->entry_saved);
+        printf("                        editor: %ls\n", yes_no(config->editor));
+        printf("                  auto-entries: %ls\n", yes_no(config->auto_entries));
+        printf("                 auto-firmware: %ls\n", yes_no(config->auto_firmware));
+        printf("                 auto-poweroff: %ls\n", yes_no(config->auto_poweroff));
+        printf("                   auto-reboot: %ls\n", yes_no(config->auto_reboot));
+        printf("                          beep: %ls\n", yes_no(config->beep));
+        printf("          reboot-for-bitlocker: %ls\n", yes_no(config->reboot_for_bitlocker));
+        printf("               reboot-on-error: %s\n",  reboot_on_error_to_string(config->reboot_on_error));
+        printf("            secure-boot-enroll: %s\n",  secure_boot_enroll_to_string(config->secure_boot_enroll));
+        printf("     secure-boot-enroll-action: %s\n",  secure_boot_enroll_action_to_string(config->secure_boot_enroll_action));
+        printf("secure-boot-enroll-timeout-sec: %"PRIu64"s\n", config->secure_boot_enroll_timeout_sec);
 
         switch (config->console_mode) {
         case CONSOLE_MODE_AUTO:
-                printf("    console-mode (config): auto\n");
+                printf("         console-mode (config): auto\n");
                 break;
         case CONSOLE_MODE_KEEP:
-                printf("    console-mode (config): keep\n");
+                printf("         console-mode (config): keep\n");
                 break;
         case CONSOLE_MODE_FIRMWARE_MAX:
-                printf("    console-mode (config): max\n");
+                printf("         console-mode (config): max\n");
                 break;
         default:
-                printf("    console-mode (config): %" PRIi64 "\n", config->console_mode);
+                printf("         console-mode (config): %" PRIi64 "\n", config->console_mode);
         }
 
         /* EFI var console mode is always a concrete value or unset. */
         if (config->console_mode_efivar != CONSOLE_MODE_KEEP)
-                printf("   console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
+                printf("        console-mode (EFI var): %" PRIi64 "\n", config->console_mode_efivar);
+
+        printf("                     log-level: %s\n", log_level_to_string(log_get_max_level()));
 
         if (!ps_continue())
                 return;
@@ -409,8 +413,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                 printf("counting boots: %ls\n", yes_no(entry->tries_left >= 0));
                 if (entry->tries_left >= 0) {
                         printf("         tries: %i left, %i done\n", entry->tries_left, entry->tries_done);
-                        printf("  current path: %ls\\%ls\n", entry->path, entry->current_name);
-                        printf("     next path: %ls\\%ls\n", entry->path, entry->next_name);
+                        printf("  current path: %ls\\%ls\n", entry->directory, entry->current_name);
+                        printf("     next path: %ls\\%ls\n", entry->directory, entry->next_name);
                 }
 
                 if (!ps_continue())
@@ -473,8 +477,8 @@ static bool menu_run(
         size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
         _cleanup_strv_free_ char16_t **lines = NULL;
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
-        uint64_t timeout_efivar_saved = config->timeout_sec_efivar;
-        uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
+        uint64_t timeout_efivar_saved = config->timeout_sec_efivar,
+                timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         size_t default_efivar_saved = config->idx_default_efivar;
 
@@ -491,8 +495,9 @@ static bool menu_run(
         ST->ConIn->Reset(ST->ConIn, false);
         ST->ConOut->EnableCursor(ST->ConOut, false);
 
-        /* draw a single character to make ClearScreen work on some firmware */
-        ST->ConOut->OutputString(ST->ConOut, (char16_t *) u" ");
+        /* Draw a single character to the beginning of a line, in order to make ClearScreen() work on certain
+         * broken firmware. And let's immediately move back to the beginning of the line. */
+        printf("\r \r");
 
         err = console_set_mode(config->console_mode_efivar != CONSOLE_MODE_KEEP ?
                                config->console_mode_efivar : config->console_mode);
@@ -618,7 +623,7 @@ static bool menu_run(
 
                 if (timeout_remain > 0) {
                         free(status);
-                        status = xasprintf("Boot in %u s.", timeout_remain);
+                        status = xasprintf("Boot in %"PRIu64"s.", timeout_remain);
                 }
 
                 if (status) {
@@ -991,7 +996,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->devicetree);
         free(entry->options);
         strv_free(entry->initrd);
-        free(entry->path);
+        free(entry->directory);
         free(entry->current_name);
         free(entry->next_name);
 
@@ -1008,6 +1013,8 @@ static void config_defaults_load_from_file(Config *config, char *content) {
         assert(config);
         assert(content);
 
+        /* If you add, remove, or change an option name here, please also update
+         * shared/bootspec.c@boot_loader_read_conf() to make parsing by bootctl/logind/etc. work. */
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
                 if (streq8(key, "timeout")) {
                         if (streq8(value, "menu-disabled"))
@@ -1095,6 +1102,18 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                         else
                                 log_error("Error parsing 'secure-boot-enroll-action' config option, ignoring: %s",
                                           value);
+                } else if (streq8(key, "secure-boot-enroll-timeout-sec")) {
+                        if (streq8(value, "hidden"))
+                                config->secure_boot_enroll_timeout_sec = ENROLL_TIMEOUT_HIDDEN;
+                        else {
+                                uint64_t u;
+                                if (!parse_number8(value, &u, NULL) || u > ENROLL_TIMEOUT_MAX) {
+                                        log_error("Error parsing 'secure-boot-enroll-timeout-sec' config option, ignoring: %s",
+                                                  value);
+                                        continue;
+                                }
+                                config->secure_boot_enroll_timeout_sec = u;
+                        }
                 } else if (streq8(key, "console-mode")) {
                         if (streq8(value, "auto"))
                                 config->console_mode = CONSOLE_MODE_AUTO;
@@ -1111,17 +1130,20 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 }
                                 config->console_mode = u;
                         }
+                } else if (streq8(key, "log-level")) {
+                        if (log_set_max_level_from_string(value) < 0)
+                                log_error("Error parsing 'log-level' config option, ignoring: %s", value);
                 }
 }
 
 static void boot_entry_parse_tries(
                 BootEntry *entry,
-                const char16_t *path,
+                const char16_t *directory,
                 const char16_t *file,
                 const char16_t *suffix) {
 
         assert(entry);
-        assert(path);
+        assert(directory);
         assert(file);
         assert(suffix);
 
@@ -1165,9 +1187,13 @@ static void boot_entry_parse_tries(
         if (!strcaseeq16(counter, suffix))
                 return;
 
+        entry->id = xasprintf("%.*ls%ls",
+                        (int) prefix_len - 1,
+                        file,
+                        suffix);
         entry->tries_left = tries_left;
         entry->tries_done = tries_done;
-        entry->path = xstrdup16(path);
+        entry->directory = xstrdup16(directory);
         entry->current_name = xstrdup16(file);
         entry->next_name = xasprintf(
                         "%.*ls%" PRIu64 "-%" PRIu64 "%ls",
@@ -1193,7 +1219,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         if (entry->tries_left < 0)
                 return EFI_SUCCESS;
 
-        if (!entry->path || !entry->current_name || !entry->next_name)
+        if (!entry->directory || !entry->current_name || !entry->next_name)
                 return EFI_SUCCESS;
 
         _cleanup_file_close_ EFI_FILE *root = NULL;
@@ -1201,7 +1227,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error opening entry root path: %m");
 
-        old_path = xasprintf("%ls\\%ls", entry->path, entry->current_name);
+        old_path = xasprintf("%ls\\%ls", entry->directory, entry->current_name);
 
         err = root->Open(root, &handle, old_path, EFI_FILE_MODE_READ|EFI_FILE_MODE_WRITE, 0ULL);
         if (err != EFI_SUCCESS)
@@ -1225,7 +1251,7 @@ static EFI_STATUS boot_entry_bump_counters(BootEntry *entry) {
 
         /* Let's tell the OS that we renamed this file, so that it knows what to rename to the counter-less name on
          * success */
-        new_path = xasprintf("%ls\\%ls", entry->path, entry->next_name);
+        new_path = xasprintf("%ls\\%ls", entry->directory, entry->next_name);
         efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderBootCountPath", new_path, 0);
 
         /* If the file we just renamed is the loader path, then let's update that. */
@@ -1267,6 +1293,8 @@ static void boot_entry_add_type1(
                 .call = call_image_start,
         };
 
+        /* If you add, remove, or change an option name here, please also update shared/bootspec.c and
+         * shared/varlink-io.systemd.BootControl to make parsing by bootctl/logind/etc. work. */
         while ((line = line_get_key_value(content, " \t", &pos, &key, &value)))
                 if (streq8(key, "title")) {
                         free(entry->title);
@@ -1275,6 +1303,13 @@ static void boot_entry_add_type1(
                 } else if (streq8(key, "sort-key")) {
                         free(entry->sort_key);
                         entry->sort_key = xstr8_to_16(value);
+
+                } else if (streq8(key, "profile")) {
+                        uint64_t u;
+                        if (parse_number8(value, &u, NULL) && u <= UINT_MAX)
+                                entry->profile = (unsigned)u;
+                        else
+                                log_warning("Error parsing 'profile' entry option, ignoring: %s", value);
 
                 } else if (streq8(key, "version")) {
                         free(entry->version);
@@ -1395,13 +1430,16 @@ static void boot_entry_add_type1(
         }
 
         entry->device = device;
-        entry->id = xstrdup16(file);
-        strtolower16(entry->id);
-
-        config_add_entry(config, entry);
 
         if (path)
                 boot_entry_parse_tries(entry, path, file, u".conf");
+
+        if (!entry->id)
+                entry->id = xstrdup16(file);
+
+        strtolower16(entry->id);
+
+        config_add_entry(config, entry);
         TAKE_PTR(entry);
 }
 
@@ -1451,6 +1489,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .reboot_on_error = REBOOT_AUTO,
                 .secure_boot_enroll = ENROLL_IF_SAFE,
                 .secure_boot_enroll_action = ENROLL_ACTION_REBOOT,
+                .secure_boot_enroll_timeout_sec = ENROLL_TIMEOUT_DEFAULT,
                 .idx_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
@@ -2769,7 +2808,8 @@ static void save_selected_entry(const Config *config, const BootEntry *entry) {
 static EFI_STATUS call_secure_boot_enroll(const BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image) {
         assert(entry);
 
-        return secure_boot_enroll_at(root_dir, entry->path, /* force= */ true, /* action= */ ENROLL_ACTION_REBOOT);
+        return secure_boot_enroll_at(root_dir, entry->directory, /* force= */ true, /* action= */ ENROLL_ACTION_REBOOT,
+                                     ENROLL_TIMEOUT_DEFAULT);
 }
 
 static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) {
@@ -2808,7 +2848,7 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                 *entry = (BootEntry) {
                         .id = xasprintf("secure-boot-keys-%ls", dirent->FileName),
                         .title = xasprintf("Enroll Secure Boot keys: %ls", dirent->FileName),
-                        .path = xasprintf("\\loader\\keys\\%ls", dirent->FileName),
+                        .directory = xasprintf("\\loader\\keys\\%ls", dirent->FileName),
                         .type = LOADER_SECURE_BOOT_KEYS,
                         .tries_done = -1,
                         .tries_left = -1,
@@ -2820,7 +2860,8 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
                     strcaseeq16(dirent->FileName, u"auto"))
                         /* If we auto enroll successfully this call does not return.
                          * If it fails we still want to add other potential entries to the menu. */
-                        secure_boot_enroll_at(root_dir, entry->path, config->secure_boot_enroll == ENROLL_FORCE, config->secure_boot_enroll_action);
+                        secure_boot_enroll_at(root_dir, entry->directory, config->secure_boot_enroll == ENROLL_FORCE,
+                                              config->secure_boot_enroll_action, config->secure_boot_enroll_timeout_sec);
         }
 
         return EFI_SUCCESS;
@@ -2981,6 +3022,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         EFI_STATUS err;
         uint64_t init_usec;
         bool menu = false;
+
+        /* set loglevel early to simplify debugging before loader.conf is loaded */
+        log_set_max_level_from_smbios();
 
         init_usec = time_usec();
 

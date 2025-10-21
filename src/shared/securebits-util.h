@@ -3,9 +3,10 @@
 
 #include <linux/securebits.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
-int secure_bits_to_string_alloc(int i, char **s);
+int secure_bits_to_strv(int i, char ***ret);
+int secure_bits_to_string_alloc(int i, char **ret);
 int secure_bits_from_string(const char *s);
 
 static inline bool secure_bits_is_valid(int i) {

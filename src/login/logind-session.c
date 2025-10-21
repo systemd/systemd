@@ -828,8 +828,8 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                 (void) seat_save(s->seat);
 
         /* Send signals */
-        session_send_signal(s, true);
-        user_send_changed(s->user, "Display");
+        (void) session_send_signal(s, true);
+        (void) user_send_changed(s->user, "Display");
 
         if (s->seat && s->seat->active == s)
                 (void) seat_send_changed(s->seat, "ActiveSession");
@@ -1110,13 +1110,13 @@ int session_set_idle_hint(Session *s, bool b) {
         s->idle_hint = b;
         dual_timestamp_now(&s->idle_hint_timestamp);
 
-        session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
+        (void) session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
 
         if (s->seat)
-                seat_send_changed(s->seat, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
+                (void) seat_send_changed(s->seat, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
 
-        user_send_changed(s->user, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
-        manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
+        (void) user_send_changed(s->user, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
+        (void) manager_send_changed(s->manager, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic");
 
         return 1;
 }

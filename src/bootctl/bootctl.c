@@ -45,6 +45,8 @@
  * having to deal with a potentially too long string. */
 #define EFI_BOOT_OPTION_DESCRIPTION_MAX ((size_t) 255)
 
+static GracefulMode _arg_graceful = ARG_GRACEFUL_NO;
+
 char *arg_esp_path = NULL;
 char *arg_xbootldr_path = NULL;
 bool arg_print_esp_path = false;
@@ -55,7 +57,6 @@ unsigned arg_print_root_device = 0;
 int arg_touch_variables = -1;
 bool arg_install_random_seed = true;
 PagerFlags arg_pager_flags = 0;
-bool arg_graceful = false;
 bool arg_quiet = false;
 int arg_make_entry_directory = false; /* tri-state: < 0 for automatic logic */
 sd_id128_t arg_machine_id = SD_ID128_NULL;
@@ -66,7 +67,7 @@ sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 bool arg_arch_all = false;
 char *arg_root = NULL;
 char *arg_image = NULL;
-InstallSource arg_install_source = ARG_INSTALL_SOURCE_AUTO;
+InstallSource arg_install_source = INSTALL_SOURCE_AUTO;
 char *arg_efi_boot_option_description = NULL;
 bool arg_dry_run = false;
 ImagePolicy *arg_image_policy = NULL;
@@ -245,6 +246,21 @@ bool touch_variables(void) {
         return true;
 }
 
+GracefulMode arg_graceful(void) {
+        static bool chroot_checked = false;
+
+        if (!chroot_checked && running_in_chroot() > 0) {
+                if (_arg_graceful == ARG_GRACEFUL_NO)
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Running in a chroot, enabling --graceful.");
+
+                _arg_graceful = ARG_GRACEFUL_FORCE;
+        }
+
+        chroot_checked = true;
+
+        return _arg_graceful;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -325,7 +341,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --efi-boot-option-description=DESCRIPTION\n"
                "                       Description of the entry in the boot option list\n"
                "     --dry-run         Dry run (unlink and cleanup)\n"
-               "     --secure-boot-auto-enroll\n"
+               "     --secure-boot-auto-enroll=yes|no\n"
                "                       Set up secure boot auto-enrollment\n"
                "     --private-key=PATH|URI\n"
                "                       Private key to use when setting up secure boot\n"
@@ -467,11 +483,11 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_INSTALL_SOURCE:
                         if (streq(optarg, "auto"))
-                                arg_install_source = ARG_INSTALL_SOURCE_AUTO;
+                                arg_install_source = INSTALL_SOURCE_AUTO;
                         else if (streq(optarg, "image"))
-                                arg_install_source = ARG_INSTALL_SOURCE_IMAGE;
+                                arg_install_source = INSTALL_SOURCE_IMAGE;
                         else if (streq(optarg, "host"))
-                                arg_install_source = ARG_INSTALL_SOURCE_HOST;
+                                arg_install_source = INSTALL_SOURCE_HOST;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unexpected parameter for --install-source=: %s", optarg);
@@ -519,7 +535,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_GRACEFUL:
-                        arg_graceful = true;
+                        _arg_graceful = ARG_GRACEFUL_YES;
                         break;
 
                 case 'q':
@@ -632,22 +648,17 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_root && arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
 
-        if (arg_install_source != ARG_INSTALL_SOURCE_AUTO && !arg_root && !arg_image)
+        if (arg_install_source != INSTALL_SOURCE_AUTO && !arg_root && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--install-from-host is only supported with --root= or --image=.");
 
         if (arg_dry_run && argv[optind] && !STR_IN_SET(argv[optind], "unlink", "cleanup"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry is only supported with --unlink or --cleanup");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dry-run is only supported with --unlink or --cleanup");
 
         if (arg_secure_boot_auto_enroll && !arg_certificate)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no certificate provided");
 
         if (arg_secure_boot_auto_enroll && !arg_private_key)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Secure boot auto-enrollment requested but no private key provided");
-
-        if (!arg_graceful && running_in_chroot() > 0) {
-                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Running in a chroot, enabling --graceful.");
-                arg_graceful = true;
-        }
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
@@ -671,7 +682,7 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "kernel-identify",     2,        2,        0,            verb_kernel_identify     },
                 { "kernel-inspect",      2,        2,        0,            verb_kernel_inspect      },
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
-                { "unlink",              2,        2,        0,            verb_unlink              },
+                { "unlink",              2,        2,        0,            verb_list                },
                 { "cleanup",             VERB_ANY, 1,        0,            verb_list                },
                 { "set-default",         2,        2,        0,            verb_set_efivar          },
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
@@ -686,6 +697,38 @@ static int bootctl_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        /* Invocation as Varlink service */
+
+        r = varlink_server_new(
+                        &varlink_server,
+                        SD_VARLINK_SERVER_ROOT_ONLY,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_BootControl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method_many(
+                        varlink_server,
+                        "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
+                        "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
+                        "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
@@ -697,33 +740,8 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        if (arg_varlink) {
-                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-
-                /* Invocation as Varlink service */
-
-                r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
-
-                r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_BootControl);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add Varlink interface: %m");
-
-                r = sd_varlink_server_bind_method_many(
-                                varlink_server,
-                                "io.systemd.BootControl.ListBootEntries",     vl_method_list_boot_entries,
-                                "io.systemd.BootControl.SetRebootToFirmware", vl_method_set_reboot_to_firmware,
-                                "io.systemd.BootControl.GetRebootToFirmware", vl_method_get_reboot_to_firmware);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind Varlink methods: %m");
-
-                r = sd_varlink_server_loop_auto(varlink_server);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
-
-                return EXIT_SUCCESS;
-        }
+        if (arg_varlink)
+                return vl_server();
 
         if (arg_print_root_device > 0) {
                 _cleanup_free_ char *path = NULL;

@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "errno-util.h"
 #include "tests.h"
 
 TEST(saturate_add) {
@@ -1100,6 +1099,22 @@ TEST(u64_multiply_safe) {
         assert_se(u64_multiply_safe(3, UINT64_MAX / 2) == 0);
 
         assert_se(u64_multiply_safe(UINT64_MAX, UINT64_MAX) == 0);
+}
+
+static void test_once_impl(void) {
+        static unsigned count = 0;
+
+        if (ONCE) {
+                log_info("This should be logged only once.");
+                count++;
+        }
+
+        ASSERT_EQ(count, 1u);
+}
+
+TEST(once) {
+        for (unsigned i = 0; i < 20; i++)
+                test_once_impl();
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

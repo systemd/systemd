@@ -6,9 +6,6 @@ set -o pipefail
 
 # Test JoinsNamespaceOf= with PrivateTmp=yes
 
-systemd-analyze log-level debug
-systemd-analyze log-target journal
-
 # simple case
 systemctl start TEST-23-UNIT-FILE-joins-namespace-of-1.service
 systemctl start TEST-23-UNIT-FILE-joins-namespace-of-2.service
@@ -27,5 +24,3 @@ systemctl start TEST-23-UNIT-FILE-joins-namespace-of-8.service
 systemctl start TEST-23-UNIT-FILE-joins-namespace-of-9.service
 systemctl stop TEST-23-UNIT-FILE-joins-namespace-of-6.service
 systemctl stop TEST-23-UNIT-FILE-joins-namespace-of-8.service
-
-systemd-analyze log-level info

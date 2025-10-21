@@ -35,7 +35,9 @@
     compatibility. It may also pick up statically defined JSON user/group records from files in
     <filename>/etc/userdb/</filename>, <filename>/run/userdb/</filename>,
     <filename>/run/host/userdb/</filename> and <filename>/usr/lib/userdb/</filename> with the
-    <literal>.user</literal> extension.</para>
+    <literal>.user</literal> or <literal>.group</literal> extension. For more details about the extensions
+    read the <citerefentry><refentrytitle>nss-systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    manpage.</para>
 
     <para>Most of <command>systemd-userdbd</command>'s functionality is accessible through the
     <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>

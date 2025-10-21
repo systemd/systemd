@@ -26,12 +26,13 @@
 #include "path-util.h"
 #include "rm-rf.h"
 #include "selinux-util.h"
+#include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
-#include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "sync-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "umask-util.h"
 #include "user-util.h"
@@ -262,6 +263,10 @@ int copy_bytes_full(
                         }
                 }
         }
+
+        usec_t start_timestamp = USEC_INFINITY;
+        if (progress)
+                start_timestamp = now(CLOCK_MONOTONIC);
 
         for (;;) {
                 ssize_t n;
@@ -511,7 +516,13 @@ int copy_bytes_full(
                         try_sendfile = false;
 
                 if (progress) {
-                        r = progress(n, userdata);
+                        usec_t t = now(CLOCK_MONOTONIC);
+                        usec_t d = usec_sub_unsigned(t, start_timestamp);
+                        uint64_t bps = UINT64_MAX;
+                        if (d > USEC_PER_SEC * 3U)
+                                bps = (uint64_t) (copied_total / ((double) d / USEC_PER_SEC));
+
+                        r = progress(n, bps, userdata);
                         if (r < 0)
                                 return r;
                 }

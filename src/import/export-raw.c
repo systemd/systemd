@@ -11,6 +11,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "import-common.h"
 #include "log.h"
 #include "pretty-print.h"
 #include "ratelimit.h"
@@ -19,8 +20,6 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
-
-#define COPY_BUFFER_SIZE (16*1024)
 
 typedef struct RawExport {
         sd_event *event;
@@ -161,7 +160,7 @@ static int raw_export_process(RawExport *e) {
 
         if (!e->tried_sendfile && e->compress.type == IMPORT_COMPRESS_UNCOMPRESSED) {
 
-                l = sendfile(e->output_fd, e->input_fd, NULL, COPY_BUFFER_SIZE);
+                l = sendfile(e->output_fd, e->input_fd, NULL, IMPORT_BUFFER_SIZE);
                 if (l < 0) {
                         if (errno == EAGAIN)
                                 return 0;
@@ -181,7 +180,7 @@ static int raw_export_process(RawExport *e) {
         }
 
         while (e->buffer_size <= 0) {
-                uint8_t input[COPY_BUFFER_SIZE];
+                uint8_t input[IMPORT_BUFFER_SIZE];
 
                 if (e->eof) {
                         r = 0;

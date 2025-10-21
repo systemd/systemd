@@ -5,14 +5,14 @@
 # Gökhan Gurbetoğlu <ggurbet@gmail.com>, 2015.
 # Oğuz Ersen <oguzersen@protonmail.com>, 2020.
 # Muhammet Kara <muhammetk@gmail.com>, 2015-2020.
-# Oğuz Ersen <oguz@ersen.moe>, 2022, 2023, 2024.
+# Oğuz Ersen <oguz@ersen.moe>, 2022, 2023, 2024, 2025.
 # Emir SARI <emir_sari@icloud.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2025-07-29 19:53+0000\n"
-"Last-Translator: Emir SARI <emir_sari@icloud.com>\n"
+"PO-Revision-Date: 2025-10-04 19:48+0000\n"
+"Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
 "Language: tr\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.12.2\n"
+"X-Generator: Weblate 5.13.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -928,19 +928,14 @@ msgstr ""
 "gereklidir."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "Yerel sanal makine veya kapsayıcı oluştur"
+msgstr "Yerel sanal makine veya kapsayıcı kaydet"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
-"Yerel sanal makine veya kapsayıcı oluşturmak için kimlik doğrulaması "
+"Yerel sanal makine veya kapsayıcı kaydetmek için kimlik doğrulaması "
 "gereklidir."
 
 #: src/machine/org.freedesktop.machine1.policy:116
@@ -1181,13 +1176,11 @@ msgstr "Arama sonuçlarına abone olmak için kimlik doğrulaması gereklidir."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "DNS yapılandırmasına abone ol"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "Arama sonuçlarına abone olmak için kimlik doğrulaması gereklidir."
+msgstr "DNS yapılandırmasına abone olmak için kimlik doğrulaması gereklidir."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1330,16 +1323,12 @@ msgstr ""
 "gereklidir."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
-"'$(unit)' süreçlerine bir UNIX sinyali göndermek için kimlik doğrulaması "
-"gereklidir."
+"'$(unit)' alt gruplarının süreçlerine bir UNIX sinyali göndermek için kimlik "
+"doğrulaması gereklidir."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."

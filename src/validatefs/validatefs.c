@@ -257,7 +257,7 @@ static int validate_gpt_label(blkid_probe b, const ValidateFields *f) {
                 return 0;
 
         const char *v = NULL;
-        (void) blkid_probe_lookup_value(b, "PART_ENTRY_NAME", &v, /* len= */ NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PART_ENTRY_NAME", &v, /* len= */ NULL);
 
         if (strv_contains(f->gpt_label, strempty(v)))
                 return 0;
@@ -277,7 +277,7 @@ static int validate_gpt_type(blkid_probe b, const ValidateFields *f) {
                 return 0;
 
         const char *v = NULL;
-        (void) blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* len= */ NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PART_ENTRY_TYPE", &v, /* len= */ NULL);
 
         sd_id128_t id;
         if (!v || sd_id128_from_string(v, &id) < 0) {
@@ -305,26 +305,30 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         assert(d);
         assert(f);
 
+        r = dlopen_libblkid();
+        if (r < 0)
+                return log_error_errno(r, "Cannot validate GPT constraints, refusing.");
+
         _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (block_fd < 0)
                 return log_error_errno(block_fd, "Failed to open block device backing '%s': %m", path);
 
-        _cleanup_(blkid_free_probep) blkid_probe b = blkid_new_probe();
+        _cleanup_(blkid_free_probep) blkid_probe b = sym_blkid_new_probe();
         if (!b)
                 return log_oom();
 
         errno = 0;
-        r = blkid_probe_set_device(b, block_fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, block_fd, 0, 0);
         if (r != 0)
                 return log_error_errno(errno_or_else(ENOMEM), "Failed to set up block device prober for '%s': %m", path);
 
-        (void) blkid_probe_enable_superblocks(b, 1);
-        (void) blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_LABEL);
-        (void) blkid_probe_enable_partitions(b, 1);
-        (void) blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+        (void) sym_blkid_probe_enable_superblocks(b, 1);
+        (void) sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_LABEL);
+        (void) sym_blkid_probe_enable_partitions(b, 1);
+        (void) sym_blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
 
         errno = 0;
-        r = blkid_do_safeprobe(b);
+        r = sym_blkid_do_safeprobe(b);
         if (r == _BLKID_SAFEPROBE_ERROR)
                 return log_error_errno(errno_or_else(EIO), "Failed to probe block device of '%s': %m", path);
         if (r == _BLKID_SAFEPROBE_AMBIGUOUS)
@@ -335,7 +339,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
         const char *v = NULL;
-        (void) blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, /* len= */ NULL);
+        (void) sym_blkid_probe_lookup_value(b, "PART_ENTRY_SCHEME", &v, /* len= */ NULL);
         if (!streq_ptr(v, "gpt"))
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "File system is supposed to be on a GPT partition table, but is not, refusing.");
 

@@ -822,6 +822,17 @@ mouse:usb:v0e8fp00a7:name:DaKai 2.4G RX:*
  MOUSE_DPI=*800@126 1600@126
 
 ##########################################
+# Nulea
+##########################################
+
+# Note: The Nulea uses a generic USB dongle. Overriding its value would cause
+# other mice to be erroneously registered as trackballs, so only bluetooth
+# detection is added.
+# Nulea M501 Wireless Trackball (Bluetooth)
+mouse:bluetooth:v000ep3412:name:Nulea BT5.0 Mouse:*
+ ID_INPUT_TRACKBALL=1
+
+##########################################
 # Oklick
 ##########################################
 

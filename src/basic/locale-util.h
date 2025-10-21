@@ -3,7 +3,7 @@
 
 #include <locale.h>     /* IWYU pragma: export */
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef enum LocaleVariable {
         /* We don't list LC_ALL here on purpose. People should be

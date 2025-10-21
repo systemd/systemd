@@ -2,7 +2,7 @@
 #pragma once
 
 #include "list.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum ConditionType {
         CONDITION_ARCHITECTURE,

@@ -5,7 +5,7 @@
 
 #include "errno-list.h"
 #include "errno-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "log.h"
 #include "static-destruct.h"
 #include "signal-util.h"

@@ -2777,7 +2777,8 @@ bool userdb_match_is_set(const UserDBMatch *match) {
         return !strv_isempty(match->fuzzy_names) ||
                 !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
                 match->uid_min > 0 ||
-                match->uid_max < UID_INVALID-1;
+                match->uid_max < UID_INVALID-1 ||
+                !sd_id128_is_null(match->uuid);
 }
 
 void userdb_match_done(UserDBMatch *match) {
@@ -2834,6 +2835,9 @@ bool user_record_match(UserRecord *u, const UserDBMatch *match) {
                 return false;
 
         if (!BIT_SET(match->disposition_mask, user_record_disposition(u)))
+                return false;
+
+        if (!sd_id128_is_null(match->uuid) && !sd_id128_equal(match->uuid, u->uuid))
                 return false;
 
         if (!strv_isempty(match->fuzzy_names)) {

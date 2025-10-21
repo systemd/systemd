@@ -3,7 +3,7 @@
 
 #include <signal.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* An embeddable structure carrying a reference to a process. Supposed to be used when tracking processes
  * continuously. This combines a PID, a modern Linux pidfd and the 64bit inode number of the pidfd into one
@@ -54,6 +54,10 @@ static inline bool pidref_is_set(const PidRef *pidref) {
 }
 
 bool pidref_is_automatic(const PidRef *pidref);
+
+static inline bool pidref_is_set_or_automatic(const PidRef *pidref) {
+        return pidref_is_set(pidref) || pidref_is_automatic(pidref);
+}
 
 static inline bool pidref_is_remote(const PidRef *pidref) {
         /* If the fd is set to -EREMOTE we assume PidRef does not refer to a local PID, but on another

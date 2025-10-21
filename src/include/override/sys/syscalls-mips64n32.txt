@@ -16,6 +16,7 @@ atomic_barrier
 atomic_cmpxchg_32
 bind	6048
 bpf	6319
+breakpoint
 brk	6012
 cachectl	6198
 cacheflush	6197
@@ -113,6 +114,7 @@ futimesat	6255
 get_mempolicy	6232
 get_robust_list	6273
 get_thread_area
+get_tls
 getcpu	6275
 getcwd	6077
 getdents	6076
@@ -404,6 +406,7 @@ set_mempolicy_home_node	6450
 set_robust_list	6272
 set_thread_area	6246
 set_tid_address	6213
+set_tls
 setdomainname	6166
 setfsgid	6121
 setfsgid32
@@ -512,6 +515,8 @@ unlinkat	6257
 unshare	6266
 uretprobe
 userfaultfd	6321
+usr26
+usr32
 ustat	6133
 utime	6130
 utimensat	6279

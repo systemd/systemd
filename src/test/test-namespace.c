@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/prctl.h>
 #include <sched.h>
 #include <stdlib.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sysexits.h>
@@ -311,6 +313,10 @@ TEST(process_is_owned_by_uid) {
         if (r == 0) {
                 p[0] = safe_close(p[0]);
                 ASSERT_OK(fully_set_uid_gid(1, 1, NULL, 0));
+
+                /* After successfully changing id/gid DEATHSIG is reset, so it has to be set again */
+                ASSERT_OK_ERRNO(prctl(PR_SET_PDEATHSIG, SIGKILL));
+
                 ASSERT_OK_EQ_ERRNO(write(p[1], &(const char[]) { 'x' }, 1), 1);
                 p[1] = safe_close(p[1]);
                 freeze();
@@ -345,6 +351,9 @@ TEST(process_is_owned_by_uid) {
                 pp[0] = safe_close(pp[0]);
 
                 ASSERT_OK(reset_uid_gid());
+
+                /* After successfully changing id/gid DEATHSIG is reset, so it has to be set again */
+                ASSERT_OK_ERRNO(prctl(PR_SET_PDEATHSIG, SIGKILL));
 
                 ASSERT_OK_EQ_ERRNO(write(p[1], &(const char[]) { 'x' }, 1), 1);
                 p[1] = safe_close(p[1]);
@@ -416,12 +425,16 @@ TEST(namespace_get_leader) {
                         ASSERT_TRUE(!pidref_equal(&pid2, &leader));
                         ASSERT_TRUE(!pidref_equal(&original, &leader));
                         ASSERT_TRUE(!pidref_equal(&grandparent, &leader));
+
+                        _exit(EXIT_SUCCESS);
                 }
+
+                _exit(EXIT_SUCCESS);
         }
 }
 
 TEST(detach_mount_namespace_harder) {
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int p[2] = EBADF_PAIR;
         char x = 0;
         int r;

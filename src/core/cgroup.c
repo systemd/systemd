@@ -28,12 +28,12 @@
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
-#include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "inotify-util.h"
 #include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "manager.h"
+#include "netlink-internal.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1335,12 +1335,10 @@ void unit_modify_nft_set(Unit *u, bool add) {
         if (!crt || crt->cgroup_id == 0)
                 return;
 
-        if (!u->manager->fw_ctx) {
-                r = fw_ctx_new_full(&u->manager->fw_ctx, /* init_tables= */ false);
+        if (!u->manager->nfnl) {
+                r = sd_nfnl_socket_open(&u->manager->nfnl);
                 if (r < 0)
                         return;
-
-                assert(u->manager->fw_ctx);
         }
 
         CGroupContext *c = ASSERT_PTR(unit_get_cgroup_context(u));
@@ -1351,7 +1349,7 @@ void unit_modify_nft_set(Unit *u, bool add) {
 
                 uint64_t element = crt->cgroup_id;
 
-                r = nft_set_element_modify_any(u->manager->fw_ctx, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
+                r = nft_set_element_modify_any(u->manager->nfnl, add, nft_set->nfproto, nft_set->table, nft_set->set, &element, sizeof(element));
                 if (r < 0)
                         log_warning_errno(r, "Failed to %s NFT set entry: family %s, table %s, set %s, cgroup %" PRIu64 ", ignoring: %m",
                                           add? "add" : "delete", nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set, crt->cgroup_id);
@@ -1454,12 +1452,6 @@ static void set_io_weight(Unit *u, uint64_t weight) {
 
         xsprintf(buf, "default %" PRIu64 "\n", weight);
         (void) set_attribute_and_warn(u, "io.weight", buf);
-}
-
-static void cgroup_apply_bpf_foreign_program(Unit *u) {
-        assert(u);
-
-        (void) bpf_foreign_install(u);
 }
 
 static void cgroup_context_apply(
@@ -1611,7 +1603,7 @@ static void cgroup_context_apply(
                 cgroup_apply_firewall(u);
 
         if (apply_mask & CGROUP_MASK_BPF_FOREIGN)
-                cgroup_apply_bpf_foreign_program(u);
+                (void) bpf_foreign_install(u);
 
         if (apply_mask & CGROUP_MASK_BPF_SOCKET_BIND)
                 cgroup_apply_socket_bind(u);
@@ -2205,12 +2197,6 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
         if (set_isempty(pids))
                 return 0;
-
-        /* Load any custom firewall BPF programs here once to test if they are existing and actually loadable.
-         * Fail here early since later errors in the call chain unit_realize_cgroup to cgroup_context_apply are ignored. */
-        r = bpf_firewall_load_custom(u);
-        if (r < 0)
-                return r;
 
         r = unit_realize_cgroup(u);
         if (r < 0)
@@ -3036,20 +3022,43 @@ int unit_check_oom(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return 0;
 
-        r = cg_get_keyed_attribute(
-                        "memory",
-                        crt->cgroup_path,
-                        "memory.events",
-                        STRV_MAKE("oom_kill"),
-                        &oom_kill);
-        if (IN_SET(r, -ENOENT, -ENXIO)) /* Handle gracefully if cgroup or oom_kill attribute don't exist */
+        CGroupContext *ctx = unit_get_cgroup_context(u);
+        if (!ctx)
+                return 0;
+
+        /* If memory.oom.group=1, then look up the oom_group_kill field, which reports how many times the
+         * kernel killed every process recursively in this cgroup and its descendants, similar to
+         * systemd-oomd. Because the memory.events.local file was only introduced in kernel 5.12, we fall
+         * back to reading oom_kill if we can't find the file or field. */
+
+        if (ctx->memory_oom_group) {
+                r = cg_get_keyed_attribute(
+                                "memory",
+                                crt->cgroup_path,
+                                "memory.events.local",
+                                STRV_MAKE("oom_group_kill"),
+                                &oom_kill);
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
+                        return log_unit_debug_errno(u, r, "Failed to read oom_group_kill field of memory.events.local cgroup attribute, ignoring: %m");
+        }
+
+        if (isempty(oom_kill)) {
+                r = cg_get_keyed_attribute(
+                                "memory",
+                                crt->cgroup_path,
+                                "memory.events",
+                                STRV_MAKE("oom_kill"),
+                                &oom_kill);
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
+                        return log_unit_debug_errno(u, r, "Failed to read oom_kill field of memory.events cgroup attribute: %m");
+        }
+
+        if (!oom_kill)
                 c = 0;
-        else if (r < 0)
-                return log_unit_debug_errno(u, r, "Failed to read oom_kill field of memory.events cgroup attribute: %m");
         else {
                 r = safe_atou64(oom_kill, &c);
                 if (r < 0)
-                        return log_unit_debug_errno(u, r, "Failed to parse oom_kill field: %m");
+                        return log_unit_debug_errno(u, r, "Failed to parse memory.events cgroup oom field: %m");
         }
 
         increased = c > crt->oom_kill_last;
@@ -3061,7 +3070,7 @@ int unit_check_oom(Unit *u) {
         log_unit_struct(u, LOG_NOTICE,
                         LOG_MESSAGE_ID(SD_MESSAGE_UNIT_OUT_OF_MEMORY_STR),
                         LOG_UNIT_INVOCATION_ID(u),
-                        LOG_UNIT_MESSAGE(u, "A process of this unit has been killed by the OOM killer."));
+                        LOG_UNIT_MESSAGE(u, "The kernel OOM killer killed some processes in this unit."));
 
         unit_notify_cgroup_oom(u, /* managed_oom= */ false);
 
@@ -4262,6 +4271,15 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
         if (!crt)
                 return 0;
 
+        if (crt->cgroup_path)
+                (void) serialize_item(f, "cgroup", crt->cgroup_path);
+        if (crt->cgroup_id != 0)
+                (void) serialize_item_format(f, "cgroup-id", "%" PRIu64, crt->cgroup_id);
+
+        (void) serialize_cgroup_mask(f, "cgroup-realized-mask", crt->cgroup_realized_mask);
+        (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", crt->cgroup_enabled_mask);
+        (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", crt->cgroup_invalidated_mask);
+
         (void) serialize_item_format(f, "cpu-usage-base", "%" PRIu64, crt->cpu_usage_base);
         if (crt->cpu_usage_last != NSEC_INFINITY)
                 (void) serialize_item_format(f, "cpu-usage-last", "%" PRIu64, crt->cpu_usage_last);
@@ -4295,15 +4313,6 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
                         (void) serialize_item_format(f, io_accounting_metric_field_last_to_string(im), "%" PRIu64, crt->io_accounting_last[im]);
         }
 
-        if (crt->cgroup_path)
-                (void) serialize_item(f, "cgroup", crt->cgroup_path);
-        if (crt->cgroup_id != 0)
-                (void) serialize_item_format(f, "cgroup-id", "%" PRIu64, crt->cgroup_id);
-
-        (void) serialize_cgroup_mask(f, "cgroup-realized-mask", crt->cgroup_realized_mask);
-        (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", crt->cgroup_enabled_mask);
-        (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", crt->cgroup_invalidated_mask);
-
         (void) bpf_socket_bind_serialize(u, f, fds);
 
         (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-ingress-installed", crt->ip_bpf_ingress_installed);
@@ -4330,7 +4339,7 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
                                         log_unit_debug_errno(u, _deserialize_r, \
                                                              "Failed to parse \"%s=%s\", ignoring.", l, v); \
                                 else                                    \
-                                        crt->target = _deserialize_r; \
+                                        crt->target = _deserialize_r;   \
                         }                                               \
                 }                                                       \
                 _deserialize_matched;                                   \
@@ -4353,7 +4362,7 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
                 _deserialize_matched;                                   \
         })
 
-#define MATCH_DESERIALIZE_METRIC(u, key, l, v, parse_func, target)             \
+#define MATCH_DESERIALIZE_METRIC(u, key, l, v, parse_func, target)      \
         ({                                                              \
                 bool _deserialize_matched = streq(l, key);              \
                 if (_deserialize_matched) {                             \
@@ -4366,7 +4375,7 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
                                         log_unit_debug_errno(u, _deserialize_r, \
                                                              "Failed to parse \"%s=%s\", ignoring.", l, v); \
                                 else                                    \
-                                        crt->target = _deserialize_r; \
+                                        crt->target = _deserialize_r;   \
                         }                                               \
                 }                                                       \
                 _deserialize_matched;                                   \

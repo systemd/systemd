@@ -13,12 +13,8 @@ fi
 
 install_extension_images
 
-systemd-analyze log-level debug
-
 runas testuser systemd-run --wait --user --unit=test-private-users \
     -p PrivateUsers=yes -P echo hello
-
-runas testuser systemctl --user log-level debug
 
 runas testuser systemd-run --wait --user --unit=test-private-tmp-innerfile \
     -p PrivateTmp=yes \
@@ -93,7 +89,7 @@ runas testuser systemd-run --wait --user --unit=test-devices \
 # Same check as test/test-execute/exec-privatenetwork-yes.service
 runas testuser systemd-run --wait --user --unit=test-network \
     -p PrivateNetwork=yes \
-    /bin/sh -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
+    sh -x -c '! ip link | grep -E "^[0-9]+: " | grep -Ev ": (lo|(erspan|gre|gretap|ip_vti|ip6_vti|ip6gre|ip6tnl|sit|tunl)0@.*):"'
 
 (! runas testuser systemd-run --wait --user --unit=test-hostname \
     -p ProtectHostname=yes \
@@ -139,7 +135,5 @@ if unshare --mount --user --map-root-user mount -t overlay overlay /tmp/c -o low
         -p MountAPIVFS=yes \
         grep PORTABLE_PREFIXES=app1 /usr/lib/extension-release.d/extension-release.app2
 fi
-
-systemd-analyze log-level info
 
 touch /testok

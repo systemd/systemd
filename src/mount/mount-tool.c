@@ -860,14 +860,14 @@ static int find_mount_points_by_source(const char *what, char ***ret) {
                 struct libmnt_fs *fs;
                 const char *source, *target;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break;
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                source = mnt_fs_get_source(fs);
-                target = mnt_fs_get_target(fs);
+                source = sym_mnt_fs_get_source(fs);
+                target = sym_mnt_fs_get_target(fs);
                 if (!source || !target)
                         continue;
 

@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -eux
 
-systemd-analyze log-level debug
-
 journalctl --list-namespaces -o json | jq .
 
 systemd-run --wait -p LogNamespace=foobar echo "hello world"
@@ -24,7 +22,5 @@ journalctl --list-namespaces -o json | jq .
 
 grep "^hello world$" /tmp/hello-world
 (! grep "^hello world$" /tmp/no-hello-world)
-
-systemd-analyze log-level info
 
 touch /testok

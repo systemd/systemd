@@ -38,7 +38,6 @@
 #include "nsflags.h"
 #include "nulstr-util.h"
 #include "os-util.h"
-#include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -1618,18 +1617,14 @@ static int mount_mqueuefs(const MountEntry *m) {
 static int mount_image(
                 MountEntry *m,
                 const char *root_directory,
-                const ImagePolicy *image_policy) {
+                const ImagePolicy *image_policy,
+                RuntimeScope runtime_scope) {
 
         _cleanup_(extension_release_data_done) ExtensionReleaseData rdata = {};
-        _cleanup_free_ char *extension_name = NULL;
         ImageClass required_class = _IMAGE_CLASS_INVALID;
         int r;
 
         assert(m);
-
-        r = path_extract_filename(mount_entry_source(m), &extension_name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
 
         if (m->mode == MOUNT_EXTENSION_IMAGE) {
                 r = parse_os_release(
@@ -1658,6 +1653,7 @@ static int mount_image(
                         &rdata,
                         required_class,
                         &m->verity,
+                        runtime_scope,
                         /* ret_image= */ NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
@@ -2044,10 +2040,10 @@ static int apply_one_mount(
                 return mount_mqueuefs(m);
 
         case MOUNT_IMAGE:
-                return mount_image(m, NULL, p->mount_image_policy);
+                return mount_image(m, NULL, p->mount_image_policy, p->runtime_scope);
 
         case MOUNT_EXTENSION_IMAGE:
-                return mount_image(m, root_directory, p->extension_image_policy);
+                return mount_image(m, root_directory, p->extension_image_policy, p->runtime_scope);
 
         case MOUNT_OVERLAY:
                 return mount_overlay(m);
@@ -2529,7 +2525,8 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 DISSECT_IMAGE_GROWFS |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
-                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
+                DISSECT_IMAGE_VERITY_SHARE;
         int r;
 
         assert(p);
@@ -2594,6 +2591,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                         dissected_image,
                                         NULL,
                                         p->verity,
+                                        p->root_image_policy,
                                         dissect_image_flags);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
@@ -2606,6 +2604,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                         p->root_image,
                                         userns_fd,
                                         p->root_image_policy,
+                                        p->verity,
                                         dissect_image_flags,
                                         &dissected_image);
                         if (r < 0)

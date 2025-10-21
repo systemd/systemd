@@ -6,7 +6,7 @@
 
 #include "ansi-color.h"
 #include "fileio.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "glyph-util.h"
 
 #define CYLON_BUFFER_EXTRA (2*STRLEN(ANSI_RED) + STRLEN(ANSI_HIGHLIGHT_RED) + 2*STRLEN(ANSI_NORMAL))
@@ -92,3 +92,6 @@ static inline void fflush_and_disable_bufferingp(FILE **p) {
 
 #define WITH_BUFFERED_STDERR                                            \
         _WITH_BUFFERED_STREAM(stderr, LONG_LINE_MAX, UNIQ_T(p, UNIQ))
+
+#define WITH_BUFFERED_STDOUT                                            \
+        _WITH_BUFFERED_STREAM(stdout, LONG_LINE_MAX, UNIQ_T(p, UNIQ))

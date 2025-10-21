@@ -128,6 +128,7 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         free(server->boot_server_name);
         free(server->boot_filename);
         free(server->timezone);
+        free(server->domain_name);
 
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(server->servers[i].addr);
@@ -625,6 +626,15 @@ static int server_send_offer_or_ack(
                         return r;
         }
 
+        if (server->domain_name) {
+                r = dhcp_option_append(
+                                &packet->dhcp, req->max_optlen, &offset, 0,
+                                SD_DHCP_OPTION_DOMAIN_NAME,
+                                strlen(server->domain_name), server->domain_name);
+                if (r < 0)
+                        return r;
+        }
+
         /* RFC 8925 section 3.3. DHCPv4 Server Behavior
          * The server MUST NOT include the IPv6-Only Preferred option in the DHCPOFFER or DHCPACK message if
          * the option was not present in the Parameter Request List sent by the client. */
@@ -1062,7 +1072,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                 /* for now pick a random free address from the pool */
                 if (static_lease) {
-                        if (existing_lease != hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address)))
+                        sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address));
+                        if (l && l != existing_lease)
                                 /* The address is already assigned to another host. Refusing. */
                                 return 0;
 
@@ -1176,7 +1187,8 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                                 /* The client requested an address which is different from the static lease. Refusing. */
                                 return server_send_nak_or_ignore(server, init_reboot, req);
 
-                        if (existing_lease != hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address)))
+                        sd_dhcp_server_lease *l = hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address));
+                        if (l && l != existing_lease)
                                 /* The requested address is already assigned to another host. Refusing. */
                                 return server_send_nak_or_ignore(server, init_reboot, req);
 
@@ -1413,6 +1425,22 @@ int sd_dhcp_server_set_timezone(sd_dhcp_server *server, const char *tz) {
                 return r;
 
         return 1;
+}
+
+int sd_dhcp_server_set_domain_name(sd_dhcp_server *server, const char *domain_name) {
+        int r;
+
+        assert_return(server, -EINVAL);
+
+        if (domain_name) {
+                r = dns_name_is_valid(domain_name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL;
+        }
+
+        return free_and_strdup(&server->domain_name, domain_name);
 }
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint64_t t) {

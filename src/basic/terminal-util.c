@@ -43,11 +43,6 @@
 #include "time-util.h"
 #include "utf8.h"
 
-#define ANSI_RESET_CURSOR                          \
-        "\033?25h"     /* turn on cursor */        \
-        "\033?12l"     /* reset cursor blinking */ \
-        "\033 1q"      /* reset cursor style */
-
 /* How much to wait for a reply to a terminal sequence */
 #define CONSOLE_REPLY_WAIT_USEC  (333 * USEC_PER_MSEC)
 
@@ -857,7 +852,6 @@ int vt_disallocate(const char *tty_path) {
                 return fd2;
 
         return loop_write_full(fd2,
-                               ANSI_RESET_CURSOR
                                "\033[r"   /* clear scrolling region */
                                "\033[H"   /* move home */
                                "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
@@ -961,7 +955,7 @@ finish:
         return r;
 }
 
-static int terminal_reset_ansi_seq(int fd) {
+int terminal_reset_ansi_seq(int fd) {
         int r, k;
 
         assert(fd >= 0);
@@ -974,7 +968,6 @@ static int terminal_reset_ansi_seq(int fd) {
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
 
         k = loop_write_full(fd,
-                            ANSI_RESET_CURSOR
                             "\033[!p"      /* soft terminal reset */
                             "\033]104\007" /* reset colors */
                             "\033[?7h"     /* enable line-wrapping */
@@ -1862,6 +1855,226 @@ int terminal_set_cursor_position(int fd, unsigned row, unsigned column) {
         return loop_write(fd, cursor_position, SIZE_MAX);
 }
 
+static int terminal_verify_same(int input_fd, int output_fd) {
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+
+        /* Validates that the specified fds reference the same TTY */
+
+        if (input_fd != output_fd) {
+                struct stat sti;
+                if (fstat(input_fd, &sti) < 0)
+                        return -errno;
+
+                if (!S_ISCHR(sti.st_mode)) /* TTYs are character devices */
+                        return -ENOTTY;
+
+                struct stat sto;
+                if (fstat(output_fd, &sto) < 0)
+                        return -errno;
+
+                if (!S_ISCHR(sto.st_mode))
+                        return -ENOTTY;
+
+                if (sti.st_rdev != sto.st_rdev)
+                        return -ENOLINK;
+        }
+
+        if (!isatty_safe(input_fd)) /* The check above was just for char device, but now let's ensure it's actually a tty */
+                return -ENOTTY;
+
+        return 0;
+}
+
+typedef enum CursorPositionState {
+        CURSOR_TEXT,
+        CURSOR_ESCAPE,
+        CURSOR_ROW,
+        CURSOR_COLUMN,
+} CursorPositionState;
+
+typedef struct CursorPositionContext {
+        CursorPositionState state;
+        unsigned row, column;
+} CursorPositionContext;
+
+static int scan_cursor_position_response(
+                CursorPositionContext *context,
+                const char *buf,
+                size_t size,
+                size_t *ret_processed) {
+
+        assert(context);
+        assert(buf);
+        assert(ret_processed);
+
+        for (size_t i = 0; i < size; i++) {
+                char c = buf[i];
+
+                switch (context->state) {
+
+                case CURSOR_TEXT:
+                        context->state = c == '\x1B' ? CURSOR_ESCAPE : CURSOR_TEXT;
+                        break;
+
+                case CURSOR_ESCAPE:
+                        context->state = c == '[' ? CURSOR_ROW : CURSOR_TEXT;
+                        break;
+
+                case CURSOR_ROW:
+                        if (c == ';')
+                                context->state = context->row > 0 ? CURSOR_COLUMN : CURSOR_TEXT;
+                        else {
+                                int d = undecchar(c);
+
+                                /* We read a decimal character, let's suffix it to the number we so far read,
+                                 * but let's do an overflow check first. */
+                                if (d < 0 || context->row > (UINT_MAX-d)/10)
+                                        context->state = CURSOR_TEXT;
+                                else
+                                        context->row = context->row * 10 + d;
+                        }
+                        break;
+
+                case CURSOR_COLUMN:
+                        if (c == 'R') {
+                                if (context->column > 0) {
+                                        *ret_processed = i + 1;
+                                        return 1; /* success! */
+                                }
+
+                                context->state = CURSOR_TEXT;
+                        } else {
+                                int d = undecchar(c);
+
+                                /* As above, add the decimal character to our column number */
+                                if (d < 0 || context->column > (UINT_MAX-d)/10)
+                                        context->state = CURSOR_TEXT;
+                                else
+                                        context->column = context->column * 10 + d;
+                        }
+
+                        break;
+                }
+
+                /* Reset any positions we might have picked up */
+                if (IN_SET(context->state, CURSOR_TEXT, CURSOR_ESCAPE))
+                        context->row = context->column = 0;
+        }
+
+        *ret_processed = size;
+        return 0; /* all good, but not enough data yet */
+}
+
+int terminal_get_cursor_position(
+                int input_fd,
+                int output_fd,
+                unsigned *ret_row,
+                unsigned *ret_column) {
+
+        _cleanup_close_ int nonblock_input_fd = -EBADF;
+        int r;
+
+        assert(input_fd >= 0);
+        assert(output_fd >= 0);
+
+        if (terminal_is_dumb())
+                return -EOPNOTSUPP;
+
+        r = terminal_verify_same(input_fd, output_fd);
+        if (r < 0)
+                return log_debug_errno(r, "Called with distinct input/output fds: %m");
+
+        struct termios old_termios;
+        if (tcgetattr(input_fd, &old_termios) < 0)
+                return log_debug_errno(errno, "Failed to get terminal settings: %m");
+
+        struct termios new_termios = old_termios;
+        termios_disable_echo(&new_termios);
+
+        if (tcsetattr(input_fd, TCSANOW, &new_termios) < 0)
+                return log_debug_errno(errno, "Failed to set new terminal settings: %m");
+
+        /* Request cursor position (DSR/CPR) */
+        r = loop_write(output_fd, "\x1B[6n", SIZE_MAX);
+        if (r < 0)
+                goto finish;
+
+        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
+         * else process the POLLIN. */
+
+        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                goto finish;
+
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */
+        size_t buf_full = 0;
+        CursorPositionContext context = {};
+
+        for (bool first = true;; first = false) {
+                if (buf_full == 0) {
+                        usec_t n = now(CLOCK_MONOTONIC);
+                        if (n >= end) {
+                                r = -EOPNOTSUPP;
+                                goto finish;
+                        }
+
+                        r = fd_wait_for_event(nonblock_input_fd, POLLIN, usec_sub_unsigned(end, n));
+                        if (r < 0)
+                                goto finish;
+                        if (r == 0) {
+                                r = -EOPNOTSUPP;
+                                goto finish;
+                        }
+
+                        /* On the first try, read multiple characters, i.e. the shortest valid
+                         * reply. Afterwards read byte-wise, since we don't want to read too much, and
+                         * unnecessarily drop too many characters from the input queue. */
+                        ssize_t l = read(nonblock_input_fd, buf, first ? sizeof(buf) : 1);
+                        if (l < 0) {
+                                if (errno == EAGAIN)
+                                        continue;
+
+                                r = -errno;
+                                goto finish;
+                        }
+
+                        assert((size_t) l <= sizeof(buf));
+                        buf_full = l;
+                }
+
+                size_t processed;
+                r = scan_cursor_position_response(&context, buf, buf_full, &processed);
+                if (r < 0)
+                        goto finish;
+
+                assert(processed <= buf_full);
+                buf_full -= processed;
+                memmove(buf, buf + processed, buf_full);
+
+                if (r > 0) {
+                        /* Superficial validity check */
+                        if (context.row >= 32766 || context.column >= 32766) {
+                                r = -ENODATA;
+                                goto finish;
+                        }
+
+                        if (ret_row)
+                                *ret_row = context.row;
+                        if (ret_column)
+                                *ret_column = context.column;
+
+                        r = 0;
+                        goto finish;
+                }
+        }
+
+finish:
+        RET_GATHER(r, RET_NERRNO(tcsetattr(input_fd, TCSANOW, &old_termios)));
+        return r;
+}
+
 int terminal_reset_defensive(int fd, TerminalResetFlags flags) {
         int r = 0;
 
@@ -1899,37 +2112,6 @@ void termios_disable_echo(struct termios *termios) {
         termios->c_lflag &= ~(ICANON|ECHO);
         termios->c_cc[VMIN] = 1;
         termios->c_cc[VTIME] = 0;
-}
-
-static int terminal_verify_same(int input_fd, int output_fd) {
-        assert(input_fd >= 0);
-        assert(output_fd >= 0);
-
-        /* Validates that the specified fds reference the same TTY */
-
-        if (input_fd != output_fd) {
-                struct stat sti;
-                if (fstat(input_fd, &sti) < 0)
-                        return -errno;
-
-                if (!S_ISCHR(sti.st_mode)) /* TTYs are character devices */
-                        return -ENOTTY;
-
-                struct stat sto;
-                if (fstat(output_fd, &sto) < 0)
-                        return -errno;
-
-                if (!S_ISCHR(sto.st_mode))
-                        return -ENOTTY;
-
-                if (sti.st_rdev != sto.st_rdev)
-                        return -ENOLINK;
-        }
-
-        if (!isatty_safe(input_fd)) /* The check above was just for char device, but now let's ensure it's actually a tty */
-                return -ENOTTY;
-
-        return 0;
 }
 
 typedef enum BackgroundColorState {
@@ -2179,86 +2361,6 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
 finish:
         RET_GATHER(r, RET_NERRNO(tcsetattr(STDIN_FILENO, TCSANOW, &old_termios)));
         return r;
-}
-
-typedef enum CursorPositionState {
-        CURSOR_TEXT,
-        CURSOR_ESCAPE,
-        CURSOR_ROW,
-        CURSOR_COLUMN,
-} CursorPositionState;
-
-typedef struct CursorPositionContext {
-        CursorPositionState state;
-        unsigned row, column;
-} CursorPositionContext;
-
-static int scan_cursor_position_response(
-                CursorPositionContext *context,
-                const char *buf,
-                size_t size,
-                size_t *ret_processed) {
-
-        assert(context);
-        assert(buf);
-        assert(ret_processed);
-
-        for (size_t i = 0; i < size; i++) {
-                char c = buf[i];
-
-                switch (context->state) {
-
-                case CURSOR_TEXT:
-                        context->state = c == '\x1B' ? CURSOR_ESCAPE : CURSOR_TEXT;
-                        break;
-
-                case CURSOR_ESCAPE:
-                        context->state = c == '[' ? CURSOR_ROW : CURSOR_TEXT;
-                        break;
-
-                case CURSOR_ROW:
-                        if (c == ';')
-                                context->state = context->row > 0 ? CURSOR_COLUMN : CURSOR_TEXT;
-                        else {
-                                int d = undecchar(c);
-
-                                /* We read a decimal character, let's suffix it to the number we so far read,
-                                 * but let's do an overflow check first. */
-                                if (d < 0 || context->row > (UINT_MAX-d)/10)
-                                        context->state = CURSOR_TEXT;
-                                else
-                                        context->row = context->row * 10 + d;
-                        }
-                        break;
-
-                case CURSOR_COLUMN:
-                        if (c == 'R') {
-                                if (context->column > 0) {
-                                        *ret_processed = i + 1;
-                                        return 1; /* success! */
-                                }
-
-                                context->state = CURSOR_TEXT;
-                        } else {
-                                int d = undecchar(c);
-
-                                /* As above, add the decimal character to our column number */
-                                if (d < 0 || context->column > (UINT_MAX-d)/10)
-                                        context->state = CURSOR_TEXT;
-                                else
-                                        context->column = context->column * 10 + d;
-                        }
-
-                        break;
-                }
-
-                /* Reset any positions we might have picked up */
-                if (IN_SET(context->state, CURSOR_TEXT, CURSOR_ESCAPE))
-                        context->row = context->column = 0;
-        }
-
-        *ret_processed = size;
-        return 0; /* all good, but not enough data yet */
 }
 
 int terminal_get_size_by_dsr(

@@ -907,6 +907,11 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         if (r == 0) /* Not a btrfs subvolume */
                 return -ENOTTY;
 
+        /* Before we try anything, let's see if 'user_subvol_rm_allowed' is enabled and we can just remove
+         * the dir directly */
+        if (unlinkat(fd, subvolume, AT_REMOVEDIR) >= 0)
+                goto finish;
+
         if (subvol_id == 0) {
                 r = btrfs_subvol_get_id_fd(subvol_fd, &subvol_id);
                 if (r < 0)
@@ -916,10 +921,8 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         /* First, try to remove the subvolume. If it happens to be
          * already empty, this will just work. */
         strncpy(vol_args.name, subvolume, sizeof(vol_args.name)-1);
-        if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) >= 0) {
-                (void) btrfs_qgroup_destroy_recursive(fd, subvol_id); /* for the leaf subvolumes, the qgroup id is identical to the subvol id */
-                return 0;
-        }
+        if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) >= 0)
+                goto finish;
         if (!(flags & BTRFS_REMOVE_RECURSIVE) || errno != ENOTEMPTY)
                 return -errno;
 
@@ -1001,6 +1004,8 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
         if (ioctl(fd, BTRFS_IOC_SNAP_DESTROY, &vol_args) < 0)
                 return -errno;
 
+finish:
+        /* for the leaf subvolumes, the qgroup id is identical to the subvol id */
         (void) btrfs_qgroup_destroy_recursive(fd, subvol_id);
         return 0;
 }

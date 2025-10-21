@@ -3,11 +3,6 @@
 set -eux
 set -o pipefail
 
-fail() {
-    systemd-analyze log-level info
-    exit 1
-}
-
 # Wait for a service to enter a state within a timeout period, if it doesn't
 # enter the desired state within the timeout period then this function will
 # exit the test case with a non zero exit code.
@@ -26,9 +21,6 @@ wait_on_state_or_fail() {
         state=$(systemctl show "$service" --property=ActiveState --value)
     done
 }
-
-systemd-analyze log-level debug
-
 
 cat >/run/systemd/system/testservice-fail-59.service <<EOF
 [Unit]
@@ -82,8 +74,6 @@ wait_on_state_or_fail "testservice-fail-restart-59.service" "failed" "30"
 systemctl start testservice-abort-restart-59.service
 systemctl --signal=SIGABRT kill testservice-abort-restart-59.service
 wait_on_state_or_fail "testservice-abort-restart-59.service" "failed" "30"
-
-systemd-analyze log-level info
 
 # Test that rate-limiting daemon-reload works
 mkdir -p /run/systemd/system.conf.d/
@@ -152,8 +142,6 @@ EOF
 
 chmod +x /run/notify-reload-test.sh
 
-systemd-analyze log-level debug
-
 systemd-run --unit notify-reload-test -p Type=notify-reload -p KillMode=process /run/notify-reload-test.sh
 systemctl reload notify-reload-test
 systemctl stop notify-reload-test
@@ -162,8 +150,6 @@ test "$(systemctl show -p ExecMainStatus --value notify-reload-test)" = 109
 
 systemctl reset-failed notify-reload-test
 rm /run/notify-reload-test.sh
-
-systemd-analyze log-level info
 
 # Ensure that, with system log level info, we get debug level messages when a unit fails to start and is
 # restarted with RestartMode=debug

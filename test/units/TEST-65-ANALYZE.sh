@@ -6,7 +6,6 @@ set -eux
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemctl log-level debug
 export SYSTEMD_LOG_LEVEL=debug
 
 # Sanity checks
@@ -509,6 +508,12 @@ EOF
 systemd-analyze verify /tmp/testwarnings.service
 
 rm /tmp/testwarnings.service
+
+TESTDATA=/usr/lib/systemd/tests/testdata/TEST-65-ANALYZE.units
+systemd-analyze verify "${TESTDATA}/loopy.service"
+systemd-analyze verify "${TESTDATA}/loopy2.service"
+systemd-analyze verify "${TESTDATA}/loopy3.service"
+systemd-analyze verify "${TESTDATA}/loopy4.service"
 
 # Added an additional "INVALID_ID" id to the .json to verify that nothing breaks when input is malformed
 # The PrivateNetwork id description and weight was changed to verify that 'security' is actually reading in
@@ -1127,7 +1132,7 @@ Description=Test unit for systemd-analyze unit-shell
 [Service]
 Type=notify
 NotifyAccess=all
-ExecStart=/bin/sh -c "echo 'Hello from test unit' >/tmp/testfile; systemd-notify --ready; sleep infinity"
+ExecStart=sh -c "echo 'Hello from test unit' >/tmp/testfile; systemd-notify --ready; sleep infinity"
 PrivateTmp=disconnected
 EOF
 # Start the service
@@ -1140,7 +1145,5 @@ MAIN_PID=$(systemctl show -p MainPID --value "$UNIT_NAME")
 # Test systemd-analyze unit-shell with a command (cat /tmp/testfile)
 OUTPUT=$(systemd-analyze unit-shell "$UNIT_NAME" cat /tmp/testfile)
 assert_in "Hello from test unit" "$OUTPUT"
-
-systemd-analyze log-level info
 
 touch /testok

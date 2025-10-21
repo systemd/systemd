@@ -70,7 +70,8 @@
       <varlistentry>
         <term>default</term>
 
-        <listitem><para>A glob pattern to select the default entry. The default entry
+        <listitem><para>A glob pattern to select the default entry by id, which is the
+        file name including literal suffix <literal>.conf</literal>. The default entry
         may be changed in the boot menu itself, in which case the name of the
         selected entry will be stored as an EFI variable, overriding this option.
         </para>
@@ -255,6 +256,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term>auto-reboot</term>
+
+        <listitem><para>A boolean controlling the presence of the <literal>Reboot The System</literal>
+        entry (disabled by default). Even if this is disabled, the system may still be rebooted by pressing
+        <keycombo><keycap>Shift</keycap><keycap>b</keycap></keycombo>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>auto-poweroff</term>
+
+        <listitem><para>A boolean controlling the presence of the <literal>Power Off The System</literal>
+        entry (disabled by default). Even if this is disabled, the system may still be powered off by
+        pressing <keycombo><keycap>Shift</keycap><keycap>o</keycap></keycombo>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>beep</term>
 
         <listitem><para>Takes a boolean argument. If timeout enabled beep every second, otherwise beep n
@@ -401,6 +422,17 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
       </varlistentry>
 
       <varlistentry>
+        <term>secure-boot-enroll-timeout-sec</term>
+        <listitem>
+          <para>How long the warning should be shown in seconds before the key enrollment process starts.</para>
+          <para>If set to <literal>hidden</literal> or <literal>0</literal>, no warning is shown and the keys
+          will be enrolled immediately. The default timeout (if not set explicitly) is 15 seconds.</para>
+          <para>This option is only relevant if <literal>secure-boot-enroll</literal> is enabled.</para>
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>reboot-for-bitlocker</term>
 
         <listitem><para>Caveat: This feature is experimental, and is likely to be changed (or removed in its
@@ -458,6 +490,28 @@ sbvarsign --attr "${attr}" --key KEK.key --cert KEK.pem --output db.auth db db.e
         </para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>log-level</term>
+
+        <listitem><para>Controls the log level used by
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
+
+        <para>Valid values are <literal>emerg</literal>, <literal>alert</literal>, <literal>crit</literal>,
+        <literal>err</literal>, <literal>warning</literal>, <literal>notice</literal>,
+        <literal>info</literal>, and <literal>debug</literal>.</para>
+
+        <para>If unspecified, <literal>info</literal> will be used, unless one has already been configured
+        via an SMBIOS Type 11 string, see
+        <citerefentry><refentrytitle>smbios-type-11</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        </para>
+
+        <para>Note that the configured level will only be used after <filename>loader.conf</filename> has
+        been parsed, so log messages generated before that point may be unaffected by this setting.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>

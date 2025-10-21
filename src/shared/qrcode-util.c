@@ -4,6 +4,7 @@
 
 #if HAVE_QRENCODE
 #include <qrencode.h>
+#endif
 #include <stdio.h>
 
 #include "ansi-color.h"
@@ -18,12 +19,15 @@
 #define UNICODE_LOWER_HALF_BLOCK UTF8("▄")
 #define UNICODE_UPPER_HALF_BLOCK UTF8("▀")
 
+#if HAVE_QRENCODE
 static void *qrcode_dl = NULL;
 
 static DLSYM_PROTOTYPE(QRcode_encodeString) = NULL;
 static DLSYM_PROTOTYPE(QRcode_free) = NULL;
+#endif
 
 int dlopen_qrencode(void) {
+#if HAVE_QRENCODE
         int r;
 
         ELF_NOTE_DLOPEN("qrencode",
@@ -41,7 +45,12 @@ int dlopen_qrencode(void) {
         }
 
         return r;
+#else
+        return -EOPNOTSUPP;
+#endif
 }
+
+#if HAVE_QRENCODE
 
 static void print_border(FILE *output, unsigned width, unsigned row, unsigned column) {
         assert(output);
@@ -176,6 +185,8 @@ static void write_qrcode(FILE *output, QRcode *qr, unsigned row, unsigned column
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(QRcode*, sym_QRcode_free, NULL);
 
+#endif
+
 int print_qrcode_full(
                 FILE *out,
                 const char *header,
@@ -186,6 +197,7 @@ int print_qrcode_full(
                 unsigned tty_height,
                 bool check_tty) {
 
+#if HAVE_QRENCODE
         int r;
 
         /* If this is not a UTF-8 system or ANSI colors aren't supported/disabled don't print any QR
@@ -235,5 +247,7 @@ int print_qrcode_full(
         fputc('\n', out);
 
         return 0;
-}
+#else
+        return -EOPNOTSUPP;
 #endif
+}

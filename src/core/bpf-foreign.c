@@ -7,6 +7,7 @@
 #include "bpf-foreign.h"
 #include "bpf-program.h"
 #include "cgroup.h"
+#include "errno-util.h"
 #include "hash-funcs.h"
 #include "hashmap.h"
 #include "siphash24.h"
@@ -65,11 +66,8 @@ static int attach_programs(Unit *u, const char *path, Hashmap* foreign_by_key, u
 
         HASHMAP_FOREACH_KEY(prog, key, foreign_by_key) {
                 r = bpf_program_cgroup_attach(prog, key->attach_type, path, attach_flags);
-                if (r < 0) {
-                        log_unit_error_errno(u, r, "bpf-foreign: Attaching foreign BPF program to cgroup %s failed: %m", path);
-                        if (ret >= 0)
-                                ret = r;
-                }
+                if (r < 0)
+                        RET_GATHER(ret, log_unit_error_errno(u, r, "bpf-foreign: Attaching foreign BPF program to cgroup %s failed: %m", path));
         }
 
         return ret;
@@ -157,12 +155,8 @@ int bpf_foreign_install(Unit *u) {
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-foreign: Failed to get cgroup path: %m");
 
-        LIST_FOREACH(programs, p, cc->bpf_foreign_programs) {
-                r = bpf_foreign_prepare(u, p->attach_type, p->bpffs_path);
-                if (r < 0 && ret >= 0)
-                        ret = r;
-        }
+        LIST_FOREACH(programs, p, cc->bpf_foreign_programs)
+                RET_GATHER(ret, bpf_foreign_prepare(u, p->attach_type, p->bpffs_path));
 
-        r = attach_programs(u, cgroup_path, crt->bpf_foreign_by_key, BPF_F_ALLOW_MULTI);
-        return ret < 0 ? ret : r;
+        return RET_GATHER(ret, attach_programs(u, cgroup_path, crt->bpf_foreign_by_key, BPF_F_ALLOW_MULTI));
 }

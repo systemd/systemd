@@ -14,8 +14,6 @@ at_exit() {
 
 trap at_exit EXIT
 
-systemctl log-level debug
-
 # Existing files
 
 mkdir /tmp/test-open-file
@@ -28,7 +26,7 @@ systemd-run -p DynamicUser=yes -p EnvironmentFile=-/usr/lib/systemd/systemd-asan
             -p RemainAfterExit=yes \
             --unit=test-23-openfile-existing.service \
             --service-type=oneshot \
-            /usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-openfile-child.sh 2 "open.txt:colon" "Open" "File"
+            /usr/lib/systemd/tests/testdata/TEST-23-UNIT-FILE.units/TEST-23-UNIT-FILE-openfile-child.sh 2 "open.txt:colon" "Open" "File"
 
 cmp <(systemctl show -p OpenFile test-23-openfile-existing.service) <<EOF
 OpenFile=/tmp/test-open-file/open.txt::read-only
@@ -43,7 +41,7 @@ systemctl start TEST-23-UNIT-FILE-openfile-server.socket
 
 systemd-run -p OpenFile=/tmp/test.sock:socket:read-only \
             --wait \
-            /usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-openfile-child.sh 1 "socket" "Socket"
+            /usr/lib/systemd/tests/testdata/TEST-23-UNIT-FILE.units/TEST-23-UNIT-FILE-openfile-child.sh 1 "socket" "Socket"
 
 systemctl stop TEST-23-UNIT-FILE-openfile-server.socket
 
@@ -51,5 +49,3 @@ systemctl stop TEST-23-UNIT-FILE-openfile-server.socket
 
 assert_rc 202 systemd-run -p OpenFile=/run/missing/foo:missing-file:read-only --wait true
 assert_rc 0 systemd-run -p OpenFile=/run/missing/foo:missing-file:read-only,graceful --wait true
-
-systemctl log-level info

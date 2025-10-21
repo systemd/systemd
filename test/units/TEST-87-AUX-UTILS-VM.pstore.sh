@@ -3,8 +3,6 @@
 set -eux
 set -o pipefail
 
-systemctl log-level info
-
 (! systemd-detect-virt -cq)
 
 DUMMY_DMESG_0="$(mktemp)"

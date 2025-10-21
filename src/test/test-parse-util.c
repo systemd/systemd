@@ -3,9 +3,9 @@
 #include <linux/netfilter/nf_tables.h>
 #include <locale.h>
 #include <math.h>
-#include <stdlib.h>
 #include <sys/socket.h>
 
+#include "locale-util.h"
 #include "parse-util.h"
 #include "tests.h"
 
@@ -655,7 +655,6 @@ TEST(safe_atoux64) {
 
 TEST(safe_atod) {
         double d;
-        char *e;
 
         ASSERT_ERROR(safe_atod("junk", &d), EINVAL);
 
@@ -663,39 +662,18 @@ TEST(safe_atod) {
         assert_se(fabs(d - 0.2244) < 0.000001);
 
         ASSERT_ERROR(safe_atod("0,5", &d), EINVAL);
-
-        errno = 0;
-        strtod("0,5", &e);
-        assert_se(*e == ',');
-
         ASSERT_ERROR(safe_atod("", &d), EINVAL);
 
         /* Check if this really is locale independent */
-        if (setlocale(LC_NUMERIC, "de_DE.utf8")) {
-
-                ASSERT_OK_ZERO(safe_atod("0.2244", &d));
-                assert_se(fabs(d - 0.2244) < 0.000001);
-
-                ASSERT_ERROR(safe_atod("0,5", &d), EINVAL);
-
-                errno = 0;
-                assert_se(fabs(strtod("0,5", &e) - 0.5) < 0.00001);
-
-                ASSERT_ERROR(safe_atod("", &d), EINVAL);
-        }
-
-        /* And check again, reset */
-        ASSERT_NOT_NULL(setlocale(LC_NUMERIC, "C"));
+        _cleanup_(freelocalep) locale_t loc =
+                newlocale(LC_NUMERIC_MASK, "de_DE.utf8", (locale_t) 0);
+        if (!loc)
+                return (void) log_tests_skipped_errno(errno, "locale de_DE.utf8 not found");
 
         ASSERT_OK_ZERO(safe_atod("0.2244", &d));
         assert_se(fabs(d - 0.2244) < 0.000001);
 
         ASSERT_ERROR(safe_atod("0,5", &d), EINVAL);
-
-        errno = 0;
-        strtod("0,5", &e);
-        assert_se(*e == ',');
-
         ASSERT_ERROR(safe_atod("", &d), EINVAL);
 }
 

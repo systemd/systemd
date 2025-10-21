@@ -393,6 +393,8 @@ static int make_credential_host_secret(
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to create temporary file for credential host secret: %m");
 
+        CLEANUP_TMPFILE_AT(dfd, t);
+
         r = chattr_secret(fd, 0);
         if (r < 0)
                 log_debug_errno(r, "Failed to set file attributes for secrets file, ignoring: %m");
@@ -405,29 +407,22 @@ static int make_credential_host_secret(
 
         r = crypto_random_bytes(buf.data, sizeof(buf.data));
         if (r < 0)
-                goto fail;
+                return r;
 
         r = loop_write(fd, &buf, sizeof(buf));
         if (r < 0)
-                goto fail;
+                return r;
 
-        if (fchmod(fd, 0400) < 0) {
-                r = -errno;
-                goto fail;
-        }
-
-        if (fsync(fd) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (fchmod(fd, 0400) < 0)
+                return -errno;
 
         warn_not_encrypted(fd, flags, dirname, fn);
 
         r = link_tmpfile_at(fd, dfd, t, fn, LINK_TMPFILE_SYNC);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to link host key into place: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_debug_errno(r, "Failed to link host key into place: %m");
+
+        t = mfree(t); /* disarm CLEANUP_TMPFILE_AT() */
 
         if (ret) {
                 void *copy;
@@ -440,12 +435,6 @@ static int make_credential_host_secret(
         }
 
         return 0;
-
-fail:
-        if (t && unlinkat(dfd, t, 0) < 0)
-                log_debug_errno(errno, "Failed to remove temporary credential key: %m");
-
-        return r;
 }
 
 int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
@@ -823,6 +812,9 @@ int encrypt_credential_and_warn(
         assert(iovec_is_valid(input));
         assert(ret);
 
+        /* Only one of these two flags may be set at the same time */
+        assert(!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL) || !FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL));
+
         if (!sd_id128_in_set(with_key,
                              _CRED_AUTO,
                              _CRED_AUTO_INITRD,
@@ -1019,8 +1011,12 @@ int encrypt_credential_and_warn(
         } else
                 id = with_key;
 
-        if (sd_id128_equal(id, CRED_AES256_GCM_BY_NULL) && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
-                log_warning("Using a null key for encryption and signing. Confidentiality or authenticity will not be provided.");
+        if (sd_id128_equal(id, CRED_AES256_GCM_BY_NULL)) {
+                if (FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL))
+                        return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON), "Attempted to encrypt with null key, but this is disallowed.");
+                if (!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
+                        log_warning("Using a null key for encryption and signing. Confidentiality or authenticity will not be provided.");
+        }
 
         /* Let's now take the host key and the TPM2 key and hash it together, to use as encryption key for the data */
         r = sha256_hash_host_and_tpm2_key(&host_key, &tpm2_key, md);
@@ -1212,6 +1208,22 @@ int decrypt_credential_and_warn(
         assert(iovec_is_valid(input));
         assert(ret);
 
+        /* Only one of these two flags may be set at the same time */
+        assert(!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL) || !FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL));
+
+        /* Relevant error codes:
+         *
+         *   -EBADMSG      → Corrupted file
+         *   -EOPNOTSUPP   → Unsupported file type (could be: requires TPM but we have no TPM)
+         *   -EHOSTDOWN    → Need PCR signature file, but couldn't find it
+         *   -EHWPOISON    → Attempt to unlock with NULL key and either CREDENTIAL_ALLOW_REFUSE is on, or CREDENTIAL_ALLOW_NULL is off, but the system has a TPM and SecureBoot is on
+         *   -EMEDIUMTYPE  → File has unexpected scope, i.e. user-scoped credential is attempted to be unlocked in system scope, or vice versa
+         *   -EDESTADDRREQ → Credential is incorrectly named (i.e. the authenticated name does not match the actual name)
+         *   -ESTALE       → Credential's validity has passed
+         *   -ESRCH        → User specified for scope does not exist on this system
+         *
+         *   (plus the various error codes tpm2_unseal() returns) */
+
         h = (struct encrypted_credential_header*) input->iov_base;
 
         /* The ID must fit in, for the current and all future formats */
@@ -1229,28 +1241,36 @@ int decrypt_credential_and_warn(
 
         if (with_tpm2_pk) {
                 r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);
+                if (r == -ENOENT)
+                        return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Couldn't find PCR signature file: %m");
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load pcr signature: %m");
+                        return log_error_errno(r, "Failed to load PCR signature: %m");
         }
 
-        if (with_null && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL)) {
-                /* So this is a credential encrypted with a zero length key. We support this to cover for the
-                 * case where neither a host key not a TPM2 are available (specifically: initrd environments
-                 * where the host key is not yet accessible and no TPM2 chip exists at all), to minimize
-                 * different codeflow for TPM2 and non-TPM2 codepaths. Of course, credentials encoded this
-                 * way offer no confidentiality nor authenticity. Because of that it's important we refuse to
-                 * use them on systems that actually *do* have a TPM2 chip – if we are in SecureBoot
-                 * mode. Otherwise an attacker could hand us credentials like this and we'd use them thinking
-                 * they are trusted, even though they are not. */
+        if (with_null) {
+                if (FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL))
+                        return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
+                                               "Credential uses null key, but that's not allowed, refusing.");
 
-                if (efi_has_tpm2()) {
-                        if (is_efi_secure_boot())
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                       "Credential uses fixed key for fallback use when TPM2 is absent — but TPM2 is present, and SecureBoot is enabled, refusing.");
+                if (!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL)) {
+                        /* So this is a credential encrypted with a zero length key. We support this to cover for the
+                         * case where neither a host key not a TPM2 are available (specifically: initrd environments
+                         * where the host key is not yet accessible and no TPM2 chip exists at all), to minimize
+                         * different codeflow for TPM2 and non-TPM2 codepaths. Of course, credentials encoded this
+                         * way offer no confidentiality nor authenticity. Because of that it's important we refuse to
+                         * use them on systems that actually *do* have a TPM2 chip – if we are in SecureBoot
+                         * mode. Otherwise an attacker could hand us credentials like this and we'd use them thinking
+                         * they are trusted, even though they are not. */
 
-                        log_warning("Credential uses fixed key for use when TPM2 is absent, but TPM2 is present! Accepting anyway, since SecureBoot is disabled.");
-                } else
-                        log_debug("Credential uses fixed key for use when TPM2 is absent, and TPM2 indeed is absent. Accepting.");
+                        if (efi_has_tpm2()) {
+                                if (is_efi_secure_boot())
+                                        return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
+                                                               "Credential uses null key intended for fallback use when TPM2 is absent — but TPM2 is present, and SecureBoot is enabled, refusing.");
+
+                                log_warning("Credential uses null key intended for use when TPM2 is absent, but TPM2 is present! Accepting anyway, since SecureBoot is disabled.");
+                        } else
+                                log_debug("Credential uses null key intended for use when TPM2 is absent, and TPM2 indeed is absent. Accepting.");
+                }
         }
 
         if (with_scope) {
@@ -1365,7 +1385,7 @@ int decrypt_credential_and_warn(
                                 /* srk= */ NULL,
                                 &tpm2_key);
                 if (r == -EREMOTE)
-                        return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
+                        return log_error_errno(r, "TPM key integrity check failed. Key most likely does not belong to this TPM.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
                         return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
                 if (r < 0)
@@ -1497,7 +1517,7 @@ int decrypt_credential_and_warn(
                         if (r < 0 && r != -ENXIO)
                                 log_debug_errno(r, "Failed to parse $SYSTEMD_CREDENTIAL_VALIDATE_NAME: %m");
                         if (r != 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Embedded credential name '%s' does not match filename '%s', refusing.", embedded_name, validate_name);
+                                return log_error_errno(SYNTHETIC_ERRNO(EDESTADDRREQ), "Embedded credential name '%s' does not match filename '%s', refusing.", embedded_name, validate_name);
 
                         log_debug("Embedded credential name '%s' does not match expected name '%s', but configured to use credential anyway.", embedded_name, validate_name);
                 }
@@ -1586,6 +1606,7 @@ int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after,
                         SD_JSON_BUILD_PAIR_CONDITION(not_after != USEC_INFINITY, "notAfter",  SD_JSON_BUILD_UNSIGNED(not_after)),
                         SD_JSON_BUILD_PAIR_CONDITION(!FLAGS_SET(flags, CREDENTIAL_ANY_SCOPE), "scope", SD_JSON_BUILD_STRING(uid_is_valid(uid) ? "user" : "system")),
                         SD_JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid), "uid", SD_JSON_BUILD_UNSIGNED(uid)),
+                        SD_JSON_BUILD_PAIR_CONDITION((flags & (CREDENTIAL_ALLOW_NULL|CREDENTIAL_REFUSE_NULL)) != 0, "allowNull", SD_JSON_BUILD_BOOLEAN(flags & CREDENTIAL_ALLOW_NULL)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, CREDENTIAL_IPC_ALLOW_INTERACTIVE)));
         if (r < 0)
                 return log_error_errno(r, "Failed to call Encrypt() varlink call.");
@@ -1648,16 +1669,9 @@ int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp,
         if (r < 0)
                 return log_error_errno(r, "Failed to call Decrypt() varlink call.");
         if (!isempty(error_id))  {
-                if (streq(error_id, "io.systemd.Credentials.BadFormat"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Bad credential format.");
-                if (streq(error_id, "io.systemd.Credentials.NameMismatch"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Name in credential doesn't match expectations.");
-                if (streq(error_id, "io.systemd.Credentials.TimeMismatch"))
-                        return log_error_errno(SYNTHETIC_ERRNO(ESTALE), "Outside of credential validity time window.");
-                if (streq(error_id, "io.systemd.Credentials.NoSuchUser"))
-                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "No such user.");
-                if (streq(error_id, "io.systemd.Credentials.BadScope"))
-                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Scope mismtach.");
+                const CredentialsVarlinkError *e = credentials_varlink_error_by_id(error_id);
+                if (e)
+                        return log_error_errno(SYNTHETIC_ERRNO(e->errnum), "%s", e->msg);
 
                 return log_error_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to decrypt: %s", error_id);
         }
@@ -1809,4 +1823,39 @@ int pick_up_credentials(const PickUpCredential *table, size_t n_table_entry) {
         }
 
         return ret;
+}
+
+static const CredentialsVarlinkError credentials_varlink_error_table[] = {
+        { "io.systemd.Credentials.BadFormat",              EBADMSG,      "Bad credential format." },
+        { "io.systemd.Credentials.NameMismatch",           EDESTADDRREQ, "Name in credential doesn't match expectations." },
+        { "io.systemd.Credentials.TimeMismatch",           ESTALE,       "Outside of credential validity time window." },
+        { "io.systemd.Credentials.NoSuchUser",             ESRCH,        "No such user." },
+        { "io.systemd.Credentials.BadScope",               EMEDIUMTYPE,  "Scope mismatch." },
+        { "io.systemd.Credentials.CantFindPCRSignature",   EHOSTDOWN,    "PCR signature required for decryption, but could not be found." },
+        { "io.systemd.Credentials.NullKeyNotAllowed",      EHWPOISON,    "The key was encrypted with a null key, but that's now allowed during decryption." },
+        { "io.systemd.Credentials.KeyBelongsToOtherTPM",   EREMOTE,      "The TPM integrity check for this key failed, key probably belongs to another TPM, or was corrupted." },
+        { "io.systemd.Credentials.TPMInDictionaryLockout", ENOLCK,       "The TPM is in dictionary lockout mode, cannot operate." },
+        { "io.systemd.Credentials.UnexpectedPCRState" ,    EUCLEAN,      "Unexpected TPM PCR state of the system." },
+};
+
+const CredentialsVarlinkError* credentials_varlink_error_by_id(const char *id) {
+        assert(id);
+
+        FOREACH_ELEMENT(i, credentials_varlink_error_table)
+                if (streq(id, i->id))
+                        return i;
+
+        return NULL;
+}
+
+const CredentialsVarlinkError* credentials_varlink_error_by_errno(int errnum) {
+        assert(errnum != 0);
+
+        errnum = ABS(errnum);
+
+        FOREACH_ELEMENT(i, credentials_varlink_error_table)
+                if (errnum == i->errnum)
+                        return i;
+
+        return NULL;
 }

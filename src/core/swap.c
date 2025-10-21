@@ -781,7 +781,7 @@ static void swap_enter_activating(Swap *s) {
                 }
         }
 
-        r = exec_command_set(s->control_command, "/sbin/swapon", "--fixpgsz", NULL);
+        r = exec_command_set(s->control_command, SWAPON, "--fixpgsz", NULL);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to initialize swapon command line: %m");
                 goto fail;
@@ -826,7 +826,7 @@ static void swap_enter_deactivating(Swap *s) {
         s->control_command = s->exec_command + SWAP_EXEC_DEACTIVATE;
 
         r = exec_command_set(s->control_command,
-                             "/sbin/swapoff",
+                             SWAPOFF,
                              s->what,
                              NULL);
         if (r < 0) {

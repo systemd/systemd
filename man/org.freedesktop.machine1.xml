@@ -63,6 +63,10 @@ node /org/freedesktop/machine1 {
                                in  ai ifindices,
                                in  a(sv) scope_properties,
                                out o path);
+      CreateMachineEx(in  s name,
+                      in  a(sv) properties,
+                      in  a(sv) scope_properties,
+                      out o path);
       RegisterMachine(in  s name,
                       in  ay id,
                       in  s service,
@@ -78,6 +82,9 @@ node /org/freedesktop/machine1 {
                                  in  s root_directory,
                                  in  ai ifindices,
                                  out o path);
+      RegisterMachineEx(in  s name,
+                        in  a(sv) properties,
+                        out o path);
       UnregisterMachine(in  s name);
       TerminateMachine(in  s id);
       KillMachine(in  s name,
@@ -216,9 +223,13 @@ node /org/freedesktop/machine1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="CreateMachineWithNetwork()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateMachineEx()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="RegisterMachine()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="RegisterMachineWithNetwork()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="RegisterMachineEx()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="UnregisterMachine()"/>
 
@@ -336,7 +347,8 @@ node /org/freedesktop/machine1 {
       be either <literal>container</literal> or <literal>vm</literal> indicating whether the machine to
       register is of the respective class. The leader PID should be the host PID of the init process of the
       container or the encapsulating process of the VM. If the root directory of the container is known and
-      available in the host's hierarchy, it should be passed. Otherwise, pass the empty string instead. Finally, the
+      available in the host's hierarchy, it should be passed (note that this is for informational purposes
+      only, and will not be used otherwise). Otherwise, pass the empty string instead. Finally, the
       scope properties are passed as array in the same way as to PID1's
       <function>StartTransientUnit()</function> method. Calling this method will internally register a transient scope
       unit for the calling client (utilizing the passed scope_properties) and move the leader PID into
@@ -351,6 +363,31 @@ node /org/freedesktop/machine1 {
       registered. We recommend to only use this method for container or VM managers that are run
       multiple times, one instance for each container/VM they manage, and are invoked as system
       services.</para>
+
+      <para><function>RegisterMachineEx()</function> and <function>CreateMachineEx()</function> are similar
+      to the counterparts, but take a series of key/value pairs instead of a fixed number of parameters, to
+      allow for future extensions, and take a PIDFD instead of a PID for the leader parameter. The currently
+      supported parameters are:
+      <itemizedlist>
+        <listitem><para><literal>Id</literal> (<literal>ay</literal>): the machine UUID.</para></listitem>
+        <listitem><para><literal>Service</literal> (<literal>s</literal>): the service string.</para></listitem>
+        <listitem><para><literal>Class</literal> (<literal>s</literal>): the class string.</para></listitem>
+        <listitem><para><literal>LeaderPIDFD</literal> (<literal>h</literal>): A PIDFD for the leader process of the machine.
+        This parameter is optional. If it is specified, it is preferred over the combination of
+        <literal>LeaderPID</literal>
+        and <literal>LeaderPIDFDID</literal>.</para></listitem>
+        <listitem><para><literal>LeaderPID</literal> (<literal>u</literal>): A PID for the leader process of the
+        machine. This parameter is optional. Must be specified together with
+        <literal>LeaderPIDFDID</literal>.</para></listitem>
+        <listitem><para><literal>LeaderPIDFDID</literal> (<literal>t</literal>): A PIDFDID for the leader
+        process of the machine. This parameter is optional. Must be specified together with
+        <literal>LeaderPID</literal>.</para></listitem>
+        <listitem><para><literal>RootDirectory</literal> (<literal>s</literal>): The root directory of the container. This
+        parameter is optional and for informational purposes only.</para></listitem>
+        <listitem><para><literal>NetworkInterfaces</literal> (<literal>ai</literal>): An array of network
+        interface indices, as in
+        <function>CreateMachineWithNetwork()</function>. This parameter is optional.</para></listitem>
+      </itemizedlist></para>
 
       <para><function>CreateMachineWithNetwork()</function> and
       <function>RegisterMachineWithNetwork()</function> are similar to <function>CreateMachine()</function>
@@ -752,6 +789,8 @@ $ gdbus introspect --system \
       <para><varname>LeaderPIDFDId</varname>, <varname>Supervisor</varname>,
       <varname>SupervisorPIDFDId</varname>, <varname>Subgroup</varname>, and <varname>UID</varname> were added
       in version 258.</para>
+      <para><function>CreateMachineEx()</function>, and <function>RegisterMachineEx()</function> were added
+      in version 259.</para>
     </refsect2>
   </refsect1>
 

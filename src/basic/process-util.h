@@ -5,7 +5,7 @@
 
 #include "fileio.h"
 #include "format-util.h"
-#include "forward.h"
+#include "basic-forward.h"
 #include "string-util.h"
 
 #define procfs_file_alloca(pid, field)                                  \

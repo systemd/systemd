@@ -6,9 +6,6 @@ set -o pipefail
 
 # Test OnSuccess= + Uphold= + PropagatesStopTo= + BindsTo=
 
-systemd-analyze log-level debug
-systemd-analyze log-target journal
-
 # Idea is this:
 #    1. we start TEST-23-UNIT-FILE-success.service
 #    2. which through OnSuccess= starts TEST-23-UNIT-FILE-fail.service,
@@ -102,5 +99,3 @@ for _ in {1..120}; do
     fi
 done
 [[ "$sigrtmin1" == 1 ]]
-
-systemd-analyze log-level info

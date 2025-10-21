@@ -24,10 +24,10 @@
 #include "generator.h"
 #include "in-addr-util.h"
 #include "initrd-util.h"
+#include "libmount-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mount-setup.h"
-#include "mount-util.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -1025,9 +1025,9 @@ static int parse_fstab_one(
 }
 
 static int parse_fstab(bool prefix_sysroot) {
-        _cleanup_endmntent_ FILE *f = NULL;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         const char *fstab;
-        struct mntent *me;
         int r, ret = 0;
 
         if (prefix_sysroot)
@@ -1039,27 +1039,35 @@ static int parse_fstab(bool prefix_sysroot) {
 
         log_debug("Parsing %s...", fstab);
 
-        f = setmntent(fstab, "re");
-        if (!f) {
-                if (errno == ENOENT)
-                        return 0;
+        r = libmount_parse_full(fstab, /* source = */ NULL, &table, &iter);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse '%s': %m", fstab);
 
-                return log_error_errno(errno, "Failed to open %s: %m", fstab);
-        }
+        for (;;) {
+                struct libmnt_fs *fs;
 
-        while ((me = getmntent(f))) {
-                r = parse_fstab_one(fstab,
-                                    me->mnt_fsname, me->mnt_dir, me->mnt_type, me->mnt_opts, me->mnt_passno,
-                                    prefix_sysroot,
-                                    /* accept_root = */ false,
-                                    /* use_swap_enabled = */ true);
-                if (r < 0 && ret >= 0)
-                        ret = r;
+                r = sym_mnt_table_next_fs(table, iter, &fs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get next entry from '%s': %m", fstab);
+                if (r > 0) /* EOF */
+                        return ret;
+
+                r = parse_fstab_one(
+                                fstab,
+                                sym_mnt_fs_get_source(fs),
+                                sym_mnt_fs_get_target(fs),
+                                sym_mnt_fs_get_fstype(fs),
+                                sym_mnt_fs_get_options(fs),
+                                sym_mnt_fs_get_passno(fs),
+                                prefix_sysroot,
+                                /* accept_root = */ false,
+                                /* use_swap_enabled = */ true);
                 if (arg_sysroot_check && r > 0)
                         return true;  /* We found a mount or swap that would be started… */
+                RET_GATHER(ret, r);
         }
-
-        return ret;
 }
 
 static int mount_source_is_nfsroot(const char *what) {
@@ -1414,15 +1422,15 @@ static int add_mounts_from_cmdline(void) {
 
 static int add_mounts_from_creds(bool prefix_sysroot) {
         _cleanup_free_ void *b = NULL;
-        struct mntent *me;
         size_t bs;
-        int r;
+        const char *cred;
+        int r, ret = 0;
 
         assert(in_initrd() || !prefix_sysroot);
 
-        r = read_credential_with_decryption(
-                        in_initrd() && !prefix_sysroot ? "fstab.extra.initrd" : "fstab.extra",
-                        &b, &bs);
+        cred = in_initrd() && !prefix_sysroot ? "fstab.extra.initrd" : "fstab.extra";
+
+        r = read_credential_with_decryption(cred, &b, &bs);
         if (r <= 0)
                 return r;
 
@@ -1431,20 +1439,33 @@ static int add_mounts_from_creds(bool prefix_sysroot) {
         if (!f)
                 return log_oom();
 
-        r = 0;
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
 
-        while ((me = getmntent(f)))
-                RET_GATHER(r, parse_fstab_one("/run/credentials",
-                                              me->mnt_fsname,
-                                              me->mnt_dir,
-                                              me->mnt_type,
-                                              me->mnt_opts,
-                                              me->mnt_passno,
-                                              /* prefix_sysroot = */ prefix_sysroot,
-                                              /* accept_root = */ true,
-                                              /* use_swap_enabled = */ true));
+        r = libmount_parse_full(cred, f, &table, &iter);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse credential '%s' (as fstab): %m", cred);
 
-        return r;
+        for (;;) {
+                struct libmnt_fs *fs;
+
+                r = sym_mnt_table_next_fs(table, iter, &fs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get next fstab entry from credential '%s': %m", cred);
+                if (r > 0) /* EOF */
+                        return ret;
+
+                RET_GATHER(ret, parse_fstab_one(
+                                           "/run/credentials",
+                                           sym_mnt_fs_get_source(fs),
+                                           sym_mnt_fs_get_target(fs),
+                                           sym_mnt_fs_get_fstype(fs),
+                                           sym_mnt_fs_get_options(fs),
+                                           sym_mnt_fs_get_passno(fs),
+                                           prefix_sysroot,
+                                           /* accept_root = */ true,
+                                           /* use_swap_enabled = */ true));
+        }
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {

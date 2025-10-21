@@ -8,15 +8,13 @@ set -o pipefail
 
 # Make sure the binary name fits into 15 characters
 CORE_TEST_BIN="/tmp/test-dump"
-CORE_STACKTRACE_TEST_BIN="/tmp/test-stacktrace-dump"
-MAKE_STACKTRACE_DUMP="/tmp/make-stacktrace-dump"
 CORE_TEST_UNPRIV_BIN="/tmp/test-usr-dump"
 MAKE_DUMP_SCRIPT="/tmp/make-dump"
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
 
 at_exit() {
-    rm -fv -- "$CORE_TEST_BIN" "$CORE_TEST_UNPRIV_BIN" "$MAKE_DUMP_SCRIPT" "$MAKE_STACKTRACE_DUMP"
+    rm -fv -- "$CORE_TEST_BIN" "$CORE_TEST_UNPRIV_BIN" "$MAKE_DUMP_SCRIPT"
 }
 
 (! systemd-detect-virt -cq)
@@ -37,7 +35,8 @@ cp -vf /bin/sleep "${CORE_TEST_UNPRIV_BIN:?}"
 # Simple script that spawns given "fake" binary and then kills it with
 # given signal
 cat >"${MAKE_DUMP_SCRIPT:?}" <<\EOF
-#!/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 bin="${1:?}"
 sig="${2:?}"
@@ -98,12 +97,12 @@ EOF
     machinectl start "$CONTAINER"
     timeout "$TIMEOUT" bash -xec "until systemd-run -M '$CONTAINER' -q --wait --pipe true; do sleep .5; done"
 
-    [[ "$(systemd-run -M "$CONTAINER" -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l)" -eq 0 ]]
+    [[ "$(systemd-run -M "$CONTAINER" -q --wait --pipe coredumpctl list -q --no-legend sleep | wc -l)" -eq 0 ]]
     machinectl copy-to "$CONTAINER" "$MAKE_DUMP_SCRIPT"
-    systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGABRT"
-    systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "/usr/bin/sleep" "SIGTRAP"
+    systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "sleep" "SIGABRT"
+    systemd-run -M "$CONTAINER" -q --wait --pipe "$MAKE_DUMP_SCRIPT" "sleep" "SIGTRAP"
     # Wait a bit for the coredumps to get processed
-    timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend /usr/bin/sleep | wc -l) -lt 2 ]]; do sleep 1; done"
+    timeout 30 bash -c "while [[ \$(systemd-run -M $CONTAINER -q --wait --pipe coredumpctl list -q --no-legend sleep | wc -l) -lt 2 ]]; do sleep 1; done"
 
     machinectl stop "$CONTAINER"
     rm -rf "/var/lib/machines/$CONTAINER"
@@ -177,6 +176,10 @@ rm -fv /run/systemd/coredump.conf.d/99-external.conf
 # Wait a bit for the coredumps to get processed
 timeout 30 bash -c "while [[ \$(coredumpctl list -q --no-legend $CORE_TEST_UNPRIV_BIN | wc -l) -lt 4 ]]; do sleep 1; done"
 
+# Sync and rotate journal again to make the coredump stored in an archived journal.
+journalctl --sync
+journalctl --rotate
+
 # root should see coredumps from both binaries
 coredumpctl info "$CORE_TEST_UNPRIV_BIN"
 coredumpctl info "${CORE_TEST_UNPRIV_BIN##*/}"
@@ -246,30 +249,70 @@ systemd-run -t --property CoredumpFilter=default ls /tmp
 (! coredumpctl debug --debugger=/bin/true --debugger-arguments='"')
 
 # Test for EnterNamespace= feature
-if pkgconf --atleast-version 0.192 libdw ; then
-    # dwfl_set_sysroot() is supported only in libdw-0.192 or newer.
-    cat >"$MAKE_STACKTRACE_DUMP" <<END
-#!/bin/bash
-mount -t tmpfs tmpfs /tmp
-gcc -xc -O0 -g -o $CORE_STACKTRACE_TEST_BIN - <<EOF
-void baz(void) { int *x = 0; *x = 42; }
-void bar(void) { baz(); }
-void foo(void) { bar(); }
-int main(void) { foo(); return 0;}
+#
+# dwfl_set_sysroot() is supported only in libdw-0.192 or newer.
+#
+# FIXME: drop the objdump call once https://github.com/systemd/systemd/pull/39268#issuecomment-3390745718 is
+#        addressed
+if pkgconf --atleast-version 0.192 libdw &&
+    objdump -h -j .gnu_debugdata -j .debug_info /usr/lib/systemd/tests/unit-tests/manual/test-coredump-stacktrace; then
+    MAKE_STACKTRACE_DUMP="/tmp/make-stacktrace-dump"
+
+    # Simple script that mounts tmpfs on /tmp/ and copies the crashing test binary there, which in
+    # combination with `unshare --mount` ensures the "outside" systemd-coredump process won't be able to
+    # access the crashed binary (and hence won't be able to symbolize its stacktrace) unless
+    # EnterNamespace=yes is used
+    cat >"$MAKE_STACKTRACE_DUMP" <<\EOF
+#!/usr/bin/bash -eux
+
+TARGET="/tmp/${1:?}"
+EC=0
+
+# "Unhide" debuginfo in the namespace (see the comment below)
+test -d /usr/lib/debug/ && umount /usr/lib/debug/
+
+mount -t tmpfs tmpfs /tmp/
+cp /usr/lib/systemd/tests/unit-tests/manual/test-coredump-stacktrace "$TARGET"
+
+$TARGET || EC=$?
+if [[ $EC -ne 139 ]]; then
+    echo >&2 "$TARGET didn't crash, this shouldn't happen"
+    exit 1
+fi
+
+exit 0
 EOF
-$CORE_STACKTRACE_TEST_BIN
-END
     chmod +x "$MAKE_STACKTRACE_DUMP"
+
+    # Since the test-coredump-stacktrace binary is built together with rest of the systemd its debug symbols
+    # might be part of debuginfo packages (if supported & built), and libdw will then use them to symbolize
+    # the stacktrace even if it doesn't have access to the original crashing binary. Let's make the test
+    # simpler and just "hide" the debuginfo data, so libdw is forced to access the target namespace to get
+    # the necessary symbols
+    test -d /usr/lib/debug/ && mount -t tmpfs tmpfs /usr/lib/debug/
 
     mkdir -p /run/systemd/coredump.conf.d/
     printf '[Coredump]\nEnterNamespace=no' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
 
-    unshare --pid --fork --mount-proc --mount --uts --ipc --net /bin/bash -c "$MAKE_STACKTRACE_DUMP" || :
-    timeout 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zvqE 'baz.*bar.*foo'; do sleep .2; done"
+    unshare --pid --fork --mount-proc --mount --uts --ipc --net "$MAKE_STACKTRACE_DUMP" "test-stacktrace-not-symbolized"
+    timeout 30 bash -c "until coredumpctl list -q --no-legend /tmp/test-stacktrace-not-symbolized; do sleep .2; done"
+    coredumpctl info /tmp/test-stacktrace-not-symbolized | tee /tmp/not-symbolized.log
+    (! grep -E "#[0-9]+ .* main " /tmp/not-symbolized.log)
+    (! grep -E "#[0-9]+ .* foo " /tmp/not-symbolized.log)
+    (! grep -E "#[0-9]+ .* bar " /tmp/not-symbolized.log)
+    (! grep -E "#[0-9]+ .* baz " /tmp/not-symbolized.log)
 
     printf '[Coredump]\nEnterNamespace=yes' >/run/systemd/coredump.conf.d/99-enter-namespace.conf
-    unshare --pid --fork --mount-proc --mount --uts --ipc --net /bin/bash -c "$MAKE_STACKTRACE_DUMP" || :
-    timeout 30 bash -c "until coredumpctl -1 info $CORE_STACKTRACE_TEST_BIN | grep -zqE 'baz.*bar.*foo'; do sleep .2; done"
+    unshare --pid --fork --mount-proc --mount --uts --ipc --net "$MAKE_STACKTRACE_DUMP" "test-stacktrace-symbolized"
+    timeout 30 bash -c "until coredumpctl list -q --no-legend /tmp/test-stacktrace-symbolized; do sleep .2; done"
+    coredumpctl info /tmp/test-stacktrace-symbolized | tee /tmp/symbolized.log
+    grep -E "#[0-9]+ .* main " /tmp/symbolized.log
+    grep -E "#[0-9]+ .* foo " /tmp/symbolized.log
+    grep -E "#[0-9]+ .* bar " /tmp/symbolized.log
+    grep -E "#[0-9]+ .* baz " /tmp/symbolized.log
+
+    test -d /usr/lib/debug/ && umount /usr/lib/debug/
+    rm -f "$MAKE_STACKTRACE_DUMP" /run/systemd/coredump.conf.d/99-enter-namespace.conf /tmp/{not-,}symbolized.log
 else
     echo "libdw doesn't not support setting sysroot, skipping EnterNamespace= test"
 fi

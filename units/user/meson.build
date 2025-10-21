@@ -18,6 +18,16 @@ units = [
           'file' : 'machines.target',
           'conditions' : ['ENABLE_MACHINED'],
         },
+        {
+          'file' : 'systemd-machined.service.in',
+          'conditions' : ['ENABLE_MACHINED'],
+          'symlinks' : ['dbus-org.freedesktop.machine1.service'],
+        },
+        {
+          'file' : 'systemd-machined.socket',
+          'conditions' : ['ENABLE_MACHINED'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'paths.target' },
         { 'file' : 'printer.target' },
         { 'file' : 'session.slice' },
@@ -72,7 +82,6 @@ foreach unit : units
 
         if needs_jinja
                 t = custom_target(
-                        name,
                         input : source,
                         output : name,
                         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

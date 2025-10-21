@@ -336,40 +336,35 @@ static int write_credential(
         if (fd < 0)
                 return -errno;
 
+        CLEANUP_TMPFILE_AT(dfd, tmp);
+
         r = loop_write(fd, data, size);
         if (r < 0)
-                goto fail;
+                return r;
 
         r = RET_NERRNO(fchmod(fd, 0400)); /* Take away "w" bit */
         if (r < 0)
-                goto fail;
+                return r;
 
         if (uid_is_valid(uid) && uid != getuid()) {
                 r = fd_add_uid_acl_permission(fd, uid, ACL_READ);
-                if (r < 0) {
-                        /* Ideally we use ACLs, since we can neatly express what we want to express:
-                         * the user gets read access and nothing else. But if the backing fs can't
-                         * support that (e.g. ramfs), then we can use file ownership instead. But that's
-                         * only safe if we can then re-mount the whole thing read-only, so that the user
-                         * can no longer chmod() the file to gain write access. */
-                        if (!ownership_ok || (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r)))
-                                goto fail;
-
+                /* Ideally we use ACLs, since we can neatly express what we want to express:
+                 * the user gets read access and nothing else. But if the backing fs can't
+                 * support that (e.g. ramfs), then we can use file ownership instead. But that's
+                 * only safe if we can then re-mount the whole thing read-only, so that the user
+                 * can no longer chmod() the file to gain write access. */
+                if ((ERRNO_IS_NEG_NOT_SUPPORTED(r) || ERRNO_IS_NEG_PRIVILEGE(r)) && ownership_ok)
                         r = RET_NERRNO(fchown(fd, uid, gid));
-                        if (r < 0)
-                                goto fail;
-                }
+                if (r < 0)
+                        return r;
         }
 
         r = RET_NERRNO(renameat(dfd, tmp, dfd, id));
         if (r < 0)
-                goto fail;
+                return r;
 
+        tmp = mfree(tmp); /* disarm CLEANUP_TMPFILE_AT() */
         return 0;
-
-fail:
-        (void) unlinkat(dfd, tmp, /* flags = */ 0);
-        return r;
 }
 
 typedef enum CredentialSearchPath {
@@ -468,7 +463,8 @@ static int maybe_decrypt_and_write_credential(
                 struct load_cred_args *args,
                 const char *id,
                 const char *data,
-                size_t size) {
+                size_t size,
+                bool graceful) {
 
         _cleanup_(iovec_done_erase) struct iovec plaintext = {};
         size_t add;
@@ -522,8 +518,14 @@ static int maybe_decrypt_and_write_credential(
                 default:
                         assert_not_reached();
                 }
-                if (r < 0)
+                if (r < 0) {
+                        if (graceful) {
+                                log_warning_errno(r, "Unable to decrypt credential '%s', skipping: %m", id);
+                                return 0;
+                        }
+
                         return r;
+                }
 
                 data = plaintext.iov_base;
                 size = plaintext.iov_len;
@@ -612,7 +614,7 @@ static int load_credential_glob(
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to read credential '%s': %m", *p);
 
-                        r = maybe_decrypt_and_write_credential(args, fn, data, size);
+                        r = maybe_decrypt_and_write_credential(args, fn, data, size, /* graceful= */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -737,7 +739,7 @@ static int load_credential(
         if (r < 0)
                 return log_debug_errno(r, "Failed to read credential '%s': %m", path);
 
-        return maybe_decrypt_and_write_credential(args, id, data, size);
+        return maybe_decrypt_and_write_credential(args, id, data, size, /* graceful= */ false);
 }
 
 static int load_cred_recurse_dir_cb(
@@ -874,10 +876,11 @@ static int acquire_credentials(
 
                 args.encrypted = false;
 
-                r = load_credential_glob(&args,
-                                         ic,
-                                         search_path,
-                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER);
+                r = load_credential_glob(
+                                &args,
+                                ic,
+                                search_path,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER);
                 if (r < 0)
                         return r;
 
@@ -889,10 +892,11 @@ static int acquire_credentials(
 
                 args.encrypted = true;
 
-                r = load_credential_glob(&args,
-                                         ic,
-                                         search_path,
-                                         READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_UNBASE64);
+                r = load_credential_glob(
+                                &args,
+                                ic,
+                                search_path,
+                                READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_UNBASE64);
                 if (r < 0)
                         return r;
         }
@@ -910,7 +914,7 @@ static int acquire_credentials(
                 if (errno != ENOENT)
                         return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sc->id);
 
-                r = maybe_decrypt_and_write_credential(&args, sc->id, sc->data, sc->size);
+                r = maybe_decrypt_and_write_credential(&args, sc->id, sc->data, sc->size, /* graceful= */ false);
                 if (r < 0)
                         return r;
         }

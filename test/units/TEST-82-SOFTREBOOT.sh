@@ -6,19 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-at_exit() {
-    # Since the soft-reboot drops the enqueued end.service, we won't shutdown
-    # the test VM if the test fails and have to wait for the watchdog to kill
-    # us (which may take quite a long time). Let's just forcibly kill the machine
-    # instead to save CI resources.
-    if [[ $? -ne 0 ]]; then
-        echo >&2 "Test failed, shutting down the machine..."
-        systemctl poweroff -ff
-    fi
-}
-
-trap at_exit EXIT
-
 # Because this test tests soft-reboot, we have to get rid of the symlink we put at
 # /run/nextroot to allow rebooting into the previous snapshot if the test fails for
 # the duration of the test. However, let's make sure we put the symlink back in place
@@ -45,7 +32,7 @@ KERNEL!="null", GOTO="end"
 ACTION=="remove", GOTO="end"
 
 IMPORT{db}="HISTORY"
-IMPORT{program}="/bin/bash -c 'systemctl show --property=SoftRebootsCount'"
+IMPORT{program}="/usr/bin/systemctl show --property=SoftRebootsCount"
 ENV{HISTORY}+="%E{ACTION}_%E{SEQNUM}_%E{SoftRebootsCount}"
 
 LABEL="end"
@@ -83,8 +70,6 @@ check_device_property() {
 
     assert_eq "$count" "$expected_count"
 }
-
-systemd-analyze log-level debug
 
 export SYSTEMD_LOG_LEVEL=debug
 
@@ -255,7 +240,7 @@ else
 
     survive_sigterm="/dev/shm/survive-sigterm-$RANDOM.sh"
     cat >"$survive_sigterm" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 trap "" TERM
 systemd-notify --ready
 rm "$survive_sigterm"
@@ -265,14 +250,14 @@ EOF
 
     survive_argv="/dev/shm/survive-argv-$RANDOM.sh"
     cat >"$survive_argv" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 systemd-notify --ready
 rm "$survive_argv"
 exec -a @sleep sleep infinity
 EOF
     chmod +x "$survive_argv"
     # This sets DefaultDependencies=no so that they remain running until the very end, and
-    # IgnoreOnIsolate=yes so that they aren't stopped via the "testsuite.target" isolation we do on next boot,
+    # IgnoreOnIsolate=yes so that they aren't stopped via isolation on next boot,
     # and will be killed by the final sigterm/sigkill spree.
     systemd-run --collect --service-type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=TEST-82-SOFTREBOOT-nosurvive-sigterm.service "$survive_sigterm"
     systemd-run --collect --service-type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes -p SetCredential=gone:hoge --unit=TEST-82-SOFTREBOOT-nosurvive.service sleep infinity
@@ -337,8 +322,6 @@ EOF
     # Now block until the soft-boot killing spree kills us
     exec sleep infinity
 fi
-
-systemd-analyze log-level info
 
 touch /testok
 systemctl --no-block exit 123

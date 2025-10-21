@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum CopyFlags {
         COPY_REFLINK                      = 1 << 0,  /* Try to reflink */
@@ -43,7 +43,7 @@ typedef enum DenyType {
         _DENY_TYPE_INVALID = -EINVAL,
 } DenyType;
 
-typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, void *userdata);
+typedef int (*copy_progress_bytes_t)(uint64_t n_bytes, uint64_t bytes_per_second, void *userdata);
 typedef int (*copy_progress_path_t)(const char *path, const struct stat *st, void *userdata);
 
 int copy_file_fd_at_full(int dir_fdf, const char *from, int to, CopyFlags copy_flags, copy_progress_bytes_t progress, void *userdata);

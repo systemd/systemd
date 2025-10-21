@@ -4,8 +4,6 @@
 set -eux
 set -o pipefail
 
-systemd-analyze log-level debug
-
 test_quotas() {
 
     local directory="$1"
@@ -41,7 +39,7 @@ PrivateUsers=yes
 TemporaryFileSystem=/run /var/opt /var/lib /vol
 ${exec_directory_directive}
 ${exec_quota_directive}
-ExecStart=/bin/bash -c ' \
+ExecStart=bash -c ' \
     set -eux; \
     set -o pipefail; \
     touch ${directory}/quotadir/testfile; \
@@ -77,7 +75,7 @@ PrivateUsers=yes
 TemporaryFileSystem=/run /var/opt /var/lib /vol
 ${exec_directory_directive}
 ${exec_quota_directive}
-ExecStart=/bin/bash -c ' \
+ExecStart=bash -c ' \
     set -eux; \
     set -o pipefail; \
     (! fallocate -l 10000G ${directory}/quotadir/largefile); \
@@ -89,7 +87,5 @@ EOF
 }
 
 test_quotas "/var/lib/private" "StateDirectory=quotadir" "StateDirectoryQuota=1%"
-
-systemd-analyze log-level info
 
 touch /testok

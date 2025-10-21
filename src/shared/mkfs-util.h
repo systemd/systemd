@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum MakeFilesystemFlags {
         MKFS_QUIET     = 1 << 0,  /* Suppress mkfs command output */

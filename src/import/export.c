@@ -18,6 +18,7 @@
 #include "runtime-scope.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "terminal-util.h"
 #include "verbs.h"
 
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
@@ -92,6 +93,9 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                 log_info("Exporting '%s', saving to '%s' with compression '%s'.", local, path, import_compress_type_to_string(arg_compress));
         } else {
                 _cleanup_free_ char *pretty = NULL;
+
+                if (isatty_safe(STDOUT_FILENO))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Refusing to write archive to TTY.");
 
                 fd = STDOUT_FILENO;
 
@@ -245,17 +249,8 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_FORMAT:
-                        if (streq(optarg, "uncompressed"))
-                                arg_compress = IMPORT_COMPRESS_UNCOMPRESSED;
-                        else if (streq(optarg, "xz"))
-                                arg_compress = IMPORT_COMPRESS_XZ;
-                        else if (streq(optarg, "gzip"))
-                                arg_compress = IMPORT_COMPRESS_GZIP;
-                        else if (streq(optarg, "bzip2"))
-                                arg_compress = IMPORT_COMPRESS_BZIP2;
-                        else if (streq(optarg, "zstd"))
-                                arg_compress = IMPORT_COMPRESS_ZSTD;
-                        else
+                        arg_compress = import_compress_type_from_string(optarg);
+                        if (arg_compress < 0 || arg_compress == IMPORT_COMPRESS_UNKNOWN)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Unknown format: %s", optarg);
                         break;

@@ -3,7 +3,7 @@
 
 #include <sched.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 /* The combination of all namespace flags defined by the kernel. The right type for this isn't clear. setns() and
  * unshare() expect these flags to be passed as (signed) "int", while clone() wants them as "unsigned long". The latter
@@ -23,4 +23,5 @@
 
 int namespace_flags_from_string(const char *name, unsigned long *ret);
 int namespace_flags_to_string(unsigned long flags, char **ret);
+int namespace_flags_to_strv(unsigned long flags, char ***ret);
 const char* namespace_single_flag_to_string(unsigned long flag) _const_;

@@ -46,7 +46,8 @@ _journalctl() {
                       --version --list-catalog --update-catalog --list-boots
                       --show-cursor --dmesg -k --pager-end -e -r --reverse
                       --utc -x --catalog --no-full --force --dump-catalog
-                      --flush --rotate --sync --no-hostname -N --fields
+                      --flush --rotate --sync --relinquish-var
+                      --smart-relinquish-var --no-hostname -W -N --fields
                       --list-namespaces --list-invocations -I -v --verbose'
         [ARG]='-b --boot -D --directory -i --file -F --field -t --identifier
                       -T --exclude-identifier --facility -M --machine -o --output

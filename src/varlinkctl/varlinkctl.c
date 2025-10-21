@@ -587,8 +587,13 @@ static int reply_callback(
                         else
                                 r = *ret = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
                 }
-        } else
+        } else {
+                /* Let the caller know we have received at least one reply now. This is useful for
+                 * subscription style interfaces where the first reply indicates the subscription being
+                 * successfully enabled. */
+                (void) sd_notify(/* unset_environment= */ false, "READY=1");
                 r = 0;
+        }
 
         if (!arg_quiet)
                 sd_json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
@@ -778,7 +783,9 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                          "Method call %s() returned expected error: %s", method, error);
 
                                 r = 0;
-                        } else {
+                        } else if (streq(error, SD_VARLINK_ERROR_EXPECTED_MORE))
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: called without 'more' flag, but flag needs to be set.", method);
+                        else {
                                 r = sd_varlink_error_to_errno(error, reply);
                                 if (r != -EBADR)
                                         log_error_errno(r, "Method call %s() failed: %m", method);

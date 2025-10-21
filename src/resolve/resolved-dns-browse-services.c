@@ -1,19 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "af-list.h"
-#include "event-util.h"
+#include "alloc-util.h"
 #include "dns-domain.h"
-#include "json-util.h"
+#include "dns-question.h"
+#include "dns-rr.h"
+#include "event-util.h"
+#include "log.h"
 #include "random-util.h"
 #include "resolved-dns-browse-services.h"
 #include "resolved-dns-cache.h"
-#include "resolved-dns-question.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-manager.h"
-#include "resolved-varlink.h"
 #include "string-table.h"
+#include "string-util.h"
 
 typedef enum BrowseServiceUpdateEvent {
         BROWSE_SERVICE_UPDATE_ADDED,

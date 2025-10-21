@@ -114,8 +114,8 @@ endif
 ############################################################
 
 udev_dependencies = [
-        libacl,
-        libblkid,
+        libacl_cflags,
+        libblkid_cflags,
         libkmod,
         threads,
 ]
@@ -131,8 +131,8 @@ udev_plugin_template = executable_template + {
 udev_common_template = {
         'objects' : ['udevadm'],
         'dependencies' : [
-                libacl,
-                libblkid,
+                libacl_cflags,
+                libblkid_cflags,
                 threads,
         ],
 }
@@ -151,6 +151,7 @@ udev_binaries_dict = [
                         include_directories('.', 'net'),
                 ],
                 'dependencies' : udev_dependencies,
+                'link_with' : udev_link_with,
                 'install_rpath' : udev_rpath,
                 'install_tag' : 'udev',
                 'extract' : udevadm_extract_sources,
@@ -231,7 +232,7 @@ executables += [
         udev_test_template + {
                 'sources' : files('test-udev-rule-runner.c'),
                 'dependencies' : udev_dependencies + [
-                        libselinux,
+                        libselinux_cflags,
                 ],
                 'type' : 'manual',
         },

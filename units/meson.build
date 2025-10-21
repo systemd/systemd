@@ -143,6 +143,12 @@ units = [
         },
         { 'file' : 'modprobe@.service' },
         { 'file' : 'multi-user.target' },
+        {
+          'file' : 'systemd-mute-console.socket',
+          'symlinks' : ['sockets.target.wants/']
+        },
+        { 'file' : 'systemd-mute-console@.service' },
+        { 'file' : 'system-systemd\\x2dmute\\x2dconsole.slice' },
         { 'file' : 'network-online.target' },
         { 'file' : 'network-pre.target' },
         { 'file' : 'network.target' },
@@ -650,6 +656,15 @@ units = [
           'file' : 'systemd-repart.service',
           'conditions' : ['ENABLE_REPART'],
           'symlinks' : ['sysinit.target.wants/', 'initrd-root-fs.target.wants/'],
+        },
+        {
+          'file' : 'systemd-repart.socket',
+          'conditions' : ['ENABLE_REPART'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-repart@.service',
+          'conditions' : ['ENABLE_REPART'],
         },
         {
           'file' : 'systemd-resolved.service.in',

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum ImportFlags {
         /* Public Flags (i.e. accessible via D-Bus, must stay stable! */
@@ -33,11 +33,13 @@ typedef enum ImportFlags {
         _IMPORT_FLAGS_INVALID = -EINVAL,
 } ImportFlags;
 
-int import_fork_tar_c(const char *path, pid_t *ret);
-int import_fork_tar_x(const char *path, pid_t *ret);
+int import_fork_tar_c(const char *path, PidRef *ret);
+int import_fork_tar_x(int tree_fd, PidRef *ret_pid);
 
 int import_mangle_os_tree(const char *path);
 
 bool import_validate_local(const char *name, ImportFlags flags);
 
 int import_allocate_event_with_signals(sd_event **ret);
+
+#define IMPORT_BUFFER_SIZE (128U*1024U)

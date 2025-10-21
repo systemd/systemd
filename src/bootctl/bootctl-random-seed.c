@@ -61,7 +61,7 @@ static int set_system_token(void) {
         if (!touch_variables())
                 return 0;
 
-        r = getenv_bool("SYSTEMD_WRITE_SYSTEM_TOKEN");
+        r = secure_getenv_bool("SYSTEMD_WRITE_SYSTEM_TOKEN");
         if (r < 0) {
                 if (r != -ENXIO)
                         log_warning_errno(r, "Failed to parse $SYSTEMD_WRITE_SYSTEM_TOKEN, ignoring.");
@@ -96,7 +96,7 @@ static int set_system_token(void) {
         WITH_UMASK(0077) {
                 r = efi_set_variable(EFI_LOADER_VARIABLE_STR("LoaderSystemToken"), buffer, sizeof(buffer));
                 if (r < 0) {
-                        if (!arg_graceful)
+                        if (arg_graceful() == ARG_GRACEFUL_NO)
                                 return log_error_errno(r, "Failed to write 'LoaderSystemToken' EFI variable: %m");
 
                         if (r == -EINVAL)
@@ -213,7 +213,7 @@ int verb_random_seed(int argc, char *argv[], void *userdata) {
         r = find_esp_and_warn(arg_root, arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL, NULL);
         if (r == -ENOKEY) {
                 /* find_esp_and_warn() doesn't warn about ENOKEY, so let's do that on our own */
-                if (!arg_graceful)
+                if (arg_graceful() == ARG_GRACEFUL_NO)
                         return log_error_errno(r, "Unable to find ESP.");
 
                 log_notice("No ESP found, not initializing random seed.");

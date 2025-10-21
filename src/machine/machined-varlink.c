@@ -18,6 +18,7 @@
 #include "machine-varlink.h"
 #include "machined.h"
 #include "machined-varlink.h"
+#include "path-lookup.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -614,14 +615,15 @@ static int vl_method_open_root_directory(sd_varlink *link, sd_json_variant *para
         return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_open_root_directory_internal);
 }
 
-static int list_image_one_and_maybe_read_metadata(sd_varlink *link, Image *image, bool more, AcquireMetadata am) {
+static int list_image_one_and_maybe_read_metadata(Manager *m, sd_varlink *link, Image *image, bool more, AcquireMetadata am) {
         int r;
 
+        assert(m);
         assert(link);
         assert(image);
 
         if (should_acquire_metadata(am) && !image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container);
+                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
                 if (r < 0 && am != ACQUIRE_METADATA_GRACEFUL)
                         return log_debug_errno(r, "Failed to read image metadata: %m");
                 if (r < 0)
@@ -697,7 +699,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
                 if (r < 0)
                         return log_debug_errno(r, "Failed to find image: %m");
 
-                return list_image_one_and_maybe_read_metadata(link, found, /* more = */ false, p.acquire_metadata);
+                return list_image_one_and_maybe_read_metadata(m, link, found, /* more = */ false, p.acquire_metadata);
         }
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
@@ -711,7 +713,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         Image *image, *previous = NULL;
         HASHMAP_FOREACH(image, images) {
                 if (previous) {
-                        r = list_image_one_and_maybe_read_metadata(link, previous, /* more = */ true, p.acquire_metadata);
+                        r = list_image_one_and_maybe_read_metadata(m, link, previous, /* more = */ true, p.acquire_metadata);
                         if (r < 0)
                                 return r;
                 }
@@ -720,7 +722,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         }
 
         if (previous)
-                return list_image_one_and_maybe_read_metadata(link, previous, /* more = */ false, p.acquire_metadata);
+                return list_image_one_and_maybe_read_metadata(m, link, previous, /* more = */ false, p.acquire_metadata);
 
         return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
 }
@@ -732,6 +734,8 @@ static int manager_varlink_init_userdb(Manager *m) {
         assert(m);
 
         if (m->varlink_userdb_server)
+                return 0;
+        if (m->runtime_scope != RUNTIME_SCOPE_SYSTEM) /* no userdb in per-user mode! */
                 return 0;
 
         r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
@@ -817,11 +821,20 @@ static int manager_varlink_init_machine(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
         if (r == 0) {
-                r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+                _cleanup_free_ char *socket_path = NULL;
+                r = runtime_directory_generic(m->runtime_scope, "systemd/machine/io.systemd.Machine", &socket_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine socket path: %m");
+
+                r = sd_varlink_server_listen_address(s, socket_path, runtime_scope_to_socket_mode(m->runtime_scope) | SD_VARLINK_SERVER_MODE_MKDIR_0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to io.systemd.Machine varlink socket: %m");
 
-                r = sd_varlink_server_listen_address(s, "/run/systemd/machine/io.systemd.MachineImage", 0666);
+                socket_path = mfree(socket_path);
+                r = runtime_directory_generic(m->runtime_scope, "systemd/machine/io.systemd.MachineImage", &socket_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine socket path: %m");
+                r = sd_varlink_server_listen_address(s, socket_path, runtime_scope_to_socket_mode(m->runtime_scope));
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to io.systemd.MachineImage varlink socket: %m");
         }

@@ -5,7 +5,7 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "sparse-endian.h"
 
 /* maximum length of gpt label */
@@ -31,17 +31,22 @@ typedef enum PartitionDesignator {
 
 bool partition_designator_is_versioned(PartitionDesignator d) _const_;
 
-PartitionDesignator partition_verity_of(PartitionDesignator p) _const_;
+PartitionDesignator partition_verity_hash_of(PartitionDesignator p) _const_;
 PartitionDesignator partition_verity_sig_of(PartitionDesignator p) _const_;
-PartitionDesignator partition_verity_to_data(PartitionDesignator d) _const_;
+PartitionDesignator partition_verity_hash_to_data(PartitionDesignator d) _const_;
 PartitionDesignator partition_verity_sig_to_data(PartitionDesignator d) _const_;
+PartitionDesignator partition_verity_to_data(PartitionDesignator d) _const_;
 
-static inline bool partition_designator_is_verity(PartitionDesignator d) {
-        return partition_verity_to_data(d) >= 0;
+static inline bool partition_designator_is_verity_hash(PartitionDesignator d) {
+        return partition_verity_hash_to_data(d) >= 0;
 }
 
 static inline bool partition_designator_is_verity_sig(PartitionDesignator d) {
         return partition_verity_sig_to_data(d) >= 0;
+}
+
+static inline bool partition_designator_is_verity(PartitionDesignator d) {
+        return partition_verity_to_data(d) >= 0;
 }
 
 const char* partition_designator_to_string(PartitionDesignator d) _const_;

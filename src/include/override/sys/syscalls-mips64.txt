@@ -16,6 +16,7 @@ atomic_barrier
 atomic_cmpxchg_32
 bind	5048
 bpf	5315
+breakpoint
 brk	5012
 cachectl	5198
 cacheflush	5197
@@ -113,6 +114,7 @@ futimesat	5251
 get_mempolicy	5228
 get_robust_list	5269
 get_thread_area
+get_tls
 getcpu	5271
 getcwd	5077
 getdents	5076
@@ -404,6 +406,7 @@ set_mempolicy_home_node	5450
 set_robust_list	5268
 set_thread_area	5242
 set_tid_address	5212
+set_tls
 setdomainname	5166
 setfsgid	5121
 setfsgid32
@@ -512,6 +515,8 @@ unlinkat	5253
 unshare	5262
 uretprobe
 userfaultfd	5317
+usr26
+usr32
 ustat	5133
 utime	5130
 utimensat	5275

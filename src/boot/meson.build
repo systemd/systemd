@@ -132,16 +132,19 @@ elif get_option('sbat-distro') != ''
         endif
 endif
 
-summary({'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)},
+summary({
+                'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)
+        },
         section : 'UEFI')
 
 if efi_conf.get('SBAT_DISTRO', '') != ''
         summary({
-                'SBAT distro':              efi_conf.get('SBAT_DISTRO'),
-                'SBAT distro generation':   efi_conf.get('SBAT_DISTRO_GENERATION'),
-                'SBAT distro version':      efi_conf.get('SBAT_DISTRO_VERSION'),
-                'SBAT distro summary':      efi_conf.get('SBAT_DISTRO_SUMMARY'),
-                'SBAT distro URL':          efi_conf.get('SBAT_DISTRO_URL')},
+                        'SBAT distro'            : efi_conf.get('SBAT_DISTRO'),
+                        'SBAT distro generation' : efi_conf.get('SBAT_DISTRO_GENERATION'),
+                        'SBAT distro version'    : efi_conf.get('SBAT_DISTRO_VERSION'),
+                        'SBAT distro summary'    : efi_conf.get('SBAT_DISTRO_SUMMARY'),
+                        'SBAT distro URL'        : efi_conf.get('SBAT_DISTRO_URL')
+                },
                 section : 'UEFI')
 endif
 
@@ -204,7 +207,7 @@ efi_c_ld_args = [
 ]
 
 linker_sanity_code = 'void a(void) {}; void _start(void) { a(); }'
-linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings']
+linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings', '-fno-stack-protector']
 
 # Check if libgcc is available and then use it. It is needed for gcc builds
 # and for ia32 builds with clang.
@@ -448,12 +451,12 @@ foreach efi_elf_binary : efi_elf_binaries
                 install_tag : 'systemd-boot',
                 command : [
                         elf2efi_py,
-                        '--version-major=' + project_major_version,
-                        '--version-minor=' + project_minor_version,
+                        f'--version-major=@project_major_version@',
+                        f'--version-minor=@project_minor_version@',
                         '--efi-major=1',
                         '--efi-minor=1',
                         '--subsystem=10',
-                        '--minimum-sections=@0@'.format(minimum_sections),
+                        f'--minimum-sections=@minimum_sections@',
                         '--copy-sections=.sbat,.sdmagic,.osrel',
                         '@INPUT@',
                         '@OUTPUT@',
@@ -464,11 +467,11 @@ foreach efi_elf_binary : efi_elf_binaries
         endif
 
         # This is supposed to match exactly one time
-        if name == 'addon@0@.efi.stub'.format(efi_arch)
+        if name == f'addon@efi_arch@.efi.stub'
                 efi_addon = [exe]
         endif
 
-        test('check-alignment-@0@'.format(name),
+        test(f'check-alignment-@name@',
              check_efi_alignment_py,
              args : exe,
              suite : 'boot')

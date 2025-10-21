@@ -57,6 +57,9 @@ option('quotacheck-path', type : 'string', description : 'path to quotacheck')
 option('kmod-path', type : 'string', description : 'path to kmod')
 option('kexec-path', type : 'string', description : 'path to kexec')
 option('sulogin-path', type : 'string', description : 'path to sulogin')
+option('swapon-path', type : 'string', description : 'path to swapon')
+option('swapoff-path', type : 'string', description : 'path to swapoff')
+option('agetty-path', type : 'string', description : 'path to agetty')
 option('mount-path', type : 'string', description : 'path to mount')
 option('umount-path', type : 'string', description : 'path to umount')
 option('loadkeys-path', type : 'string', description : 'path to loadkeys')
@@ -429,7 +432,7 @@ option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' :
        description : 'libidn2 support')
 option('libidn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn support')
-option('libiptc', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+option('libiptc', type : 'feature', deprecated : true,
        description : 'libiptc support')
 option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libqrencode support')

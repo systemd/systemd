@@ -2,12 +2,11 @@
 #pragma once
 
 #include "dns-def.h"
-#include "forward.h"
+#include "dns-packet.h"
 #include "list.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
 #include "resolved-dns-cache.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-zone.h"
 #include "resolved-forward.h"
 

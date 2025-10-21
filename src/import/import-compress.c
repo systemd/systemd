@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "import-common.h"
 #include "import-compress.h"
 #include "log.h"
 #include "string-table.h"
@@ -148,7 +149,7 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
                 c->xz.avail_in = size;
 
                 while (c->xz.avail_in > 0) {
-                        uint8_t buffer[16 * 1024];
+                        uint8_t buffer[IMPORT_BUFFER_SIZE];
                         lzma_ret lzr;
 
                         c->xz.next_out = buffer;
@@ -172,7 +173,7 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
                 c->gzip.avail_in = size;
 
                 while (c->gzip.avail_in > 0) {
-                        uint8_t buffer[16 * 1024];
+                        uint8_t buffer[IMPORT_BUFFER_SIZE];
 
                         c->gzip.next_out = buffer;
                         c->gzip.avail_out = sizeof(buffer);
@@ -196,7 +197,7 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
                 c->bzip2.avail_in = size;
 
                 while (c->bzip2.avail_in > 0) {
-                        uint8_t buffer[16 * 1024];
+                        uint8_t buffer[IMPORT_BUFFER_SIZE];
 
                         c->bzip2.next_out = (char*) buffer;
                         c->bzip2.avail_out = sizeof(buffer);
@@ -222,7 +223,7 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
                 };
 
                 while (input.pos < input.size) {
-                        uint8_t buffer[16 * 1024];
+                        uint8_t buffer[IMPORT_BUFFER_SIZE];
                         ZSTD_outBuffer output = {
                                 .dst = buffer,
                                 .size = sizeof(buffer),
@@ -320,7 +321,7 @@ static int enlarge_buffer(void **buffer, size_t *buffer_size, size_t *buffer_all
         if (*buffer_allocated > *buffer_size)
                 return 0;
 
-        l = MAX(16*1024U, (*buffer_size * 2));
+        l = MAX(IMPORT_BUFFER_SIZE, (*buffer_size * 2));
         p = realloc(*buffer, l);
         if (!p)
                 return -ENOMEM;

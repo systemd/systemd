@@ -11,8 +11,6 @@ if [[ "$(get_cgroup_hierarchy)" != unified ]]; then
     exit 0
 fi
 
-systemd-analyze log-level debug
-
 # Multiple level process tree, parent process stays up
 cat >/tmp/test19-exit-cgroup.sh <<EOF
 #!/usr/bin/env bash
@@ -98,6 +96,3 @@ systemd-run --wait \
             --property="Type=notify" \
             --property="ExitType=cgroup" \
             /tmp/test19-exit-cgroup-parentless.sh 'systemctl kill --signal 9 six'
-
-
-systemd-analyze log-level info

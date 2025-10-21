@@ -14,7 +14,11 @@
 #include "alloc-util.h"
 #include "daemon-util.h"
 #include "dirent-util.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "errno-util.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -30,12 +34,8 @@
 #include "random-util.h"
 #include "resolved-bus.h"
 #include "resolved-conf.h"
-#include "resolved-dns-answer.h"
 #include "resolved-dns-delegate.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -645,6 +645,7 @@ static void manager_set_defaults(Manager *m) {
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
+        Link *l;
         int r;
 
         (void) notify_reloading();
@@ -678,6 +679,12 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         r = dns_scope_new(m, &m->unicast_scope, DNS_SCOPE_GLOBAL, /* link= */ NULL, /* delegate= */ NULL, DNS_PROTOCOL_DNS, AF_UNSPEC);
         if (r < 0)
                 return sd_event_exit(sd_event_source_get_event(s), r);
+
+        /* A link's unicast scope may also be influenced by the manager's configuration. I.e., DNSSEC= and DNSOverTLS=
+         * from the manager will be used if not explicitly configured on the link. Free the scopes here so that
+         * link_allocate_scopes() in on_network_event() re-creates them. */
+        HASHMAP_FOREACH(l, m->links)
+                l->unicast_scope = dns_scope_free(l->unicast_scope);
 
         /* The configuration has changed, so reload the per-interface configuration too in order to take
          * into account any changes (e.g.: enable/disable DNSSEC). */

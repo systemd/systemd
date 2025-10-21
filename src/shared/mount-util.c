@@ -27,6 +27,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -60,13 +61,13 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                         struct libmnt_fs *fs;
                         const char *path;
 
-                        r = mnt_table_next_fs(table, iter, &fs);
+                        r = sym_mnt_table_next_fs(table, iter, &fs);
                         if (r == 1)
                                 break;
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                        path = mnt_fs_get_target(fs);
+                        path = sym_mnt_fs_get_target(fs);
                         if (!path)
                                 continue;
 
@@ -110,7 +111,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         return n;
 }
 
-#define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW)
+#define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW|MS_RELATIME|MS_NOATIME|MS_STRICTATIME|MS_NODIRATIME)
 
 static uint64_t ms_flags_to_mount_attr(unsigned long a) {
         uint64_t f = 0;
@@ -129,6 +130,35 @@ static uint64_t ms_flags_to_mount_attr(unsigned long a) {
 
         if (FLAGS_SET(a, MS_NOSYMFOLLOW))
                 f |= MOUNT_ATTR_NOSYMFOLLOW;
+
+        if (FLAGS_SET(a, MS_RELATIME))
+                f |= MOUNT_ATTR_RELATIME;
+
+        if (FLAGS_SET(a, MS_NOATIME))
+                f |= MOUNT_ATTR_NOATIME;
+
+        if (FLAGS_SET(a, MS_STRICTATIME))
+                f |= MOUNT_ATTR_STRICTATIME;
+
+        if (FLAGS_SET(a, MS_NODIRATIME))
+                f |= MOUNT_ATTR_NODIRATIME;
+
+        return f;
+}
+
+static uint64_t ms_flags_to_mount_attr_clr(unsigned long a) {
+        uint64_t f = 0;
+
+        /* As per documentation, if relatime/noatime/strictatime are set, we need to clear the atime flag
+         * too, otherwise -EINVAL will be returned by the kernel. */
+        if (FLAGS_SET(a, MS_RELATIME))
+                f |= MOUNT_ATTR__ATIME;
+
+        if (FLAGS_SET(a, MS_NOATIME))
+                f |= MOUNT_ATTR__ATIME;
+
+        if (FLAGS_SET(a, MS_STRICTATIME))
+                f |= MOUNT_ATTR__ATIME;
 
         return f;
 }
@@ -218,20 +248,20 @@ int bind_remount_recursive_with_mountinfo(
                         unsigned long flags = 0;
                         struct libmnt_fs *fs;
 
-                        r = mnt_table_next_fs(table, iter, &fs);
+                        r = sym_mnt_table_next_fs(table, iter, &fs);
                         if (r == 1) /* EOF */
                                 break;
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                        path = mnt_fs_get_target(fs);
+                        path = sym_mnt_fs_get_target(fs);
                         if (!path)
                                 continue;
 
                         if (!path_startswith(path, prefix))
                                 continue;
 
-                        type = mnt_fs_get_fstype(fs);
+                        type = sym_mnt_fs_get_fstype(fs);
                         if (!type)
                                 continue;
 
@@ -269,9 +299,9 @@ int bind_remount_recursive_with_mountinfo(
                                         continue;
                         }
 
-                        opts = mnt_fs_get_vfs_options(fs);
+                        opts = sym_mnt_fs_get_vfs_options(fs);
                         if (opts) {
-                                r = mnt_optstr_get_flags(opts, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                                r = sym_mnt_optstr_get_flags(opts, &flags, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP));
                                 if (r < 0)
                                         log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
                         }
@@ -409,15 +439,19 @@ int bind_remount_one_with_mountinfo(
 
         rewind(proc_self_mountinfo);
 
-        table = mnt_new_table();
-        if (!table)
-                return -ENOMEM;
-
-        r = mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
+        r = dlopen_libmount();
         if (r < 0)
                 return r;
 
-        fs = mnt_table_find_target(table, path, MNT_ITER_FORWARD);
+        table = sym_mnt_new_table();
+        if (!table)
+                return -ENOMEM;
+
+        r = sym_mnt_table_parse_stream(table, proc_self_mountinfo, "/proc/self/mountinfo");
+        if (r < 0)
+                return r;
+
+        fs = sym_mnt_table_find_target(table, path, MNT_ITER_FORWARD);
         if (!fs) {
                 r = access_nofollow(path, F_OK); /* Hmm, it's not in the mount table, but does it exist at all? */
                 if (r < 0)
@@ -426,9 +460,9 @@ int bind_remount_one_with_mountinfo(
                 return -EINVAL; /* Not a mount point we recognize */
         }
 
-        opts = mnt_fs_get_vfs_options(fs);
+        opts = sym_mnt_fs_get_vfs_options(fs);
         if (opts) {
-                r = mnt_optstr_get_flags(opts, &flags, mnt_get_builtin_optmap(MNT_LINUX_MAP));
+                r = sym_mnt_optstr_get_flags(opts, &flags, sym_mnt_get_builtin_optmap(MNT_LINUX_MAP));
                 if (r < 0)
                         log_debug_errno(r, "Could not get flags for '%s', ignoring: %m", path);
         }
@@ -844,7 +878,11 @@ int mount_option_mangle(
         assert(ret_mount_flags);
         assert(ret_remaining_options);
 
-        map = mnt_get_builtin_optmap(MNT_LINUX_MAP);
+        r = dlopen_libmount();
+        if (r < 0)
+                return r;
+
+        map = sym_mnt_get_builtin_optmap(MNT_LINUX_MAP);
         if (!map)
                 return -EINVAL;
 
@@ -968,6 +1006,7 @@ static int mount_in_namespace_legacy(
                                 /* extension_release_data= */ NULL,
                                 /* required_class= */ _IMAGE_CLASS_INVALID,
                                 /* verity= */ NULL,
+                                RUNTIME_SCOPE_SYSTEM,
                                 /* ret_image= */ NULL);
         else
                 r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(chased_src_fd), mount_tmp, NULL, MS_BIND, NULL);
@@ -1190,6 +1229,7 @@ static int mount_in_namespace(
                                 /* extension_release_data= */ NULL,
                                 /* required_class= */ _IMAGE_CLASS_INVALID,
                                 /* verity= */ NULL,
+                                RUNTIME_SCOPE_SYSTEM,
                                 &img);
                 if (r < 0)
                         return log_debug_errno(r,
@@ -1440,7 +1480,7 @@ int make_userns(uid_t uid_shift,
         return TAKE_FD(userns_fd);
 }
 
-int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned int flags, struct mount_attr *attr) {
+int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned flags, struct mount_attr *attr) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -1467,6 +1507,42 @@ int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned int flag
         if (mount_setattr(fd, "", AT_EMPTY_PATH | (flags & AT_RECURSIVE), attr, sizeof(struct mount_attr)) < 0)
                 return log_debug_errno(errno, "Failed to change mount attributes: %m");
 
+        return TAKE_FD(fd);
+}
+
+int open_tree_try_drop_idmap(int dir_fd, const char *path, unsigned flags) {
+        /* Tries to drop MOUNT_ATTR_IDMAP while calling open_tree_attr(), but if that doesn't work just uses
+         * a regular open_tree() */
+
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+        if (isempty(path)) {
+                path = "";
+                flags |= AT_EMPTY_PATH;
+        }
+
+        _cleanup_close_ int fd = open_tree_attr_with_fallback(
+                        dir_fd,
+                        path,
+                        flags,
+                        &(struct mount_attr) {
+                                .attr_clr = MOUNT_ATTR_IDMAP,
+                        });
+        if (fd < 0) {
+                if (!ERRNO_IS_NEG_NOT_SUPPORTED(fd))
+                        return log_debug_errno(fd, "Failed to clear idmap of directory with open_tree_attr(): %m");
+
+                log_debug_errno(fd, "Failed to clear idmap with open_tree_attr(), retrying open_tree() without clearing idmap: %m");
+
+                fd = RET_NERRNO(open_tree(dir_fd, path, flags));
+                if (fd < 0)
+                        return log_debug_errno(fd, "Both open_tree() and open_tree_attr() failed, giving up: %m");
+
+                log_debug("open_tree() without clearing idmap worked.");
+                return TAKE_FD(fd);
+        }
+
+        log_debug("Successfully acquired mount fd with cleared idmap.");
         return TAKE_FD(fd);
 }
 
@@ -1608,20 +1684,20 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 const char *path;
                 int id1, id2;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break; /* EOF */
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                path = mnt_fs_get_target(fs);
+                path = sym_mnt_fs_get_target(fs);
                 if (!path)
                         continue;
 
                 if (isempty(path_startswith(path, prefix)))
                         continue;
 
-                id1 = mnt_fs_get_id(fs);
+                id1 = sym_mnt_fs_get_id(fs);
                 r = path_get_mnt_id(path, &id2);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to get mount ID of '%s', ignoring: %m", path);
@@ -1881,6 +1957,7 @@ int make_fsmount(
                 return log_full_errno(error_log_level, errno, "Failed to create mount fd for \"%s\" (\"%s\"): %m", what, type);
 
         struct mount_attr ma = {
+                .attr_clr = ms_flags_to_mount_attr_clr(f),
                 .attr_set = ms_flags_to_mount_attr(f) | (userns_fd >= 0 ? MOUNT_ATTR_IDMAP : 0),
                 .userns_fd = userns_fd,
         };
@@ -1952,31 +2029,31 @@ int path_get_mount_info_at(
         for (;;) {
                 struct libmnt_fs *fs;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break; /* EOF */
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                if (mnt_fs_get_id(fs) != mnt_id)
+                if (sym_mnt_fs_get_id(fs) != mnt_id)
                         continue;
 
                 _cleanup_free_ char *fstype = NULL, *options = NULL, *source = NULL;
 
                 if (ret_fstype) {
-                        fstype = strdup(strempty(mnt_fs_get_fstype(fs)));
+                        fstype = strdup(strempty(sym_mnt_fs_get_fstype(fs)));
                         if (!fstype)
                                 return log_oom_debug();
                 }
 
                 if (ret_options) {
-                        options = strdup(strempty(mnt_fs_get_options(fs)));
+                        options = strdup(strempty(sym_mnt_fs_get_options(fs)));
                         if (!options)
                                 return log_oom_debug();
                 }
 
                 if (ret_source) {
-                        source = strdup(strempty(mnt_fs_get_source(fs)));
+                        source = strdup(strempty(sym_mnt_fs_get_source(fs)));
                         if (!source)
                                 return log_oom_debug();
                 }

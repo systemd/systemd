@@ -4,7 +4,7 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "gpt.h"
 #include "list.h"
 
@@ -156,9 +156,9 @@ MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator);
 
-int probe_filesystem_full(int fd, const char *path, uint64_t offset, uint64_t size, char **ret_fstype);
+int probe_filesystem_full(int fd, const char *path, uint64_t offset, uint64_t size, bool restrict_fstypes, char **ret_fstype);
 static inline int probe_filesystem(const char *path, char **ret_fstype) {
-        return probe_filesystem_full(-1, path, 0, UINT64_MAX, ret_fstype);
+        return probe_filesystem_full(-1, path, 0, UINT64_MAX, /* bool restrict_fstypes= */ false, ret_fstype);
 }
 
 int dissect_log_error(int log_level, int r, const char *name, const VeritySettings *verity);
@@ -171,8 +171,8 @@ void dissected_image_close(DissectedImage *m);
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
-int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags);
-int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, DissectImageFlags flags);
+int dissected_image_decrypt(DissectedImage *m, const char *passphrase, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
+int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphrase, const VeritySettings *verity, const ImagePolicy *image_policy, DissectImageFlags flags);
 int dissected_image_mount(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 
@@ -238,7 +238,7 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
 
 int mount_image_privately_interactively(const char *path, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
 
-int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, const ExtensionReleaseData *required_release_data, ImageClass required_class, VeritySettings *verity, DissectedImage **ret_image);
+int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, const ExtensionReleaseData *required_release_data, ImageClass required_class, VeritySettings *verity, RuntimeScope runtime_scope, DissectedImage **ret_image);
 
 int dissect_fstype_ok(const char *fstype);
 
@@ -257,5 +257,5 @@ static inline const char* dissected_partition_fstype(const DissectedPartition *m
 
 int get_common_dissect_directory(char **ret);
 
-int mountfsd_mount_image(const char *path, int userns_fd, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
+int mountfsd_mount_image(const char *path, int userns_fd, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
 int mountfsd_mount_directory(const char *path, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);

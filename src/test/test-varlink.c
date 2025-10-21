@@ -205,6 +205,9 @@ static int overload_reply(sd_varlink *link, sd_json_variant *parameters, const c
 
         log_debug("Over reply triggered with error: %s", strna(error_id));
         ASSERT_STREQ(error_id, SD_VARLINK_ERROR_DISCONNECTED);
+        /* Local disconnect errors carry empty parameters. Ensure we propagate
+         * a consistent empty object for API reliability. */
+        ASSERT_TRUE(sd_json_variant_is_blank_object(parameters));
         sd_event_exit(sd_varlink_get_event(link), 0);
 
         return 0;

@@ -3,6 +3,7 @@
 #include "console.h"
 #include "efi-efivars.h"
 #include "efi-log.h"
+#include "efi-string.h"
 #include "efi-string-table.h"
 #include "proto/security-arch.h"
 #include "secure-boot.h"
@@ -70,7 +71,8 @@ static EFI_STATUS set_custom_mode(bool enable) {
                                attr, sizeof(mode), &mode);
 }
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force, secure_boot_enroll_action action) {
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force,
+                                 secure_boot_enroll_action action, uint64_t timeout_sec) {
         assert(root_dir);
         assert(path);
 
@@ -88,12 +90,11 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
 
         printf("Enrolling secure boot keys from directory: %ls\n", path);
 
-        if (!is_safe) {
+        if (!is_safe && timeout_sec != ENROLL_TIMEOUT_HIDDEN) {
                 printf("Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n");
 
-                unsigned timeout_sec = 15;
                 for (;;) {
-                        printf("\rEnrolling in %2u s, press any key to abort.", timeout_sec);
+                        printf("\rEnrolling in %"PRIu64"s, press any key to abort.", timeout_sec);
 
                         err = console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 1000 * 1000);
                         if (err == EFI_NOT_READY)
@@ -104,6 +105,9 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                                 timeout_sec--;
                                 continue;
                         }
+
+                        printf("\n");
+
                         if (err != EFI_SUCCESS)
                                 return log_error_status(
                                                 err,

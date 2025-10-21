@@ -8,7 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=First Boot Wizard
+Description=Initial Setup
 Documentation=man:systemd-firstboot(1)
 
 ConditionPathIsReadWrite=/etc
@@ -22,6 +22,7 @@ After=systemd-remount-fs.service
 After=systemd-sysusers.service systemd-tmpfiles-setup.service
 # Let vconsole-setup do its setup before starting user interaction:
 After=systemd-vconsole-setup.service
+After=systemd-mute-console.socket
 
 Wants=first-boot-complete.target
 Before=first-boot-complete.target sysinit.target
@@ -31,10 +32,11 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=systemd-firstboot --prompt-locale --prompt-keymap --prompt-timezone --prompt-root-password
+ExecStart=systemd-firstboot --prompt-locale --prompt-keymap-auto --prompt-timezone --prompt-root-password --mute-console=yes
 StandardOutput=tty
 StandardInput=tty
 StandardError=tty
+TTYReset=yes
 
 # Optionally, pick up basic fields from credentials passed to the service
 # manager. This is useful for importing this data from nspawn's

@@ -10,6 +10,7 @@
 #include "copy.h"
 #include "curl-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "fs-util.h"
 #include "import-common.h"
 #include "import-util.h"
@@ -17,6 +18,7 @@
 #include "log.h"
 #include "mkdir-label.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
@@ -51,7 +53,7 @@ typedef struct TarPull {
 
         char *local;
 
-        pid_t tar_pid;
+        PidRef tar_pid;
 
         char *final_path;
         char *temp_path;
@@ -60,14 +62,15 @@ typedef struct TarPull {
         char *settings_temp_path;
 
         char *checksum;
+
+        int tree_fd;
 } TarPull;
 
 TarPull* tar_pull_unref(TarPull *i) {
         if (!i)
                 return NULL;
 
-        if (i->tar_pid > 1)
-                sigkill_wait(i->tar_pid);
+        pidref_done_sigkill_wait(&i->tar_pid);
 
         pull_job_unref(i->tar_job);
         pull_job_unref(i->checksum_job);
@@ -85,6 +88,8 @@ TarPull* tar_pull_unref(TarPull *i) {
         free(i->image_root);
         free(i->local);
         free(i->checksum);
+
+        safe_close(i->tree_fd);
 
         return mfree(i);
 }
@@ -131,6 +136,8 @@ int tar_pull_new(
                 .image_root = TAKE_PTR(root),
                 .event = TAKE_PTR(e),
                 .glue = TAKE_PTR(g),
+                .tar_pid = PIDREF_NULL,
+                .tree_fd = -EBADF,
         };
 
         i->glue->on_finished = pull_job_curl_on_finished;
@@ -377,10 +384,11 @@ static void tar_pull_job_on_finished(PullJob *j) {
         pull_job_close_disk_fd(i->tar_job);
         pull_job_close_disk_fd(i->settings_job);
 
-        if (i->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", TAKE_PID(i->tar_pid), WAIT_LOG);
+        if (pidref_is_set(&i->tar_pid)) {
+                r = pidref_wait_for_terminate_and_check("tar", &i->tar_pid, WAIT_LOG);
                 if (r < 0)
                         goto finish;
+                pidref_done(&i->tar_pid);
                 if (r != EXIT_SUCCESS) {
                         r = -EIO;
                         goto finish;
@@ -509,7 +517,8 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
 
         i = j->userdata;
         assert(i->tar_job == j);
-        assert(i->tar_pid <= 0);
+        assert(!pidref_is_set(&i->tar_pid));
+        assert(i->tree_fd < 0);
 
         if (i->flags & IMPORT_DIRECT)
                 where = i->local;
@@ -543,7 +552,11 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                 (void) import_assign_pool_quota_and_warn(where);
         }
 
-        j->disk_fd = import_fork_tar_x(where, &i->tar_pid);
+        i->tree_fd = open(where, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (i->tree_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", where);
+
+        j->disk_fd = import_fork_tar_x(i->tree_fd, &i->tar_pid);
         if (j->disk_fd < 0)
                 return j->disk_fd;
 

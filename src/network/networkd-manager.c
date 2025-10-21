@@ -23,9 +23,9 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "firewall-util.h"
 #include "initrd-util.h"
 #include "mount-util.h"
+#include "netlink-internal.h"
 #include "netlink-util.h"
 #include "networkd-address.h"
 #include "networkd-address-label.h"
@@ -285,6 +285,28 @@ static int manager_connect_genl(Manager *m) {
         return 0;
 }
 
+static int manager_connect_nfnl(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = sd_nfnl_socket_open(&m->nfnl);
+        if (r < 0) {
+                log_warning_errno(r, "Failed to open nftables netlink socket. IPMasquerade= and NFTSet= settings will not be applied. Ignoring: %m");
+                return 0;
+        }
+
+        r = sd_netlink_increase_rxbuf(m->nfnl, RCVBUF_SIZE);
+        if (r < 0)
+                log_warning_errno(r, "Failed to increase receive buffer size for nftables netlink socket, ignoring: %m");
+
+        r = sd_netlink_attach_event(m->nfnl, m->event, 0);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int manager_setup_rtnl_filter(Manager *manager) {
         struct sock_filter filter[] = {
                 /* Check the packet length. */
@@ -435,7 +457,7 @@ static int manager_post_handler(sd_event_source *s, void *userdata) {
 
                 if (netlink_get_reply_callback_count(manager->rtnl) > 0 ||
                     netlink_get_reply_callback_count(manager->genl) > 0 ||
-                    fw_ctx_get_reply_callback_count(manager->fw_ctx) > 0)
+                    netlink_get_reply_callback_count(manager->nfnl) > 0)
                         return 0; /* There are some message calls waiting for their replies. */
 
                 (void) manager_serialize(manager);
@@ -554,6 +576,10 @@ int manager_setup(Manager *m) {
                 return r;
 
         r = manager_connect_genl(m);
+        if (r < 0)
+                return r;
+
+        r = manager_connect_nfnl(m);
         if (r < 0)
                 return r;
 
@@ -696,6 +722,7 @@ Manager* manager_free(Manager *m) {
 
         sd_netlink_unref(m->rtnl);
         sd_netlink_unref(m->genl);
+        sd_netlink_unref(m->nfnl);
         sd_resolve_unref(m->resolve);
 
         m->routes = set_free(m->routes);
@@ -719,8 +746,6 @@ Manager* manager_free(Manager *m) {
 
         safe_close(m->ethtool_fd);
         safe_close(m->persistent_storage_fd);
-
-        m->fw_ctx = fw_ctx_free(m->fw_ctx);
 
         m->serialization_fd = safe_close(m->serialization_fd);
 

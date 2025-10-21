@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/file.h>
+#include <unistd.h>
 
 #include "sd-device.h"
 
@@ -2280,6 +2281,7 @@ static int run(int argc, char *argv[]) {
                                         r = dissected_image_decrypt_interactively(
                                                         m, NULL,
                                                         &arg_verity_settings,
+                                                        arg_image_policy,
                                                         arg_flags);
                                         if (r < 0)
                                                 return r;
@@ -2309,6 +2311,7 @@ static int run(int argc, char *argv[]) {
                                         arg_image,
                                         userns_fd,
                                         arg_image_policy,
+                                        &arg_verity_settings,
                                         arg_flags,
                                         &m);
                         if (r < 0)

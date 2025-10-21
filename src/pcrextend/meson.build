@@ -11,7 +11,6 @@ executables += [
                 ],
                 'sources' : files('pcrextend.c'),
                 'dependencies' : [
-                        libblkid,
                         libopenssl,
                         tpm2,
                 ],

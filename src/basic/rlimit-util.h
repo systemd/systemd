@@ -3,7 +3,7 @@
 
 #include <sys/resource.h>       /* IWYU pragma: export */
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #define _RLIMIT_MAX RLIMIT_NLIMITS
 

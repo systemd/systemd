@@ -7,12 +7,7 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-if [[ ! -f /usr/lib/systemd/system/systemd-mountfsd.socket ]] ||
-   [[ ! -f /usr/lib/systemd/system/systemd-nsresourced.socket ]] ||
-   ! grep -q bpf /sys/kernel/security/lsm ||
-   ! find /usr/lib* -name libbpf.so.1 2>/dev/null | grep . ||
-   systemd-analyze compare-versions "$(uname -r)" lt 6.5 ||
-   systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" lt 124; then
+if ! can_do_rootless_nspawn; then
     echo "Skipping unpriv nspawn test"
     exit 0
 fi
@@ -20,18 +15,16 @@ fi
 at_exit() {
     rm -rf /home/testuser/.local/state/machines/zurps ||:
     machinectl terminate zurps ||:
-    rm -f /usr/share/polkit-1/rules.d/registermachinetest.rules
+    rm -f /etc/polkit-1/rules.d/registermachinetest.rules
 }
 
 trap at_exit EXIT
-
-systemctl start systemd-mountfsd.socket systemd-nsresourced.socket
 
 run0 -u testuser mkdir -p .local/state/machines
 
 create_dummy_container /home/testuser/.local/state/machines/zurps
 cat >/home/testuser/.local/state/machines/zurps/sbin/init <<EOF
-#!/bin/sh
+#!/usr/bin/env bash
 echo "I am living in a container"
 exec sleep infinity
 EOF
@@ -40,7 +33,8 @@ systemd-dissect --shift /home/testuser/.local/state/machines/zurps foreign
 
 # Install a PK rule that allows 'testuser' user to register a machine even
 # though they are not on an fg console, just for testing
-cat >/usr/share/polkit-1/rules.d/registermachinetest.rules <<'EOF'
+mkdir -p /etc/polkit-1/rules.d
+cat >/etc/polkit-1/rules.d/registermachinetest.rules <<'EOF'
 polkit.addRule(function(action, subject) {
     if (action.id == "org.freedesktop.machine1.register-machine" &&
         subject.user == "testuser") {
@@ -60,5 +54,37 @@ machinectl status zurps | grep "Subgroup: machine.slice/systemd-nspawn@zurps.ser
 machinectl terminate zurps
 
 (! run0 -u testuser systemctl is-active --user systemd-nspawn@zurps.service)
+
+(! run0 -u testuser \
+    busctl call \
+        org.freedesktop.machine1 \
+        /org/freedesktop/machine1 \
+        org.freedesktop.machine1.Manager \
+        RegisterMachine \
+        'sayssus' \
+        shouldnotwork1 \
+        16 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 \
+        "" \
+        container \
+        "$(systemctl show -p MainPID --value systemd-logind.service)" \
+        "$PWD")
+
+run0 -u testuser \
+    busctl call \
+        org.freedesktop.machine1 \
+        /org/freedesktop/machine1 \
+        org.freedesktop.machine1.Manager \
+        RegisterMachine \
+        'sayssus' \
+        shouldnotwork2 \
+        16 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 \
+        "" \
+        container \
+        "$(systemctl show -p MainPID --value user@4711.service)" \
+        "$PWD"
+(! run0 -u testuser machinectl shell shouldnotwork2 /usr/bin/id -u)
+(! run0 -u testuser machinectl shell root@shouldnotwork2 /usr/bin/id -u)
+(! run0 -u testuser machinectl shell 0@shouldnotwork2 /usr/bin/id -u)
+(! run0 -u testuser machinectl shell testuser@shouldnotwork2 /usr/bin/id -u)
 
 loginctl disable-linger testuser

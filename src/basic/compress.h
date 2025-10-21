@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef enum Compression {
         COMPRESSION_NONE,
@@ -62,17 +62,9 @@ int decompress_stream_xz(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_lz4(int fdf, int fdt, uint64_t max_size);
 int decompress_stream_zstd(int fdf, int fdt, uint64_t max_size);
 
-#if HAVE_LZ4
 int dlopen_lz4(void);
-#endif
-
-#if HAVE_ZSTD
 int dlopen_zstd(void);
-#endif
-
-#if HAVE_XZ
 int dlopen_lzma(void);
-#endif
 
 static inline int compress_blob(
                 Compression compression,

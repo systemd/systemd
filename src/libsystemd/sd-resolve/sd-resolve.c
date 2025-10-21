@@ -19,7 +19,6 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "list.h"
-#include "log.h"
 #include "memory-util.h"
 #include "process-util.h"
 #include "resolve-private.h"

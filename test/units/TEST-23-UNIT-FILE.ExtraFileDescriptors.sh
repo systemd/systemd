@@ -18,8 +18,6 @@ mkdir /tmp/test-extra-fd
 echo "Hello" > /tmp/test-extra-fd/1.txt
 echo "Extra" > /tmp/test-extra-fd/2.txt
 
-systemd-analyze log-level debug
-
 # Open files and assign FD to variables
 exec {TEST_FD1}</tmp/test-extra-fd/1.txt
 exec {TEST_FD2}</tmp/test-extra-fd/2.txt
@@ -31,8 +29,8 @@ busctl call \
     org.freedesktop.systemd1.Manager StartTransientUnit \
     "ssa(sv)a(sa(sv))" "$TEST_UNIT" replace 4 \
       ExecStart "a(sasb)" 1 \
-        /usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-ExtraFileDescriptors-child.sh \
-        5 /usr/lib/systemd/tests/testdata/units/TEST-23-UNIT-FILE-ExtraFileDescriptors-child.sh 2 "test:other" "Hello" "Extra" \
+        /usr/lib/systemd/tests/testdata/TEST-23-UNIT-FILE.units/TEST-23-UNIT-FILE-ExtraFileDescriptors-child.sh \
+        5 /usr/lib/systemd/tests/testdata/TEST-23-UNIT-FILE.units/TEST-23-UNIT-FILE-ExtraFileDescriptors-child.sh 2 "test:other" "Hello" "Extra" \
         true \
       RemainAfterExit "b" true \
       Type "s" oneshot \
@@ -61,5 +59,3 @@ assert_eq "$(systemctl show -P Result "$TEST_UNIT")" "success"
 assert_eq "$(systemctl show -P ExecMainStatus "$TEST_UNIT")" "0"
 
 systemctl stop "$TEST_UNIT"
-
-systemctl log-level info

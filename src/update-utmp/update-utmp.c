@@ -4,19 +4,13 @@
 
 #include "sd-bus.h"
 
-#include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "libaudit-util.h"
 #include "log.h"
 #include "main-func.h"
-#include "random-util.h"
-#include "special.h"
-#include "stdio-util.h"
-#include "strv.h"
 #include "time-util.h"
-#include "unit-def.h"
 #include "utmp-wtmp.h"
 #include "verbs.h"
 
@@ -66,7 +60,7 @@ static int on_reboot(int argc, char *argv[], void *userdata) {
 
 #if HAVE_AUDIT
         if (c->audit_fd >= 0)
-                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
+                if (sym_audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_BOOT, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM)
                         q = log_error_errno(errno, "Failed to send audit message: %m");
 #endif
@@ -95,7 +89,7 @@ static int on_shutdown(int argc, char *argv[], void *userdata) {
         Context *c = ASSERT_PTR(userdata);
 
         if (c->audit_fd >= 0)
-                if (audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
+                if (sym_audit_log_user_comm_message(c->audit_fd, AUDIT_SYSTEM_SHUTDOWN, "", "systemd-update-utmp", NULL, NULL, NULL, 1) < 0 &&
                     errno != EPERM)
                         q = log_error_errno(errno, "Failed to send audit message: %m");
 #endif

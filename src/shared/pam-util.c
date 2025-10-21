@@ -16,6 +16,51 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
+static void *libpam_dl = NULL;
+
+DLSYM_PROTOTYPE(pam_acct_mgmt) = NULL;
+DLSYM_PROTOTYPE(pam_close_session) = NULL;
+DLSYM_PROTOTYPE(pam_end) = NULL;
+DLSYM_PROTOTYPE(pam_get_data) = NULL;
+DLSYM_PROTOTYPE(pam_get_item) = NULL;
+DLSYM_PROTOTYPE(pam_getenvlist) = NULL;
+DLSYM_PROTOTYPE(pam_open_session) = NULL;
+DLSYM_PROTOTYPE(pam_putenv) = NULL;
+DLSYM_PROTOTYPE(pam_set_data) = NULL;
+DLSYM_PROTOTYPE(pam_set_item) = NULL;
+DLSYM_PROTOTYPE(pam_setcred) = NULL;
+DLSYM_PROTOTYPE(pam_start) = NULL;
+DLSYM_PROTOTYPE(pam_strerror) = NULL;
+DLSYM_PROTOTYPE(pam_syslog) = NULL;
+DLSYM_PROTOTYPE(pam_vsyslog) = NULL;
+
+int dlopen_libpam(void) {
+        ELF_NOTE_DLOPEN("pam",
+                        "Support for LinuxPAM",
+                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        "libpam.so.0");
+
+        return dlopen_many_sym_or_warn(
+                        &libpam_dl,
+                        "libpam.so.0",
+                        LOG_DEBUG,
+                        DLSYM_ARG(pam_acct_mgmt),
+                        DLSYM_ARG(pam_close_session),
+                        DLSYM_ARG(pam_end),
+                        DLSYM_ARG(pam_get_data),
+                        DLSYM_ARG(pam_get_item),
+                        DLSYM_ARG(pam_getenvlist),
+                        DLSYM_ARG(pam_open_session),
+                        DLSYM_ARG(pam_putenv),
+                        DLSYM_ARG(pam_set_data),
+                        DLSYM_ARG(pam_set_item),
+                        DLSYM_ARG(pam_setcred),
+                        DLSYM_ARG(pam_start),
+                        DLSYM_ARG(pam_strerror),
+                        DLSYM_ARG(pam_syslog),
+                        DLSYM_ARG(pam_vsyslog));
+}
+
 void pam_log_setup(void) {
         /* Make sure we don't leak the syslog fd we open by opening/closing the fd each time. */
         log_set_open_when_needed(true);
@@ -30,7 +75,7 @@ int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *for
         LOCAL_ERRNO(error);
 
         va_start(ap, format);
-        pam_vsyslog(handle, LOG_ERR, format, ap);
+        sym_pam_vsyslog(handle, LOG_ERR, format, ap);
         va_end(ap);
 
         return error == -ENOMEM ? PAM_BUF_ERR : PAM_SERVICE_ERR;
@@ -45,7 +90,7 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
 
         const char *p = endswith(format, "@PAMERR@");
         if (p) {
-                const char *pamerr = pam_strerror(handle, error);
+                const char *pamerr = sym_pam_strerror(handle, error);
                 if (strchr(pamerr, '%'))
                         pamerr = "n/a";  /* We cannot have any formatting chars */
 
@@ -53,10 +98,10 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
                 xsprintf(buf, "%.*s%s", (int)(p - format), format, pamerr);
 
                 DISABLE_WARNING_FORMAT_NONLITERAL;
-                pam_vsyslog(handle, level, buf, ap);
+                sym_pam_vsyslog(handle, level, buf, ap);
                 REENABLE_WARNING;
         } else
-                pam_vsyslog(handle, level, format, ap);
+                sym_pam_vsyslog(handle, level, format, ap);
 
         va_end(ap);
 
@@ -106,9 +151,9 @@ static void pam_bus_data_destroy(pam_handle_t *handle, void *data, int error_sta
         if (FLAGS_SET(error_status, PAM_DATA_SILENT) &&
             d->bus && bus_origin_changed(d->bus))
                 /* Please adjust test/units/end.sh when updating the log message. */
-                pam_syslog(handle, LOG_DEBUG,
-                           "Warning: cannot close sd-bus connection (%s) after fork when it was opened before the fork.",
-                           strna(d->cache_id));
+                sym_pam_syslog(handle, LOG_DEBUG,
+                               "Warning: cannot close sd-bus connection (%s) after fork when it was opened before the fork.",
+                               strna(d->cache_id));
 
         pam_bus_data_free(data);
 }
@@ -140,7 +185,7 @@ void pam_bus_data_disconnectp(PamBusData **_d) {
 
         handle = ASSERT_PTR(d->pam_handle); /* Keep a reference to the session even after 'd' might be invalidated */
 
-        r = pam_set_data(handle, ASSERT_PTR(d->cache_id), NULL, NULL);
+        r = sym_pam_set_data(handle, ASSERT_PTR(d->cache_id), NULL, NULL);
         if (r != PAM_SUCCESS)
                 pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to release PAM user record data, ignoring: @PAMERR@");
 
@@ -167,7 +212,7 @@ int pam_acquire_bus_connection(
                 return pam_log_oom(handle);
 
         /* We cache the bus connection so that we can share it between the session and the authentication hooks */
-        r = pam_get_data(handle, cache_id, (const void**) &d);
+        r = sym_pam_get_data(handle, cache_id, (const void**) &d);
         if (r == PAM_SUCCESS && d)
                 goto success;
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
@@ -186,7 +231,7 @@ int pam_acquire_bus_connection(
         if (r < 0)
                 return pam_syslog_errno(handle, LOG_ERR, r, "Failed to connect to system bus: %m");
 
-        r = pam_set_data(handle, d->cache_id, d, pam_bus_data_destroy);
+        r = sym_pam_set_data(handle, d->cache_id, d, pam_bus_data_destroy);
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM bus data: @PAMERR@");
 
@@ -221,7 +266,7 @@ int pam_get_bus_data(
                 return pam_log_oom(handle);
 
         /* We cache the bus connection so that we can share it between the session and the authentication hooks */
-        r = pam_get_data(handle, cache_id, (const void**) &d);
+        r = sym_pam_get_data(handle, cache_id, (const void**) &d);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get bus connection: @PAMERR@");
 
@@ -263,7 +308,7 @@ int pam_get_item_many_internal(pam_handle_t *handle, ...) {
                 }
 
                 const void **value = ASSERT_PTR(va_arg(ap, const void **));
-                r = pam_get_item(handle, item_type, value);
+                r = sym_pam_get_item(handle, item_type, value);
                 if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
                         break;
         }
@@ -287,7 +332,7 @@ int pam_get_data_many_internal(pam_handle_t *handle, ...) {
                 }
 
                 const void **value = ASSERT_PTR(va_arg(ap, const void **));
-                r = pam_get_data(handle, data_name, value);
+                r = sym_pam_get_data(handle, data_name, value);
                 if (!IN_SET(r, PAM_NO_MODULE_DATA, PAM_SUCCESS))
                         break;
         }
@@ -313,11 +358,11 @@ int pam_prompt_graceful(pam_handle_t *handle, int style, char **ret_response, co
                 return PAM_BUF_ERR;
 
         const struct pam_conv *conv = NULL;
-        r = pam_get_item(handle, PAM_CONV, (const void**) &conv);
+        r = sym_pam_get_item(handle, PAM_CONV, (const void**) &conv);
         if (!IN_SET(r, PAM_SUCCESS, PAM_BAD_ITEM))
                 return pam_syslog_pam_error(handle, LOG_DEBUG, r, "Failed to get conversation function structure: @PAMERR@");
         if (!conv || !conv->conv) {
-                pam_syslog(handle, LOG_DEBUG, "No conversation function.");
+                sym_pam_syslog(handle, LOG_DEBUG, "No conversation function.");
                 return PAM_SYSTEM_ERR;
         }
 

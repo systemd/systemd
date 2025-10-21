@@ -1,0 +1,88 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_set_relative_timeout" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_set_relative_timeout</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_set_relative_timeout</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_set_relative_timeout</refname>
+
+    <refpurpose>Set method call time-out</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_set_relative_timeout</function></funcdef>
+        <paramdef>sd_varlink *<parameter>link</parameter></paramdef>
+        <paramdef>uint64_t <parameter>usec</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_varlink_set_relative_timeout()</function> sets the relative timeout in µs to enforce
+    on Varlink method calls. A default time-out of 45s (currently) applies, which may be changed with this
+    call. Set to <constant>UINT64_MAX</constant> to disable the time-out, and to 0 to revert to revert back
+    to the default time-out. The time-out begins whenever a method call is started, and if no response is
+    received by the time the time-out elapses a synthetic <constant>io.systemd.TimedOut</constant> error is
+    raised as client-generated reply to the method call.</para>
+
+    <para>This call is particularly useful for method calls issued via
+    <function>sd_varlink_observe()</function> that shall remain open continuously for a long time.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_varlink_set_relative_timeout()</function> returns a non-negative integer. On
+    failure, it returns a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_varlink_set_relative_timeout()</function> was added in version 257.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

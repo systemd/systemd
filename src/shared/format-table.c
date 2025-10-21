@@ -287,6 +287,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
         case TABLE_HEADER:
+        case TABLE_VERSION:
                 return strlen(data) + 1;
 
         case TABLE_STRV:
@@ -526,7 +527,7 @@ int table_add_cell_stringf_full(Table *t, TableCell **ret_cell, TableDataType dt
         int r;
 
         assert(t);
-        assert(IN_SET(dt, TABLE_STRING, TABLE_PATH, TABLE_PATH_BASENAME, TABLE_FIELD, TABLE_HEADER));
+        assert(IN_SET(dt, TABLE_STRING, TABLE_PATH, TABLE_PATH_BASENAME, TABLE_FIELD, TABLE_HEADER, TABLE_VERSION));
 
         va_start(ap, format);
         r = vasprintf(&buffer, format, ap);
@@ -934,6 +935,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_PATH_BASENAME:
                 case TABLE_FIELD:
                 case TABLE_HEADER:
+                case TABLE_VERSION:
                         data = va_arg(ap, const char *);
                         break;
 
@@ -1395,6 +1397,9 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 case TABLE_PATH_BASENAME:
                         return path_compare(a->string, b->string);
 
+                case TABLE_VERSION:
+                        return strverscmp_improved(a->string, b->string);
+
                 case TABLE_STRV:
                 case TABLE_STRV_WRAPPED:
                         return strv_compare(a->strv, b->strv);
@@ -1579,7 +1584,8 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
         case TABLE_PATH:
         case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
-        case TABLE_HEADER: {
+        case TABLE_HEADER:
+        case TABLE_VERSION: {
                 _cleanup_free_ char *bn = NULL;
                 const char *s;
 
@@ -2753,6 +2759,7 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
         case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
         case TABLE_HEADER:
+        case TABLE_VERSION:
                 return sd_json_variant_new_string(ret, d->string);
 
         case TABLE_STRV:

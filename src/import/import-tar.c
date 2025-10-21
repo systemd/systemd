@@ -19,6 +19,7 @@
 #include "log.h"
 #include "mkdir-label.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "ratelimit.h"
@@ -44,12 +45,13 @@ typedef struct TarImport {
 
         int input_fd;
         int tar_fd;
+        int tree_fd;
 
         ImportCompress compress;
 
         sd_event_source *input_event_source;
 
-        uint8_t buffer[16*1024];
+        uint8_t buffer[IMPORT_BUFFER_SIZE];
         size_t buffer_size;
 
         uint64_t written_compressed;
@@ -57,7 +59,7 @@ typedef struct TarImport {
 
         struct stat input_stat;
 
-        pid_t tar_pid;
+        PidRef tar_pid;
 
         unsigned last_percent;
         RateLimit progress_ratelimit;
@@ -69,8 +71,7 @@ TarImport* tar_import_unref(TarImport *i) {
 
         sd_event_source_unref(i->input_event_source);
 
-        if (i->tar_pid > 1)
-                sigkill_wait(i->tar_pid);
+        pidref_done_sigkill_wait(&i->tar_pid);
 
         rm_rf_subvolume_and_free(i->temp_path);
 
@@ -79,6 +80,7 @@ TarImport* tar_import_unref(TarImport *i) {
         sd_event_unref(i->event);
 
         safe_close(i->tar_fd);
+        safe_close(i->tree_fd);
 
         free(i->final_path);
         free(i->image_root);
@@ -111,11 +113,13 @@ int tar_import_new(
         *i = (TarImport) {
                 .input_fd = -EBADF,
                 .tar_fd = -EBADF,
+                .tree_fd = -EBADF,
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .last_percent = UINT_MAX,
                 .image_root = TAKE_PTR(root),
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
+                .tar_pid = PIDREF_NULL,
         };
 
         if (event)
@@ -171,13 +175,17 @@ static int tar_import_finish(TarImport *i) {
 
         assert(i);
         assert(i->tar_fd >= 0);
+        assert(i->tree_fd >= 0);
 
         i->tar_fd = safe_close(i->tar_fd);
 
-        if (i->tar_pid > 0) {
-                r = wait_for_terminate_and_check("tar", TAKE_PID(i->tar_pid), WAIT_LOG);
+        if (pidref_is_set(&i->tar_pid)) {
+                r = pidref_wait_for_terminate_and_check("tar", &i->tar_pid, WAIT_LOG);
                 if (r < 0)
                         return r;
+
+                pidref_done(&i->tar_pid);
+
                 if (r != EXIT_SUCCESS)
                         return -EPROTO;
         }
@@ -211,6 +219,7 @@ static int tar_import_fork_tar(TarImport *i) {
         assert(!i->final_path);
         assert(!i->temp_path);
         assert(i->tar_fd < 0);
+        assert(i->tree_fd < 0);
 
         if (i->flags & IMPORT_DIRECT) {
                 d = i->local;
@@ -250,7 +259,11 @@ static int tar_import_fork_tar(TarImport *i) {
                 (void) import_assign_pool_quota_and_warn(d);
         }
 
-        i->tar_fd = import_fork_tar_x(d, &i->tar_pid);
+        i->tree_fd = open(d, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (i->tree_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", d);
+
+        i->tar_fd = import_fork_tar_x(i->tree_fd, &i->tar_pid);
         if (i->tar_fd < 0)
                 return i->tar_fd;
 

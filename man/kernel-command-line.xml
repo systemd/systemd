@@ -166,7 +166,7 @@
           command line or <filename>/etc/fstab</filename>, or otherwise configured. If true, full state-less boot mode
           is selected. In this case, the root directory is mounted as volatile memory file system (<literal>tmpfs</literal>),
           and only <filename>/usr/</filename> is mounted from the file system configured as root device, in read-only mode.
-          This enables fully state-less boots were the vendor-supplied OS is used as shipped, with only default
+          This enables fully state-less boots where the vendor-supplied OS is used as shipped, with only default
           configuration and no stored state in effect, as <filename>/etc/</filename> and <filename>/var/</filename> (as
           well as all other resources shipped in the root file system) are reset at boot and lost on shutdown. If this
           setting is set to <literal>state</literal> the root file system is mounted read-only, however

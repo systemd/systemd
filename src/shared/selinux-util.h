@@ -3,13 +3,61 @@
 
 #include <sys/socket.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 #if HAVE_SELINUX
+#include <selinux/avc.h>
+#include <selinux/label.h>
+#include <selinux/context.h>
 #include <selinux/selinux.h> /* IWYU pragma: export */
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
+#include "dlfcn-util.h"
+
+int dlopen_libselinux(void);
+
+extern DLSYM_PROTOTYPE(avc_open);
+extern DLSYM_PROTOTYPE(context_free);
+extern DLSYM_PROTOTYPE(context_new);
+extern DLSYM_PROTOTYPE(context_range_get);
+extern DLSYM_PROTOTYPE(context_range_set);
+extern DLSYM_PROTOTYPE(context_str);
+extern DLSYM_PROTOTYPE(fgetfilecon_raw);
+extern DLSYM_PROTOTYPE(fini_selinuxmnt);
+extern DLSYM_PROTOTYPE(freecon);
+extern DLSYM_PROTOTYPE(getcon_raw);
+extern DLSYM_PROTOTYPE(getfilecon_raw);
+extern DLSYM_PROTOTYPE(getpeercon_raw);
+extern DLSYM_PROTOTYPE(getpidcon_raw);
+extern DLSYM_PROTOTYPE(is_selinux_enabled);
+extern DLSYM_PROTOTYPE(security_compute_create_raw);
+extern DLSYM_PROTOTYPE(security_getenforce);
+extern DLSYM_PROTOTYPE(selabel_close);
+extern DLSYM_PROTOTYPE(selabel_lookup_raw);
+extern DLSYM_PROTOTYPE(selabel_open);
+extern DLSYM_PROTOTYPE(selinux_check_access);
+extern DLSYM_PROTOTYPE(selinux_getenforcemode);
+extern DLSYM_PROTOTYPE(selinux_init_load_policy);
+extern DLSYM_PROTOTYPE(selinux_path);
+extern DLSYM_PROTOTYPE(selinux_set_callback);
+extern DLSYM_PROTOTYPE(selinux_status_close);
+extern DLSYM_PROTOTYPE(selinux_status_getenforce);
+extern DLSYM_PROTOTYPE(selinux_status_open);
+extern DLSYM_PROTOTYPE(selinux_status_policyload);
+extern DLSYM_PROTOTYPE(setcon_raw);
+extern DLSYM_PROTOTYPE(setexeccon_raw);
+extern DLSYM_PROTOTYPE(setfilecon_raw);
+extern DLSYM_PROTOTYPE(setfscreatecon_raw);
+extern DLSYM_PROTOTYPE(setsockcreatecon_raw);
+extern DLSYM_PROTOTYPE(string_to_security_class);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(char*, sym_freecon, freeconp, NULL);
+
 #else
+
+static inline int dlopen_libselinux(void) {
+        return -EOPNOTSUPP;
+}
+
 static inline void freeconp(char **p) {
         assert(*p == NULL);
 }

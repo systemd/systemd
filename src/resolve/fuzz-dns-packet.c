@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "dns-packet.h"
 #include "fuzz.h"
-#include "resolved-dns-packet.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;

@@ -40,9 +40,6 @@ FSTYPE="$(stat --file-system --format "%T" /)"
 
 systemctl start systemd-homed.service systemd-userdbd.socket
 
-systemd-analyze log-level debug
-systemctl service-log-level systemd-homed debug
-
 # Create a tmpfs to use as backing store for the home dir. That way we can enforce a size limit nicely.
 mkdir -p /home
 mount -t tmpfs tmpfs /home -o size=290M
@@ -519,14 +516,14 @@ userdbctl ssh-authorized-keys dropinuser | tee /tmp/authorized-keys
 grep "ssh-ed25519" /tmp/authorized-keys
 grep "ecdsa-sha2-nistp256" /tmp/authorized-keys
 echo "my-top-secret-key 🐱" >/tmp/my-top-secret-key
-userdbctl ssh-authorized-keys dropinuser --chain /bin/cat /tmp/my-top-secret-key | tee /tmp/authorized-keys
+userdbctl ssh-authorized-keys dropinuser --chain /usr/bin/cat /tmp/my-top-secret-key | tee /tmp/authorized-keys
 grep "ssh-ed25519" /tmp/authorized-keys
 grep "ecdsa-sha2-nistp256" /tmp/authorized-keys
 grep "my-top-secret-key 🐱" /tmp/authorized-keys
 (! userdbctl ssh-authorized-keys 🐱)
 (! userdbctl ssh-authorized-keys dropin-user --chain)
 (! userdbctl ssh-authorized-keys dropin-user --chain '')
-(! SYSTEMD_LOG_LEVEL=debug userdbctl ssh-authorized-keys dropin-user --chain /bin/false)
+(! SYSTEMD_LOG_LEVEL=debug userdbctl ssh-authorized-keys dropin-user --chain /usr/bin/false)
 
 (! userdbctl '')
 for opt in json multiplexer output synthesize with-dropin with-nss with-varlink; do
@@ -537,7 +534,7 @@ for opt in json multiplexer output synthesize with-dropin with-nss with-varlink;
 done
 
 # FIXME: sshd seems to crash inside asan currently, skip the actual ssh test hence
-if command -v ssh &>/dev/null && command -v sshd &>/dev/null && ! [[ -v ASAN_OPTIONS ]]; then
+if command -v ssh >/dev/null && command -v sshd >/dev/null && ! [[ -v ASAN_OPTIONS ]]; then
     at_exit() {
         set +e
 
@@ -611,7 +608,7 @@ EOF
 
     cat >/run/systemd/system/mysshserver@.service <<EOF
 [Service]
-ExecStart=-/usr/sbin/sshd -i -d -e
+ExecStart=-sshd -i -d -e
 StandardInput=socket
 StandardOutput=socket
 StandardError=journal
@@ -847,7 +844,5 @@ PASSWORD=test homectl update -T --default-area=quux3 matchtest
 homectl inspect matchtest
 homectl inspect matchtest | grep "Area: quux3"
 homectl remove matchtest
-
-systemd-analyze log-level info
 
 touch /testok

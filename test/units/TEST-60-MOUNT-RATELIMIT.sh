@@ -68,7 +68,7 @@ testcase_issue_23796() {
     mount_path="$(command -v mount 2>/dev/null)"
     mount_mytmpfs="${mount_path/\/bin/\/sbin}.mytmpfs"
     cat >"$mount_mytmpfs" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 sleep ".\$RANDOM"
 exec -- $mount_path -t tmpfs tmpfs "\$2"
 EOF
@@ -167,9 +167,6 @@ testcase_mount_ratelimit() {
     # Give some time for units to settle so we don't race between exiting the rate limit state and cleaning up the units.
     timeout 2m bash -c 'while systemctl list-units -t mount tmp-meow* | grep -q tmp-meow; do systemctl daemon-reload; sleep 10; done'
 }
-
-systemd-analyze log-level debug
-systemd-analyze log-target journal
 
 mkdir -p /run/systemd/journald.conf.d
 cat >/run/systemd/journald.conf.d/99-ratelimit.conf <<EOF

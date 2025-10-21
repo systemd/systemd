@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -58,6 +57,8 @@ int verb_unit_shell(int argc, char *argv[], void *userdata) {
         r = sd_bus_message_read(reply, "u", &pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to read the main PID of %s from reply: %m", unit);
+        if (pid == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Unit %s has no MainPID (hint: inactive?)", unit);
 
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, netns_fd = -EBADF, userns_fd = -EBADF;
         r = namespace_open(

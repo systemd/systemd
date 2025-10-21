@@ -12,7 +12,7 @@
 #define __STDC_WANT_IEC_60559_TYPES_EXT__
 #include <float.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 /* Print information about various types. Useful when diagnosing
  * gcc diagnostics on an unfamiliar architecture. */

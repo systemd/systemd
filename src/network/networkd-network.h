@@ -232,6 +232,8 @@ typedef struct Network {
         struct in_addr dhcp_server_router;
         bool dhcp_server_emit_timezone;
         char *dhcp_server_timezone;
+        bool dhcp_server_emit_domain;
+        char *dhcp_server_domain;
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
         uint32_t dhcp_server_pool_offset;
         uint32_t dhcp_server_pool_size;

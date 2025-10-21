@@ -3,7 +3,7 @@
 
 #include <time.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #define PRI_NSEC PRIu64
 #define PRI_USEC PRIu64
@@ -149,6 +149,7 @@ static inline char* format_timestamp(char *buf, size_t l, usec_t t) {
 #define FORMAT_TIMESTAMP_STYLE(t, style) \
         format_timestamp_style((char[FORMAT_TIMESTAMP_MAX]){}, FORMAT_TIMESTAMP_MAX, t, style)
 
+int parse_gmtoff(const char *t, long *ret);
 int parse_timestamp(const char *t, usec_t *ret);
 
 int parse_sec(const char *t, usec_t *ret);
@@ -162,6 +163,12 @@ int verify_timezone(const char *name, int log_level);
 static inline bool timezone_is_valid(const char *name, int log_level) {
         return verify_timezone(name, log_level) >= 0;
 }
+
+void reset_timezonep(char **p);
+char* save_timezone(void);
+#define SAVE_TIMEZONE                                                   \
+        _unused_ _cleanup_(reset_timezonep)                             \
+             char *_saved_timezone_ = save_timezone()
 
 bool clock_supported(clockid_t clock);
 

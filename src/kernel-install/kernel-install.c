@@ -222,9 +222,9 @@ static int context_open_root(Context *c) {
         if (r > 0)
                 return 0;
 
-        c->rfd = open(empty_to_root(arg_root), O_CLOEXEC | O_DIRECTORY | O_PATH);
+        c->rfd = open(arg_root, O_CLOEXEC | O_DIRECTORY | O_PATH);
         if (c->rfd < 0)
-                return log_error_errno(errno, "Failed to open root directory '%s': %m", empty_to_root(arg_root));
+                return log_error_errno(errno, "Failed to open root directory '%s': %m", arg_root);
 
         return 0;
 }
@@ -1061,7 +1061,7 @@ static int context_execute(Context *c) {
         }
 
         ret = execute_strv(
-                        /* name = */ NULL,
+                        "plugins",
                         c->plugins,
                         /* root = */ NULL,
                         USEC_INFINITY,
@@ -1368,7 +1368,7 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
                            TABLE_FIELD, "Entry Directory",
                            TABLE_STRING, c->entry_dir,
                            TABLE_FIELD, "Kernel Version",
-                           TABLE_STRING, c->version,
+                           TABLE_VERSION, c->version,
                            TABLE_FIELD, "Kernel",
                            TABLE_STRING, c->kernel,
                            TABLE_FIELD, "Initrds",
@@ -1430,6 +1430,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
 
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
         table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
+        (void) table_set_sort(table, (size_t) 0);
 
         FOREACH_ARRAY(d, de->entries, de->n_entries) {
                 _cleanup_free_ char *j = path_join("/usr/lib/modules/", (*d)->d_name);
@@ -1460,7 +1461,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                         exists = true;
 
                 r = table_add_many(table,
-                                   TABLE_STRING, (*d)->d_name,
+                                   TABLE_VERSION, (*d)->d_name,
                                    TABLE_BOOLEAN_CHECKMARK, exists,
                                    TABLE_SET_COLOR, ansi_highlight_green_red(exists),
                                    TABLE_PATH, j);

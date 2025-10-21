@@ -99,7 +99,7 @@ _arguments -s \
     '(- *)'{-h,--help}'[Show this help]' \
     '(- *)--version[Show package version]' \
     '--no-pager[Do not pipe output into a pager]' \
-    --no-hostname"[Don't show the hostname of local log messages]" \
+    '(-W --no-hostname)'{-W,--no-hostname}"[Don't show the hostname of log messages]" \
     '(-l --full)'{-l,--full}'[Show long fields in full]' \
     '(-a --all)'{-a,--all}'[Show all fields, including long and unprintable]' \
     '(-f --follow)'{-f,--follow}'[Follow journal]' \

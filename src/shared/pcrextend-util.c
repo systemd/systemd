@@ -30,26 +30,30 @@ static int device_get_file_system_word(
         assert(ret);
 
 #if HAVE_BLKID
+        r = dlopen_libblkid();
+        if (r < 0)
+                return r;
+
         _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (block_fd < 0)
                 return block_fd;
 
-        _cleanup_(blkid_free_probep) blkid_probe b = blkid_new_probe();
+        _cleanup_(blkid_free_probep) blkid_probe b = sym_blkid_new_probe();
         if (!b)
                 return -ENOMEM;
 
         errno = 0;
-        r = blkid_probe_set_device(b, block_fd, 0, 0);
+        r = sym_blkid_probe_set_device(b, block_fd, 0, 0);
         if (r != 0)
                 return errno_or_else(ENOMEM);
 
-        (void) blkid_probe_enable_superblocks(b, 1);
-        (void) blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_UUID|BLKID_SUBLKS_LABEL);
-        (void) blkid_probe_enable_partitions(b, 1);
-        (void) blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+        (void) sym_blkid_probe_enable_superblocks(b, 1);
+        (void) sym_blkid_probe_set_superblocks_flags(b, BLKID_SUBLKS_TYPE|BLKID_SUBLKS_UUID|BLKID_SUBLKS_LABEL);
+        (void) sym_blkid_probe_enable_partitions(b, 1);
+        (void) sym_blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
 
         errno = 0;
-        r = blkid_do_safeprobe(b);
+        r = sym_blkid_do_safeprobe(b);
         if (r == _BLKID_SAFEPROBE_ERROR)
                 return errno_or_else(EIO);
         if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND))
@@ -64,7 +68,7 @@ static int device_get_file_system_word(
         FOREACH_STRING(field, "TYPE", "UUID", "LABEL", "PART_ENTRY_UUID", "PART_ENTRY_TYPE", "PART_ENTRY_NAME") {
                 const char *v = NULL;
 
-                (void) blkid_probe_lookup_value(b, field, &v, NULL);
+                (void) sym_blkid_probe_lookup_value(b, field, &v, NULL);
 
                 _cleanup_free_ char *escaped = xescape(strempty(v), ":"); /* Avoid ambiguity around ":" */
                 if (!escaped)

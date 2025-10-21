@@ -110,7 +110,7 @@ jobs:
             no_kvm: 0
             shim: 0
           - distro: fedora
-            release: "42"
+            release: "43"
             runner: ubuntu-24.04
             sanitizers: address,undefined
             llvm: 1
@@ -137,7 +137,7 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: no
+            relabel: yes
             vm: 0
             no_qemu: 0
             no_kvm: 0
@@ -167,7 +167,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: systemd/mkosi@5598b7f5793b6f63db5afaa39504a763fbaeb5cb
+      - uses: systemd/mkosi@d45142e329550abc9c6fc63c1f1f86e5286d3d67
 
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location

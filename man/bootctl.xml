@@ -504,7 +504,7 @@
 
       <varlistentry>
         <term><option>--all-architectures</option></term>
-        <listitem><para>Install binaries for all supported EFI architectures (this implies <option>--no-variables</option>).</para>
+        <listitem><para>Install binaries for all supported EFI architectures (this implies <option>--variables=no</option>).</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>

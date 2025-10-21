@@ -1691,7 +1691,7 @@ static int oci_seccomp_archs(const char *name, sd_json_variant *v, sd_json_dispa
                 if (r < 0)
                         return json_log(e, flags, r, "Unknown architecture: %s", sd_json_variant_string(e));
 
-                r = seccomp_arch_add(sc, a);
+                r = sym_seccomp_arch_add(sc, a);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -1810,13 +1810,13 @@ static int oci_seccomp_syscalls(const char *name, sd_json_variant *v, sd_json_di
                 STRV_FOREACH(i, rule.names) {
                         int nr;
 
-                        nr = seccomp_syscall_resolve_name(*i);
+                        nr = sym_seccomp_syscall_resolve_name(*i);
                         if (nr == __NR_SCMP_ERROR) {
                                 log_debug("Unknown syscall %s, skipping.", *i);
                                 continue;
                         }
 
-                        r = seccomp_rule_add_array(sc, rule.action, nr, rule.n_arguments, rule.arguments);
+                        r = sym_seccomp_rule_add_array(sc, rule.action, nr, rule.n_arguments, rule.arguments);
                         if (r < 0)
                                 return r;
                 }
@@ -1853,7 +1853,11 @@ static int oci_seccomp(const char *name, sd_json_variant *v, sd_json_dispatch_fl
         if (r < 0)
                 return json_log(def, flags, r, "Unknown default action: %s", sd_json_variant_string(def));
 
-        sc = seccomp_init(d);
+        r = dlopen_libseccomp();
+        if (r < 0)
+                return json_log(def, flags, r, "No support for libseccomp: %m");
+
+        sc = sym_seccomp_init(d);
         if (!sc)
                 return json_log(v, flags, SYNTHETIC_ERRNO(ENOMEM), "Couldn't allocate seccomp object.");
 
@@ -1861,7 +1865,7 @@ static int oci_seccomp(const char *name, sd_json_variant *v, sd_json_dispatch_fl
         if (r < 0)
                 return r;
 
-        seccomp_release(s->seccomp);
+        sym_seccomp_release(s->seccomp);
         s->seccomp = TAKE_PTR(sc);
         return 0;
 #else

@@ -1530,7 +1530,7 @@ DuplicateAddressDetection=none</programlisting></para>
           and the per-interface configuration with <command>systemd-networkd</command> once the interfaces
           appear later. Currently this feature is only implemented for SELinux.</para>
 
-          <para>The option expects a single NetLabel label. The label must conform to lexical restrictions of
+          <para>The option expects a single NetLabel label. The label must conform to lexicographic restrictions of
           LSM labels. When an interface is configured with IP addresses, the addresses and subnetwork masks
           will be appended to the <ulink
           url="https://github.com/SELinuxProject/selinux-notebook/blob/main/src/network_support.md">NetLabel
@@ -1589,7 +1589,7 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <literal>prefix</literal> or <literal>ifindex</literal>), NFT address family (one of
           <literal>arp</literal>, <literal>bridge</literal>, <literal>inet</literal>, <literal>ip</literal>,
           <literal>ip6</literal>, or <literal>netdev</literal>), table name and set name. The names of tables
-          and sets must conform to lexical restrictions of NFT table names. The type of the element used in
+          and sets must conform to lexicographic restrictions of NFT table names. The type of the element used in
           the NFT filter must match the type implied by the directive (<literal>address</literal>,
           <literal>prefix</literal> or <literal>ifindex</literal>) and address type (IPv4 or IPv6) as shown
           in the table below.</para>
@@ -3990,6 +3990,34 @@ ServerAddress=192.168.0.1/24</programlisting>
         <filename>/etc/localtime</filename> symlink.</para>
 
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>EmitDomain=</varname></term>
+
+        <listitem><para>Takes a boolean. Configures whether the DHCP leases handed out
+        to clients shall contain domain name information (DHCP option 15). Defaults to
+        <literal>no</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Domain=</varname></term>
+
+        <listitem><para>Takes a domain name (such as <literal>example.com</literal>)
+        to pass to DHCP clients. This configures the DNS default domain for DHCP clients.
+        When set, DHCP clients will use this as their DNS search domain.</para>
+
+        <para>When <varname>EmitDomain=yes</varname> is set but <varname>Domain=</varname>
+        is not configured, the domain name will be automatically derived from the system's
+        fully qualified hostname. For example, if the system's hostname is
+        <literal>host.example.com</literal>, the domain <literal>example.com</literal>
+        will be sent to clients. If the system's hostname does not contain a domain part
+        (e.g., hostname is just <literal>host</literal>), no domain name will be sent to
+        DHCP clients. When empty or unset, defaults to no domain name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>

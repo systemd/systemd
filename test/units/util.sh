@@ -57,6 +57,15 @@ assert_le() {(
     fi
 )}
 
+assert_ge() {(
+    set +ex
+
+    if [[ "${1:?}" -lt "${2:?}" ]]; then
+        echo "FAIL: '$1' < '$2'" >&2
+        exit 1
+    fi
+)}
+
 assert_in() {(
     set +ex
 
@@ -186,6 +195,36 @@ create_dummy_container() {
     coverage_create_nspawn_dropin "$root"
 }
 
+can_do_rootless_nspawn() {
+    # Our create_dummy_ddi() uses squashfs and openssl.
+    command -v mksquashfs &&
+    command -v openssl &&
+
+    # Need to have bpf-lsm
+    grep -q bpf /sys/kernel/security/lsm &&
+    # ...and libbpf installed
+    find /usr/lib* -name "libbpf.so.*" 2>/dev/null | grep -q . &&
+
+    # Ensure mountfsd/nsresourced are listening
+    systemctl start systemd-mountfsd.socket systemd-nsresourced.socket &&
+
+    # mountfsd must be enabled...
+    [[ -S /run/systemd/io.systemd.MountFileSystem ]] &&
+    # ...and have pidfd support for unprivileged operation.
+    systemd-analyze compare-versions "$(uname -r)" ge 6.5 &&
+    systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124 &&
+
+    # nsresourced must be enabled...
+    [[ -S /run/systemd/userdb/io.systemd.NamespaceResource ]] &&
+    # ...and must support the UserNamespaceInterface.
+    ! (SYSTEMD_LOG_TARGET=console varlinkctl call \
+           /run/systemd/userdb/io.systemd.NamespaceResource \
+           io.systemd.NamespaceResource.AllocateUserRange \
+           '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' \
+           2>&1 || true) |
+        grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"
+}
+
 # Bump the reboot counter and call systemctl with the given arguments
 systemctl_final() {
     local counter
@@ -274,7 +313,7 @@ StateDirectory=app0
 RuntimeDirectory=app0
 EOF
         cat >"$initdir/opt/script0.sh" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 test -e /usr/lib/os-release
 echo bar >\${STATE_DIRECTORY}/foo
@@ -284,6 +323,13 @@ EOF
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
         mksquashfs "$initdir" /tmp/app0.raw -noappend
         veritysetup format /tmp/app0.raw /tmp/app0.verity --root-hash-file /tmp/app0.roothash
+        openssl smime -sign -nocerts -noattr -binary \
+                -in /tmp/app0.roothash \
+                -inkey /usr/share/mkosi.key \
+                -signer /usr/share/mkosi.crt \
+                -outform der \
+                -out /tmp/app0.roothash.p7s
+        chmod go+r /tmp/app0*
 
         initdir="/var/tmp/conf0"
         mkdir -p "$initdir/etc/extension-release.d" "$initdir/etc/systemd/system" "$initdir/opt"
@@ -296,6 +342,13 @@ EOF
         echo MARKER_1 >"$initdir/etc/systemd/system/some_file"
         mksquashfs "$initdir" /tmp/conf0.raw -noappend
         veritysetup format /tmp/conf0.raw /tmp/conf0.verity --root-hash-file /tmp/conf0.roothash
+        openssl smime -sign -nocerts -noattr -binary \
+                -in /tmp/conf0.roothash \
+                -inkey /usr/share/mkosi.key \
+                -signer /usr/share/mkosi.crt \
+                -outform der \
+                -out /tmp/conf0.roothash.p7s
+        chmod go+r /tmp/conf0*
 
         initdir="/var/tmp/app1"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
@@ -317,7 +370,7 @@ StateDirectory=app1
 RuntimeDirectory=app1
 EOF
         cat >"$initdir/opt/script1.sh" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 test -e /usr/lib/os-release
 echo baz >\${STATE_DIRECTORY}/foo

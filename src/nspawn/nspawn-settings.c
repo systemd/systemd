@@ -13,7 +13,6 @@
 #include "nspawn-network.h"
 #include "nspawn-settings.h"
 #include "parse-util.h"
-#include "path-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "socket-util.h"
@@ -168,7 +167,8 @@ Settings* settings_free(Settings *s) {
         strv_free(s->sysctl);
 
 #if HAVE_SECCOMP
-        seccomp_release(s->seccomp);
+        if (s->seccomp)
+                sym_seccomp_release(s->seccomp);
 #endif
 
         return mfree(s);
@@ -913,6 +913,16 @@ static const char *const timezone_mode_table[_TIMEZONE_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(timezone_mode, TimezoneMode, TIMEZONE_AUTO);
+
+static const char *const console_mode_table[_CONSOLE_MODE_MAX] = {
+        [CONSOLE_AUTOPIPE]    = "autopipe",
+        [CONSOLE_INTERACTIVE] = "interactive",
+        [CONSOLE_READ_ONLY]   = "read-only",
+        [CONSOLE_PASSIVE]     = "passive",
+        [CONSOLE_PIPE]        = "pipe",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
 
 DEFINE_CONFIG_PARSE_ENUM(config_parse_userns_ownership, user_namespace_ownership, UserNamespaceOwnership);
 

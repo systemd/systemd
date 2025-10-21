@@ -3,7 +3,7 @@
 
 #include <linux/rtnetlink.h>
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "in-addr-util.h"
 
 #define RTA_FLAGS(rta) ((rta)->rta_type & ~NLA_TYPE_MASK)
