@@ -151,10 +151,10 @@ int metrics_method_list(const MetricFamily metric_family_table[], sd_varlink *li
 
         _cleanup_(metric_family_context_done) MetricFamilyContext ctx = {.link = link};
         for (const MetricFamily *mf = metric_family_table; mf && mf->name; mf++) {
-                assert(mf->iterate_cb);
+                assert(mf->generate_cb);
 
                 ctx.metric_family = mf;
-                r = mf->iterate_cb(&ctx, userdata);
+                r = mf->generate_cb(&ctx, userdata);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to list metrics for metric family '%s': %m", mf->name);
         }
