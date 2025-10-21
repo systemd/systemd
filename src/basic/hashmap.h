@@ -351,20 +351,10 @@ static inline int ordered_hashmap_dump_keys_sorted(OrderedHashmap *h, void ***re
 #define HASHMAP_BASE_FOREACH_KEY(e, k, h) \
         _HASHMAP_BASE_FOREACH_KEY(e, k, h, UNIQ_T(i, UNIQ))
 
-#define _HASHMAP_BASE_FOREACH_KEY_ONLY(k, h, i)                            \
-        for (Iterator i = ITERATOR_FIRST; _hashmap_iterate((h), &i, NULL, (const void**) &(k)); )
-#define HASHMAP_BASE_FOREACH_KEY_ONLY(k, h) \
-        _HASHMAP_BASE_FOREACH_KEY_ONLY(k, h, UNIQ_T(i, UNIQ))
-
 #define _HASHMAP_FOREACH_KEY(e, k, h, i) \
         for (Iterator i = ITERATOR_FIRST; hashmap_iterate((h), &i, (void**)&(e), (const void**) &(k)); )
 #define HASHMAP_FOREACH_KEY(e, k, h) \
         _HASHMAP_FOREACH_KEY(e, k, h, UNIQ_T(i, UNIQ))
-
-#define _HASHMAP_FOREACH_KEY_ONLY(k, h, i)                                \
-        for (Iterator i = ITERATOR_FIRST; hashmap_iterate((h), &i, NULL, (const void**) &(k)); )
-#define HASHMAP_FOREACH_KEY_ONLY(k, h) \
-        _HASHMAP_FOREACH_KEY_ONLY(k, h, UNIQ_T(i, UNIQ))
 
 #define _ORDERED_HASHMAP_FOREACH_KEY(e, k, h, i) \
         for (Iterator i = ITERATOR_FIRST; ordered_hashmap_iterate((h), &i, (void**)&(e), (const void**) &(k)); )

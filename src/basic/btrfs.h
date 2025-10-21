@@ -3,7 +3,7 @@
 
 #include "basic-forward.h"
 
-typedef enum BtfsSubvolFlags {
+typedef enum BtrfsSubvolFlags {
         BTRFS_SUBVOL_RO        = 1 << 0,
         BTRFS_SUBVOL_NODATACOW = 1 << 1,
         BTRFS_SUBVOL_NODATASUM = 1 << 2,

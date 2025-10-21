@@ -6549,39 +6549,39 @@ static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
 }
 
 static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
-        _cleanup_strv_free_ char **ops = NULL;
+        _cleanup_strv_free_ char **sv = NULL;
         int r;
 
         assert(p);
         assert(ret);
 
-        r = mkfs_options_from_env("REPART", p->format, &ops);
+        r = mkfs_options_from_env("REPART", p->format, &sv);
         if (r < 0)
                 return log_error_errno(r,
                                        "Failed to determine mkfs command line options for '%s': %m",
                                        p->format);
 
         if (partition_needs_populate(p) && root && streq(p->format, "btrfs")) {
-                r = append_btrfs_subvols(&ops, p->subvolumes, p->default_subvolume);
+                r = append_btrfs_subvols(&sv, p->subvolumes, p->default_subvolume);
                 if (r < 0)
                         return r;
 
-                r = append_btrfs_inode_flags(&ops, p->subvolumes);
+                r = append_btrfs_inode_flags(&sv, p->subvolumes);
                 if (r < 0)
                         return r;
 
                 if (p->suppressing) {
-                        r = append_btrfs_subvols(&ops, p->suppressing->subvolumes, NULL);
+                        r = append_btrfs_subvols(&sv, p->suppressing->subvolumes, NULL);
                         if (r < 0)
                                 return r;
 
-                        r = append_btrfs_inode_flags(&ops, p->suppressing->subvolumes);
+                        r = append_btrfs_inode_flags(&sv, p->suppressing->subvolumes);
                         if (r < 0)
                                 return r;
                 }
         }
 
-        *ret = TAKE_PTR(ops);
+        *ret = TAKE_PTR(sv);
         return 0;
 }
 
