@@ -14,6 +14,7 @@
 #include "device-private.h"
 #include "dhcp-client-internal.h"
 #include "errno-util.h"
+#include "dhcp-lease-internal.h"
 #include "hostname-setup.h"
 #include "networkd-address.h"
 #include "networkd-dhcp-prefix-delegation.h"
@@ -30,11 +31,13 @@
 #include "networkd-setlink.h"
 #include "networkd-state-file.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "network-internal.h"
 
 void network_adjust_dhcp4(Network *network) {
         assert(network);
@@ -1139,6 +1142,224 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         }
 
         return dhcp4_request_address_and_routes(link, true);
+}
+
+static int dhcp4_validate_persistent_lease(Link *link, sd_dhcp_lease *lease) {
+        assert(link);
+        assert(link->manager);
+        assert(lease);
+
+  //      sd_id128_t current_boot_id;
+        usec_t lifetime;
+        usec_t timestamp_realtime;
+        usec_t now_boottime;
+        int r;
+        triple_timestamp ts;
+
+        /*r = sd_id128_get_boot(&current_boot_id);
+        if (r < 0)
+                return r;
+*/
+
+        r = sd_dhcp_lease_get_lifetime(lease, &lifetime);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get lease lifetime: %m");
+
+
+    /*    r = sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_boottime);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get current boottime: %m");
+*/
+        /* same boot sequence, use BOOTTIME logic */
+  /*      if (sd_id128_equal(current_boot_id, lease->boot_id)) {
+                r = sd_dhcp_lease_get_timestamp(lease, CLOCK_BOOTTIME, &timestamp_boottime);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to get boottime timestamp: %m");
+
+                expiration_boottime = timestamp_boottime + lifetime;
+
+                // check if this is expired
+                if (expiration_boottime <= now_boottime) {
+                        log_link_info(link, "Persistent DHCP lease expired (same boot)");
+                        return 0;
+                }
+        } */
+                usec_t now_realtime, expiration_realtime, expiration_boottime;
+
+                r = sd_dhcp_lease_get_timestamp(lease, CLOCK_REALTIME, &timestamp_realtime);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to get realtime timestamp: %m");
+
+                expiration_realtime = timestamp_realtime + lifetime;
+
+                now_realtime = now(CLOCK_REALTIME);
+                //r = sd_event_now(link->manager->event, CLOCK_REALTIME, &now_realtime);
+                //if (r < 0)
+                        //return r;
+
+                /*checking if lease expired */
+                if (expiration_realtime <= now_realtime) {
+                        log_link_info(link, "Persistent DHCP lease expired (different boot)");
+                        return 0;
+                }
+
+                /* Convert the realtime timestamp to boottime for internal use */
+                //timestamp_boottime = map_clock_usec_raw(timestamp_realtime, now_realtime, now_boottime);
+
+                /* Convert the realtime expiration to boottime expiration */
+                expiration_boottime = map_clock_usec_raw(expiration_realtime, now_realtime, now_boottime);
+
+        triple_timestamp_from_realtime(&ts, timestamp_realtime);
+        dhcp_lease_set_timestamp(lease, &ts);
+
+        log_link_info(link, "Loaded time unto lease, expires in %s",
+                     FORMAT_TIMESPAN(expiration_boottime - now_boottime, USEC_PER_SEC));
+        return 1;
+}
+
+static int dhcp4_load_persistent_lease(Link *link) {
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        _cleanup_free_ char *lease_file = NULL;
+        _cleanup_free_ char * lease_path = NULL;
+        int r;
+        int dir_fd;
+
+        assert(link);
+        assert(link->network);
+
+        r = link_get_dhcp_client_lease_path(link, &dir_fd, &lease_file);
+        /* persistent storage not avaiable/not configured, ignore */
+        if (r == -EBUSY || r == 0)
+                return 0;
+
+        if (r < 0) {
+                log_link_debug_errno(link, r, "Failed to get persistent lease path: %m");
+                return 0;
+        }
+
+        if (dir_fd >= 0) {
+                lease_path = path_join("/var/lib/systemd/network", lease_file);
+                if (!lease_path)
+                        return -ENOMEM;
+        }
+        else {
+                /* this shouldn't really happen, but we'll exit regardless*/
+                return 0;
+        }
+
+        /* Load lease from file */
+        r = dhcp_lease_load(&lease, lease_path);
+        if (r == -ENOENT) {
+                /* No leases saved/exist */
+                log_link_debug(link, "No persistent DHCP lease found");
+                return 0;
+        }
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to load persistent DHCP lease: %m");
+                return 0;
+        }
+
+        //Here I could check if the lease is still valid or if there is a setting to use expired leases
+        r = dhcp4_validate_persistent_lease(link, lease);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_link_debug(link, "Persistent DHCP lease is expired, not using");
+                return 0;
+        }
+
+        sd_dhcp_lease_unref(link->dhcp_lease);
+        link->dhcp_lease = TAKE_PTR(lease);
+        link_dirty(link);
+
+        log_link_info(link, "Loaded persistent DHCP lease");
+
+        return 1;
+}
+
+static bool dhcp_client_persist_leases(Link *link) {
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        return link->network->dhcp_client_persist_leases;
+}
+
+int link_get_dhcp_client_lease_path(Link *link, int *ret_dir_fd, char **ret_path) {
+        assert(link);
+        assert(link->network);
+        assert(ret_dir_fd);
+
+        /* This does not copy fd. Do not close fd stored in ret_dir_fd. */
+
+        if (link->network->dhcp_client_persist_leases == DHCP_CLIENT_PERSIST_LEASES_NO) {
+                *ret_dir_fd = -EBADF;
+                *ret_path = NULL;
+                return 0;
+        }
+
+        if (link->manager->persistent_storage_fd < 0)
+                return -EBUSY;
+
+        _cleanup_free_ char *p = path_join("leases", link->ifname);
+        if (!p)
+                return -ENOMEM;
+
+        *ret_dir_fd = link->manager->persistent_storage_fd;
+        *ret_path = TAKE_PTR(p);
+        return 1;
+}
+
+void manager_enable_dhcp4_client_persistent_storage(Manager *manager, bool start) {
+        Link *link;
+        int r;
+
+        assert(manager);
+
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                if (!link->dhcp_client)
+                        continue;
+
+                if(!dhcp_client_persist_leases(link))
+                        continue;
+
+                r = sd_dhcp_client_stop(link->dhcp_client);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to stop DHCP client: %m");
+
+                if (!start)
+                        continue;
+
+                _cleanup_free_ char *lease_file = NULL;
+                int dir_fd;
+
+                r = link_get_dhcp_client_lease_path(link, &dir_fd, &lease_file);
+                if (r < 0) {
+                        log_link_debug_errno(link, r, "Failed to get persistent lease path, ignoring: %m");
+                        goto start_client;
+                }
+
+                if (r > 0) {
+                        r = sd_dhcp_client_set_lease_file(link->dhcp_client, dir_fd, lease_file);
+                        if (r < 0)
+                                log_link_warning_errno(link, r, "Failed to set lease file: %m");
+
+                        /*load persitent lease, before restarting client */
+                        r = dhcp4_load_persistent_lease(link);
+                        if (r > 0) {
+                                r = dhcp4_request_address_and_routes(link, true);
+                                if (r < 0)
+                                        log_link_warning_errno(link, r, "Failed to configure loaded lease: %m");
+                        } else if (r < 0) {
+                                log_link_warning_errno(link, r, "Failed to load persistent lease: %m");
+                        }
+                }
+
+        start_client:
+                r = sd_dhcp_client_start(link->dhcp_client);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to start DHCP client: %m");
+        }
 }
 
 static int dhcp_lease_ip_change(sd_dhcp_client *client, Link *link) {
