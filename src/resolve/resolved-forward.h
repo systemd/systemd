@@ -34,6 +34,7 @@ typedef struct DnsSvcParam DnsSvcParam;
 typedef struct DnsTransaction DnsTransaction;
 typedef struct DnsTxtItem DnsTxtItem;
 typedef struct DnsZoneItem DnsZoneItem;
+typedef struct HookQuery HookQuery;
 typedef struct Link Link;
 typedef struct LinkAddress LinkAddress;
 typedef struct Manager Manager;
