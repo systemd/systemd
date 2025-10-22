@@ -18,12 +18,16 @@
 #include "mkdir-label.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "pull-common.h"
 #include "pull-job.h"
 #include "pull-tar.h"
+#include "ratelimit.h"
 #include "rm-rf.h"
 #include "string-util.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "web-util.h"
@@ -65,6 +69,9 @@ typedef struct TarPull {
 
         int tree_fd;
         int userns_fd;
+
+        unsigned last_percent;
+        RateLimit progress_ratelimit;
 } TarPull;
 
 TarPull* tar_pull_unref(TarPull *i) {
@@ -144,6 +151,8 @@ int tar_pull_new(
                 .tar_pid = PIDREF_NULL,
                 .tree_fd = -EBADF,
                 .userns_fd = -EBADF,
+                .last_percent = UINT_MAX,
+                .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
 
         i->glue->on_finished = pull_job_curl_on_finished;
@@ -202,8 +211,20 @@ static void tar_pull_report_progress(TarPull *i, TarProgress p) {
                 assert_not_reached();
         }
 
+        if (percent == i->last_percent)
+                return;
+
+        if (!ratelimit_below(&i->progress_ratelimit))
+                return;
+
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
+
+        if (isatty_safe(STDERR_FILENO))
+                (void) draw_progress_bar("Total:", percent);
+
         log_debug("Combined progress %u%%", percent);
+
+        i->last_percent = percent;
 }
 
 static int tar_pull_determine_path(
@@ -323,6 +344,7 @@ static int tar_pull_make_local_copy(TarPull *i) {
 
         t = mfree(t);
 
+        clear_progress_bar(/* prefix= */ NULL);
         log_info("Created new local image '%s'.", i->local);
 
         if (FLAGS_SET(i->flags, IMPORT_PULL_SETTINGS)) {
@@ -389,6 +411,8 @@ static void tar_pull_job_on_finished(PullJob *j) {
         i = j->userdata;
 
         if (j->error != 0) {
+                clear_progress_bar(/* prefix= */ NULL);
+
                 if (j == i->tar_job) {
                         if (j->error == ENOMEDIUM) /* HTTP 404 */
                                 r = log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
@@ -452,6 +476,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 tar_pull_report_progress(i, TAR_VERIFYING);
 
+                clear_progress_bar(/* prefix= */ NULL);
                 r = pull_verify(i->verify,
                                 i->checksum,
                                 i->tar_job,
@@ -472,7 +497,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 tar_pull_report_progress(i, TAR_FINALIZING);
 
-                r = import_mangle_os_tree(i->local);
+                r = import_mangle_os_tree_fd(i->tree_fd, i->userns_fd, i->flags);
                 if (r < 0)
                         goto finish;
 
@@ -498,7 +523,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                         tar_pull_report_progress(i, TAR_FINALIZING);
 
-                        r = import_mangle_os_tree(i->temp_path);
+                        r = import_mangle_os_tree_fd(i->tree_fd, i->userns_fd, i->flags);
                         if (r < 0)
                                 goto finish;
 

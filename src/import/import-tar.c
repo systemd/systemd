@@ -199,7 +199,7 @@ static int tar_import_finish(TarImport *i) {
 
         assert_se(d = i->temp_path ?: i->local);
 
-        r = import_mangle_os_tree(d);
+        r = import_mangle_os_tree_fd(i->tree_fd, i->userns_fd, i->flags);
         if (r < 0)
                 return r;
 
