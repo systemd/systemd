@@ -22,6 +22,6 @@ static struct mempool pool_name = { \
         .at_least = alloc_at_least, \
 }
 
-__attribute__((weak)) bool mempool_enabled(void);
+bool mempool_enabled(void) _weak_ _pure_;
 
 void mempool_trim(struct mempool *mp);
