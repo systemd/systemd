@@ -35,7 +35,7 @@ int get_block_device(const char *path, dev_t *dev);
 int get_block_device_harder_fd(int fd, dev_t *dev);
 int get_block_device_harder(const char *path, dev_t *dev);
 
-int lock_whole_block_device(dev_t devt, int operation);
+int lock_whole_block_device(dev_t devt, int open_flags, int operation);
 
 int blockdev_partscan_enabled(sd_device *d);
 int blockdev_partscan_enabled_fd(int fd);
