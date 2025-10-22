@@ -119,6 +119,7 @@ shared_sources = files(
         'libmount-util.c',
         'local-addresses.c',
         'locale-setup.c',
+        'log-assert-critical.c',
         'logs-show.c',
         'loop-util.c',
         'loopback-setup.c',
