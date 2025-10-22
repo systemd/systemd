@@ -427,6 +427,8 @@ static int help(void) {
                "     --overlay-ro=PATH[:PATH...]:PATH\n"
                "                            Similar, but creates a read-only overlay mount\n"
                "     --bind-user=NAME       Bind user from host to container\n"
+               "     --bind-user-shell=BOOL|PATH\n"
+               "                            Configure the shell to use for --bind-user= users\n"
                "\n%3$sInput/Output:%4$s\n"
                "     --console=MODE         Select how stdin/stdout/stderr and /dev/console are\n"
                "                            set up for the container.\n"
@@ -4017,6 +4019,7 @@ static int outer_child(
                         arg_bind_user,
                         arg_bind_user_shell,
                         arg_bind_user_shell_copy,
+                        "/run/host/home",
                         &bind_user_context);
         if (r < 0)
                 return r;
