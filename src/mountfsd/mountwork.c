@@ -449,7 +449,9 @@ static int vl_method_mount_image(
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 (p.verity_sharing ? DISSECT_IMAGE_VERITY_SHARE : 0) |
-                (p.verity_data_fd_idx != UINT_MAX ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
+                /* Maybe the image is a bare filesystem. Note that this requires privileges, as it is
+                 * classified by the policy as an 'unprotected' image and will be refused otherwise. */
+                DISSECT_IMAGE_NO_PARTITION_TABLE |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
         /* Let's see if we have acquired the privilege to mount untrusted images already */
