@@ -19,6 +19,12 @@
 %transfiletriggerin -P 900899 -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
 {{SYSTEMD_UPDATE_HELPER_PATH}} user-reload-restart || :
 
+%transfiletriggerun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
+{{SYSTEMD_UPDATE_HELPER_PATH}} remove-system-units-trigger || :
+
+%transfiletriggerun -P 1000099 -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
+{{SYSTEMD_UPDATE_HELPER_PATH}} remove-user-units-trigger || :
+
 %transfiletriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
 # On removal, we need to run daemon-reload after any units have been
 # removed.
