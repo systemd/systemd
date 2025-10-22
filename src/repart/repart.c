@@ -321,9 +321,6 @@ static BtrfsSubvolFlags subvolume_flags_from_string_one(const char *s) {
         if (streq(s, "nodatacow"))
                 return BTRFS_SUBVOL_NODATACOW;
 
-        if (streq(s, "nodatasum"))
-                return BTRFS_SUBVOL_NODATASUM;
-
         return _BTRFS_SUBVOL_FLAGS_INVALID;
 }
 
@@ -6500,18 +6497,11 @@ static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
         assert(l);
 
         ORDERED_HASHMAP_FOREACH(subvolume, subvolumes) {
-                _cleanup_free_ char *s = NULL;
-
-                if (FLAGS_SET(subvolume->flags, BTRFS_SUBVOL_NODATACOW) && !strextend_with_separator(&s, ",", "nodatacow"))
-                        return log_oom();
-
-                if (FLAGS_SET(subvolume->flags, BTRFS_SUBVOL_NODATASUM) && !strextend_with_separator(&s, ",", "nodatasum"))
-                        return log_oom();
-
-                if (!s)
+                if (!FLAGS_SET(subvolume->flags, BTRFS_SUBVOL_NODATACOW))
                         continue;
 
-                if (!strextend_with_separator(&s, ":", subvolume->path))
+                _cleanup_free_ char *s = strjoin("nodatacow:", subvolume->path);
+                if (!s)
                         return log_oom();
 
                 r = strv_extend_many(l, "--inode-flags", s);
