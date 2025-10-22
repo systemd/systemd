@@ -340,20 +340,24 @@ int get_block_device_harder(const char *path, dev_t *ret) {
         return get_block_device_harder_fd(fd, ret);
 }
 
-int lock_whole_block_device(dev_t devt, int operation) {
+int lock_whole_block_device(dev_t devt, int open_flags, int operation) {
         _cleanup_close_ int lock_fd = -EBADF;
         dev_t whole_devt;
         int r;
 
-        /* Let's get a BSD file lock on the whole block device, as per: https://systemd.io/BLOCK_DEVICE_LOCKING */
+        /* Let's get a BSD file lock on the whole block device, as per: https://systemd.io/BLOCK_DEVICE_LOCKING
+         *
+         * NB: it matters whether open_flags indicates open for write: only then will the eventual closing of
+         * the fd trigger udev's partitioning rescanning of the device (as it watches for IN_CLOSE_WRITE),
+         * hence make sure to pass the right value there. */
 
         r = block_get_whole_disk(devt, &whole_devt);
         if (r < 0)
                 return r;
 
-        lock_fd = r = device_open_from_devnum(S_IFBLK, whole_devt, O_RDONLY|O_CLOEXEC|O_NONBLOCK, NULL);
-        if (r < 0)
-                return r;
+        lock_fd = device_open_from_devnum(S_IFBLK, whole_devt, open_flags|O_CLOEXEC|O_NONBLOCK|O_NOCTTY, NULL);
+        if (lock_fd < 0)
+                return lock_fd;
 
         if (flock(lock_fd, operation) < 0)
                 return -errno;
