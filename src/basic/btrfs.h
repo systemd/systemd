@@ -6,8 +6,7 @@
 typedef enum BtrfsSubvolFlags {
         BTRFS_SUBVOL_RO               = 1 << 0,
         BTRFS_SUBVOL_NODATACOW        = 1 << 1,
-        BTRFS_SUBVOL_NODATASUM        = 1 << 2,
-        _BTRFS_SUBVOL_FLAGS_MASK      = BTRFS_SUBVOL_NODATASUM|BTRFS_SUBVOL_NODATACOW|BTRFS_SUBVOL_RO,
+        _BTRFS_SUBVOL_FLAGS_MASK      = BTRFS_SUBVOL_NODATACOW|BTRFS_SUBVOL_RO,
         _BTRFS_SUBVOL_FLAGS_INVALID   = -EINVAL,
         _BTRFS_SUBVOL_FLAGS_ERRNO_MAX = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
 } BtrfsSubvolFlags;
