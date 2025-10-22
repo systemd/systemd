@@ -10,8 +10,11 @@
 
 extern const struct hash_ops oomd_cgroup_ctx_hash_ops;
 
+struct Manager;
+
 typedef struct OomdCGroupContext OomdCGroupContext;
 typedef struct OomdSystemContext OomdSystemContext;
+typedef struct Manager Manager;
 
 typedef int (oomd_compare_t)(OomdCGroupContext * const *, OomdCGroupContext * const *);
 
@@ -43,12 +46,6 @@ struct OomdSystemContext {
         uint64_t mem_used;
         uint64_t swap_total;
         uint64_t swap_used;
-};
-
-struct PreKillContext {
-        usec_t timeout;
-        sd_event *event;
-        Set *prekill_ctxs;
 };
 
 OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx);
@@ -126,14 +123,14 @@ int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix)
 
 /* Returns a negative value on error, 0 if no processes were killed, or 1 if processes were killed. */
 int oomd_cgroup_kill(const char *path, bool recurse);
-int oomd_cgroup_kill_mark(const char *path, bool recurse, bool dry_run, struct PreKillContext *pk_ctx);
+int oomd_cgroup_kill_mark(const OomdCGroupContext *ctx, Manager *m);
 
 /* The following oomd_kill_by_* functions return 1 if processes were killed, or negative otherwise. */
 /* If `prefix` is supplied, only cgroups whose paths start with `prefix` are eligible candidates. Otherwise,
  * everything in `h` is a candidate.
  * Returns the killed cgroup in ret_selected. */
-int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, char **ret_selected);
-int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, char **ret_selected);
+int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, const OomdCGroupContext **ret_selected);
+int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, const OomdCGroupContext **ret_selected);
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret);
 int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *ret);
