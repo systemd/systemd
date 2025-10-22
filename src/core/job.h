@@ -162,7 +162,7 @@ int job_coldplug(Job *j);
 JobDependency* job_dependency_new(Job *subject, Job *object, bool matters, bool conflicts);
 void job_dependency_free(JobDependency *l);
 
-JobType job_type_lookup_merge(JobType a, JobType b) _pure_;
+JobType job_type_lookup_merge(JobType a, JobType b) _const_;
 
 _pure_ static inline bool job_type_is_mergeable(JobType a, JobType b) {
         return job_type_lookup_merge(a, b) >= 0;
@@ -181,7 +181,7 @@ _pure_ static inline bool job_type_is_superset(JobType a, JobType b) {
         return a == job_type_lookup_merge(a, b);
 }
 
-bool job_type_is_redundant(JobType a, UnitActiveState b) _pure_;
+bool job_type_is_redundant(JobType a, UnitActiveState b) _const_;
 
 /* Collapses a state-dependent job type into a simpler type by observing
  * the state of the unit which it is going to be applied to. */
