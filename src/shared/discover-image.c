@@ -36,10 +36,13 @@
 #include "log.h"
 #include "loop-util.h"
 #include "mkdir.h"
+#include "namespace-util.h"
+#include "nsresource.h"
 #include "nulstr-util.h"
 #include "os-util.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "process-util.h"
 #include "rm-rf.h"
 #include "runtime-scope.h"
 #include "stat-util.h"
@@ -47,6 +50,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "uid-classification.h"
 #include "vpick.h"
 #include "xattr-util.h"
 
@@ -480,6 +484,7 @@ static int image_make(
                                 if (r < 0)
                                         return r;
 
+                                (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
                                 (void) image_update_quota(*ret, fd);
                                 return 0;
                         }
@@ -505,6 +510,7 @@ static int image_make(
                 if (r < 0)
                         return r;
 
+                (*ret)->foreign_uid_owned = uid_is_foreign(st->st_uid);
                 return 0;
 
         } else if (S_ISREG(st->st_mode) && endswith(filename, ".raw")) {
@@ -1172,6 +1178,57 @@ int image_remove(Image *i, RuntimeScope scope) {
         case IMAGE_DIRECTORY:
                 /* Allow deletion of read-only directories */
                 (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
+
+                if (i->foreign_uid_owned) {
+                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, /* size= */ NSRESOURCE_UIDS_64K);
+                        if (userns_fd < 0)
+                                return log_debug_errno(userns_fd, "Failed to allocate transient user namespace: %m");
+
+                        _cleanup_close_ int tree_fd = -EBADF;
+                        r = mountfsd_mount_directory(
+                                        i->path,
+                                        userns_fd,
+                                        DISSECT_IMAGE_FOREIGN_UID,
+                                        &tree_fd);
+                        if (r < 0)
+                                return r;
+                        /* Fork off child that moves into userns and does the copying */
+                        r = safe_fork_full(
+                                        "rm-tree",
+                                        /* stdio_fds= */ NULL,
+                                        (int[]) { userns_fd, tree_fd, }, 2,
+                                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_REOPEN_LOG,
+                                        /* ret_pid= */ NULL);
+                        if (r < 0)
+                                return log_debug_errno(r, "Process that was supposed to remove tree failed: %m");
+                        if (r == 0) {
+                                /* child */
+
+                                r = namespace_enter(
+                                                /* pidns_fd= */ -EBADF,
+                                                /* mntns_fd= */ -EBADF,
+                                                /* netns_fd= */ -EBADF,
+                                                userns_fd,
+                                                /* root_fd= */ -EBADF);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to join user namespace: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
+                                if (dfd < 0) {
+                                        log_error_errno(r, "Failed to reopen tree fd: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                r = rm_rf_children(dfd, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, /* root_dev= */ NULL);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to empty '%s' directory in foreign UID mode, ignoring: %m", i->path);
+
+                                _exit(EXIT_SUCCESS);
+                        }
+                }
+
                 r = rm_rf(i->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                 if (r < 0)
                         return r;
@@ -1442,16 +1499,92 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
                 if (r < 0)
                         return r;
 
-                r = btrfs_subvol_snapshot_at(AT_FDCWD, i->path, AT_FDCWD, new_path,
-                                             (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                             BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                             BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                             BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
-                                             BTRFS_SNAPSHOT_RECURSIVE |
-                                             BTRFS_SNAPSHOT_QUOTA);
-                if (r >= 0)
-                        /* Enable "subtree" quotas for the copy, if we didn't copy any quota from the source. */
-                        (void) btrfs_subvol_auto_qgroup(new_path, 0, true);
+                if (i->foreign_uid_owned) {
+                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, /* size= */ NSRESOURCE_UIDS_64K);
+                        if (userns_fd < 0)
+                                return log_debug_errno(userns_fd, "Failed to allocate transient user namespace: %m");
+
+                        /* Map original image */
+                        _cleanup_close_ int tree_fd = -EBADF;
+                        r = mountfsd_mount_directory(
+                                        i->path,
+                                        userns_fd,
+                                        DISSECT_IMAGE_FOREIGN_UID,
+                                        &tree_fd);
+                        if (r < 0)
+                                return r;
+
+                        /* Make new image */
+                        _cleanup_close_ int new_fd = -EBADF;
+                        r = mountfsd_make_directory(
+                                        new_path,
+                                        /* flags= */ 0,
+                                        &new_fd);
+                        if (r < 0)
+                                return 0;
+
+                        /* Mount new image */
+                        _cleanup_close_ int target_fd = -EBADF;
+                        r = mountfsd_mount_directory_fd(
+                                        new_fd,
+                                        userns_fd,
+                                        DISSECT_IMAGE_FOREIGN_UID,
+                                        &target_fd);
+                        if (r < 0)
+                                return r;
+
+                        /* Fork off child that moves into userns and does the copying */
+                        r = safe_fork_full(
+                                        "clone-tree",
+                                        /* stdio_fds= */ NULL,
+                                        (int[]) { userns_fd, tree_fd, target_fd }, 3,
+                                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_REOPEN_LOG,
+                                        /* ret_pid= */ NULL);
+                        if (r < 0)
+                                return log_debug_errno(r, "Process that was supposed to clone tree failed: %m");
+                        if (r == 0) {
+                                /* child */
+
+                                r = namespace_enter(
+                                                /* pidns_fd= */ -EBADF,
+                                                /* mntns_fd= */ -EBADF,
+                                                /* netns_fd= */ -EBADF,
+                                                userns_fd,
+                                                /* root_fd= */ -EBADF);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to join user namespace: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                r = copy_tree_at(
+                                                tree_fd, /* from= */ NULL,
+                                                target_fd, /* to= */ NULL,
+                                                /* override_uid= */ UID_INVALID,
+                                                /* override_gid= */ GID_INVALID,
+                                                COPY_REFLINK|COPY_HARDLINKS|COPY_MERGE_EMPTY|COPY_MERGE_APPLY_STAT|COPY_SAME_MOUNT|COPY_ALL_XATTRS,
+                                                /* denylist= */ NULL,
+                                                /* subvolumes= */ NULL);
+                                if (r < 0) {
+                                        log_debug_errno(r, "Failed to copy clone tree: %m");
+                                        _exit(EXIT_FAILURE);
+                                }
+
+                                _exit(EXIT_SUCCESS);
+                        }
+                } else {
+                        r = btrfs_subvol_snapshot_at(
+                                        AT_FDCWD, i->path,
+                                        AT_FDCWD, new_path,
+                                        (read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
+                                        BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                        BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                        BTRFS_SNAPSHOT_FALLBACK_IMMUTABLE |
+                                        BTRFS_SNAPSHOT_RECURSIVE |
+                                        BTRFS_SNAPSHOT_QUOTA);
+                        if (r >= 0)
+                                /* Enable "subtree" quotas for the copy, if we didn't copy any quota from the source. */
+                                (void) btrfs_subvol_auto_qgroup(new_path, /* subvol_id= */ 0, /* create_intermediary_qgroup= */ true);
+                }
 
                 break;
         }
@@ -1493,7 +1626,7 @@ int image_read_only(Image *i, bool b, RuntimeScope scope) {
 
         assert(i);
 
-        if (image_is_vendor(i) || image_is_host(i))
+        if (image_is_vendor(i) || image_is_host(i) || image_is_hidden(i))
                 return -EROFS;
 
         /* Make sure we don't interfere with a running nspawn */
@@ -2005,7 +2138,7 @@ int image_to_json(const struct Image *img, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_STRING("Class", image_class_to_string(img->class)),
                         SD_JSON_BUILD_PAIR_STRING("Name", img->name),
                         SD_JSON_BUILD_PAIR_CONDITION(!!img->path, "Path", SD_JSON_BUILD_STRING(img->path)),
-                        SD_JSON_BUILD_PAIR_BOOLEAN("ReadOnly", img->read_only),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("ReadOnly", image_is_read_only(img)),
                         SD_JSON_BUILD_PAIR_CONDITION(img->crtime != 0, "CreationTimestamp", SD_JSON_BUILD_UNSIGNED(img->crtime)),
                         SD_JSON_BUILD_PAIR_CONDITION(img->mtime != 0, "ModificationTimestamp", SD_JSON_BUILD_UNSIGNED(img->mtime)),
                         SD_JSON_BUILD_PAIR_CONDITION(img->usage != UINT64_MAX, "Usage", SD_JSON_BUILD_UNSIGNED(img->usage)),
