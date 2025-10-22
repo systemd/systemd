@@ -392,7 +392,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
         if (oomd_mem_available_below(&m->system_context, 10000 - m->swap_used_limit_permyriad) &&
                         oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
-                _cleanup_free_ char *selected = NULL;
+                _cleanup_free_ const OomdCGroupContext *selected = NULL;
                 uint64_t threshold;
 
                 log_debug("Memory used (%"PRIu64") / total (%"PRIu64") and "
@@ -412,7 +412,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                 if (r < 0)
                         return log_notice_errno(r, "Failed to select any cgroups based on swap: %m");
 
-                r = oomd_cgroup_kill_mark(selected, /* recurse= */ true, m->dry_run, &(struct PreKillContext){m->prekill_timeout, m->event, m->prekill_ctxs});
+                r = oomd_cgroup_kill_mark(selected, m);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
@@ -422,7 +422,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                                 log_notice("Killed %s due to memory used (%"PRIu64") / total (%"PRIu64") and "
                                            "swap used (%"PRIu64") / total (%"PRIu64") being more than "
                                            PERMYRIAD_AS_PERCENT_FORMAT_STR,
-                                           selected,
+                                           selected->path,
                                            m->system_context.mem_used, m->system_context.mem_total,
                                            m->system_context.swap_used, m->system_context.swap_total,
                                            PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
@@ -504,7 +504,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         else if (r == 1 && !in_post_action_delay) {
                 OomdCGroupContext *t;
                 SET_FOREACH(t, targets) {
-                        _cleanup_free_ char *selected = NULL;
+                        _cleanup_free_ const OomdCGroupContext *selected = NULL;
 
                         /* Check if there was reclaim activity in the given interval. The concern is the following case:
                          * Pressure climbed, a lot of high-frequency pages were reclaimed, and we killed the offending
@@ -535,7 +535,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                         if (r < 0)
                                 return log_notice_errno(r, "Failed to select any cgroups based on swap: %m");
 
-                        r = oomd_cgroup_kill_mark(selected, /* recurse= */ true, m->dry_run, &(struct PreKillContext){m->prekill_timeout, m->event, m->prekill_ctxs});
+                        r = oomd_cgroup_kill_mark(selected, m);
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
@@ -550,7 +550,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                 if (selected && r > 0) {
                                         log_notice("Killed %s due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
                                                    " for > %s with reclaim activity",
-                                                   selected, t->path,
+                                                   selected->path, t->path,
                                                    LOADAVG_INT_SIDE(t->memory_pressure.avg10), LOADAVG_DECIMAL_SIDE(t->memory_pressure.avg10),
                                                    LOADAVG_INT_SIDE(t->mem_pressure_limit), LOADAVG_DECIMAL_SIDE(t->mem_pressure_limit),
                                                    FORMAT_TIMESPAN(t->mem_pressure_duration_usec, USEC_PER_SEC));

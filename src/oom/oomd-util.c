@@ -9,6 +9,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "memstream-util.h"
+#include "oomd-manager.h"
 #include "oomd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -25,11 +26,8 @@
 
 struct OomdKillState {
         unsigned int n_ref;
-        char *path;
-        bool recurse;
-        usec_t prekill_timeout;
-        sd_event *event;
-        Set *prekill_ctxs;
+        Manager *manager;
+        const OomdCGroupContext *ctx;
 };
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
@@ -284,8 +282,8 @@ int oomd_cgroup_kill(const char *path, bool recurse) {
 
 static void oom_kill_state_free(struct OomdKillState *ks) {
         if (ks) {
-                set_remove(ks->prekill_ctxs, ks);
-                free(ks->path);
+                set_remove(ks->manager->prekill_ctxs, ks);
+                free(ks->ctx->path);
         }
         free(ks);
 }
@@ -293,9 +291,9 @@ static void oom_kill_state_free(struct OomdKillState *ks) {
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct OomdKillState*, oom_kill_state_free, NULL);
 
 static struct OomdKillState* oomd_kill_state_dec(struct OomdKillState *ks) {
-        int r = oomd_cgroup_kill(ks->path, ks->recurse);
+        int r = oomd_cgroup_kill(ks->ctx->path, true);
         if (r < 0)
-                log_debug_errno(r, "oomd failed to kill cgroup %s: %m", ks->path);
+                log_debug_errno(r, "oomd failed to kill cgroup %s: %m", ks->ctx->path);
         oom_kill_state_free(ks);
         return NULL;
 }
@@ -310,7 +308,7 @@ int clean_prekills(sd_event_source *e, void *userdata)
         assert(prekill_ctxs);
 
         SET_FOREACH(ks, prekill_ctxs) {
-                log_debug("Cleaning up unfinished prekill hook state for cgroup %s", ks->path);
+                log_debug("Cleaning up unfinished prekill hook state for cgroup %s", ks->ctx->path);
                 oom_kill_state_free(ks);
         }
 
@@ -329,7 +327,7 @@ static int prekill_callback(
         if (error_id)
                 log_warning("oomd prekill hook returned error: %s", error_id);
         else
-                log_info("oomd prekill hook finished for cgroup %s", ks->path);
+                log_info("oomd prekill hook finished for cgroup %s", ks->ctx->path);
 
         sd_varlink_unref(link);
         oomd_kill_state_unref(ks);
@@ -352,7 +350,7 @@ static int send_prekill_message(
         assert(ks);
         assert(e);
 
-        log_info("Invoking oomd prekill hook %s for cgroup %s", basename, ks->path);
+        log_info("Invoking oomd prekill hook %s for cgroup %s", basename, ks->ctx->path);
 
         hook_path = path_join(VARLINK_ADDR_PATH_PREKILL, basename);
         if (!hook_path)
@@ -366,7 +364,7 @@ static int send_prekill_message(
         r = sd_varlink_set_description(link, "oomd prekill hook");
         if (r < 0)
                 return log_debug_errno(r, "Failed to set varlink description: %m");
-        (void) sd_varlink_set_relative_timeout(link, ks->prekill_timeout);
+        (void) sd_varlink_set_relative_timeout(link, ks->manager->prekill_timeout);
 
         r = sd_varlink_attach_event(link, e, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
@@ -386,12 +384,12 @@ static int send_prekill_message(
         return 0;
 }
 
-static int oomd_prekill_hook(const char *path, struct PreKillContext *pk_ctx) {
+static int oomd_prekill_hook(const OomdCGroupContext *ctx, Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
-        assert(path);
-        assert(pk_ctx);
+        assert(ctx);
+        assert(m);
 
         d = opendir(VARLINK_ADDR_PATH_PREKILL);
         if (!d) {
@@ -409,56 +407,52 @@ static int oomd_prekill_hook(const char *path, struct PreKillContext *pk_ctx) {
 
         *ks = (struct OomdKillState) {
                 .n_ref = 1,
-                .path = strdup(path),
-                .recurse = true,
-                .prekill_timeout = pk_ctx->timeout,
-                .event = pk_ctx->event,
-                .prekill_ctxs = pk_ctx->prekill_ctxs,
+                .manager = m,
+                .ctx = ctx,
         };
-        if (!ks->path)
-                return log_oom_debug();
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
-        r = sd_json_buildo(&cparams, SD_JSON_BUILD_PAIR_STRING("cgroup", path));
+        r = sd_json_buildo(&cparams, SD_JSON_BUILD_PAIR_STRING("cgroup", ctx->path));
         if (r < 0)
                 return log_oom_debug();
 
-        set_put(pk_ctx->prekill_ctxs, ks);
+        set_put(m->prekill_ctxs, ks);
 
         FOREACH_DIRENT(de, d, return -errno)
                 if (IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
-                        (void) send_prekill_message(de->d_name, cparams, ks, pk_ctx->event);
+                        (void) send_prekill_message(de->d_name, cparams, ks, m->event);
 
         oomd_kill_state_unref(TAKE_PTR(ks));
 
         return 1;
 }
 
-int oomd_cgroup_kill_mark(const char *path, bool recurse, bool dry_run, struct PreKillContext *pk_ctx) {
+int oomd_cgroup_kill_mark(const OomdCGroupContext *ctx, Manager *m) {
         int r;
 
-        assert(path);
+        assert(ctx);
+        assert(m);
 
-        if (dry_run) {
+        if (m->dry_run) {
                 _cleanup_free_ char *cg_path = NULL;
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &cg_path);
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, ctx->path, NULL, &cg_path);
                 if (r < 0)
                         return r;
 
-                log_info("oomd dry-run: Would have tried to kill %s%s", cg_path, recurse ? " and all its descendants" : "");
+                log_info("oomd dry-run: Would have tried to kill %s and all its descendants", cg_path);
                 return 0;
         }
 
-        r = oomd_prekill_hook(path, pk_ctx);
+        r = oomd_prekill_hook(ctx, m);
         if (r < 0)
-                log_warning_errno(r, "oomd prekill hook failed for %s, ignoring: %m", path);
+                log_warning_errno(r, "oomd prekill hook failed for %s, ignoring: %m", ctx->path);
         else if (r > 0)
                 return 0; /* Prekill hook in progress, actual kill will happen in the callback. */
         else /* If r == 0, no prekill hooks found, continue to kill immediately. */
-                log_info("No oomd prekill hooks found, proceeding to kill %s%s", path, recurse ? " and all its descendants" : "");
+                log_info("No oomd prekill hooks found, proceeding to kill %s and all its descendants", ctx->path);
 
-        return oomd_cgroup_kill(path, recurse);
+        return oomd_cgroup_kill(ctx->path, true);
 }
 
 typedef void (*dump_candidate_func)(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
@@ -498,7 +492,7 @@ static int dump_kill_candidates(
         return memstream_dump(LOG_INFO, &m);
 }
 
-int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, char **ret_selected) {
+int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, const OomdCGroupContext **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         const OomdCGroupContext *killed = NULL;
         int n, r;
@@ -520,9 +514,7 @@ int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, char **ret_select
                 if (c->pgscan == 0 && c->current_memory_usage == 0)
                         continue;
 
-                r = strdup_to(ret_selected, c->path);
-                if (r < 0)
-                        return r;
+                *ret_selected = TAKE_PTR(c);
 
                 return 1;
         }
@@ -530,7 +522,7 @@ int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, char **ret_select
         return 0;
 }
 
-int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, char **ret_selected) {
+int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, const OomdCGroupContext **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         const OomdCGroupContext *killed = NULL;
         int n, r;
@@ -555,9 +547,7 @@ int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, char **ret_s
                 if (c->swap_usage <= threshold_usage)
                         continue;
 
-                r = strdup_to(ret_selected, c->path);
-                if (r < 0)
-                        return r;
+                *ret_selected = TAKE_PTR(c);
 
                 return 1;
         }
