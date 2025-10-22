@@ -616,10 +616,6 @@
                 <entry><literal>nodatacow</literal></entry>
                 <entry>Disable data CoW for this subvolume.</entry>
               </row>
-              <row id='S'>
-                <entry><literal>nodatasum</literal></entry>
-                <entry>Disable data checksum for this subvolume.</entry>
-              </row>
             </tbody>
           </tgroup>
         </table>
