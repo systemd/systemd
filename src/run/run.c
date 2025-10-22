@@ -288,6 +288,24 @@ static char** make_login_shell_cmdline(const char *shell) {
         return strv_new(argv0);
 }
 
+/*
+ * Check that the string is formatted like an ANSI color code, i.e. that it consists of one or more
+ * sequences of ASCII digits separated by semicolons. This is equivalent to matching the regex:
+ *      ^[0-9]+(;[0-9]+)*$
+ */
+static bool looks_like_ansi_color_code(const char *str) {
+        bool prev_char_was_digit = false;
+        for (char c = *str; c != '\0'; c = *(++str)) {
+                if ('0' <= c && c <= '9')
+                        prev_char_was_digit = true;
+                else if (prev_char_was_digit && c == ';')
+                        prev_char_was_digit = false;
+                else
+                        return false;
+        }
+        return prev_char_was_digit;
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -686,9 +704,13 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_BACKGROUND:
+                        if (optarg[0] != '\0' && !looks_like_ansi_color_code(optarg))
+                                return log_error_errno(-EINVAL, "Invalid background color: %s", optarg);
+
                         r = free_and_strdup_warn(&arg_background, optarg);
                         if (r < 0)
                                 return r;
+
                         break;
 
                 case ARG_NO_PAGER:
@@ -978,6 +1000,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case ARG_BACKGROUND:
+                        if (optarg[0] != '\0' && !looks_like_ansi_color_code(optarg))
+                                return log_error_errno(-EINVAL, "Invalid background color: %s", optarg);
+
                         r = free_and_strdup_warn(&arg_background, optarg);
                         if (r < 0)
                                 return r;
