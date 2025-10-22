@@ -9,6 +9,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "env-util.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -269,12 +270,9 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
 
                 uint64_t pidfdid;
                 if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
-                        char spidfdid[DECIMAL_STR_MAX(uint64_t)+1];
-                        xsprintf(spidfdid, "%" PRIu64, pidfdid);
-
-                        if (setenv("LISTEN_PIDFDID", spidfdid, /* override= */ true) < 0) {
-                                log_debug_errno(errno,
-                                                "Failed to set environment variable 'LISTEN_PIDFDID': %m");
+                        r = setenvf("LISTEN_PIDFDID", /* override= */ true, "%" PRIu64, pidfdid);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to set environment variable 'LISTEN_PIDFDID': %m");
                                 _exit(EXIT_FAILURE);
                         }
                 }
