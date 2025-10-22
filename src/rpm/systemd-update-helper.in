@@ -29,6 +29,32 @@ case "$command" in
         fi
         ;;
 
+    remove-system-units-trigger)
+        units=()
+
+        while read -r unitpath; do
+            IFS='/' read -ra unitarray <<< "$unitpath"
+
+            # If the path leads to a drop-in file, a dir or a symlink, we skip it
+            # Example of a valid entry: usr/lib/systemd/system/user@.service.
+            # We have to escape the bash array length operator here as it's also the jinja2 comment tag.
+            if (( ${{ '{#' }}unitarray[@]} > 6 )) || [[ ! -f $unitpath || -L $unitpath ]]; then
+                continue
+            fi
+
+            unit=${unitarray[5]}
+            units+=($unit)
+        done
+
+        if (( ${{ '{#' }}units[@]} )); then
+            if [[ -d /run/systemd/system ]]; then
+                systemctl --no-reload disable --now --no-warn "${units[@]}"
+            else
+                systemctl --no-reload disable --no-warn "${units[@]}"
+            fi
+        fi
+        ;;
+
     remove-user-units)
         systemctl --global disable --no-warn "$@"
 
@@ -40,6 +66,37 @@ case "$command" in
                     systemctl --user -M "$user@" disable --now --no-warn "$@" &
         done
         wait
+        ;;
+
+    remove-user-units-trigger)
+        units=()
+
+        while read -r unitpath; do
+            IFS='/' read -ra unitarray <<< "$unitpath"
+
+            # If the path leads to a drop-in file, a dir or a symlink, we skip it
+            # Example of a valid entry: usr/lib/systemd/system/user@.service
+            # We have to escape the bash array length operator here as it's also the jinja2 comment tag.
+            if (( ${{ '{#' }}unitarray[@]} > 6 )) || [[ ! -f $unitpath || -L $unitpath ]]; then
+                continue
+            fi
+
+            unit=${unitarray[5]}
+            units+=($unit)
+        done
+
+        if (( ${{ '{#' }}units[@]} )); then
+            systemctl --global disable --no-warn "${units[@]}"
+
+            if [[ -d /run/systemd/system ]]; then
+                users=$(systemctl list-units 'user@*' --legend=no | sed -n -r 's/.*user@([0-9]+).service.*/\1/p')
+                for user in $users; do
+                    SYSTEMD_BUS_TIMEOUT={{UPDATE_HELPER_USER_TIMEOUT_SEC}}s \
+                            systemctl --user -M "$user@" disable --now --no-warn "${units[@]}" &
+                done
+                wait
+            fi
+        fi
         ;;
 
     mark-restart-system-units)
