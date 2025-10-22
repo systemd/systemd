@@ -433,6 +433,13 @@ executables += [
                 'timeout' : 120,
         },
         test_template + {
+                'sources' : files('test-reread-partition-table.c'),
+        },
+        test_template + {
+                'sources' : files('test-reread-partition-table-manual.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-sbat.c'),
                 'conditions' : ['ENABLE_BOOTLOADER'],
                 'c_args' : f'-I@efi_config_h_dir@',
