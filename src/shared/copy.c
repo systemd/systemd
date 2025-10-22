@@ -1177,8 +1177,7 @@ static int fd_copy_directory(
                         r = btrfs_subvol_set_nodatacow_fd(fdt, true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make subvolume '%s' nodatacow: %m", to);
-                } else if (subvolume_flags & BTRFS_SUBVOL_NODATASUM)
-                        log_warning("Failed to make subvolume '%s' nodatasum", to);
+                }
         }
 
         if (exists && FLAGS_SET(copy_flags, COPY_RESTORE_DIRECTORY_TIMESTAMPS) && fstat(fdt, &dt_st) < 0)
