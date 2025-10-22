@@ -95,8 +95,7 @@ bool image_is_host(const struct Image *i);
 
 int image_to_json(const struct Image *i, sd_json_variant **ret);
 
-const char* image_root_to_string(ImageClass c) _const_;
-const char* image_root_runtime_to_string(ImageClass c) _const_;
+int image_root_pick(RuntimeScope scope, ImageClass c, bool runtime, char **ret);
 
 extern const struct hash_ops image_hash_ops;
 
