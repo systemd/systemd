@@ -90,61 +90,60 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
         return TAKE_FD(pipefd[1]);
 }
 
-int import_fork_tar_c(const char *path, PidRef *ret) {
-        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        bool use_selinux;
+int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
         int r;
 
-        assert(path);
-        assert(ret);
+        assert(tree_fd >= 0);
+        assert(ret_pid);
 
+        r = dlopen_libarchive();
+        if (r < 0)
+                return r;
+
+        TarFlags flags = mac_selinux_use() ? TAR_SELINUX : 0;
+
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
         (void) fcntl(pipefd[0], F_SETPIPE_SZ, IMPORT_BUFFER_SIZE);
 
-        use_selinux = mac_selinux_use();
-
         r = pidref_safe_fork_full(
-                        "(tar)",
-                        (int[]) { -EBADF, pipefd[1], STDERR_FILENO },
-                        NULL, 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
-                        &pid);
+                        "tar-c",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { tree_fd, pipefd[1], userns_fd }, userns_fd >= 0 ? 3 : 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG,
+                        ret_pid);
         if (r < 0)
                 return r;
         if (r == 0) {
-                const char *cmdline[] = {
-                        "tar",
-                        "-C", path,
-                        "-c",
-                        "--xattrs",
-                        "--xattrs-include=*",
-                       use_selinux ? "--selinux" : "--no-selinux",
-                        ".",
-                        NULL
-                };
-
-                uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);
+                static const uint64_t retain = (1ULL << CAP_DAC_OVERRIDE);
 
                 /* Child */
 
+                if (userns_fd >= 0) {
+                        r = detach_mount_namespace_userns(userns_fd);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to join user namespace: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
                 if (unshare(CLONE_NEWNET) < 0)
-                        log_error_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
+                        log_debug_errno(errno, "Failed to lock tar into network namespace, ignoring: %m");
 
                 r = capability_bounding_set_drop(retain, true);
                 if (r < 0)
-                        log_error_errno(r, "Failed to drop capabilities, ignoring: %m");
+                        log_debug_errno(r, "Failed to drop capabilities, ignoring: %m");
 
-                execvp("gtar", (char* const*) cmdline);
-                execvp("tar", (char* const*) cmdline);
+                if (prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) < 0)
+                        log_warning_errno(errno, "Failed to enable PR_SET_NO_NEW_PRIVS, ignoring: %m");
 
-                log_error_errno(errno, "Failed to execute tar: %m");
-                _exit(EXIT_FAILURE);
+                if (tar_c(tree_fd, pipefd[1], /* filename= */ NULL, flags) < 0)
+                        _exit(EXIT_FAILURE);
+
+                _exit(EXIT_SUCCESS);
         }
-
-        *ret = TAKE_PIDREF(pid);
 
         return TAKE_FD(pipefd[0]);
 }
