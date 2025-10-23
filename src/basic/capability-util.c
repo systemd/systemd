@@ -15,7 +15,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "logarithm.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -351,29 +350,14 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
 
         /* Now upgrade the permitted caps we still kept to effective caps */
         if (keep_capabilities != 0) {
-                cap_value_t bits[log2u64(keep_capabilities) + 1];
-                _cleanup_cap_free_ cap_t d = NULL;
-                unsigned i, j = 0;
+                CapabilityQuintet q = {
+                        .effective = keep_capabilities,
+                        .permitted = keep_capabilities,
+                };
 
-                d = cap_init();
-                if (!d)
-                        return log_oom();
-
-                for (i = 0; i < ELEMENTSOF(bits); i++)
-                        if (keep_capabilities & (1ULL << i))
-                                bits[j++] = i;
-
-                /* use enough bits */
-                assert(i == 64 || (keep_capabilities >> i) == 0);
-                /* don't use too many bits */
-                assert(keep_capabilities & (UINT64_C(1) << (i - 1)));
-
-                if (cap_set_flag(d, CAP_EFFECTIVE, j, bits, CAP_SET) < 0 ||
-                    cap_set_flag(d, CAP_PERMITTED, j, bits, CAP_SET) < 0)
-                        return log_error_errno(errno, "Failed to enable capabilities bits: %m");
-
-                if (cap_set_proc(d) < 0)
-                        return log_error_errno(errno, "Failed to increase capabilities: %m");
+                r = capability_apply(&q);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to increase capabilities: %m");
         }
 
         return 0;
