@@ -13,6 +13,7 @@
 #define TEST_CAPABILITY_C
 
 #include "alloc-util.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -84,18 +85,15 @@ static void fork_test(void (*test_func)(void)) {
 }
 
 static void show_capabilities(void) {
-        cap_t caps;
-        char *text;
+        _cleanup_free_ char *e = NULL, *p = NULL, *i = NULL;
+        CapabilityQuintet q;
 
-        caps = cap_get_proc();
-        assert_se(caps);
+        ASSERT_OK(capability_get(&q));
+        ASSERT_OK(capability_set_to_string(q.effective, &e));
+        ASSERT_OK(capability_set_to_string(q.permitted, &p));
+        ASSERT_OK(capability_set_to_string(q.inheritable, &i));
 
-        text = cap_to_text(caps, NULL);
-        assert_se(text);
-
-        log_info("Capabilities:%s", text);
-        cap_free(caps);
-        cap_free(text);
+        log_info("Capabilities:e=%s p=%s, i=%s", e, p, i);
 }
 
 static int setup_tests(bool *run_ambient) {
