@@ -202,6 +202,11 @@ varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List '{"cgroup":
 invocation_id=$(varlinkctl call --collect /run/systemd/io.systemd.Manager io.systemd.Unit.List '{}' | jq -r '.[] | .runtime.InvocationID' | grep -v null | tail -n 1)
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.List "{\"invocationID\": \"$invocation_id\"}"
 
+# test io.systemd.Metrics
+varlinkctl info /run/systemd/metrics/io.systemd.Manager
+varlinkctl --more call /run/systemd/metrics/io.systemd.Manager io.systemd.Metrics.List {}
+varlinkctl --more call /run/systemd/metrics/io.systemd.Manager io.systemd.Metrics.Describe {}
+
 # test io.systemd.Manager in user manager
 testuser_uid=$(id -u testuser)
 systemd-run --wait --pipe --user --machine testuser@ \
@@ -214,3 +219,6 @@ systemd-run --wait --pipe --user --machine testuser@ \
 # test io.systemd.Unit in user manager
 systemd-run --wait --pipe --user --machine testuser@ \
         varlinkctl --more call "/run/user/$testuser_uid/systemd/io.systemd.Manager" io.systemd.Unit.List '{}'
+
+# test report
+systemd-report
