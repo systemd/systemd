@@ -84,6 +84,14 @@ static inline bool capability_quintet_is_fully_set(const CapabilityQuintet *q) {
                 capability_is_set(q->ambient);
 }
 
+static inline bool capability_quintet_equal(const CapabilityQuintet *a, const CapabilityQuintet *b) {
+        return a->effective == b->effective &&
+                a->bounding == b->bounding &&
+                a->inheritable == b->inheritable &&
+                a->permitted == b->permitted &&
+                a->ambient == b->ambient;
+}
+
 /* Mangles the specified caps quintet taking the current bounding set into account:
  * drops all caps from all five sets if our bounding set doesn't allow them.
  * Returns true if the quintet was modified. */
