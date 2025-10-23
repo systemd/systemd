@@ -4,6 +4,7 @@
 #include <stdatomic.h>
 #include <stdio.h>
 #include <sys/prctl.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -19,6 +20,29 @@
 #include "process-util.h"
 #include "stat-util.h"
 #include "user-util.h"
+
+int capability_get(CapabilityQuintet *ret) {
+        assert(ret);
+
+        struct __user_cap_header_struct hdr = {
+                .version = _LINUX_CAPABILITY_VERSION_3,
+                .pid = getpid_cached(),
+        };
+
+        assert_cc(_LINUX_CAPABILITY_U32S_3 == 2);
+        struct __user_cap_data_struct data[_LINUX_CAPABILITY_U32S_3];
+        if (syscall(SYS_capget, &hdr, data) < 0)
+                return -errno;
+
+        *ret = (CapabilityQuintet) {
+                .effective = (uint64_t) data[0].effective | ((uint64_t) data[1].effective << 32),
+                .bounding = UINT64_MAX,
+                .inheritable = (uint64_t) data[0].inheritable | ((uint64_t) data[1].inheritable << 32),
+                .permitted = (uint64_t) data[0].permitted | ((uint64_t) data[1].permitted << 32),
+                .ambient = UINT64_MAX,
+        };
+        return 0;
+}
 
 unsigned cap_last_cap(void) {
         static atomic_int saved = INT_MAX;
@@ -74,19 +98,30 @@ unsigned cap_last_cap(void) {
         return c;
 }
 
-int have_effective_cap(int value) {
-        _cleanup_cap_free_ cap_t cap = NULL;
-        cap_flag_value_t fv = CAP_CLEAR; /* To avoid false-positive use-of-uninitialized-value error reported
-                                          * by fuzzers. */
+int have_effective_cap(unsigned cap) {
+        CapabilityQuintet q;
+        int r;
 
-        cap = cap_get_proc();
-        if (!cap)
-                return -errno;
+        assert(cap <= CAP_LIMIT);
 
-        if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
-                return -errno;
+        r = capability_get(&q);
+        if (r < 0)
+                return r;
 
-        return fv == CAP_SET;
+        return BIT_SET(q.effective, cap);
+}
+
+int have_inheritable_cap(unsigned cap) {
+        CapabilityQuintet q;
+        int r;
+
+        assert(cap <= CAP_LIMIT);
+
+        r = capability_get(&q);
+        if (r < 0)
+                return r;
+
+        return BIT_SET(q.inheritable, cap);
 }
 
 int capability_update_inherited_set(cap_t caps, uint64_t set) {
