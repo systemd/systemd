@@ -113,6 +113,8 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
         if (r > 0)
                 flags |= TPM2_FLAGS_USE_PIN;
         else {
+                AskPasswordFlags askpw_flags = ASK_PASSWORD_ACCEPT_CACHED;
+
                 for (size_t i = 5;; i--) {
                         _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
 
@@ -133,17 +135,19 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                         pin = strv_free_erase(pin);
                         r = ask_password_auto(
                                         &req,
-                                        /* flags= */ 0,
+                                        askpw_flags,
                                         &pin);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to ask for user pin: %m");
+
                         assert(strv_length(pin) == 1);
 
                         req.message = "Please enter TPM2 PIN (repeat):";
 
+                        /* If the PIN was obtained from the keyring, it will match the 2nd time */
                         r = ask_password_auto(
                                         &req,
-                                        /* flags= */ 0,
+                                        askpw_flags,
                                         &pin2);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to ask for user pin: %m");
@@ -157,6 +161,7 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                                 break;
                         }
 
+                        askpw_flags &= ~ASK_PASSWORD_ACCEPT_CACHED;
                         log_error("PINs didn't match, please try again!");
                 }
         }
