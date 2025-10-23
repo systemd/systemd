@@ -282,14 +282,36 @@ size_t syslog_parse_hostname(const char **buf, char **hostname) {
         return l;
 }
 
-static int syslog_skip_timestamp(const char **buf) {
+static bool syslog_skip_rfc5424(const char **buf) {
+        const char *p;
+        size_t l;
+
+        assert(buf);
+
+        p = *buf;
+        l = strspn(p, DIGITS);
+        if (l <= 0)
+                return false;
+
+        if (p[l] == '\0' || !strchr(WHITESPACE, p[l]))
+                return false;
+
+        *buf = p + l + 1;
+        return true;
+}
+
+static int syslog_skip_timestamp(const char **buf, bool rfc5424) {
         enum {
                 LETTER,
                 SPACE,
                 NUMBER,
                 SPACE_OR_NUMBER,
-                COLON
-        } sequence[] = {
+                COLON,
+                DASH,
+                T,
+                DOT,
+                PLUS
+        } sequence_3164[] = {
                 LETTER, LETTER, LETTER,
                 SPACE,
                 SPACE_OR_NUMBER, NUMBER,
@@ -300,7 +322,27 @@ static int syslog_skip_timestamp(const char **buf) {
                 COLON,
                 SPACE_OR_NUMBER, NUMBER,
                 SPACE
-        };
+        }, sequence_5424[] = {
+                NUMBER, NUMBER, NUMBER, NUMBER,
+                DASH,
+                NUMBER, NUMBER,
+                DASH,
+                NUMBER, NUMBER,
+                T,
+                NUMBER, NUMBER,
+                COLON,
+                NUMBER, NUMBER,
+                COLON,
+                NUMBER, NUMBER,
+                DOT,
+                NUMBER, NUMBER, NUMBER, NUMBER, NUMBER, NUMBER,
+                PLUS,
+                NUMBER, NUMBER,
+                COLON,
+                NUMBER, NUMBER,
+                SPACE
+        }, *sequence;
+        size_t elements;
 
         const char *p, *t;
         unsigned i;
@@ -308,7 +350,15 @@ static int syslog_skip_timestamp(const char **buf) {
         assert(buf);
         assert(*buf);
 
-        for (i = 0, p = *buf; i < ELEMENTSOF(sequence); i++, p++) {
+        if (rfc5424) {
+                sequence = sequence_5424;
+                elements = ELEMENTSOF(sequence_5424);
+        } else {
+                sequence = sequence_3164;
+                elements = ELEMENTSOF(sequence_3164);
+        }
+
+        for (i = 0, p = *buf; i < elements; i++, p++) {
                 if (!*p)
                         return 0;
 
@@ -338,6 +388,26 @@ static int syslog_skip_timestamp(const char **buf) {
 
                 case COLON:
                         if (*p != ':')
+                                return 0;
+                        break;
+
+                case DASH:
+                        if (*p != '-')
+                                return 0;
+                        break;
+
+                case T:
+                        if (*p != 'T')
+                                return 0;
+                        break;
+
+                case DOT:
+                        if (*p != '.')
+                                return 0;
+                        break;
+
+                case PLUS:
+                        if (*p != '+')
                                 return 0;
                         break;
 
@@ -395,7 +465,7 @@ void manager_process_syslog_message_remote(
         ClientContext *context = NULL;
         struct iovec *iovec;
         size_t n = 0, mm, i, leading_ws, syslog_ts_len;
-        bool store_raw;
+        bool store_raw, rfc5424;
 
         log_debug("BDS: manager_process_syslog_message_remote(): start");
         assert(m);
@@ -448,8 +518,11 @@ void manager_process_syslog_message_remote(
         if (!client_context_test_priority(context, priority))
                 return;
 
+        rfc5424 = syslog_skip_rfc5424(&msg);
+        log_debug("BDS: manager_process_syslog_message_remote(): rfc5424=%s", rfc5424 ? "true" : "false");
+
         syslog_ts = msg;
-        syslog_ts_len = syslog_skip_timestamp(&msg);
+        syslog_ts_len = syslog_skip_timestamp(&msg, rfc5424);
         if (syslog_ts_len == 0)
                 /* We failed to parse the full timestamp, store the raw message too */
                 store_raw = true;
