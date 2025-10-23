@@ -1363,19 +1363,6 @@ static int mount_start(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
 
-        /* We cannot fulfill this request right now, try again later
-         * please! */
-        if (IN_SET(m->state,
-                   MOUNT_UNMOUNTING,
-                   MOUNT_UNMOUNTING_SIGTERM,
-                   MOUNT_UNMOUNTING_SIGKILL,
-                   MOUNT_CLEANING))
-                return -EAGAIN;
-
-        /* Already on it! */
-        if (IN_SET(m->state, MOUNT_MOUNTING, MOUNT_MOUNTING_DONE))
-                return 0;
-
         assert(IN_SET(m->state, MOUNT_DEAD, MOUNT_FAILED));
 
         r = unit_acquire_invocation_id(u);
@@ -2382,9 +2369,13 @@ static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
-static int mount_can_start(Unit *u) {
+static int mount_test_startable(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
+
+        /* It is already being started. */
+        if (IN_SET(m->state, MOUNT_MOUNTING, MOUNT_MOUNTING_DONE))
+                return false;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
@@ -2395,7 +2386,7 @@ static int mount_can_start(Unit *u) {
         if (!get_mount_parameters_fragment(m))
                 return -ENOENT;
 
-        return 1;
+        return true;
 }
 
 static int mount_subsystem_ratelimited(Manager *m) {
@@ -2561,7 +2552,7 @@ const UnitVTable mount_vtable = {
                 },
         },
 
-        .can_start = mount_can_start,
+        .test_startable = mount_can_start,
 
         .notify_plymouth = true,
 };
