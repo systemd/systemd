@@ -183,23 +183,6 @@ static void test_have_effective_cap(void) {
         assert_se(have_effective_cap(CAP_CHOWN) == 0);
 }
 
-static void test_update_inherited_set(void) {
-        cap_t caps;
-        uint64_t set = 0;
-        cap_flag_value_t fv;
-
-        caps = cap_get_proc();
-        assert_se(caps);
-
-        set = (UINT64_C(1) << CAP_CHOWN);
-
-        assert_se(!capability_update_inherited_set(caps, set));
-        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert_se(fv == CAP_SET);
-
-        cap_free(caps);
-}
-
 static void test_apply_ambient_caps(void) {
         cap_t caps;
         uint64_t set = 0;
@@ -335,8 +318,6 @@ int main(int argc, char *argv[]) {
 
         if (!userns_has_single_user())
                 test_drop_privileges();
-
-        test_update_inherited_set();
 
         if (!userns_has_single_user())
                 fork_test(test_have_effective_cap);

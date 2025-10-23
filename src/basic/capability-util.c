@@ -11,6 +11,7 @@
 #include "bitfield.h"
 #include "capability-list.h"
 #include "capability-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
@@ -42,6 +43,29 @@ int capability_get(CapabilityQuintet *ret) {
                 .ambient = UINT64_MAX,
         };
         return 0;
+}
+
+static int capability_apply(const CapabilityQuintet *q) {
+        assert(q);
+
+        struct __user_cap_header_struct hdr = {
+                .version = _LINUX_CAPABILITY_VERSION_3,
+                .pid = getpid_cached(),
+        };
+
+        struct __user_cap_data_struct data[_LINUX_CAPABILITY_U32S_3] = {
+                {
+                        .effective = (uint32_t) (q->effective & UINT32_MAX),
+                        .inheritable = (uint32_t) (q->inheritable & UINT32_MAX),
+                        .permitted = (uint32_t) (q->permitted & UINT32_MAX),
+                },
+                {
+                        .effective = (uint32_t) (q->effective >> 32),
+                        .inheritable = (uint32_t) (q->inheritable >> 32),
+                        .permitted = (uint32_t) (q->permitted >> 32),
+                },
+        };
+        return RET_NERRNO(syscall(SYS_capset, &hdr, data));
 }
 
 unsigned cap_last_cap(void) {
@@ -124,25 +148,7 @@ int have_inheritable_cap(unsigned cap) {
         return BIT_SET(q.inheritable, cap);
 }
 
-int capability_update_inherited_set(cap_t caps, uint64_t set) {
-        /* Add capabilities in the set to the inherited caps, drops capabilities not in the set.
-         * Do not apply them yet. */
-
-        for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                cap_flag_value_t flag = set & (UINT64_C(1) << i) ? CAP_SET : CAP_CLEAR;
-                cap_value_t v;
-
-                v = (cap_value_t) i;
-
-                if (cap_set_flag(caps, CAP_INHERITABLE, 1, &v, flag) < 0)
-                        return -errno;
-        }
-
-        return 0;
-}
-
 int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
-        _cleanup_cap_free_ cap_t caps = NULL;
         int r;
 
         /* Remove capabilities requested in ambient set, but not in the bounding set */
@@ -160,16 +166,17 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         /* Add the capabilities to the ambient set (an possibly also the inheritable set) */
 
         if (also_inherit) {
-                caps = cap_get_proc();
-                if (!caps)
-                        return -errno;
+                CapabilityQuintet q;
 
-                r = capability_update_inherited_set(caps, set);
+                r = capability_get(&q);
                 if (r < 0)
-                        return -errno;
+                        return r;
 
-                if (cap_set_proc(caps) < 0)
-                        return -errno;
+                q.inheritable = set;
+
+                r = capability_apply(&q);
+                if (r < 0)
+                        return r;
         }
 
         for (unsigned i = 0; i <= cap_last_cap(); i++)
