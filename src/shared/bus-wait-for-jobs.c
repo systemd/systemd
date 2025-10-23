@@ -45,6 +45,13 @@ BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
         return mfree(d);
 }
 
+void bus_wait_for_jobs_free_many(BusWaitForJobs **array, size_t n) {
+        FOREACH_ARRAY(i, array, n)
+                bus_wait_for_jobs_free(*i);
+
+        free(array);
+}
+
 static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
         assert(m);
 
