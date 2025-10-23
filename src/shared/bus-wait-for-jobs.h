@@ -12,6 +12,7 @@ typedef enum WaitJobsFlags {
 
 BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d);
 DEFINE_TRIVIAL_CLEANUP_FUNC(BusWaitForJobs*, bus_wait_for_jobs_free);
+void bus_wait_for_jobs_free_many(BusWaitForJobs **array, size_t n);
 
 int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret);
 int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path);
