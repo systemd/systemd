@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <sys/capability.h>     /* IWYU pragma: export */
+#include <linux/capability.h>   /* IWYU pragma: export */
 
 #include "basic-forward.h"
 
@@ -58,9 +58,6 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities);
 
 int drop_capability(unsigned cap);
 int keep_capability(unsigned cap);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(cap_t, cap_free, NULL);
-#define _cleanup_cap_free_ _cleanup_(cap_freep)
 
 static inline uint64_t all_capabilities(void) {
         return UINT64_MAX >> (63 - cap_last_cap());
