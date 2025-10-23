@@ -361,6 +361,11 @@ static inline int ordered_hashmap_dump_keys_sorted(OrderedHashmap *h, void ***re
 #define ORDERED_HASHMAP_FOREACH_KEY(e, k, h) \
         _ORDERED_HASHMAP_FOREACH_KEY(e, k, h, UNIQ_T(i, UNIQ))
 
+#define _ORDERED_HASHMAP_FOREACH_KEY_ONLY(k, h, i) \
+        for (Iterator i = ITERATOR_FIRST; ordered_hashmap_iterate((h), &i, NULL, (const void**) &(k)); )
+#define ORDERED_HASHMAP_FOREACH_KEY_ONLY(k, h) \
+        _ORDERED_HASHMAP_FOREACH_KEY_ONLY(k, h, UNIQ_T(i, UNIQ))
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free);
 
