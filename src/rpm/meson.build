@@ -1,10 +1,15 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+executables += [
+        libexec_template + {
+                'name' : 'systemd-update-helper',
+                'sources' : files('systemd-update-helper.c'),
+                'install' : rpmmacrosdir != 'no',
+        },
+]
+
 in_files = [
         ['macros.systemd',        rpmmacrosdir != 'no', rpmmacrosdir],
-
-        # we conditionalize on rpmmacrosdir, but install into libexecdir
-        ['systemd-update-helper', rpmmacrosdir != 'no', libexecdir],
 
         ['triggers.systemd',      false],
         ['triggers.systemd.sh',   false]]
