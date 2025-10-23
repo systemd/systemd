@@ -3178,7 +3178,7 @@ int bus_exec_context_set_transient_property(
                                 return r;
 
                         c->cpu_sched_policy = q;
-                        c->cpu_sched_priority = CLAMP(c->cpu_sched_priority, sched_get_priority_min(q), sched_get_priority_max(q));
+                        c->cpu_sched_priority = CLAMP(c->cpu_sched_priority, sched_get_priority_min_safe(q), sched_get_priority_max_safe(q));
                         c->cpu_sched_set = true;
 
                         unit_write_settingf(u, flags, name, "CPUSchedulingPolicy=%s", s);
