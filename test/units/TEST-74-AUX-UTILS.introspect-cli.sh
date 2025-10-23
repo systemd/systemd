@@ -142,6 +142,7 @@ INTROSPECTABLE=(
     systemd-udevd
     systemd-umount
     systemd-update-done
+    systemd-update-helper
     systemd-validatefs
     systemd-veritysetup
     systemd-vmspawn
