@@ -363,30 +363,35 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         return 0;
 }
 
-static int change_capability(cap_value_t cv, cap_flag_value_t flag) {
-        _cleanup_cap_free_ cap_t tmp_cap = NULL;
+static int change_capability(unsigned cap, bool b) {
+        CapabilityQuintet q;
+        int r;
 
-        tmp_cap = cap_get_proc();
-        if (!tmp_cap)
-                return -errno;
+        assert(cap <= CAP_LIMIT);
 
-        if ((cap_set_flag(tmp_cap, CAP_INHERITABLE, 1, &cv, flag) < 0) ||
-            (cap_set_flag(tmp_cap, CAP_PERMITTED, 1, &cv, flag) < 0) ||
-            (cap_set_flag(tmp_cap, CAP_EFFECTIVE, 1, &cv, flag) < 0))
-                return -errno;
+        r = capability_get(&q);
+        if (r < 0)
+                return r;
 
-        if (cap_set_proc(tmp_cap) < 0)
-                return -errno;
+        if (b) {
+                SET_BIT(q.effective, cap);
+                SET_BIT(q.permitted, cap);
+                SET_BIT(q.inheritable, cap);
+        } else {
+                CLEAR_BIT(q.effective, cap);
+                CLEAR_BIT(q.permitted, cap);
+                CLEAR_BIT(q.inheritable, cap);
+        }
 
-        return 0;
+        return capability_apply(&q);
 }
 
-int drop_capability(cap_value_t cv) {
-        return change_capability(cv, CAP_CLEAR);
+int drop_capability(unsigned cap) {
+        return change_capability(cap, false);
 }
 
-int keep_capability(cap_value_t cv) {
-        return change_capability(cv, CAP_SET);
+int keep_capability(unsigned cap) {
+        return change_capability(cap, true);
 }
 
 bool capability_quintet_mangle(CapabilityQuintet *q) {
