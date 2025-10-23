@@ -139,6 +139,7 @@ int pid_compare_func(const pid_t *a, const pid_t *b);
 bool nice_is_valid(int n) _const_;
 
 bool sched_policy_is_valid(int i) _const_;
+bool sched_policy_supported(int i) _const_;
 bool sched_priority_is_valid(int i) _const_;
 
 #define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer" */

@@ -1358,11 +1358,22 @@ bool nice_is_valid(int n) {
 }
 
 bool sched_policy_is_valid(int i) {
-        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
+        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR, SCHED_EXT);
 }
 
 bool sched_priority_is_valid(int i) {
         return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
+}
+
+bool sched_policy_supported(int policy)
+{
+        int ret;
+
+        ret = RET_NERRNO(sched_get_priority_min(policy));
+        if (ret == -EINVAL)
+                return false;
+
+        return true;
 }
 
 /* The cached PID, possible values:
@@ -2305,6 +2316,7 @@ static const char* const sched_policy_table[] = {
         [SCHED_BATCH] = "batch",
         [SCHED_IDLE] = "idle",
         [SCHED_FIFO] = "fifo",
+        [SCHED_EXT] = "ext",
         [SCHED_RR] = "rr",
 };
 

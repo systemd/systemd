@@ -3170,6 +3170,9 @@ int bus_exec_context_set_transient_property(
                 if (!sched_policy_is_valid(q))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling policy: %i", q);
 
+                if (!sched_policy_supported(q))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Unsupported CPU scheduling policy: %i", q);
+
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *s = NULL;
 
