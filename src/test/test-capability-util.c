@@ -182,32 +182,17 @@ static void test_have_effective_cap(void) {
 }
 
 static void test_apply_ambient_caps(void) {
-        cap_t caps;
-        uint64_t set = 0;
-        cap_flag_value_t fv;
+        ASSERT_OK_EQ_ERRNO(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0), 0);
 
-        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
+        ASSERT_OK(capability_ambient_set_apply(UINT64_C(1) << CAP_CHOWN, true));
+        ASSERT_OK_POSITIVE(have_inheritable_cap(CAP_CHOWN));
 
-        set = (UINT64_C(1) << CAP_CHOWN);
+        ASSERT_OK_EQ_ERRNO(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0), 1);
 
-        assert_se(!capability_ambient_set_apply(set, true));
+        ASSERT_OK(capability_ambient_set_apply(0, true));
+        ASSERT_OK_ZERO(have_inheritable_cap(CAP_CHOWN));
 
-        caps = cap_get_proc();
-        assert_se(caps);
-        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert_se(fv == CAP_SET);
-        cap_free(caps);
-
-        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 1);
-
-        assert_se(!capability_ambient_set_apply(0, true));
-        caps = cap_get_proc();
-        assert_se(caps);
-        assert_se(!cap_get_flag(caps, CAP_CHOWN, CAP_INHERITABLE, &fv));
-        assert_se(fv == CAP_CLEAR);
-        cap_free(caps);
-
-        assert_se(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0) == 0);
+        ASSERT_OK_EQ_ERRNO(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_IS_SET, CAP_CHOWN, 0, 0), 0);
 }
 
 static void test_ensure_cap_64_bit(void) {
