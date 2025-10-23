@@ -13,7 +13,7 @@ const char* capability_to_string(int id, char buf[static CAPABILITY_TO_STRING_MA
 #define CAPABILITY_TO_STRING(id) capability_to_string(id, (char[CAPABILITY_TO_STRING_MAX]) {})
 
 int capability_from_name(const char *name);
-int capability_list_length(void);
+unsigned capability_list_length(void);
 
 int capability_set_to_string(uint64_t set, char **ret);
 int capability_set_to_string_negative(uint64_t set, char **ret);
