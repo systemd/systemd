@@ -28,12 +28,12 @@ TEST(cap_list) {
                 ASSERT_STREQ(CAPABILITY_TO_STRING(62), "0x3e");
         assert_se(!CAPABILITY_TO_STRING(64));
 
-        for (int i = 0; i < capability_list_length(); i++) {
+        for (unsigned i = 0; i < capability_list_length(); i++) {
                 const char *n;
 
-                assert_se(n = capability_to_name(i));
-                assert_se(capability_from_name(n) == i);
-                printf("%s = %i\n", n, i);
+                ASSERT_NOT_NULL(n = capability_to_name(i));
+                ASSERT_OK_EQ(capability_from_name(n), (int) i);
+                printf("%s = %u\n", n, i);
 
                 ASSERT_STREQ(CAPABILITY_TO_STRING(i), n);
         }
@@ -49,7 +49,7 @@ TEST(cap_list) {
         assert_se(capability_from_name("64") == -EINVAL);
         assert_se(capability_from_name("-1") == -EINVAL);
 
-        for (int i = 0; i < capability_list_length(); i++) {
+        for (unsigned i = 0; i < capability_list_length(); i++) {
                 _cleanup_(cap_free_charpp) char *a = NULL;
                 const char *b;
                 unsigned u;
