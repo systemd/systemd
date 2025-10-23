@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -255,6 +256,32 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         return l;
 }
 
+size_t syslog_parse_hostname(const char **buf, char **hostname) {
+        const char *p;
+        char *t;
+        size_t l;
+
+        assert(buf);
+
+        p = *buf;
+
+        p += strspn(p, WHITESPACE);
+        l = strcspn(p, WHITESPACE);
+
+        if (l <= 0)
+                return 0;
+
+        t = strndup(p, l);
+        if (t)
+                *hostname = t;
+
+        if (p[l] != '\0' && strchr(WHITESPACE, p[l]))
+                l++;
+
+        *buf = p + l;
+        return l;
+}
+
 static int syslog_skip_timestamp(const char **buf) {
         enum {
                 LETTER,
@@ -330,18 +357,47 @@ void manager_process_syslog_message(
                 const struct timeval *tv,
                 const char *label,
                 size_t label_len) {
+        HostnameField hostname_field = HOSTNAME_NONE;
+        log_debug("BDS: manager_process_syslog_message(): start");
+        manager_process_syslog_message_remote(
+                m,
+                buf,
+                raw_len,
+                ucred,
+                tv,
+                label,
+                label_len,
+                hostname_field,
+                NULL,
+                0);
+}
+
+void manager_process_syslog_message_remote(
+                Manager *m,
+                const char *buf,
+                size_t raw_len,
+                const struct ucred *ucred,
+                const struct timeval *tv,
+                const char *label,
+                size_t label_len,
+                HostnameField hostname_field,
+                const union sockaddr_union *sa,
+                socklen_t salen) {
 
         char *t, syslog_priority[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int)],
                  syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
+        char *hostname = NULL;
         const char *msg, *syslog_ts, *a;
         _cleanup_free_ char *identifier = NULL, *pid = NULL,
-                *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;
+                *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL,
+                *sap = NULL, *sni = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
         size_t n = 0, mm, i, leading_ws, syslog_ts_len;
         bool store_raw;
 
+        log_debug("BDS: manager_process_syslog_message_remote(): start");
         assert(m);
         assert(buf);
         /* The message cannot be empty. */
@@ -398,7 +454,21 @@ void manager_process_syslog_message(
                 /* We failed to parse the full timestamp, store the raw message too */
                 store_raw = true;
 
-        syslog_parse_identifier(&msg, &identifier, &pid);
+        if (hostname_field != HOSTNAME_NONE) {
+                log_debug("BDS: manager_process_syslog_message_remote(): calling syslog_parse_hostname(%p, %p)", msg, hostname);
+                r = syslog_parse_hostname(&msg, &hostname);
+                log_debug("BDS: manager_process_syslog_message_remote(): syslog_parse_hostname()=%d", r);
+                if (r > 0)
+                        log_debug("BDS: manager_process_syslog_message_remote(): hostname=%s", hostname);
+        } else {
+                log_debug("BDS: manager_process_syslog_message_remote(): no hostname provided");
+        }
+
+        log_debug("BDS: c: calling syslog_parse_identifier(%p, %p, %p)", msg, identifier, pid);
+        r = syslog_parse_identifier(&msg, &identifier, &pid);
+        log_debug("BDS: manager_process_syslog_message_remote(): syslog_parse_identifier()=%d", r);
+        if (r > 0)
+                log_debug("BDS: manager_process_syslog_message_remote(): identifier=%s pid=%s", identifier, pid);
 
         if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
                 return;
@@ -415,7 +485,7 @@ void manager_process_syslog_message(
         if (m->config.forward_to_wall)
                 manager_forward_wall(m, priority, identifier, msg, ucred);
 
-        mm = N_IOVEC_META_FIELDS + 8 + client_context_extra_fields_n_iovec(context);
+        mm = N_IOVEC_META_FIELDS + 9 + client_context_extra_fields_n_iovec(context);
         iovec = newa(struct iovec, mm);
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=syslog");
@@ -448,6 +518,59 @@ void manager_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE(t, hlen + syslog_ts_len);
         }
 
+        _Pragma("GCC diagnostic push");
+        _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"");
+        switch (hostname_field) {
+                case HOSTNAME_USE:
+                        log_debug("BDS: manager_process_syslog_message_remote(): attempt to use the hostname in the message.");
+                        if (hostname)
+                                break;
+                case HOSTNAME_IGNORE:
+                        log_debug("BDS: manager_process_syslog_message_remote(): use the hostname from the socket.");
+                        if (!sa ||
+                            (salen != sizeof(struct sockaddr_in) &&
+                             salen != sizeof(struct sockaddr_in6))) {
+                                log_debug("BDS: manager_process_syslog_message_remote(): not a socket.");
+                                break;
+                        }
+
+                        r = sockaddr_pretty(&sa->sa, salen, true, errno, &sap);
+                        if (r < 0) {
+                                log_debug_errno(r, "BDS: manager_process_syslog_message_remote():  socket_address_print()=%m");
+                                hostname = NULL;
+                                break;
+                        }
+                        log_debug("BDS: manager_process_syslog_message_remote(): socket_address_print()=%s", sap);
+                        hostname = sap;
+
+#if 0
+                        r = socknameinfo_pretty(&sa->sa, salen, &sni);
+                        if (r < 0) {
+                                log_debug_errno(r, "BDS: socknameinfo_pretty()=%m");
+                                hostname = sap;
+                                break;
+                        }
+                        log_debug("BDS: manager_process_syslog_message_remote(): socketnameinfo_pretty()=%s", sni);
+                        hostname = sni;
+#endif
+
+                        log_debug("BDS: Accepted message from %s", hostname);
+                        break;
+                default:
+                        hostname = NULL;
+        }
+        _Pragma("GCC diagnostic pop");
+        if (hostname) {
+                log_debug("BDS: manager_process_syslog_message_remote(): hostname=%s", hostname);
+                a = strjoina("_HOSTNAME=", hostname);
+                iovec[n++] = IOVEC_MAKE_STRING(a);
+        } else if (hostname_field != HOSTNAME_NONE) {
+                log_debug("BDS: manager_process_syslog_message_remote(): hostname is NULL");
+                a = strjoina("_HOSTNAME=", "syslog/udp");
+                iovec[n++] = IOVEC_MAKE_STRING(a);
+        }
+        log_debug("BDS: manager_process_syslog_message_remote(): _HOSTNAME should be set");
+
         msg_msg = strjoin("MESSAGE=", msg);
         if (!msg_msg) {
                 log_oom();
@@ -470,6 +593,7 @@ void manager_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE(msg_raw, hlen + raw_len);
         }
 
+        log_debug("BDS: manager_process_syslog_message_remote(): dispatch message");
         manager_dispatch_message(m, iovec, n, mm, context, tv, priority, 0);
 }
 
@@ -528,6 +652,33 @@ int manager_open_syslog_socket(Manager *m, const char *syslog_socket) {
         r = sd_event_source_set_priority(m->syslog_event_source, SD_EVENT_PRIORITY_NORMAL+5);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust syslog event source priority: %m");
+
+        return 0;
+}
+
+int manager_open_udp_socket(Manager *m) {
+        int r;
+
+        log_debug("BDS: manager_open_udp_socket(): start");
+
+        assert(m);
+
+        if (m->udp_fd < 0) {
+                return log_error_errno(errno, "Not (yet) automatically opening UDP socket.");
+        } else
+                (void) fd_nonblock(m->syslog_fd, true);
+
+        r = setsockopt_int(m->udp_fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable SO_TIMESTAMP: %m");
+
+        r = sd_event_add_io(m->event, &m->udp_event_source, m->udp_fd, EPOLLIN, manager_process_datagram, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add remote syslog server fd to event loop: %m");
+
+        r = sd_event_source_set_priority(m->udp_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust remote syslog event source priority: %m");
 
         return 0;
 }
