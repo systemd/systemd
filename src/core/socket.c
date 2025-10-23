@@ -2623,26 +2623,6 @@ static int socket_start(Unit *u) {
         Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
 
-        /* We cannot fulfill this request right now, try again later
-         * please! */
-        if (IN_SET(s->state,
-                   SOCKET_STOP_PRE,
-                   SOCKET_STOP_PRE_SIGKILL,
-                   SOCKET_STOP_PRE_SIGTERM,
-                   SOCKET_STOP_POST,
-                   SOCKET_FINAL_SIGTERM,
-                   SOCKET_FINAL_SIGKILL,
-                   SOCKET_CLEANING))
-                return -EAGAIN;
-
-        /* Already on it! */
-        if (IN_SET(s->state,
-                   SOCKET_START_PRE,
-                   SOCKET_START_OPEN,
-                   SOCKET_START_CHOWN,
-                   SOCKET_START_POST))
-                return 0;
-
         /* Cannot run this without the service being around */
         if (UNIT_ISSET(s->service)) {
                 Service *service = ASSERT_PTR(SERVICE(UNIT_DEREF(s->service)));
@@ -3650,9 +3630,17 @@ static int socket_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
-static int socket_can_start(Unit *u) {
+static int socket_test_startable(Unit *u) {
         Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
+
+        /* It is already being started. */
+        if (IN_SET(s->state,
+                   SOCKET_START_PRE,
+                   SOCKET_START_OPEN,
+                   SOCKET_START_CHOWN,
+                   SOCKET_START_POST))
+                return false;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
@@ -3660,7 +3648,7 @@ static int socket_can_start(Unit *u) {
                 return r;
         }
 
-        return 1;
+        return true;
 }
 
 static const char* const socket_exec_command_table[_SOCKET_EXEC_COMMAND_MAX] = {
@@ -3801,5 +3789,5 @@ const UnitVTable socket_vtable = {
                 },
         },
 
-        .can_start = socket_can_start,
+        .test_startable = socket_test_startable,
 };
