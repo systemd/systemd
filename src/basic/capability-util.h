@@ -56,8 +56,8 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit);
 
 int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities);
 
-int drop_capability(cap_value_t cv);
-int keep_capability(cap_value_t cv);
+int drop_capability(unsigned cap);
+int keep_capability(unsigned cap);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(cap_t, cap_free, NULL);
 #define _cleanup_cap_free_ _cleanup_(cap_freep)
