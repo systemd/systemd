@@ -197,59 +197,48 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
         return 0;
 }
 
-int capability_gain_cap_setpcap(cap_t *ret_before_caps) {
-        _cleanup_cap_free_ cap_t caps = NULL;
-        cap_flag_value_t fv;
-        caps = cap_get_proc();
-        if (!caps)
-                return -errno;
+int capability_gain_cap_setpcap(void) {
+        CapabilityQuintet q;
+        int r;
 
-        if (cap_get_flag(caps, CAP_SETPCAP, CAP_EFFECTIVE, &fv) < 0)
-                return -errno;
+        r = capability_get(&q);
+        if (r < 0)
+                return r;
 
-        if (fv != CAP_SET) {
-                _cleanup_cap_free_ cap_t temp_cap = NULL;
-                static const cap_value_t v = CAP_SETPCAP;
+        if (BIT_SET(q.effective, CAP_SETPCAP))
+                return 1; /* We already have capability. */
 
-                temp_cap = cap_dup(caps);
-                if (!temp_cap)
-                        return -errno;
+        SET_BIT(q.effective, CAP_SETPCAP);
 
-                if (cap_set_flag(temp_cap, CAP_EFFECTIVE, 1, &v, CAP_SET) < 0)
-                        return -errno;
-
-                if (cap_set_proc(temp_cap) < 0)
-                        log_debug_errno(errno, "Can't acquire effective CAP_SETPCAP bit, ignoring: %m");
-
+        r = capability_apply(&q);
+        if (r < 0) {
                 /* If we didn't manage to acquire the CAP_SETPCAP bit, we continue anyway, after all this
                  * just means we'll fail later, when we actually intend to drop some capabilities or try to
                  * set securebits. */
+                log_debug_errno(r, "Can't acquire effective CAP_SETPCAP bit, ignoring: %m");
+                return 0;
         }
-        if (ret_before_caps)
-                /* Return the capabilities as they have been before setting CAP_SETPCAP */
-                *ret_before_caps = TAKE_PTR(caps);
 
-        return 0;
+        return 1; /* acquired */
 }
 
 int capability_bounding_set_drop(uint64_t keep, bool right_now) {
-        _cleanup_cap_free_ cap_t before_cap = NULL, after_cap = NULL;
-        int r;
+        int k, r;
 
         /* If we are run as PID 1 we will lack CAP_SETPCAP by default in the effective set (yes, the kernel
          * drops that when executing init!), so get it back temporarily so that we can call PR_CAPBSET_DROP. */
 
-        r = capability_gain_cap_setpcap(&before_cap);
+        CapabilityQuintet q;
+        r = capability_get(&q);
+        if (r < 0)
+                return r;
+        CapabilityQuintet saved = q;
+
+        r = capability_gain_cap_setpcap();
         if (r < 0)
                 return r;
 
-        after_cap = cap_dup(before_cap);
-        if (!after_cap)
-                return -errno;
-
         for (unsigned i = 0; i <= cap_last_cap(); i++) {
-                cap_value_t v;
-
                 if (BIT_SET(keep, i))
                         continue;
 
@@ -263,33 +252,26 @@ int capability_bounding_set_drop(uint64_t keep, bool right_now) {
                         if (prctl(PR_CAPBSET_READ, i) != 0)
                                 goto finish;
                 }
-                v = (cap_value_t) i;
 
                 /* Also drop it from the inheritable set, so that anything we exec() loses the capability for
                  * good. */
-                if (cap_set_flag(after_cap, CAP_INHERITABLE, 1, &v, CAP_CLEAR) < 0) {
-                        r = -errno;
-                        goto finish;
-                }
+                CLEAR_BIT(q.inheritable, i);
 
                 /* If we shall apply this right now drop it also from our own capability sets. */
                 if (right_now) {
-                        if (cap_set_flag(after_cap, CAP_PERMITTED, 1, &v, CAP_CLEAR) < 0 ||
-                            cap_set_flag(after_cap, CAP_EFFECTIVE, 1, &v, CAP_CLEAR) < 0) {
-                                r = -errno;
-                                goto finish;
-                        }
+                        CLEAR_BIT(q.effective, i);
+                        CLEAR_BIT(q.permitted, i);
                 }
         }
 
         r = 0;
 
 finish:
-        if (cap_set_proc(after_cap) < 0) {
+        k = capability_apply(&q);
+        if (k < 0)
                 /* If there are no actual changes anyway then let's ignore this error. */
-                if (cap_compare(before_cap, after_cap) != 0)
-                        r = -errno;
-        }
+                if (!capability_quintet_equal(&q, &saved))
+                        return k;
 
         return r;
 }
