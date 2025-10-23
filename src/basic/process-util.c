@@ -1248,11 +1248,37 @@ bool nice_is_valid(int n) {
 }
 
 bool sched_policy_is_valid(int i) {
-        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
+        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR, SCHED_EXT);
 }
 
 bool sched_priority_is_valid(int i) {
         return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
+}
+
+bool sched_policy_supported(int policy) {
+        return sched_get_priority_min(policy) >= 0;
+}
+
+/* Wrappers around sched_get_priority_{min,max}() that gracefully handles missing SCHED_EXT support in the kernel */
+int sched_get_priority_min_safe(int policy) {
+        int r;
+
+        r = sched_get_priority_min(policy);
+        if (r >= 0)
+                return r;
+
+        /* Fallback priority */
+        return 0;
+}
+
+int sched_get_priority_max_safe(int policy) {
+        int r;
+
+        r = sched_get_priority_max(policy);
+        if (r >= 0)
+                return r;
+
+        return 0;
 }
 
 /* The cached PID, possible values:
@@ -2257,9 +2283,10 @@ DEFINE_STRING_TABLE_LOOKUP(sigchld_code, int);
 static const char* const sched_policy_table[] = {
         [SCHED_OTHER] = "other",
         [SCHED_BATCH] = "batch",
-        [SCHED_IDLE] = "idle",
-        [SCHED_FIFO] = "fifo",
-        [SCHED_RR] = "rr",
+        [SCHED_IDLE]  = "idle",
+        [SCHED_FIFO]  = "fifo",
+        [SCHED_EXT]   = "ext",
+        [SCHED_RR]    = "rr",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int, INT_MAX);
