@@ -11,7 +11,7 @@ assert_in systemd-socket "$(cat /proc/"$PID"/comm)"
 assert_eq "$(echo -n hello | socat - 'TCP:localhost:1234')" hello
 assert_in systemd-socket "$(cat /proc/"$PID"/comm)"
 kill "$PID"
-wait "$PID" || :
+tail --pid="$PID" -f /dev/null
 
 PID=$(systemd-notify --fork -- systemd-socket-activate -l 1234 --now socat ACCEPT-FD:3 PIPE)
 for _ in {1..100}; do
@@ -24,7 +24,7 @@ for _ in {1..100}; do
 
     if [[ "$(cat /proc/"$PID"/comm || :)" =~ socat ]]; then
         assert_eq "$(echo -n bye | socat - 'TCP:localhost:1234')" bye
-        wait "$PID" || :
+        tail --pid="$PID" -f /dev/null
         break
     fi
 done
