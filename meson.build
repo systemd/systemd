@@ -692,7 +692,6 @@ conf.set('GPERF_LEN_TYPE', gperf_len_type,
 
 foreach header : [
         'crypt.h',
-        'sys/capability.h',
 ]
 
         if not cc.has_header(header)
@@ -1001,7 +1000,6 @@ threads = dependency('threads')
 librt = cc.find_library('rt')
 libm = cc.find_library('m')
 libdl = cc.find_library('dl')
-libcap = dependency('libcap')
 
 # On some architectures, libatomic is required. But on some installations,
 # it is found, but actual linking fails. So let's try to use it opportunistically.
@@ -2141,8 +2139,7 @@ if static_libsystemd != 'false'
                 install_tag: 'libsystemd',
                 install_dir : libdir,
                 pic : static_libsystemd_pic,
-                dependencies : [libcap,
-                                libdl,
+                dependencies : [libdl,
                                 libgcrypt_cflags,
                                 liblz4_cflags,
                                 libm,

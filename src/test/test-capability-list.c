@@ -11,11 +11,6 @@
 #include "strv.h"
 #include "tests.h"
 
-static inline void cap_free_charpp(char **p) {
-        if (*p)
-                cap_free(*p);
-}
-
 /* verify the capability parser */
 TEST(cap_list) {
         assert_se(!capability_to_name(-1));
@@ -48,25 +43,6 @@ TEST(cap_list) {
         assert_se(capability_from_name("63") == -EINVAL);
         assert_se(capability_from_name("64") == -EINVAL);
         assert_se(capability_from_name("-1") == -EINVAL);
-
-        for (unsigned i = 0; i < capability_list_length(); i++) {
-                _cleanup_(cap_free_charpp) char *a = NULL;
-                const char *b;
-                unsigned u;
-
-                assert_se(a = cap_to_name(i));
-
-                /* quit the loop as soon as libcap starts returning
-                 * numeric ids, formatted as strings */
-                if (safe_atou(a, &u) >= 0)
-                        break;
-
-                assert_se(b = capability_to_name(i));
-
-                printf("%s vs. %s\n", a, b);
-
-                assert_se(strcasecmp(a, b) == 0);
-        }
 }
 
 static void test_capability_set_one(uint64_t c, const char *t) {

@@ -18,4 +18,3 @@ URL: {{PROJECT_URL}}
 Version: {{PROJECT_VERSION}}
 Libs: -L${libdir} -lsystemd
 Cflags: -I${includedir}
-Requires.private: libcap

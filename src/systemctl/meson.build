@@ -56,7 +56,6 @@ executables += [
                 'extract' : systemctl_extract_sources,
                 'link_with' : systemctl_link_with,
                 'dependencies' : [
-                        libcap,
                         liblz4_cflags,
                         libxz_cflags,
                         libzstd_cflags,
