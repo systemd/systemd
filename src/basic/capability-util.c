@@ -20,21 +20,6 @@
 #include "stat-util.h"
 #include "user-util.h"
 
-int have_effective_cap(int value) {
-        _cleanup_cap_free_ cap_t cap = NULL;
-        cap_flag_value_t fv = CAP_CLEAR; /* To avoid false-positive use-of-uninitialized-value error reported
-                                          * by fuzzers. */
-
-        cap = cap_get_proc();
-        if (!cap)
-                return -errno;
-
-        if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
-                return -errno;
-
-        return fv == CAP_SET;
-}
-
 unsigned cap_last_cap(void) {
         static atomic_int saved = INT_MAX;
         int r, c;
@@ -87,6 +72,21 @@ unsigned cap_last_cap(void) {
         c = (int) p;
         saved = c;
         return c;
+}
+
+int have_effective_cap(int value) {
+        _cleanup_cap_free_ cap_t cap = NULL;
+        cap_flag_value_t fv = CAP_CLEAR; /* To avoid false-positive use-of-uninitialized-value error reported
+                                          * by fuzzers. */
+
+        cap = cap_get_proc();
+        if (!cap)
+                return -errno;
+
+        if (cap_get_flag(cap, value, CAP_EFFECTIVE, &fv) < 0)
+                return -errno;
+
+        return fv == CAP_SET;
 }
 
 int capability_update_inherited_set(cap_t caps, uint64_t set) {
