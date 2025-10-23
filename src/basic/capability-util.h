@@ -8,7 +8,6 @@
 /* Special marker used when storing a capabilities mask as "unset". This would need to be updated as soon as
  * Linux learns more than 63 caps. */
 #define CAP_MASK_UNSET UINT64_MAX
-assert_cc(CAP_LAST_CAP < 64);
 
 /* All possible capabilities bits on */
 #define CAP_MASK_ALL UINT64_C(0x7fffffffffffffff)
@@ -16,6 +15,7 @@ assert_cc(CAP_LAST_CAP < 64);
 /* The largest capability we can deal with, given we want to be able to store cap masks in uint64_t but still
  * be able to use UINT64_MAX as indicator for "not set". The latter makes capability 63 unavailable. */
 #define CAP_LIMIT 62
+assert_cc(CAP_LAST_CAP <= CAP_LIMIT);
 
 static inline bool capability_is_set(uint64_t v) {
         return v != CAP_MASK_UNSET;
