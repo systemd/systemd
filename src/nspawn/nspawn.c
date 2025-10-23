@@ -427,6 +427,8 @@ static int help(void) {
                "     --overlay-ro=PATH[:PATH...]:PATH\n"
                "                            Similar, but creates a read-only overlay mount\n"
                "     --bind-user=NAME       Bind user from host to container\n"
+               "     --bind-user-shell=BOOL|PATH\n"
+               "                            Configure the shell to use for --bind-user= users\n"
                "\n%3$sInput/Output:%4$s\n"
                "     --console=MODE         Select how stdin/stdout/stderr and /dev/console are\n"
                "                            set up for the container.\n"
@@ -4017,6 +4019,7 @@ static int outer_child(
                         arg_bind_user,
                         arg_bind_user_shell,
                         arg_bind_user_shell_copy,
+                        "/run/host/home",
                         &bind_user_context);
         if (r < 0)
                 return r;
@@ -6007,7 +6010,7 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                userns_fd = nsresource_allocate_userns(userns_name, UINT64_C(0x10000));
+                userns_fd = nsresource_allocate_userns(userns_name, NSRESOURCE_UIDS_64K); /* allocate 64K UIDs */
                 if (userns_fd < 0) {
                         r = log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
                         goto finish;
@@ -6019,7 +6022,7 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                arg_uid_range = UINT32_C(0x10000);
+                arg_uid_range = NSRESOURCE_UIDS_64K;
         }
 
         if (arg_directory) {

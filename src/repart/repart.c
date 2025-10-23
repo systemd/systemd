@@ -65,6 +65,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "ratelimit.h"
+#include "reread-partition-table.h"
 #include "resize-fs.h"
 #include "rm-rf.h"
 #include "set.h"
@@ -850,6 +851,16 @@ static Context* context_free(Context *context) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Context*, context_free);
+
+static void context_disarm_auto_removal(Context *context) {
+        assert(context);
+
+        /* Make sure automatic removal of half-written artifacts is disarmed */
+        context->node = mfree(context->node);
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                p->split_path = mfree(p->split_path);
+}
 
 static int context_add_free_area(
                 Context *context,
@@ -7311,12 +7322,8 @@ static int context_write_partition_table(Context *context) {
         else if (capable < 0)
                 return log_error_errno(capable, "Failed to check if block device supports partition scanning: %m");
         else if (capable > 0) {
-                log_info("Telling kernel to reread partition table.");
-
-                if (context->from_scratch)
-                        r = fdisk_reread_partition_table(context->fdisk_context);
-                else
-                        r = fdisk_reread_changes(context->fdisk_context, original_table);
+                log_info("Informing kernel about changed partitions...");
+                r = reread_partition_table_fd(fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to reread partition table: %m");
         } else
@@ -10228,10 +10235,7 @@ static int run(int argc, char *argv[]) {
 
         (void) context_dump(context, /*late=*/ true);
 
-        context->node = mfree(context->node);
-
-        LIST_FOREACH(partitions, p, context->partitions)
-                p->split_path = mfree(p->split_path);
+        context_disarm_auto_removal(context);
 
         return 0;
 }
