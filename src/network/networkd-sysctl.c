@@ -377,6 +377,8 @@ static int link_set_ip_forwarding(Link *link, int family) {
         if (FLAGS_SET(link->network->ip_masquerade, AF_TO_ADDRESS_FAMILY(family)) &&
             link->manager->ip_forwarding[family == AF_INET6] < 0) {
 
+                log_link_info(link, "IPMasquerade= is enabled on the interface, enabling the global IPv6Forwarding= setting, that may affect NDisc and DHCPv6 client on other interfaces.");
+
                 link->manager->ip_forwarding[family == AF_INET6] = true;
                 manager_set_ip_forwarding(link->manager, family);
 
