@@ -137,7 +137,7 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
                         return -errno;
         }
 
-        for (unsigned i = 0; i <= cap_last_cap(); i++) {
+        for (unsigned i = 0; i <= cap_last_cap(); i++)
                 if (BIT_SET(set, i)) {
                         /* Add the capability to the ambient set. */
                         if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_RAISE, i, 0, 0) < 0)
@@ -151,7 +151,6 @@ int capability_ambient_set_apply(uint64_t set, bool also_inherit) {
                                 if (prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_LOWER, i, 0, 0) < 0)
                                         return -errno;
                 }
-        }
 
         return 0;
 }
@@ -180,8 +179,9 @@ int capability_gain_cap_setpcap(cap_t *ret_before_caps) {
                 if (cap_set_proc(temp_cap) < 0)
                         log_debug_errno(errno, "Can't acquire effective CAP_SETPCAP bit, ignoring: %m");
 
-                /* If we didn't manage to acquire the CAP_SETPCAP bit, we continue anyway, after all this just means
-                 * we'll fail later, when we actually intend to drop some capabilities or try to set securebits. */
+                /* If we didn't manage to acquire the CAP_SETPCAP bit, we continue anyway, after all this
+                 * just means we'll fail later, when we actually intend to drop some capabilities or try to
+                 * set securebits. */
         }
         if (ret_before_caps)
                 /* Return the capabilities as they have been before setting CAP_SETPCAP */
@@ -194,10 +194,8 @@ int capability_bounding_set_drop(uint64_t keep, bool right_now) {
         _cleanup_cap_free_ cap_t before_cap = NULL, after_cap = NULL;
         int r;
 
-        /* If we are run as PID 1 we will lack CAP_SETPCAP by default
-         * in the effective set (yes, the kernel drops that when
-         * executing init!), so get it back temporarily so that we can
-         * call PR_CAPBSET_DROP. */
+        /* If we are run as PID 1 we will lack CAP_SETPCAP by default in the effective set (yes, the kernel
+         * drops that when executing init!), so get it back temporarily so that we can call PR_CAPBSET_DROP. */
 
         r = capability_gain_cap_setpcap(&before_cap);
         if (r < 0)
@@ -210,31 +208,29 @@ int capability_bounding_set_drop(uint64_t keep, bool right_now) {
         for (unsigned i = 0; i <= cap_last_cap(); i++) {
                 cap_value_t v;
 
-                if ((keep & (UINT64_C(1) << i)))
+                if (BIT_SET(keep, i))
                         continue;
 
                 /* Drop it from the bounding set */
                 if (prctl(PR_CAPBSET_DROP, i) < 0) {
                         r = -errno;
 
-                        /* If dropping the capability failed, let's see if we didn't have it in the first place. If so,
-                         * continue anyway, as dropping a capability we didn't have in the first place doesn't really
-                         * matter anyway. */
+                        /* If dropping the capability failed, let's see if we didn't have it in the first
+                         * place. If so, continue anyway, as dropping a capability we didn't have in the
+                         * first place doesn't really matter anyway. */
                         if (prctl(PR_CAPBSET_READ, i) != 0)
                                 goto finish;
                 }
                 v = (cap_value_t) i;
 
-                /* Also drop it from the inheritable set, so
-                 * that anything we exec() loses the
-                 * capability for good. */
+                /* Also drop it from the inheritable set, so that anything we exec() loses the capability for
+                 * good. */
                 if (cap_set_flag(after_cap, CAP_INHERITABLE, 1, &v, CAP_CLEAR) < 0) {
                         r = -errno;
                         goto finish;
                 }
 
-                /* If we shall apply this right now drop it
-                 * also from our own capability sets. */
+                /* If we shall apply this right now drop it also from our own capability sets. */
                 if (right_now) {
                         if (cap_set_flag(after_cap, CAP_PERMITTED, 1, &v, CAP_CLEAR) < 0 ||
                             cap_set_flag(after_cap, CAP_EFFECTIVE, 1, &v, CAP_CLEAR) < 0) {
@@ -307,7 +303,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
         if (setresgid(gid, gid, gid) < 0)
                 return log_error_errno(errno, "Failed to change group ID: %m");
 
-        r = maybe_setgroups(0, NULL);
+        r = maybe_setgroups(/* size= */ 0, /* list= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop auxiliary groups list: %m");
 
@@ -325,7 +321,7 @@ int drop_privileges(uid_t uid, gid_t gid, uint64_t keep_capabilities) {
 
         /* Drop all caps from the bounding set (as well as the inheritable/permitted/effective sets), except
          * the ones we want to keep */
-        r = capability_bounding_set_drop(keep_capabilities, true);
+        r = capability_bounding_set_drop(keep_capabilities, /* right_now= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop capabilities: %m");
 
@@ -568,7 +564,7 @@ int capability_quintet_enforce(const CapabilityQuintet *q) {
         }
 
         if (q->bounding != CAP_MASK_UNSET) {
-                r = capability_bounding_set_drop(q->bounding, false);
+                r = capability_bounding_set_drop(q->bounding, /* right_now= */ false);
                 if (r < 0)
                         return r;
         }
