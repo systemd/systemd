@@ -17,6 +17,28 @@
 #define CAP_LIMIT 62
 assert_cc(CAP_LAST_CAP <= CAP_LIMIT);
 
+/* Identical to linux/capability.h's CAP_TO_MASK(), but uses an unsigned 1U instead of a signed 1 for shifting left, in
+ * order to avoid complaints about shifting a signed int left by 31 bits, which would make it negative. */
+#define CAP_TO_MASK_CORRECTED(x) (1U << ((x) & 31U))
+
+typedef struct CapabilityQuintet {
+        /* Stores all five types of capabilities in one go. */
+        uint64_t effective;
+        uint64_t bounding;
+        uint64_t inheritable;
+        uint64_t permitted;
+        uint64_t ambient;
+} CapabilityQuintet;
+
+#define CAPABILITY_QUINTET_NULL         \
+        (const CapabilityQuintet) {     \
+                CAP_MASK_UNSET,         \
+                CAP_MASK_UNSET,         \
+                CAP_MASK_UNSET,         \
+                CAP_MASK_UNSET,         \
+                CAP_MASK_UNSET,         \
+        }
+
 static inline bool capability_is_set(uint64_t v) {
         return v != CAP_MASK_UNSET;
 }
@@ -45,21 +67,6 @@ static inline uint64_t all_capabilities(void) {
 static inline bool cap_test_all(uint64_t caps) {
         return FLAGS_SET(caps, all_capabilities());
 }
-
-/* Identical to linux/capability.h's CAP_TO_MASK(), but uses an unsigned 1U instead of a signed 1 for shifting left, in
- * order to avoid complaints about shifting a signed int left by 31 bits, which would make it negative. */
-#define CAP_TO_MASK_CORRECTED(x) (1U << ((x) & 31U))
-
-typedef struct CapabilityQuintet {
-        /* Stores all five types of capabilities in one go. */
-        uint64_t effective;
-        uint64_t bounding;
-        uint64_t inheritable;
-        uint64_t permitted;
-        uint64_t ambient;
-} CapabilityQuintet;
-
-#define CAPABILITY_QUINTET_NULL (const CapabilityQuintet) { CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET, CAP_MASK_UNSET }
 
 static inline bool capability_quintet_is_set(const CapabilityQuintet *q) {
         return capability_is_set(q->effective) ||
