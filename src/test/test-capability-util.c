@@ -241,11 +241,9 @@ static void test_ensure_cap_64_bit(void) {
 
         ASSERT_OK(safe_atolu(content, &p));
 
-        /* If caps don't fit into 64-bit anymore, we have a problem, fail the test. */
-        assert_se(p <= 63);
-
-        /* Also check for the header definition */
-        assert_cc(CAP_LAST_CAP <= 63);
+        /* If caps don't fit into 64-bit anymore, we have a problem, fail the test. Moreover, we use
+         * UINT64_MAX as unset, hence it must be smaller than or equals to 62 (CAP_LIMIT). */
+        assert_se(p <= CAP_LIMIT);
 }
 
 static void test_capability_get_ambient(void) {
