@@ -65,7 +65,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
 
                 r = sd_device_get_devname(dev, &node);
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to get device node of discovered block device, ignoring: %m");
+                        log_device_warning_errno(dev, r, "Failed to get device node of discovered block device, ignoring: %m");
                         continue;
                 }
 
@@ -74,7 +74,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
 
                         r = sd_device_get_devnum(dev, &devno);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to get major/minor of discovered block device, ignoring: %m");
+                                log_device_warning_errno(dev, r, "Failed to get major/minor of discovered block device, ignoring: %m");
                                 continue;
                         }
 
@@ -85,7 +85,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_ZRAM)) {
                         r = device_sysname_startswith(dev, "zram");
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to check device name of discovered block device '%s', ignoring: %m", node);
+                                log_device_warning_errno(dev, r, "Failed to check device name of discovered block device '%s', ignoring: %m", node);
                                 continue;
                         }
                         if (r > 0)
@@ -95,27 +95,26 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_REQUIRE_PARTITION_SCANNING)) {
                         r = blockdev_partscan_enabled(dev);
                         if (r < 0) {
-                                log_warning_errno(r, "Unable to determine whether '%s' supports partition scanning, skipping device: %m", node);
+                                log_device_warning_errno(dev, r, "Unable to determine whether '%s' supports partition scanning, skipping device: %m", node);
                                 continue;
                         }
                         if (r == 0) {
-                                log_debug("Device '%s' does not support partition scanning, skipping.", node);
+                                log_device_debug(dev, "Device '%s' does not support partition scanning, skipping.", node);
                                 continue;
                         }
                 }
 
                 uint64_t size = UINT64_MAX;
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_EMPTY) || ret_devices) {
-
                         r = device_get_sysattr_u64(dev, "size", &size);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to acquire size of device '%s', ignoring: %m", node);
+                                log_device_debug_errno(dev, r, "Failed to acquire size of device '%s', ignoring: %m", node);
                         else
                                 /* the 'size' sysattr is always in multiples of 512, even on 4K sector block devices! */
                                 assert_se(MUL_ASSIGN_SAFE(&size, 512)); /* Overflow check for coverity */
 
                         if (size == 0 && FLAGS_SET(flags, BLOCKDEV_LIST_IGNORE_EMPTY)) {
-                                log_debug("Device '%s' has a zero size, assuming drive without a medium, skipping.", node);
+                                log_device_debug(dev, "Device '%s' has a zero size, assuming drive without a medium, skipping.", node);
                                 continue;
                         }
                 }
@@ -133,7 +132,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                         uint64_t diskseq = UINT64_MAX;
                         r = sd_device_get_diskseq(dev, &diskseq);
                         if (r < 0)
-                                log_debug_errno(r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
+                                log_device_debug_errno(dev, r, "Failed to acquire diskseq of device '%s', ignoring: %m", node);
 
                         if (!GREEDY_REALLOC(l, n+1))
                                 return log_oom();
