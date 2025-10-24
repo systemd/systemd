@@ -1070,7 +1070,7 @@ check deny no "$name"
 
 # Let's also test the "image-policy" verb
 
-systemd-analyze image-policy '*' 2>&1 | grep -q -F "Long form: =verity+signed+encrypted+unprotected+unused+absent"
+systemd-analyze image-policy '*' 2>&1 | grep -q -F "Long form: =verity+signed+encrypted+encryptedwithintegrity+unprotected+unused+absent"
 systemd-analyze image-policy '-' 2>&1 | grep -q -F "Long form: =unused+absent"
 systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -F "Long form: usr=verity:home=encrypted:=unused+absent"
 systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^home \+encrypted \+'
