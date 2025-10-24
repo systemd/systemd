@@ -5676,7 +5676,8 @@ _public_ int sd_json_dispatch_variant_noref(const char *name, sd_json_variant *v
 
 _public_ int sd_json_dispatch_uid_gid(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         uid_t *uid = userdata;
-        uint64_t k;
+        uint32_t k;
+        int r;
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
@@ -5693,11 +5694,10 @@ _public_ int sd_json_dispatch_uid_gid(const char *name, sd_json_variant *variant
                 return 0;
         }
 
-        if (!sd_json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
-
-        k = sd_json_variant_unsigned(variant);
-        if (k > UINT32_MAX || !uid_is_valid(k))
+        r = sd_json_dispatch_uint32(name, variant, flags, &k);
+        if (r < 0)
+                return r;
+        if (!uid_is_valid(k))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid UID/GID.", strna(name));
 
         *uid = k;
