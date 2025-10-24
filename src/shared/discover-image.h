@@ -39,8 +39,9 @@ typedef struct Image {
         char **sysext_release;
         char **confext_release;
 
-        bool metadata_valid:1;
-        bool discoverable:1;  /* true if we know for sure that image_find() would find the image given just the short name */
+        bool metadata_valid:1;     /* true if the above 6 metadata fields have been read from the image */
+        bool discoverable:1;       /* true if we know for sure that image_find() would find the image given just the short name */
+        bool foreign_uid_owned:1;  /* true if this is of type IMAGE_DIRECTORY/IMAGE_SUBVOLUME and owned by foreign UID range */
 
         void *userdata;
 } Image;
@@ -84,16 +85,28 @@ static inline char** image_extension_release(Image *image, ImageClass class) {
         return NULL;
 }
 
-static inline bool image_is_hidden(const struct Image *i) {
+static inline bool image_is_hidden(const Image *i) {
         assert(i);
 
         return i->name && i->name[0] == '.';
 }
 
-bool image_is_vendor(const struct Image *i);
-bool image_is_host(const struct Image *i);
+static inline int image_is_read_only(const Image *i) {
+        assert(i);
 
-int image_to_json(const struct Image *i, sd_json_variant **ret);
+        /* We enforce the rule that hidden images are always read-only too. If people want to change hidden
+         * images they should make a copy first, and make that one mutable */
+
+        if (image_is_hidden(i))
+                return true;
+
+        return i->read_only;
+}
+
+bool image_is_vendor(const Image *i);
+bool image_is_host(const Image *i);
+
+int image_to_json(const Image *i, sd_json_variant **ret);
 
 int image_root_pick(RuntimeScope scope, ImageClass c, bool runtime, char **ret);
 
