@@ -409,6 +409,46 @@ static int session_load_devices(Session *s, const char *devices) {
         return r;
 }
 
+static int session_load_leader(Session *s, uint64_t pidfdid) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        assert(s);
+        assert(pid_is_valid(s->deserialized_pid));
+        assert(!pidref_is_set(&s->leader));
+
+        if (pidfdid == 0 && s->leader_fd_saved)
+                /* We have no pidfd id for stable reference, but the pidfd has been submitted to fdstore.
+                 * manager_enumerate_fds() will dispatch the leader fd for us later. */
+                return 0;
+
+        r = pidref_set_pid(&pidref, s->deserialized_pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to deserialize leader PID for session '%s': %m", s->id);
+        if (p.fd < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to acquire pidfd for session leader '" PID_FMT "', refusing.",
+                                       pidref.pid);
+
+        if (pidfdid > 0) {
+                r = pidref_acquire_pidfd_id(&pidref);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire pidfd id of deserialized leader '" PID_FMT "': %m",
+                                               pidref.pid);
+
+                if (pidref.fd_id != pidfdid)
+                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH),
+                                               "Deserialized pidfd id for process " PID_FMT " (" PRIu64 ") doesn't match with the current one (" PRIu64 "), refusing.",
+                                               pidfdid, pidref.fd_id);
+        }
+
+        r = session_set_leader_consume(s, TAKE_PIDREF(pidref));
+        if (r < 0)
+                return log_error_errno(r, "Failed to set leader PID for session '%s': %m", s->id);
+
+        return 0;
+}
+
 int session_load(Session *s) {
         _cleanup_free_ char *remote = NULL,
                 *seat = NULL,
@@ -418,6 +458,7 @@ int session_load(Session *s) {
                 *position = NULL,
                 *leader_pid = NULL,
                 *leader_fd_saved = NULL,
+                *leader_pidfdid = NULL,
                 *type = NULL,
                 *original_type = NULL,
                 *class = NULL,
@@ -452,6 +493,7 @@ int session_load(Session *s) {
                            "POSITION",        &position,
                            "LEADER",          &leader_pid,
                            "LEADER_FD_SAVED", &leader_fd_saved,
+                           "LEADER_PIDFDID",  &leader_pidfdid,
                            "TYPE",            &type,
                            "ORIGINAL_TYPE",   &original_type,
                            "CLASS",           &class,
@@ -594,8 +636,6 @@ int session_load(Session *s) {
         }
 
         if (leader_pid) {
-                assert(!pidref_is_set(&s->leader));
-
                 r = parse_pid(leader_pid, &s->deserialized_pid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse LEADER=%s: %m", leader_pid);
@@ -605,25 +645,19 @@ int session_load(Session *s) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse LEADER_FD_SAVED=%s: %m", leader_fd_saved);
                         s->leader_fd_saved = r > 0;
-
-                        if (s->leader_fd_saved)
-                                /* The leader fd will be acquired from fdstore later */
-                                return 0;
                 }
 
-                _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
+                uint64_t pidfdid;
+                if (leader_pidfdid) {
+                        r = safe_atou64(leader_pidfdid, &pidfdid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse LEADER_PIDFDID=%s: %m", leader_pidfdid);
+                } else
+                        pidfdid = 0;
 
-                r = pidref_set_pid(&p, s->deserialized_pid);
+                r = session_load_leader(s, pidfdid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to deserialize leader PID for session '%s': %m", s->id);
-                if (p.fd < 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                               "Failed to acquire pidfd for session leader '" PID_FMT "', refusing.",
-                                               p.pid);
-
-                r = session_set_leader_consume(s, TAKE_PIDREF(p));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to set leader PID for session '%s': %m", s->id);
+                        return r;
         }
 
         return 0;
