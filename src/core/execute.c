@@ -26,6 +26,7 @@
 #include "escape.h"
 #include "execute.h"
 #include "execute-serialize.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "fdset.h"
 #include "fileio.h"
@@ -36,6 +37,7 @@
 #include "image-policy.h"
 #include "io-util.h"
 #include "ioprio-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "manager.h"
 #include "mkdir.h"
@@ -55,6 +57,7 @@
 #include "securebits-util.h"
 #include "serialize.h"
 #include "set.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -650,6 +653,9 @@ void exec_context_init(ExecContext *c) {
                 .set_login_environment = -1,
         };
 
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                c->root_image_fsmount_fds[i] = -EBADF;
+
         FOREACH_ARRAY(d, c->directories, _EXEC_DIRECTORY_TYPE_MAX)
                 d->mode = 0755;
 
@@ -677,6 +683,8 @@ void exec_context_done(ExecContext *c) {
         c->root_directory = mfree(c->root_directory);
         c->root_image = mfree(c->root_image);
         c->root_image_options = mount_options_free_all(c->root_image_options);
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                c->root_image_fsmount_fds[i] = safe_close(c->root_image_fsmount_fds[i]);
         c->root_hash = mfree(c->root_hash);
         c->root_hash_size = 0;
         c->root_hash_path = mfree(c->root_hash_path);
@@ -753,6 +761,143 @@ void exec_context_done(ExecContext *c) {
         c->extension_image_policy = image_policy_free(c->extension_image_policy);
 
         c->private_hostname = mfree(c->private_hostname);
+}
+
+void exec_context_images_fds_done(ExecContext *c) {
+        if (!c)
+                return;
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                c->root_image_fsmount_fds[i] = safe_close(c->root_image_fsmount_fds[i]);
+        FOREACH_ARRAY(m, c->extension_images, c->n_extension_images)
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                        m->fsmount_fds[i] = safe_close(m->fsmount_fds[i]);
+        FOREACH_ARRAY(m, c->mount_images, c->n_mount_images)
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                        m->fsmount_fds[i] = safe_close(m->fsmount_fds[i]);
+}
+
+int exec_context_dissect_and_send_all(int socket, const ExecContext *c) {
+        int r;
+
+        assert(socket >= 0);
+        assert(c);
+
+        if (c->root_image && !c->root_ephemeral) {
+                r = verity_dissect_and_send(
+                                socket,
+                                c->root_image,
+                                c->root_hash, c->root_hash_size, c->root_hash_path,
+                                c->root_hash_sig, c->root_hash_sig_size, c->root_hash_sig_path,
+                                c->root_verity,
+                                /* ignore_enoent= */ false,
+                                c->root_image_options,
+                                c->root_image_policy);
+                if (r < 0)
+                        return r;
+        }
+
+        FOREACH_ARRAY(m, c->extension_images, c->n_extension_images) {
+                r = verity_dissect_and_send(
+                        socket,
+                        m->source,
+                        /* root_hash= */ NULL, /* root_hash_size= */ 0, /* root_hash_path= */ NULL,
+                        /* root_hash_sig= */ NULL, /* root_hash_sig_size= */ 0, /* root_hash_sig_path= */ NULL,
+                        /* root_verity= */ NULL,
+                        m->ignore_enoent,
+                        m->mount_options,
+                        c->extension_image_policy);
+                if (r < 0)
+                        return r;
+        }
+
+        FOREACH_ARRAY(m, c->mount_images, c->n_mount_images) {
+                r = verity_dissect_and_send(
+                        socket,
+                        m->source,
+                        /* root_hash= */ NULL, /* root_hash_size= */ 0, /* root_hash_path= */ NULL,
+                        /* root_hash_sig= */ NULL, /* root_hash_sig_size= */ 0, /* root_hash_sig_path= */ NULL,
+                        /* root_verity= */ NULL,
+                        m->ignore_enoent,
+                        m->mount_options,
+                        c->mount_image_policy);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+void exec_context_dissect_receive_all(int socket, const Unit *u, ExecContext *c) {
+        int r;
+
+        assert(socket >= 0);
+        assert(u);
+        assert(c);
+
+        for (;;) {
+                char buf[PATH_MAX];
+                _cleanup_free_ char *image = NULL, *designator = NULL;
+                struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
+                _cleanup_close_ int fd = -EBADF;
+                ssize_t k;
+
+                k = receive_one_fd_iov(socket, &iov, 1, MSG_DONTWAIT, &fd);
+                if (IN_SET(k, -EIO, -EAGAIN))
+                        break;
+                if (k < 0)
+                        return (void) log_debug_errno(k, "Failed to receive item: %m");
+                buf[k] = '\0'; /* paranoia */
+
+                const char *p = buf;
+                r = extract_many_words(&p, " ", 0, &image, &designator, NULL);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse received image descriptor '%s', ignoring: %m", buf);
+                        continue;
+                }
+                if (r != 2) {
+                        log_debug("Received invalid image descriptor '%s', ignoring.", buf);
+                        continue;
+                }
+
+                PartitionDesignator pd = partition_designator_from_string(designator);
+                if (pd < 0) {
+                        log_debug("Received invalid partition designator '%s' for image '%s', ignoring.", designator, image);
+                        continue;
+                }
+
+                if (streq_ptr(image, c->root_image)) {
+                        if (c->root_image_fsmount_fds[pd] >= 0)
+                                log_unit_debug(u, "Received multiple FDs for root image '%s', ignoring.", c->root_image);
+                        else
+                                c->root_image_fsmount_fds[pd] = TAKE_FD(fd);
+                        log_debug("DBG: received preloaded image '%s'", c->root_image);
+                        continue;
+                }
+
+                FOREACH_ARRAY(m, c->extension_images, c->n_extension_images)
+                        if (streq(image, m->source)) {
+                                if (m->fsmount_fds[pd] >= 0)
+                                        log_unit_debug(u, "Received multiple FDs for extension image '%s', ignoring.", m->source);
+                                else
+                                        m->fsmount_fds[pd] = TAKE_FD(fd);
+                                log_debug("DBG: received preloaded image '%s'", m->source);
+                                break;
+                        }
+
+                if (fd < 0)
+                        continue;
+
+                FOREACH_ARRAY(m, c->mount_images, c->n_mount_images)
+                        if (streq(image, m->source)) {
+                                if (m->fsmount_fds[pd] >= 0)
+                                        log_unit_debug(u, "Received multiple FDs for mount image '%s', ignoring.", m->source);
+                                else
+                                        m->fsmount_fds[pd] = TAKE_FD(fd);
+                                log_debug("DBG: received preloaded image '%s'", m->source);
+                                break;
+                        }
+        }
 }
 
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix) {
@@ -2069,6 +2214,36 @@ int exec_context_has_vpicked_extensions(const ExecContext *context) {
         }
 
         return 0;
+}
+
+bool exec_context_has_images(const ExecContext *context) {
+        assert(context);
+
+        return context->n_extension_images > 0 ||
+               context->n_mount_images > 0 ||
+               context->root_image;
+}
+
+bool exec_context_should_preload(const ExecContext *context) {
+        assert(context);
+
+        if (!exec_context_has_images(context))
+                return false;
+
+        /* mountfsd does not support custom mount options */
+        // TODO: drop this once mount options have been refactored and mountfsd supports them
+        if (context->root_image_options)
+                return false;
+
+        FOREACH_ARRAY(mount, context->extension_images, context->n_extension_images)
+                if (mount->mount_options)
+                        return false;
+
+        FOREACH_ARRAY(mount, context->mount_images, context->n_mount_images)
+                if (mount->mount_options)
+                        return false;
+
+        return true;
 }
 
 void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts) {
