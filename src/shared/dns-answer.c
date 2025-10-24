@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "dns-answer.h"
 #include "dns-domain.h"
@@ -865,4 +867,37 @@ uint32_t dns_answer_min_ttl(DnsAnswer *a) {
         }
 
         return ttl;
+}
+
+int dns_answer_to_json(DnsAnswer *answer, sd_json_variant **ret) {
+        int r;
+
+        assert(ret);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ja = NULL;
+        DnsResourceRecord *rr;
+        DNS_ANSWER_FOREACH(rr, answer) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = dns_resource_record_to_json(rr, &v);
+                if (r < 0)
+                        return r;
+
+                r = dns_resource_record_to_wire_format(rr, /* canonical= */ false);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_arraybo(
+                                &ja,
+                                SD_JSON_BUILD_PAIR_VARIANT("rr", v),
+                                SD_JSON_BUILD_PAIR_BASE64("raw", rr->wire_format, rr->wire_format_size));
+                if (r < 0)
+                        return r;
+        }
+
+        if (!ja)
+                return sd_json_variant_new_array(ret, /* array=*/ NULL, /* n= */ 0);
+
+        *ret = TAKE_PTR(ja);
+        return 0;
 }

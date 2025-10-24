@@ -159,6 +159,9 @@ typedef struct Manager {
 
         /* Map varlink links to DnsServiceBrowser instances. */
         Hashmap *dns_service_browsers;
+
+        Hashmap *hooks;
+        struct stat hook_stat;
 } Manager;
 
 /* Manager */
