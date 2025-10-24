@@ -40,6 +40,7 @@
 #include "process-util.h"
 #include "service-util.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "udev-util.h"
@@ -448,18 +449,23 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
         assert(fdname);
         assert(fd >= 0);
 
-        if (!pid_is_valid(s->deserialized_pid)) {
+        /* Already deserialized via pidfd id? */
+        if (pidref_is_set(&s->leader)) {
+                r = fd_inode_same(fd, s->leader.fd);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to compare pidfd with deserialized session leader for '%s': %m",
+                                                 s->id);
+                if (r > 0)
+                        return 0;
+
+                log_warning("Deserialized session leader mismatches with pidfd, continuing with pidfd.");
+
+        } else if (!pid_is_valid(s->deserialized_pid)) {
                 r = log_warning_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
                                       "Got leader pidfd for session '%s', but LEADER= is not set, refusing.",
                                       s->id);
                 goto fail_close;
         }
-
-        if (!s->leader_fd_saved)
-                log_warning("Got leader pidfd for session '%s', but not recorded in session state, proceeding anyway.",
-                            s->id);
-        else
-                assert(!pidref_is_set(&s->leader));
 
         r = pidref_set_pidfd_take(&leader_fdstore, fd);
         if (r < 0) {
