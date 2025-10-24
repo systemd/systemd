@@ -9868,8 +9868,8 @@ static int vl_method_list_candidate_devices(
                                 &v,
                                 SD_JSON_BUILD_PAIR_STRING("node", d->node),
                                 JSON_BUILD_PAIR_STRV_NON_EMPTY("symlinks", d->symlinks),
-                                SD_JSON_BUILD_PAIR_CONDITION(d->diskseq != UINT64_MAX, "diskseq", SD_JSON_BUILD_INTEGER(d->diskseq)),
-                                SD_JSON_BUILD_PAIR_CONDITION(d->size != UINT64_MAX, "sizeBytes", SD_JSON_BUILD_INTEGER(d->size)));
+                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("diskseq", d->diskseq, UINT64_MAX),
+                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("sizeBytes", d->size, UINT64_MAX));
                 if (r < 0)
                         return r;
         }
