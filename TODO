@@ -1640,10 +1640,6 @@ Features:
   work for ECDSA keys since their signatures contain a random component, but
   will work for RSA and Ed25519 keys.
 
-* drop dependency on libcap, replace by direct syscalls based on
-  CapabilityQuintet we already have. (This likely allows us to drop libcap
-  dep in the base OS image)
-
 * userdbd: implement an additional varlink service socket that provides the
   host user db in restricted form, then allow this to be bind mounted into
   sandboxed environments that want the host database in minimal form. All

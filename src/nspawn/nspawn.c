@@ -480,7 +480,7 @@ static int parse_capability_spec(const char *spec, uint64_t *ret_mask) {
                         break;
 
                 if (streq(t, "help")) {
-                        for (int i = 0; i < capability_list_length(); i++) {
+                        for (unsigned i = 0; i < capability_list_length(); i++) {
                                 const char *name;
 
                                 name = capability_to_name(i);
