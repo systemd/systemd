@@ -81,6 +81,7 @@ int main(int argc, char *argv[]) {
                 .runtime_scope = RUNTIME_SCOPE_SYSTEM,
 
                 .root_directory = root_directory,
+                .root_image_fsmount_fds = { [0 ... _PARTITION_DESIGNATOR_MAX - 1] = -EBADF },
 
                 .read_write_paths = (char**) writable,
                 .read_only_paths = (char**) readonly,
