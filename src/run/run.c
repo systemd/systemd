@@ -686,7 +686,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_BACKGROUND:
-                        r = free_and_strdup_warn(&arg_background, optarg);
+                        r = parse_background_argument(optarg, &arg_background);
                         if (r < 0)
                                 return r;
                         break;
@@ -978,7 +978,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case ARG_BACKGROUND:
-                        r = free_and_strdup_warn(&arg_background, optarg);
+                        r = parse_background_argument(optarg, &arg_background);
                         if (r < 0)
                                 return r;
 
