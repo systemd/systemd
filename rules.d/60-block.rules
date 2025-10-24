@@ -13,4 +13,4 @@ ACTION!="remove", SUBSYSTEM=="block", \
   OPTIONS+="watch"
 
 # Reset access rights to each loopback device once it gets detached.
-SUBSYSTEM=="block", ACTION=="change", ENV{DISK_MEDIA_CHANGE}=="1", TEST!="loop/backing_file", GROUP="disk", MODE="660"
+ACTION=="change", SUBSYSTEM=="block", KERNEL=="loop*", ENV{DISK_MEDIA_CHANGE}=="1", TEST!="loop/backing_file", GROUP="disk", MODE="660"
