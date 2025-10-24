@@ -4,11 +4,13 @@
 
 #include "alloc-util.h"
 #include "ask-password-api.h"
+#include "cryptsetup-fido2.h"
 #include "cryptsetup-tpm2.h"
 #include "cryptsetup-util.h"
 #include "env-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
+#include "libfido2-util.h"
 #include "log.h"
 #include "random-util.h"
 #include "strv.h"
@@ -63,8 +65,55 @@ static int get_pin(
 }
 #endif
 
+static int get_fido2_secret(
+                const char *volume_name,
+                const char *friendly_name,
+                const char *device,
+                struct iovec *fido2_cid,
+                struct iovec *fido2_salt,
+                const char *fido2_rp,
+                Fido2EnrollFlags fido2_flags,
+                usec_t until,
+                const char *askpw_credential,
+                AskPasswordFlags askpw_flags,
+                char **ret_fido2_secret_str) {
+
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_(erase_and_freep) char *base64_encoded = NULL;
+        size_t decrypted_key_size, base64_encoded_size;
+        inr r;
+
+        r = acquire_fido2_key(
+                        volume_name,
+                        friendly_name,
+                        fido2_device,
+                        fido2_rp,
+                        fido2_cid.iov_base, fido2_cid.iov_len,
+                        /* key_file= */ NULL,
+                        /* key_file_size= */ 0,
+                        /* key_file_offset= */ 0,
+                        fido2_salt,
+                        until,
+                        fido2_flags,
+                        "cryptsetup.fido2-pin",
+                        askpw_flags,
+                        &decrypted_key,
+                        &decrypted_key_size);
+        if (r < 0)
+                return r;
+
+        base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+        if (base64_encoded_size < 0)
+                return log_oom();
+
+        *ret_fido2_secret_str = TAKE_PTR(base64_encoded);
+
+        return 0;
+}
+
 int acquire_tpm2_key(
                 const char *volume_name,
+                const char *friendly_name,
                 const char *device,
                 uint32_t hash_pcr_mask,
                 uint16_t pcr_bank,
@@ -84,6 +133,10 @@ int acquire_tpm2_key(
                 const struct iovec *srk,
                 const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
+                struct iovec *fido2_cid,
+                struct iovec *fido2_salt,
+                const char *fido2_rp,
+                Fido2EnrollFlags fido2_flags,
                 usec_t until,
                 const char *askpw_credential,
                 AskPasswordFlags askpw_flags,
@@ -93,6 +146,7 @@ int acquire_tpm2_key(
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *signature_json = NULL;
         _cleanup_(iovec_done) struct iovec loaded_blob = {};
         _cleanup_free_ char *auto_device = NULL;
+        _cleanup_(erase_and_freep) char *fido2_secret_str = NULL;
         int r;
 
         assert(iovec_is_valid(salt));
@@ -126,6 +180,13 @@ int acquire_tpm2_key(
 
                 blobs = &loaded_blob;
                 n_blobs = 1;
+        }
+
+        if (FLAGS_SET(flags, TPM2_FLAGS_USE_FIDO2)) {
+                r = get_fido2_secret(volume_name, friendly_name, device, fido2_cid, fido2_salt, fido2_rp,
+                                     fido2_flags, until, askpw_credential, askpw_flags, &fido2_secret_str);
+                if (r < 0)
+                        return r;
         }
 
         if (pubkey_pcr_mask != 0) {
@@ -163,6 +224,7 @@ int acquire_tpm2_key(
                                 pubkey_pcr_mask,
                                 signature_json,
                                 /* pin= */ NULL,
+                                fido2_secret_str,
                                 FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
                                 primary_alg,
                                 blobs,
@@ -174,7 +236,7 @@ int acquire_tpm2_key(
                 if (r == -EREMOTE)
                         return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
@@ -215,6 +277,7 @@ int acquire_tpm2_key(
                                 pubkey_pcr_mask,
                                 signature_json,
                                 b64_salted_pin,
+                                fido2_secret_str,
                                 FLAGS_SET(flags, TPM2_FLAGS_USE_PCRLOCK) ? &pcrlock_policy : NULL,
                                 primary_alg,
                                 blobs,
@@ -226,7 +289,7 @@ int acquire_tpm2_key(
                 if (r == -EREMOTE)
                         return log_error_errno(r, "TPM key integrity check failed. Key enrolled in superblock most likely does not belong to this TPM.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 if (r == -ENOLCK)
                         return log_error_errno(r, "TPM is in dictionary attack lock-out mode.");
                 if (r == -EILSEQ) {
@@ -260,6 +323,10 @@ int find_tpm2_auto_data(
                 struct iovec *ret_srk,
                 struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags,
+                struct iovec *ret_fido2_cid,
+                struct iovec *ret_fido2_salt,
+                char **ret_fido2_rp,
+                Fido2EnrollFlags *ret_fido2_flags,
                 int *ret_keyslot,
                 int *ret_token) {
 
@@ -280,17 +347,23 @@ int find_tpm2_auto_data(
         assert(ret_srk);
         assert(ret_pcrlock_nv);
         assert(ret_flags);
+        assert(ret_fido2_cid);
+        assert(ret_fido2_salt);
+        assert(ret_fido2_rp);
+        assert(ret_fido2_flags);
         assert(ret_keyslot);
         assert(ret_token);
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {}, fido2_salt = {};
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                 struct iovec *blobs = NULL, *policy_hash = NULL;
                 size_t n_blobs = 0, n_policy_hash = 0;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
                 TPM2Flags flags;
+                Fido2EnrollFlags fido2_flags;
+                _cleanup_free_ char *fido2_rp = NULL;
                 int keyslot;
 
                 CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
@@ -317,7 +390,11 @@ int find_tpm2_auto_data(
                                 &salt,
                                 &srk,
                                 &pcrlock_nv,
-                                &flags);
+                                &flags,
+                                &fido2_cid,
+                                &fido2_salt,
+                                &fido2_rp,
+                                &fido2_flags);
                 if (r == -EUCLEAN) /* Gracefully handle issues in JSON fields not owned by us */
                         continue;
                 if (r < 0)
@@ -344,6 +421,10 @@ int find_tpm2_auto_data(
                         *ret_srk = TAKE_STRUCT(srk);
                         *ret_pcrlock_nv = TAKE_STRUCT(pcrlock_nv);
                         *ret_flags = flags;
+                        *ret_fido2_cid = TAKE_STRUCT(fido2_cid);
+                        *ret_fido2_salt = TAKE_STRUCT(fido2_salt);
+                        *ret_fido2_rp = TAKE_PTR(fido2_rp);
+                        *ret_fido2_flags = fido2_flags;
                         return 0;
                 }
 

@@ -952,6 +952,7 @@ int encrypt_credential_and_warn(
                                 tpm2_n_hash_pcr_values,
                                 iovec_is_set(&pubkey) ? &public : NULL,
                                 /* use_pin= */ false,
+                                /* use_fido2= */ false,
                                 /* pcrlock_policy= */ NULL,
                                 &tpm2_policy);
                 if (r < 0)
@@ -966,6 +967,7 @@ int encrypt_credential_and_warn(
                               &tpm2_policy,
                               /* n_policy= */ 1,
                               /* pin= */ NULL,
+                              /* fido2_secret= */ NULL,
                               &tpm2_key,
                               &blobs,
                               &n_blobs,
@@ -1376,6 +1378,7 @@ int decrypt_credential_and_warn(
                                 z ? le64toh(z->pcr_mask) : 0,
                                 signature_json,
                                 /* pin= */ NULL,
+                                /* fido2_secret= */ NULL,
                                 /* pcrlock_policy= */ NULL,
                                 le16toh(t->primary_alg),
                                 &IOVEC_MAKE(t->policy_hash_and_blob, le32toh(t->blob_size)),
@@ -1387,7 +1390,7 @@ int decrypt_credential_and_warn(
                 if (r == -EREMOTE)
                         return log_error_errno(r, "TPM key integrity check failed. Key most likely does not belong to this TPM.");
                 if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                        return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 #else

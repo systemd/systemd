@@ -116,7 +116,7 @@ int acquire_luks2_key(
         if (r == -ENOLCK)
                 return log_error_errno(r, "TPM is in dictionary attack lock-out mode.");
         if (ERRNO_IS_NEG_TPM2_UNSEAL_BAD_PCR(r))
-                return log_error_errno(r, "TPM policy does not match current system state. Either system has been tempered with or policy out-of-date: %m");
+                return log_error_errno(r, "TPM policy does not match current system state. Either system has been tampered with or policy out-of-date: %m");
         if (r < 0)
                 return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
