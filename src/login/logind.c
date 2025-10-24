@@ -458,8 +458,19 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
         if (!s->leader_fd_saved)
                 log_warning("Got leader pidfd for session '%s', but not recorded in session state, proceeding anyway.",
                             s->id);
-        else
-                assert(!pidref_is_set(&s->leader));
+        else if (pidref_is_set(&s->leader)) {
+                r = fd_inode_same(fd, s->leader.fd);
+                if (r > 0)
+                        return 0;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to compare pidfd with deserialized session leader for '%s': %m",
+                                          s->id);
+                        goto fail_close;
+                }
+
+                pidref_done(&s->leader);
+                log_warning("Deserialized session leader mismatches with pidfd, continuing with pidfd.");
+        }
 
         r = pidref_set_pidfd_take(&leader_fdstore, fd);
         if (r < 0) {
