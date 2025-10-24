@@ -100,3 +100,28 @@ static const char* const color_mode_table[_COLOR_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_24BIT);
+
+/*
+ * Check that the string is formatted like an ANSI color code, i.e. that it consists of one or more
+ * sequences of ASCII digits separated by semicolons. This is equivalent to matching the regex:
+ *      ^[0-9]+(;[0-9]+)*$
+ * This can be used to partially validate escape codes of the form "\x1B[%sm", accepting all valid
+ * ANSI color codes while rejecting anything that would result in garbled output (such as injecting
+ * text or changing the type of escape code).
+ */
+bool looks_like_ansi_color_code(const char *str) {
+        assert(str);
+
+        bool prev_char_was_digit = false;
+
+        for (char c = *str; c != '\0'; c = *(++str)) {
+                if (ascii_isdigit(c))
+                        prev_char_was_digit = true;
+                else if (prev_char_was_digit && c == ';')
+                        prev_char_was_digit = false;
+                else
+                        return false;
+        }
+
+        return prev_char_was_digit;
+}
