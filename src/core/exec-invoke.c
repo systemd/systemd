@@ -49,6 +49,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "journal-send.h"
+#include "landlock-util.h"
 #include "manager.h"
 #include "memfd-util.h"
 #include "mkdir-label.h"
@@ -1947,6 +1948,21 @@ static int apply_protect_hostname(const ExecContext *c, const ExecParameters *p,
 #endif
 
         return 1;
+}
+
+static int apply_landlock_config(const ExecContext *c, const ExecParameters *p) {
+        assert(c);
+        assert(p);
+
+        if (!c->landlock_config)
+                return 0;
+
+#if HAVE_LANDLOCK_CONFIG
+        return landlock_apply(c->landlock_config);
+#else /* HAVE_LANDLOCK_CONFIG */
+        log_debug("Landlock configuration library not compiled in, cannot apply configuration from %s", c->landlock_config);
+        return -EOPNOTSUPP;
+#endif /* HAVE_LANDLOCK_CONFIG */
 }
 
 static void do_idle_pipe_dance(int idle_pipe[static 4]) {
@@ -6181,6 +6197,13 @@ int exec_invoke(
                                 *exit_status = EXIT_NO_NEW_PRIVILEGES;
                                 return log_error_errno(errno, "Failed to disable new privileges: %m");
                         }
+
+                /* TODO: Add HAVE_LANDLOCK_CONFIG guard. */
+                r = apply_landlock_config(context, params);
+                if (r < 0) {
+                        *exit_status = EXIT_LANDLOCK_CONFIG;
+                        return log_error_errno(r, "Failed to apply Landlock restrictions: %m");
+                }
 
 #if HAVE_SECCOMP
                 r = apply_address_families(context, params);

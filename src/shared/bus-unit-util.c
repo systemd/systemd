@@ -2430,6 +2430,7 @@ static const BusProperty execute_properties[] = {
         { "BPFDelegateMaps",                       bus_append_string                             },
         { "BPFDelegatePrograms",                   bus_append_string                             },
         { "BPFDelegateAttachments",                bus_append_string                             },
+        { "LandlockConfig",                        bus_append_string                             },
         { "IgnoreSIGPIPE",                         bus_append_parse_boolean                      },
         { "TTYVHangup",                            bus_append_parse_boolean                      },
         { "TTYReset",                              bus_append_parse_boolean                      },

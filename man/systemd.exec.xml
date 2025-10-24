@@ -2475,6 +2475,18 @@ RestrictFileSystems=ext4</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LandlockConfig=</varname></term>
+
+        <listitem><para>Path to a Landlock configuration directory that defines restrictionss for the
+        processes of this unit.  See the LandlockConfig documentation.</para>
+
+        <para>Note that this setting requires kernel support for Landlock (Linux 5.13 or newer) and will have
+        no effect if Landlock is not available or not enabled in the kernel.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RestrictNamespaces=</varname></term>
 
         <listitem><para>Restricts access to Linux namespace functionality for the processes of this unit. For details
@@ -4953,6 +4965,11 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
             <entry>245</entry>
             <entry><constant>EXIT_BPF</constant></entry>
             <entry>Failed to apply BPF restrictions. See <varname>RestrictFileSystems=</varname> above.</entry>
+          </row>
+          <row>
+            <entry>246</entry>
+            <entry><constant>EXIT_LANDLOCK_CONFIG</constant></entry>
+            <entry>Failed to apply Landlock restrictions. See <varname>LandlockConfig=</varname> above.</entry>
           </row>
         </tbody>
       </tgroup>

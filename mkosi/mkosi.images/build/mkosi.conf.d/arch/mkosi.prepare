@@ -6,6 +6,15 @@ if [[ "$1" == "build" ]] || ((NO_BUILD)); then
     exit 0
 fi
 
+if ! pkg-config --exists landlockconfig; then
+    if ls /work/src/tools/landlockconfig-git-*.pkg.tar.zst &>/dev/null; then
+        pacman -U --noconfirm /work/src/tools/landlockconfig-git-*.pkg.tar.zst
+    else
+        echo "Failed to find liblandlockconfig" >&2
+        exit 1
+    fi
+fi
+
 if [[ ! -f "pkg/$PKG_SUBDIR/PKGBUILD" ]]; then
     echo "PKGBUILD not found at pkg/$PKG_SUBDIR/PKGBUILD, run mkosi once with -ff to make sure the PKGBUILD is cloned" >&2
     exit 1

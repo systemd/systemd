@@ -1,0 +1,7 @@
+# Allow access to /tmp/test-landlock
+
+abi = 7
+
+[[path_beneath]]
+allowed_access = ["abi.read_write"]
+parent = ["/tmp/test-landlock"]

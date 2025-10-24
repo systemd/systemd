@@ -1412,6 +1412,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, root_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, mount_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExtensionImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, extension_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("LandlockConfig", "s", NULL, offsetof(ExecContext, landlock_config), SD_BUS_VTABLE_PROPERTY_CONST),
 
         /* Obsolete/redundant properties: */
         SD_BUS_PROPERTY("Capabilities", "s", property_get_empty_string, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
@@ -4346,6 +4347,9 @@ int bus_exec_context_set_transient_property(
 
                 return 1;
         }
+
+        if (streq(name, "LandlockConfig"))
+                return bus_set_transient_path(u, name, &c->landlock_config, message, flags, error);
 
         return 0;
 }

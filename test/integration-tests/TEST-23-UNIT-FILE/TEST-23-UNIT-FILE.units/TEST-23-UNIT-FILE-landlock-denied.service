@@ -1,0 +1,5 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Service]
+Type=oneshot
+LandlockConfig=/usr/lib/systemd/tests/testdata/TEST-23-UNIT-FILE.units/%p/
+ExecStart=/usr/bin/sh -c 'date > /tmp/test-landlock/date.txt'
