@@ -458,21 +458,11 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
 
                 switch (option) {
                 case 'H':
-#if HAVE_BLKID_PROBE_SET_HINT
                         errno = 0;
                         r = sym_blkid_probe_set_hint(pr, optarg, 0);
                         if (r < 0)
                                 return log_device_error_errno(dev, errno_or_else(ENOMEM), "Failed to use '%s' probing hint: %m", optarg);
                         break;
-#else
-                        /* Use the hint <name>=<offset> as probing offset for old versions */
-                        optarg = strchr(optarg, '=');
-                        if (!optarg)
-                                /* no value means 0, do nothing for old versions */
-                                break;
-                        ++optarg;
-                        _fallthrough_;
-#endif
                 case 'o':
                         r = safe_atoi64(optarg, &offset);
                         if (r < 0)
@@ -489,7 +479,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         sym_blkid_probe_set_superblocks_flags(pr,
                 BLKID_SUBLKS_LABEL | BLKID_SUBLKS_UUID |
                 BLKID_SUBLKS_TYPE | BLKID_SUBLKS_SECTYPE |
-#ifdef BLKID_SUBLKS_FSINFO
+#ifdef BLKID_SUBLKS_FSINFO /* since util-linux 2.39 */
                 BLKID_SUBLKS_FSINFO |
 #endif
                 BLKID_SUBLKS_USAGE | BLKID_SUBLKS_VERSION);
