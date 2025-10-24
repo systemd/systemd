@@ -5738,12 +5738,18 @@ _public_ int sd_json_dispatch_signal(const char *name, sd_json_variant *variant,
         }
 
         int k;
-        r = sd_json_dispatch_int(name, variant, flags, &k);
-        if (r < 0)
-                return r;
+        if (sd_json_variant_is_string(variant)) {
+                k = signal_from_string(sd_json_variant_string(variant));
+                if (k < 0)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+        } else {
+                r = sd_json_dispatch_int(name, variant, flags, &k);
+                if (r < 0)
+                        return r;
 
-        if (!SIGNAL_VALID(k))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+                if (!SIGNAL_VALID(k))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+        }
 
         *signo = k;
         return 0;
