@@ -1803,7 +1803,7 @@ Features:
   - figure out what to do about libmicrohttpd:
     - 1.x is stable and has a hard dependency on gnutls
     - 2.x is in development and has openssl support
-    - Vendor own copy of libmicrohttpd2?
+    - Worth testing against 2.x in our CI?
   - port fsprg over to openssl
 
 * add growvol and makevol options for /etc/crypttab, similar to
