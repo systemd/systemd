@@ -28,6 +28,8 @@ bool underline_enabled(void);
 
 void reset_ansi_feature_caches(void);
 
+bool looks_like_ansi_color_code(const char *str);
+
 /* Regular colors */
 #define ANSI_BLACK   "\x1B[0;30m" /* Some type of grey usually. */
 #define ANSI_RED     "\x1B[0;31m"
