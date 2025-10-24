@@ -54,4 +54,37 @@ TEST(parse_signal_argument) {
         assert_se(signal == SIGABRT);
 }
 
+TEST(parse_background_argument) {
+        char *bgcolor = NULL;
+
+        /* Should accept empty string */
+        assert_se(parse_background_argument("", &bgcolor) >= 0);
+        ASSERT_STREQ(bgcolor, "");
+
+        /* Should accept ANSI color codes in palette, 8-bit, or 24-bit format */
+        assert_se(parse_background_argument("42", &bgcolor) >= 0);
+        ASSERT_STREQ(bgcolor, "42");
+
+        assert_se(parse_background_argument("48;5;219", &bgcolor) >= 0);
+        ASSERT_STREQ(bgcolor, "48;5;219");
+
+        assert_se(parse_background_argument("48;2;3;141;59", &bgcolor) >= 0);
+        ASSERT_STREQ(bgcolor, "48;2;3;141;59");
+
+        bgcolor = NULL;
+
+        /* Should reject various invalid arguments */
+        assert_se(parse_background_argument("42;", &bgcolor) < 0);
+        ASSERT_NULL(bgcolor);
+
+        assert_se(parse_background_argument(";42", &bgcolor) < 0);
+        ASSERT_NULL(bgcolor);
+
+        assert_se(parse_background_argument("4;;2", &bgcolor) < 0);
+        ASSERT_NULL(bgcolor);
+
+        assert_se(parse_background_argument("4a2", &bgcolor) < 0);
+        ASSERT_NULL(bgcolor);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
