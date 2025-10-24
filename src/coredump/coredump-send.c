@@ -45,7 +45,7 @@ int coredump_send(const struct iovec_wrapper *iovw, int input_fd, PidRef *pidref
                         if (sendmsg(fd, &mh, MSG_NOSIGNAL) >= 0)
                                 break;
 
-                        if (errno == EMSGSIZE && mh.msg_iov[0].iov_len > 0) {
+                        if (IN_SET(errno, EMSGSIZE, ENOBUFS) && mh.msg_iov[0].iov_len > 0) {
                                 /* This field didn't fit? That's a pity. Given that this is
                                  * just metadata, let's truncate the field at half, and try
                                  * again. We append three dots, in order to show that this is
