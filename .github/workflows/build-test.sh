@@ -30,7 +30,6 @@ PACKAGES=(
     libarchive-dev
     libblkid-dev
     libbpf-dev
-    libcap-dev
     libcurl4-gnutls-dev
     libfdisk-dev
     libfido2-dev

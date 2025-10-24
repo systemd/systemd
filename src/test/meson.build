@@ -69,6 +69,8 @@ simple_tests += files(
         'test-bus-unit-util.c',
         'test-bus-util.c',
         'test-calendarspec.c',
+        'test-capability-list.c',
+        'test-capability-util.c',
         'test-cgroup-setup.c',
         'test-cgroup-util.c',
         'test-chase.c',
@@ -254,14 +256,6 @@ executables += [
         test_template + {
                 'sources' : files('test-btrfs-physical-offset.c'),
                 'type' : 'manual',
-        },
-        test_template + {
-                'sources' : files('test-capability-list.c'),
-                'dependencies' : libcap,
-        },
-        test_template + {
-                'sources' : files('test-capability-util.c'),
-                'dependencies' : libcap,
         },
         test_template + {
                 'sources' : files('test-chase-manual.c'),

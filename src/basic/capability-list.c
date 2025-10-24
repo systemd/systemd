@@ -20,7 +20,7 @@ static const struct capability_name* lookup_capability(register const char *str,
 const char* capability_to_name(int id) {
         if (id < 0)
                 return NULL;
-        if (id >= capability_list_length())
+        if ((unsigned) id >= capability_list_length())
                 return NULL;
 
         return capability_names[id];
@@ -65,13 +65,13 @@ int capability_from_name(const char *name) {
         return sc->id;
 }
 
-/* This is the number of capability names we are *compiled* with.  For the max capability number of the
+/* This is the number of capability names we are *compiled* with. For the max capability number of the
  * currently-running kernel, use cap_last_cap(). Note that this one returns the size of the array, i.e. one
  * value larger than the last known capability. This is different from cap_last_cap() which returns the
  * highest supported capability. Hence with everyone agreeing on the same capabilities list, this function
  * will return one higher than cap_last_cap(). */
-int capability_list_length(void) {
-        return MIN((int) ELEMENTSOF(capability_names), CAP_LIMIT + 1);
+unsigned capability_list_length(void) {
+        return MIN((unsigned) ELEMENTSOF(capability_names), (unsigned) (CAP_LIMIT + 1));
 }
 
 int capability_set_to_string(uint64_t set, char **ret) {

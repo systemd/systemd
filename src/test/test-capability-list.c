@@ -11,11 +11,6 @@
 #include "strv.h"
 #include "tests.h"
 
-static inline void cap_free_charpp(char **p) {
-        if (*p)
-                cap_free(*p);
-}
-
 /* verify the capability parser */
 TEST(cap_list) {
         assert_se(!capability_to_name(-1));
@@ -28,12 +23,12 @@ TEST(cap_list) {
                 ASSERT_STREQ(CAPABILITY_TO_STRING(62), "0x3e");
         assert_se(!CAPABILITY_TO_STRING(64));
 
-        for (int i = 0; i < capability_list_length(); i++) {
+        for (unsigned i = 0; i < capability_list_length(); i++) {
                 const char *n;
 
-                assert_se(n = capability_to_name(i));
-                assert_se(capability_from_name(n) == i);
-                printf("%s = %i\n", n, i);
+                ASSERT_NOT_NULL(n = capability_to_name(i));
+                ASSERT_OK_EQ(capability_from_name(n), (int) i);
+                printf("%s = %u\n", n, i);
 
                 ASSERT_STREQ(CAPABILITY_TO_STRING(i), n);
         }
@@ -48,25 +43,6 @@ TEST(cap_list) {
         assert_se(capability_from_name("63") == -EINVAL);
         assert_se(capability_from_name("64") == -EINVAL);
         assert_se(capability_from_name("-1") == -EINVAL);
-
-        for (int i = 0; i < capability_list_length(); i++) {
-                _cleanup_(cap_free_charpp) char *a = NULL;
-                const char *b;
-                unsigned u;
-
-                assert_se(a = cap_to_name(i));
-
-                /* quit the loop as soon as libcap starts returning
-                 * numeric ids, formatted as strings */
-                if (safe_atou(a, &u) >= 0)
-                        break;
-
-                assert_se(b = capability_to_name(i));
-
-                printf("%s vs. %s\n", a, b);
-
-                assert_se(strcasecmp(a, b) == 0);
-        }
 }
 
 static void test_capability_set_one(uint64_t c, const char *t) {
@@ -150,9 +126,9 @@ static void test_capability_set_to_string_invalid(uint64_t invalid_cap_set) {
 TEST(capability_set_to_string) {
         test_capability_set_to_string_invalid(0);
 
-        /* once the kernel supports 62 caps, there are no 'invalid' numbers
+        /* once the kernel supports 62 (CAP_LIMIT) caps, there are no 'invalid' numbers
          * for us to test with */
-        if (cap_last_cap() < 62)
+        if (cap_last_cap() < CAP_LIMIT)
                 test_capability_set_to_string_invalid(all_capabilities() + 1);
 }
 

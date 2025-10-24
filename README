@@ -212,7 +212,6 @@ REQUIREMENTS:
 
         glibc >= 2.31
         libxcrypt or glibc (<= 2.38 built with --enable-crypt)
-        libcap
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
         libseccomp >= 2.3.1 (optional)
