@@ -31,6 +31,11 @@ int json_dispatch_unhex_iovec(const char *name, sd_json_variant *variant, sd_jso
         size_t sz;
         int r;
 
+        if (sd_json_variant_is_null(variant)) {
+                iovec_done(iov);
+                return 0;
+        }
+
         if (!sd_json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
 
@@ -48,6 +53,11 @@ int json_dispatch_unbase64_iovec(const char *name, sd_json_variant *variant, sd_
         struct iovec *iov = ASSERT_PTR(userdata);
         size_t sz;
         int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                iovec_done(iov);
+                return 0;
+        }
 
         if (!sd_json_variant_is_string(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
@@ -67,6 +77,11 @@ int json_dispatch_byte_array_iovec(const char *name, sd_json_variant *variant, s
         size_t sz, k = 0;
 
         assert(variant);
+
+        if (sd_json_variant_is_null(variant)) {
+                iovec_done(iov);
+                return 0;
+        }
 
         if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
@@ -168,6 +183,11 @@ int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_di
         struct in_addr *address = ASSERT_PTR(userdata);
         _cleanup_(iovec_done) struct iovec iov = {};
         int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *address = (struct in_addr) {};
+                return 0;
+        }
 
         r = json_dispatch_byte_array_iovec(name, variant, flags, &iov);
         if (r < 0)
