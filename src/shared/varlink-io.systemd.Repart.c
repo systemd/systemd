@@ -61,12 +61,12 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 
 static SD_VARLINK_DEFINE_METHOD(
                 ListCandidateDevices,
-                SD_VARLINK_FIELD_COMMENT("The device node path of the block device."),
-                SD_VARLINK_DEFINE_OUTPUT(node, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Control whether to include the root disk of the currently booted OS in the list. Defaults to false, i.e. the root disk is included."),
                 SD_VARLINK_DEFINE_INPUT(ignoreRoot, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Control whether to include block devices with zero size in the list, i.e. typically block devices without any inserted medium. Defaults to false, i.e. empty block devices are included."),
                 SD_VARLINK_DEFINE_INPUT(ignoreEmpty, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The device node path of the block device."),
+                SD_VARLINK_DEFINE_OUTPUT(node, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("List of symlinks pointing to the device node, if any."),
                 SD_VARLINK_DEFINE_OUTPUT(symlinks, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The Linux kernel disk sequence number identifying the medium."),
