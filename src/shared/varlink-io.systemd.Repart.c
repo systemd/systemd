@@ -72,7 +72,14 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The Linux kernel disk sequence number identifying the medium."),
                 SD_VARLINK_DEFINE_OUTPUT(diskseq, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The size of the block device in bytes."),
-                SD_VARLINK_DEFINE_OUTPUT(sizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_OUTPUT(sizeBytes, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The device vendor string if known"),
+                SD_VARLINK_DEFINE_OUTPUT(vendor, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The device model string if known"),
+                SD_VARLINK_DEFINE_OUTPUT(model, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The subsystem the block device belongs to if known"),
+                SD_VARLINK_DEFINE_OUTPUT(subsystem, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 
 static SD_VARLINK_DEFINE_ERROR(NoCandidateDevices);
 static SD_VARLINK_DEFINE_ERROR(ConflictingDiskLabelPresent);
