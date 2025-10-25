@@ -6,6 +6,5 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_FIRSTBOOT'],
                 'sources' : files('firstboot.c'),
-                'dependencies' : libcrypt,
         },
 ]
