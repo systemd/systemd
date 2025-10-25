@@ -205,7 +205,7 @@ static void stack_context_done(StackContext *c) {
         }
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Elf *, sym_elf_end, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(Elf *, sym_elf_end, elf_endp, NULL);
 
 static int frame_callback(Dwfl_Frame *frame, void *userdata) {
         StackContext *c = ASSERT_PTR(userdata);
@@ -587,7 +587,7 @@ static int module_callback(Dwfl_Module *mod, void **userdata, const char *name, 
                 if (!data)
                         continue;
 
-                _cleanup_(sym_elf_endp) Elf *memelf = sym_elf_memory(data->d_buf, data->d_size);
+                _cleanup_(elf_endp) Elf *memelf = sym_elf_memory(data->d_buf, data->d_size);
                 if (!memelf)
                         continue;
                 r = parse_package_metadata(name, id_json, memelf, NULL, c);

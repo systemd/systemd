@@ -126,7 +126,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_namespace, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output_fields, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pattern, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pattern_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_compiled_pattern, pcre2_code_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static int parse_id_descriptor(const char *x, sd_id128_t *ret_id, int *ret_offset) {

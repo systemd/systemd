@@ -1034,6 +1034,7 @@ bpf_compiler = get_option('bpf-compiler')
 libbpf = dependency('libbpf',
                     required : bpf_framework,
                     version : bpf_compiler == 'gcc' ? '>= 1.4.0' : '>= 0.1.0')
+libbpf_cflags = libbpf.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBBPF', libbpf.found())
 
 if not libbpf.found()
@@ -1139,6 +1140,7 @@ if not have
         libpwquality = dependency('passwdqc',
                                   required : get_option('passwdqc'))
 endif
+libpwquality_cflags = libpwquality.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_PWQUALITY', have)
 conf.set10('HAVE_PASSWDQC', not have and libpwquality.found())
 
@@ -1242,6 +1244,7 @@ endif
 libcryptsetup = dependency('libcryptsetup',
                            version : libcryptsetup_plugins.enabled() ? '>= 2.4.0' : '>= 2.0.1',
                            required : libcryptsetup)
+libcryptsetup_cflags = libcryptsetup.partial_dependency(includes: true, compile_args: true)
 
 have = libcryptsetup.found()
 foreach ident : ['crypt_set_metadata_size',
@@ -1307,12 +1310,14 @@ if not have
         libidn = dependency('libidn',
                             required : get_option('libidn'))
 endif
+libidn_cflags = libidn.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBIDN', not have and libidn.found())
 conf.set10('HAVE_LIBIDN2', have)
 
 libqrencode = dependency('libqrencode',
                          version : '>= 3',
                          required : get_option('qrencode'))
+libqrencode_cflags = libqrencode.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_QRENCODE', libqrencode.found())
 
 feature = get_option('gcrypt')
@@ -1353,16 +1358,23 @@ feature = get_option('libfido2').require(
         error_message : 'openssl required')
 libfido2 = dependency('libfido2',
                       required : feature)
+libfido2_cflags = libfido2.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBFIDO2', libfido2.found())
 
 tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
                   required : get_option('tpm2'))
+tpm2_cflags = tpm2.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_TPM2', tpm2.found())
 conf.set10('HAVE_TSS2_ESYS3', tpm2.found() and tpm2.version().version_compare('>= 3.0.0'))
 
 libdw = dependency('libdw',
                    required : get_option('elfutils'))
-conf.set10('HAVE_ELFUTILS', libdw.found())
+libdw_cflags = libdw.partial_dependency(includes: true, compile_args: true)
+libelf = dependency('libelf',
+                    required : get_option('elfutils'))
+libelf_cflags = libelf.partial_dependency(includes: true, compile_args: true)
+conf.set10('HAVE_ELFUTILS', libdw.found() and libelf.found())
+
 # New in elfutils 0.177
 conf.set10('HAVE_DWELF_ELF_E_MACHINE_STRING',
            libdw.found() and cc.has_function('dwelf_elf_e_machine_string', dependencies : libdw))
@@ -1435,6 +1447,7 @@ conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper())
 libarchive = dependency('libarchive',
                         version : '>= 3.0',
                         required : get_option('libarchive'))
+libarchive_cflags = libarchive.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBARCHIVE', libarchive.found())
 conf.set10('HAVE_LIBARCHIVE_UID_IS_SET',
            libarchive.found() and cc.has_function('archive_entry_uid_is_set', dependencies : libarchive))
@@ -1444,10 +1457,12 @@ conf.set10('HAVE_LIBARCHIVE_HARDLINK_IS_SET',
 libxkbcommon = dependency('xkbcommon',
                           version : '>= 0.3.0',
                           required : get_option('xkbcommon'))
+libxkbcommon_cflags = libxkbcommon.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_XKBCOMMON', libxkbcommon.found())
 
 libpcre2 = dependency('libpcre2-8',
                       required : get_option('pcre2'))
+libpcre2_cflags = libpcre2.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_PCRE2', libpcre2.found())
 
 libglib =    dependency('glib-2.0',
