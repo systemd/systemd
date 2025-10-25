@@ -2,6 +2,14 @@ systemd System and Service Manager
 
 CHANGES WITH 259 in spe:
 
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * The parsing of RootImageOptions= and the mount image parameters of
+          ExtensionImages= and MountImages= will be changed so that the last
+          duplicated definition for a given partition wins and is applied,
+          rather than the first, to keep these options coherent with other
+          unit settings.
+
         * The cgroup2 file system is now mounted with the
           "memory_hugetlb_accounting" mount option, supported since kernel 6.6.
           This means that HugeTLB memory usage is now counted towards the
