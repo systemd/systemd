@@ -629,6 +629,7 @@
         <listitem>
           <para>Specifies the partial path to the file containing the device tree blob to install with the
           kernel and use at boot. The first of the files that is found will be used.
+          Alternatively the string "all" may be used to install all available device trees for the given kernel.
           <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the search path; see below for
           details.</para>
 
