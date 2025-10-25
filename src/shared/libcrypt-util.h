@@ -3,6 +3,7 @@
 
 #include "shared-forward.h"
 
+int crypt_get_preferred_method(const char **ret);
 int make_salt(char **ret);
 int hash_password_full(const char *password, void **cd_data, int *cd_size, char **ret);
 static inline int hash_password(const char *password, char **ret) {

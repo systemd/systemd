@@ -9,16 +9,30 @@
 #include "string-util.h"
 #include "strv.h"
 
+int crypt_get_preferred_method(const char **ret) {
+        assert(ret);
+
+        const char *e = secure_getenv("SYSTEMD_CRYPT_PREFIX");
+        if (!e)
+                e = crypt_preferred_method();
+        if (!e)
+                return -ENXIO;
+
+        *ret = e;
+        return 0;
+}
+
 int make_salt(char **ret) {
         const char *e;
         char *salt;
+        int r;
 
         /* If we have crypt_gensalt_ra() we default to the "preferred method" (i.e. usually yescrypt).
          * crypt_gensalt_ra() is usually provided by libxcrypt. */
 
-        e = secure_getenv("SYSTEMD_CRYPT_PREFIX");
-        if (!e)
-                e = crypt_preferred_method();
+        r = crypt_get_preferred_method(&e);
+        if (r < 0)
+                return r;
 
         log_debug("Generating salt for hash prefix: %s", e);
 
