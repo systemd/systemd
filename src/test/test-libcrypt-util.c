@@ -1,14 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <crypt.h>
-
 #include "libcrypt-util.h"
 #include "strv.h"
 #include "tests.h"
-
-TEST(crypt_preferred_method) {
-        log_info("crypt_preferred_method: %s", crypt_preferred_method());
-}
 
 TEST(make_salt) {
         _cleanup_strv_free_ char **l = NULL;
