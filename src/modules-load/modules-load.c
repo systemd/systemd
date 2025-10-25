@@ -135,7 +135,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
         int r, k;
 
         r = parse_argv(argc, argv);

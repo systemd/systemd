@@ -58,7 +58,7 @@ int dlopen_pcre2(void) {
 int pattern_compile_and_log(const char *pattern, PatternCompileCase case_, pcre2_code **ret) {
 #if HAVE_PCRE2
         PCRE2_SIZE erroroffset;
-        _cleanup_(sym_pcre2_code_freep) pcre2_code *p = NULL;
+        _cleanup_(pcre2_code_freep) pcre2_code *p = NULL;
         unsigned flags = 0;
         int errorcode, r;
 
@@ -71,9 +71,9 @@ int pattern_compile_and_log(const char *pattern, PatternCompileCase case_, pcre2
         if (case_ == PATTERN_COMPILE_CASE_INSENSITIVE)
                 flags = PCRE2_CASELESS;
         else if (case_ == PATTERN_COMPILE_CASE_AUTO) {
-                _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
+                _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
                 bool has_case;
-                _cleanup_(sym_pcre2_code_freep) pcre2_code *cs = NULL;
+                _cleanup_(pcre2_code_freep) pcre2_code *cs = NULL;
 
                 md = sym_pcre2_match_data_create(1, NULL);
                 if (!md)
@@ -116,7 +116,7 @@ int pattern_compile_and_log(const char *pattern, PatternCompileCase case_, pcre2
 
 int pattern_matches_and_log(pcre2_code *compiled_pattern, const char *message, size_t size, size_t *ret_ovec) {
 #if HAVE_PCRE2
-        _cleanup_(sym_pcre2_match_data_freep) pcre2_match_data *md = NULL;
+        _cleanup_(pcre2_match_data_freep) pcre2_match_data *md = NULL;
         int r;
 
         assert(compiled_pattern);
@@ -154,19 +154,5 @@ int pattern_matches_and_log(pcre2_code *compiled_pattern, const char *message, s
         return true;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PCRE2 support is not compiled in.");
-#endif
-}
-
-void *pattern_free(pcre2_code *p) {
-#if HAVE_PCRE2
-        if (!p)
-                return NULL;
-
-        assert(pcre2_dl);
-        sym_pcre2_code_free(p);
-        return NULL;
-#else
-        assert(p == NULL);
-        return NULL;
 #endif
 }
