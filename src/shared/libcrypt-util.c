@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <crypt.h>
+#if HAVE_LIBCRYPT
+#  include <crypt.h>
+#endif
 
 #include "alloc-util.h"
 #include "errno-util.h"
@@ -9,6 +11,7 @@
 #include "string-util.h"
 #include "strv.h"
 
+#if HAVE_LIBCRYPT
 int crypt_get_preferred_method(const char **ret) {
         assert(ret);
 
@@ -43,8 +46,10 @@ int make_salt(char **ret) {
         *ret = salt;
         return 0;
 }
+#endif
 
 int hash_password_full(const char *password, void **cd_data, int *cd_size, char **ret) {
+#if HAVE_LIBCRYPT
         _cleanup_free_ char *salt = NULL;
         _cleanup_(erase_and_freep) void *_cd_data = NULL;
         const char *p;
@@ -62,6 +67,9 @@ int hash_password_full(const char *password, void **cd_data, int *cd_size, char 
                 return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)), "crypt_ra() failed: %m");
 
         return strdup_to(ret, p);
+#else
+        return -EOPNOTSUPP;
+#endif
 }
 
 bool looks_like_hashed_password(const char *s) {
@@ -80,6 +88,7 @@ bool looks_like_hashed_password(const char *s) {
         return !STR_IN_SET(s, "x", "*");
 }
 
+#if HAVE_LIBCRYPT
 int test_password_one(const char *hashed_password, const char *password) {
         _cleanup_(erase_and_freep) void *cd_data = NULL;
         int cd_size = 0;
@@ -110,3 +119,4 @@ int test_password_many(char **hashed_password, const char *password) {
 
         return false;
 }
+#endif
