@@ -81,6 +81,11 @@ systemd-run --wait --pipe --user --machine=testuser@ \
 systemd-run --wait --pipe --user --machine=testuser@ \
             bash -xec '[[ "$PWD" == /home/testuser && -n "$INVOCATION_ID" ]]'
 
+# https://github.com/systemd/systemd/issues/39038
+systemd-run --wait --machine=testuser@ --user -p User=testuser true
+systemd-run --wait --machine=testuser@ --user -p Group=testuser true
+(! systemd-run --wait --machine=testuser@ --user -p Group=testuser -p SupplementaryGroups=root true)
+
 # PrivateTmp=yes implies PrivateUsers=yes for user manager, so skip this if we
 # don't have unprivileged user namespaces.
 if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -ne 1 ]]; then
