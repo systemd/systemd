@@ -18,8 +18,8 @@ extern DLSYM_PROTOTYPE(pcre2_get_error_message);
 extern DLSYM_PROTOTYPE(pcre2_match);
 extern DLSYM_PROTOTYPE(pcre2_get_ovector_pointer);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_match_data*, sym_pcre2_match_data_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(pcre2_code*, sym_pcre2_code_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(pcre2_match_data*, sym_pcre2_match_data_free, pcre2_match_data_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(pcre2_code*, sym_pcre2_code_free, pcre2_code_freep, NULL);
 #else
 
 typedef struct {} pcre2_code;
