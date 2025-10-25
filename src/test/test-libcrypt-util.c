@@ -13,11 +13,16 @@ TEST(crypt_get_preferred_method) {
 }
 
 TEST(make_salt) {
+        _cleanup_strv_free_ char **l = NULL;
+
         for (int i = 0; i < 10; i++) {
                 _cleanup_free_ char *t;
 
                 ASSERT_OK(make_salt(&t));
                 log_info("%s", t);
+
+                ASSERT_FALSE(strv_contains(l, t));
+                ASSERT_OK(strv_consume(&l, TAKE_PTR(t)));
         }
 }
 
