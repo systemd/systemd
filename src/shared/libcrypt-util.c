@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <crypt.h>
+#if HAVE_LIBCRYPT
+#  include <crypt.h>
+#endif
 
 #include "alloc-util.h"
 #include "errno-util.h"
@@ -9,6 +11,7 @@
 #include "string-util.h"
 #include "strv.h"
 
+#if HAVE_LIBCRYPT
 int make_salt(char **ret) {
         const char *e;
         char *salt;
@@ -85,6 +88,7 @@ int test_password_many(char **hashed_password, const char *password) {
 
         return false;
 }
+#endif
 
 bool looks_like_hashed_password(const char *s) {
         /* Returns false if the specified string is certainly not a hashed UNIX password. crypt(5) lists
