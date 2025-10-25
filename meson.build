@@ -1457,6 +1457,7 @@ conf.set10('HAVE_LIBARCHIVE_HARDLINK_IS_SET',
 libxkbcommon = dependency('xkbcommon',
                           version : '>= 0.3.0',
                           required : get_option('xkbcommon'))
+libxkbcommon_cflags = libxkbcommon.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_XKBCOMMON', libxkbcommon.found())
 
 libpcre2 = dependency('libpcre2-8',
