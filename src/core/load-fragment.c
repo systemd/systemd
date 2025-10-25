@@ -1623,6 +1623,22 @@ int config_parse_exec_cpu_sched_prio(
         return 0;
 }
 
+static int mount_options_set_and_consume(MountOptions **options, PartitionDesignator d, char **s) {
+        assert(options);
+        assert(d >= 0);
+        assert(s);
+
+        if (!*options) {
+                *options = new0(MountOptions, 1);
+                if (!*options)
+                        return log_oom();
+        }
+
+        free_and_replace((*options)->options[d], *s);
+
+        return 0;
+}
+
 int config_parse_root_image_options(
                 const char *unit,
                 const char *filename,
@@ -1659,7 +1675,6 @@ int config_parse_root_image_options(
         }
 
         STRV_FOREACH_PAIR(first, second, l) {
-                MountOptions *o = NULL;
                 _cleanup_free_ char *mount_options_resolved = NULL;
                 const char *mount_options = NULL, *partition = "root";
                 PartitionDesignator partition_designator;
@@ -1683,21 +1698,12 @@ int config_parse_root_image_options(
                         continue;
                 }
 
-                o = new(MountOptions, 1);
-                if (!o)
-                        return log_oom();
-                *o = (MountOptions) {
-                        .partition_designator = partition_designator,
-                        .options = TAKE_PTR(mount_options_resolved),
-                };
-                LIST_APPEND(mount_options, options, TAKE_PTR(o));
+                r = mount_options_set_and_consume(&options, partition_designator, &mount_options_resolved);
+                if (r < 0)
+                        return r;
         }
 
-        if (options)
-                LIST_JOIN(mount_options, c->root_image_options, options);
-        else
-                /* empty spaces/separators only */
-                c->root_image_options = mount_options_free_all(c->root_image_options);
+        free_and_replace_full(c->root_image_options, options, mount_options_free_all);
 
         return 0;
 }
@@ -5269,7 +5275,6 @@ int config_parse_mount_images(
 
                 for (;;) {
                         _cleanup_free_ char *partition = NULL, *mount_options = NULL, *mount_options_resolved = NULL;
-                        MountOptions *o = NULL;
                         PartitionDesignator partition_designator;
 
                         r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
@@ -5289,14 +5294,9 @@ int config_parse_mount_images(
                                         continue;
                                 }
 
-                                o = new(MountOptions, 1);
-                                if (!o)
-                                        return log_oom();
-                                *o = (MountOptions) {
-                                        .partition_designator = PARTITION_ROOT,
-                                        .options = TAKE_PTR(mount_options_resolved),
-                                };
-                                LIST_APPEND(mount_options, options, o);
+                                r = mount_options_set_and_consume(&options, PARTITION_ROOT, &mount_options_resolved);
+                                if (r < 0)
+                                        return r;
 
                                 break;
                         }
@@ -5313,14 +5313,9 @@ int config_parse_mount_images(
                                 continue;
                         }
 
-                        o = new(MountOptions, 1);
-                        if (!o)
-                                return log_oom();
-                        *o = (MountOptions) {
-                                .partition_designator = partition_designator,
-                                .options = TAKE_PTR(mount_options_resolved),
-                        };
-                        LIST_APPEND(mount_options, options, o);
+                        r = mount_options_set_and_consume(&options, partition_designator, &mount_options_resolved);
+                        if (r < 0)
+                                return r;
                 }
 
                 r = mount_image_add(&c->mount_images, &c->n_mount_images,
@@ -5411,7 +5406,6 @@ int config_parse_extension_images(
 
                 for (;;) {
                         _cleanup_free_ char *partition = NULL, *mount_options = NULL, *mount_options_resolved = NULL;
-                        MountOptions *o = NULL;
                         PartitionDesignator partition_designator;
 
                         r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS, &partition, &mount_options);
@@ -5431,14 +5425,12 @@ int config_parse_extension_images(
                                         continue;
                                 }
 
-                                o = new(MountOptions, 1);
-                                if (!o)
-                                        return log_oom();
-                                *o = (MountOptions) {
-                                        .partition_designator = PARTITION_ROOT,
-                                        .options = TAKE_PTR(mount_options_resolved),
-                                };
-                                LIST_APPEND(mount_options, options, o);
+                                if (!options) {
+                                        options = new0(MountOptions, 1);
+                                        if (!options)
+                                                return log_oom();
+                                }
+                                free_and_replace(options->options[PARTITION_ROOT], mount_options_resolved);
 
                                 break;
                         }
@@ -5454,14 +5446,12 @@ int config_parse_extension_images(
                                 continue;
                         }
 
-                        o = new(MountOptions, 1);
-                        if (!o)
-                                return log_oom();
-                        *o = (MountOptions) {
-                                .partition_designator = partition_designator,
-                                .options = TAKE_PTR(mount_options_resolved),
-                        };
-                        LIST_APPEND(mount_options, options, o);
+                        if (!options) {
+                                options = new0(MountOptions, 1);
+                                if (!options)
+                                        return log_oom();
+                        }
+                        free_and_replace(options->options[partition_designator], mount_options_resolved);
                 }
 
                 r = mount_image_add(&c->extension_images, &c->n_extension_images,

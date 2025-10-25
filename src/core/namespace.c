@@ -117,7 +117,7 @@ typedef struct MountEntry {
         char *options_malloc;
         unsigned long flags;      /* Mount flags used by EMPTY_DIR and TMPFS. Do not include MS_RDONLY here, but please use read_only. */
         unsigned n_followed;
-        LIST_HEAD(MountOptions, image_options_const);
+        MountOptions *image_options_const;
         char **overlay_layers;
         VeritySettings verity;
         ImageClass filter_class; /* Used for live updates to skip inapplicable images */
@@ -3110,7 +3110,7 @@ MountImage* mount_image_free_many(MountImage *m, size_t *n) {
 
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
-        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        _cleanup_(mount_options_free_allp) MountOptions *o = NULL;
 
         assert(m);
         assert(n);
@@ -3126,21 +3126,19 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
                         return -ENOMEM;
         }
 
-        LIST_FOREACH(mount_options, i, item->mount_options) {
-                _cleanup_(mount_options_free_allp) MountOptions *o = NULL;
-
-                o = new(MountOptions, 1);
+        if (item->mount_options) {
+                o = new0(MountOptions, 1);
                 if (!o)
                         return -ENOMEM;
 
-                *o = (MountOptions) {
-                        .partition_designator = i->partition_designator,
-                        .options = strdup(i->options),
-                };
-                if (!o->options)
-                        return -ENOMEM;
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                        if (item->mount_options->options[i] == NULL)
+                                continue;
 
-                LIST_APPEND(mount_options, options, TAKE_PTR(o));
+                        o->options[i] = strdup(item->mount_options->options[i]);
+                        if (!o->options[i])
+                                return -ENOMEM;
+                }
         }
 
         if (!GREEDY_REALLOC(*m, *n + 1))
@@ -3149,7 +3147,7 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         (*m)[(*n)++] = (MountImage) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
-                .mount_options = TAKE_PTR(options),
+                .mount_options = TAKE_PTR(o),
                 .ignore_enoent = item->ignore_enoent,
                 .type = item->type,
         };
