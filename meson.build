@@ -1013,9 +1013,10 @@ else
 endif
 
 libcrypt = dependency('libcrypt', 'libxcrypt',
-                      required : true,
+                      required : get_option('libcrypt'),
                       version : '>=4.4.0')
 libcrypt_cflags = libcrypt.partial_dependency(includes: true, compile_args: true)
+conf.set10('HAVE_LIBCRYPT', libcrypt.found())
 
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
@@ -1575,11 +1576,12 @@ have = get_option('importd').require(
 conf.set10('ENABLE_IMPORTD', have)
 
 have = get_option('homed').require(
+        conf.get('HAVE_LIBCRYPT') == 1 and
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_LIBFDISK') == 1 and
         conf.get('HAVE_LIBCRYPTSETUP') == 1 and
         conf.get('HAVE_CRYPT_RESUME_BY_VOLUME_KEY') == 1,
-        error_message : 'openssl, fdisk and libcryptsetup required').allowed()
+        error_message : 'libcrypt, openssl, fdisk, and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
 have = have and conf.get('HAVE_PAM') == 1
@@ -3067,6 +3069,7 @@ foreach tuple : [
         ['gnutls'],
         ['libarchive'],
         ['libbpf'],
+        ['libcrypt'],
         ['libcryptsetup'],
         ['libcryptsetup-plugins'],
         ['libcurl'],

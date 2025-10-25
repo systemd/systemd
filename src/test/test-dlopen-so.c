@@ -48,7 +48,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libarchive, HAVE_LIBARCHIVE);
         ASSERT_DLOPEN(dlopen_libaudit, HAVE_AUDIT);
         ASSERT_DLOPEN(dlopen_libblkid, HAVE_BLKID);
-        ASSERT_DLOPEN(dlopen_libcrypt, true);
+        ASSERT_DLOPEN(dlopen_libcrypt, HAVE_LIBCRYPT);
         ASSERT_DLOPEN(dlopen_libfido2, HAVE_LIBFIDO2);
         ASSERT_DLOPEN(dlopen_libkmod, HAVE_KMOD);
         ASSERT_DLOPEN(dlopen_libmount, true);
