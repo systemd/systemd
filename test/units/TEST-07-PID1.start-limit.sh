@@ -19,7 +19,7 @@ mkdir -p /run/systemd/system/systemd-resolved.service.d/
 cat >/run/systemd/system/systemd-resolved.service.d/99-start-limit.conf <<EOF
 [Unit]
 StartLimitBurst=5
-StartLimitInterval=30
+StartLimitInterval=100
 
 [Service]
 ExecStopPost=sleep 10
@@ -39,4 +39,5 @@ for i in {1..5}; do
         journalctl -o short-monotonic --no-hostname --no-pager -u systemd-resolved.service -n 15
         exit 1
     fi
+    systemctl is-active systemd-resolved.service
 done
