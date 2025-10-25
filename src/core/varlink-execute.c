@@ -45,25 +45,41 @@ static int working_directory_build_json(sd_json_variant **ret, const char *name,
                         SD_JSON_BUILD_PAIR_BOOLEAN("missingOK", c->working_directory_missing_ok));
 }
 
-static int root_image_options_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        MountOptions *root_image_options = userdata;
+static int json_append_mount_options(sd_json_variant **v, MountOptions *options) {
         int r;
 
-        assert(ret);
-        assert(name);
+        assert(v);
 
-        LIST_FOREACH(mount_options, m, root_image_options) {
+        if (!options)
+                return 0;
+
+        for (PartitionDesignator j = 0; j < _PARTITION_DESIGNATOR_MAX; j++) {
+                if (!options->options[j])
+                        continue;
+
                 r = sd_json_variant_append_arraybo(
-                                &v,
-                                SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
-                                SD_JSON_BUILD_PAIR_STRING("options", m->options));
+                                v,
+                                SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(j)),
+                                SD_JSON_BUILD_PAIR_STRING("options", options->options[j]));
                 if (r < 0)
                         return r;
         }
 
-        *ret = TAKE_PTR(v);
         return 0;
+}
+
+static int root_image_options_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        MountOptions *root_image_options = userdata;
+
+        assert(ret);
+        assert(name);
+
+        if (!root_image_options) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return json_append_mount_options(ret, root_image_options);
 }
 
 static int image_policy_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -119,14 +135,9 @@ static int mount_images_build_json(sd_json_variant **ret, const char *name, void
         FOREACH_ARRAY(i, c->mount_images, c->n_mount_images) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
 
-                LIST_FOREACH(mount_options, m, i->mount_options) {
-                        r = sd_json_variant_append_arraybo(
-                                        &mo,
-                                        SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
-                                        SD_JSON_BUILD_PAIR_STRING("options", m->options));
-                        if (r < 0)
-                                return r;
-                }
+                r = json_append_mount_options(&mo, i->mount_options);
+                if (r < 0)
+                        return r;
 
                 r = sd_json_variant_append_arraybo(
                                 &v,
@@ -153,14 +164,9 @@ static int extension_images_build_json(sd_json_variant **ret, const char *name, 
         FOREACH_ARRAY(i, c->extension_images, c->n_extension_images) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
 
-                LIST_FOREACH(mount_options, m, i->mount_options) {
-                        r = sd_json_variant_append_arraybo(
-                                        &mo,
-                                        SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
-                                        SD_JSON_BUILD_PAIR_STRING("options", m->options));
-                        if (r < 0)
-                                return r;
-                }
+                r = json_append_mount_options(&mo, i->mount_options);
+                if (r < 0)
+                        return r;
 
                 r = sd_json_variant_append_arraybo(
                                 &v,
