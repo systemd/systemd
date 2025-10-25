@@ -1015,7 +1015,40 @@ endif
 libcrypt = dependency('libcrypt', 'libxcrypt',
                       required : get_option('libcrypt'),
                       version : '>=4.4.0')
+libcrypt_cflags = libcrypt.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBCRYPT', libcrypt.found())
+
+# Several distributions like Debian/Ubuntu and OpenSUSE provide libxcrypt as
+# libcrypt.so.1, while Fedora/CentOS and Arch Linux provide it as libcrypt.so.2.
+# We need to determine the so name here before building systemd, to provide the
+# so name in ELF note.
+code = '''
+#include <dlfcn.h>
+#include <stdlib.h>
+
+int main(int argc, char *argv[]) {
+        void *dl = dlopen("@0@", RTLD_NOW|RTLD_NODELETE);
+        return dl ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+'''
+if cc.run(
+        code.format('libcrypt.so.2'),
+        dependencies : [libdl, libcrypt_cflags],
+        args : '-D_GNU_SOURCE',
+        name : 'Checking existence of libcrypt.so.2').returncode() == 0
+
+        conf.set_quoted('LIBCRYPT_SONAME', 'libcrypt.so.2')
+
+elif cc.run(
+        code.format('libcrypt.so.1'),
+        dependencies : [libdl, libcrypt_cflags],
+        args : '-D_GNU_SOURCE',
+        name : 'Checking existence of libcrypt.so.1').returncode() == 0
+
+        conf.set_quoted('LIBCRYPT_SONAME', 'libcrypt.so.1')
+else
+        error('Cannot determine libcrypt/libxcrypt so name.')
+endif
 
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
