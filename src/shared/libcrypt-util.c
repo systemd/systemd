@@ -5,6 +5,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "dlfcn-util.h"
 #include "errno-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
@@ -12,19 +13,73 @@
 #include "strv.h"
 
 #if HAVE_LIBCRYPT
+static void *libcrypt_dl = NULL;
+
+static DLSYM_PROTOTYPE(crypt_gensalt_ra) = NULL;
+static DLSYM_PROTOTYPE(crypt_preferred_method) = NULL;
+static DLSYM_PROTOTYPE(crypt_ra) = NULL;
+
+int dlopen_libcrypt(void) {
+#ifdef __GLIBC__
+        static int cached = 0;
+        int r;
+
+        if (libcrypt_dl)
+                return 0; /* Already loaded */
+
+        if (cached < 0)
+                return cached; /* Already tried, and failed. */
+
+        /* Several distributions like Debian/Ubuntu and OpenSUSE provide libxcrypt as libcrypt.so.1,
+         * while others like Fedora/CentOS and Arch provide it as libcrypt.so.2. */
+        ELF_NOTE_DLOPEN("crypt",
+                        "Support for hashing passwords",
+                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        "libcrypt.so.2", "libcrypt.so.1");
+
+        _cleanup_(dlclosep) void *dl = dlopen("libcrypt.so.2", RTLD_NOW|RTLD_NODELETE);
+        if (!dl)
+                dl = dlopen("libcrypt.so.1", RTLD_NOW|RTLD_NODELETE);
+        if (!dl)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "libcrypt.so.2/libcrypt.so.1 is not installed: %s", dlerror());
+
+        r = dlsym_many_or_warn(
+                        dl, LOG_DEBUG,
+                        DLSYM_ARG(crypt_gensalt_ra),
+                        DLSYM_ARG(crypt_preferred_method),
+                        DLSYM_ARG(crypt_ra));
+        if (r < 0)
+                return (cached = r);
+
+        libcrypt_dl = TAKE_PTR(dl);
+#else
+        libcrypt_dl = NULL;
+        sym_crypt_gensalt_ra = missing_crypt_gensalt_ra;
+        sym_crypt_preferred_method = missing_crypt_preferred_method;
+        sym_crypt_ra = missing_crypt_ra;
+#endif
+        return 0;
+}
+
 int make_salt(char **ret) {
         const char *e;
         char *salt;
+        int r;
 
         assert(ret);
 
+        r = dlopen_libcrypt();
+        if (r < 0)
+                return r;
+
         e = secure_getenv("SYSTEMD_CRYPT_PREFIX");
         if (!e)
-                e = crypt_preferred_method();
+                e = sym_crypt_preferred_method();
 
         log_debug("Generating salt for hash prefix: %s", e);
 
-        salt = crypt_gensalt_ra(e, 0, NULL, 0);
+        salt = sym_crypt_gensalt_ra(e, 0, NULL, 0);
         if (!salt)
                 return -errno;
 
@@ -46,7 +101,7 @@ int hash_password(const char *password, char **ret) {
                 return log_debug_errno(r, "Failed to generate salt: %m");
 
         errno = 0;
-        p = crypt_ra(password, salt, &cd_data, &cd_size);
+        p = sym_crypt_ra(password, salt, &cd_data, &cd_size);
         if (!p)
                 return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)), "crypt_ra() failed: %m");
 
@@ -55,14 +110,18 @@ int hash_password(const char *password, char **ret) {
 
 int test_password_one(const char *hashed_password, const char *password) {
         _cleanup_(erase_and_freep) void *cd_data = NULL;
-        int cd_size = 0;
+        int r, cd_size = 0;
         const char *k;
 
         assert(hashed_password);
         assert(password);
 
+        r = dlopen_libcrypt();
+        if (r < 0)
+                return r;
+
         errno = 0;
-        k = crypt_ra(password, hashed_password, &cd_data, &cd_size);
+        k = sym_crypt_ra(password, hashed_password, &cd_data, &cd_size);
         if (!k) {
                 if (errno == ENOMEM)
                         return -ENOMEM;
