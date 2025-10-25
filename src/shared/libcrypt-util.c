@@ -5,6 +5,7 @@
 #endif
 
 #include "alloc-util.h"
+#include "dlfcn-util.h"
 #include "errno-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
@@ -12,12 +13,45 @@
 #include "strv.h"
 
 #if HAVE_LIBCRYPT
+static void *libcrypt_dl = NULL;
+
+static DLSYM_PROTOTYPE(crypt_gensalt_ra) = NULL;
+static DLSYM_PROTOTYPE(crypt_preferred_method) = NULL;
+static DLSYM_PROTOTYPE(crypt_ra) = NULL;
+#endif
+
+int dlopen_libcrypt(void) {
+#if HAVE_LIBCRYPT
+        ELF_NOTE_DLOPEN("crypt",
+                        "Support for hashing passwords",
+                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        LIBCRYPT_SONAME);
+
+        return dlopen_many_sym_or_warn(
+                        &libcrypt_dl,
+                        LIBCRYPT_SONAME,
+                        LOG_DEBUG,
+                        DLSYM_ARG(crypt_gensalt_ra),
+                        DLSYM_ARG(crypt_preferred_method),
+                        DLSYM_ARG(crypt_ra));
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+#if HAVE_LIBCRYPT
 int crypt_get_preferred_method(const char **ret) {
+        int r;
+
         assert(ret);
+
+        r = dlopen_libcrypt();
+        if (r < 0)
+                return r;
 
         const char *e = secure_getenv("SYSTEMD_CRYPT_PREFIX");
         if (!e)
-                e = crypt_preferred_method();
+                e = sym_crypt_preferred_method();
         if (!e)
                 return -ENXIO;
 
@@ -39,7 +73,7 @@ int make_salt(char **ret) {
 
         log_debug("Generating salt for hash prefix: %s", e);
 
-        salt = crypt_gensalt_ra(e, 0, NULL, 0);
+        salt = sym_crypt_gensalt_ra(e, 0, NULL, 0);
         if (!salt)
                 return -errno;
 
@@ -62,7 +96,7 @@ int hash_password_full(const char *password, void **cd_data, int *cd_size, char 
                 return log_debug_errno(r, "Failed to generate salt: %m");
 
         errno = 0;
-        p = crypt_ra(password, salt, cd_data ?: &_cd_data, cd_size ?: &_cd_size);
+        p = sym_crypt_ra(password, salt, cd_data ?: &_cd_data, cd_size ?: &_cd_size);
         if (!p)
                 return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)), "crypt_ra() failed: %m");
 
@@ -91,11 +125,15 @@ bool looks_like_hashed_password(const char *s) {
 #if HAVE_LIBCRYPT
 int test_password_one(const char *hashed_password, const char *password) {
         _cleanup_(erase_and_freep) void *cd_data = NULL;
-        int cd_size = 0;
+        int r, cd_size = 0;
         const char *k;
 
+        r = dlopen_libcrypt();
+        if (r < 0)
+                return r;
+
         errno = 0;
-        k = crypt_ra(password, hashed_password, &cd_data, &cd_size);
+        k = sym_crypt_ra(password, hashed_password, &cd_data, &cd_size);
         if (!k) {
                 if (errno == ENOMEM)
                         return -ENOMEM;
