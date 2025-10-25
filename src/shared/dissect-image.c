@@ -4619,23 +4619,78 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
         return k >= 0 && image->partitions[k].found;
 }
 
-MountOptions* mount_options_free_all(MountOptions *options) {
-        MountOptions *m;
+int mount_options_set_and_consume(MountOptions **options, PartitionDesignator d, char *s) {
+        assert(options);
+        assert(d >= 0);
 
-        while ((m = LIST_POP(mount_options, options))) {
-                free(m->options);
-                free(m);
+        if (!*options) {
+                *options = new0(MountOptions, 1);
+                if (!*options) {
+                        free(s);
+                        return log_oom();
+                }
         }
 
-        return NULL;
+        free_and_replace((*options)->options[d], s);
+
+        return 0;
+}
+
+int mount_options_dup(const MountOptions *source, MountOptions **ret) {
+        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+
+        assert(source);
+        assert(ret);
+
+        options = new0(MountOptions, 1);
+        if (!options)
+                return log_oom();
+
+        for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++)
+                if (source->options[d]) {
+                        options->options[d] = strdup(source->options[d]);
+                        if (!options->options[d])
+                                return log_oom_debug();
+                }
+
+        *ret = TAKE_PTR(options);
+        return 0;
+}
+
+int mount_options_to_string(const MountOptions *mount_options, char **ret) {
+        _cleanup_free_ char *s = NULL;
+
+        assert(mount_options);
+        assert(ret);
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                if (!isempty(mount_options->options[i]))
+                        if (!strextend_with_separator(&s, ":", "%s:%s",
+                                       partition_designator_to_string(i),
+                                       mount_options->options[i]))
+                                return log_oom_debug();
+
+        *ret = TAKE_PTR(s);
+
+        return 0;
+}
+
+MountOptions* mount_options_free_all(MountOptions *options) {
+        if (!options)
+                return NULL;
+
+        free_many_charp(options->options, _PARTITION_DESIGNATOR_MAX);
+
+        return mfree(options);
 }
 
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator) {
-        LIST_FOREACH(mount_options, m, options)
-                if (designator == m->partition_designator && !isempty(m->options))
-                        return m->options;
+        assert(designator >= 0 && designator < _PARTITION_DESIGNATOR_MAX);
 
-        return NULL;
+        if (!options)
+                return NULL;
+
+        return options->options[designator];
 }
 
 int mount_image_privately_interactively(
@@ -4754,8 +4809,7 @@ static bool mount_options_relax_extension_release_checks(const MountOptions *opt
                 return false;
 
         return string_contains_word(mount_options_from_designator(options, PARTITION_ROOT), ",", "x-systemd.relax-extension-release-check") ||
-                        string_contains_word(mount_options_from_designator(options, PARTITION_USR), ",", "x-systemd.relax-extension-release-check") ||
-                        string_contains_word(options->options, ",", "x-systemd.relax-extension-release-check");
+                        string_contains_word(mount_options_from_designator(options, PARTITION_USR), ",", "x-systemd.relax-extension-release-check");
 }
 
 int verity_dissect_and_mount(
