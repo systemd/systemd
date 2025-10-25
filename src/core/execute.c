@@ -1169,11 +1169,11 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->root_image_options) {
                 fprintf(f, "%sRootImageOptions:", prefix);
-                LIST_FOREACH(mount_options, o, c->root_image_options)
-                        if (!isempty(o->options))
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                        if (!isempty(c->root_image_options->options[i]))
                                 fprintf(f, " %s:%s",
-                                        partition_designator_to_string(o->partition_designator),
-                                        o->options);
+                                        partition_designator_to_string(i),
+                                        c->root_image_options->options[i]);
                 fprintf(f, "\n");
         }
 
@@ -1576,10 +1576,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         mount->ignore_enoent ? "-": "",
                         mount->source,
                         mount->destination);
-                LIST_FOREACH(mount_options, o, mount->mount_options)
-                        fprintf(f, ":%s:%s",
-                                partition_designator_to_string(o->partition_designator),
-                                strempty(o->options));
+                if (mount->mount_options)
+                        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                                if (!isempty(mount->mount_options->options[i]))
+                                        fprintf(f, ":%s:%s",
+                                                partition_designator_to_string(i),
+                                                mount->mount_options->options[i]);
                 fprintf(f, "\n");
         }
 
@@ -1587,10 +1589,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sExtensionImages: %s%s", prefix,
                         mount->ignore_enoent ? "-": "",
                         mount->source);
-                LIST_FOREACH(mount_options, o, mount->mount_options)
-                        fprintf(f, ":%s:%s",
-                                partition_designator_to_string(o->partition_designator),
-                                strempty(o->options));
+                if (mount->mount_options)
+                        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                                if (!isempty(mount->mount_options->options[i]))
+                                        fprintf(f, ":%s:%s",
+                                                partition_designator_to_string(i),
+                                                mount->mount_options->options[i]);
                 fprintf(f, "\n");
         }
 
