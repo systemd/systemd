@@ -1015,6 +1015,7 @@ endif
 libcrypt = dependency('libcrypt', 'libxcrypt',
                       required : true,
                       version : '>=4.4.0')
+libcrypt_cflags = libcrypt.partial_dependency(includes: true, compile_args: true)
 
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')

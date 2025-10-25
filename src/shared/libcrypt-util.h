@@ -3,6 +3,8 @@
 
 #include "shared-forward.h"
 
+int dlopen_libcrypt(void);
+
 int crypt_get_preferred_method(const char **ret);
 int make_salt(char **ret);
 int hash_password_full(const char *password, void **cd_data, int *cd_size, char **ret);
