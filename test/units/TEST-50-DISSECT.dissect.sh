@@ -239,11 +239,11 @@ systemd-run -P \
             cat /usr/lib/os-release | grep -q -F "MARKER=1"
 systemd-run -P \
             -p RootImage="$MINIMAL_IMAGE.raw" \
-            -p RootImageOptions="root:nosuid,dev home:ro,dev ro,noatime" \
+            -p RootImageOptions="root:noatime,dev home:ro,dev ro,nosuid" \
             mount | grep -F "squashfs" | grep -q -F "nosuid"
 systemd-run -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
-            -p RootImageOptions="root:ro,noatime root:ro,dev" \
+            -p RootImageOptions="root:ro,dev root:ro,noatime" \
             mount | grep -F "squashfs" | grep -q -F "noatime"
 
 mkdir -p "$IMAGE_DIR/result"
@@ -254,8 +254,8 @@ ExecStart=bash -c "mount >/run/result/a"
 BindPaths=$IMAGE_DIR/result:/run/result
 TemporaryFileSystem=/run
 RootImage=$MINIMAL_IMAGE.raw
-RootImageOptions=root:ro,noatime home:ro,dev relatime,dev
-RootImageOptions=nosuid,dev
+RootImageOptions=root:relatime,dev home:ro,dev nosuid,dev
+RootImageOptions=ro,noatime
 EOF
 systemctl start testservice-50a.service
 grep -F "squashfs" "$IMAGE_DIR/result/a" | grep -q -F "noatime"
@@ -268,8 +268,8 @@ ExecStart=bash -c "mount >/run/result/b"
 BindPaths=$IMAGE_DIR/result:/run/result
 TemporaryFileSystem=/run
 RootImage=$MINIMAL_IMAGE.gpt
-RootImageOptions=root:ro,noatime,nosuid home:ro,dev nosuid,dev
-RootImageOptions=home:ro,dev nosuid,dev,%%foo
+RootImageOptions=nosuid,dev home:ro,dev nosuid,dev
+RootImageOptions=home:ro,dev,%%foo root:ro,noatime,nosuid
 # this is the default, but let's specify once to test the parser
 MountAPIVFS=yes
 EOF
@@ -279,7 +279,7 @@ grep -F "squashfs" "$IMAGE_DIR/result/b" | grep -q -F "noatime"
 # Check that specifier escape is applied %%foo → %foo
 busctl get-property org.freedesktop.systemd1 \
                     /org/freedesktop/systemd1/unit/testservice_2d50b_2eservice \
-                    org.freedesktop.systemd1.Service RootImageOptions | grep -F "nosuid,dev,%foo"
+                    org.freedesktop.systemd1.Service RootImageOptions | grep -F "ro,dev,%foo"
 
 # Now do some checks with MountImages, both by itself, with options and in combination with RootImage, and as single FS or GPT image
 systemd-run -P \
