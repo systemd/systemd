@@ -342,7 +342,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-libcrypt-util.c'),
-                'dependencies' : libcrypt,
+                'dependencies' : libcrypt_cflags,
                 'timeout' : 120,
         },
         test_template + {
