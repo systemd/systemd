@@ -148,9 +148,16 @@ if [ -n "$DEVICETREE" ]; then
         "/usr/lib/modules/$KERNEL_VERSION/dtb"
     do
         [ -n "$prefix" ] || continue
-        [ -f "$prefix/$DEVICETREE" ] || continue
-        DEVICETREE_SRC="$prefix/$DEVICETREE"
-        break
+        [ -d "$prefix" ] || continue
+        if [ "$DEVICETREE" = all ]; then
+            for dtb in $(find "$prefix" -name '*.dtb'); do
+                compatible="$(dtc -qqq -I dtb -O dts "$dtb" | sed -ne 's/^\tcompatible = "\([^"]*\).*/\1/p')"
+                [ -z "$compatible" ] || DEVICETREE_SRC="$DEVICETREE_SRC $dtb:dtb/$compatible.dtb"
+            done
+        elif [ -f "$prefix/$DEVICETREE" ]; then
+            DEVICETREE_SRC="$prefix/$DEVICETREE:${DEVICETREE##*/}"
+            break
+        fi
     done
 
     [ -n "$DEVICETREE_SRC" ] || {
@@ -158,14 +165,24 @@ if [ -n "$DEVICETREE" ]; then
         exit 1
     }
 
-    DEVICETREE_DEST="$ENTRY_DIR_ABS/${DEVICETREE##*/}"
-    DEVICETREE_ENTRY="$ENTRY_DIR/${DEVICETREE##*/}"
+    if [ "$DEVICETREE" = all ]; then
+        DEVICETREE_ENTRY="$ENTRY_DIR/dtb"
+        install -dm 0755 "$ENTRY_DIR_ABS/dtb" || {
+            echo "Error: could not create '$ENTRY_DIR_ABS/dtb'." >&2
+            exit 1
+        }
+    else
+        DEVICETREE_ENTRY="$ENTRY_DIR/${DEVICETREE##*/}"
+    fi
 
-    install -m 0644 "$DEVICETREE_SRC" "$DEVICETREE_DEST" || {
-        echo "Error: could not copy '$DEVICETREE_SRC' to '$DEVICETREE_DEST'." >&2
-        exit 1
-    }
-    chown root:root "$DEVICETREE_DEST" || :
+    for dtb in $DEVICETREE_SRC; do
+        [ ! -f "$ENTRY_DIR_ABS/${dtb##*:}" ] || continue
+        install -m 0644 "${dtb%:*}" "$ENTRY_DIR_ABS/${dtb##*:}" || {
+            echo "Error: could not copy '${dtb%:*}' to '$ENTRY_DIR_ABS/${dtb##*:}'." >&2
+            exit 1
+        }
+        chown root:root "$ENTRY_DIR_ABS/${dtb##*:}" || :
+    done
 fi
 
 shift "$INITRD_OPTIONS_SHIFT"
