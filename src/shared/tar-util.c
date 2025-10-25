@@ -392,7 +392,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
         assert(input_fd >= 0);
         assert(tree_fd >= 0);
 
-        _cleanup_(sym_archive_read_freep) struct archive *a = NULL;
+        _cleanup_(archive_read_freep) struct archive *a = NULL;
         a = sym_archive_read_new();
         if (!a)
                 return log_oom();

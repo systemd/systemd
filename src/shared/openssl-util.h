@@ -190,16 +190,6 @@ static inline void* EVP_PKEY_free(EVP_PKEY *p) {
         return NULL;
 }
 
-static inline void* ASN1_TYPE_free(ASN1_TYPE *p) {
-        assert(p == NULL);
-        return NULL;
-}
-
-static inline void* ASN1_STRING_free(ASN1_STRING *p) {
-        assert(p == NULL);
-        return NULL;
-}
-
 static inline int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret) {
         return -EOPNOTSUPP;
 }
@@ -208,8 +198,6 @@ static inline int string_hashsum(const char *s, size_t len, const char *md_algor
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_TYPE*, ASN1_TYPE_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_STRING*, ASN1_STRING_free, NULL);
 
 struct OpenSSLAskPasswordUI {
         AskPasswordRequest request;

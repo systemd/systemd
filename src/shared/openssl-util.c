@@ -871,9 +871,8 @@ int ecc_pkey_from_curve_x_y(
         TAKE_PTR(eckey);
 #endif
 
-    *ret = TAKE_PTR(pkey);
-
-    return 0;
+        *ret = TAKE_PTR(pkey);
+        return 0;
 }
 
 int ecc_pkey_to_curve_x_y(

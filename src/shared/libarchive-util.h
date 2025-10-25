@@ -77,9 +77,9 @@ static inline int sym_archive_entry_hardlink_is_set(struct archive_entry *e) {
 
 int dlopen_libarchive(void);
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct archive_entry*, sym_archive_entry_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct archive*, sym_archive_write_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct archive*, sym_archive_read_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive_entry*, sym_archive_entry_free, archive_entry_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive*, sym_archive_write_free, archive_write_freep, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct archive*, sym_archive_read_free, archive_read_freep, NULL);
 
 #else
 
