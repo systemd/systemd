@@ -4308,11 +4308,7 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                 },
         };
 
-#if OPENSSL_VERSION_MAJOR >= 3
         key_id = EVP_PKEY_get_id(pkey);
-#else
-        key_id = EVP_PKEY_id(pkey);
-#endif
 
         switch (key_id) {
         case EVP_PKEY_EC: {
