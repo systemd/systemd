@@ -1039,11 +1039,13 @@ endif
 
 if get_option('libc') == 'musl'
         libcrypt = []
+        libcrypt_cflags = []
         have = get_option('libcrypt').allowed()
 else
         libcrypt = dependency('libcrypt', 'libxcrypt',
                               required : get_option('libcrypt'),
                               version : '>=4.4.0')
+        libcrypt_cflags = libcrypt.partial_dependency(includes: true, compile_args: true)
         have = libcrypt.found()
 endif
 conf.set10('HAVE_LIBCRYPT', have)
