@@ -64,7 +64,6 @@ executables += [
                 'sources' : systemd_homed_sources,
                 'extract' : systemd_homed_extract_sources,
                 'dependencies' : [
-                        libcrypt,
                         libm,
                         libopenssl,
                         threads,
@@ -80,7 +79,6 @@ executables += [
                 ],
                 'dependencies' : [
                         libblkid_cflags,
-                        libcrypt,
                         libfdisk,
                         libopenssl,
                         libp11kit_cflags,
@@ -93,7 +91,6 @@ executables += [
                 'sources' : homectl_sources,
                 'objects' : ['systemd-homed'],
                 'dependencies' : [
-                        libcrypt,
                         libdl,
                         libopenssl,
                         libp11kit_cflags,
@@ -112,7 +109,6 @@ modules += [
                 'conditions' : ['HAVE_PAM'],
                 'sources' : pam_systemd_home_sources,
                 'dependencies' : [
-                        libcrypt,
                         libintl,
                         libpam_misc,
                         libpam,

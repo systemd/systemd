@@ -345,7 +345,6 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-libcrypt-util.c'),
-                'dependencies' : libcrypt,
                 'conditions' : ['HAVE_LIBCRYPT'],
                 'timeout' : 120,
         },
