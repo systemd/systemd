@@ -53,11 +53,19 @@ static int root_image_options_build_json(sd_json_variant **ret, const char *name
         assert(ret);
         assert(name);
 
-        LIST_FOREACH(mount_options, m, root_image_options) {
+        if (!root_image_options) {
+                *ret = NULL;
+                return 0;
+        }
+
+        for (PartitionDesignator j = 0; j < _PARTITION_DESIGNATOR_MAX; j++) {
+                if (!root_image_options->options[j])
+                        continue;
+
                 r = sd_json_variant_append_arraybo(
                                 &v,
-                                SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
-                                SD_JSON_BUILD_PAIR_STRING("options", m->options));
+                                SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(j)),
+                                SD_JSON_BUILD_PAIR_STRING("options", root_image_options->options[j]));
                 if (r < 0)
                         return r;
         }
@@ -119,14 +127,18 @@ static int mount_images_build_json(sd_json_variant **ret, const char *name, void
         FOREACH_ARRAY(i, c->mount_images, c->n_mount_images) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
 
-                LIST_FOREACH(mount_options, m, i->mount_options) {
-                        r = sd_json_variant_append_arraybo(
-                                        &mo,
-                                        SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
-                                        SD_JSON_BUILD_PAIR_STRING("options", m->options));
-                        if (r < 0)
-                                return r;
-                }
+                if (i->mount_options)
+                        for (PartitionDesignator j = 0; j < _PARTITION_DESIGNATOR_MAX; j++) {
+                                if (!i->mount_options->options[j])
+                                        continue;
+
+                                r = sd_json_variant_append_arraybo(
+                                                &mo,
+                                                SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(j)),
+                                                SD_JSON_BUILD_PAIR_STRING("options", i->mount_options->options[j]));
+                                if (r < 0)
+                                        return r;
+                        }
 
                 r = sd_json_variant_append_arraybo(
                                 &v,
@@ -153,14 +165,18 @@ static int extension_images_build_json(sd_json_variant **ret, const char *name, 
         FOREACH_ARRAY(i, c->extension_images, c->n_extension_images) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
 
-                LIST_FOREACH(mount_options, m, i->mount_options) {
-                        r = sd_json_variant_append_arraybo(
-                                        &mo,
-                                        SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
-                                        SD_JSON_BUILD_PAIR_STRING("options", m->options));
-                        if (r < 0)
-                                return r;
-                }
+                if (i->mount_options)
+                        for (PartitionDesignator j = 0; j < _PARTITION_DESIGNATOR_MAX; j++) {
+                                if (!i->mount_options->options[j])
+                                        continue;
+
+                                r = sd_json_variant_append_arraybo(
+                                                &mo,
+                                                SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(j)),
+                                                SD_JSON_BUILD_PAIR_STRING("options", i->mount_options->options[j]));
+                                if (r < 0)
+                                        return r;
+                        }
 
                 r = sd_json_variant_append_arraybo(
                                 &v,
