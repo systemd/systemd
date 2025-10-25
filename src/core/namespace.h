@@ -6,7 +6,6 @@
 ***/
 
 #include "core-forward.h"
-#include "list.h"
 #include "runtime-scope.h"
 
 typedef enum ProtectHome {
@@ -120,7 +119,7 @@ typedef enum MountImageType {
 typedef struct MountImage {
         char *source;
         char *destination; /* Unused if MountImageType == MOUNT_IMAGE_EXTENSION */
-        LIST_HEAD(MountOptions, mount_options);
+        MountOptions *mount_options;
         bool ignore_enoent;
         MountImageType type;
 } MountImage;
