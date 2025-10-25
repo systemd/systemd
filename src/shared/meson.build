@@ -359,23 +359,34 @@ libshared_name = 'systemd-shared-@0@'.format(shared_lib_tag)
 
 libshared_deps = [threads,
                   libacl_cflags,
+                  libapparmor_cflags,
+                  libarchive_cflags,
                   libaudit_cflags,
                   libblkid_cflags,
+                  libbpf_cflags,
                   libcrypt,
+                  libcryptsetup_cflags,
                   libdl,
+                  libdw_cflags,
+                  libelf_cflags,
+                  libfido2_cflags,
                   libgcrypt_cflags,
+                  libidn_cflags,
                   libkmod_cflags,
-                  liblz4_cflags,
                   libmount_cflags,
                   libopenssl,
                   libp11kit_cflags,
                   libpam_cflags,
+                  libpcre2_cflags,
+                  libpwquality_cflags,
+                  libqrencode_cflags,
                   librt,
                   libseccomp_cflags,
                   libselinux_cflags,
                   libxenctrl_cflags,
                   libxz_cflags,
-                  libzstd_cflags]
+                  libzstd_cflags,
+                  tpm2_cflags]
 
 libshared_sym_path = meson.current_source_dir() / 'libshared.sym'
 libshared_build_dir = meson.current_build_dir()
