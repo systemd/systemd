@@ -2039,7 +2039,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(bs)", &is_allowlist, &pattern)) > 0) {
-                        _cleanup_(pattern_freep) pcre2_code *compiled_pattern = NULL;
+                        _cleanup_(pcre2_code_freep) pcre2_code *compiled_pattern = NULL;
 
                         if (isempty(pattern))
                                 continue;

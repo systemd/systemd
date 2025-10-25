@@ -1455,7 +1455,7 @@ static int archive_item(
 
         log_debug("Archiving %s\n", path);
 
-        _cleanup_(sym_archive_entry_freep) struct archive_entry *entry = NULL;
+        _cleanup_(archive_entry_freep) struct archive_entry *entry = NULL;
         entry = sym_archive_entry_new();
         if (!entry)
                 return log_oom();
@@ -1744,7 +1744,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open mount directory: %m");
 
-                _cleanup_(sym_archive_write_freep) struct archive *a = sym_archive_write_new();
+                _cleanup_(archive_write_freep) struct archive *a = sym_archive_write_new();
                 if (!a)
                         return log_oom();
 
