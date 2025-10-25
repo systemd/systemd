@@ -156,17 +156,3 @@ int pattern_matches_and_log(pcre2_code *compiled_pattern, const char *message, s
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "PCRE2 support is not compiled in.");
 #endif
 }
-
-void *pattern_free(pcre2_code *p) {
-#if HAVE_PCRE2
-        if (!p)
-                return NULL;
-
-        assert(pcre2_dl);
-        sym_pcre2_code_free(p);
-        return NULL;
-#else
-        assert(p == NULL);
-        return NULL;
-#endif
-}
