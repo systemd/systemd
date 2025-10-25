@@ -6,7 +6,6 @@
 #include "architecture.h"
 #include "gpt.h"
 #include "iovec-util.h"
-#include "list.h"
 #include "shared-forward.h"
 
 typedef struct DecryptedImage DecryptedImage;
@@ -114,9 +113,7 @@ typedef struct DissectedImage {
 } DissectedImage;
 
 typedef struct MountOptions {
-        PartitionDesignator partition_designator;
-        char *options;
-        LIST_FIELDS(MountOptions, mount_options);
+        char *options[_PARTITION_DESIGNATOR_MAX];
 } MountOptions;
 
 typedef struct VeritySettings {
@@ -154,6 +151,9 @@ typedef struct ExtensionReleaseData {
 MountOptions* mount_options_free_all(MountOptions *options);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator);
+int mount_options_set_and_consume(MountOptions **options, PartitionDesignator d, char *s);
+int mount_options_dup(const MountOptions *source, MountOptions **ret);
+int mount_options_to_string(const MountOptions *mount_options, char **ret);
 
 int probe_filesystem_full(int fd, const char *path, uint64_t offset, uint64_t size, bool restrict_fstypes, char **ret_fstype);
 static inline int probe_filesystem(const char *path, char **ret_fstype) {
