@@ -103,7 +103,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
 
         /* If the operation was fully executed by the SysV compat, let's finish early */
         if (strv_isempty(names)) {
-                if (arg_no_reload || install_client_side())
+                if (arg_no_reload || install_client_side() != INSTALL_CLIENT_SIDE_NO)
                         return 0;
 
                 r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
@@ -119,41 +119,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (install_client_side()) {
-                UnitFileFlags flags;
-                InstallChange *changes = NULL;
-                size_t n_changes = 0;
-
-                CLEANUP_ARRAY(changes, n_changes, install_changes_free);
-
-                flags = unit_file_flags_from_args();
-
-                if (streq(verb, "enable")) {
-                        r = unit_file_enable(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
-                        carries_install_info = r;
-                } else if (streq(verb, "disable")) {
-                        r = unit_file_disable(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
-                        carries_install_info = r;
-                } else if (streq(verb, "reenable")) {
-                        r = unit_file_reenable(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
-                        carries_install_info = r;
-                } else if (streq(verb, "link"))
-                        r = unit_file_link(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
-                else if (streq(verb, "preset"))
-                        r = unit_file_preset(arg_runtime_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
-                else if (streq(verb, "mask"))
-                        r = unit_file_mask(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
-                else if (streq(verb, "unmask"))
-                        r = unit_file_unmask(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
-                else if (streq(verb, "revert"))
-                        r = unit_file_revert(arg_runtime_scope, arg_root, names, &changes, &n_changes);
-                else
-                        assert_not_reached();
-
-                install_changes_dump(r, verb, changes, n_changes, arg_quiet);
-                if (r < 0)
-                        return r;
-        } else {
+        if (install_client_side() == INSTALL_CLIENT_SIDE_NO) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 bool expect_carries_install_info = false;
@@ -275,6 +241,40 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 if (warn_trigger_operation && !arg_quiet && !arg_no_warn)
                         STRV_FOREACH(unit, names)
                                 warn_triggering_units(bus, *unit, warn_trigger_operation, warn_trigger_ignore_masked);
+        } else {
+                UnitFileFlags flags;
+                InstallChange *changes = NULL;
+                size_t n_changes = 0;
+
+                CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+                flags = unit_file_flags_from_args();
+
+                if (streq(verb, "enable")) {
+                        r = unit_file_enable(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
+                        carries_install_info = r;
+                } else if (streq(verb, "disable")) {
+                        r = unit_file_disable(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
+                        carries_install_info = r;
+                } else if (streq(verb, "reenable")) {
+                        r = unit_file_reenable(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
+                        carries_install_info = r;
+                } else if (streq(verb, "link"))
+                        r = unit_file_link(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
+                else if (streq(verb, "preset"))
+                        r = unit_file_preset(arg_runtime_scope, flags, arg_root, names, arg_preset_mode, &changes, &n_changes);
+                else if (streq(verb, "mask"))
+                        r = unit_file_mask(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
+                else if (streq(verb, "unmask"))
+                        r = unit_file_unmask(arg_runtime_scope, flags, arg_root, names, &changes, &n_changes);
+                else if (streq(verb, "revert"))
+                        r = unit_file_revert(arg_runtime_scope, arg_root, names, &changes, &n_changes);
+                else
+                        assert_not_reached();
+
+                install_changes_dump(r, verb, changes, n_changes, arg_quiet);
+                if (r < 0)
+                        return r;
         }
 
         if (carries_install_info == 0 && !ignore_carries_install_info)
@@ -354,7 +354,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--now can only be used with verb enable, disable, reenable, or mask.");
 
-                if (install_client_side())
+                if (install_client_side() != INSTALL_CLIENT_SIDE_NO)
                         return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
                                                "--now cannot be used when systemd is not running or in conjunction with --root=/--global, refusing.");
 
