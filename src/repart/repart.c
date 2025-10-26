@@ -4824,7 +4824,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 .luks2 = &luks_params,
                 .flags = CRYPT_REENCRYPT_INITIALIZE_ONLY|CRYPT_REENCRYPT_MOVE_FIRST_SEGMENT,
         };
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
 #if HAVE_TPM2
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
 #endif
@@ -5229,7 +5229,7 @@ static int partition_format_verity_hash(
 #if HAVE_LIBCRYPTSETUP
         Partition *dp;
         _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *hint = NULL;
         int r;
 

@@ -411,7 +411,7 @@ static int luks_setup(
                 key_serial_t *ret_key_serial) {
 
         _cleanup_(keyring_unlinkp) key_serial_t key_serial = -1;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         size_t vks;
@@ -522,7 +522,7 @@ static int acquire_open_luks_device(
                 HomeSetup *setup,
                 bool graceful) {
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 
         assert(h);
@@ -1757,7 +1757,7 @@ static int luks_format(
                 struct crypt_device **ret) {
 
         _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
         _cleanup_free_ char *text = NULL;

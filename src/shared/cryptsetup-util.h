@@ -82,7 +82,6 @@ extern DLSYM_PROTOTYPE(crypt_volume_key_get);
 extern DLSYM_PROTOTYPE(crypt_volume_key_keyring);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct crypt_device *, sym_crypt_free, crypt_freep, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, sym_crypt_free, NULL);
 
 #define crypt_free_and_replace(a, b)                    \
         free_and_replace_full(a, b, sym_crypt_free)
