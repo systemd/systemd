@@ -321,8 +321,6 @@ typedef struct Manager {
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
 
-        bool send_reloading_done;
-
         uint32_t current_job_id;
 
         /* Data specific to the Automount subsystem */
@@ -330,8 +328,8 @@ typedef struct Manager {
 
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_unit;
-        CGroupMask cgroup_supported;
         char *cgroup_root;
+        CGroupMask cgroup_supported;
 
         /* Notifications from cgroups, when the unified hierarchy is used is done via inotify. */
         int cgroup_inotify_fd;
@@ -363,6 +361,8 @@ typedef struct Manager {
         /* Flags */
         bool dispatching_load_queue;
         int may_dispatch_stop_notify_queue; /* tristate */
+
+        bool send_reloading_done;
 
         /* Have we already sent out the READY=1 notification? */
         bool ready_sent;
