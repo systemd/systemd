@@ -283,7 +283,7 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
         bool deserialize_varlink_sockets = false;
-        int r = 0;
+        int r;
 
         assert(m);
         assert(f);
@@ -350,22 +350,18 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                                 m->n_failed_jobs += n;
 
                 } else if ((val = startswith(l, "taint-logged="))) {
-                        int b;
-
-                        b = parse_boolean(val);
-                        if (b < 0)
+                        r = parse_boolean(val);
+                        if (r < 0)
                                 log_notice("Failed to parse taint-logged flag '%s', ignoring.", val);
                         else
-                                m->taint_logged = m->taint_logged || b;
+                                m->taint_logged = m->taint_logged || r;
 
                 } else if ((val = startswith(l, "service-watchdogs="))) {
-                        int b;
-
-                        b = parse_boolean(val);
-                        if (b < 0)
+                        r = parse_boolean(val);
+                        if (r < 0)
                                 log_notice("Failed to parse service-watchdogs flag '%s', ignoring.", val);
                         else
-                                m->service_watchdogs = b;
+                                m->service_watchdogs = r;
 
                 } else if ((val = startswith(l, "show-status-overridden="))) {
                         ShowStatus s;
