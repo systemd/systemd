@@ -77,6 +77,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "strxcpyx.h"
 #include "terminal-util.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
@@ -1504,7 +1505,7 @@ static void rename_process_from_path(const char *path) {
         size_t len = strlen(buf);
         char comm[TASK_COMM_LEN], *p = comm;
         *p++ = '(';
-        p = mempcpy(p, buf + LESS_BY(len, (size_t) (TASK_COMM_LEN - 3)), MIN(len, (size_t) (TASK_COMM_LEN - 3)));
+        strnpcpy(&p, TASK_COMM_LEN - 2, buf, len); /* strnpcpy() accounts for NUL byte internally */
         *p++ = ')';
         *p = '\0';
 
