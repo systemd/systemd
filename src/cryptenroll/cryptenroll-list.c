@@ -26,11 +26,11 @@ int list_enrolled(struct crypt_device *cd) {
         assert(cd);
 
         /* First step, find out all currently used slots */
-        assert_se((slot_max = crypt_keyslot_max(CRYPT_LUKS2)) > 0);
+        assert_se((slot_max = sym_crypt_keyslot_max(CRYPT_LUKS2)) > 0);
         for (int slot = 0; slot < slot_max; slot++) {
                 crypt_keyslot_info status;
 
-                status = crypt_keyslot_status(cd, slot);
+                status = sym_crypt_keyslot_status(cd, slot);
                 if (!IN_SET(status, CRYPT_SLOT_ACTIVE, CRYPT_SLOT_ACTIVE_LAST))
                         continue;
 

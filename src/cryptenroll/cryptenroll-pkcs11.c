@@ -51,7 +51,7 @@ int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key,const 
         assert_se(iovec_is_set(volume_key));
         assert_se(uri);
 
-        assert_se(node = crypt_get_device_name(cd));
+        assert_se(node = sym_crypt_get_device_name(cd));
 
         r = pkcs11_acquire_public_key(
                         uri,
@@ -78,7 +78,7 @@ int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key,const 
         if (r < 0)
                 return log_error_errno(r, "Failed to set minimal PBKDF: %m");
 
-        int keyslot = crypt_keyslot_add_by_volume_key(
+        int keyslot = sym_crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
                         volume_key->iov_base,
