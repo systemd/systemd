@@ -5329,9 +5329,8 @@ static int partition_format_verity_hash(
 }
 
 static int sign_verity_roothash(
+                Context *context,
                 const struct iovec *roothash,
-                X509 *certificate,
-                EVP_PKEY *private_key,
                 struct iovec *ret_signature) {
 
 #if HAVE_OPENSSL
@@ -5341,8 +5340,10 @@ static int sign_verity_roothash(
         _cleanup_free_ uint8_t *sig = NULL;
         int sigsz;
 
+        assert(context);
+        assert(context->certificate);
+        assert(context->private_key);
         assert(roothash);
-        assert(private_key);
         assert(iovec_is_set(roothash));
         assert(ret_signature);
 
@@ -5354,7 +5355,7 @@ static int sign_verity_roothash(
         if (!rb)
                 return log_oom();
 
-        p7 = PKCS7_sign(certificate, private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
+        p7 = PKCS7_sign(context->certificate, context->private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
         if (!p7)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
@@ -5440,7 +5441,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                         .iov_len = verity_settings->root_hash_size,
                 };
         } else {
-                r = sign_verity_roothash(&hp->roothash, context->certificate, context->private_key, &sig_free);
+                r = sign_verity_roothash(context, &hp->roothash, &sig_free);
                 if (r < 0)
                         return r;
 
