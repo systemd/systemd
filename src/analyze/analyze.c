@@ -106,6 +106,7 @@ bool arg_legend = true;
 bool arg_table = false;
 ImagePolicy *arg_image_policy = NULL;
 char *arg_drm_device_path = NULL;
+bool arg_dlopen_metadata = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_dot_from_patterns, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_dot_to_patterns, strv_freep);
@@ -306,6 +307,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --debugger=DEBUGGER     Use the given debugger\n"
                "  -A --debugger-arguments=ARGS\n"
                "                             Pass the given arguments to the debugger\n"
+               "     --dlopen-metadata       Show dlopen metadata in inspect-elf\n"
 
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -355,6 +357,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DETAILED_SVG,
                 ARG_DRM_DEVICE_PATH,
                 ARG_DEBUGGER,
+                ARG_DLOPEN_METADATA,
         };
 
         static const struct option options[] = {
@@ -396,6 +399,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "drm-device",         required_argument, NULL, ARG_DRM_DEVICE_PATH  },
                 { "debugger",           required_argument, NULL, ARG_DEBUGGER         },
                 { "debugger-arguments", required_argument, NULL, 'A'                  },
+                { "dlopen-metadata",    no_argument,       NULL, ARG_DLOPEN_METADATA  },
                 {}
         };
 
@@ -679,6 +683,10 @@ static int parse_argv(int argc, char *argv[]) {
                         strv_free_and_replace(arg_debugger_args, l);
                         break;
                 }
+
+                case ARG_DLOPEN_METADATA:
+                        arg_dlopen_metadata = true;
+                        break;
 
                 case '?':
                         return -EINVAL;

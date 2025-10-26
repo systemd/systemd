@@ -1827,6 +1827,15 @@ boot  efi  exitrd  init  lib32	libx32	media	    opt  root  sbin  sys  usr  vmlin
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--dlopen-metadata</option></term>
+
+        <listitem><para>Make <command>inspect-elf</command> show dlopen metadata in the ELF binary instead of
+        the default output.</para></listitem>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
