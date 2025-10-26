@@ -272,7 +272,7 @@ int load_volume_key_tpm2(
         if (passphrase_size < 0)
                 return log_oom();
 
-        r = crypt_volume_key_get(
+        r = sym_crypt_volume_key_get(
                         cd,
                         CRYPT_ANY_SLOT,
                         ret_vk,
@@ -328,7 +328,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
         assert(ret_slot_to_wipe);
 
-        assert_se(node = crypt_get_device_name(cd));
+        assert_se(node = sym_crypt_get_device_name(cd));
 
         if (use_pin) {
                 r = get_pin(&pin_str, &flags);
@@ -576,7 +576,7 @@ int enroll_tpm2(struct crypt_device *cd,
         if (r < 0)
                 return log_error_errno(r, "Failed to set minimal PBKDF: %m");
 
-        keyslot = crypt_keyslot_add_by_volume_key(
+        keyslot = sym_crypt_keyslot_add_by_volume_key(
                         cd,
                         CRYPT_ANY_SLOT,
                         volume_key->iov_base,

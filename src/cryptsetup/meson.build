@@ -18,7 +18,7 @@ executables += [
                 'public' : true,
                 'sources' : systemd_cryptsetup_sources,
                 'dependencies' : [
-                        libcryptsetup,
+                        libcryptsetup_cflags,
                         libmount_cflags,
                         libopenssl,
                         libp11kit_cflags,

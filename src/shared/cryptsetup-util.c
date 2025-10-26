@@ -17,7 +17,11 @@ static void *cryptsetup_dl = NULL;
 
 DLSYM_PROTOTYPE(crypt_activate_by_passphrase) = NULL;
 DLSYM_PROTOTYPE(crypt_activate_by_signed_key) = NULL;
+#if HAVE_LIBCRYPTSETUP_PLUGINS
+DLSYM_PROTOTYPE(crypt_activate_by_token_pin) = NULL;
+#endif
 DLSYM_PROTOTYPE(crypt_activate_by_volume_key) = NULL;
+DLSYM_PROTOTYPE(crypt_deactivate) = NULL;
 DLSYM_PROTOTYPE(crypt_deactivate_by_name) = NULL;
 DLSYM_PROTOTYPE(crypt_format) = NULL;
 DLSYM_PROTOTYPE(crypt_free) = NULL;
@@ -33,9 +37,11 @@ DLSYM_PROTOTYPE(crypt_get_volume_key_size) = NULL;
 DLSYM_PROTOTYPE(crypt_header_restore) = NULL;
 DLSYM_PROTOTYPE(crypt_init) = NULL;
 DLSYM_PROTOTYPE(crypt_init_by_name) = NULL;
+DLSYM_PROTOTYPE(crypt_init_data_device) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_add_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_destroy) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
+DLSYM_PROTOTYPE(crypt_keyslot_status) = NULL;
 DLSYM_PROTOTYPE(crypt_load) = NULL;
 DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
 DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase) = NULL;
@@ -49,16 +55,23 @@ DLSYM_PROTOTYPE(crypt_resume_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_device) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
 DLSYM_PROTOTYPE(crypt_set_debug_level) = NULL;
+#if HAVE_CRYPT_SET_KEYRING_TO_LINK
+DLSYM_PROTOTYPE(crypt_set_keyring_to_link) = NULL;
+#endif
 DLSYM_PROTOTYPE(crypt_set_log_callback) = NULL;
 DLSYM_PROTOTYPE(crypt_set_metadata_size) = NULL;
 DLSYM_PROTOTYPE(crypt_set_pbkdf_type) = NULL;
+DLSYM_PROTOTYPE(crypt_status) = NULL;
 DLSYM_PROTOTYPE(crypt_suspend) = NULL;
+#if HAVE_LIBCRYPTSETUP_PLUGINS
+DLSYM_PROTOTYPE(crypt_token_external_path) = NULL;
+#endif
 DLSYM_PROTOTYPE(crypt_token_json_get) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
 #if HAVE_CRYPT_TOKEN_MAX
 DLSYM_PROTOTYPE(crypt_token_max) = NULL;
 #else
-int crypt_token_max(_unused_ const char *type) {
+int sym_crypt_token_max(_unused_ const char *type) {
     assert(streq(type, CRYPT_LUKS2));
 
     return 32;
@@ -228,7 +241,11 @@ int dlopen_cryptsetup(void) {
                         &cryptsetup_dl, "libcryptsetup.so.12", LOG_DEBUG,
                         DLSYM_ARG(crypt_activate_by_passphrase),
                         DLSYM_ARG(crypt_activate_by_signed_key),
+#if HAVE_LIBCRYPTSETUP_PLUGINS
+                        DLSYM_ARG(crypt_activate_by_token_pin),
+#endif
                         DLSYM_ARG(crypt_activate_by_volume_key),
+                        DLSYM_ARG(crypt_deactivate),
                         DLSYM_ARG(crypt_deactivate_by_name),
                         DLSYM_ARG(crypt_format),
                         DLSYM_ARG(crypt_free),
@@ -244,9 +261,11 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_header_restore),
                         DLSYM_ARG(crypt_init),
                         DLSYM_ARG(crypt_init_by_name),
+                        DLSYM_ARG(crypt_init_data_device),
                         DLSYM_ARG(crypt_keyslot_add_by_volume_key),
                         DLSYM_ARG(crypt_keyslot_destroy),
                         DLSYM_ARG(crypt_keyslot_max),
+                        DLSYM_ARG(crypt_keyslot_status),
                         DLSYM_ARG(crypt_load),
                         DLSYM_ARG(crypt_metadata_locking),
                         DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
@@ -260,10 +279,17 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_set_data_device),
                         DLSYM_ARG(crypt_set_data_offset),
                         DLSYM_ARG(crypt_set_debug_level),
+#if HAVE_CRYPT_SET_KEYRING_TO_LINK
+                        DLSYM_ARG(crypt_set_keyring_to_link),
+#endif
                         DLSYM_ARG(crypt_set_log_callback),
                         DLSYM_ARG(crypt_set_metadata_size),
                         DLSYM_ARG(crypt_set_pbkdf_type),
+                        DLSYM_ARG(crypt_status),
                         DLSYM_ARG(crypt_suspend),
+#if HAVE_LIBCRYPTSETUP_PLUGINS
+                        DLSYM_ARG(crypt_token_external_path),
+#endif
                         DLSYM_ARG(crypt_token_json_get),
                         DLSYM_ARG(crypt_token_json_set),
 #if HAVE_CRYPT_TOKEN_MAX

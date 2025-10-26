@@ -801,19 +801,19 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
 
         assert(cd);
 
-        if (!streq_ptr(crypt_get_type(cd), CRYPT_LUKS2)) {
-                log_debug("%s: not a LUKS2 device, only passphrases are supported", crypt_get_device_name(cd));
+        if (!streq_ptr(sym_crypt_get_type(cd), CRYPT_LUKS2)) {
+                log_debug("%s: not a LUKS2 device, only passphrases are supported", sym_crypt_get_device_name(cd));
                 return PASSPHRASE_REGULAR;
         }
 
         /* Search all used slots */
-        assert_se((slot_max = crypt_keyslot_max(CRYPT_LUKS2)) > 0);
+        assert_se((slot_max = sym_crypt_keyslot_max(CRYPT_LUKS2)) > 0);
         slots = new(bool, slot_max);
         if (!slots)
                 return log_oom();
 
         for (int slot = 0; slot < slot_max; slot++)
-                slots[slot] = IN_SET(crypt_keyslot_status(cd, slot), CRYPT_SLOT_ACTIVE, CRYPT_SLOT_ACTIVE_LAST);
+                slots[slot] = IN_SET(sym_crypt_keyslot_status(cd, slot), CRYPT_SLOT_ACTIVE, CRYPT_SLOT_ACTIVE_LAST);
 
         /* Iterate all LUKS2 tokens and keep track of all their slots */
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
@@ -1043,7 +1043,7 @@ static int measure_volume_key(
                 return log_oom();
 
         _cleanup_free_ char *s = NULL;
-        s = strjoin("cryptsetup:", escaped, ":", strempty(crypt_get_uuid(cd)));
+        s = strjoin("cryptsetup:", escaped, ":", strempty(sym_crypt_get_uuid(cd)));
         if (!s)
                 return log_oom();
 
@@ -1085,7 +1085,7 @@ static int measured_crypt_activate_by_volume_key(
 
         /* A wrapper around crypt_activate_by_volume_key() which also measures to a PCR if that's requested. */
 
-        r = crypt_activate_by_volume_key(cd, name, volume_key, volume_key_size, flags);
+        r = sym_crypt_activate_by_volume_key(cd, name, volume_key, volume_key_size, flags);
         if (r == -EEXIST) /* volume is already active */
                 return log_external_activation(r, name);
         if (r < 0)
@@ -1124,7 +1124,7 @@ static int measured_crypt_activate_by_passphrase(
                 goto shortcut;
         }
 
-        r = crypt_get_volume_key_size(cd);
+        r = sym_crypt_get_volume_key_size(cd);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1136,14 +1136,14 @@ static int measured_crypt_activate_by_passphrase(
         if (!vk)
                 return -ENOMEM;
 
-        r = crypt_volume_key_get(cd, keyslot, vk, &vks, passphrase, passphrase_size);
+        r = sym_crypt_volume_key_get(cd, keyslot, vk, &vks, passphrase, passphrase_size);
         if (r < 0)
                 return r;
 
         return measured_crypt_activate_by_volume_key(cd, name, vk, vks, flags);
 
 shortcut:
-        r = crypt_activate_by_passphrase(cd, name, keyslot, passphrase, passphrase_size, flags);
+        r = sym_crypt_activate_by_passphrase(cd, name, keyslot, passphrase, passphrase_size, flags);
         if (r == -EEXIST) /* volume is already active */
                 return log_external_activation(r, name);
         return r;
@@ -1190,7 +1190,7 @@ static int attach_tcrypt(
         if (key_data) {
                 params.passphrase = key_data->iov_base;
                 params.passphrase_size = key_data->iov_len;
-                r = crypt_load(cd, CRYPT_TCRYPT, &params);
+                r = sym_crypt_load(cd, CRYPT_TCRYPT, &params);
         } else if (key_file) {
                 r = read_one_line_file(key_file, &passphrase);
                 if (r < 0) {
@@ -1199,13 +1199,13 @@ static int attach_tcrypt(
                 }
                 params.passphrase = passphrase;
                 params.passphrase_size = strlen(passphrase);
-                r = crypt_load(cd, CRYPT_TCRYPT, &params);
+                r = sym_crypt_load(cd, CRYPT_TCRYPT, &params);
         } else {
                 r = -EINVAL;
                 STRV_FOREACH(p, passwords){
                         params.passphrase = *p;
                         params.passphrase_size = strlen(*p);
-                        r = crypt_load(cd, CRYPT_TCRYPT, &params);
+                        r = sym_crypt_load(cd, CRYPT_TCRYPT, &params);
                         if (r >= 0)
                                 break;
                 }
@@ -1223,12 +1223,12 @@ static int attach_tcrypt(
                         return r;
                 }
 
-                return log_error_errno(r, "Failed to load tcrypt superblock on device %s: %m", crypt_get_device_name(cd));
+                return log_error_errno(r, "Failed to load tcrypt superblock on device %s: %m", sym_crypt_get_device_name(cd));
         }
 
         r = measured_crypt_activate_by_volume_key(cd, name, NULL, 0, flags);
         if (r < 0)
-                return log_error_errno(r, "Failed to activate tcrypt device %s: %m", crypt_get_device_name(cd));
+                return log_error_errno(r, "Failed to activate tcrypt device %s: %m", sym_crypt_get_device_name(cd));
 
         return 0;
 }
@@ -1367,7 +1367,7 @@ static bool use_token_plugins(void) {
         if (r == 0)
                 return false;
 
-        return crypt_token_external_path();
+        return sym_crypt_token_external_path();
 #else
         return false;
 #endif
@@ -1412,7 +1412,7 @@ static int crypt_activate_by_token_pin_ask_password(
         _cleanup_strv_free_erase_ char **pins = NULL;
         int r;
 
-        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin=*/ NULL, /* pin_size= */ 0, userdata, activation_flags);
+        r = sym_crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin=*/ NULL, /* pin_size= */ 0, userdata, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 return 0;
         if (r == -EEXIST) /* volume is already active */
@@ -1425,7 +1425,7 @@ static int crypt_activate_by_token_pin_ask_password(
                 return r;
 
         STRV_FOREACH(p, pins) {
-                r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
+                r = sym_crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                 if (r > 0) /* returns unlocked keyslot id on success */
                         return 0;
                 if (r == -EEXIST) /* volume is already active */
@@ -1455,7 +1455,7 @@ static int crypt_activate_by_token_pin_ask_password(
                         return r;
 
                 STRV_FOREACH(p, pins) {
-                        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
+                        r = sym_crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                         if (r > 0) /* returns unlocked keyslot id on success */
                                 return 0;
                         if (r == -EEXIST) /* volume is already active */
@@ -1516,7 +1516,7 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                         "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
 
-        friendly = friendly_disk_name(crypt_get_device_name(cd), name);
+        friendly = friendly_disk_name(sym_crypt_get_device_name(cd), name);
         if (!friendly)
                 return log_oom();
 
@@ -1620,7 +1620,7 @@ static int attach_luks2_by_pkcs11_via_plugin(
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         int r;
 
-        if (!streq_ptr(crypt_get_type(cd), CRYPT_LUKS2))
+        if (!streq_ptr(sym_crypt_get_type(cd), CRYPT_LUKS2))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Automatic PKCS#11 metadata requires LUKS2 device.");
 
         systemd_pkcs11_plugin_params params = {
@@ -1630,7 +1630,7 @@ static int attach_luks2_by_pkcs11_via_plugin(
                 .askpw_flags = arg_ask_password_flags,
         };
 
-        r = crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
+        r = sym_crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 r = 0;
         if (r == -EEXIST) /* volume is already active */
@@ -1686,7 +1686,7 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "PKCS#11 mode selected but no key file specified, refusing.");
         }
 
-        friendly = friendly_disk_name(crypt_get_device_name(cd), name);
+        friendly = friendly_disk_name(sym_crypt_get_device_name(cd), name);
         if (!friendly)
                 return log_oom();
 
@@ -1866,7 +1866,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         assert(name);
         assert(arg_tpm2_device || arg_tpm2_device_auto);
 
-        friendly = friendly_disk_name(crypt_get_device_name(cd), name);
+        friendly = friendly_disk_name(sym_crypt_get_device_name(cd), name);
         if (!friendly)
                 return log_oom();
 
@@ -2198,7 +2198,7 @@ static int attach_luks_or_plain_or_bitlk(
         assert(cd);
         assert(name);
 
-        if ((!arg_type && !crypt_get_type(cd)) || streq_ptr(arg_type, CRYPT_PLAIN)) {
+        if ((!arg_type && !sym_crypt_get_type(cd)) || streq_ptr(arg_type, CRYPT_PLAIN)) {
                 struct crypt_params_plain params = {
                         .offset = arg_offset,
                         .skip = arg_skip,
@@ -2237,7 +2237,7 @@ static int attach_luks_or_plain_or_bitlk(
 
                 /* In contrast to what the name crypt_format() might suggest this doesn't actually format
                  * anything, it just configures encryption parameters when used for plain mode. */
-                r = crypt_format(cd, CRYPT_PLAIN, cipher, cipher_mode, NULL, NULL, arg_keyfile_size, &params);
+                r = sym_crypt_format(cd, CRYPT_PLAIN, cipher, cipher_mode, NULL, NULL, arg_keyfile_size, &params);
                 if (r < 0)
                         return log_error_errno(r, "Loading of cryptographic parameters failed: %m");
 
@@ -2246,10 +2246,10 @@ static int attach_luks_or_plain_or_bitlk(
         }
 
         log_info("Set cipher %s, mode %s, key size %i bits for device %s.",
-                 crypt_get_cipher(cd),
-                 crypt_get_cipher_mode(cd),
-                 crypt_get_volume_key_size(cd)*8,
-                 crypt_get_device_name(cd));
+                 sym_crypt_get_cipher(cd),
+                 sym_crypt_get_cipher_mode(cd),
+                 sym_crypt_get_volume_key_size(cd)*8,
+                 sym_crypt_get_device_name(cd));
 
         if (token_type == TOKEN_TPM2)
                 return attach_luks_or_plain_or_bitlk_by_tpm2(cd, name, key_file, key_data, until, flags, pass_volume_key);
@@ -2449,19 +2449,19 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         if (arg_header) {
                 if (streq_ptr(arg_type, CRYPT_TCRYPT)){
                         log_debug("tcrypt header: %s", arg_header);
-                        r = crypt_init_data_device(&cd, arg_header, source);
+                        r = sym_crypt_init_data_device(&cd, arg_header, source);
                 } else {
                         log_debug("LUKS header: %s", arg_header);
-                        r = crypt_init(&cd, arg_header);
+                        r = sym_crypt_init(&cd, arg_header);
                 }
         } else
-                r = crypt_init(&cd, source);
+                r = sym_crypt_init(&cd, source);
         if (r < 0)
                 return log_error_errno(r, "crypt_init() failed: %m");
 
         cryptsetup_enable_logging(cd);
 
-        status = crypt_status(cd, volume);
+        status = sym_crypt_status(cd, volume);
         if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
                 log_info("Volume %s already active.", volume);
                 return 0;
@@ -2486,21 +2486,21 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         }
 
         if (!arg_type || STR_IN_SET(arg_type, ANY_LUKS, CRYPT_LUKS1, CRYPT_LUKS2)) {
-                r = crypt_load(cd, !arg_type || streq(arg_type, ANY_LUKS) ? CRYPT_LUKS : arg_type, NULL);
+                r = sym_crypt_load(cd, !arg_type || streq(arg_type, ANY_LUKS) ? CRYPT_LUKS : arg_type, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", crypt_get_device_name(cd));
+                        return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", sym_crypt_get_device_name(cd));
 
 /* since cryptsetup 2.7.0 (Jan 2024) */
 #if HAVE_CRYPT_SET_KEYRING_TO_LINK
                 if (arg_link_key_description) {
-                        r = crypt_set_keyring_to_link(cd, arg_link_key_description, NULL, arg_link_key_type, arg_link_keyring);
+                        r = sym_crypt_set_keyring_to_link(cd, arg_link_key_description, NULL, arg_link_key_type, arg_link_keyring);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to set keyring or key description to link volume key in, ignoring: %m");
                 }
 #endif
 
                 if (arg_header) {
-                        r = crypt_set_data_device(cd, source);
+                        r = sym_crypt_set_data_device(cd, source);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set LUKS data device %s: %m", source);
                 }
@@ -2522,16 +2522,16 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                                 return 0;
                         }
 
-                        log_debug_errno(r, "Token activation unsuccessful for device %s: %m", crypt_get_device_name(cd));
+                        log_debug_errno(r, "Token activation unsuccessful for device %s: %m", sym_crypt_get_device_name(cd));
                 }
         }
 
 /* since cryptsetup 2.3.0 (Feb 2020) */
 #ifdef CRYPT_BITLK
         if (streq_ptr(arg_type, CRYPT_BITLK)) {
-                r = crypt_load(cd, CRYPT_BITLK, NULL);
+                r = sym_crypt_load(cd, CRYPT_BITLK, NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to load Bitlocker superblock on device %s: %m", crypt_get_device_name(cd));
+                        return log_error_errno(r, "Failed to load Bitlocker superblock on device %s: %m", sym_crypt_get_device_name(cd));
         }
 #endif
 
@@ -2657,7 +2657,7 @@ static int verb_detach(int argc, char *argv[], void *userdata) {
         if (!filename_is_valid(volume))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
 
-        r = crypt_init_by_name(&cd, volume);
+        r = sym_crypt_init_by_name(&cd, volume);
         if (r == -ENODEV) {
                 log_info("Volume %s already inactive.", volume);
                 return 0;
@@ -2667,7 +2667,7 @@ static int verb_detach(int argc, char *argv[], void *userdata) {
 
         cryptsetup_enable_logging(cd);
 
-        r = crypt_deactivate(cd, volume);
+        r = sym_crypt_deactivate(cd, volume);
         if (r < 0)
                 return log_error_errno(r, "Failed to deactivate '%s': %m", volume);
 
@@ -2684,6 +2684,10 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return log_error_errno(r, "Failed to load libcryptsetup: %m");
 
         cryptsetup_enable_logging(NULL);
 

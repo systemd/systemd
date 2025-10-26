@@ -715,7 +715,7 @@ static int check_for_homed(struct crypt_device *cd) {
         /* Politely refuse operating on homed volumes. The enrolled tokens for the user record and the LUKS2
          * volume should not get out of sync. */
 
-        for (int token = 0; token < crypt_token_max(CRYPT_LUKS2); token++) {
+        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-homed", NULL);
                 if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
                         continue;
@@ -754,7 +754,7 @@ static int load_volume_key_keyfile(
         if (r < 0)
                 return log_error_errno(r, "Reading keyfile %s failed: %m", arg_unlock_keyfile);
 
-        r = crypt_volume_key_get(
+        r = sym_crypt_volume_key_get(
                         cd,
                         CRYPT_ANY_SLOT,
                         ret_vk,
@@ -776,13 +776,13 @@ static int prepare_luks(
 
         assert(ret_cd);
 
-        r = crypt_init(&cd, arg_node);
+        r = sym_crypt_init(&cd, arg_node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
         cryptsetup_enable_logging(cd);
 
-        r = crypt_load(cd, CRYPT_LUKS2, NULL);
+        r = sym_crypt_load(cd, CRYPT_LUKS2, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to load LUKS2 superblock of %s: %m", arg_node);
 
@@ -795,7 +795,7 @@ static int prepare_luks(
                 return 0;
         }
 
-        r = crypt_get_volume_key_size(cd);
+        r = sym_crypt_get_volume_key_size(cd);
         if (r <= 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
 
@@ -851,6 +851,10 @@ static int run(int argc, char *argv[]) {
 
         /* A delicious drop of snake oil */
         (void) mlockall(MCL_FUTURE);
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return log_error_errno(r, "Failed to load libcryptsetup: %m");
 
         cryptsetup_enable_logging(NULL);
 

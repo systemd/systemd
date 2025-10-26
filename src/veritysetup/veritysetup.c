@@ -362,13 +362,13 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to decode root hash signature data from udev data device: %m");
         }
 
-        r = crypt_init(&cd, verity_device);
+        r = sym_crypt_init(&cd, verity_device);
         if (r < 0)
                 return log_error_errno(r, "Failed to open verity device %s: %m", verity_device);
 
         cryptsetup_enable_logging(cd);
 
-        status = crypt_status(cd, volume);
+        status = sym_crypt_status(cd, volume);
         if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
                 log_info("Volume %s already active.", volume);
                 return 0;
@@ -382,7 +382,7 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                         .fec_roots = arg_fec_roots,
                 };
 
-                r = crypt_load(cd, CRYPT_VERITY, &p);
+                r = sym_crypt_load(cd, CRYPT_VERITY, &p);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load verity superblock: %m");
         } else {
@@ -402,28 +402,28 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                         .flags = CRYPT_VERITY_NO_HEADER,
                 };
 
-                r = crypt_format(cd, CRYPT_VERITY, NULL, NULL, arg_uuid, NULL, 0, &p);
+                r = sym_crypt_format(cd, CRYPT_VERITY, NULL, NULL, arg_uuid, NULL, 0, &p);
                 if (r < 0)
                         return log_error_errno(r, "Failed to format verity superblock: %m");
         }
 
-        r = crypt_set_data_device(cd, data_device);
+        r = sym_crypt_set_data_device(cd, data_device);
         if (r < 0)
                 return log_error_errno(r, "Failed to configure data device: %m");
 
         if (arg_root_hash_signature_size > 0) {
-                r = crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature, arg_root_hash_signature_size, arg_activate_flags);
+                r = sym_crypt_activate_by_signed_key(cd, volume, rh, rh_size, arg_root_hash_signature, arg_root_hash_signature_size, arg_activate_flags);
                 if (r < 0) {
                         log_info_errno(r, "Unable to activate verity device '%s' with root hash signature (%m), retrying without.", volume);
 
-                        r = crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
+                        r = sym_crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to activate verity device '%s' both with and without root hash signature: %m", volume);
 
                         log_info("Activation of verity device '%s' succeeded without root hash signature.", volume);
                 }
         } else
-                r = crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
+                r = sym_crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up verity device '%s': %m", volume);
 
@@ -441,7 +441,7 @@ static int verb_detach(int argc, char *argv[], void *userdata) {
         if (!filename_is_valid(volume))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Volume name '%s' is not valid.", volume);
 
-        r = crypt_init_by_name(&cd, volume);
+        r = sym_crypt_init_by_name(&cd, volume);
         if (r == -ENODEV) {
                 log_info("Volume %s 'already' inactive.", volume);
                 return 0;
@@ -451,7 +451,7 @@ static int verb_detach(int argc, char *argv[], void *userdata) {
 
         cryptsetup_enable_logging(cd);
 
-        r = crypt_deactivate(cd, volume);
+        r = sym_crypt_deactivate(cd, volume);
         if (r < 0)
                 return log_error_errno(r, "Failed to deactivate volume '%s': %m", volume);
 
@@ -459,10 +459,16 @@ static int verb_detach(int argc, char *argv[], void *userdata) {
 }
 
 static int run(int argc, char *argv[]) {
+        int r;
+
         if (argv_looks_like_help(argc, argv))
                 return help();
 
         log_setup();
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return log_error_errno(r, "Failed to load libcryptsetup: %m");
 
         cryptsetup_enable_logging(NULL);
 
