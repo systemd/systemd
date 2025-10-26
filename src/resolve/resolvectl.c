@@ -1045,17 +1045,17 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
                            arg_type ?: DNS_TYPE_OPENPGPKEY, false);
 
         if (IN_SET(r, -ENXIO, -ESRCH)) { /* NXDOMAIN or NODATA? */
-              hashed = mfree(hashed);
-              r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
-              if (r < 0)
-                    return log_error_errno(r, "Hashing failed: %m");
+                hashed = mfree(hashed);
+                r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
+                if (r < 0)
+                        return log_error_errno(r, "Hashing failed: %m");
 
-              full = strjoina(hashed, "._openpgpkey.", domain);
-              log_debug("Looking up \"%s\".", full);
+                full = strjoina(hashed, "._openpgpkey.", domain);
+                log_debug("Looking up \"%s\".", full);
 
-              return resolve_record(bus, full,
-                                    arg_class ?: DNS_CLASS_IN,
-                                    arg_type ?: DNS_TYPE_OPENPGPKEY, true);
+                return resolve_record(bus, full,
+                                      arg_class ?: DNS_CLASS_IN,
+                                      arg_type ?: DNS_TYPE_OPENPGPKEY, true);
         }
 
         return r;
