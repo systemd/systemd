@@ -45,6 +45,29 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signed_data, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signed_data_signature, freep);
 
+static inline STACK_OF(X509_ALGOR) *x509_algor_free_many(STACK_OF(X509_ALGOR) *attrs) {
+        if (!attrs)
+                return NULL;
+
+        sk_X509_ALGOR_pop_free(attrs, X509_ALGOR_free);
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(STACK_OF(X509_ALGOR)*, x509_algor_free_many, NULL);
+
+static inline STACK_OF(X509_ATTRIBUTE) *x509_attribute_free_many(STACK_OF(X509_ATTRIBUTE) *attrs) {
+        if (!attrs)
+                return NULL;
+
+        sk_X509_ATTRIBUTE_pop_free(attrs, X509_ATTRIBUTE_free);
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(STACK_OF(X509_ATTRIBUTE)*, x509_attribute_free_many, NULL);
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ASN1_TIME*, ASN1_TIME_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(BIO*, BIO_free_all, NULL);
+
 static int help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
