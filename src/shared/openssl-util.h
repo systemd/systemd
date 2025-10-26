@@ -66,10 +66,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EC_POINT*, EC_POINT_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(ECDSA_SIG*, ECDSA_SIG_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_CIPHER_CTX*, EVP_CIPHER_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_MD_CTX*, EVP_MD_CTX_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY_CTX*, EVP_PKEY_CTX_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(PKCS7*, PKCS7_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(PKCS7_SIGNER_INFO*, PKCS7_SIGNER_INFO_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(SSL*, SSL_free, NULL);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509_NAME*, X509_NAME_free, NULL);
 
 static inline STACK_OF(X509_ALGOR) *x509_algor_free_many(STACK_OF(X509_ALGOR) *attrs) {
@@ -177,36 +179,6 @@ static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
         return string_hashsum(s, len, "SHA256", ret);
 }
 
-#else
-
-typedef struct X509 X509;
-typedef struct EVP_PKEY EVP_PKEY;
-typedef struct UI_METHOD UI_METHOD;
-
-static inline void* X509_free(X509 *p) {
-        assert(p == NULL);
-        return NULL;
-}
-
-static inline void* EVP_PKEY_free(EVP_PKEY *p) {
-        assert(p == NULL);
-        return NULL;
-}
-
-#endif
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(X509*, X509_free, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
-
-struct OpenSSLAskPasswordUI {
-        AskPasswordRequest request;
-        UI_METHOD *method;
-};
-
-OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
-
 int x509_fingerprint(X509 *cert, uint8_t buffer[static X509_FINGERPRINT_SIZE]);
 
 int openssl_load_x509_certificate(
@@ -222,3 +194,14 @@ int openssl_load_private_key(
                 const AskPasswordRequest *request,
                 EVP_PKEY **ret_private_key,
                 OpenSSLAskPasswordUI **ret_user_interface);
+
+struct OpenSSLAskPasswordUI {
+        AskPasswordRequest request;
+#ifndef OPENSSL_NO_UI_CONSOLE
+        UI_METHOD *method;
+#endif
+};
+
+OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(OpenSSLAskPasswordUI*, openssl_ask_password_ui_free, NULL);
+#endif
