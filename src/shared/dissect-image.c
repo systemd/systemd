@@ -2668,13 +2668,11 @@ static int verity_can_reuse(
             memcmp(root_hash_existing, verity->root_hash, verity->root_hash_size) != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but root hashes are different.");
 
-#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
         /* Ensure that, if signatures are supported, we only reuse the device if the previous mount used the
          * same settings, so that a previous unsigned mount will not be reused if the user asks to use
          * signing for the new one, and vice versa. */
         if (!!verity->root_hash_sig != !!(crypt_params.flags & CRYPT_VERITY_ROOT_HASH_SIGNATURE))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but signature settings are not the same.");
-#endif
 
         *ret_cd = TAKE_PTR(cd);
         return 0;
@@ -2820,7 +2818,6 @@ static int do_crypt_activate_verity(
                 check_signature = false;
 
         if (check_signature) {
-#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
                 /* First, if we have support for signed keys in the kernel, then try that first. */
                 r = sym_crypt_activate_by_signed_key(
                                 cd,
@@ -2842,11 +2839,6 @@ static int do_crypt_activate_verity(
                  * -ENOKEY, which means "password required, but I have none". */
                 if (r == -ENOKEY)
                         r = -EDESTADDRREQ;
-#else
-                log_debug("Activation of verity device with signature requested, but not supported via the kernel by %s due to missing crypt_activate_by_signed_key(), trying userspace validation instead.",
-                          program_invocation_short_name);
-                r = 0; /* Set for the propagation below */
-#endif
 
                 /* So this didn't work via the kernel, then let's try userspace validation instead. If that
                  * works we'll try to activate without telling the kernel the signature. */
