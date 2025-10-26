@@ -334,7 +334,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         if (arg_now) {
                 _cleanup_strv_free_ char **new_args = NULL;
                 const char *start_verb;
-                bool accept_path, prohibit_templates;
+                bool accept_path, prohibit_templates, dead_ok = false;
 
                 if (streq(verb, "enable")) {
                         start_verb = "start";
@@ -344,6 +344,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         start_verb = "stop";
                         accept_path = false;
                         prohibit_templates = false;
+                        dead_ok = true;  /* If the service is not running anyway, no need to stop it. */
                 } else if (streq(verb, "reenable")) {
                         /* Note that we use try-restart here. This matches the semantics of reenable better,
                          * and allows us to glob template units. */
@@ -354,9 +355,20 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--now can only be used with verb enable, disable, reenable, or mask.");
 
-                if (install_client_side() != INSTALL_CLIENT_SIDE_NO)
-                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                               "--now cannot be used when systemd is not running or in conjunction with --root=/--global, refusing.");
+                switch (install_client_side()) {
+                case INSTALL_CLIENT_SIDE_NO:
+                        break;
+                case INSTALL_CLIENT_SIDE_OFFLINE:
+                case INSTALL_CLIENT_SIDE_NOT_BOOTED:
+                case INSTALL_CLIENT_SIDE_OVERRIDE:
+                        if (!dead_ok)
+                                log_warning("Cannot %s unit with --now when systemd is not running, ignoring.", start_verb);
+                        return 0;
+                case INSTALL_CLIENT_SIDE_ARG_ROOT:
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --root=.");
+                case INSTALL_CLIENT_SIDE_GLOBAL_SCOPE:
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "--now cannot be used with --global.");
+                }
 
                 assert(bus);
 
