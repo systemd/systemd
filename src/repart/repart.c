@@ -5419,13 +5419,15 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         verity_settings = lookup_verity_settings_by_uuid_pair(rp->current_uuid, hp->current_uuid);
 
-        if (!context->private_key && !verity_settings)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verity signature partition signing requested but no private key provided (--private-key=).");
+        if (!verity_settings) {
+                if (!context->private_key)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Verity signature partition signing requested but no private key provided (--private-key=).");
 
-        if (!context->certificate && !verity_settings)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verity signature partition signing requested but no PEM certificate provided (--certificate=).");
+                if (!context->certificate)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Verity signature partition signing requested but no PEM certificate provided (--certificate=).");
+        }
 
         (void) partition_hint(p, context->node, &hint);
 
