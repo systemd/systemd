@@ -256,24 +256,42 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         return l;
 }
 
-size_t syslog_parse_hostname(const char **buf, char **hostname) {
+size_t syslog_get_rfc5424_token(const char **buf, char **word) {
         const char *p;
         char *t;
-        size_t l;
+        size_t l = 0;
 
         assert(buf);
+        assert(word);
 
         p = *buf;
 
         p += strspn(p, WHITESPACE);
-        l = strcspn(p, WHITESPACE);
+        if (p[0] == '[') {
+                log_debug("BDS: syslog_get_rfc5424_token(): rfc5424 tag start");
+                l = strcspn(p, "]");
+                if (l <= 0)
+                        return 0;
+                if (!p[l])
+                        return 0;
+                l++;
+                log_debug("BDS: syslog_get_rfc5424_token(): rfc5424 tag end=%lu", l);
+        }
+        l += strcspn(p + l, WHITESPACE);
+        log_debug("BDS: syslog_get_rfc5424_token(): we've now counted=%lu", l);
 
         if (l <= 0)
                 return 0;
+        log_debug("BDS: syslog_get_rfc5424_token(): l >= 1");
 
-        t = strndup(p, l);
-        if (t)
-                *hostname = t;
+        /* '-' is an empty token */
+        if ((l >= 2) ||
+            p[0] != '-') {
+                log_debug("BDS: syslog_get_rfc5424_token(): non-empty token, copy");
+                t = strndup(p, l);
+                if (t)
+                        *word = t;
+        }
 
         if (p[l] != '\0' && strchr(WHITESPACE, p[l]))
                 l++;
@@ -282,7 +300,7 @@ size_t syslog_parse_hostname(const char **buf, char **hostname) {
         return l;
 }
 
-static bool syslog_skip_rfc5424(const char **buf) {
+static bool syslog_check_and_skip_rfc5424(const char **buf) {
         const char *p;
         size_t l;
 
@@ -298,6 +316,13 @@ static bool syslog_skip_rfc5424(const char **buf) {
 
         *buf = p + l + 1;
         return true;
+}
+
+static bool syslog_is_pid(const char *buf) {
+        if (!buf)
+                return false;
+
+        return strspn(buf, DIGITS) == strlen(buf);
 }
 
 static int syslog_skip_timestamp(const char **buf, bool rfc5424) {
@@ -436,7 +461,7 @@ void manager_process_syslog_message(
         const char *msg, *syslog_ts, *a;
         _cleanup_free_ char *identifier = NULL, *pid = NULL,
                 *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL,
-                *sap = NULL, *sni = NULL;
+                *sap = NULL, *sni = NULL, *discard = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
@@ -494,8 +519,8 @@ void manager_process_syslog_message(
         if (!client_context_test_priority(context, priority))
                 return;
 
-        rfc5424 = syslog_skip_rfc5424(&msg);
-        log_debug("BDS: manager_process_syslog_message_remote(): rfc5424=%s", rfc5424 ? "true" : "false");
+        rfc5424 = syslog_check_and_skip_rfc5424(&msg);
+        log_debug("BDS: manager_process_syslog_message(): rfc5424=%s", rfc5424 ? "true" : "false");
 
         syslog_ts = msg;
         syslog_ts_len = syslog_skip_timestamp(&msg, rfc5424);
@@ -505,7 +530,7 @@ void manager_process_syslog_message(
 
         if (sa) {
                 log_debug("BDS: manager_process_syslog_message(): calling syslog_parse_hostname(%p, %p)", msg, hostname);
-                r = syslog_parse_hostname(&msg, &hostname);
+                r = syslog_get_rfc5424_token(&msg, &hostname);
                 log_debug("BDS: manager_process_syslog_message(): syslog_parse_hostname()=%d", r);
                 if (r > 0)
                         log_debug("BDS: manager_process_syslog_message(): hostname=%s", hostname);
@@ -513,11 +538,43 @@ void manager_process_syslog_message(
                 log_debug("BDS: manager_process_syslog_message(): no hostname provided");
         }
 
-        log_debug("BDS: c: calling syslog_parse_identifier(%p, %p, %p)", msg, identifier, pid);
-        r = syslog_parse_identifier(&msg, &identifier, &pid);
-        log_debug("BDS: manager_process_syslog_message(): syslog_parse_identifier()=%d", r);
-        if (r > 0)
-                log_debug("BDS: manager_process_syslog_message(): identifier=%s pid=%s", identifier, pid);
+        if (rfc5424) {
+                i = syslog_get_rfc5424_token(&msg, &identifier);
+                if (i > 0)
+                        log_debug("BDS: manager_process_syslog_message(): identifier=%s", identifier);
+                i = syslog_get_rfc5424_token(&msg, &pid);
+                if (i > 0)
+                        log_debug("BDS: manager_process_syslog_message(): pid=%s", pid);
+        } else {
+                log_debug("BDS: calling syslog_parse_identifier(%p, %p, %p)", msg, identifier, pid);
+                r = syslog_parse_identifier(&msg, &identifier, &pid);
+                log_debug("BDS: manager_process_syslog_message(): syslog_parse_identifier()=%d", r);
+                if (r > 0)
+                        log_debug("BDS: manager_process_syslog_message(): identifier=%s pid=%s", identifier, pid);
+        }
+        if (!syslog_is_pid(pid)) {
+                log_debug("BDS: manager_process_syslog_message(): pid is not a pid");
+                store_raw = true;
+        }
+
+        if (rfc5424) {
+                i = syslog_get_rfc5424_token(&msg, &discard);
+                log_debug("BDS: manager_process_syslog_message(): skip %lu bytes", i);
+                if (discard) {
+                        free(discard);
+                        discard = NULL;
+                }
+        }
+
+        /* expected: tags in [] */
+        if (rfc5424) {
+                i = syslog_get_rfc5424_token(&msg, &discard);
+                log_debug("BDS: manager_process_syslog_message(): skip %lu bytes", i);
+                if (discard) {
+                        free(discard);
+                        discard = NULL;
+                }
+        }
 
         if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
                 return;
