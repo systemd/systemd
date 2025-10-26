@@ -30,15 +30,24 @@ extern DLSYM_PROTOTYPE(crypt_get_type);
 extern DLSYM_PROTOTYPE(crypt_get_uuid);
 extern DLSYM_PROTOTYPE(crypt_get_verity_info);
 extern DLSYM_PROTOTYPE(crypt_get_volume_key_size);
+extern DLSYM_PROTOTYPE(crypt_header_restore);
 extern DLSYM_PROTOTYPE(crypt_init);
 extern DLSYM_PROTOTYPE(crypt_init_by_name);
 extern DLSYM_PROTOTYPE(crypt_keyslot_add_by_volume_key);
 extern DLSYM_PROTOTYPE(crypt_keyslot_destroy);
 extern DLSYM_PROTOTYPE(crypt_keyslot_max);
 extern DLSYM_PROTOTYPE(crypt_load);
+extern DLSYM_PROTOTYPE(crypt_metadata_locking);
+extern DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase);
+#if HAVE_CRYPT_REENCRYPT_RUN
+extern DLSYM_PROTOTYPE(crypt_reencrypt_run);
+#else
+extern DLSYM_PROTOTYPE(crypt_reencrypt);
+#endif
 extern DLSYM_PROTOTYPE(crypt_resize);
 extern DLSYM_PROTOTYPE(crypt_resume_by_volume_key);
 extern DLSYM_PROTOTYPE(crypt_set_data_device);
+extern DLSYM_PROTOTYPE(crypt_set_data_offset);
 extern DLSYM_PROTOTYPE(crypt_set_debug_level);
 extern DLSYM_PROTOTYPE(crypt_set_log_callback);
 extern DLSYM_PROTOTYPE(crypt_set_metadata_size);
@@ -58,15 +67,6 @@ extern DLSYM_PROTOTYPE(crypt_token_set_external_path);
 #endif
 extern DLSYM_PROTOTYPE(crypt_token_status);
 extern DLSYM_PROTOTYPE(crypt_volume_key_get);
-extern DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase);
-#if HAVE_CRYPT_REENCRYPT_RUN
-extern DLSYM_PROTOTYPE(crypt_reencrypt_run);
-#else
-extern DLSYM_PROTOTYPE(crypt_reencrypt);
-#endif
-extern DLSYM_PROTOTYPE(crypt_metadata_locking);
-extern DLSYM_PROTOTYPE(crypt_set_data_offset);
-extern DLSYM_PROTOTYPE(crypt_header_restore);
 extern DLSYM_PROTOTYPE(crypt_volume_key_keyring);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, crypt_free, NULL);

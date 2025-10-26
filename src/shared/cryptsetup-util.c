@@ -30,15 +30,24 @@ DLSYM_PROTOTYPE(crypt_get_type) = NULL;
 DLSYM_PROTOTYPE(crypt_get_uuid) = NULL;
 DLSYM_PROTOTYPE(crypt_get_verity_info) = NULL;
 DLSYM_PROTOTYPE(crypt_get_volume_key_size) = NULL;
+DLSYM_PROTOTYPE(crypt_header_restore) = NULL;
 DLSYM_PROTOTYPE(crypt_init) = NULL;
 DLSYM_PROTOTYPE(crypt_init_by_name) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_add_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_destroy) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
 DLSYM_PROTOTYPE(crypt_load) = NULL;
+DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
+DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase) = NULL;
+#if HAVE_CRYPT_REENCRYPT_RUN
+DLSYM_PROTOTYPE(crypt_reencrypt_run);
+#else
+DLSYM_PROTOTYPE(crypt_reencrypt);
+#endif
 DLSYM_PROTOTYPE(crypt_resize) = NULL;
 DLSYM_PROTOTYPE(crypt_resume_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_device) = NULL;
+DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
 DLSYM_PROTOTYPE(crypt_set_debug_level) = NULL;
 DLSYM_PROTOTYPE(crypt_set_log_callback) = NULL;
 DLSYM_PROTOTYPE(crypt_set_metadata_size) = NULL;
@@ -60,15 +69,6 @@ DLSYM_PROTOTYPE(crypt_token_set_external_path) = NULL;
 #endif
 DLSYM_PROTOTYPE(crypt_token_status) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_get) = NULL;
-DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase) = NULL;
-#if HAVE_CRYPT_REENCRYPT_RUN
-DLSYM_PROTOTYPE(crypt_reencrypt_run);
-#else
-DLSYM_PROTOTYPE(crypt_reencrypt);
-#endif
-DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
-DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
-DLSYM_PROTOTYPE(crypt_header_restore) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
 
 static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
@@ -241,15 +241,24 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_get_uuid),
                         DLSYM_ARG(crypt_get_verity_info),
                         DLSYM_ARG(crypt_get_volume_key_size),
+                        DLSYM_ARG(crypt_header_restore),
                         DLSYM_ARG(crypt_init),
                         DLSYM_ARG(crypt_init_by_name),
                         DLSYM_ARG(crypt_keyslot_add_by_volume_key),
                         DLSYM_ARG(crypt_keyslot_destroy),
                         DLSYM_ARG(crypt_keyslot_max),
                         DLSYM_ARG(crypt_load),
+                        DLSYM_ARG(crypt_metadata_locking),
+                        DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
+#if HAVE_CRYPT_REENCRYPT_RUN
+                        DLSYM_ARG(crypt_reencrypt_run),
+#else
+                        DLSYM_ARG(crypt_reencrypt),
+#endif
                         DLSYM_ARG(crypt_resize),
                         DLSYM_ARG(crypt_resume_by_volume_key),
                         DLSYM_ARG(crypt_set_data_device),
+                        DLSYM_ARG(crypt_set_data_offset),
                         DLSYM_ARG(crypt_set_debug_level),
                         DLSYM_ARG(crypt_set_log_callback),
                         DLSYM_ARG(crypt_set_metadata_size),
@@ -265,15 +274,6 @@ int dlopen_cryptsetup(void) {
 #endif
                         DLSYM_ARG(crypt_token_status),
                         DLSYM_ARG(crypt_volume_key_get),
-                        DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
-#if HAVE_CRYPT_REENCRYPT_RUN
-                        DLSYM_ARG(crypt_reencrypt_run),
-#else
-                        DLSYM_ARG(crypt_reencrypt),
-#endif
-                        DLSYM_ARG(crypt_metadata_locking),
-                        DLSYM_ARG(crypt_set_data_offset),
-                        DLSYM_ARG(crypt_header_restore),
                         DLSYM_ARG(crypt_volume_key_keyring));
         if (r <= 0)
                 return r;
