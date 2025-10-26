@@ -527,6 +527,31 @@
         <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>SyslogHostname=</varname></term>
+
+        <listitem><para>How to obtain the hostname entry when receiving
+        syslog messages over the network on 514/udp. One of
+        <literal>none</literal>, <literal>dns</literal> and
+        <literal>trust</literal>.  If <literal>trust</literal> the
+        name in the message is trusted and used.  <literal>dns</literal>
+        will do a reverse DNS lookup, and <literal>none</literal> (the
+        default), will log the IP.  Syslog messages are unauthenticed,
+        so <literal>trust</literal> should only be used if
+        <literal>systemd-journald-remote-syslog.socket</literal>
+        is configured to only allow trusted networks.  Likewise for
+        <literal>dns</literal> since this can result in an amplification
+        attack.</para>
+
+        <para>Note that this option does not control whether
+        <command>systemd-journald</command> listens for remote syslog
+        messages. To tell <command>systemd-journald</command> to collect
+        remote syslog messages, the socket unit
+        <literal>systemd-journald-remote-syslog.socket</literal> can be
+        enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
     </variablelist>
 
   </refsect1>

@@ -35,6 +35,13 @@ typedef enum AuditSetMode {
         _AUDIT_SET_MODE_INVALID = -EINVAL,
 } AuditSetMode;
 
+typedef enum SyslogHostname {
+        SYSLOG_HOSTNAME_NONE = 0,
+        SYSLOG_HOSTNAME_TRUST,
+        SYSLOG_HOSTNAME_DNS,
+        _SYSLOG_HOSTNAME_INVALID = -EINVAL,
+} SyslogHostname;
+
 typedef struct JournalConfig {
         /* Storage=, cred: journal.storage */
         Storage storage;
@@ -88,6 +95,8 @@ typedef struct JournalConfig {
         SplitMode split_mode;
         /* LineMax= */
         size_t line_max;
+        /* SyslogHostname= */
+        SyslogHostname syslog_hostname;
 } JournalConfig;
 
 void journal_config_done(JournalConfig *c);

@@ -426,31 +426,7 @@ void manager_process_syslog_message(
                 const struct ucred *ucred,
                 const struct timeval *tv,
                 const char *label,
-                size_t label_len) {
-        HostnameField hostname_field = HOSTNAME_NONE;
-        log_debug("BDS: manager_process_syslog_message(): start");
-        manager_process_syslog_message_remote(
-                m,
-                buf,
-                raw_len,
-                ucred,
-                tv,
-                label,
-                label_len,
-                hostname_field,
-                NULL,
-                0);
-}
-
-void manager_process_syslog_message_remote(
-                Manager *m,
-                const char *buf,
-                size_t raw_len,
-                const struct ucred *ucred,
-                const struct timeval *tv,
-                const char *label,
                 size_t label_len,
-                HostnameField hostname_field,
                 const union sockaddr_union *sa,
                 socklen_t salen) {
 
@@ -467,7 +443,7 @@ void manager_process_syslog_message_remote(
         size_t n = 0, mm, i, leading_ws, syslog_ts_len;
         bool store_raw, rfc5424;
 
-        log_debug("BDS: manager_process_syslog_message_remote(): start");
+        log_debug("BDS: manager_process_syslog_message(): start");
         assert(m);
         assert(buf);
         /* The message cannot be empty. */
@@ -527,21 +503,21 @@ void manager_process_syslog_message_remote(
                 /* We failed to parse the full timestamp, store the raw message too */
                 store_raw = true;
 
-        if (hostname_field != HOSTNAME_NONE) {
-                log_debug("BDS: manager_process_syslog_message_remote(): calling syslog_parse_hostname(%p, %p)", msg, hostname);
+        if (sa) {
+                log_debug("BDS: manager_process_syslog_message(): calling syslog_parse_hostname(%p, %p)", msg, hostname);
                 r = syslog_parse_hostname(&msg, &hostname);
-                log_debug("BDS: manager_process_syslog_message_remote(): syslog_parse_hostname()=%d", r);
+                log_debug("BDS: manager_process_syslog_message(): syslog_parse_hostname()=%d", r);
                 if (r > 0)
-                        log_debug("BDS: manager_process_syslog_message_remote(): hostname=%s", hostname);
+                        log_debug("BDS: manager_process_syslog_message(): hostname=%s", hostname);
         } else {
-                log_debug("BDS: manager_process_syslog_message_remote(): no hostname provided");
+                log_debug("BDS: manager_process_syslog_message(): no hostname provided");
         }
 
         log_debug("BDS: c: calling syslog_parse_identifier(%p, %p, %p)", msg, identifier, pid);
         r = syslog_parse_identifier(&msg, &identifier, &pid);
-        log_debug("BDS: manager_process_syslog_message_remote(): syslog_parse_identifier()=%d", r);
+        log_debug("BDS: manager_process_syslog_message(): syslog_parse_identifier()=%d", r);
         if (r > 0)
-                log_debug("BDS: manager_process_syslog_message_remote(): identifier=%s pid=%s", identifier, pid);
+                log_debug("BDS: manager_process_syslog_message(): identifier=%s pid=%s", identifier, pid);
 
         if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
                 return;
@@ -591,58 +567,44 @@ void manager_process_syslog_message_remote(
                 iovec[n++] = IOVEC_MAKE(t, hlen + syslog_ts_len);
         }
 
-        _Pragma("GCC diagnostic push");
-        _Pragma("GCC diagnostic ignored \"-Wimplicit-fallthrough\"");
-        switch (hostname_field) {
-                case HOSTNAME_USE:
-                        log_debug("BDS: manager_process_syslog_message_remote(): attempt to use the hostname in the message.");
-                        if (hostname)
-                                break;
-                case HOSTNAME_IGNORE:
-                        log_debug("BDS: manager_process_syslog_message_remote(): use the hostname from the socket.");
-                        if (!sa ||
-                            (salen != sizeof(struct sockaddr_in) &&
-                             salen != sizeof(struct sockaddr_in6))) {
-                                log_debug("BDS: manager_process_syslog_message_remote(): not a socket.");
-                                break;
-                        }
-
-                        r = sockaddr_pretty(&sa->sa, salen, true, errno, &sap);
-                        if (r < 0) {
-                                log_debug_errno(r, "BDS: manager_process_syslog_message_remote():  socket_address_print()=%m");
-                                hostname = NULL;
-                                break;
-                        }
-                        log_debug("BDS: manager_process_syslog_message_remote(): socket_address_print()=%s", sap);
-                        hostname = sap;
-
-#if 0
-                        r = socknameinfo_pretty(&sa->sa, salen, &sni);
-                        if (r < 0) {
-                                log_debug_errno(r, "BDS: socknameinfo_pretty()=%m");
-                                hostname = sap;
-                                break;
-                        }
-                        log_debug("BDS: manager_process_syslog_message_remote(): socketnameinfo_pretty()=%s", sni);
-                        hostname = sni;
-#endif
-
-                        log_debug("BDS: Accepted message from %s", hostname);
-                        break;
-                default:
+        if (m->config.syslog_hostname != SYSLOG_HOSTNAME_TRUST &&
+            sa &&
+            (salen == sizeof(struct sockaddr_in) ||
+             salen == sizeof(struct sockaddr_in6))) {
+                log_debug("BDS: manager_process_syslog_message(): use the hostname from the socket.");
+                r = sockaddr_pretty(&sa->sa, salen, true, errno, &sap);
+                if (r < 0) {
+                        log_debug_errno(r, "BDS: manager_process_syslog_message():  sockaddr_pretty()=%m");
                         hostname = NULL;
+                } else {
+                        log_debug("BDS: manager_process_syslog_message(): socketaddr_pretty()=%s", sap);
+                        hostname = sap;
+                }
         }
-        _Pragma("GCC diagnostic pop");
+        if (m->config.syslog_hostname == SYSLOG_HOSTNAME_DNS &&
+            sa &&
+            (salen == sizeof(struct sockaddr_in) ||
+             salen == sizeof(struct sockaddr_in6))) {
+                r = socknameinfo_pretty(&sa->sa, salen, &sni);
+                if (r < 0) { /* DNS failed */
+                        log_debug_errno(r, "BDS: socknameinfo_pretty()=%m");
+                        hostname = sap;
+                } else {
+                        log_debug("BDS: manager_process_syslog_message(): socketnameinfo_pretty()=%s", sni);
+                        hostname = sni;
+                }
+        }
         if (hostname) {
-                log_debug("BDS: manager_process_syslog_message_remote(): hostname=%s", hostname);
+                log_debug("BDS: manager_process_syslog_message(): hostname=%s", hostname);
                 a = strjoina("_HOSTNAME=", hostname);
                 iovec[n++] = IOVEC_MAKE_STRING(a);
-        } else if (hostname_field != HOSTNAME_NONE) {
-                log_debug("BDS: manager_process_syslog_message_remote(): hostname is NULL");
-                a = strjoina("_HOSTNAME=", "syslog/udp");
+        } else if (sa) {
+                log_debug("BDS: manager_process_syslog_message(): socket, but hostname == NULL");
+                store_raw = true;
+                a = strjoina("_HOSTNAME=", "unknown");
                 iovec[n++] = IOVEC_MAKE_STRING(a);
         }
-        log_debug("BDS: manager_process_syslog_message_remote(): _HOSTNAME should be set");
+        log_debug("BDS: manager_process_syslog_message(): _HOSTNAME processing done");
 
         msg_msg = strjoin("MESSAGE=", msg);
         if (!msg_msg) {
@@ -666,7 +628,7 @@ void manager_process_syslog_message_remote(
                 iovec[n++] = IOVEC_MAKE(msg_raw, hlen + raw_len);
         }
 
-        log_debug("BDS: manager_process_syslog_message_remote(): dispatch message");
+        log_debug("BDS: manager_process_syslog_message(): dispatch message");
         manager_dispatch_message(m, iovec, n, mm, context, tv, priority, 0);
 }
 
