@@ -1006,7 +1006,11 @@ systemd-analyze security --threshold=25 --offline=true \
 rm /tmp/img/usr/lib/systemd/system/testfile.service
 
 if systemd-analyze --version | grep -q -F "+ELFUTILS"; then
+    systemd-analyze inspect-elf /lib/systemd/systemd
     systemd-analyze inspect-elf --json=short /lib/systemd/systemd | grep -q -F '"elfType":"executable"'
+    shared="$(ldd /lib/systemd/systemd | grep shared | cut -d' ' -f3)"
+    systemd-analyze dlopen-metadata "$shared"
+    systemd-analyze dlopen-metadata --json=short "$shared"
 fi
 
 systemd-analyze --threshold=90 security systemd-journald.service
