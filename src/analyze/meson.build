@@ -10,6 +10,7 @@ systemd_analyze_sources = files(
         'analyze-compare-versions.c',
         'analyze-condition.c',
         'analyze-critical-chain.c',
+        'analyze-dlopen-metadata.c',
         'analyze-dot.c',
         'analyze-dump.c',
         'analyze-exit-status.c',
