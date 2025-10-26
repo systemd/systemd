@@ -159,10 +159,6 @@ static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
 
 typedef struct X509 X509;
 typedef struct EVP_PKEY EVP_PKEY;
-typedef struct EVP_MD EVP_MD;
-typedef struct UI_METHOD UI_METHOD;
-typedef struct ASN1_TYPE ASN1_TYPE;
-typedef struct ASN1_STRING ASN1_STRING;
 
 static inline void* X509_free(X509 *p) {
         assert(p == NULL);
@@ -181,7 +177,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(EVP_PKEY*, EVP_PKEY_free, NULL);
 
 struct OpenSSLAskPasswordUI {
         AskPasswordRequest request;
+#if HAVE_OPENSSL && !defined(OPENSSL_NO_UI_CONSOLE)
         UI_METHOD *method;
+#endif
 };
 
 OpenSSLAskPasswordUI* openssl_ask_password_ui_free(OpenSSLAskPasswordUI *ui);
