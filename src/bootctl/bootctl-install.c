@@ -629,6 +629,9 @@ static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, E
 #if HAVE_OPENSSL
         int r;
 
+        if (!arg_secure_boot_auto_enroll)
+                return 0;
+
         _cleanup_free_ uint8_t *dercert = NULL;
         int dercertsz;
         dercertsz = i2d_X509(certificate, &dercert);
@@ -1101,17 +1104,13 @@ int verb_install(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        if (arg_install_random_seed) {
-                                r = install_random_seed(arg_esp_path);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = install_random_seed(arg_esp_path);
+                        if (r < 0)
+                                return r;
 
-                        if (arg_secure_boot_auto_enroll) {
-                                r = install_secure_boot_auto_enroll(arg_esp_path, certificate, private_key);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = install_secure_boot_auto_enroll(arg_esp_path, certificate, private_key);
+                        if (r < 0)
+                                return r;
                 }
 
                 r = install_loader_specification(arg_dollar_boot_path());
