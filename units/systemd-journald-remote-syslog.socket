@@ -13,11 +13,6 @@ Documentation=man:systemd-journald.service(8) man:journald.conf(5)
 DefaultDependencies=no
 Before=sockets.target
 
-# Mount and swap units need this. If this socket unit is removed by an isolate
-# request the mount and swap units would be removed too, hence let's exclude
-# systemd-journald and its sockets from isolate requests.
-IgnoreOnIsolate=yes
-
 [Socket]
 ListenDatagram=514
 BindToDevice=lo
@@ -28,3 +23,4 @@ DeferTrigger=yes
 
 [Install]
 WantedBy=sockets.target
+WantedBy=systemd-journald.service

@@ -1587,7 +1587,7 @@ int manager_process_datagram(
         if (fd == m->syslog_fd) {
                 log_debug("BDS: manager_process_datagram(): fd==m->syslog_fd==%d", fd);
                 if (n > 0 && n_fds == 0)
-                        manager_process_syslog_message(m, m->buffer, n, ucred, tv, label, label_len);
+                        manager_process_syslog_message(m, m->buffer, n, ucred, tv, label, label_len, NULL, 0);
                 else if (n_fds > 0)
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Got file descriptors via syslog socket. Ignoring.");
@@ -1610,9 +1610,8 @@ int manager_process_datagram(
 
         } else if (fd == m->udp_fd) {
                log_debug("BDS: manager_process_datagram(): fd==m->udp_fd==%d", fd);
-                HostnameField hostname_field = HOSTNAME_IGNORE;
                 if (n > 0 && n_fds == 0)
-                        manager_process_syslog_message_remote(m, m->buffer, n, ucred, tv, label, label_len, hostname_field, &sa, msghdr.msg_namelen);
+                        manager_process_syslog_message(m, m->buffer, n, ucred, tv, label, label_len, &sa, msghdr.msg_namelen);
                 else if (n_fds > 0)
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Got file descriptors via udp socket. Ignoring.");
