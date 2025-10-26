@@ -521,8 +521,10 @@ struct Context {
 
         bool from_scratch;
 
+#if HAVE_OPENSSL
         X509 *certificate;
         EVP_PKEY *private_key;
+#endif
 
         bool defer_partitions_empty;
         bool defer_partitions_factory_reset;
@@ -910,8 +912,10 @@ static Context* context_free(Context *context) {
         else
                 free(context->node);
 
+#if HAVE_OPENSSL
         X509_free(context->certificate);
         EVP_PKEY_free(context->private_key);
+#endif
 
         context->link = sd_varlink_unref(context->link);
 
@@ -5564,6 +5568,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         Partition *hp, *rp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
         int whole_fd, r;
+        bool has_fp = false;
 
         assert(p->verity == VERITY_SIG);
 
@@ -5581,6 +5586,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         verity_settings = lookup_verity_settings_by_uuid_pair(rp->current_uuid, hp->current_uuid);
 
         if (!verity_settings) {
+#if HAVE_OPENSSL
                 if (!context->private_key)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Verity signature partition signing requested but no private key provided (--private-key=).");
@@ -5588,6 +5594,10 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                 if (!context->certificate)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Verity signature partition signing requested but no PEM certificate provided (--certificate=).");
+#else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Verity signature partition signing requested but OpenSSL support is disabled.");
+#endif
         }
 
         (void) partition_hint(p, context->node, &hint);
@@ -5612,14 +5622,17 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                 roothash = hp->roothash;
         }
 
+#if HAVE_OPENSSL
         r = x509_fingerprint(context->certificate, fp);
         if (r < 0)
                 return log_error_errno(r, "Unable to calculate X509 certificate fingerprint: %m");
+        has_fp = true;
+#endif
 
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR("rootHash", SD_JSON_BUILD_HEX(roothash.iov_base, roothash.iov_len)),
-                        SD_JSON_BUILD_PAIR("certificateFingerprint", SD_JSON_BUILD_HEX(fp, sizeof(fp))),
+                        SD_JSON_BUILD_PAIR_CONDITION(has_fp, "certificateFingerprint", SD_JSON_BUILD_HEX(fp, sizeof(fp))),
                         SD_JSON_BUILD_PAIR("signature", JSON_BUILD_IOVEC_BASE64(&sig)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build verity signature JSON object: %m");
@@ -8682,6 +8695,7 @@ static int context_minimize(Context *context) {
 }
 
 static int context_load_keys(Context *context) {
+#if HAVE_OPENSSL
         int r;
 
         assert(context);
@@ -8727,6 +8741,7 @@ static int context_load_keys(Context *context) {
                         return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
         }
 
+#endif
         return 0;
 }
 
