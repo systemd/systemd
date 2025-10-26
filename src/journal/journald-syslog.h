@@ -8,7 +8,7 @@
 int syslog_fixup_facility(int priority) _const_;
 
 size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid);
-size_t syslog_parse_hostname(const char **buf, char **hostname);
+size_t syslog_get_rfc5424_token(const char **buf, char **hostname);
 
 void manager_forward_syslog(Manager *m, int priority, const char *identifier, const char *message, const struct ucred *ucred, const struct timeval *tv);
 
