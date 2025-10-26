@@ -916,6 +916,16 @@ alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
     </refsect2>
 
     <refsect2>
+      <title><command>systemd-analyze dlopen-metadata <replaceable>FILE</replaceable></command></title>
+
+      <para>This command will load the specified file, and if it is an ELF object (executables,
+      libraries, core files, etc.) it will parse the embedded dlopen metadata, if any, and print
+      it in a table or json format. See the
+      <ulink url="https://systemd.io/ELF_DLOPEN_METADATA/">
+      dlopen() Metadata for ELF Files</ulink> document for more information.</para>
+    </refsect2>
+
+    <refsect2>
       <title><command>systemd-analyze fdstore <replaceable>UNIT</replaceable>...</command></title>
 
       <para>Lists the current contents of the specified service unit's file descriptor store. This shows
