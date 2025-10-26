@@ -82,15 +82,6 @@ int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd);
 
 int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *verify_type, sd_json_variant **ret);
 int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v);
-
-#else
-
-/* If libcryptsetup is not available, let's at least define the basic type and NOP destructors for it, to
- * make a little bit less #ifdeferry necessary in main programs. */
-struct crypt_device;
-static inline void sym_crypt_free(struct crypt_device* cd) {}
-static inline void sym_crypt_freep(struct crypt_device** cd) {}
-
 #endif
 
 int dlopen_cryptsetup(void);
