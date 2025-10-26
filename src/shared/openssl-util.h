@@ -170,6 +170,12 @@ int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_
 int pkcs7_new(X509 *certificate, EVP_PKEY *private_key, const char *hash_algorithm, PKCS7 **ret_p7, PKCS7_SIGNER_INFO **ret_si);
 
 int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret);
+static inline int string_hashsum_sha224(const char *s, size_t len, char **ret) {
+        return string_hashsum(s, len, "SHA224", ret);
+}
+static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
+        return string_hashsum(s, len, "SHA256", ret);
+}
 
 #else
 
@@ -188,10 +194,6 @@ static inline void* X509_free(X509 *p) {
 static inline void* EVP_PKEY_free(EVP_PKEY *p) {
         assert(p == NULL);
         return NULL;
-}
-
-static inline int string_hashsum(const char *s, size_t len, const char *md_algorithm, char **ret) {
-        return -EOPNOTSUPP;
 }
 
 #endif
@@ -223,11 +225,3 @@ int openssl_load_private_key(
                 const AskPasswordRequest *request,
                 EVP_PKEY **ret_private_key,
                 OpenSSLAskPasswordUI **ret_user_interface);
-
-static inline int string_hashsum_sha224(const char *s, size_t len, char **ret) {
-        return string_hashsum(s, len, "SHA224", ret);
-}
-
-static inline int string_hashsum_sha256(const char *s, size_t len, char **ret) {
-        return string_hashsum(s, len, "SHA256", ret);
-}
