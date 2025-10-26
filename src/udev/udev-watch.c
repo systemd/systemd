@@ -191,7 +191,7 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         "(udev-synth)",
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG,
                         &pidref);
         if (r < 0)
                 return r;
