@@ -41,6 +41,7 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "tmpfile-util.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 #include "user-util.h"
 
@@ -123,6 +124,30 @@ int open_credentials_dir(void) {
                 return r;
 
         return RET_NERRNO(open(d, O_CLOEXEC|O_DIRECTORY));
+}
+
+int get_system_credentials_dir(const char **ret) {
+        int r;
+
+        /* Note that for system credentials the environment variable we honour is just for debugging purpose
+         * (unlike for the per-service credential path env var where it's key part of the protocol). */
+        r = get_credentials_dir_internal("SYSTEMD_SYSTEM_CREDENTIALS_DIRECTORY", ret);
+        if (r >= 0 || r != -ENXIO)
+                return r;
+
+        *ret = SYSTEM_CREDENTIALS_DIRECTORY;
+        return 0;
+}
+
+int get_encrypted_system_credentials_dir(const char **ret) {
+        int r;
+
+        r = get_credentials_dir_internal("SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY", ret);
+        if (r >= 0 || r != -ENXIO)
+                return r;
+
+        *ret = ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY;
+        return 0;
 }
 
 int read_credential(const char *name, void **ret, size_t *ret_size) {
@@ -815,19 +840,7 @@ int encrypt_credential_and_warn(
         /* Only one of these two flags may be set at the same time */
         assert(!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL) || !FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL));
 
-        if (!sd_id128_in_set(with_key,
-                             _CRED_AUTO,
-                             _CRED_AUTO_INITRD,
-                             _CRED_AUTO_SCOPED,
-                             CRED_AES256_GCM_BY_HOST,
-                             CRED_AES256_GCM_BY_HOST_SCOPED,
-                             CRED_AES256_GCM_BY_TPM2_HMAC,
-                             CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
-                             CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
-                             CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
-                             CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
-                             CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,
-                             CRED_AES256_GCM_BY_NULL))
+        if (!CRED_KEY_IS_VALID(with_key) && !CRED_KEY_IS_AUTO(with_key))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key type: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(with_key));
 
         if (name && !credential_name_valid(name))
@@ -847,41 +860,34 @@ int encrypt_credential_and_warn(
                         log_debug("Including not-after timestamp '%s' in encrypted credential.", format_timestamp(buf, sizeof(buf), not_after));
         }
 
-        if (sd_id128_in_set(with_key,
-                            _CRED_AUTO_SCOPED,
-                            CRED_AES256_GCM_BY_HOST_SCOPED,
-                            CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
-                            CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED)) {
+        if (CRED_KEY_IS_SCOPED(with_key)) {
                 if (!uid_is_valid(uid))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Scoped credential key type "SD_ID128_FORMAT_STR" selected, but no UID specified.", SD_ID128_FORMAT_VAL(with_key));
         } else
                 uid = UID_INVALID;
 
-        if (sd_id128_in_set(with_key,
-                            _CRED_AUTO,
-                            _CRED_AUTO_SCOPED,
-                            CRED_AES256_GCM_BY_HOST,
-                            CRED_AES256_GCM_BY_HOST_SCOPED,
-                            CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
-                            CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
-                            CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
-                            CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED)) {
+        if (CRED_KEY_WANTS_HOST(with_key) || CRED_KEY_REQUIRES_HOST(with_key)) {
 
                 r = get_credential_host_secret(
                                 CREDENTIAL_SECRET_GENERATE|
                                 CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED|
-                                (sd_id128_in_set(with_key, _CRED_AUTO, _CRED_AUTO_SCOPED) ? CREDENTIAL_SECRET_FAIL_ON_TEMPORARY_FS : 0),
+                                (CRED_KEY_WANTS_HOST(with_key) ? CREDENTIAL_SECRET_FAIL_ON_TEMPORARY_FS : 0),
                                 &host_key);
-                if (r == -ENOMEDIUM && sd_id128_in_set(with_key, _CRED_AUTO, _CRED_AUTO_SCOPED))
+                if (r == -ENOMEDIUM && CRED_KEY_WANTS_HOST(with_key))
                         log_debug_errno(r, "Credential host secret location on temporary file system, not using.");
                 else if (r < 0)
                         return log_error_errno(r, "Failed to determine local credential host secret: %m");
         }
 
+        if (tpm2_hash_pcr_mask == UINT32_MAX)
+                tpm2_hash_pcr_mask = 0;
+        if (tpm2_pubkey_pcr_mask == UINT32_MAX)
+                tpm2_pubkey_pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_BOOT;
+
 #if HAVE_TPM2
         bool try_tpm2;
-        if (sd_id128_in_set(with_key, _CRED_AUTO, _CRED_AUTO_INITRD, _CRED_AUTO_SCOPED)) {
+        if (CRED_KEY_WANTS_TPM2(with_key)) {
                 /* If automatic mode is selected lets see if a TPM2 it is present. If we are running in a
                  * container tpm2_support will detect this, and will return a different flag combination of
                  * TPM2_SUPPORT_FULL, effectively skipping the use of TPM2 when inside one. */
@@ -890,28 +896,16 @@ int encrypt_credential_and_warn(
                 if (!try_tpm2)
                         log_debug("System lacks TPM2 support or running in a container, not attempting to use TPM2.");
         } else
-                try_tpm2 = sd_id128_in_set(with_key,
-                                           CRED_AES256_GCM_BY_TPM2_HMAC,
-                                           CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
-                                           CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
-                                           CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
-                                           CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
-                                           CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED);
+                try_tpm2 = CRED_KEY_REQUIRES_TPM2(with_key);
 
         if (try_tpm2) {
-                if (sd_id128_in_set(with_key,
-                                    _CRED_AUTO,
-                                    _CRED_AUTO_INITRD,
-                                    _CRED_AUTO_SCOPED,
-                                    CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
-                                    CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
-                                    CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED)) {
+                if (CRED_KEY_WANTS_TPM2_PK(with_key) || CRED_KEY_REQUIRES_TPM2_PK(with_key)) {
 
                         /* Load public key for PCR policies, if one is specified, or explicitly requested */
 
                         r = tpm2_load_pcr_public_key(tpm2_pubkey_path, &pubkey.iov_base, &pubkey.iov_len);
                         if (r < 0) {
-                                if (tpm2_pubkey_path || r != -ENOENT || !sd_id128_in_set(with_key, _CRED_AUTO, _CRED_AUTO_INITRD, _CRED_AUTO_SCOPED))
+                                if (r != -ENOENT || tpm2_pubkey_path || CRED_KEY_REQUIRES_TPM2_PK(with_key))
                                         return log_error_errno(r, "Failed to read TPM PCR public key: %m");
 
                                 log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
@@ -991,7 +985,7 @@ int encrypt_credential_and_warn(
         }
 #endif
 
-        if (sd_id128_in_set(with_key, _CRED_AUTO, _CRED_AUTO_INITRD, _CRED_AUTO_SCOPED)) {
+        if (CRED_KEY_IS_AUTO(with_key)) {
                 /* Let's settle the key type in auto mode now. */
 
                 if (iovec_is_set(&host_key) && iovec_is_set(&tpm2_key))
@@ -1200,7 +1194,6 @@ int decrypt_credential_and_warn(
         struct encrypted_credential_header *h;
         struct metadata_credential_header *m;
         uint8_t md[SHA256_DIGEST_LENGTH];
-        bool with_tpm2, with_tpm2_pk, with_host_key, with_null, with_scope;
         const EVP_CIPHER *cc;
         size_t p, hs;
         int r, added;
@@ -1230,16 +1223,10 @@ int decrypt_credential_and_warn(
         if (input->iov_len < sizeof(h->id))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
-        with_host_key = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_SCOPED, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED);
-        with_tpm2_pk = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED);
-        with_tpm2 = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED) || with_tpm2_pk;
-        with_null = sd_id128_equal(h->id, CRED_AES256_GCM_BY_NULL);
-        with_scope = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_HOST_SCOPED, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED);
-
-        if (!with_host_key && !with_tpm2 && !with_null)
+        if (!CRED_KEY_IS_VALID(h->id))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unknown encryption format, or corrupted data.");
 
-        if (with_tpm2_pk) {
+        if (CRED_KEY_REQUIRES_TPM2_PK(h->id)) {
                 r = tpm2_load_pcr_signature(tpm2_signature_path, &signature_json);
                 if (r == -ENOENT)
                         return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN), "Couldn't find PCR signature file: %m");
@@ -1247,7 +1234,7 @@ int decrypt_credential_and_warn(
                         return log_error_errno(r, "Failed to load PCR signature: %m");
         }
 
-        if (with_null) {
+        if (sd_id128_equal(h->id, CRED_AES256_GCM_BY_NULL)) {
                 if (FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL))
                         return log_error_errno(SYNTHETIC_ERRNO(EHWPOISON),
                                                "Credential uses null key, but that's not allowed, refusing.");
@@ -1273,7 +1260,7 @@ int decrypt_credential_and_warn(
                 }
         }
 
-        if (with_scope) {
+        if (CRED_KEY_IS_SCOPED(h->id)) {
                 if (!uid_is_valid(uid))
                         return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Encrypted file is scoped to a user, but no user selected.");
         } else {
@@ -1302,16 +1289,16 @@ int decrypt_credential_and_warn(
          * lower limit only) */
         if (input->iov_len <
             ALIGN8(offsetof(struct encrypted_credential_header, iv) + le32toh(h->iv_size)) +
-            ALIGN8(with_tpm2 ? offsetof(struct tpm2_credential_header, policy_hash_and_blob) : 0) +
-            ALIGN8(with_tpm2_pk ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
-            ALIGN8(with_scope ? sizeof(struct scoped_credential_header) : 0) +
+            ALIGN8(CRED_KEY_REQUIRES_TPM2(h->id) ? offsetof(struct tpm2_credential_header, policy_hash_and_blob) : 0) +
+            ALIGN8(CRED_KEY_REQUIRES_TPM2_PK(h->id) ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
+            ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
             ALIGN8(offsetof(struct metadata_credential_header, name)) +
             le32toh(h->tag_size))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
 
         p = ALIGN8(offsetof(struct encrypted_credential_header, iv) + le32toh(h->iv_size));
 
-        if (with_tpm2) {
+        if (CRED_KEY_REQUIRES_TPM2(h->id)) {
 #if HAVE_TPM2
                 struct tpm2_credential_header* t = (struct tpm2_credential_header*) ((uint8_t*) input->iov_base + p);
                 struct tpm2_public_key_credential_header *z = NULL;
@@ -1332,8 +1319,8 @@ int decrypt_credential_and_warn(
                 if (input->iov_len <
                     p +
                     ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) + le32toh(t->blob_size) + le32toh(t->policy_hash_size)) +
-                    ALIGN8(with_tpm2_pk ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
-                    ALIGN8(with_scope ? sizeof(struct scoped_credential_header) : 0) +
+                    ALIGN8(CRED_KEY_REQUIRES_TPM2_PK(h->id) ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
+                    ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                     ALIGN8(offsetof(struct metadata_credential_header, name)) +
                     le32toh(h->tag_size))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
@@ -1342,7 +1329,7 @@ int decrypt_credential_and_warn(
                             le32toh(t->blob_size) +
                             le32toh(t->policy_hash_size));
 
-                if (with_tpm2_pk) {
+                if (CRED_KEY_REQUIRES_TPM2_PK(h->id)) {
                         z = (struct tpm2_public_key_credential_header*) ((uint8_t*) input->iov_base + p);
 
                         if (!TPM2_PCR_MASK_VALID(le64toh(z->pcr_mask)) || le64toh(z->pcr_mask) == 0)
@@ -1353,7 +1340,7 @@ int decrypt_credential_and_warn(
                         if (input->iov_len <
                             p +
                             ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) + le32toh(z->size)) +
-                            ALIGN8(with_scope ? sizeof(struct scoped_credential_header) : 0) +
+                            ALIGN8(CRED_KEY_IS_SCOPED(h->id) ? sizeof(struct scoped_credential_header) : 0) +
                             ALIGN8(offsetof(struct metadata_credential_header, name)) +
                             le32toh(h->tag_size))
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Encrypted file too short.");
@@ -1395,7 +1382,7 @@ int decrypt_credential_and_warn(
 #endif
         }
 
-        if (with_scope) {
+        if (CRED_KEY_IS_SCOPED(h->id)) {
                 struct scoped_credential_header* sh = (struct scoped_credential_header*) ((uint8_t*) input->iov_base + p);
 
                 if (le64toh(sh->flags) != SCOPE_HASH_DATA_BASE_FLAGS)
@@ -1411,18 +1398,18 @@ int decrypt_credential_and_warn(
                 p += sizeof(struct scoped_credential_header);
         }
 
-        if (with_host_key) {
+        if (CRED_KEY_REQUIRES_HOST(h->id)) {
                 r = get_credential_host_secret(/* flags= */ 0, &host_key);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine local credential key: %m");
         }
 
-        if (with_null && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
+        if (sd_id128_equal(h->id, CRED_AES256_GCM_BY_NULL) && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
                 log_warning("Warning: using a null key for decryption and authentication. Confidentiality or authenticity are not provided.");
 
         sha256_hash_host_and_tpm2_key(&host_key, &tpm2_key, md);
 
-        if (with_scope) {
+        if (CRED_KEY_IS_SCOPED(h->id)) {
                 r = mangle_uid_into_key(uid, md);
                 if (r < 0)
                         return r;
