@@ -28,6 +28,7 @@ systemd_resolved_extract_sources = files(
         'resolved-dnssd-bus.c',
         'resolved-dnssd.c',
         'resolved-etc-hosts.c',
+        'resolved-hook.c',
         'resolved-link-bus.c',
         'resolved-link.c',
         'resolved-llmnr.c',
