@@ -1093,6 +1093,11 @@ systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^usr
 systemd-analyze pcrs
 systemd-analyze pcrs --json=pretty
 systemd-analyze pcrs 14 7 0 ima
+if systemd-analyze has-tpm2 -q ; then
+    systemd-analyze nvpcrs
+    systemd-analyze nvpcrs --json=pretty
+    systemd-analyze nvpcrs hardware cryptsetup
+fi
 
 systemd-analyze architectures
 systemd-analyze architectures --json=pretty
