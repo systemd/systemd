@@ -13,11 +13,57 @@
 #include "string-util.h"
 #include "strv.h"
 
+static int output_dlopen_metadata(const char *filename, sd_json_variant *dlopen_metadata, sd_json_format_flags_t json_flags) {
+        _cleanup_(table_unrefp) Table *t = NULL;
+        int r;
+
+        assert(filename);
+
+        if (!dlopen_metadata)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "%s does not contain any .note.dlopen sections", filename);
+
+        if (sd_json_format_enabled(json_flags))
+                return sd_json_variant_dump(dlopen_metadata, json_flags, stdout, NULL);
+
+        t = table_new("feature", "description", "soname", "priority");
+        if (!t)
+                return log_oom();
+
+        table_set_ersatz_string(t, TABLE_ERSATZ_NA);
+
+        sd_json_variant *z;
+        JSON_VARIANT_ARRAY_FOREACH(z, dlopen_metadata) {
+                _cleanup_strv_free_ char **sonames = NULL;
+
+                r = sd_json_variant_strv(sd_json_variant_by_key(z, "soname"), &sonames);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract sonames from dlopen metadata: %m");
+
+                r = table_add_many(
+                                t,
+                                TABLE_STRING, sd_json_variant_string(sd_json_variant_by_key(z, "feature")),
+                                TABLE_STRING, sd_json_variant_string(sd_json_variant_by_key(z, "description")),
+                                TABLE_STRV_WRAPPED, sonames,
+                                TABLE_STRING, sd_json_variant_string(sd_json_variant_by_key(z, "priority")));
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = table_print(t, NULL);
+        if (r < 0)
+                return table_log_print_error(r);
+
+        return 0;
+}
+
 static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
         int r;
 
+        if (arg_dlopen_metadata && strv_length(filenames) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--dlopen-metadata= requires a single path argument");
+
         STRV_FOREACH(filename, filenames) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL;
                 _cleanup_(table_unrefp) Table *t = NULL;
                 _cleanup_free_ char *abspath = NULL, *stacktrace = NULL;
                 _cleanup_close_ int fd = -EBADF;
@@ -27,9 +73,19 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                 if (fd < 0)
                         return log_error_errno(fd, "Could not open \"%s\": %m", *filename);
 
-                r = parse_elf_object(fd, abspath, arg_root, /* fork_disable_dump= */false, &stacktrace, &package_metadata);
+                r = parse_elf_object(
+                                fd,
+                                abspath,
+                                arg_root,
+                                /* fork_disable_dump= */ false,
+                                &stacktrace,
+                                arg_dlopen_metadata ? NULL : &package_metadata,
+                                arg_dlopen_metadata ? &dlopen_metadata : NULL);
                 if (r < 0)
                         return log_error_errno(r, "Parsing \"%s\" as ELF object failed: %m", abspath);
+
+                if (arg_dlopen_metadata)
+                        return output_dlopen_metadata(*filename, dlopen_metadata, json_flags);
 
                 t = table_new_vertical();
                 if (!t)
