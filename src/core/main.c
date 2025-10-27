@@ -1999,6 +1999,11 @@ static int do_reexecute(
 
         finish_remaining_processes(objective);
 
+        /* When we do a soft-reboot, let's make sure we bring tty1 back into the foregound, so that
+         * /dev/console will point to it */
+        if (objective == MANAGER_SOFT_REBOOT)
+                (void) chvt(1);
+
         if (switch_root_dir) {
                 r = switch_root(/* new_root= */ switch_root_dir,
                                 /* old_root_after= */ NULL,
