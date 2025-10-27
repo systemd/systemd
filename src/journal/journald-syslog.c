@@ -268,26 +268,21 @@ size_t syslog_get_rfc5424_token(const char **buf, char **word) {
 
         p += strspn(p, WHITESPACE);
         if (p[0] == '[') {
-                log_debug("BDS: syslog_get_rfc5424_token(): rfc5424 tag start");
                 l = strcspn(p, "]");
                 if (l <= 0)
                         return 0;
                 if (!p[l])
                         return 0;
                 l++;
-                log_debug("BDS: syslog_get_rfc5424_token(): rfc5424 tag end=%lu", l);
         }
         l += strcspn(p + l, WHITESPACE);
-        log_debug("BDS: syslog_get_rfc5424_token(): we've now counted=%lu", l);
 
         if (l <= 0)
                 return 0;
-        log_debug("BDS: syslog_get_rfc5424_token(): l >= 1");
 
         /* '-' is an empty token */
         if ((l >= 2) ||
             p[0] != '-') {
-                log_debug("BDS: syslog_get_rfc5424_token(): non-empty token, copy");
                 t = strndup(p, l);
                 if (t)
                         *word = t;
@@ -461,14 +456,13 @@ void manager_process_syslog_message(
         const char *msg, *syslog_ts, *a;
         _cleanup_free_ char *identifier = NULL, *pid = NULL,
                 *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL,
-                *sap = NULL, *sni = NULL, *discard = NULL;
+                *sap = NULL, *sni = NULL, *discard1 = NULL, *discard2 = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
         size_t n = 0, mm, i, leading_ws, syslog_ts_len;
         bool store_raw, rfc5424;
 
-        log_debug("BDS: manager_process_syslog_message(): start");
         assert(m);
         assert(buf);
         /* The message cannot be empty. */
@@ -520,7 +514,6 @@ void manager_process_syslog_message(
                 return;
 
         rfc5424 = syslog_check_and_skip_rfc5424(&msg);
-        log_debug("BDS: manager_process_syslog_message(): rfc5424=%s", rfc5424 ? "true" : "false");
 
         syslog_ts = msg;
         syslog_ts_len = syslog_skip_timestamp(&msg, rfc5424);
@@ -528,52 +521,23 @@ void manager_process_syslog_message(
                 /* We failed to parse the full timestamp, store the raw message too */
                 store_raw = true;
 
-        if (sa) {
-                log_debug("BDS: manager_process_syslog_message(): calling syslog_parse_hostname(%p, %p)", msg, hostname);
+        if (sa)
                 r = syslog_get_rfc5424_token(&msg, &hostname);
-                log_debug("BDS: manager_process_syslog_message(): syslog_parse_hostname()=%d", r);
-                if (r > 0)
-                        log_debug("BDS: manager_process_syslog_message(): hostname=%s", hostname);
-        } else {
-                log_debug("BDS: manager_process_syslog_message(): no hostname provided");
-        }
 
         if (rfc5424) {
                 i = syslog_get_rfc5424_token(&msg, &identifier);
-                if (i > 0)
-                        log_debug("BDS: manager_process_syslog_message(): identifier=%s", identifier);
                 i = syslog_get_rfc5424_token(&msg, &pid);
-                if (i > 0)
-                        log_debug("BDS: manager_process_syslog_message(): pid=%s", pid);
-        } else {
-                log_debug("BDS: calling syslog_parse_identifier(%p, %p, %p)", msg, identifier, pid);
+        } else
                 r = syslog_parse_identifier(&msg, &identifier, &pid);
-                log_debug("BDS: manager_process_syslog_message(): syslog_parse_identifier()=%d", r);
-                if (r > 0)
-                        log_debug("BDS: manager_process_syslog_message(): identifier=%s pid=%s", identifier, pid);
-        }
-        if (!syslog_is_pid(pid)) {
-                log_debug("BDS: manager_process_syslog_message(): pid is not a pid");
+
+        /* check if we have a pid that's not a number */
+        if (pid && !syslog_is_pid(pid))
                 store_raw = true;
-        }
 
+        /* discard the next two tokens, message id and structured tags */
         if (rfc5424) {
-                i = syslog_get_rfc5424_token(&msg, &discard);
-                log_debug("BDS: manager_process_syslog_message(): skip %lu bytes", i);
-                if (discard) {
-                        free(discard);
-                        discard = NULL;
-                }
-        }
-
-        /* expected: tags in [] */
-        if (rfc5424) {
-                i = syslog_get_rfc5424_token(&msg, &discard);
-                log_debug("BDS: manager_process_syslog_message(): skip %lu bytes", i);
-                if (discard) {
-                        free(discard);
-                        discard = NULL;
-                }
+                i = syslog_get_rfc5424_token(&msg, &discard1);
+                i = syslog_get_rfc5424_token(&msg, &discard2);
         }
 
         if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
@@ -628,40 +592,25 @@ void manager_process_syslog_message(
             sa &&
             (salen == sizeof(struct sockaddr_in) ||
              salen == sizeof(struct sockaddr_in6))) {
-                log_debug("BDS: manager_process_syslog_message(): use the hostname from the socket.");
                 r = sockaddr_pretty(&sa->sa, salen, true, errno, &sap);
-                if (r < 0) {
-                        log_debug_errno(r, "BDS: manager_process_syslog_message():  sockaddr_pretty()=%m");
+                if (r < 0)
                         hostname = NULL;
-                } else {
-                        log_debug("BDS: manager_process_syslog_message(): socketaddr_pretty()=%s", sap);
+                else
                         hostname = sap;
-                }
         }
         if (m->config.syslog_hostname == SYSLOG_HOSTNAME_DNS &&
             sa &&
             (salen == sizeof(struct sockaddr_in) ||
              salen == sizeof(struct sockaddr_in6))) {
                 r = socknameinfo_pretty(&sa->sa, salen, &sni);
-                if (r < 0) { /* DNS failed */
-                        log_debug_errno(r, "BDS: socknameinfo_pretty()=%m");
-                        hostname = sap;
-                } else {
-                        log_debug("BDS: manager_process_syslog_message(): socketnameinfo_pretty()=%s", sni);
+                if (r >= 0)
                         hostname = sni;
-                }
         }
         if (hostname) {
-                log_debug("BDS: manager_process_syslog_message(): hostname=%s", hostname);
                 a = strjoina("_HOSTNAME=", hostname);
                 iovec[n++] = IOVEC_MAKE_STRING(a);
-        } else if (sa) {
-                log_debug("BDS: manager_process_syslog_message(): socket, but hostname == NULL");
+        } else if (sa) /* we should have a hostname */
                 store_raw = true;
-                a = strjoina("_HOSTNAME=", "unknown");
-                iovec[n++] = IOVEC_MAKE_STRING(a);
-        }
-        log_debug("BDS: manager_process_syslog_message(): _HOSTNAME processing done");
 
         msg_msg = strjoin("MESSAGE=", msg);
         if (!msg_msg) {
@@ -685,7 +634,6 @@ void manager_process_syslog_message(
                 iovec[n++] = IOVEC_MAKE(msg_raw, hlen + raw_len);
         }
 
-        log_debug("BDS: manager_process_syslog_message(): dispatch message");
         manager_dispatch_message(m, iovec, n, mm, context, tv, priority, 0);
 }
 
@@ -751,12 +699,10 @@ int manager_open_syslog_socket(Manager *m, const char *syslog_socket) {
 int manager_open_udp_socket(Manager *m) {
         int r;
 
-        log_debug("BDS: manager_open_udp_socket(): start");
-
         assert(m);
 
         if (m->udp_fd < 0) {
-                return log_error_errno(errno, "Not (yet) automatically opening UDP socket.");
+                return log_error_errno(errno, "Not automatically opening UDP socket.");
         } else
                 (void) fd_nonblock(m->syslog_fd, true);
 

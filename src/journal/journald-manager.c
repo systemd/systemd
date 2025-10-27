@@ -1082,8 +1082,6 @@ static void manager_dispatch_message_real(
         assert(m);
         assert(iovec);
         assert(n > 0);
-        log_debug("BDS: n=%lu N_IOVEC_META_FIELDS=%d object_pid=%d, N_IOVEC_OBJECT_FIELDS=%d, ccef()=%lu, mm=%lu",
-                  n, N_IOVEC_META_FIELDS, object_pid, N_IOVEC_OBJECT_FIELDS, client_context_extra_fields_n_iovec(c), mm);
         assert(n +
                N_IOVEC_META_FIELDS +
                (pid_is_valid(object_pid) ? N_IOVEC_OBJECT_FIELDS : 0) +
@@ -1495,9 +1493,6 @@ int manager_process_datagram(
         int *fds = NULL, v = 0;
         size_t n_fds = 0;
 
-        // not good for fd=native
-        //log_debug("BDS: manager_process_datagram(%d): start", fd);
-
         /* We use NAME_MAX space for the SELinux label here. The kernel currently enforces no limit, but
          * according to suggestions from the SELinux people this will change and it will probably be
          * identical to NAME_MAX. For now we use that, but this should be updated one day when the final
@@ -1522,7 +1517,7 @@ int manager_process_datagram(
                 .msg_namelen = sizeof(sa),
         };
 
-        assert(fd == m->native_fd || fd == m->syslog_fd || fd == m->udp_fd || fd == m->audit_fd);
+        assert(fd == m->native_fd || fd == m->syslog_fd || fd == m->audit_fd || fd == m->udp_fd);
 
         if (revents != EPOLLIN)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -1585,7 +1580,6 @@ int manager_process_datagram(
         m->buffer[n] = 0;
 
         if (fd == m->syslog_fd) {
-                log_debug("BDS: manager_process_datagram(): fd==m->syslog_fd==%d", fd);
                 if (n > 0 && n_fds == 0)
                         manager_process_syslog_message(m, m->buffer, n, ucred, tv, label, label_len, NULL, 0);
                 else if (n_fds > 0)
@@ -1596,7 +1590,6 @@ int manager_process_datagram(
                         m->syslog_timestamp = timeval_load(tv);
 
         } else if (fd == m->native_fd) {
-               //log_debug("BDS: manager_process_datagram(): fd==m->native_fd");
                 if (n > 0 && n_fds == 0)
                         manager_process_native_message(m, m->buffer, n, ucred, tv, label, label_len);
                 else if (n == 0 && n_fds == 1)
@@ -1608,8 +1601,15 @@ int manager_process_datagram(
                 if (tv)
                         m->native_timestamp = timeval_load(tv);
 
-        } else if (fd == m->udp_fd) {
-               log_debug("BDS: manager_process_datagram(): fd==m->udp_fd==%d", fd);
+        } else if (fd == m->audit_fd) {
+                if (n > 0 && n_fds == 0)
+                        manager_process_audit_message(m, m->buffer, n, ucred, &sa, msghdr.msg_namelen);
+                else if (n_fds > 0)
+                        log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
+                                              "Got file descriptors via audit socket. Ignoring.");
+        } else {
+                assert(fd == m->udp_fd);
+
                 if (n > 0 && n_fds == 0)
                         manager_process_syslog_message(m, m->buffer, n, ucred, tv, label, label_len, &sa, msghdr.msg_namelen);
                 else if (n_fds > 0)
@@ -1619,15 +1619,6 @@ int manager_process_datagram(
                 if (tv)
                         m->udp_timestamp = timeval_load(tv);
 
-        } else {
-                log_debug("BDS: manager_process_datagram(): fd==m->audit_fd==%d", fd);
-                assert(fd == m->audit_fd);
-
-                if (n > 0 && n_fds == 0)
-                        manager_process_audit_message(m, m->buffer, n, ucred, &sa, msghdr.msg_namelen);
-                else if (n_fds > 0)
-                        log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
-                                              "Got file descriptors via audit socket. Ignoring.");
         }
 
         close_many(fds, n_fds);
@@ -2327,8 +2318,8 @@ int manager_new(Manager **ret) {
                 .native_fd = -EBADF,
                 .stdout_fd = -EBADF,
                 .dev_kmsg_fd = -EBADF,
-                .udp_fd = -EBADF,
                 .audit_fd = -EBADF,
+                .udp_fd = -EBADF,
                 .hostname_fd = -EBADF,
                 .notify_fd = -EBADF,
                 .forward_socket_fd = -EBADF,
@@ -2362,8 +2353,6 @@ int manager_init(Manager *m) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int n, r, varlink_fd = -EBADF;
         bool no_sockets;
-
-        log_debug("BDS: manager_init(): start");
 
         assert(m);
 
@@ -2407,7 +2396,7 @@ int manager_init(Manager *m) {
         for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++)
 
                 if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, native_socket, 0) > 0) {
-                        log_debug("BDS: manager_init(): native=%d", fd);
+
                         if (m->native_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Too many native sockets passed.");
@@ -2415,7 +2404,7 @@ int manager_init(Manager *m) {
                         m->native_fd = fd;
 
                 } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, stdout_socket, 0) > 0) {
-                        log_debug("BDS: manager_init(): stdout=%d", fd);
+
                         if (m->stdout_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Too many stdout sockets passed.");
@@ -2423,7 +2412,7 @@ int manager_init(Manager *m) {
                         m->stdout_fd = fd;
 
                 } else if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, syslog_socket, 0) > 0) {
-                        log_debug("BDS: manager_init(): /dev/log=%d", fd);
+
                         if (m->syslog_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Too many /dev/log sockets passed.");
@@ -2431,30 +2420,29 @@ int manager_init(Manager *m) {
                         m->syslog_fd = fd;
 
                 } else if (sd_is_socket_unix(fd, SOCK_STREAM, 1, varlink_socket, 0) > 0) {
-                        log_debug("BDS: manager_init(): varlink=%d", fd);
+
                         if (varlink_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Too many varlink sockets passed.");
 
                         varlink_fd = fd;
-                } else if (sd_is_socket_inet(fd, AF_UNSPEC, SOCK_DGRAM, -1, 0) > 0) {
-                        log_debug("BDS: manager_init(): udp=%d", fd);
-                        if (m->udp_fd >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Too many udp sockets passed.");
-
-                        m->udp_fd = fd;
-
                 } else if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
-                        log_debug("BDS: manager_init(): audit=%d", fd);
                         if (m->audit_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Too many audit sockets passed.");
 
                         m->audit_fd = fd;
 
+                } else if (sd_is_socket_inet(fd, AF_UNSPEC, SOCK_DGRAM, -1, 0) > 0) {
+
+                        if (m->udp_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many udp sockets passed.");
+
+                        m->udp_fd = fd;
+
                 } else {
-                        log_debug("BDS: manager_init(): unknown fd=%d", fd);
+
                         if (!fds) {
                                 fds = fdset_new();
                                 if (!fds)
@@ -2474,7 +2462,7 @@ int manager_init(Manager *m) {
                 fds = fdset_free(fds);
         }
 
-        no_sockets = m->native_fd < 0 && m->stdout_fd < 0 && m->syslog_fd < 0 && m->udp_fd < 0 && m->audit_fd < 0 && varlink_fd < 0;
+        no_sockets = m->native_fd < 0 && m->stdout_fd < 0 && m->syslog_fd < 0 && m->audit_fd < 0 && varlink_fd < 0 && m->udp_fd < 0;
 
         /* always open stdout, syslog, native, and kmsg sockets */
 
@@ -2513,17 +2501,11 @@ int manager_init(Manager *m) {
                 return r;
 
         if (m->udp_fd >= 0) {
-                log_debug("BDS: manager_init(): calling manager_open_udp_socket");
-                r = manager_open_udp_socket(m); /* ignore r for now */
-                if (r < 0) {
-                        log_debug_errno(r, "BDS: manager_init(): manager_open_udp_socket()=%m");
+                r = manager_open_udp_socket(m);
+                if (r < 0)
                         return r;
-                } else {
-                        log_debug("BDS: manager_init(): manager_open_udp_socket()=0");
-                }
         }
 
-        log_debug("BDS: manager_init(): now we should have called manager_open_udp_socket()");
         r = manager_map_seqnum_file(m, "seqnum", sizeof(SeqnumData), (void**) &m->seqnum);
         if (r < 0)
                 return log_error_errno(r, "Failed to map main seqnum file: %m");
@@ -2622,8 +2604,8 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->native_event_source);
         sd_event_source_unref(m->stdout_event_source);
         sd_event_source_unref(m->dev_kmsg_event_source);
-        sd_event_source_unref(m->udp_event_source);
         sd_event_source_unref(m->audit_event_source);
+        sd_event_source_unref(m->udp_event_source);
         sd_event_source_unref(m->sync_event_source);
         sd_event_source_unref(m->sigusr1_event_source);
         sd_event_source_unref(m->sigusr2_event_source);
