@@ -5,6 +5,7 @@
 #include "oomd-conf.h"
 #include "oomd-manager.h"
 #include "parse-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -72,9 +73,10 @@ void manager_parse_config_file(Manager *m) {
         assert(m);
 
         const ConfigTableItem items[] = {
-                { "OOM", "SwapUsedLimit",                    config_parse_permyriad, 0, &m->swap_used_limit_permyriad          },
-                { "OOM", "DefaultMemoryPressureLimit",       config_parse_loadavg,   0, &m->default_mem_pressure_limit         },
-                { "OOM", "DefaultMemoryPressureDurationSec", config_parse_duration,  0, &m->default_mem_pressure_duration_usec },
+                { "OOM", "SwapUsedLimit",                    config_parse_permyriad,       0, &m->swap_used_limit_permyriad          },
+                { "OOM", "DefaultMemoryPressureLimit",       config_parse_loadavg,         0, &m->default_mem_pressure_limit         },
+                { "OOM", "DefaultMemoryPressureDurationSec", config_parse_duration,        0, &m->default_mem_pressure_duration_usec },
+                { "OOM", "PrekillHookTimeoutSec",            config_parse_sec,             0, &m->prekill_timeout                    },
                 {}
         };
 
