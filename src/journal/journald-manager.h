@@ -41,6 +41,7 @@ typedef struct Manager {
         int stdout_fd;
         int dev_kmsg_fd;
         int audit_fd;
+        int udp_fd;
         int hostname_fd;
         int notify_fd;
         int forward_socket_fd;
@@ -52,6 +53,7 @@ typedef struct Manager {
         sd_event_source *stdout_event_source;
         sd_event_source *dev_kmsg_event_source;
         sd_event_source *audit_event_source;
+        sd_event_source *udp_event_source;
         sd_event_source *sync_event_source;
         sd_event_source *sigusr1_event_source;
         sd_event_source *sigusr2_event_source;
@@ -123,7 +125,7 @@ typedef struct Manager {
 
         /* timestamp of most recently processed log messages from each source (CLOCK_REALTIME for the first
          * two, CLOCK_BOOTTIME for the other) */
-        usec_t native_timestamp, syslog_timestamp, dev_kmsg_timestamp;
+        usec_t native_timestamp, syslog_timestamp, dev_kmsg_timestamp, udp_timestamp;
 
         /* Pending synchronization requests, ordered by their timestamp */
         Prioq *sync_req_realtime_prioq;

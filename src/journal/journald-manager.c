@@ -1517,7 +1517,7 @@ int manager_process_datagram(
                 .msg_namelen = sizeof(sa),
         };
 
-        assert(fd == m->native_fd || fd == m->syslog_fd || fd == m->audit_fd);
+        assert(fd == m->native_fd || fd == m->syslog_fd || fd == m->audit_fd || fd == m->udp_fd);
 
         if (revents != EPOLLIN)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
@@ -1581,7 +1581,7 @@ int manager_process_datagram(
 
         if (fd == m->syslog_fd) {
                 if (n > 0 && n_fds == 0)
-                        manager_process_syslog_message(m, m->buffer, n, ucred, tv, label, label_len);
+                        manager_process_syslog_message(m, m->buffer, n, ucred, tv, label, label_len, NULL, 0);
                 else if (n_fds > 0)
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Got file descriptors via syslog socket. Ignoring.");
@@ -1601,14 +1601,24 @@ int manager_process_datagram(
                 if (tv)
                         m->native_timestamp = timeval_load(tv);
 
-        } else {
-                assert(fd == m->audit_fd);
-
+        } else if (fd == m->audit_fd) {
                 if (n > 0 && n_fds == 0)
                         manager_process_audit_message(m, m->buffer, n, ucred, &sa, msghdr.msg_namelen);
                 else if (n_fds > 0)
                         log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
                                               "Got file descriptors via audit socket. Ignoring.");
+        } else {
+                assert(fd == m->udp_fd);
+
+                if (n > 0 && n_fds == 0)
+                        manager_process_syslog_message(m, m->buffer, n, ucred, tv, label, label_len, &sa, msghdr.msg_namelen);
+                else if (n_fds > 0)
+                        log_ratelimit_warning(JOURNAL_LOG_RATELIMIT,
+                                              "Got file descriptors via udp socket. Ignoring.");
+
+                if (tv)
+                        m->udp_timestamp = timeval_load(tv);
+
         }
 
         close_many(fds, n_fds);
@@ -2309,6 +2319,7 @@ int manager_new(Manager **ret) {
                 .stdout_fd = -EBADF,
                 .dev_kmsg_fd = -EBADF,
                 .audit_fd = -EBADF,
+                .udp_fd = -EBADF,
                 .hostname_fd = -EBADF,
                 .notify_fd = -EBADF,
                 .forward_socket_fd = -EBADF,
@@ -2416,12 +2427,19 @@ int manager_init(Manager *m) {
 
                         varlink_fd = fd;
                 } else if (sd_is_socket(fd, AF_NETLINK, SOCK_RAW, -1) > 0) {
-
                         if (m->audit_fd >= 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Too many audit sockets passed.");
 
                         m->audit_fd = fd;
+
+                } else if (sd_is_socket_inet(fd, AF_UNSPEC, SOCK_DGRAM, -1, 0) > 0) {
+
+                        if (m->udp_fd >= 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Too many udp sockets passed.");
+
+                        m->udp_fd = fd;
 
                 } else {
 
@@ -2444,7 +2462,7 @@ int manager_init(Manager *m) {
                 fds = fdset_free(fds);
         }
 
-        no_sockets = m->native_fd < 0 && m->stdout_fd < 0 && m->syslog_fd < 0 && m->audit_fd < 0 && varlink_fd < 0;
+        no_sockets = m->native_fd < 0 && m->stdout_fd < 0 && m->syslog_fd < 0 && m->audit_fd < 0 && varlink_fd < 0 && m->udp_fd < 0;
 
         /* always open stdout, syslog, native, and kmsg sockets */
 
@@ -2481,6 +2499,12 @@ int manager_init(Manager *m) {
         r = manager_open_varlink(m, varlink_socket, varlink_fd);
         if (r < 0)
                 return r;
+
+        if (m->udp_fd >= 0) {
+                r = manager_open_udp_socket(m);
+                if (r < 0)
+                        return r;
+        }
 
         r = manager_map_seqnum_file(m, "seqnum", sizeof(SeqnumData), (void**) &m->seqnum);
         if (r < 0)
@@ -2581,6 +2605,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->stdout_event_source);
         sd_event_source_unref(m->dev_kmsg_event_source);
         sd_event_source_unref(m->audit_event_source);
+        sd_event_source_unref(m->udp_event_source);
         sd_event_source_unref(m->sync_event_source);
         sd_event_source_unref(m->sigusr1_event_source);
         sd_event_source_unref(m->sigusr2_event_source);
@@ -2598,6 +2623,7 @@ Manager* manager_free(Manager *m) {
         safe_close(m->stdout_fd);
         safe_close(m->dev_kmsg_fd);
         safe_close(m->audit_fd);
+        safe_close(m->udp_fd);
         safe_close(m->hostname_fd);
         safe_close(m->notify_fd);
         safe_close(m->forward_socket_fd);
