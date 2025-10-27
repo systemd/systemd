@@ -30,6 +30,7 @@ export SYSTEMD_FORCE_MEASURE=1
 "$SD_PCREXTEND" --version
 "$SD_PCREXTEND" foo
 "$SD_PCREXTEND" --machine-id
+"$SD_PCREXTEND" --product-id
 "$SD_PCREXTEND" --tpm2-device=list
 "$SD_PCREXTEND" --tpm2-device=auto foo
 "$SD_PCREXTEND" --tpm2-device=/dev/tpm0 foo
@@ -40,6 +41,7 @@ export SYSTEMD_FORCE_MEASURE=1
 "$SD_PCREXTEND" --file-system=/
 "$SD_PCREXTEND" --file-system=/tmp --file-system=/
 "$SD_PCREXTEND" --file-system=/tmp --file-system=/ --pcr=15 --pcr=11
+"$SD_PCREXTEND" --nvpcr=hardware foo
 
 if tpm_has_pcr sha1 11; then
     "$SD_PCREXTEND" --bank=sha1 --pcr=11 foo
@@ -55,6 +57,7 @@ fi
 (! "$SD_PCREXTEND" --pcr=-1 foo)
 (! "$SD_PCREXTEND" --pcr=1024 foo)
 (! "$SD_PCREXTEND" --foo=bar)
+(! "$SD_PCREXTEND" --nvpcr=idontexist foo)
 
 unset SYSTEMD_FORCE_MEASURE
 
@@ -122,3 +125,18 @@ diff /tmp/newpcr15 \
      <(cat /tmp/oldpcr15 <(echo -n "file-system:$FS_WORD" | openssl dgst -binary -sha256) | openssl dgst -binary -sha256)
 
 rm -f /tmp/oldpcr{11,15} /tmp/newpcr{11,15}
+
+mkdir -p /run/nvpcr
+
+cat >/run/nvpcr/test.nvpcr <<EOF
+{"name":"test","algorithm":"sha256","nvIndex":30474762}
+EOF
+/usr/lib/systemd/systemd-tpm2-setup
+test -f /run/systemd/nvpcr/test.anchor
+/usr/lib/systemd/systemd-pcrextend --nvpcr=test schrumpel
+DIGEST_BASE="$(cat /run/systemd/nvpcr/test.anchor)"
+DIGEST_MEASURED="$(echo -n "schrumpel" | openssl dgst -sha256 -binary | xxd -p -c0)"
+DIGEST_EXPECTED="$(echo "$DIGEST_BASE$DIGEST_MEASURED" | xxd -r -p | openssl dgst -sha256 -binary | xxd -p -c0)"
+DIGEST_ACTUAL="$(systemd-analyze nvpcrs test --json=pretty | jq -r '.[] | select(.name=="test") | .value')"
+
+test "$DIGEST_ACTUAL" = "$DIGEST_EXPECTED"
