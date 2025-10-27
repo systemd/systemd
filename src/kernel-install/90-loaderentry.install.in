@@ -141,6 +141,10 @@ elif [ -f /usr/lib/kernel/devicetree ]; then
     read -r DEVICETREE </usr/lib/kernel/devicetree
 fi
 if [ -n "$DEVICETREE" ]; then
+    [ "$DEVICETREE" != all ] || install -dm 0755 "$ENTRY_DIR_ABS/dtb" || {
+        echo "Error: could not create '$ENTRY_DIR_ABS/dtb'." >&2
+        exit 1
+    }
     for prefix in \
         "$KERNEL_INSTALL_CONF_ROOT" \
         "/usr/lib/firmware/$KERNEL_VERSION/device-tree" \
@@ -148,24 +152,33 @@ if [ -n "$DEVICETREE" ]; then
         "/usr/lib/modules/$KERNEL_VERSION/dtb"
     do
         [ -n "$prefix" ] || continue
-        [ -f "$prefix/$DEVICETREE" ] || continue
-        DEVICETREE_SRC="$prefix/$DEVICETREE"
-        break
+        [ -d "$prefix" ] || continue
+        if [ "$DEVICETREE" = all ]; then
+            for dtb in $(find "$prefix" -name '*.dtb'); do
+                compatible="$(dtc -qqq -I dtb -O dts "$dtb" | sed -ne 's/^\tcompatible = "\([^"]*\).*/\1/p')"
+                dest="$ENTRY_DIR_ABS/dtb/${compatible}.dtb"
+                [ ! -f "$dest" ] || continue
+                install -m 0644 "$dtb" "$dest" || {
+                    echo "Error: could not copy '$dtb' to '$dest'." >&2
+                    exit 1
+                }
+                chown root:root "$dest" || :
+            done
+        elif [ -f "$prefix/$DEVICETREE" ]; then
+            dest="$ENTRY_DIR_ABS/${DEVICETREE##*/}"
+            install -m 0644 "$dtb" "$dest" || {
+                echo "Error: could not copy '$dtb' to '$dest'." >&2
+                exit 1
+            }
+            chown root:root "$dest" || :
+            break
+        fi
     done
 
-    [ -n "$DEVICETREE_SRC" ] || {
+    [ -n "$dest" ] || {
         echo "Error: could not find device tree blob '$DEVICETREE'." >&2
         exit 1
     }
-
-    DEVICETREE_DEST="$ENTRY_DIR_ABS/${DEVICETREE##*/}"
-    DEVICETREE_ENTRY="$ENTRY_DIR/${DEVICETREE##*/}"
-
-    install -m 0644 "$DEVICETREE_SRC" "$DEVICETREE_DEST" || {
-        echo "Error: could not copy '$DEVICETREE_SRC' to '$DEVICETREE_DEST'." >&2
-        exit 1
-    }
-    chown root:root "$DEVICETREE_DEST" || :
 fi
 
 shift "$INITRD_OPTIONS_SHIFT"
