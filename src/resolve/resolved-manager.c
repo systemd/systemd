@@ -2043,15 +2043,27 @@ void dns_manager_reset_statistics(Manager *m) {
 static int dns_configuration_json_append(
                 const char *ifname,
                 int ifindex,
+                const char *delegate,
                 int default_route,
                 DnsServer *current_dns_server,
                 DnsServer *dns_servers,
+                DnsServer *fallback_dns_servers,
                 DnsSearchDomain *search_domains,
+                Set *negative_trust_anchors,
+                Set *dns_scopes,
+                DnssecMode dnssec_mode,
+                DnsOverTlsMode dns_over_tls_mode,
+                ResolveSupport llmnr_support,
+                ResolveSupport mdns_support,
+                ResolvConfMode resolv_conf_mode,
                 sd_json_variant **configuration) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns_servers_json = NULL,
+                                                          *fallback_dns_servers_json = NULL,
                                                           *search_domains_json = NULL,
-                                                          *current_dns_server_json = NULL;
+                                                          *current_dns_server_json = NULL,
+                                                          *scopes_json = NULL;
+        DnsScope *scope;
         int r;
 
         assert(configuration);
@@ -2070,6 +2082,29 @@ static int dns_configuration_json_append(
 
         if (current_dns_server) {
                 r = dns_server_dump_configuration_to_json(current_dns_server, &current_dns_server_json);
+                if (r < 0)
+                        return r;
+        }
+
+        if (fallback_dns_servers) {
+                r = sd_json_variant_new_array(&fallback_dns_servers_json, NULL, 0);
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(scope, dns_scopes) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = dns_scope_dump_cache_to_json(scope, &v);
+                if (r < 0)
+                        return r;
+
+                /* The cache is not relevant to the configuration of the scope. */
+                r = sd_json_variant_filter(&v, STRV_MAKE("cache"));
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&scopes_json, v);
                 if (r < 0)
                         return r;
         }
@@ -2102,46 +2137,183 @@ static int dns_configuration_json_append(
                         return r;
         }
 
+        LIST_FOREACH(servers, s, fallback_dns_servers) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                assert(fallback_dns_servers_json);
+
+                r = dns_server_dump_configuration_to_json(s, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&fallback_dns_servers_json, v);
+                if (r < 0)
+                        return r;
+        }
+
         return sd_json_variant_append_arraybo(
                         configuration,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ifname", ifname),
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
-                        SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "defaultRoute", SD_JSON_BUILD_BOOLEAN(default_route > 0)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("delegate", delegate),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(ifindex > 0 || !!delegate,
+                                                          "defaultRoute",
+                                                          default_route > 0),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("currentServer", current_dns_server_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("servers", dns_servers_json),
-                        JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json));
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("fallbackServers", fallback_dns_servers_json),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("searchDomains", search_domains_json),
+                        SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(negative_trust_anchors),
+                                                     "negativeTrustAnchors",
+                                                     JSON_BUILD_STRING_SET(negative_trust_anchors)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("dnssec", dnssec_mode_to_string(dnssec_mode)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("dnsOverTLS", dns_over_tls_mode_to_string(dns_over_tls_mode)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("llmnr", resolve_support_to_string(llmnr_support)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("mDNS", resolve_support_to_string(mdns_support)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("resolvConfMode", resolv_conf_mode_to_string(resolv_conf_mode)),
+                        JSON_BUILD_PAIR_VARIANT_NON_NULL("scopes", scopes_json));
+}
+
+static int global_dns_configuration_json_append(Manager *m, sd_json_variant **configuration) {
+        _cleanup_set_free_ Set *scopes = NULL;
+        int r;
+
+        assert(m);
+        assert(configuration);
+
+        r = set_ensure_put(&scopes, NULL, m->unicast_scope);
+        if (r < 0)
+                return r;
+
+        return dns_configuration_json_append(
+                        /* ifname = */ NULL,
+                        /* ifindex = */ 0,
+                        /* delegate = */ NULL,
+                        /* default_route = */ 0,
+                        manager_get_dns_server(m),
+                        m->dns_servers,
+                        m->fallback_dns_servers,
+                        m->search_domains,
+                        m->trust_anchor.negative_by_name,
+                        scopes,
+                        manager_get_dnssec_mode(m),
+                        manager_get_dns_over_tls_mode(m),
+                        m->llmnr_support,
+                        m->mdns_support,
+                        resolv_conf_mode(),
+                        configuration);
+}
+
+static int link_dns_configuration_json_append(Link *l, sd_json_variant **configuration) {
+        _cleanup_set_free_ Set *scopes = NULL;
+        int r;
+
+        assert(l);
+        assert(configuration);
+
+        if (l->unicast_scope) {
+                r = set_ensure_put(&scopes, NULL, l->unicast_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->llmnr_ipv4_scope) {
+                r = set_ensure_put(&scopes, NULL, l->llmnr_ipv4_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->llmnr_ipv6_scope) {
+                r = set_ensure_put(&scopes, NULL, l->llmnr_ipv6_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->mdns_ipv4_scope) {
+                r = set_ensure_put(&scopes, NULL, l->mdns_ipv4_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        if (l->mdns_ipv6_scope) {
+                r = set_ensure_put(&scopes, NULL, l->mdns_ipv6_scope);
+                if (r < 0)
+                        return r;
+        }
+
+        return dns_configuration_json_append(
+                        l->ifname,
+                        l->ifindex,
+                        /* delegate = */ NULL,
+                        link_get_default_route(l),
+                        link_get_dns_server(l),
+                        l->dns_servers,
+                        /* fallback_dns_servers = */ NULL,
+                        l->search_domains,
+                        l->dnssec_negative_trust_anchors,
+                        scopes,
+                        link_get_dnssec_mode(l),
+                        link_get_dns_over_tls_mode(l),
+                        link_get_llmnr_support(l),
+                        link_get_mdns_support(l),
+                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
+                        configuration);
+}
+
+static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_variant **configuration) {
+        _cleanup_set_free_ Set *scopes = NULL;
+        int r;
+
+        assert(d);
+        assert(configuration);
+
+        r = set_ensure_put(&scopes, NULL, d->scope);
+        if (r < 0)
+                return r;
+
+        return dns_configuration_json_append(
+                        /* ifname = */ NULL,
+                        /* ifindex = */ 0,
+                        d->id,
+                        d->default_route,
+                        dns_delegate_get_dns_server(d),
+                        d->dns_servers,
+                        /* fallback_dns_servers = */ NULL,
+                        d->search_domains,
+                        /* negative_trust_anchors = */ NULL,
+                        scopes,
+                        /* dnssec_mode = */ _DNSSEC_MODE_INVALID,
+                        /* dns_over_tls_mode = */ _DNS_OVER_TLS_MODE_INVALID,
+                        /* llmnr_support = */ _RESOLVE_SUPPORT_INVALID,
+                        /* mdns_support = */ _RESOLVE_SUPPORT_INVALID,
+                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
+                        configuration);
 }
 
 int manager_dump_dns_configuration_json(Manager *m, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
         Link *l;
+        DnsDelegate *d;
         int r;
 
         assert(m);
         assert(ret);
 
         /* Global DNS configuration */
-        r = dns_configuration_json_append(
-                        /* ifname = */ NULL,
-                        /* ifindex = */ 0,
-                        /* default_route = */ 0,
-                        manager_get_dns_server(m),
-                        m->dns_servers,
-                        m->search_domains,
-                        &configuration);
+        r = global_dns_configuration_json_append(m, &configuration);
         if (r < 0)
                 return r;
 
         /* Append configuration for each link */
         HASHMAP_FOREACH(l, m->links) {
-                r = dns_configuration_json_append(
-                                l->ifname,
-                                l->ifindex,
-                                link_get_default_route(l),
-                                link_get_dns_server(l),
-                                l->dns_servers,
-                                l->search_domains,
-                                &configuration);
+                r = link_dns_configuration_json_append(l, &configuration);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Append configuration for each delegate */
+        HASHMAP_FOREACH(d, m->delegates) {
+                r = delegate_dns_configuration_json_append(d, &configuration);
                 if (r < 0)
                         return r;
         }
