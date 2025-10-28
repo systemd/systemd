@@ -52,7 +52,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                 _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
                 bool again = false;
 
-                r = libmount_parse_mountinfo(f, &table, &iter);
+                r = libmount_parse_full(/* path= */ NULL, f, MNT_ITER_BACKWARD, &table, &iter);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 

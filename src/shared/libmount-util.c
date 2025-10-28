@@ -86,6 +86,7 @@ int dlopen_libmount(void) {
 int libmount_parse_full(
                 const char *path,
                 FILE *source,
+                int direction,
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
 
@@ -101,7 +102,7 @@ int libmount_parse_full(
                 return r;
 
         table = sym_mnt_new_table();
-        iter = sym_mnt_new_iter(MNT_ITER_FORWARD);
+        iter = sym_mnt_new_iter(direction);
         if (!table || !iter)
                 return -ENOMEM;
 
@@ -126,7 +127,7 @@ int libmount_parse_fstab(
         struct libmnt_table **ret_table,
         struct libmnt_iter **ret_iter) {
 
-        return libmount_parse_full(fstab_path(), NULL, ret_table, ret_iter);
+        return libmount_parse_full(fstab_path(), NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
 int libmount_is_leaf(
