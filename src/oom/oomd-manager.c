@@ -105,7 +105,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                                 m->monitored_swap_cgroup_contexts : m->monitored_mem_pressure_cgroup_contexts;
 
                 if (message.mode == MANAGED_OOM_AUTO) {
-                        (void) oomd_cgroup_context_free(hashmap_remove(monitor_hm, empty_to_root(message.path)));
+                        (void) oomd_cgroup_context_unref(hashmap_remove(monitor_hm, empty_to_root(message.path)));
                         continue;
                 }
 
