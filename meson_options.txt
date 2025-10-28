@@ -449,6 +449,8 @@ option('libfido2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' 
        description : 'FIDO2 support')
 option('tpm2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'TPM2 support')
+option('tpm2-nvpcr-base', type : 'integer', value: 0x01d10200,
+       description : 'Base for TPM2 nvindex based PCRs')
 option('elfutils', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'elfutils support')
 option('zlib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
