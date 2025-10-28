@@ -619,6 +619,7 @@ static int image_make(
 static int pick_image_search_path(
                 RuntimeScope scope,
                 ImageClass class,
+                const char *root,
                 char ***ret) {
 
         int r;
@@ -635,11 +636,11 @@ static int pick_image_search_path(
         if (scope < 0) {
                 _cleanup_strv_free_ char **a = NULL, **b = NULL;
 
-                r = pick_image_search_path(RUNTIME_SCOPE_USER, class, &a);
+                r = pick_image_search_path(RUNTIME_SCOPE_USER, class, root, &a);
                 if (r < 0)
                         return r;
 
-                r = pick_image_search_path(RUNTIME_SCOPE_SYSTEM, class, &b);
+                r = pick_image_search_path(RUNTIME_SCOPE_SYSTEM, class, root, &b);
                 if (r < 0)
                         return r;
 
@@ -655,8 +656,15 @@ static int pick_image_search_path(
 
         case RUNTIME_SCOPE_SYSTEM: {
                 const char *ns;
+                bool is_initrd;
+
+                r = chase_and_access("/etc/initrd-release", root, CHASE_PREFIX_ROOT, F_OK, /* ret_path= */ NULL);
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                is_initrd = r >= 0;
+
                 /* Use the initrd search path if there is one, otherwise use the common one */
-                ns = in_initrd() && image_search_path_initrd[class] ?
+                ns = is_initrd && image_search_path_initrd[class] ?
                         image_search_path_initrd[class] :
                         image_search_path[class];
                 if (!ns)
@@ -763,7 +771,7 @@ int image_find(RuntimeScope scope,
                 return -ENOMEM;
 
         _cleanup_strv_free_ char **search = NULL;
-        r = pick_image_search_path(scope, class, &search);
+        r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
 
@@ -954,7 +962,7 @@ int image_discover(
         assert(images);
 
         _cleanup_strv_free_ char **search = NULL;
-        r = pick_image_search_path(scope, class, &search);
+        r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
 
@@ -2101,7 +2109,7 @@ bool image_in_search_path(
         assert(image);
 
         _cleanup_strv_free_ char **search = NULL;
-        r = pick_image_search_path(scope, class, &search);
+        r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
 
