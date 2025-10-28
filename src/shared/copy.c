@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "btrfs.h"
 #include "chattr-util.h"
 #include "copy.h"
 #include "dirent-util.h"
@@ -891,7 +892,7 @@ static int fd_copy_tree_generic(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
-                Set *subvolumes,
+                Hashmap *subvolumes,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -1111,7 +1112,7 @@ static int fd_copy_directory(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
-                Set *subvolumes,
+                Hashmap *subvolumes,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -1125,6 +1126,7 @@ static int fd_copy_directory(
 
         _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
         _cleanup_closedir_ DIR *d = NULL;
+        XOpenFlags flags;
         struct stat dt_st;
         bool exists;
         int r;
@@ -1160,9 +1162,15 @@ static int fd_copy_directory(
 
         exists = r >= 0;
 
+        if (hashmap_contains(subvolumes, p)) {
+                flags |= XO_SUBVOLUME;
+                if ((PTR_TO_UINT(hashmap_get(subvolumes, p)) & BTRFS_SUBVOL_NODATACOW))
+                        flags |= XO_NOCOW;
+        }
+
         fdt = xopenat_lock_full(dt, to,
                                 O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|(exists ? 0 : O_CREAT|O_EXCL),
-                                (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0)|(set_contains(subvolumes, st) ? XO_SUBVOLUME : 0),
+                                (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0)|flags,
                                 st->st_mode & 07777,
                                 copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE,
                                 LOCK_EX);
@@ -1331,7 +1339,7 @@ static int fd_copy_tree_generic(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
-                Set *subvolumes,
+                Hashmap *subvolumes,
                 HardlinkContext *hardlink_context,
                 const char *display_path,
                 copy_progress_path_t progress_path,
@@ -1380,7 +1388,7 @@ int copy_tree_at_full(
                 gid_t override_gid,
                 CopyFlags copy_flags,
                 Hashmap *denylist,
-                Set *subvolumes,
+                Hashmap *subvolumes,
                 copy_progress_path_t progress_path,
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
