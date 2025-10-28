@@ -237,10 +237,7 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
         if (r < 0)
                 return r;
 
-        if (path_strv_contains(subvolumes, p))
-                r = btrfs_subvol_make_fallback(dfd, bn, m);
-        else
-                r = RET_NERRNO(mkdirat(dfd, bn, m));
+        r = xopenat_full(dfd, bn, O_DIRECTORY, path_strv_contains(subvolumes, p) ? XO_SUBVOLUME : 0, m);
         if (r == -EEXIST)
                 return 0;
         if (r < 0)
