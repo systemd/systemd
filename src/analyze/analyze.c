@@ -22,6 +22,7 @@
 #include "analyze-compare-versions.h"
 #include "analyze-condition.h"
 #include "analyze-critical-chain.h"
+#include "analyze-dlopen-metadata.h"
 #include "analyze-dot.h"
 #include "analyze-dump.h"
 #include "analyze-exit-status.h"
@@ -798,6 +799,7 @@ static int run(int argc, char *argv[]) {
                 { "timespan",           2,        VERB_ANY, 0,  verb_timespan           },
                 { "security",           VERB_ANY, VERB_ANY, 0,  verb_security           },
                 { "inspect-elf",        2,        VERB_ANY, 0,  verb_elf_inspection     },
+                { "dlopen-metadata",    2,        2,        0,  verb_dlopen_metadata    },
                 { "malloc",             VERB_ANY, VERB_ANY, 0,  verb_malloc             },
                 { "fdstore",            2,        VERB_ANY, 0,  verb_fdstore            },
                 { "image-policy",       2,        2,        0,  verb_image_policy       },
