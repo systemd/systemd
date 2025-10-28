@@ -799,6 +799,9 @@ static int bus_service_set_transient_property(
                 return 1;
         }
 
+        if (streq(name, "RootDirectoryFileDescriptor"))
+                return bus_set_transient_exec_context_fd(u, &s->root_directory_fd, &s->exec_context.root_directory_as_fd, message, flags, error);
+
         return 0;
 }
 

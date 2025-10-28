@@ -267,6 +267,9 @@ bool exec_needs_mount_namespace(
         if (context->root_image)
                 return true;
 
+        if (context->root_directory_as_fd)
+                return true;
+
         if (!strv_isempty(context->read_write_paths) ||
             !strv_isempty(context->read_only_paths) ||
             !strv_isempty(context->inaccessible_paths) ||
@@ -354,7 +357,7 @@ const char* exec_get_private_notify_socket_path(const ExecContext *context, cons
         if (!needs_sandboxing)
                 return NULL;
 
-        if (!context->root_directory && !context->root_image)
+        if (!context->root_directory && !context->root_image && !context->root_directory_as_fd)
                 return NULL;
 
         if (!exec_context_get_effective_mount_apivfs(context))
@@ -2045,9 +2048,9 @@ bool exec_context_restrict_filesystems_set(const ExecContext *c) {
 bool exec_context_with_rootfs(const ExecContext *c) {
         assert(c);
 
-        /* Checks if RootDirectory= or RootImage= are used */
+        /* Checks if RootDirectory=, RootImage= or RootDirectoryFileDescriptor= are used */
 
-        return !empty_or_root(c->root_directory) || c->root_image;
+        return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd;
 }
 
 int exec_context_has_vpicked_extensions(const ExecContext *context) {
@@ -2846,6 +2849,7 @@ void exec_params_deep_clear(ExecParameters *p) {
         p->stdin_fd = safe_close(p->stdin_fd);
         p->stdout_fd = safe_close(p->stdout_fd);
         p->stderr_fd = safe_close(p->stderr_fd);
+        p->root_directory_fd = safe_close(p->root_directory_fd);
 
         p->notify_socket = mfree(p->notify_socket);
 
