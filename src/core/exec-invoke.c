@@ -3470,7 +3470,7 @@ static bool insist_on_sandboxing(
         if (context->n_temporary_filesystems > 0)
                 return true;
 
-        if (root_dir || root_image)
+        if (root_dir || root_image || context->root_directory_as_fd)
                 return true;
 
         if (context->n_mount_images > 0)
@@ -3506,6 +3506,7 @@ static int setup_ephemeral(
         int r;
 
         assert(context);
+        assert(!context->root_directory_as_fd);
         assert(runtime);
         assert(root_image);
         assert(root_directory);
@@ -3645,6 +3646,7 @@ static int pick_versions(
         int r;
 
         assert(context);
+        assert(!context->root_directory_as_fd);
         assert(params);
         assert(ret_root_image);
         assert(ret_root_directory);
@@ -3733,7 +3735,7 @@ static int apply_mount_namespace(
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
 
-        if (params->flags & EXEC_APPLY_CHROOT) {
+        if (params->flags & EXEC_APPLY_CHROOT && !context->root_directory_as_fd) {
                 r = pick_versions(
                                 context,
                                 params,
@@ -3855,6 +3857,7 @@ static int apply_mount_namespace(
 
                 .root_directory = root_dir,
                 .root_image = root_image,
+                .root_directory_fd = params->flags & EXEC_APPLY_CHROOT ? params->root_directory_fd : -EBADF,
                 .root_image_options = context->root_image_options,
                 .root_image_policy = context->root_image_policy ?: &image_policy_service,
 
@@ -4495,6 +4498,7 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
                context->root_directory ||
+               context->root_directory_as_fd ||
                !strv_isempty(context->extension_directories) ||
                context->root_image ||
                context->n_mount_images > 0 ||
@@ -5135,6 +5139,12 @@ int exec_invoke(
                 return log_error_errno(r, "Failed to collect shifted fd: %m");
         }
 #endif
+
+        r = add_shifted_fd(&keep_fds, &n_keep_fds, &params->root_directory_fd);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return log_error_errno(r, "Failed to collect shifted fd: %m");
+        }
 
         r = close_remaining_fds(params, runtime, socket_fd, keep_fds, n_keep_fds);
         if (r < 0) {
