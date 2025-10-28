@@ -47,6 +47,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_iter*, sym_mnt_free_iter, 
 int libmount_parse_full(
                 const char *path,
                 FILE *source,
+                int direction,
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter);
 
@@ -55,14 +56,14 @@ static inline int libmount_parse_mountinfo(
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
 
-        return libmount_parse_full("/proc/self/mountinfo", source, ret_table, ret_iter);
+        return libmount_parse_full("/proc/self/mountinfo", source, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
 static inline int libmount_parse_with_utab(
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
 
-        return libmount_parse_full(NULL, NULL, ret_table, ret_iter);
+        return libmount_parse_full(NULL, NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
 int libmount_parse_fstab(struct libmnt_table **ret_table, struct libmnt_iter **ret_iter);
