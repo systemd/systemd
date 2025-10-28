@@ -228,6 +228,9 @@ typedef struct Service {
         ServiceExtraFD *extra_fds;
         size_t n_extra_fds;
 
+        /* File descriptor received from RootDirectoryFileDescriptor= */
+        int root_directory_fd;
+
         LIST_HEAD(OpenFile, open_files);
 
         int reload_signal;
