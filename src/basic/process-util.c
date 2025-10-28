@@ -1358,7 +1358,7 @@ bool nice_is_valid(int n) {
 }
 
 bool sched_policy_is_valid(int i) {
-        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
+        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR, SCHED_EXT);
 }
 
 bool sched_priority_is_valid(int i) {
@@ -2305,6 +2305,7 @@ static const char* const sched_policy_table[] = {
         [SCHED_BATCH] = "batch",
         [SCHED_IDLE] = "idle",
         [SCHED_FIFO] = "fifo",
+        [SCHED_EXT] = "ext",
         [SCHED_RR] = "rr",
 };
 
