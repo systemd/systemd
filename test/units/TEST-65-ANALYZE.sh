@@ -19,7 +19,7 @@ systemd-analyze time || :
 systemd-analyze critical-chain || :
 # blame
 systemd-analyze blame
-systemd-run --wait --user --pipe -M testuser@.host systemd-analyze blame
+systemd-run --wait --user --pipe -M testuser@.host systemd-analyze blame --no-pager
 (! systemd-analyze blame --global)
 # plot
 systemd-analyze plot >/dev/null || :
