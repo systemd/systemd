@@ -1064,10 +1064,13 @@ extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 fake_root=${roots_dir:+"$roots_dir/mutable-directory-with-invalid-permissions"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+extension_data_dir_usr="$fake_root/var/lib/extensions.mutable/usr"
 
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
 prepare_extension_mutable_dir "$extension_data_dir"
+prepend_trap "rm -rf ${extension_data_dir@Q}"
+prepend_trap "rm -rf ${extension_data_dir_usr@Q}"
 prepare_hierarchy "$fake_root" "$hierarchy"
 
 old_mode=$(stat --format '%#a' "$fake_root$hierarchy")
