@@ -3,4 +3,4 @@
 
 #include "coredump-forward.h"
 
-int coredump_submit(const CoredumpConfig *config, CoredumpContext *context);
+int coredump_process_socket(CoredumpContext *context);

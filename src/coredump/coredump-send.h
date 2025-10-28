@@ -3,5 +3,7 @@
 
 #include "coredump-forward.h"
 
-int coredump_send(const struct iovec_wrapper *iovw, int input_fd, PidRef *pidref, int mount_tree_fd);
-int coredump_send_to_container(Context *context);
+int can_forward_coredump(PidRef *pidref, PidRef *leader);
+
+int coredump_send(CoredumpContext *context);
+int coredump_send_to_container(CoredumpContext *context);
