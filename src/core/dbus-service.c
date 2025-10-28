@@ -800,6 +800,26 @@ static int bus_service_set_transient_property(
                 return 1;
         }
 
+        if (streq(name, "RootDirectoryFileDescriptor")) {
+                int fd;
+
+                r = sd_bus_message_read(message, "h", &fd);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        int copy = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                        if (copy < 0)
+                                return -errno;
+
+                        asynchronous_close(s->root_directory_fd);
+                        s->root_directory_fd = copy;
+                        s->exec_context.root_directory_as_fd = true;
+                }
+
+                return 1;
+        }
+
         return 0;
 }
 
