@@ -53,6 +53,7 @@
 #include "memfd-util.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nsflags.h"
 #include "open-file.h"
@@ -3810,13 +3811,15 @@ static int apply_mount_namespace(
                 return r;
 
         if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                propagate_dir = path_join("/run/systemd/propagate/", params->unit_id);
-                if (!propagate_dir)
-                        return -ENOMEM;
+                if (!mount_new_api_supported()) {
+                        propagate_dir = path_join("/run/systemd/propagate/", params->unit_id);
+                        if (!propagate_dir)
+                                return -ENOMEM;
 
-                incoming_dir = strdup("/run/systemd/incoming");
-                if (!incoming_dir)
-                        return -ENOMEM;
+                        incoming_dir = strdup("/run/systemd/incoming");
+                        if (!incoming_dir)
+                                return -ENOMEM;
+                }
 
                 private_namespace_dir = strdup("/run/systemd");
                 if (!private_namespace_dir)
