@@ -218,6 +218,7 @@ typedef struct ExecContext {
         /* At least one of stdin/stdout/stderr was initialized from an fd passed in. This boolean survives
          * the fds being closed. This only makes sense for transient units. */
         bool stdio_as_fds;
+        bool root_directory_as_fd;
 
         char *stdio_fdname[3];
         char *stdio_file[3];
@@ -420,6 +421,7 @@ typedef struct ExecParameters {
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
+        int root_directory_fd;
 
         /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done. */
         int exec_fd;
@@ -451,6 +453,7 @@ typedef struct ExecParameters {
                 .stdin_fd               = -EBADF, \
                 .stdout_fd              = -EBADF, \
                 .stderr_fd              = -EBADF, \
+                .root_directory_fd      = -EBADF, \
                 .exec_fd                = -EBADF, \
                 .bpf_restrict_fs_map_fd = -EBADF, \
                 .user_lookup_fd         = -EBADF, \
