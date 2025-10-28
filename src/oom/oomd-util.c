@@ -26,8 +26,8 @@
 
 typedef struct OomdKillState {
         unsigned int n_ref;
-        char *path;
         Manager *manager;
+        OomdCGroupContext *ctx;
 } OomdKillState;
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
@@ -287,7 +287,7 @@ static void oom_kill_state_free(OomdKillState *ks) {
         assert(ks->manager);
 
         set_remove(ks->manager->prekill_ctxs, ks);
-        free(ks->path);
+        oomd_cgroup_context_unref(ks->ctx);
         free(ks);
 }
 
@@ -297,11 +297,11 @@ static OomdKillState* oomd_kill_state_dec(OomdKillState *ks) {
         int r;
 
         assert(ks);
-        assert(ks->path);
+        assert(ks->ctx->path);
 
-        r = oomd_cgroup_kill(ks->path, /* recurse= */ true);
+        r = oomd_cgroup_kill(ks->ctx->path, /* recurse= */ true);
         if (r < 0)
-                log_debug_errno(r, "Failed to kill cgroup '%s', ignoring: %m", ks->path);
+                log_debug_errno(r, "Failed to kill cgroup '%s', ignoring: %m", ks->ctx->path);
         oom_kill_state_free(ks);
         return NULL;
 }
@@ -312,7 +312,7 @@ int clean_prekills(struct Set *prekill_ctxs) {
         OomdKillState *ks;
 
         SET_FOREACH(ks, prekill_ctxs) {
-                log_debug("Cleaning up unfinished prekill hook state for cgroup %s", ks->path);
+                log_debug("Cleaning up unfinished prekill hook state for cgroup %s", ks->ctx->path);
                 oom_kill_state_free(ks);
         }
 
@@ -328,12 +328,12 @@ static int prekill_callback(
 
         OomdKillState *ks = ASSERT_PTR(userdata);
 
-        assert(ks->path);
+        assert(ks->ctx->path);
 
         if (error_id)
-                log_warning("oomd prekill hook for %s returned error: %s", ks->path, error_id);
+                log_warning("oomd prekill hook for %s returned error: %s", ks->ctx->path, error_id);
         else
-                log_info("oomd prekill hook finished for cgroup %s", ks->path);
+                log_info("oomd prekill hook finished for cgroup %s", ks->ctx->path);
 
         oomd_kill_state_unref(ks);
         sd_varlink_unref(link);
@@ -357,7 +357,7 @@ static int send_prekill_message(
         assert(ks);
         assert(ks->manager);
 
-        log_info("Invoking oomd prekill hook %s for cgroup %s", basename, ks->path);
+        log_info("Invoking oomd prekill hook %s for cgroup %s", basename, ks->ctx->path);
 
         hook_path = path_join(VARLINK_ADDR_PATH_OOMD_PREKILL, basename);
         if (!hook_path)
@@ -391,11 +391,11 @@ static int send_prekill_message(
         return 0;
 }
 
-static int oomd_prekill_hook(Manager *m, const char *path) {
+static int oomd_prekill_hook(Manager *m, OomdCGroupContext *ctx) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
-        assert(path);
+        assert(ctx);
         assert(m);
 
         if (m->prekill_timeout == 0) {
@@ -420,16 +420,17 @@ static int oomd_prekill_hook(Manager *m, const char *path) {
         *ks = (OomdKillState) {
                 .n_ref = 1,
                 .manager = m,
-                .path = strdup(path),
+                .ctx = ctx,
         };
-        if (!ks->path)
+        if (!ks->ctx->path)
                 return log_oom_debug();
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
-        r = sd_json_buildo(&cparams, SD_JSON_BUILD_PAIR_STRING("cgroup", path));
+        r = sd_json_buildo(&cparams, SD_JSON_BUILD_PAIR_STRING("cgroup", ctx->path));
         if (r < 0)
                 return log_oom_debug();
 
+        oomd_cgroup_context_ref(ctx);
         set_ensure_put(&m->prekill_ctxs, NULL, ks);
 
         FOREACH_DIRENT(de, d, return -errno)
@@ -441,16 +442,16 @@ static int oomd_prekill_hook(Manager *m, const char *path) {
         return 1;
 }
 
-int oomd_cgroup_kill_mark(Manager *m, const char *path) {
+int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx) {
         int r;
 
-        assert(path);
+        assert(ctx);
         assert(m);
 
         if (m->dry_run) {
                 _cleanup_free_ char *cg_path = NULL;
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &cg_path);
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, ctx->path, NULL, &cg_path);
                 if (r < 0)
                         return r;
 
@@ -458,15 +459,15 @@ int oomd_cgroup_kill_mark(Manager *m, const char *path) {
                 return 0;
         }
 
-        r = oomd_prekill_hook(m, path);
+        r = oomd_prekill_hook(m, ctx);
         if (r < 0)
-                log_warning_errno(r, "oomd prekill hook failed for %s, ignoring: %m", path);
+                log_warning_errno(r, "oomd prekill hook failed for %s, ignoring: %m", ctx->path);
         else if (r > 0)
                 return 0; /* Prekill hook in progress, actual kill will happen in the callback. */
         else /* If r == 0, no prekill hooks found, continue to kill immediately. */
-                log_info("No oomd prekill hooks found, proceeding to kill %s and all its descendants", path);
+                log_info("No oomd prekill hooks found, proceeding to kill %s and all its descendants", ctx->path);
 
-        return oomd_cgroup_kill(path, /* recurse= */ true);
+        return oomd_cgroup_kill(ctx->path, /* recurse= */ true);
 }
 
 typedef void (*dump_candidate_func)(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
@@ -506,10 +507,10 @@ static int dump_kill_candidates(
         return memstream_dump(LOG_INFO, &m);
 }
 
-int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, char **ret_selected) {
+int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, OomdCGroupContext **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         const OomdCGroupContext *killed = NULL;
-        int n, r, ret = 0;
+        int n, ret = 0;
 
         assert(h);
         assert(ret_selected);
@@ -519,7 +520,7 @@ int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, char **ret_select
                 return n;
 
         FOREACH_ARRAY(i, sorted, n) {
-                const OomdCGroupContext *c = *i;
+                OomdCGroupContext *c = *i;
 
                 /* Skip cgroups with no reclaim and memory usage; it won't alleviate pressure.
                  * Continue since there might be "avoid" cgroups at the end. */
@@ -527,10 +528,7 @@ int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, char **ret_select
                         continue;
 
                 ret = 1;
-                r = strdup_to(ret_selected, c->path);
-                if (r < 0)
-                        return r;
-
+                *ret_selected = c;
                 killed = c;
                 break;
         }
@@ -539,10 +537,10 @@ int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, char **ret_select
         return ret;
 }
 
-int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, char **ret_selected) {
+int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, OomdCGroupContext **ret_selected) {
         _cleanup_free_ OomdCGroupContext **sorted = NULL;
         const OomdCGroupContext *killed = NULL;
-        int n, r, ret = 0;
+        int n, ret = 0;
 
         assert(h);
         assert(ret_selected);
@@ -555,7 +553,7 @@ int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, char **ret_s
          * no swap usage. Threshold killing only cgroups with more than threshold swap usage. */
 
         FOREACH_ARRAY(i, sorted, n) {
-                const OomdCGroupContext *c = *i;
+                OomdCGroupContext *c = *i;
 
                 /* Skip over cgroups with not enough swap usage. Don't break since there might be "avoid"
                  * cgroups at the end. */
@@ -563,10 +561,7 @@ int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, char **ret_s
                         continue;
 
                 ret = 1;
-                r = strdup_to(ret_selected, c->path);
-                if (r < 0)
-                        return r;
-
+                *ret_selected = c;
                 killed = c;
                 break;
         }
