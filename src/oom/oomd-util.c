@@ -25,7 +25,7 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 path_hash_func,
                 path_compare,
                 OomdCGroupContext,
-                oomd_cgroup_context_free);
+                oomd_cgroup_context_unref);
 
 static int log_kill(const PidRef *pid, int sig, void *userdata) {
         log_debug("oomd attempting to kill " PID_FMT " with %s", pid->pid, signal_to_string(sig));
@@ -62,13 +62,15 @@ static int increment_oomd_xattr(const char *path, const char *xattr, uint64_t nu
         return 0;
 }
 
-OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx) {
+static OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx) {
         if (!ctx)
                 return NULL;
 
         free(ctx->path);
         return mfree(ctx);
 }
+
+DEFINE_TRIVIAL_REF_UNREF_FUNC(OomdCGroupContext, oomd_cgroup_context, oomd_cgroup_context_free);
 
 int oomd_pressure_above(Hashmap *h, Set **ret) {
         _cleanup_set_free_ Set *targets = NULL;
@@ -413,7 +415,7 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
 }
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
-        _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *ctx = NULL;
+        _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *ctx = NULL;
         _cleanup_free_ char *p = NULL, *val = NULL;
         bool is_root;
         int r;
@@ -425,8 +427,15 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
         if (!ctx)
                 return -ENOMEM;
 
+        *ctx = (OomdCGroupContext) {
+                .n_ref = 1,
+                .preference = MANAGED_OOM_PREFERENCE_NONE,
+                .path = strdup(empty_to_root(path)),
+        };
+        if (!ctx->path)
+                return -ENOMEM;
+
         is_root = empty_or_root(path);
-        ctx->preference = MANAGED_OOM_PREFERENCE_NONE;
 
         r = cg_get_path(path, "memory.pressure", &p);
         if (r < 0)
@@ -469,10 +478,6 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
                 if (r < 0)
                         return log_debug_errno(r, "Error converting pgscan value to uint64_t: %m");
         }
-
-        r = strdup_to(&ctx->path, empty_to_root(path));
-        if (r < 0)
-                return r;
 
         *ret = TAKE_PTR(ctx);
         return 0;
@@ -555,7 +560,7 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
 }
 
 int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path) {
-        _cleanup_(oomd_cgroup_context_freep) OomdCGroupContext *curr_ctx = NULL;
+        _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *curr_ctx = NULL;
         OomdCGroupContext *old_ctx;
         int r;
 
