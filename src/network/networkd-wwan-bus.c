@@ -186,6 +186,52 @@ static int map_in6(
         return map_in_addr(bus, member, m, error, userdata, AF_INET6);
 }
 
+static int map_prefixlen(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata,
+                int family) {
+        unsigned *prefixlen = ASSERT_PTR(userdata);
+        unsigned p;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_read_basic(m, 'u', &p);
+        if (r < 0)
+                return r;
+
+        if (p > (family == AF_INET ? 32 : 128)) {
+                log_debug("Bearer has invalid prefix length %u for %s address, ignoring.",
+                          p, family == AF_INET ? "IPv4" : "IPv6");
+                return -EINVAL;
+        }
+
+        *prefixlen = p;
+
+        return 0;
+}
+
+static int map_prefixlen4(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata) {
+        return map_prefixlen(bus, member, m, error, userdata, AF_INET);
+}
+
+static int map_prefixlen6(
+                sd_bus *bus,
+                const char *member,
+                sd_bus_message *m,
+                sd_bus_error *error,
+                void *userdata) {
+        return map_prefixlen(bus, member, m, error, userdata, AF_INET6);
+}
+
 static int map_ip4_config(
                 sd_bus *bus,
                 const char *member,
@@ -194,14 +240,14 @@ static int map_ip4_config(
                 void *userdata) {
 
         static const struct bus_properties_map map[] = {
-                { "method",  "u", NULL,    offsetof(Bearer, ip4_method)    },
-                { "address", "s", map_in4, offsetof(Bearer, ip4_address)   },
-                { "prefix",  "u", NULL,    offsetof(Bearer, ip4_prefixlen) },
-                { "dns1",    "s", map_dns, 0,                              },
-                { "dns2",    "s", map_dns, 0,                              },
-                { "dns3",    "s", map_dns, 0,                              },
-                { "gateway", "s", map_in4, offsetof(Bearer, ip4_gateway)   },
-                { "mtu",     "u", NULL,    offsetof(Bearer, ip4_mtu)       },
+                { "method",  "u", NULL,           offsetof(Bearer, ip4_method)    },
+                { "address", "s", map_in4,        offsetof(Bearer, ip4_address)   },
+                { "prefix",  "u", map_prefixlen4, offsetof(Bearer, ip4_prefixlen) },
+                { "dns1",    "s", map_dns,        0,                              },
+                { "dns2",    "s", map_dns,        0,                              },
+                { "dns3",    "s", map_dns,        0,                              },
+                { "gateway", "s", map_in4,        offsetof(Bearer, ip4_gateway)   },
+                { "mtu",     "u", NULL,           offsetof(Bearer, ip4_mtu)       },
                 {}
         };
         Bearer *b = ASSERT_PTR(userdata);
@@ -227,14 +273,14 @@ static int map_ip6_config(
                 void *userdata) {
 
         static const struct bus_properties_map map[] = {
-                { "method",  "u", NULL,    offsetof(Bearer, ip6_method)    },
-                { "address", "s", map_in6, offsetof(Bearer, ip6_address)   },
-                { "prefix",  "u", NULL,    offsetof(Bearer, ip6_prefixlen) },
-                { "dns1",    "s", map_dns, 0,                              },
-                { "dns2",    "s", map_dns, 0,                              },
-                { "dns3",    "s", map_dns, 0,                              },
-                { "gateway", "s", map_in6, offsetof(Bearer, ip6_gateway)   },
-                { "mtu",     "u", NULL,    offsetof(Bearer, ip6_mtu)       },
+                { "method",  "u", NULL,           offsetof(Bearer, ip6_method)    },
+                { "address", "s", map_in6,        offsetof(Bearer, ip6_address)   },
+                { "prefix",  "u", map_prefixlen6, offsetof(Bearer, ip6_prefixlen) },
+                { "dns1",    "s", map_dns,        0,                              },
+                { "dns2",    "s", map_dns,        0,                              },
+                { "dns3",    "s", map_dns,        0,                              },
+                { "gateway", "s", map_in6,        offsetof(Bearer, ip6_gateway)   },
+                { "mtu",     "u", NULL,           offsetof(Bearer, ip6_mtu)       },
                 {}
         };
         Bearer *b = ASSERT_PTR(userdata);
@@ -566,7 +612,7 @@ static int bus_call_method_async_props(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        STRV_FOREACH(prop, link->network->modem_simple_connect_props) {
+        STRV_FOREACH(prop, link->network->mm_simple_connect_props) {
                 const char *type;
                 _cleanup_free_ char *left = NULL;
                 _cleanup_free_ char *right = NULL;
@@ -641,7 +687,7 @@ static void modem_simple_connect(Modem *modem) {
         }
 
         /* Check if we are provided with simple connection properties */
-        if (!link->network->modem_simple_connect_props) {
+        if (!link->network->mm_simple_connect_props) {
                 log_debug("ModemManager: no simple connect properties provided for %s", modem->port_name);
                 return;
         }
@@ -1029,7 +1075,7 @@ static int modem_remove(Manager *m, const char *path) {
                 return 0;
 
         log_error("ModemManager: %s %s %s removed", modem->manufacturer, modem->model, modem->port_name);
-        modem_drop(modem);
+        modem_free(modem);
         return 0;
 }
 
@@ -1127,7 +1173,7 @@ static int interface_add_remove_signal(sd_bus_message *message, void *userdata, 
         assert(manager);
         assert(message);
 
-        manager->slot = sd_bus_slot_unref(manager->slot);
+        manager->slot_mm = sd_bus_slot_unref(manager->slot_mm);
 
         if (streq(message->member, "InterfacesAdded")) {
                 log_info("ModemManager: modem(s) added");
@@ -1167,13 +1213,13 @@ static int name_owner_changed_signal(sd_bus_message *message, void *userdata, sd
                 log_info("ModemManager: service is available");
         else {
                 log_info("ModemManager: service is not available");
-                modem_drop_all(manager);
+                hashmap_clear(manager->modems_by_path);
                 return 0;
         }
         return enumerate_modems(manager);
 }
 
-int manager_match_modemmanager_signals(Manager *manager) {
+int manager_match_mm_signals(Manager *manager) {
         static const char *expr_bearer_properties =
                 "type='signal',"
                 "sender='org.freedesktop.ModemManager1',"
@@ -1231,7 +1277,7 @@ static int list_names_handler(sd_bus_message *message, void *userdata, sd_bus_er
         assert(manager);
         assert(message);
 
-        manager->slot = sd_bus_slot_unref(manager->slot);
+        manager->slot_mm = sd_bus_slot_unref(manager->slot_mm);
 
         /* Read the list of available services. */
         r = sd_bus_message_read_strv(message, &names);
@@ -1265,9 +1311,9 @@ int manager_notify_mm_bus_connected(Manager *m) {
         assert(m);
         assert(sd_bus_is_ready(m->bus) > 0);
 
-        m->slot = sd_bus_slot_unref(m->slot);
+        m->slot_mm = sd_bus_slot_unref(m->slot_mm);
 
-        r = sd_bus_call_method_async(m->bus, &m->slot,
+        r = sd_bus_call_method_async(m->bus, &m->slot_mm,
                                      "org.freedesktop.DBus",
                                      "/org/freedesktop/DBus",
                                      "org.freedesktop.DBus",

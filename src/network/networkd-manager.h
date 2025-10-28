@@ -20,7 +20,7 @@ typedef struct Manager {
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
-        sd_bus_slot *slot;
+        sd_bus_slot *slot_mm;
         sd_varlink_server *varlink_server;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;

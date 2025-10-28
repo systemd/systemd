@@ -20,7 +20,7 @@
 #include "set.h"
 #include "string-util.h"
 
-Bearer *bearer_free(Bearer *b) {
+Bearer* bearer_free(Bearer *b) {
         if (!b)
                 return NULL;
 
@@ -148,7 +148,7 @@ int bearer_get_by_path(Manager *manager, const char *path, Modem **ret_modem, Be
         return -ENOENT;
 }
 
-Modem *modem_free(Modem *modem) {
+Modem* modem_free(Modem *modem) {
         if (!modem)
                 return NULL;
 
@@ -314,14 +314,6 @@ static int link_request_bearer_address(
         if (!in_addr_is_set(family, addr))
                 return 0;
 
-        /* prefixlen is not checked when parsed DBus message. Let's check it here. */
-        if (prefixlen > (family == AF_INET ? 32 : 128)) {
-                log_link_debug(link,
-                               "Bearer has invalid prefix length %u for %s address, ignoring.",
-                               prefixlen, family == AF_INET ? "IPv4" : "IPv6");
-                return 0;
-        }
-
         r = address_new(&address);
         if (r < 0)
                 return log_oom();
@@ -337,7 +329,7 @@ static int link_request_bearer_address(
                 address_unmark(existing);
 
         r = link_request_address(link, address, &link->bearer_messages,
-                                 bearer_address_handler, NULL);
+                                 bearer_address_handler, /* ret = */ NULL);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to request address provided by bearer: %m");
 
@@ -385,11 +377,7 @@ static int link_request_bearer_route(
         if (!in_addr_is_set(family, gw))
                 return 0;
 
-        /*
-         * FIXME: Allow not setting the default route via
-         * DHCPv4.UseGateway option
-         */
-        if (link->network->dhcp_use_gateway == 0)
+        if (link->network->mm_use_gateway == 0)
                 return 0;
 
         r = route_new(&route);
@@ -400,11 +388,8 @@ static int link_request_bearer_route(
         route->family = family;
         route->nexthop.family = family;
         route->nexthop.gw = *gw;
-        if (link->network->priority != LINK_BRIDGE_PORT_PRIORITY_INVALID) {
-                route->priority = link->network->priority;
-                route->priority_set = true;
-        } else if (link->network->dhcp_route_metric != DHCP_ROUTE_METRIC) {
-                route->priority = link->network->dhcp_route_metric;
+        if (link->network->mm_route_metric) {
+                route->priority = link->network->mm_route_metric;
                 route->priority_set = true;
         }
 
@@ -412,7 +397,6 @@ static int link_request_bearer_route(
                 route->prefsrc = *prefsrc;
 
         if (route_get(link->manager, route, &existing) < 0) /* This is a new route. */
-
                 link->bearer_configured = false;
         else
                 route_unmark(existing);
@@ -462,9 +446,8 @@ static int link_apply_bearer_impl(Link *link, Bearer *b) {
 
         assert(link);
 
-        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED)) {
+        if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                 return 0;
-        }
 
         /* First, mark bearer configs. */
         SET_FOREACH(address, link->addresses) {
@@ -585,7 +568,7 @@ static int link_apply_bearer_impl(Link *link, Bearer *b) {
 
         link_check_ready(link);
 
-        return ret;
+        return 0;
 }
 
 int link_apply_bearer(Link *link) {
@@ -617,12 +600,6 @@ int bearer_update_link(Bearer *b) {
         if (link_get_by_name(b->modem->manager, b->name, &link) < 0)
                 return 0;
 
-        r = link_reconfigure_impl(link, 0);
-        if (r < 0)
-                link_enter_failed(link);
-        if (r != 0) /* r > 0 means interface is reconfigured. */
-                return r;
-
         r = link_apply_bearer_impl(link, b);
         if (r < 0)
                 link_enter_failed(link);
@@ -641,7 +618,7 @@ int bearer_update_link(Bearer *b) {
         if (r < 0)
                 link_enter_failed(link);
 
-        return r;
+        return 0;
 }
 
 void bearer_drop(Bearer *b) {
@@ -653,14 +630,4 @@ void bearer_drop(Bearer *b) {
         (void) bearer_update_link(b);
 
         bearer_free(b);
-}
-
-void modem_drop(Modem *modem) {
-        assert(modem);
-
-        modem_free(modem);
-}
-
-void modem_drop_all(Manager *m) {
-        hashmap_clear(m->modems_by_path);
 }

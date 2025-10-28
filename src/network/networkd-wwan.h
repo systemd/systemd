@@ -1,17 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include <inttypes.h>
-#include <stdbool.h>
-
-#include "sd-bus.h"
-
-#include "in-addr-util.h"
-#include "network-util.h"
+#include "networkd-forward.h"
 #include "networkd-wwan-bus.h"
 
-typedef struct Link Link;
-typedef struct Manager Manager;
 typedef struct Modem Modem;
 
 typedef struct Bearer {
@@ -25,8 +17,8 @@ typedef struct Bearer {
         AddressFamily ip_type;          /* "ip-type" field in Properties */
 
         /* Ip4Config or IP6Config property */
-        unsigned ip4_method;
-        unsigned ip6_method;
+        MMBearerIpMethod ip4_method;
+        MMBearerIpMethod ip6_method;
         unsigned ip4_prefixlen;
         unsigned ip6_prefixlen;
         union in_addr_union ip4_address;
@@ -62,7 +54,7 @@ typedef struct Modem {
 } Modem;
 
 int bearer_new(Modem *modem, const char *path, Bearer **ret);
-Bearer *bearer_free(Bearer *b);
+Bearer* bearer_free(Bearer *b);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Bearer*, bearer_free);
 
 int bearer_set_name(Bearer *b, const char *name);
@@ -77,9 +69,7 @@ int bearer_update_link(Bearer *b);
 void bearer_drop(Bearer *b);
 
 int modem_new(Manager *m, const char *path, Modem **ret);
-Modem *modem_free(Modem *modem);
+Modem* modem_free(Modem *modem);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Modem*, modem_free);
 
 int modem_get_by_path(Manager *m, const char *path, Modem **ret);
-void modem_drop(Modem *modem);
-void modem_drop_all(Manager *m);

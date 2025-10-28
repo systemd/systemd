@@ -146,7 +146,7 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
 
-        r = manager_match_modemmanager_signals(m);
+        r = manager_match_mm_signals(m);
         if (r < 0)
                 return r;
 
@@ -721,7 +721,7 @@ Manager* manager_free(Manager *m) {
 
         manager_varlink_done(m);
         hashmap_free(m->polkit_registry);
-        sd_bus_slot_unref(m->slot);
+        sd_bus_slot_unref(m->slot_mm);
         sd_bus_flush_close_unref(m->bus);
 
         free(m->dynamic_timezone);

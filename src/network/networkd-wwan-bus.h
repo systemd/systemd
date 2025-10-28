@@ -9,14 +9,14 @@ typedef enum {
         MM_BEARER_IP_FAMILY_IPV4   = 1 << 0,
         MM_BEARER_IP_FAMILY_IPV6   = 1 << 1,
         MM_BEARER_IP_FAMILY_IPV4V6 = 1 << 2,
-        MM_BEARER_IP_FAMILY_ANY    = 0xFFFFFFFF
+        MM_BEARER_IP_FAMILY_ANY    = 0xFFFFFFFF,
 } MMBearerIpFamily;
 
 typedef enum {
         MM_BEARER_TYPE_UNKNOWN        = 0,
         MM_BEARER_TYPE_DEFAULT        = 1,
         MM_BEARER_TYPE_DEFAULT_ATTACH = 2,
-        MM_BEARER_TYPE_DEDICATED      = 3
+        MM_BEARER_TYPE_DEDICATED      = 3,
 } MMBearerType;
 
 typedef enum {
@@ -32,7 +32,7 @@ typedef enum {
         MM_MODEM_STATE_REGISTERED    = 8,
         MM_MODEM_STATE_DISCONNECTING = 9,
         MM_MODEM_STATE_CONNECTING    = 10,
-        MM_MODEM_STATE_CONNECTED     = 11
+        MM_MODEM_STATE_CONNECTED     = 11,
 } MMModemState;
 
 typedef enum { /*< underscore_name=mm_modem_state_failed_reason >*/
@@ -83,4 +83,4 @@ typedef enum {
 } ModemReconnectState;
 
 int manager_notify_mm_bus_connected(Manager *manager);
-int manager_match_modemmanager_signals(Manager *manager);
+int manager_match_mm_signals(Manager *manager);

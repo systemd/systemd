@@ -182,7 +182,6 @@ Network.IgnoreCarrierLoss,                       config_parse_ignore_carrier_los
 Network.KeepConfiguration,                       config_parse_keep_configuration,                0,                                      offsetof(Network, keep_configuration)
 Network.IPv6SendRA,                              config_parse_router_prefix_delegation,          0,                                      offsetof(Network, router_prefix_delegation)
 Network.DHCPPrefixDelegation,                    config_parse_tristate,                          0,                                      offsetof(Network, dhcp_pd)
-Network.ModemSimpleConnectProps,                 config_parse_strv,                              0,                                      offsetof(Network, modem_simple_connect_props)
 Address.Address,                                 config_parse_address_section,                   ADDRESS_ADDRESS,                        0
 Address.Peer,                                    config_parse_address_section,                   ADDRESS_PEER,                           0
 Address.Broadcast,                               config_parse_address_section,                   ADDRESS_BROADCAST,                      0
@@ -684,3 +683,6 @@ FairQueueingControlledDelay.MemoryLimit,         config_parse_fq_codel_size,    
 FairQueueingControlledDelay.Quantum,             config_parse_fq_codel_size,                     QDISC_KIND_FQ_CODEL,                    0
 TokenBucketFilter.Burst,                         config_parse_tbf_size,                          QDISC_KIND_TBF,                         0
 TokenBucketFilter.LimitSize,                     config_parse_tbf_size,                          QDISC_KIND_TBF,                         0
+ModemManager.SimpleConnectProperties,            config_parse_strv,                              0,                                      offsetof(Network, mm_simple_connect_props)
+ModemManager.RouteMetric,                        config_parse_mm_route_metric,                   AF_UNSPEC,                              0
+ModemManager.UseGateway,                         config_parse_tristate,                          0,                                      offsetof(Network, mm_use_gateway)
