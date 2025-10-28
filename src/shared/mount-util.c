@@ -52,7 +52,7 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                 _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
                 bool again = false;
 
-                r = libmount_parse_mountinfo(f, &table, &iter);
+                r = libmount_parse_mountinfo(f, MNT_ITER_BACKWARD, &table, &iter);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -238,7 +238,7 @@ int bind_remount_recursive_with_mountinfo(
 
                 rewind(proc_self_mountinfo);
 
-                r = libmount_parse_mountinfo(proc_self_mountinfo, &table, &iter);
+                r = libmount_parse_mountinfo(proc_self_mountinfo, MNT_ITER_FORWARD, &table, &iter);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -1673,7 +1673,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
         assert(ret_mounts);
         assert(ret_n_mounts);
 
-        r = libmount_parse_mountinfo(/* source = */ NULL, &table, &iter);
+        r = libmount_parse_mountinfo(/* source = */ NULL, MNT_ITER_FORWARD, &table, &iter);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -2022,7 +2022,7 @@ int path_get_mount_info_at(
         if (ret_options)
                 r = libmount_parse_with_utab(&table, &iter);
         else
-                r = libmount_parse_mountinfo(/* source = */ NULL, &table, &iter);
+                r = libmount_parse_mountinfo(/* source = */ NULL, MNT_ITER_FORWARD, &table, &iter);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
