@@ -3859,6 +3859,7 @@ static int apply_mount_namespace(
 
                 .root_directory = root_dir,
                 .root_image = root_image,
+                .root_directory_fd = params->root_directory_fd,
                 .root_image_options = context->root_image_options,
                 .root_image_policy = context->root_image_policy ?: &image_policy_service,
 
@@ -4498,6 +4499,7 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
                context->root_directory ||
+               context->root_directory_as_fd ||
                !strv_isempty(context->extension_directories) ||
                context->root_image ||
                context->n_mount_images > 0 ||
@@ -5119,7 +5121,7 @@ int exec_invoke(
                 return log_error_errno(r, "Failed to get OpenFile= file descriptors: %m");
         }
 
-        int keep_fds[n_fds + 4];
+        int keep_fds[n_fds + 5];
         memcpy_safe(keep_fds, params->fds, n_fds * sizeof(int));
         n_keep_fds = n_fds;
 
@@ -5142,6 +5144,12 @@ int exec_invoke(
                 return log_error_errno(r, "Failed to collect shifted fd: %m");
         }
 #endif
+
+        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->root_directory_fd);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return log_error_errno(r, "Failed to collect shifted fd: %m");
+        }
 
         r = close_remaining_fds(params, runtime, socket_fd, keep_fds, n_keep_fds);
         if (r < 0) {
