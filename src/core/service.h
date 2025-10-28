@@ -224,6 +224,9 @@ typedef struct Service {
         int stdout_fd;
         int stderr_fd;
 
+        /* File descriptor received from RootDirectoryFileDescriptor= */
+        int root_directory_fd;
+
         /* If service spawned from transient unit, extra file descriptors can be passed via dbus API */
         ServiceExtraFD *extra_fds;
         size_t n_extra_fds;

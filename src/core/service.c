@@ -165,6 +165,7 @@ static void service_init(Unit *u) {
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -EBADF;
         s->stdin_fd = s->stdout_fd = s->stderr_fd = -EBADF;
+        s->root_directory_fd = -EBADF;
         s->guess_main_pid = true;
         s->main_pid = PIDREF_NULL;
         s->control_pid = PIDREF_NULL;
@@ -542,6 +543,7 @@ static void service_done(Unit *u) {
         service_release_stdio_fd(s);
         service_release_fd_store(s);
         service_release_extra_fds(s);
+        s->root_directory_fd = asynchronous_close(s->root_directory_fd);
 
         s->mount_request = sd_bus_message_unref(s->mount_request);
 }
@@ -1107,6 +1109,9 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                                        i == s->extra_fds ? "Extra File Descriptor Entry:" : "                            ",
                                        f,
                                        prefix);
+
+        if (s->root_directory_fd >= 0)
+                (void) service_dump_fd(s->root_directory_fd, "Root Directory File Descriptor", "", f, prefix);
 
         if (s->open_files)
                 LIST_FOREACH(open_files, of, s->open_files) {
@@ -1925,6 +1930,7 @@ static int service_spawn_internal(
         exec_params.stdin_fd = s->stdin_fd;
         exec_params.stdout_fd = s->stdout_fd;
         exec_params.stderr_fd = s->stderr_fd;
+        exec_params.root_directory_fd = s->root_directory_fd;
 
         r = exec_spawn(UNIT(s),
                        c,
@@ -2834,6 +2840,7 @@ static void service_enter_refresh_extensions(Service *s) {
                         .n_extension_images = s->exec_context.n_extension_images,
                         .extension_directories = s->exec_context.extension_directories,
                         .extension_image_policy = s->exec_context.extension_image_policy,
+                        .root_directory_fd = -EBADF,
                 };
 
                 /* Only reload confext, and not sysext as they also typically contain the executable(s) used
@@ -3226,10 +3233,16 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         r = serialize_fd(f, fds, "stdin-fd", s->stdin_fd);
         if (r < 0)
                 return r;
+
         r = serialize_fd(f, fds, "stdout-fd", s->stdout_fd);
         if (r < 0)
                 return r;
+
         r = serialize_fd(f, fds, "stderr-fd", s->stderr_fd);
+        if (r < 0)
+                return r;
+
+        r = serialize_fd(f, fds, "root-directory-fd", s->root_directory_fd);
         if (r < 0)
                 return r;
 
@@ -3636,6 +3649,13 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 s->stderr_fd = deserialize_fd(fds, value);
                 if (s->stderr_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
+
+        } else if (streq(key, "root-directory-fd")) {
+
+                asynchronous_close(s->root_directory_fd);
+                s->root_directory_fd = deserialize_fd(fds, value);
+                if (s->root_directory_fd >= 0)
+                        s->exec_context.root_directory_as_fd = true;
 
         } else if (streq(key, "exec-fd")) {
                 _cleanup_close_ int fd = -EBADF;
@@ -5589,6 +5609,7 @@ static void service_release_resources(Unit *u) {
         service_release_socket_fd(s);
         service_release_stdio_fd(s);
         service_release_extra_fds(s);
+        s->root_directory_fd = asynchronous_close(s->root_directory_fd);
 
         if (s->fd_store_preserve_mode != EXEC_PRESERVE_YES)
                 service_release_fd_store(s);
@@ -5622,7 +5643,10 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
                 return -ENODATA;
 
         _cleanup_free_ char *path = NULL;
-        r = chase(c->path, s->exec_context.root_directory, CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS, &path, NULL);
+        if (s->exec_context.root_directory_as_fd)
+                r = chaseat(s->root_directory_fd, c->path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &path, NULL);
+        else
+                r = chase(c->path, s->exec_context.root_directory, CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS, &path, NULL);
         if (r < 0) {
                 log_unit_debug_errno(UNIT(s), r, "Failed to resolve service binary '%s', ignoring.", c->path);
                 return -ENODATA;
