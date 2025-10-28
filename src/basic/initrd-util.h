@@ -3,5 +3,6 @@
 
 #include "basic-forward.h"
 
+bool in_initrd_root(const char *);
 bool in_initrd(void);
 void in_initrd_force(bool value);
