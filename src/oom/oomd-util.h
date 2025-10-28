@@ -16,6 +16,7 @@ typedef struct OomdSystemContext OomdSystemContext;
 typedef int (oomd_compare_t)(OomdCGroupContext * const *, OomdCGroupContext * const *);
 
 struct OomdCGroupContext {
+        unsigned n_ref;
         char *path;
 
         ResourcePressure memory_pressure;
@@ -45,8 +46,9 @@ struct OomdSystemContext {
         uint64_t swap_used;
 };
 
-OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx);
-DEFINE_TRIVIAL_CLEANUP_FUNC(OomdCGroupContext*, oomd_cgroup_context_free);
+OomdCGroupContext *oomd_cgroup_context_ref(OomdCGroupContext *p);
+OomdCGroupContext *oomd_cgroup_context_unref(OomdCGroupContext *p);
+DEFINE_TRIVIAL_CLEANUP_FUNC(OomdCGroupContext*, oomd_cgroup_context_unref);
 
 /* All hashmaps used with these functions are expected to be of the form
  * key: cgroup paths -> value: OomdCGroupContext. */
