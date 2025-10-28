@@ -890,6 +890,9 @@ systemctl stop test-root-ephemeral
 timeout 10 bash -c 'until test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
 test ! -f /tmp/img/abc
 
+# Test RootDirectoryFileDescriptor=
+systemd-run --wait --pipe --root-directory=/tmp/img true
+
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null
 
