@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 
+#include "coredump-config.h"
 #include "coredump-context.h"
 #include "coredump-receive.h"
 #include "coredump-submit.h"
@@ -12,9 +13,7 @@
 #include "socket-util.h"
 
 int coredump_receive(int fd) {
-        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
-        _cleanup_(context_done) Context context = CONTEXT_NULL;
-        _cleanup_close_ int input_fd = -EBADF;
+        _cleanup_(coredump_context_done) CoredumpContext context = COREDUMP_CONTEXT_NULL;
         enum {
                 STATE_PAYLOAD,
                 STATE_INPUT_FD_DONE,
@@ -25,8 +24,11 @@ int coredump_receive(int fd) {
         assert(fd >= 0);
 
         log_setup();
-
         log_debug("Processing coredump received via socket...");
+
+        /* Ignore all parse errors */
+        CoredumpConfig config = COREDUMP_CONFIG_NULL;
+        (void) coredump_parse_config(&config);
 
         for (;;) {
                 CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int))) control;
@@ -86,8 +88,8 @@ int coredump_receive(int fd) {
                         switch (state) {
 
                         case STATE_PAYLOAD:
-                                assert(input_fd < 0);
-                                input_fd = *CMSG_TYPED_DATA(found, int);
+                                assert(context.input_fd < 0);
+                                context.input_fd = *CMSG_TYPED_DATA(found, int);
                                 state = STATE_INPUT_FD_DONE;
                                 continue;
 
@@ -98,6 +100,7 @@ int coredump_receive(int fd) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to initialize pidref: %m");
 
+                                context.got_pidfd = true;
                                 state = STATE_PID_FD_DONE;
                                 continue;
 
@@ -126,37 +129,18 @@ int coredump_receive(int fd) {
                 ((char*) iovec.iov_base)[n] = 0;
                 iovec.iov_len = (size_t) n;
 
-                if (iovw_put(&iovw, iovec.iov_base, iovec.iov_len) < 0)
+                if (iovw_put(&context.iovw, iovec.iov_base, iovec.iov_len) < 0)
                         return log_oom();
 
                 TAKE_STRUCT(iovec);
         }
 
         /* Make sure we got all data we really need */
-        assert(input_fd >= 0);
+        assert(context.input_fd >= 0);
 
-        r = context_parse_iovw(&context, &iovw);
+        r = coredump_context_parse_iovw(&context);
         if (r < 0)
                 return r;
 
-        /* Make sure we received all the expected fields. We support being called by an *older*
-         * systemd-coredump from the outside, so we require only the basic set of fields that
-         * was being sent when the support for sending to containers over a socket was added
-         * in a108c43e36d3ceb6e34efe37c014fc2cda856000. */
-        meta_argv_t i;
-        FOREACH_ARGUMENT(i,
-                         META_ARGV_PID,
-                         META_ARGV_UID,
-                         META_ARGV_GID,
-                         META_ARGV_SIGNAL,
-                         META_ARGV_TIMESTAMP,
-                         META_ARGV_RLIMIT,
-                         META_ARGV_HOSTNAME,
-                         META_COMM)
-                if (!context.meta[i])
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Mandatory argument %s not received on socket, aborting.",
-                                               meta_field_names[i]);
-
-        return coredump_submit(&context, &iovw, input_fd);
+        return coredump_submit(&config, &context);
 }

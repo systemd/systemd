@@ -12,15 +12,6 @@
  * size. See DATA_SIZE_MAX in journal-importer.h. */
 assert_cc(JOURNAL_SIZE_MAX <= DATA_SIZE_MAX);
 
-CoredumpStorage arg_storage = COREDUMP_STORAGE_EXTERNAL;
-bool arg_compress = true;
-uint64_t arg_process_size_max = PROCESS_SIZE_MAX;
-uint64_t arg_external_size_max = EXTERNAL_SIZE_MAX;
-uint64_t arg_journal_size_max = JOURNAL_SIZE_MAX;
-uint64_t arg_keep_free = UINT64_MAX;
-uint64_t arg_max_use = UINT64_MAX;
-bool arg_enter_namespace = false;
-
 static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
         [COREDUMP_STORAGE_NONE]     = "none",
         [COREDUMP_STORAGE_EXTERNAL] = "external",
@@ -28,56 +19,54 @@ static const char* const coredump_storage_table[_COREDUMP_STORAGE_MAX] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(coredump_storage, CoredumpStorage);
-static DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage, CoredumpStorage);
+DEFINE_CONFIG_PARSE_ENUM(config_parse_coredump_storage, coredump_storage, CoredumpStorage);
 
-int coredump_parse_config(void) {
-        static const ConfigTableItem items[] = {
-                { "Coredump", "Storage",         config_parse_coredump_storage,    0,                      &arg_storage           },
-                { "Coredump", "Compress",        config_parse_bool,                0,                      &arg_compress          },
-                { "Coredump", "ProcessSizeMax",  config_parse_iec_uint64,          0,                      &arg_process_size_max  },
-                { "Coredump", "ExternalSizeMax", config_parse_iec_uint64_infinity, 0,                      &arg_external_size_max },
-                { "Coredump", "JournalSizeMax",  config_parse_iec_size,            0,                      &arg_journal_size_max  },
-                { "Coredump", "KeepFree",        config_parse_iec_uint64,          0,                      &arg_keep_free         },
-                { "Coredump", "MaxUse",          config_parse_iec_uint64,          0,                      &arg_max_use           },
-#if HAVE_DWFL_SET_SYSROOT
-                { "Coredump", "EnterNamespace",  config_parse_bool,                0,                      &arg_enter_namespace   },
-#else
-                { "Coredump", "EnterNamespace",  config_parse_warn_compat,         DISABLED_CONFIGURATION, NULL                   },
-#endif
-                {}
-        };
-
+int coredump_parse_config(CoredumpConfig *config) {
         int r;
+
+        assert(config);
 
         r = config_parse_standard_file_with_dropins(
                         "systemd/coredump.conf",
                         "Coredump\0",
-                        config_item_table_lookup,
-                        items,
+                        config_item_perf_lookup,
+                        coredump_gperf_lookup,
                         CONFIG_PARSE_WARN,
-                        /* userdata= */ NULL);
+                        config);
         if (r < 0)
                 return r;
 
         /* Let's make sure we fix up the maximum size we send to the journal here on the client side, for
          * efficiency reasons. journald wouldn't accept anything larger anyway. */
-        if (arg_journal_size_max > JOURNAL_SIZE_MAX) {
-                log_warning("JournalSizeMax= set to larger value (%s) than journald would accept (%s), lowering automatically.",
-                            FORMAT_BYTES(arg_journal_size_max), FORMAT_BYTES(JOURNAL_SIZE_MAX));
-                arg_journal_size_max = JOURNAL_SIZE_MAX;
+        if (config->journal_size_max > JOURNAL_SIZE_MAX) {
+                log_full(config->storage == COREDUMP_STORAGE_JOURNAL ? LOG_WARNING : LOG_DEBUG,
+                         "JournalSizeMax= set to larger value (%s) than journald would accept (%s), lowering automatically.",
+                         FORMAT_BYTES(config->journal_size_max), FORMAT_BYTES(JOURNAL_SIZE_MAX));
+                config->journal_size_max = JOURNAL_SIZE_MAX;
         }
 
-        log_debug("Selected storage '%s'.", coredump_storage_to_string(arg_storage));
-        log_debug("Selected compression %s.", yes_no(arg_compress));
+#if !HAVE_DWFL_SET_SYSROOT
+        if (config->enter_namespace) {
+                log_warning("EnterNamespace= is enabled but libdw does not support dwfl_set_sysroot(), disabling.");
+                config->enter_namespace = false;
+        }
+#endif
+
+        log_debug("Selected storage '%s'.", coredump_storage_to_string(config->storage));
+        log_debug("Selected compression %s.", yes_no(config->compress));
 
         return 0;
 }
 
-uint64_t coredump_storage_size_max(void) {
-        if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
-                return arg_external_size_max;
-        if (arg_storage == COREDUMP_STORAGE_JOURNAL)
-                return arg_journal_size_max;
-        assert(arg_storage == COREDUMP_STORAGE_NONE);
-        return 0;
+uint64_t coredump_storage_size_max(const CoredumpConfig *config) {
+        switch (config->storage) {
+        case COREDUMP_STORAGE_NONE:
+                return 0;
+        case COREDUMP_STORAGE_EXTERNAL:
+                return config->external_size_max;
+        case COREDUMP_STORAGE_JOURNAL:
+                return config->journal_size_max;
+        default:
+                assert_not_reached();
+        }
 }
