@@ -57,7 +57,7 @@ int mount_points_list_get(FILE *f, MountPoint **head) {
 
         assert(head);
 
-        r = libmount_parse_mountinfo(f, &table, &iter);
+        r = libmount_parse_mountinfo(f, MNT_ITER_FORWARD, &table, &iter);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 

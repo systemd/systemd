@@ -86,6 +86,7 @@ int dlopen_libmount(void) {
 int libmount_parse_full(
                 const char *path,
                 FILE *source,
+                int direction,
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
 
@@ -101,7 +102,7 @@ int libmount_parse_full(
                 return r;
 
         table = sym_mnt_new_table();
-        iter = sym_mnt_new_iter(MNT_ITER_FORWARD);
+        iter = sym_mnt_new_iter(direction);
         if (!table || !iter)
                 return -ENOMEM;
 

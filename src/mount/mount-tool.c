@@ -852,7 +852,7 @@ static int find_mount_points_by_source(const char *what, char ***ret) {
         /* Obtain all mount points with source being "what" from /proc/self/mountinfo, return value shows
          * the total number of them. */
 
-        r = libmount_parse_mountinfo(/* source = */ NULL, &table, &iter);
+        r = libmount_parse_mountinfo(/* source = */ NULL, MNT_ITER_FORWARD, &table, &iter);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
