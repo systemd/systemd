@@ -1039,7 +1039,7 @@ static int parse_fstab(bool prefix_sysroot) {
 
         log_debug("Parsing %s...", fstab);
 
-        r = libmount_parse_full(fstab, /* source = */ NULL, &table, &iter);
+        r = libmount_parse_full(fstab, /* source = */ NULL, MNT_ITER_FORWARD, &table, &iter);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1442,7 +1442,7 @@ static int add_mounts_from_creds(bool prefix_sysroot) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
 
-        r = libmount_parse_full(cred, f, &table, &iter);
+        r = libmount_parse_full(cred, f, MNT_ITER_FORWARD, &table, &iter);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse credential '%s' (as fstab): %m", cred);
 
