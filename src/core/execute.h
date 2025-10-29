@@ -518,7 +518,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
 int exec_context_destroy_mount_ns_dir(Unit *u);
 
-const char* exec_context_fdname(const ExecContext *c, int fd_index);
+const char* exec_context_fdname(const ExecContext *c, int fd_index) _pure_;
 
 bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
