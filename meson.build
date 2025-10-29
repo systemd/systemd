@@ -1012,22 +1012,43 @@ else
         libatomic = []
 endif
 
-libcrypt = dependency('libcrypt', 'libxcrypt', required : false)
-if not libcrypt.found()
-        # fallback to use find_library() if libcrypt is provided by glibc, e.g. for LibreELEC.
-        libcrypt = cc.find_library('crypt')
+libcrypt = dependency('libcrypt', 'libxcrypt',
+                      required : get_option('libcrypt'),
+                      version : '>=4.4.0')
+libcrypt_cflags = libcrypt.partial_dependency(includes: true, compile_args: true)
+conf.set10('HAVE_LIBCRYPT', libcrypt.found())
+
+# Several distributions like Debian/Ubuntu and OpenSUSE provide libxcrypt as
+# libcrypt.so.1, while Fedora/CentOS and Arch Linux provide it as libcrypt.so.2.
+# We need to determine the so name here before building systemd, to provide the
+# so name in ELF note.
+code = '''
+#include <dlfcn.h>
+#include <stdlib.h>
+
+int main(int argc, char *argv[]) {
+        void *dl = dlopen("@0@", RTLD_NOW|RTLD_NODELETE);
+        return dl ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+'''
+if cc.run(
+        code.format('libcrypt.so.2'),
+        dependencies : [libdl, libcrypt_cflags],
+        args : '-D_GNU_SOURCE',
+        name : 'Checking existence of libcrypt.so.2').returncode() == 0
+
+        conf.set_quoted('LIBCRYPT_SONAME', 'libcrypt.so.2')
+
+elif cc.run(
+        code.format('libcrypt.so.1'),
+        dependencies : [libdl, libcrypt_cflags],
+        args : '-D_GNU_SOURCE',
+        name : 'Checking existence of libcrypt.so.1').returncode() == 0
+
+        conf.set_quoted('LIBCRYPT_SONAME', 'libcrypt.so.1')
+else
+        error('Cannot determine libcrypt/libxcrypt so name.')
 endif
-
-foreach func : [
-        'crypt_ra',               # since libxcrypt-4.0.0
-        'crypt_gensalt_ra',       # since libxcrypt-4.0.0
-        'crypt_preferred_method', # since libxcrypt-4.4.0
-]
-
-        have = cc.has_function(func, prefix : '''#include <crypt.h>''', args : '-D_GNU_SOURCE',
-                               dependencies : libcrypt)
-        conf.set10('HAVE_' + func.to_upper(), have)
-endforeach
 
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
@@ -1587,11 +1608,12 @@ have = get_option('importd').require(
 conf.set10('ENABLE_IMPORTD', have)
 
 have = get_option('homed').require(
+        conf.get('HAVE_LIBCRYPT') == 1 and
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_LIBFDISK') == 1 and
         conf.get('HAVE_LIBCRYPTSETUP') == 1 and
         conf.get('HAVE_CRYPT_RESUME_BY_VOLUME_KEY') == 1,
-        error_message : 'openssl, fdisk and libcryptsetup required').allowed()
+        error_message : 'libcrypt, openssl, fdisk, and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
 have = have and conf.get('HAVE_PAM') == 1
@@ -3079,6 +3101,7 @@ foreach tuple : [
         ['gnutls'],
         ['libarchive'],
         ['libbpf'],
+        ['libcrypt'],
         ['libcryptsetup'],
         ['libcryptsetup-plugins'],
         ['libcurl'],
