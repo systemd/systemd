@@ -391,16 +391,16 @@ typedef enum ExecFlags {
 typedef struct ExecParameters {
         RuntimeScope runtime_scope;
 
+        ExecFlags flags;
+
         char **environment;
+        char **files_env;
 
         int *fds;
         char **fd_names;
         size_t n_socket_fds;
         size_t n_storage_fds;
         size_t n_extra_fds;
-
-        ExecFlags flags;
-        bool selinux_context_net:1;
 
         char *cgroup_path;
         uint64_t cgroup_id;
@@ -429,7 +429,6 @@ typedef struct ExecParameters {
 
         char *fallback_smack_process_label;
 
-        char **files_env;
         int user_lookup_fd;
         int handoff_timestamp_fd;
         int pidref_transport_fd;
@@ -442,6 +441,7 @@ typedef struct ExecParameters {
         char invocation_id_string[SD_ID128_STRING_MAX];
 
         bool debug_invocation;
+        bool selinux_context_net;
 } ExecParameters;
 
 #define EXEC_PARAMETERS_INIT(_flags)              \
@@ -584,8 +584,8 @@ void exec_runtime_clear(ExecRuntime *rt);
 int exec_params_needs_control_subcgroup(const ExecParameters *params);
 int exec_params_get_cgroup_path(const ExecParameters *params, const CGroupContext *c, const char *prefix, char **ret);
 void exec_params_shallow_clear(ExecParameters *p);
-void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix);
 void exec_params_deep_clear(ExecParameters *p);
+void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix);
 
 bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 
