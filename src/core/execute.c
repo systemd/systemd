@@ -486,8 +486,8 @@ int exec_spawn(
         assert(command);
         assert(context);
         assert(params);
-        assert(!params->fds || FLAGS_SET(params->flags, EXEC_PASS_FDS));
-        assert(params->fds || (params->n_socket_fds + params->n_storage_fds + params->n_extra_fds == 0));
+        assert(params->fds || (params->n_socket_fds + params->n_stashed_fds == 0));
+        assert(params->n_stashed_fds == 0 || FLAGS_SET(params->flags, EXEC_PASS_FDS));
         assert(!params->files_env); /* We fill this field, ensure it comes NULL-initialized to us */
         assert(ret);
 
@@ -1048,7 +1048,6 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 "%sRuntimeScope: %s\n"
                 "%sExecFlags: %u\n"
                 "%sSELinuxContextNetwork: %s\n"
-                "%sCgroupSupportedMask: %u\n"
                 "%sCgroupPath: %s\n"
                 "%sCrededentialsDirectory: %s\n"
                 "%sEncryptedCredentialsDirectory: %s\n"
@@ -1061,7 +1060,6 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 prefix, runtime_scope_to_string(p->runtime_scope),
                 prefix, p->flags,
                 prefix, yes_no(p->selinux_context_net),
-                prefix, p->cgroup_supported,
                 prefix, p->cgroup_path,
                 prefix, strempty(p->received_credentials_directory),
                 prefix, strempty(p->received_encrypted_credentials_directory),
@@ -2828,7 +2826,7 @@ void exec_params_deep_clear(ExecParameters *p) {
          * to be fully cleaned up to make sanitizers and analyzers happy, as opposed as the shallow clean
          * function above. */
 
-        close_many_unset(p->fds, p->n_socket_fds + p->n_storage_fds + p->n_extra_fds);
+        close_many_unset(p->fds, p->n_socket_fds + p->n_stashed_fds);
 
         p->cgroup_path = mfree(p->cgroup_path);
 
