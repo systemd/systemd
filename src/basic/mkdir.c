@@ -237,21 +237,18 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
         if (r < 0)
                 return r;
 
-        if (path_strv_contains(subvolumes, p))
-                r = btrfs_subvol_make_fallback(dfd, bn, m);
-        else
-                r = RET_NERRNO(mkdirat(dfd, bn, m));
-        if (r == -EEXIST)
+        _cleanup_close_ int nfd = xopenat_full(
+                                dfd, bn,
+                                O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,
+                                path_strv_contains(subvolumes, p) ? XO_SUBVOLUME : 0,
+                                m);
+        if (nfd == -EEXIST)
                 return 0;
-        if (r < 0)
-                return r;
+        if (nfd < 0)
+                return nfd;
 
         if (ts == USEC_INFINITY && !uid_is_valid(uid) && !gid_is_valid(gid))
                 return 1;
-
-        _cleanup_close_ int nfd = openat(dfd, bn, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
-        if (nfd < 0)
-                return -errno;
 
         if (ts != USEC_INFINITY) {
                 struct timespec tspec;

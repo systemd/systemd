@@ -32,13 +32,15 @@ Environment=SYSTEMD_LOG_LEVEL=debug
 EOF
 
     # We test "coldplug" (completely stop and start logind) here. So we need to preserve
-    # the fdstore, which might contain session leader pidfds. This is extremely rare use case
-    # and shall not be considered fully supported.
+    # the fdstore, which might contain session leader pidfds, but only if pidfd id isn't
+    # a thing. This is extremely rare use case and shall not be considered fully supported.
     # See also: https://github.com/systemd/systemd/pull/30610#discussion_r1440507850
-    systemctl edit --runtime --stdin systemd-logind.service --drop-in=fdstore-preserve.conf <<EOF
+    if systemd-analyze compare-versions "$(uname -r)" lt 6.9; then
+        systemctl edit --runtime --stdin systemd-logind.service --drop-in=fdstore-preserve.conf <<EOF
 [Service]
 FileDescriptorStorePreserve=yes
 EOF
+    fi
 
     systemctl restart systemd-logind.service
 }

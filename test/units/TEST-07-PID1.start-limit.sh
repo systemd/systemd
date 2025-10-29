@@ -19,7 +19,7 @@ mkdir -p /run/systemd/system/systemd-resolved.service.d/
 cat >/run/systemd/system/systemd-resolved.service.d/99-start-limit.conf <<EOF
 [Unit]
 StartLimitBurst=5
-StartLimitInterval=30
+StartLimitInterval=100
 
 [Service]
 ExecStopPost=sleep 10
@@ -35,8 +35,12 @@ for i in {1..5}; do
     echo "Start #$i"
 
     systemctl stop --no-block systemd-resolved.service
+    # Wait for systemd-resolved in ExecStart= being stopped.
+    # shellcheck disable=SC2016
+    timeout 10 bash -c 'until [[ "$(systemctl show --property=MainPID --value systemd-resolved.service)" == 0 ]]; do sleep 0.1; done'
     if ! resolvectl; then
         journalctl -o short-monotonic --no-hostname --no-pager -u systemd-resolved.service -n 15
         exit 1
     fi
+    systemctl is-active systemd-resolved.service
 done

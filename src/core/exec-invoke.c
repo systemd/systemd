@@ -77,6 +77,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
+#include "strxcpyx.h"
 #include "terminal-util.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
@@ -1490,35 +1491,30 @@ fail:
 }
 
 static void rename_process_from_path(const char *path) {
-        _cleanup_free_ char *buf = NULL;
-        const char *p;
+        int r;
 
         assert(path);
 
-        /* This resulting string must fit in 10 chars (i.e. the length of "/sbin/init") to look pretty in
-         * /bin/ps */
-
-        if (path_extract_filename(path, &buf) < 0) {
-                rename_process("(...)");
-                return;
+        _cleanup_free_ char *buf = NULL;
+        r = path_extract_filename(path, &buf);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to extract file name from '%s', ignoring: %m", path);
+                return (void) rename_process("(...)");
         }
 
-        size_t l = strlen(buf);
-        if (l > 8) {
-                /* The end of the process name is usually more interesting, since the first bit might just be
-                 * "systemd-" */
-                p = buf + l - 8;
-                l = 8;
-        } else
-                p = buf;
+        size_t len = strlen(buf);
+        char comm[TASK_COMM_LEN], *p = comm;
+        *p++ = '(';
+        strnpcpy(&p, TASK_COMM_LEN - 2, buf, len); /* strnpcpy() accounts for NUL byte internally */
+        *p++ = ')';
+        *p = '\0';
 
-        char process_name[11];
-        process_name[0] = '(';
-        memcpy(process_name+1, p, l);
-        process_name[1+l] = ')';
-        process_name[1+l+1] = 0;
+        size_t len_invocation = program_invocation_name ? strlen(program_invocation_name) : SIZE_MAX;
+        _cleanup_free_ char *invocation = strjoin("(", buf + LESS_BY(len, len_invocation - 2), ")");
+        if (!invocation)
+                log_oom_debug();
 
-        (void) rename_process(process_name);
+        (void) rename_process_full(comm, invocation ?: comm);
 }
 
 static bool context_has_address_families(const ExecContext *c) {

@@ -1529,7 +1529,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_BACKGROUND:
-                        r = free_and_strdup_warn(&arg_background, optarg);
+                        r = parse_background_argument(optarg, &arg_background);
                         if (r < 0)
                                 return r;
                         break;
@@ -3077,7 +3077,7 @@ static int determine_names(void) {
                                 return log_oom();
 
                         if (!arg_ephemeral)
-                                arg_read_only = arg_read_only || i->read_only;
+                                arg_read_only = arg_read_only || image_is_read_only(i);
                 } else {
                         r = safe_getcwd(&arg_directory);
                         if (r < 0)

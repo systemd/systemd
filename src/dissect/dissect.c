@@ -1455,7 +1455,7 @@ static int archive_item(
 
         log_debug("Archiving %s\n", path);
 
-        _cleanup_(sym_archive_entry_freep) struct archive_entry *entry = NULL;
+        _cleanup_(archive_entry_freep) struct archive_entry *entry = NULL;
         entry = sym_archive_entry_new();
         if (!entry)
                 return log_oom();
@@ -1744,7 +1744,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open mount directory: %m");
 
-                _cleanup_(sym_archive_write_freep) struct archive *a = sym_archive_write_new();
+                _cleanup_(archive_write_freep) struct archive *a = sym_archive_write_new();
                 if (!a)
                         return log_oom();
 
@@ -2006,8 +2006,8 @@ static int action_discover(void) {
                                 TABLE_SET_COLOR, startswith(img->name, ".") ? ANSI_GREY : NULL,
                                 TABLE_STRING, image_type_to_string(img->type),
                                 TABLE_STRING, image_class_to_string(img->class),
-                                TABLE_BOOLEAN, img->read_only,
-                                TABLE_SET_COLOR, !img->read_only ? ANSI_HIGHLIGHT_GREEN : ANSI_HIGHLIGHT_RED,
+                                TABLE_BOOLEAN, image_is_read_only(img),
+                                TABLE_SET_COLOR, image_is_read_only(img) ? ANSI_HIGHLIGHT_RED : ANSI_HIGHLIGHT_GREEN,
                                 TABLE_PATH, img->path,
                                 TABLE_TIMESTAMP, img->mtime != 0 ? img->mtime : img->crtime,
                                 TABLE_SIZE, img->usage,
