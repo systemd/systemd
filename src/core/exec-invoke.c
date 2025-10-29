@@ -5033,9 +5033,8 @@ int exec_invoke(
         int secure_bits;
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
         int ngids = 0, ngids_after_pam = 0;
-        int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
-        _cleanup_close_ int bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
-        size_t n_socket_fds, n_stashed_fds;
+        int named_iofds[3] = EBADF_TRIPLET;
+        _cleanup_close_ int socket_fd = -EBADF, bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pidref = PIDREF_NULL;
 
         assert(command);
@@ -5059,19 +5058,19 @@ int exec_invoke(
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (params->n_socket_fds > 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got more than one socket.");
+                if (params->n_socket_fds != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected exactly one socket, got %zu.",
+                                               params->n_socket_fds);
 
-                if (params->n_socket_fds == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got no socket.");
+                socket_fd = TAKE_FD(params->fds[0]);
+                free(params->fd_names[0]);
+                params->n_socket_fds = 0;
 
-                socket_fd = params->fds[0];
-                n_socket_fds = n_stashed_fds = 0;
-        } else {
-                n_socket_fds = params->n_socket_fds;
-                n_stashed_fds = params->n_stashed_fds;
+                memmove(params->fds, params->fds + 1, params->n_stashed_fds * sizeof(int));
+                memmove(params->fd_names, params->fd_names + 1, params->n_stashed_fds * sizeof(char*));
+                params->fd_names[params->n_stashed_fds] = NULL;
         }
-        n_fds = n_socket_fds + n_stashed_fds;
+        n_fds = params->n_socket_fds + params->n_stashed_fds;
 
         r = exec_context_named_iofds(context, params, named_iofds);
         if (r < 0) {
@@ -5965,7 +5964,7 @@ int exec_invoke(
         if (r >= 0)
                 r = pack_fds(params->fds, n_fds);
         if (r >= 0)
-                r = flag_fds(params->fds, n_socket_fds, n_fds, context->non_blocking);
+                r = flag_fds(params->fds, params->n_socket_fds, n_fds, context->non_blocking);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to adjust passed file descriptors: %m");
