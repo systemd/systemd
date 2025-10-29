@@ -725,11 +725,11 @@ def funcdef(el):
 
 
 def function(el):
-    return _concat(el).strip()
+    return "``%s``" % _concat(el).strip()
 
 
 def parameter(el):
-    return el
+    return "``%s``" % _concat(el).strip()
 
 
 def table(el):
