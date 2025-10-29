@@ -51,10 +51,10 @@ html_theme_options = {
 
 
 man_pages = [
-    ('busctl', 'busctl', 'Introspect the bus', None, '1'),
-    ('journalctl', 'journalctl', 'Print log entries from the systemd journal', None, '1'),
-    ('os-release', 'os-release', 'Operating system identification', None, '5'),
-    ('systemd', 'systemd, init', 'systemd system and service manager', None, '1'),
+    ('docs/busctl', 'busctl', 'Introspect the bus', None, '1'),
+    ('docs/journalctl', 'journalctl', 'Print log entries from the systemd journal', None, '1'),
+    ('docs/os-release', 'os-release', 'Operating system identification', None, '5'),
+    ('docs/systemd', 'systemd, init', 'systemd system and service manager', None, '1'),
 ]
 
 global_substitutions = {f'v{n}': f'{n}' for n in range(183, 300)} | {

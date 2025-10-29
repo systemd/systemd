@@ -2,16 +2,17 @@
 
 - [Migration of Documentation from Docbook to Sphinx](#migration-of-documentation-from-docbook-to-sphinx)
   - [Prerequisites](#prerequisites)
+    - [Manual installation](#manual-installation)
   - [Transformation Process](#transformation-process)
     - [1. Docbook to `rst`](#1-docbook-to-rst)
     - [2. `rst` to Sphinx](#2-rst-to-sphinx)
       - [Sphinx Extensions](#sphinx-extensions)
         - [sphinxcontrib-globalsubs](#sphinxcontrib-globalsubs)
       - [Custom Sphinx Extensions](#custom-sphinx-extensions)
-        - [directive_roles.py (90% done)](#directive_rolespy-90-done)
-        - [external_man_links.py](#external_man_linkspy)
+        - [directive\_roles.py (90% done)](#directive_rolespy-90-done)
+        - [external\_man\_links.py](#external_man_linkspy)
       - [Includes](#includes)
-  - [Todo:](#todo)
+  - [Todo](#todo)
 
 ## Prerequisites
 
@@ -36,10 +37,10 @@ To install these (see [Sphinx Docs](https://www.sphinx-doc.org/en/master/tutoria
 $ python3 -m venv .venv
 $ source .venv/bin/activate
 # Install deps
-$ python3 -m pip install -U lxml
-$ python3 -m pip install -U sphinx
-$ python3 -m pip install -U sphinxcontrib-globalsubs
-$ python3 -m pip install -U furo
+$ .venv/bin/pip install lxml
+$ .venv/bin/pip install sphinx
+$ .venv/bin/pip install sphinxcontrib-globalsubs
+$ .venv/bin/pip install furo
 $ cd doc-migration && ./convert.sh
 ```
 
