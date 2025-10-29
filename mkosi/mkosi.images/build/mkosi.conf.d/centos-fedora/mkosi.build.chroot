@@ -31,7 +31,6 @@ RELEASE="$(date "+%Y%m%d%H%M%S" --date "@$TS")"
 COMMON_MACRO_OVERRIDES=(
     --define "toolchain $( ((LLVM)) && echo clang || echo gcc)"
     --define "_fortify_level 0"
-    --undefine _lto_cflags
     # TODO: Remove once redhat-rpm-config 292 is available everywhere.
     --define "_hardening_clang_cflags --config=/usr/lib/rpm/redhat/redhat-hardened-clang.cfg"
     --define "_hardening_clang_ldflags --config=/usr/lib/rpm/redhat/redhat-hardened-clang-ld.cfg"
@@ -82,6 +81,7 @@ CXX_LD="$( ((LLVM)) && echo lld)" \
     --noprep \
     --build-in-place \
     --with upstream \
+    --without lto \
     $( ((WITH_TESTS)) || echo "--nocheck") \
     $( ((WITH_DOCS))  || echo "--without=docs") \
     --define "_topdir /var/tmp" \
