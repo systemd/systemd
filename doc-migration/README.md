@@ -165,6 +165,8 @@ a full list of these roles can be found in [external_man_links](source/_ext/exte
 
 An incomplete list.
 
+- [ ] Some xml files contain invisible whitespace instead of proper spaces, eg. `U+00a0` in `man/libsystemd-pkgconfig.xml`, these will mess up conversion to .rst in some cases.
+- [x] Handle nested includes, eg in `man/libsystemd-pkgconfig.xml` used in `man/sd_machine_get_class.xml` -> seems to work fine
 - [ ] Custom Link transformations:
   - [ ] `custom-man.xsl`
   - [x] `custom-html.xsl`
@@ -173,5 +175,6 @@ An incomplete list.
   - [x] Build a directives index, as in `tools/make-directive-index.py`
   - [ ] DBUS doc generation `tools/update-dbus-docs.py`
 - [ ] See whether `tools/update-man-rules.py` does anything we don’t do
+- [ ] Make sure the `global_substitutions` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build`
 - [ ] Make sure the `man_pages` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build`
 - [ ] Re-implement check-api-docs
