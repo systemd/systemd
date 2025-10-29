@@ -50,7 +50,7 @@ static int cgroupfs_mount_options(int priority, const char *type, char **ret) {
         assert(ret);
 
         _cleanup_free_ char *opts = NULL;
-        FOREACH_STRING(o, "memory_recursiveprot") {
+        FOREACH_STRING(o, "memory_recursiveprot", "memory_hugetlb_accounting") {
                 r = mount_option_supported("cgroup2", o, /* value = */ NULL);
                 if (r < 0)
                         log_full_errno(priority, r, "Failed to determine whether cgroupfs supports '%s' mount option, assuming not: %m", o);
