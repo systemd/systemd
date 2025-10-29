@@ -1277,7 +1277,6 @@ static int setup_pam(
                 uid_t uid,
                 gid_t gid,
                 char ***env, /* updated on success */
-                const int fds[], size_t n_fds,
                 bool needs_sandboxing,
                 int exec_fd) {
 
@@ -1307,7 +1306,6 @@ static int setup_pam(
         assert(user);
         assert(uid_is_valid(uid));
         assert(gid_is_valid(gid));
-        assert(fds || n_fds == 0);
         assert(env);
 
         /* We set up PAM in the parent process, then fork. The child will then stay around until killed via
@@ -1393,7 +1391,7 @@ static int setup_pam(
 
                 /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only
                  * those fds are open here that have been opened by PAM. */
-                (void) close_many(fds, n_fds);
+                (void) close_many(params->fds, params->n_socket_fds + params->n_stashed_fds);
 
                 /* Also close the 'exec_fd' in the child, since the service manager waits for the EOF induced
                  * by the execve() to wait for completion, and if we'd keep the fd open here in the child
@@ -1992,7 +1990,6 @@ static int build_environment(
                 const ExecContext *c,
                 const ExecParameters *p,
                 const CGroupContext *cgroup_context,
-                size_t n_fds,
                 const char *home,
                 const char *username,
                 const char *shell,
@@ -2017,7 +2014,7 @@ static int build_environment(
         if (!our_env)
                 return -ENOMEM;
 
-        if (n_fds > 0) {
+        if (p->n_socket_fds + p->n_stashed_fds > 0) {
                 _cleanup_free_ char *joined = NULL;
 
                 if (asprintf(&x, "LISTEN_PID="PID_FMT, getpid_cached()) < 0)
@@ -2031,7 +2028,7 @@ static int build_environment(
                         our_env[n_env++] = x;
                 }
 
-                if (asprintf(&x, "LISTEN_FDS=%zu", n_fds) < 0)
+                if (asprintf(&x, "LISTEN_FDS=%zu", p->n_socket_fds + p->n_stashed_fds) < 0)
                         return -ENOMEM;
                 our_env[n_env++] = x;
 
@@ -4426,9 +4423,8 @@ static int get_open_file_fd(const OpenFile *of) {
         return TAKE_FD(fd);
 }
 
-static int collect_open_file_fds(ExecParameters *p, size_t *n_fds) {
+static int collect_open_file_fds(ExecParameters *p) {
         assert(p);
-        assert(n_fds);
 
         LIST_FOREACH(open_files, of, p->open_files) {
                 _cleanup_close_ int fd = -EBADF;
@@ -4446,13 +4442,13 @@ static int collect_open_file_fds(ExecParameters *p, size_t *n_fds) {
                         return log_error_errno(fd, "Failed to get OpenFile= file descriptor for '%s': %m", of->path);
                 }
 
-                if (!GREEDY_REALLOC(p->fds, *n_fds + 1))
+                if (!GREEDY_REALLOC(p->fds, p->n_stashed_fds + 1))
                         return log_oom();
 
                 if (strv_extend(&p->fd_names, of->fdname) < 0)
                         return log_oom();
 
-                p->fds[(*n_fds)++] = TAKE_FD(fd);
+                p->fds[p->n_stashed_fds++] = TAKE_FD(fd);
         }
 
         return 0;
@@ -4745,9 +4741,8 @@ static int exec_context_named_iofds(
                 const ExecParameters *p,
                 int named_iofds[static 3]) {
 
+        const char *stdio_fdname[3];
         size_t targets;
-        const char* stdio_fdname[3];
-        size_t n_fds;
 
         assert(c);
         assert(p);
@@ -4760,12 +4755,9 @@ static int exec_context_named_iofds(
         for (size_t i = 0; i < 3; i++)
                 stdio_fdname[i] = exec_context_fdname(c, i);
 
-        n_fds = p->n_storage_fds + p->n_socket_fds + p->n_extra_fds;
-
-        for (size_t i = 0; i < n_fds  && targets > 0; i++)
+        for (size_t i = 0; i < p->n_socket_fds && targets > 0; i++)
                 if (named_iofds[STDIN_FILENO] < 0 &&
                     c->std_input == EXEC_INPUT_NAMED_FD &&
-                    stdio_fdname[STDIN_FILENO] &&
                     streq(p->fd_names[i], stdio_fdname[STDIN_FILENO])) {
 
                         named_iofds[STDIN_FILENO] = p->fds[i];
@@ -4773,7 +4765,6 @@ static int exec_context_named_iofds(
 
                 } else if (named_iofds[STDOUT_FILENO] < 0 &&
                            c->std_output == EXEC_OUTPUT_NAMED_FD &&
-                           stdio_fdname[STDOUT_FILENO] &&
                            streq(p->fd_names[i], stdio_fdname[STDOUT_FILENO])) {
 
                         named_iofds[STDOUT_FILENO] = p->fds[i];
@@ -4781,7 +4772,6 @@ static int exec_context_named_iofds(
 
                 } else if (named_iofds[STDERR_FILENO] < 0 &&
                            c->std_error == EXEC_OUTPUT_NAMED_FD &&
-                           stdio_fdname[STDERR_FILENO] &&
                            streq(p->fd_names[i], stdio_fdname[STDERR_FILENO])) {
 
                         named_iofds[STDERR_FILENO] = p->fds[i];
@@ -5032,14 +5022,11 @@ int exec_invoke(
         gid_t saved_gid = getgid();
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
-        size_t n_fds, /* fds to pass to the child */
-               n_keep_fds; /* total number of fds not to close */
         int secure_bits;
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
         int ngids = 0, ngids_after_pam = 0;
-        int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
-        _cleanup_close_ int bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
-        size_t n_storage_fds, n_socket_fds, n_extra_fds;
+        int named_iofds[3] = EBADF_TRIPLET;
+        _cleanup_close_ int socket_fd = -EBADF, bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pidref = PIDREF_NULL;
 
         assert(command);
@@ -5061,20 +5048,15 @@ int exec_invoke(
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
 
-                if (params->n_socket_fds > 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got more than one socket.");
+                if (params->n_socket_fds != 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected exactly one socket, got %zu.",
+                                               params->n_socket_fds);
 
-                if (params->n_socket_fds == 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got no socket.");
+                socket_fd = TAKE_FD(params->fds[0]);
+                params->n_socket_fds = 0;
 
-                socket_fd = params->fds[0];
-                n_storage_fds = n_socket_fds = n_extra_fds = 0;
-        } else {
-                n_socket_fds = params->n_socket_fds;
-                n_storage_fds = params->n_storage_fds;
-                n_extra_fds = params->n_extra_fds;
+                memmove(params->fds, params->fds + 1, params->n_stashed_fds * sizeof(int));
         }
-        n_fds = n_socket_fds + n_storage_fds + n_extra_fds;
 
         r = exec_context_named_iofds(context, params, named_iofds);
         if (r < 0)
@@ -5112,15 +5094,15 @@ int exec_invoke(
         /* In case anything used libc syslog(), close this here, too */
         closelog();
 
-        r = collect_open_file_fds(params, &n_fds);
+        r = collect_open_file_fds(params);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to get OpenFile= file descriptors: %m");
         }
 
-        int keep_fds[n_fds + 4];
-        memcpy_safe(keep_fds, params->fds, n_fds * sizeof(int));
-        n_keep_fds = n_fds;
+        size_t n_keep_fds = params->n_socket_fds + params->n_stashed_fds;
+        int keep_fds[n_keep_fds + 4];
+        memcpy_safe(keep_fds, params->fds, n_keep_fds * sizeof(int));
 
         r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->exec_fd);
         if (r < 0) {
@@ -5618,7 +5600,6 @@ int exec_invoke(
                         context,
                         params,
                         cgroup_context,
-                        n_fds,
                         pwent_home,
                         username,
                         shell,
@@ -5732,7 +5713,7 @@ int exec_invoke(
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
                 r = setup_pam(context, cgroup_context, params, username, uid, gid, &accum_env,
-                              params->fds, n_fds, needs_sandboxing, params->exec_fd);
+                              needs_sandboxing, params->exec_fd);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_error_errno(r, "Failed to set up PAM session: %m");
@@ -5966,9 +5947,10 @@ int exec_invoke(
 
         r = close_all_fds(keep_fds, n_keep_fds);
         if (r >= 0)
-                r = pack_fds(params->fds, n_fds);
+                r = pack_fds(params->fds, params->n_socket_fds + params->n_stashed_fds);
         if (r >= 0)
-                r = flag_fds(params->fds, n_socket_fds, n_fds, context->non_blocking);
+                r = flag_fds(params->fds, params->n_socket_fds, params->n_socket_fds + params->n_stashed_fds,
+                             context->non_blocking);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to adjust passed file descriptors: %m");
