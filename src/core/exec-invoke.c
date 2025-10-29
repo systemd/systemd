@@ -5035,7 +5035,7 @@ int exec_invoke(
         int ngids = 0, ngids_after_pam = 0;
         int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
         _cleanup_close_ int bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
-        size_t n_storage_fds, n_socket_fds, n_extra_fds;
+        size_t n_socket_fds, n_stashed_fds;
         _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pidref = PIDREF_NULL;
 
         assert(command);
@@ -5066,13 +5066,12 @@ int exec_invoke(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Got no socket.");
 
                 socket_fd = params->fds[0];
-                n_storage_fds = n_socket_fds = n_extra_fds = 0;
+                n_socket_fds = n_stashed_fds = 0;
         } else {
                 n_socket_fds = params->n_socket_fds;
-                n_storage_fds = params->n_storage_fds;
-                n_extra_fds = params->n_extra_fds;
+                n_stashed_fds = params->n_stashed_fds;
         }
-        n_fds = n_socket_fds + n_storage_fds + n_extra_fds;
+        n_fds = n_socket_fds + n_stashed_fds;
 
         r = exec_context_named_iofds(context, params, named_iofds);
         if (r < 0) {

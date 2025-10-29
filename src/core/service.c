@@ -1451,8 +1451,7 @@ static int service_collect_fds(
                 int **fds,
                 char ***fd_names,
                 size_t *n_socket_fds,
-                size_t *n_storage_fds,
-                size_t *n_extra_fds) {
+                size_t *n_stashed_fds) {
 
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
@@ -1463,8 +1462,7 @@ static int service_collect_fds(
         assert(fds);
         assert(fd_names);
         assert(n_socket_fds);
-        assert(n_storage_fds);
-        assert(n_extra_fds);
+        assert(n_stashed_fds);
 
         if (s->socket_fd >= 0) {
                 Socket *sock = ASSERT_PTR(SOCKET(UNIT_DEREF(s->accept_socket)));
@@ -1548,8 +1546,7 @@ static int service_collect_fds(
         *fds = TAKE_PTR(rfds);
         *fd_names = TAKE_PTR(rfd_names);
         *n_socket_fds = rn_socket_fds;
-        *n_storage_fds = s->n_fd_store;
-        *n_extra_fds = s->n_extra_fds;
+        *n_stashed_fds = s->n_fd_store + s->n_extra_fds;
 
         return 0;
 }
@@ -1742,8 +1739,7 @@ static int service_spawn_internal(
                                         &exec_params.fds,
                                         &exec_params.fd_names,
                                         &exec_params.n_socket_fds,
-                                        &exec_params.n_storage_fds,
-                                        &exec_params.n_extra_fds);
+                                        &exec_params.n_stashed_fds);
                 if (r < 0)
                         return r;
 
@@ -1751,7 +1747,7 @@ static int service_spawn_internal(
 
                 exec_params.flags |= EXEC_PASS_FDS;
 
-                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds + exec_params.n_extra_fds);
+                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_stashed_fds);
         }
 
         if (!FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
