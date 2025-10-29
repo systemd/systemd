@@ -486,8 +486,8 @@ int exec_spawn(
         assert(command);
         assert(context);
         assert(params);
-        assert(!params->fds || FLAGS_SET(params->flags, EXEC_PASS_FDS));
         assert(params->fds || (params->n_socket_fds + params->n_stashed_fds == 0));
+        assert(params->n_stashed_fds == 0 || FLAGS_SET(params->flags, EXEC_PASS_FDS));
         assert(!params->files_env); /* We fill this field, ensure it comes NULL-initialized to us */
         assert(ret);
 
