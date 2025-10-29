@@ -2639,12 +2639,10 @@ static int do_queue_default_job(
                 return log_struct_errno(LOG_EMERG, r,
                                         LOG_MESSAGE("Failed to isolate default target: %s", bus_error_message(&error, r)),
                                         LOG_MESSAGE_ID(SD_MESSAGE_CORE_ISOLATE_TARGET_FAILED_STR));
-        } else
-                log_info("Queued %s job for default target %s.",
-                         job_type_to_string(job->type),
-                         unit_status_string(job->unit, NULL));
+        }
 
-        m->default_unit_job_id = job->id;
+        log_info("Queued %s job for default target %s.",
+                 job_type_to_string(job->type), unit_status_string(job->unit, NULL));
 
         return 0;
 }

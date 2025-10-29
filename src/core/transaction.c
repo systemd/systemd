@@ -399,6 +399,8 @@ static int transaction_verify_order_one(Transaction *tr, Job *j, Job *from, unsi
                                    LOG_MESSAGE_ID(SD_MESSAGE_UNIT_ORDERING_CYCLE_STR),
                                    LOG_ITEM("%s", strempty(unit_ids)));
 
+                (void) set_ensure_put(&j->manager->transactions_with_cycle, NULL, UINT64_TO_PTR(j->manager->last_transaction_id));
+
                 if (delete) {
                         const char *status;
                         /* logging for j not k here to provide a consistent narrative */

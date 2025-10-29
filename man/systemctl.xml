@@ -225,8 +225,8 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
 
           <listitem>
             <para>Check whether any of the specified units is in the "failed" state. If no unit is specified,
-            check whether there are any failed units, which corresponds to the <literal>degraded</literal> state
-            returned by <command>is-system-running</command>. Returns an exit code <constant>0</constant>
+            check whether there are any failed units or ordering cycles, which corresponds to the <literal>degraded</literal>
+            state returned by <command>is-system-running</command>. Returns an exit code <constant>0</constant>
             if at least one has failed, non-zero otherwise. Unless <option>--quiet</option> is specified, this
             will also print the current unit or system state to standard output.</para>
 
