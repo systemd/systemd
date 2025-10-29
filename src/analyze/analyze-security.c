@@ -13,6 +13,7 @@
 #include "bus-map-properties.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
+#include "capability-util.h"
 #include "copy.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -135,7 +136,7 @@ static SecurityInfo *security_info_new(void) {
 
         *info = (SecurityInfo) {
                 .default_dependencies = true,
-                .capability_bounding_set = UINT64_MAX,
+                .capability_bounding_set = CAP_MASK_ALL,
                 .restrict_namespaces = UINT64_MAX,
                 ._umask = 0002,
         };
