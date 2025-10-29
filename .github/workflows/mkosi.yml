@@ -299,6 +299,7 @@ jobs:
             TEST_NO_QEMU=${{ matrix.no_qemu }} \
             TEST_NO_KVM=${{ matrix.no_kvm }} \
             TEST_RUNNER=${{ matrix.runner }} \
+            TEST_JOURNAL_USE_TMP=1 \
             meson test \
             -C build \
             --timeout-multiplier="${timeout_multiplier:-1}" \
