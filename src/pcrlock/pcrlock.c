@@ -118,7 +118,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
          (UINT32_C(1) << TPM2_PCR_BOOT_LOADER_CONFIG) |      \
          (UINT32_C(1) << TPM2_PCR_SECURE_BOOT_POLICY) |      \
          (UINT32_C(1) << TPM2_PCR_KERNEL_BOOT) |             \
-         (UINT32_C(1) << TPM2_PCR_KERNEL_CONFIG) |           \
+         /* Note: we do not add PCR12/TPM2_PCR_KERNEL_CONFIG here, since our pcrlock policy ends up in there, and this would hence result in a conceptual loop */ \
          (UINT32_C(1) << TPM2_PCR_SYSEXTS) |                 \
          (UINT32_C(1) << TPM2_PCR_SHIM_POLICY) |             \
          (UINT32_C(1) << TPM2_PCR_SYSTEM_IDENTITY))
