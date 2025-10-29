@@ -43,18 +43,30 @@ typedef struct MountPoint {
         bool (*condition_fn)(void);
 } MountPoint;
 
-static bool cgroupfs_recursiveprot_supported(void) {
+static bool cgroupfs_mount_option_supported(const char *option) {
         int r;
 
-        /* Added in kernel 5.7 */
-
-        r = mount_option_supported("cgroup2", "memory_recursiveprot", /* value = */ NULL);
+        r = mount_option_supported("cgroup2", option, /* value = */ NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed to determine whether cgroupfs supports 'memory_recursiveprot' mount option, assuming not: %m");
+                log_debug_errno(r, "Failed to determine whether cgroupfs supports '%s' mount option, assuming not: %m", option);
         else if (r == 0)
-                log_debug("'memory_recursiveprot' not supported by cgroupfs, not using mount option.");
+                log_debug("'%s' not supported by cgroupfs, not using mount option.", option);
 
         return r > 0;
+}
+
+static bool cgroupfs_recursiveprot_supported(void) {
+        /* Added in kernel 5.7 */
+        return cgroupfs_mount_option_supported("memory_recursiveprot");
+}
+
+static bool cgroupfs_memory_hugetlb_accounting_supported(void) {
+        return cgroupfs_mount_option_supported("memory_hugetlb_accounting");
+}
+
+static bool cgroupfs_all_supported(void) {
+        return cgroupfs_mount_option_supported("memory_recursiveprot") &&
+               cgroupfs_mount_option_supported("memory_hugetlb_accounting");
 }
 
 int mount_cgroupfs(const char *path) {
@@ -66,51 +78,171 @@ int mount_cgroupfs(const char *path) {
          * https://github.com/torvalds/linux/blob/b69bb476dee99d564d65d418e9a20acca6f32c3f/kernel/cgroup/cgroup.c#L1984)
          *
          * The options shall be kept in sync with those in mount_table below. */
+        _cleanup_free_ char *opts = strdup("nsdelegate");
+        if (!opts)
+                return log_oom();
 
-        return mount_nofollow_verbose(LOG_ERR, "cgroup2", path, "cgroup2",
-                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                                      cgroupfs_recursiveprot_supported() ? "nsdelegate,memory_recursiveprot" : "nsdelegate");
+        if (cgroupfs_recursiveprot_supported() && !strextend_with_separator(&opts, ",", "memory_recursive_prot"))
+                return log_oom();
+
+        if (cgroupfs_memory_hugetlb_accounting_supported() && !strextend_with_separator(&opts, ",", "memory_hugetlb_accounting"))
+                return log_oom();
+
+        return mount_nofollow_verbose(LOG_ERR, "cgroup2", path, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
 }
 
 static const MountPoint mount_table[] = {
-        { "proc",        "/proc",                     "proc",       NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK },
-        { "sysfs",       "/sys",                      "sysfs",      NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER },
-        { "devtmpfs",    "/dev",                      "devtmpfs",   "mode=0755" TMPFS_LIMITS_DEV,               MS_NOSUID|MS_STRICTATIME,
-          MNT_FATAL|MNT_IN_CONTAINER },
-        { "securityfs",  "/sys/kernel/security",      "securityfs", NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE                   },
+        {
+                .what = "proc",
+                .where = "/proc",
+                .type = "proc",
+                .options = NULL,
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK,
+        },
+        {
+                .what = "sysfs",
+                .where = "/sys",
+                .type = "sysfs",
+                .options = NULL,
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "devtmpfs",
+                .where = "/dev",
+                .type = "devtmpfs",
+                .options = "mode=0755" TMPFS_LIMITS_DEV,
+                .flags = MS_NOSUID|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "securityfs",
+                .where = "/sys/kernel/security",
+                .type = "securityfs",
+                .options = NULL,
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_NONE,
+        },
 #if ENABLE_SMACK
-        { "smackfs",     "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*",                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL, mac_smack_use   },
-        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777,smackfsroot=*",                 MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL|MNT_USRQUOTA_GRACEFUL, mac_smack_use },
+        {
+                .what = "smackfs",
+                .where = "/sys/fs/smackfs",
+                .type = "smackfs",
+                .options = "smackfsdef=*",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL,
+                .condition_fn = mac_smack_use,
+        },
+        {
+                .what = "tmpfs",
+                .where = "/dev/shm",
+                .type = "tmpfs",
+                .options = "mode=01777,smackfsroot=*",
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_USRQUOTA_GRACEFUL,
+                .condition_fn = mac_smack_use,
+        },
 #endif
-        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777",                               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_USRQUOTA_GRACEFUL },
-        { "devpts",      "/dev/pts",                  "devpts",     "mode=" STRINGIFY(TTY_MODE) ",gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
-          MNT_IN_CONTAINER           },
+        {
+                .what = "tmpfs",
+                .where = "/dev/shm",
+                .type = "tmpfs",
+                .options = "mode=01777",
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_USRQUOTA_GRACEFUL,
+        },
+        {
+                .what = "devpts",
+                .where = "/dev/pts",
+                .type = "devpts",
+                .options = "mode=" STRINGIFY(TTY_MODE) ",gid=" STRINGIFY(TTY_GID),
+                .flags = MS_NOSUID|MS_NOEXEC,
+                .mode = MNT_IN_CONTAINER,
+        },
 #if ENABLE_SMACK
-        { "tmpfs",       "/run",                      "tmpfs",      "mode=0755,smackfsroot=*" TMPFS_LIMITS_RUN, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL, mac_smack_use   },
+        {
+                .what = "tmpfs",
+                .where = "/run",
+                .type = "tmpfs",
+                .options = "mode=0755,smackfsroot=*" TMPFS_LIMITS_RUN,
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL,
+                .condition_fn = mac_smack_use,
+        },
 #endif
-        { "tmpfs",       "/run",                      "tmpfs",      "mode=0755" TMPFS_LIMITS_RUN,               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL|MNT_IN_CONTAINER },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate,memory_recursiveprot",          MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE, cgroupfs_recursiveprot_supported },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+        {
+                .what = "tmpfs",
+                .where = "/run",
+                .type = "tmpfs",
+                .options = "mode=0755" TMPFS_LIMITS_RUN,
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "cgroup2",
+                .where = "/sys/fs/cgroup",
+                .type = "cgroup2",
+                .options = "nsdelegate,memory_recursiveprot,memory_hugetlb_accounting",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE,
+                .condition_fn = cgroupfs_all_supported,
+        },
+        {
+                .what = "cgroup2",
+                .where = "/sys/fs/cgroup",
+                .type = "cgroup2",
+                .options = "nsdelegate,memory_hugetlb_accounting",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE,
+                .condition_fn = cgroupfs_memory_hugetlb_accounting_supported,
+        },
+        {
+                .what = "cgroup2",
+                .where = "/sys/fs/cgroup",
+                .type = "cgroup2",
+                .options = "nsdelegate,memory_recursiveprot",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE,
+                .condition_fn = cgroupfs_recursiveprot_supported,
+        },
+        {
+                .what = "cgroup2",
+                .where = "/sys/fs/cgroup",
+                .type = "cgroup2",
+                .options = "nsdelegate",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE,
+        },
 #if ENABLE_PSTORE
-        { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE                   },
+        {
+                .what = "pstore",
+                .where = "/sys/fs/pstore",
+                .type = "pstore",
+                .options = NULL,
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_NONE,
+        },
 #endif
 #if ENABLE_EFI
-        { "efivarfs",    "/sys/firmware/efi/efivars", "efivarfs",   NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE, is_efi_boot      },
+        {
+                .what = "efivarfs",
+                .where = "/sys/firmware/efi/efivars",
+                .type = "efivarfs",
+                .options = NULL,
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_NONE,
+                .condition_fn = is_efi_boot,
+        },
 #endif
-        { "bpf",         "/sys/fs/bpf",               "bpf",        "mode=0700",                                MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE                   },
+        {
+                .what = "bpf",
+                .where = "/sys/fs/bpf",
+                .type = "bpf",
+                .options = "mode=0700",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_NONE,
+        },
 };
 
 /* The first three entries we might need before SELinux is up. The
