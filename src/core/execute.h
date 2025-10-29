@@ -399,8 +399,7 @@ typedef struct ExecParameters {
         int *fds;
         char **fd_names;
         size_t n_socket_fds;
-        size_t n_storage_fds;
-        size_t n_extra_fds;
+        size_t n_stashed_fds;
 
         char *cgroup_path;
         uint64_t cgroup_id;

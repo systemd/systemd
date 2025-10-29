@@ -1090,19 +1090,13 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
                                 return r;
                 }
 
-                if (p->n_storage_fds > 0) {
-                        r = serialize_item_format(f, "exec-parameters-n-storage-fds", "%zu", p->n_storage_fds);
+                if (p->n_stashed_fds > 0) {
+                        r = serialize_item_format(f, "exec-parameters-n-stashed-fds", "%zu", p->n_stashed_fds);
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->n_extra_fds > 0) {
-                        r = serialize_item_format(f, "exec-parameters-n-extra-fds", "%zu", p->n_extra_fds);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = serialize_fd_many(f, fds, "exec-parameters-fds", p->fds, p->n_socket_fds + p->n_storage_fds + p->n_extra_fds);
+                r = serialize_fd_many(f, fds, "exec-parameters-fds", p->fds, p->n_socket_fds + p->n_stashed_fds);
                 if (r < 0)
                         return r;
 
@@ -1283,47 +1277,37 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
 
                         if (p->n_socket_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
-                } else if ((val = startswith(l, "exec-parameters-n-storage-fds="))) {
+                } else if ((val = startswith(l, "exec-parameters-n-stashed-fds="))) {
                         if (p->fds)
                                 return -EINVAL; /* Already received */
 
-                        r = safe_atozu(val, &p->n_storage_fds);
+                        r = safe_atozu(val, &p->n_stashed_fds);
                         if (r < 0)
                                 return r;
 
-                        if (p->n_storage_fds > nr_open)
-                                return -EINVAL; /* too many, someone is playing games with us */
-                } else if ((val = startswith(l, "exec-parameters-n-extra-fds="))) {
-                        if (p->fds)
-                                return -EINVAL; /* Already received */
-
-                        r = safe_atozu(val, &p->n_extra_fds);
-                        if (r < 0)
-                                return r;
-
-                        if (p->n_extra_fds > nr_open)
+                        if (p->n_stashed_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
                 } else if ((val = startswith(l, "exec-parameters-fds="))) {
-                        if (p->n_socket_fds + p->n_storage_fds + p->n_extra_fds == 0)
+                        if (p->n_socket_fds + p->n_stashed_fds == 0)
                                 return log_warning_errno(
                                                 SYNTHETIC_ERRNO(EINVAL),
                                                 "Got exec-parameters-fds= without "
-                                                "prior exec-parameters-n-socket-fds= or exec-parameters-n-storage-fds= or exec-parameters-n-extra-fds=");
-                        if (p->n_socket_fds + p->n_storage_fds + p->n_extra_fds > nr_open)
+                                                "prior exec-parameters-n-socket-fds= or exec-parameters-n-stashed-fds=");
+                        if (p->n_socket_fds + p->n_stashed_fds > nr_open)
                                 return -EINVAL; /* too many, someone is playing games with us */
 
                         if (p->fds)
                                 return -EINVAL; /* duplicated */
 
-                        p->fds = new(int, p->n_socket_fds + p->n_storage_fds + p->n_extra_fds);
+                        p->fds = new(int, p->n_socket_fds + p->n_stashed_fds);
                         if (!p->fds)
                                 return log_oom_debug();
 
                         /* Ensure we don't leave any FD uninitialized on error, it makes the fuzzer sad */
-                        FOREACH_ARRAY(i, p->fds, p->n_socket_fds + p->n_storage_fds + p->n_extra_fds)
+                        FOREACH_ARRAY(i, p->fds, p->n_socket_fds + p->n_stashed_fds)
                                 *i = -EBADF;
 
-                        r = deserialize_fd_many(fds, val, p->n_socket_fds + p->n_storage_fds + p->n_extra_fds, p->fds);
+                        r = deserialize_fd_many(fds, val, p->n_socket_fds + p->n_stashed_fds, p->fds);
                         if (r < 0)
                                 continue;
 
@@ -1521,9 +1505,9 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         log_warning("Failed to parse serialized line, ignoring: %s", l);
         }
 
-        /* Bail out if we got exec-parameters-n-{socket/storage}-fds= but no corresponding
+        /* Bail out if we got exec-parameters-n-{socket/stashed}-fds= but no corresponding
          * exec-parameters-fds= */
-        if (p->n_socket_fds + p->n_storage_fds > 0 && !p->fds)
+        if (p->n_socket_fds + p->n_stashed_fds > 0 && !p->fds)
                 return -EINVAL;
 
         return 0;
