@@ -307,6 +307,7 @@ typedef struct ExecContext {
         int mount_apivfs;
         int bind_log_sockets;
         int memory_ksm;
+        MemoryTHP memory_thp;
         PrivateTmp private_tmp;
         PrivateTmp private_var_tmp; /* This is not an independent parameter, but calculated from other
                                      * parameters in unit_patch_contexts(). */
