@@ -4745,9 +4745,8 @@ static int exec_context_named_iofds(
                 const ExecParameters *p,
                 int named_iofds[static 3]) {
 
+        const char *stdio_fdname[3];
         size_t targets;
-        const char* stdio_fdname[3];
-        size_t n_fds;
 
         assert(c);
         assert(p);
@@ -4760,9 +4759,9 @@ static int exec_context_named_iofds(
         for (size_t i = 0; i < 3; i++)
                 stdio_fdname[i] = exec_context_fdname(c, i);
 
-        n_fds = p->n_storage_fds + p->n_socket_fds + p->n_extra_fds;
-
-        for (size_t i = 0; i < n_fds  && targets > 0; i++)
+        /* Note that socket fds are always placed at the beginning of the fds array, no need for extra
+         * manipulation. */
+        for (size_t i = 0; i < p->n_socket_fds && targets > 0; i++)
                 if (named_iofds[STDIN_FILENO] < 0 &&
                     c->std_input == EXEC_INPUT_NAMED_FD &&
                     streq(p->fd_names[i], stdio_fdname[STDIN_FILENO])) {
