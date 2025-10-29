@@ -324,7 +324,7 @@ static int oci_capabilities(const char *name, sd_json_variant *v, sd_json_dispat
         if (r < 0)
                 return r;
 
-        if (s->full_capabilities.bounding != UINT64_MAX) {
+        if (s->full_capabilities.bounding != CAP_MASK_UNSET) {
                 s->capability = s->full_capabilities.bounding;
                 s->drop_capability = ~s->full_capabilities.bounding;
         }
