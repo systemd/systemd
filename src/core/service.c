@@ -1743,9 +1743,9 @@ static int service_spawn_internal(
 
                 exec_params.open_files = s->open_files;
 
-        } else if (s->exec_context.std_input == EXEC_INPUT_SOCKET ||
-                   s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
-                   s->exec_context.std_error == EXEC_OUTPUT_SOCKET) {
+        } else if (IN_SET(s->exec_context.std_input, EXEC_INPUT_SOCKET, EXEC_INPUT_NAMED_FD) ||
+                   IN_SET(s->exec_context.std_output, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD) ||
+                   IN_SET(s->exec_context.std_error, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_fd)) {
 
                 r = service_collect_fds(s,
                                         &exec_params.fds,
