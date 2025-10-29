@@ -25,7 +25,6 @@
 #include "virt.h"
 
 typedef enum MountMode {
-        MNT_NONE              = 0,
         MNT_FATAL             = 1 << 0,
         MNT_IN_CONTAINER      = 1 << 1,
         MNT_CHECK_WRITABLE    = 1 << 2,
@@ -73,44 +72,130 @@ int mount_cgroupfs(const char *path) {
 }
 
 static const MountPoint mount_table[] = {
-        { "proc",        "/proc",                     "proc",       NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK },
-        { "sysfs",       "/sys",                      "sysfs",      NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER },
-        { "devtmpfs",    "/dev",                      "devtmpfs",   "mode=0755" TMPFS_LIMITS_DEV,               MS_NOSUID|MS_STRICTATIME,
-          MNT_FATAL|MNT_IN_CONTAINER },
-        { "securityfs",  "/sys/kernel/security",      "securityfs", NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE                   },
+        {
+                .what = "proc",
+                .where = "/proc",
+                .type = "proc",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK,
+        },
+        {
+                .what = "sysfs",
+                .where = "/sys",
+                .type = "sysfs",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "devtmpfs",
+                .where = "/dev",
+                .type = "devtmpfs",
+                .options = "mode=0755" TMPFS_LIMITS_DEV,
+                .flags = MS_NOSUID|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "securityfs",
+                .where = "/sys/kernel/security",
+                .type = "securityfs",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        },
 #if ENABLE_SMACK
-        { "smackfs",     "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*",                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL, mac_smack_use   },
-        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777,smackfsroot=*",                 MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL|MNT_USRQUOTA_GRACEFUL, mac_smack_use },
+        {
+                .what = "smackfs",
+                .where = "/sys/fs/smackfs",
+                .type = "smackfs",
+                .options = "smackfsdef=*",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL,
+                .condition_fn = mac_smack_use,
+        },
+        {
+                .what = "tmpfs",
+                .where = "/dev/shm",
+                .type = "tmpfs",
+                .options = "mode=01777,smackfsroot=*",
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_USRQUOTA_GRACEFUL,
+                .condition_fn = mac_smack_use,
+        },
 #endif
-        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777",                               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_USRQUOTA_GRACEFUL },
-        { "devpts",      "/dev/pts",                  "devpts",     "mode=" STRINGIFY(TTY_MODE) ",gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
-          MNT_IN_CONTAINER           },
+        {
+                .what = "tmpfs",
+                .where = "/dev/shm",
+                .type = "tmpfs",
+                .options = "mode=01777",
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_USRQUOTA_GRACEFUL,
+        },
+        {
+                .what = "devpts",
+                .where = "/dev/pts",
+                .type = "devpts",
+                .options = "mode=" STRINGIFY(TTY_MODE) ",gid=" STRINGIFY(TTY_GID),
+                .flags = MS_NOSUID|MS_NOEXEC,
+                .mode = MNT_IN_CONTAINER,
+        },
 #if ENABLE_SMACK
-        { "tmpfs",       "/run",                      "tmpfs",      "mode=0755,smackfsroot=*" TMPFS_LIMITS_RUN, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL, mac_smack_use   },
+        {
+                .what = "tmpfs",
+                .where = "/run",
+                .type = "tmpfs",
+                .options = "mode=0755,smackfsroot=*" TMPFS_LIMITS_RUN,
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL,
+                .condition_fn = mac_smack_use,
+        },
 #endif
-        { "tmpfs",       "/run",                      "tmpfs",      "mode=0755" TMPFS_LIMITS_RUN,               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL|MNT_IN_CONTAINER },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate,memory_recursiveprot",          MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE, cgroupfs_recursiveprot_supported },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+        {
+                .what = "tmpfs",
+                .where = "/run",
+                .type = "tmpfs",
+                .options = "mode=0755" TMPFS_LIMITS_RUN,
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "cgroup2",
+                .where = "/sys/fs/cgroup",
+                .type = "cgroup2",
+                .options = "nsdelegate,memory_recursiveprot",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE,
+                .condition_fn = cgroupfs_recursiveprot_supported,
+        },
+        {
+                .what = "cgroup2",
+                .where = "/sys/fs/cgroup",
+                .type = "cgroup2",
+                .options = "nsdelegate",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE,
+        },
 #if ENABLE_PSTORE
-        { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE                   },
+        {
+                .what = "pstore",
+                .where = "/sys/fs/pstore",
+                .type = "pstore",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        },
 #endif
 #if ENABLE_EFI
-        { "efivarfs",    "/sys/firmware/efi/efivars", "efivarfs",   NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE, is_efi_boot      },
+        {
+                .what = "efivarfs",
+                .where = "/sys/firmware/efi/efivars",
+                .type = "efivarfs",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .condition_fn = is_efi_boot,
+        },
 #endif
-        { "bpf",         "/sys/fs/bpf",               "bpf",        "mode=0700",                                MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE                   },
+        {
+                .what = "bpf",
+                .where = "/sys/fs/bpf",
+                .type = "bpf",
+                .options = "mode=0700",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        },
 };
 
 /* The first three entries we might need before SELinux is up. The
