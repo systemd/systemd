@@ -402,7 +402,6 @@ typedef struct ExecParameters {
         ExecFlags flags;
         bool selinux_context_net:1;
 
-        CGroupMask cgroup_supported;
         char *cgroup_path;
         uint64_t cgroup_id;
 
