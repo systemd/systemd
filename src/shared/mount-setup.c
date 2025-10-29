@@ -43,18 +43,30 @@ typedef struct MountPoint {
         bool (*condition_fn)(void);
 } MountPoint;
 
-static bool cgroupfs_recursiveprot_supported(void) {
+static bool cgroupfs_mount_option_supported(const char *option) {
         int r;
 
-        /* Added in kernel 5.7 */
-
-        r = mount_option_supported("cgroup2", "memory_recursiveprot", /* value = */ NULL);
+        r = mount_option_supported("cgroup2", option, /* value = */ NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed to determine whether cgroupfs supports 'memory_recursiveprot' mount option, assuming not: %m");
+                log_debug_errno(r, "Failed to determine whether cgroupfs supports '%s' mount option, assuming not: %m", option);
         else if (r == 0)
-                log_debug("'memory_recursiveprot' not supported by cgroupfs, not using mount option.");
+                log_debug("'%s' not supported by cgroupfs, not using mount option.", option);
 
         return r > 0;
+}
+
+static bool cgroupfs_recursiveprot_supported(void) {
+        /* Added in kernel 5.7 */
+        return cgroupfs_mount_option_supported("memory_recursiveprot");
+}
+
+static bool cgroupfs_memory_hugetlb_accounting_supported(void) {
+        return cgroupfs_mount_option_supported("memory_hugetlb_accounting");
+}
+
+static bool cgroupfs_all_supported(void) {
+        return cgroupfs_mount_option_supported("memory_recursiveprot") &&
+               cgroupfs_mount_option_supported("memory_hugetlb_accounting");
 }
 
 int mount_cgroupfs(const char *path) {
@@ -66,10 +78,17 @@ int mount_cgroupfs(const char *path) {
          * https://github.com/torvalds/linux/blob/b69bb476dee99d564d65d418e9a20acca6f32c3f/kernel/cgroup/cgroup.c#L1984)
          *
          * The options shall be kept in sync with those in mount_table below. */
+        _cleanup_free_ char *opts = strdup("nsdelegate");
+        if (!opts)
+                return log_oom();
 
-        return mount_nofollow_verbose(LOG_ERR, "cgroup2", path, "cgroup2",
-                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                                      cgroupfs_recursiveprot_supported() ? "nsdelegate,memory_recursiveprot" : "nsdelegate");
+        if (cgroupfs_recursiveprot_supported() && !strextend_with_separator(&opts, ",", "memory_recursive_prot"))
+                return log_oom();
+
+        if (cgroupfs_memory_hugetlb_accounting_supported() && !strextend_with_separator(&opts, ",", "memory_hugetlb_accounting"))
+                return log_oom();
+
+        return mount_nofollow_verbose(LOG_ERR, "cgroup2", path, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
 }
 
 static const MountPoint mount_table[] = {
@@ -159,6 +178,24 @@ static const MountPoint mount_table[] = {
                 .options = "mode=0755" TMPFS_LIMITS_RUN,
                 .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
                 .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "cgroup2",
+                .where = "/sys/fs/cgroup",
+                .type = "cgroup2",
+                .options = "nsdelegate,memory_recursiveprot,memory_hugetlb_accounting",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE,
+                .condition_fn = cgroupfs_all_supported,
+        },
+        {
+                .what = "cgroup2",
+                .where = "/sys/fs/cgroup",
+                .type = "cgroup2",
+                .options = "nsdelegate,memory_hugetlb_accounting",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE,
+                .condition_fn = cgroupfs_memory_hugetlb_accounting_supported,
         },
         {
                 .what = "cgroup2",
