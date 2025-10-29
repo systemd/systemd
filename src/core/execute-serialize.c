@@ -1121,12 +1121,6 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
-        if (p->cgroup_supported != 0) {
-                r = serialize_item_format(f, "exec-parameters-cgroup-supported", "%u", (unsigned) p->cgroup_supported);
-                if (r < 0)
-                        return r;
-        }
-
         r = serialize_item(f, "exec-parameters-cgroup-path", p->cgroup_path);
         if (r < 0)
                 return r;
@@ -1350,13 +1344,6 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 return r;
 
                         p->selinux_context_net = r;
-                } else if ((val = startswith(l, "exec-parameters-cgroup-supported="))) {
-                        unsigned cgroup_supported;
-
-                        r = safe_atou(val, &cgroup_supported);
-                        if (r < 0)
-                                return r;
-                        p->cgroup_supported = cgroup_supported;
                 } else if ((val = startswith(l, "exec-parameters-cgroup-path="))) {
                         r = free_and_strdup(&p->cgroup_path, val);
                         if (r < 0)

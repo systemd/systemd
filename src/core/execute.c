@@ -1048,7 +1048,6 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 "%sRuntimeScope: %s\n"
                 "%sExecFlags: %u\n"
                 "%sSELinuxContextNetwork: %s\n"
-                "%sCgroupSupportedMask: %u\n"
                 "%sCgroupPath: %s\n"
                 "%sCrededentialsDirectory: %s\n"
                 "%sEncryptedCredentialsDirectory: %s\n"
@@ -1061,7 +1060,6 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 prefix, runtime_scope_to_string(p->runtime_scope),
                 prefix, p->flags,
                 prefix, yes_no(p->selinux_context_net),
-                prefix, p->cgroup_supported,
                 prefix, p->cgroup_path,
                 prefix, strempty(p->received_credentials_directory),
                 prefix, strempty(p->received_encrypted_credentials_directory),
