@@ -2,7 +2,10 @@ import os
 from sphinx.application import Sphinx
 from sphinx.util.console import bold
 from sphinx.util.typing import ExtensionMetadata
+from sphinx.util import logging
 
+logger = logging.getLogger(__name__)
+logger.info('Hello, this is an extension!')
 
 def find_files(root_dir):
     for subdir, _, files in os.walk(root_dir + '/docs'):
@@ -19,7 +22,7 @@ def generate_toctree(app: Sphinx):
 
     index_path = os.path.join(root_dir, 'index.rst')
     if not os.path.exists(index_path):
-        app.logger.warning(
+        logger.warning(
             f"{index_path} does not exist, skipping generation.")
         return
 
