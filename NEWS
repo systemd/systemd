@@ -4,6 +4,11 @@ CHANGES WITH 258:
 
         Incompatible changes:
 
+        * The cgroup2 file system is now mounted with the
+          "memory_hugetlb_accounting" mount option, supported since kernel 6.6.
+          This means that HugeTLB memory usage is now counted towards the
+          cgroup’s overall memory usage for the memory controller.
+
         * Support for cgroup v1 ('legacy' and 'hybrid' hierarchies) has been
           removed. cgroup v2 ('unified' hierarchy) will always be mounted
           during system bootup and systemd-nspawn container initialization.
