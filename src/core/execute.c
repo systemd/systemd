@@ -487,7 +487,7 @@ int exec_spawn(
         assert(context);
         assert(params);
         assert(!params->fds || FLAGS_SET(params->flags, EXEC_PASS_FDS));
-        assert(params->fds || (params->n_socket_fds + params->n_storage_fds + params->n_extra_fds == 0));
+        assert(params->fds || (params->n_socket_fds + params->n_stashed_fds == 0));
         assert(!params->files_env); /* We fill this field, ensure it comes NULL-initialized to us */
         assert(ret);
 
@@ -2826,7 +2826,7 @@ void exec_params_deep_clear(ExecParameters *p) {
          * to be fully cleaned up to make sanitizers and analyzers happy, as opposed as the shallow clean
          * function above. */
 
-        close_many_unset(p->fds, p->n_socket_fds + p->n_storage_fds + p->n_extra_fds);
+        close_many_unset(p->fds, p->n_socket_fds + p->n_stashed_fds);
 
         p->cgroup_path = mfree(p->cgroup_path);
 
