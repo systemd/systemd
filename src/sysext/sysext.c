@@ -1709,6 +1709,8 @@ static const ImagePolicy *pick_image_policy(const Image *img) {
          * picked up from an untrusted ESP. Thus, require a stricter policy by default for them. (For the
          * other directories we assume the appropriate level of trust was already established already.  */
 
+        /* For now don't support --root= for this check unless someone really needs this to
+         * validate extension loading from the outside for an initrd tree. */
         if (in_initrd()) {
                 if (path_startswith(img->path, "/.extra/sysext/"))
                         return &image_policy_sysext_strict;
@@ -1905,13 +1907,18 @@ static int merge_subprocess(
                 if (force)
                         log_debug("Force mode enabled, skipping version validation.");
                 else {
+                        r = chase_and_access("/etc/initrd-release", arg_root, CHASE_PREFIX_ROOT, F_OK, /* ret_path= */ NULL);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                        int is_initrd = r >= 0;
+
                         r = extension_release_validate(
                                         img->name,
                                         host_os_release_id,
                                         host_os_release_id_like,
                                         host_os_release_version_id,
                                         host_os_release_api_level,
-                                        in_initrd() ? "initrd" : "system",
+                                        is_initrd ? "initrd" : "system",
                                         image_extension_release(img, image_class),
                                         image_class);
                         if (r < 0)
