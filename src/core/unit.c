@@ -5506,7 +5506,6 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         if (r < 0)
                 return r;
 
-        p->cgroup_supported = u->manager->cgroup_supported;
         p->prefix = u->manager->prefix;
         SET_FLAG(p->flags, EXEC_PASS_LOG_UNIT|EXEC_CHOWN_DIRECTORIES, MANAGER_IS_SYSTEM(u->manager));
 
