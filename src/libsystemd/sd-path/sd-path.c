@@ -683,7 +683,12 @@ static int get_search(uint64_t type, char ***ret) {
 
                 *ret = TAKE_PTR(l);
                 return 0;
-        }}
+        }
+
+        case SD_PATH_SEARCH_SYSCTL:
+                return strv_from_nulstr(ret, CONF_PATHS_NULSTR("sysctl.d"));
+
+        } // end of switch
 
         return -EOPNOTSUPP;
 }
