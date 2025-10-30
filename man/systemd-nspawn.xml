@@ -1668,6 +1668,19 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><option>--bind-user-group=<replaceable>NAME</replaceable></option></term>
+
+        <listitem><para>When used with <option>--bind-user=</option>, includes the specified group as an
+        auxiliary group in the user records of users bound into the container. Takes a group name.</para>
+
+        <para>Note: This will not check whether the specified groups exist in the container.</para>
+
+        <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--inaccessible=</option></term>
 
         <listitem><para>Make the specified path inaccessible in the container. This over-mounts the specified path

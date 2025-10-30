@@ -143,6 +143,7 @@ static bool arg_notify_ready = true;
 static char **arg_bind_user = NULL;
 static char *arg_bind_user_shell = NULL;
 static bool arg_bind_user_shell_copy = false;
+static char **arg_bind_user_groups = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -164,6 +165,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm_state_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -227,6 +229,8 @@ static int help(void) {
                "     --bind-user=NAME       Bind user from host to virtual machine\n"
                "     --bind-user-shell=BOOL|PATH\n"
                "                            Configure the shell to use for --bind-user= users\n"
+               "     --bind-user-group=GROUP\n"
+               "                            Add an auxiliary group to --bind-user= users\n"
                "\n%3$sIntegration:%4$s\n"
                "     --forward-journal=FILE|DIR\n"
                "                           Forward the VM's journal to the host\n"
@@ -303,6 +307,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NOTIFY_READY,
                 ARG_BIND_USER,
                 ARG_BIND_USER_SHELL,
+                ARG_BIND_USER_GROUP,
         };
 
         static const struct option options[] = {
@@ -354,6 +359,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "notify-ready",      required_argument, NULL, ARG_NOTIFY_READY      },
                 { "bind-user",         required_argument, NULL, ARG_BIND_USER         },
                 { "bind-user-shell",   required_argument, NULL, ARG_BIND_USER_SHELL   },
+                { "bind-user-group",   required_argument, NULL, ARG_BIND_USER_GROUP   },
                 {}
         };
 
@@ -715,6 +721,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_BIND_USER_GROUP:
+                        if (!valid_user_group_name(optarg, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid bind user auxiliary group name: %s", optarg);
+
+                        if (strv_extend(&arg_bind_user_groups, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -722,11 +737,15 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        /* Drop duplicate --bind-user= entries */
+        /* Drop duplicate --bind-user= and --bind-user-group= entries */
         strv_uniq(arg_bind_user);
+        strv_uniq(arg_bind_user_groups);
 
         if (arg_bind_user_shell && strv_isempty(arg_bind_user))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-shell= without --bind-user=");
+
+        if (!strv_isempty(arg_bind_user_groups) && strv_isempty(arg_bind_user))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-group= without --bind-user=");
 
         if (argc > optind) {
                 arg_kernel_cmdline_extra = strv_copy(argv + optind);
@@ -1840,6 +1859,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         arg_bind_user_shell,
                         arg_bind_user_shell_copy,
                         "/run/vmhost/home",
+                        arg_bind_user_groups,
                         &bind_user_context);
         if (r < 0)
                 return r;
