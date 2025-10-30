@@ -1196,6 +1196,31 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
         return r;
 }
 
+static int write_membership(int dir_fd, const char *dir, const char *user, const char *group) {
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir);
+        assert(user);
+        assert(group);
+
+        _cleanup_free_ char *membership = strjoin(user, ":", group, ".membership");
+        if (!membership)
+                return log_oom();
+
+        _cleanup_close_ int fd = openat(dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create %s: %m", membership);
+
+        _cleanup_fclose_ FILE *f = take_fdopen(&fd, "w");
+        if (!f)
+                return log_oom();
+
+        fputs("{}\n", f);
+
+        log_info("Installed %s/%s from credential.", dir, membership);
+
+        return 0;
+}
+
 static int load_credential_one(
                 int credential_dir_fd,
                 const char *name,
@@ -1430,27 +1455,15 @@ static int load_credential_one(
 
         if (ur)
                 STRV_FOREACH(g, ur->member_of) {
-                        _cleanup_free_ char *membership = strjoin(ur->user_name, ":", *g, ".membership");
-                        if (!membership)
-                                return log_oom();
-
-                        _cleanup_close_ int fd = openat(*userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
-                        if (fd < 0)
-                                return log_error_errno(errno, "Failed to create %s: %m", membership);
-
-                        log_info("Installed %s/%s from credential.", userdb_dir, membership);
+                        r = write_membership(*userdb_dir_fd, userdb_dir, ur->user_name, *g);
+                        if (r < 0)
+                                return r;
                 }
         else
                 STRV_FOREACH(u, gr->members) {
-                        _cleanup_free_ char *membership = strjoin(*u, ":", gr->group_name, ".membership");
-                        if (!membership)
-                                return log_oom();
-
-                        _cleanup_close_ int fd = openat(*userdb_dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
-                        if (fd < 0)
-                                return log_error_errno(errno, "Failed to create %s: %m", membership);
-
-                        log_info("Installed %s/%s from credential.", userdb_dir, membership);
+                        r = write_membership(*userdb_dir_fd, userdb_dir, *u, gr->group_name);
+                        if (r < 0)
+                                return r;
                 }
 
         if (ur && user_record_disposition(ur) == USER_REGULAR) {
