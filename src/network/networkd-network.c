@@ -1144,22 +1144,20 @@ int config_parse_dhcp_client_persist_leases(
                         void *data,
                         void *userdata) {
 
-                DHCPClientPersistLeases t, *k = ASSERT_PTR(data);
-                /* Network *network = ASSERT_PTR(userdata); */
+        DHCPClientPersistLeases t, *k = ASSERT_PTR(data);
+        Network *network = ASSERT_PTR(userdata);
 
-        /* Not sure if this is needed or what to do is value is empty
-                if (isempty(rvalue)) {
+        if (isempty(rvalue)) {
                 *k = ASSERT_PTR(network->manager)->dhcp_client_persist_leases;
                 return 0;
+        }
 
-                }
-        */
-                t = dhcp_client_persist_leases_from_string(rvalue);
-                if (t < 0)
-                                log_syntax_parse_error(unit, filename, line, t, lvalue, rvalue);
+        t = dhcp_client_persist_leases_from_string(rvalue);
+        if (t < 0)
+                return log_syntax_parse_error(unit, filename, line, t, lvalue, rvalue);
 
-                *k = t;
-                return 0;
+        *k = t;
+        return 0;
 }
 
 

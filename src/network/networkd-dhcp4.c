@@ -1153,8 +1153,6 @@ static int dhcp4_validate_persistent_lease(Link *link, sd_dhcp_lease *lease) {
         usec_t now_realtime;
         usec_t remaining_lifetime;
         int r;
-        triple_timestamp ts;
-
 
         r = sd_dhcp_lease_get_lifetime(lease, &lifetime);
         if (r < 0)
@@ -1259,7 +1257,10 @@ static bool dhcp_client_persist_leases(Link *link) {
         assert(link->manager);
         assert(link->network);
 
-        return link->network->dhcp_client_persist_leases;
+        if (link->network->dhcp_client_persist_leases >= 0)
+                return link->network->dhcp_client_persist_leases > 0;
+
+        return link->manager->dhcp_client_persist_leases > 0;
 }
 
 int link_get_dhcp_client_lease_path(Link *link, int *ret_dir_fd, char **ret_path) {

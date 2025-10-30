@@ -452,7 +452,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_keep_configuration);
 CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_group);
 CONFIG_PARSER_PROTOTYPE(config_parse_ignore_carrier_loss);
-/* add config parse prototype here maybe? */
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_persist_leases);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
