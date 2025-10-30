@@ -5053,6 +5053,8 @@ int exec_invoke(
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid command line arguments.");
         }
 
+        rename_process_from_path(command->path);
+
         if (context->std_input == EXEC_INPUT_SOCKET ||
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
@@ -5077,8 +5079,6 @@ int exec_invoke(
                 *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to load a named file descriptor: %m");
         }
-
-        rename_process_from_path(command->path);
 
         /* We reset exactly these signals, since they are the only ones we set to SIG_IGN in the main
          * daemon. All others we leave untouched because we set them to SIG_DFL or a valid handler initially,
