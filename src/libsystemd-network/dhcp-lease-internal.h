@@ -35,7 +35,6 @@ struct sd_dhcp_lease {
         usec_t lifetime;
         triple_timestamp timestamp;
         usec_t ipv6_only_preferred_usec;
-        sd_id128_t boot_id;
 
         /* each 0 if unset */
         be32_t address;

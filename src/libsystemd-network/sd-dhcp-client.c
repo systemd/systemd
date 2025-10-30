@@ -106,7 +106,7 @@ struct sd_dhcp_client {
         bool bootp;
         bool send_release;
         int lease_dir_fd;
-        bool keep_expired_lease;
+        int keep_expired_lease;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -2673,7 +2673,6 @@ int sd_dhcp_client_update_lease_lifetime(sd_dhcp_client *client, sd_dhcp_lease *
 
         r = client_set_lease_timeouts(client);
         if (r < 0)
-                log_dhcp_client_errno(client, r, "could not set lease timeouts: %m");
                 return r;
 
         log_dhcp_client(client, "Loaded time unto lease, expires in %s",
@@ -2682,7 +2681,7 @@ int sd_dhcp_client_update_lease_lifetime(sd_dhcp_client *client, sd_dhcp_lease *
         return 0;
 }
 
-int sd_dhcp_client_set_keep_expired_lease(sd_dhcp_client *client, bool keep) {
+int sd_dhcp_client_set_keep_expired_lease(sd_dhcp_client *client, int keep) {
         assert_return(client, -EINVAL);
         client->keep_expired_lease = keep;
         return 0;
