@@ -1259,7 +1259,10 @@ static bool dhcp_client_persist_leases(Link *link) {
         assert(link->manager);
         assert(link->network);
 
-        return link->network->dhcp_client_persist_leases;
+        if (link->network->dhcp_client_persist_leases >= 0)
+                return link->network->dhcp_client_persist_leases > 0;
+
+        return link->manager->dhcp_client_persist_leases > 0;
 }
 
 int link_get_dhcp_client_lease_path(Link *link, int *ret_dir_fd, char **ret_path) {
