@@ -80,6 +80,8 @@ DLSYM_PROTOTYPE(crypt_set_data_offset) = NULL;
 #endif
 DLSYM_PROTOTYPE(crypt_header_restore) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
+DLSYM_PROTOTYPE(crypt_wipe) = NULL;
+DLSYM_PROTOTYPE(crypt_get_integrity_info) = NULL;
 
 static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 
@@ -294,7 +296,9 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_set_data_offset),
 #endif
                         DLSYM_ARG(crypt_header_restore),
-                        DLSYM_ARG(crypt_volume_key_keyring));
+                        DLSYM_ARG(crypt_volume_key_keyring),
+                        DLSYM_ARG(crypt_wipe),
+                        DLSYM_ARG(crypt_get_integrity_info));
         if (r <= 0)
                 return r;
 

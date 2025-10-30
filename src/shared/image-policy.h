@@ -14,29 +14,30 @@ typedef enum PartitionPolicyFlags {
          * on. Example: a default policy of "verity+encrypted" certainly makes sense, but for /home/
          * partitions this gracefully degrades to "encrypted" (as we do not have a concept of verity for
          * /home/), and so on. */
-        PARTITION_POLICY_VERITY               = 1 << 0, /* must exist, activate with verity                 (only applies to root/usr partitions) */
-        PARTITION_POLICY_SIGNED               = 1 << 1, /* must exist, activate with signed verity          (only applies to root/usr partitions) */
-        PARTITION_POLICY_ENCRYPTED            = 1 << 2, /* must exist, activate with LUKS encryption        (applies to any data partition, but not to verity/signature partitions */
-        PARTITION_POLICY_UNPROTECTED          = 1 << 3, /* must exist, activate without encryption/verity */
-        PARTITION_POLICY_UNUSED               = 1 << 4, /* must exist, don't use */
-        PARTITION_POLICY_ABSENT               = 1 << 5, /* must not exist */
-        PARTITION_POLICY_OPEN                 = PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|
-                                                PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED|PARTITION_POLICY_ABSENT,
-        PARTITION_POLICY_IGNORE               = PARTITION_POLICY_UNUSED|PARTITION_POLICY_ABSENT,
-        _PARTITION_POLICY_USE_MASK            = PARTITION_POLICY_OPEN,
+        PARTITION_POLICY_VERITY                  = 1 << 0, /* must exist, activate with verity                 (only applies to root/usr partitions) */
+        PARTITION_POLICY_SIGNED                  = 1 << 1, /* must exist, activate with signed verity          (only applies to root/usr partitions) */
+        PARTITION_POLICY_ENCRYPTED               = 1 << 2, /* must exist, activate with LUKS encryption        (applies to any data partition, but not to verity/signature partitions */
+        PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY  = 1 << 3, /* same as PARTITION_POLICY_ENCRYPTED but also requires integrity checking */
+        PARTITION_POLICY_UNPROTECTED             = 1 << 4, /* must exist, activate without encryption/verity */
+        PARTITION_POLICY_UNUSED                  = 1 << 5, /* must exist, don't use */
+        PARTITION_POLICY_ABSENT                  = 1 << 6, /* must not exist */
+        PARTITION_POLICY_OPEN                    = PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|
+                                                   PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED|PARTITION_POLICY_ABSENT,
+        PARTITION_POLICY_IGNORE                  = PARTITION_POLICY_UNUSED|PARTITION_POLICY_ABSENT,
+        _PARTITION_POLICY_USE_MASK               = PARTITION_POLICY_OPEN,
 
-        PARTITION_POLICY_READ_ONLY_OFF        = 1 << 6, /* State of GPT partition flag "read-only" must be on */
-        PARTITION_POLICY_READ_ONLY_ON         = 1 << 7,
-        _PARTITION_POLICY_READ_ONLY_MASK      = PARTITION_POLICY_READ_ONLY_OFF|PARTITION_POLICY_READ_ONLY_ON,
-        PARTITION_POLICY_GROWFS_OFF           = 1 << 8, /* State of GPT partition flag "growfs" must be on */
-        PARTITION_POLICY_GROWFS_ON            = 1 << 9,
-        _PARTITION_POLICY_GROWFS_MASK         = PARTITION_POLICY_GROWFS_OFF|PARTITION_POLICY_GROWFS_ON,
-        _PARTITION_POLICY_PFLAGS_MASK         = _PARTITION_POLICY_READ_ONLY_MASK|_PARTITION_POLICY_GROWFS_MASK,
+        PARTITION_POLICY_READ_ONLY_OFF           = 1 << 7, /* State of GPT partition flag "read-only" must be on */
+        PARTITION_POLICY_READ_ONLY_ON            = 1 << 8,
+        _PARTITION_POLICY_READ_ONLY_MASK         = PARTITION_POLICY_READ_ONLY_OFF|PARTITION_POLICY_READ_ONLY_ON,
+        PARTITION_POLICY_GROWFS_OFF              = 1 << 9, /* State of GPT partition flag "growfs" must be on */
+        PARTITION_POLICY_GROWFS_ON               = 1 << 10,
+        _PARTITION_POLICY_GROWFS_MASK            = PARTITION_POLICY_GROWFS_OFF|PARTITION_POLICY_GROWFS_ON,
+        _PARTITION_POLICY_PFLAGS_MASK            = _PARTITION_POLICY_READ_ONLY_MASK|_PARTITION_POLICY_GROWFS_MASK,
 
-        _PARTITION_POLICY_MASK                = _PARTITION_POLICY_USE_MASK|_PARTITION_POLICY_READ_ONLY_MASK|_PARTITION_POLICY_GROWFS_MASK,
+        _PARTITION_POLICY_MASK                   = _PARTITION_POLICY_USE_MASK|_PARTITION_POLICY_READ_ONLY_MASK|_PARTITION_POLICY_GROWFS_MASK,
 
-        _PARTITION_POLICY_FLAGS_INVALID       = -EINVAL,
-        _PARTITION_POLICY_FLAGS_ERRNO_MAX     = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
+        _PARTITION_POLICY_FLAGS_INVALID          = -EINVAL,
+        _PARTITION_POLICY_FLAGS_ERRNO_MAX        = -ERRNO_MAX, /* Ensure the whole errno range fits into this enum */
 } PartitionPolicyFlags;
 
 assert_cc((_PARTITION_POLICY_USE_MASK | _PARTITION_POLICY_PFLAGS_MASK) >= 0); /* ensure flags don't collide with errno range */

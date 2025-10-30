@@ -393,6 +393,64 @@ static int image_policy_check_protection(
         return 0;
 }
 
+static int partition_is_luks2_integrity(int part_fd, uint64_t offset, uint64_t size, bool use_full_fd, bool *ret) {
+#if HAVE_LIBCRYPTSETUP
+        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free_ char *path_by_fd = NULL;
+        struct crypt_params_integrity params;
+        int r;
+
+        assert(part_fd >= 0);
+        assert(ret);
+
+        r = dlopen_cryptsetup();
+        if (r < 0)
+                return r;
+
+        if (!use_full_fd) {
+                /* cryptsetup needs a path (and not fd+offset/size) to read LUKS header, try to set up a loop dev  */
+                r = loop_device_make(part_fd, O_RDONLY, offset, size, UINT32_MAX, LO_FLAGS_READ_ONLY | LO_FLAGS_AUTOCLEAR, LOCK_SH, &loop_device);
+                if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
+                        return log_debug_errno(r, "Failed to make loopback device: %m");
+                else if (r < 0) {
+                        /* no permissions to make loop devices, can't check whether integrity is enabled */
+                        log_debug_errno(r, "Lacking permissions to set up loopback block device, assuming no integrity: %m");
+                        *ret = false;
+                        return 0;
+                }
+                r = sym_crypt_init(&cd, loop_device->node);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to initialize dm-crypt: %m");
+        } else {
+                r = fd_get_path(part_fd, &path_by_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to get device path: %m");;
+
+                r = sym_crypt_init(&cd, path_by_fd);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to initialize dm-crypt: %m");
+        }
+
+        cryptsetup_enable_logging(cd);
+
+        r = sym_crypt_load(cd, CRYPT_LUKS, NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load LUKS metadata: %m");
+
+        r = sym_crypt_get_integrity_info(cd, &params);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get LUKS integrity information: %m");
+
+        *ret = params.integrity != NULL;
+
+        return 0;
+#else
+        *ret = false;
+        return 0;
+#endif
+}
+
 static int image_policy_check_partition_flags(
                 const ImagePolicy *policy,
                 PartitionDesignator designator,
@@ -452,8 +510,19 @@ static int dissected_image_probe_filesystems(
                 }
 
                 if (streq_ptr(p->fstype, "crypto_LUKS")) {
+                        bool integrity = false;
+
                         m->encrypted = true;
-                        found_flags = PARTITION_POLICY_UNUSED|PARTITION_POLICY_ENCRYPTED; /* found this one, and its definitely encrypted */
+
+                        if (p->mount_node_fd >= 0)
+                                r = partition_is_luks2_integrity(p->mount_node_fd, 0, UINT64_MAX, /* bool use_full_fd= */ true, &integrity);
+                        else
+                                r = partition_is_luks2_integrity(fd, p->offset, p->size, /* bool use_full_fd= */ false, &integrity);
+                        if (r < 0)
+                                return r;
+
+                        /* found this one, it's definitely encrypted + with or without integrity checking */
+                        found_flags = PARTITION_POLICY_UNUSED|(integrity ? PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY : PARTITION_POLICY_ENCRYPTED);
                 } else
                         /* found it, but it's definitely not encrypted, hence mask the encrypted flag, but
                          * set all other ways that indicate "present". */
@@ -875,10 +944,22 @@ static int dissect_image(
 
                         encrypted = streq_ptr(fstype, "crypto_LUKS");
 
+
                         if (verity_settings_data_covers(verity, PARTITION_ROOT))
                                 found_flags = verity->root_hash_sig_size > 0 ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
-                        else
-                                found_flags = encrypted ? PARTITION_POLICY_ENCRYPTED : PARTITION_POLICY_UNPROTECTED;
+                        else {
+                                if (encrypted) {
+                                        bool integrity = false;
+
+                                        r = partition_is_luks2_integrity(fd, 0, UINT64_MAX, /* bool use_full_fd= */ true, &integrity);
+                                        if (r < 0)
+                                                return r;
+
+                                        found_flags = integrity ? PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY : PARTITION_POLICY_ENCRYPTED;
+                                } else
+                                        found_flags = PARTITION_POLICY_UNPROTECTED;
+
+                        }
 
                         r = image_policy_check_protection(policy, PARTITION_ROOT, found_flags);
                         if (r < 0)
@@ -1615,7 +1696,7 @@ static int dissect_image(
                 /* Determine the verity protection level for this partition. */
                 PartitionPolicyFlags found_flags;
                 if (m->partitions[di].found) {
-                        found_flags = PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED;
+                        found_flags = PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_UNUSED;
 
                         PartitionDesignator vi = partition_verity_hash_of(di);
                         if (vi >= 0 && m->partitions[vi].found) {
