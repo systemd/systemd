@@ -25,6 +25,7 @@
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
+#include "capability-util.h"
 #include "capsule-util.h"
 #include "chase.h"
 #include "env-util.h"
@@ -117,6 +118,7 @@ static char *arg_shell_prompt_prefix = NULL;
 static int arg_lightweight = -1;
 static char *arg_area = NULL;
 static bool arg_via_shell = false;
+static bool arg_empower = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -244,6 +246,7 @@ static int help_sudo_mode(void) {
                "     --lightweight=BOOLEAN        Control whether to register a session with service manager\n"
                "                                  or without\n"
                "     --area=AREA                  Home area to log into\n"
+               "     --empower                    Give privileges to selected or current user\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -253,11 +256,15 @@ static int help_sudo_mode(void) {
         return 0;
 }
 
+static bool become_root(void) {
+        return !arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0");
+}
+
 static bool privileged_execution(void) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return false;
 
-        return !arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0");
+        return become_root() || arg_empower;
 }
 
 static int add_timer_property(const char *name, const char *val) {
@@ -859,6 +866,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_LIGHTWEIGHT,
                 ARG_AREA,
                 ARG_VIA_SHELL,
+                ARG_EMPOWER,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -888,6 +896,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
                 { "lightweight",         required_argument, NULL, ARG_LIGHTWEIGHT         },
                 { "area",                required_argument, NULL, ARG_AREA                },
+                { "empower",             no_argument,       NULL, ARG_EMPOWER             },
                 {},
         };
 
@@ -1027,6 +1036,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         arg_via_shell = true;
                         break;
 
+                case ARG_EMPOWER:
+                        arg_empower = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1034,9 +1047,13 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (!arg_exec_user && arg_area) {
+        if (!arg_exec_user && (arg_area || arg_empower)) {
                 /* If the user specifies --area= but not --user= then consider this an area switch request,
-                 * and default to logging into our own account */
+                 * and default to logging into our own account.
+                 *
+                 * If the user specifies --empower but not --user= then consider this a request to empower
+                 * the current user. */
+
                 arg_exec_user = getusername_malloc();
                 if (!arg_exec_user)
                         return log_oom();
@@ -1211,8 +1228,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                 if (arg_lightweight >= 0) {
                         const char *class =
-                                arg_lightweight ? (arg_stdio == ARG_STDIO_PTY ? (privileged_execution() ? "user-early-light" : "user-light") : "background-light") :
-                                                  (arg_stdio == ARG_STDIO_PTY ? (privileged_execution() ? "user-early" : "user") : "background");
+                                arg_lightweight ? (arg_stdio == ARG_STDIO_PTY ? (become_root() ? "user-early-light" : "user-light") : "background-light") :
+                                                  (arg_stdio == ARG_STDIO_PTY ? (become_root() ? "user-early" : "user") : "background");
 
                         log_debug("Setting XDG_SESSION_CLASS to '%s'.", class);
 
@@ -1367,6 +1384,12 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
 
         if (arg_exec_group) {
                 r = sd_bus_message_append(m, "(sv)", "Group", "s", arg_exec_group);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (arg_empower) {
+                r = sd_bus_message_append(m, "(sv)", "AmbientCapabilities", "t", CAP_MASK_ALL);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
