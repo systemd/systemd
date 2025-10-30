@@ -13,6 +13,7 @@ Documentation=man:sulogin(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Conflicts=rescue.service
+After=root.mount
 Before=shutdown.target
 Before=rescue.service
 

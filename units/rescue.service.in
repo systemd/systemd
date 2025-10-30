@@ -12,7 +12,7 @@ Description=Rescue Shell
 Documentation=man:sulogin(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=sysinit.target plymouth-start.service
+After=sysinit.target plymouth-start.service root.mount
 Before=shutdown.target
 
 [Service]
