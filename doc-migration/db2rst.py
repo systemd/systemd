@@ -51,6 +51,7 @@ FILES_USED_FOR_INCLUDES = [
     'standard-options.xml',
     'threads-aware.xml',
     'user-system-options.xml',
+    'vpick.xml'
 ]
 
 # to avoid dupliate error reports
@@ -312,6 +313,11 @@ def refentryinfo(el):
 
 
 def refnamediv(el):
+    # TODO: check man vs html, seems like this one is difficult to get right in both at the same time
+    # TODO: needs more work:
+    # - collect refnames and _join_children(el, ' —,')
+    # - append refpurpose, separated by an em-dash, and strip line breaks
+    #   beforehand with t.replace('\n', ' ').strip()
     # return '**Name** \n\n' + _make_title(_join_children(el, ' — '), 2)
     return '.. only:: html\n\n' + _make_title(_join_children(el, ' — '), 2, 3)
 
@@ -321,7 +327,10 @@ def refsynopsisdiv(el):
     s = ""
     s += _make_title('Synopsis', 2, 3)
     s += '\n\n'
-    s += _join_children(el, ', ')
+    # s += _join_children(el, ', ')
+    # changed to accomodate man/systemd-dissect.xml
+    # TODO: does this break anything anywhere else?
+    s += _join_children(el, '\n\n')
     return s
 
 
@@ -346,14 +355,24 @@ def arg(el):
     # choice: req, opt, plain
     choice = el.get("choice")
     if choice == 'opt':
-        return f"[%s{'...' if el.get('rep') == 'repeat' else ''}]" % text
+        if len(el.getchildren()) == 0:
+        # This if there is only text inside and an optional ´rep="repeat"´
+            return f"[%s{'...' if el.get('rep') == 'repeat' else ''}]" % text
+        else:
+            return "%s" % _join_children(el, '')
     elif choice == 'req':
         return "{%s}" % text
     elif choice == 'plain':
-        return "%s" % text
+        if len(el.getchildren()) == 0:
+            return text
+        else:
+            return "%s" % _join_children(el, '')
     else:
-        "print warning if there another choice"
-        _warn("skipping arg with choice of: %s" % (choice))
+        if choice is None:
+            return "[%s]" % text
+        else:
+            "print warning if there another choice"
+            _warn("skipping arg with choice of: %s" % (choice))
 
 
 # general inline elements
@@ -444,7 +463,15 @@ def optional(el):
 
 
 def replaceable(el):
-    return "<%s>" % _concat(el).strip()
+    # If it’s in an arg with `choice="opt"`, it should have brackets
+    isInsideArg = False
+    for arg in el.iterancestors(tag='arg'):
+        if arg.get("choice") == 'opt':
+            isInsideArg = True
+    if isInsideArg:
+        return "*[%s]*" % _concat(el).strip()
+    # Otherwise < >
+    return "*<%s>*" % _concat(el).strip()
 
 
 def term(el):
