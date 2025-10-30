@@ -10,12 +10,16 @@
 
 extern const struct hash_ops oomd_cgroup_ctx_hash_ops;
 
+struct Manager;
+
 typedef struct OomdCGroupContext OomdCGroupContext;
 typedef struct OomdSystemContext OomdSystemContext;
+typedef struct Manager Manager;
 
 typedef int (oomd_compare_t)(OomdCGroupContext * const *, OomdCGroupContext * const *);
 
 struct OomdCGroupContext {
+        unsigned n_ref;
         char *path;
 
         ResourcePressure memory_pressure;
@@ -45,8 +49,9 @@ struct OomdSystemContext {
         uint64_t swap_used;
 };
 
-OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx);
-DEFINE_TRIVIAL_CLEANUP_FUNC(OomdCGroupContext*, oomd_cgroup_context_free);
+OomdCGroupContext *oomd_cgroup_context_ref(OomdCGroupContext *ctx);
+OomdCGroupContext *oomd_cgroup_context_unref(OomdCGroupContext *ctx);
+DEFINE_TRIVIAL_CLEANUP_FUNC(OomdCGroupContext*, oomd_cgroup_context_unref);
 
 /* All hashmaps used with these functions are expected to be of the form
  * key: cgroup paths -> value: OomdCGroupContext. */
@@ -119,14 +124,15 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
 int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix);
 
 /* Returns a negative value on error, 0 if no processes were killed, or 1 if processes were killed. */
-int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run);
+int oomd_cgroup_kill(const char *path, bool recurse);
+int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx);
 
 /* The following oomd_kill_by_* functions return 1 if processes were killed, or negative otherwise. */
 /* If `prefix` is supplied, only cgroups whose paths start with `prefix` are eligible candidates. Otherwise,
  * everything in `h` is a candidate.
  * Returns the killed cgroup in ret_selected. */
-int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char **ret_selected);
-int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, char **ret_selected);
+int oomd_select_by_pgscan_rate(Hashmap *h, const char *prefix, OomdCGroupContext **ret_selected);
+int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, OomdCGroupContext **ret_selected);
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret);
 int oomd_system_context_acquire(const char *proc_swaps_path, OomdSystemContext *ret);
@@ -143,3 +149,4 @@ void oomd_update_cgroup_contexts_between_hashmaps(Hashmap *old_h, Hashmap *curr_
 void oomd_dump_swap_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
 void oomd_dump_memory_pressure_cgroup_context(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
 void oomd_dump_system_context(const OomdSystemContext *ctx, FILE *f, const char *prefix);
+int clean_prekills(struct Set *prekill_ctxs);
