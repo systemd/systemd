@@ -46,8 +46,9 @@ typedef enum ActivationPolicy {
 } ActivationPolicy;
 
 typedef enum DHCPClientPersistLeases {
-        DHCP_CLIENT_PERSIST_LEASES_NO      = 0, /* Not enabled */
-        DHCP_CLIENT_PERSIST_LEASES_YES     = 1 << 0, /* Blanket enabled, Change if more Persistent lease attribute needed */
+        DHCP_CLIENT_PERSIST_LEASES_NO      = 0,
+        DHCP_CLIENT_PERSIST_LEASES_YES     = 1 << 0,
+        DHCP_CLIENT_PERSIST_LEASES_EXPIRED = 1 << 1,
         _DHCP_CLIENT_PERSIST_LEASES_MAX,
         _DHCP_CLIENT_PERSIST_LEASES_INVALID = -EINVAL,
 } DHCPClientPersistLeases;
