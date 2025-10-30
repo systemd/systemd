@@ -9,13 +9,14 @@
 #include "manager.h"
 #include "rm-rf.h"
 #include "tests.h"
+#include "process-util.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_(manager_freep) Manager *m = NULL;
-        Unit *idle_ok, *idle_bad, *rr_ok, *rr_bad, *rr_sched;
+        Unit *idle_ok, *idle_bad, *rr_ok, *rr_bad, *rr_sched, *ext_ok;
         Service *ser;
-        int r;
+        int r, expected_policy;
 
         test_setup_logging(LOG_INFO);
 
@@ -75,6 +76,13 @@ int main(int argc, char *argv[]) {
         ser = SERVICE(rr_sched);
         assert_se(ser->exec_context.cpu_sched_policy == SCHED_RR);
         assert_se(ser->exec_context.cpu_sched_priority == 99);
+
+        /* load ext ok */
+        assert_se(manager_load_startable_unit_or_warn(m, "sched_ext_ok.service", NULL, &ext_ok) >= 0);
+        ser = SERVICE(ext_ok);
+        expected_policy = sched_policy_supported(SCHED_EXT) ? SCHED_EXT : SCHED_OTHER;
+        assert_se(ser->exec_context.cpu_sched_policy == expected_policy);
+        assert_se(ser->exec_context.cpu_sched_priority == 0);
 
         return EXIT_SUCCESS;
 }
