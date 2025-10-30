@@ -297,6 +297,10 @@ if [[ -e /usr/lib/pam.d/systemd-run0 ]] || [[ -e /etc/pam.d/systemd-run0 ]]; the
     # Validate when we invoke run0 without a tty, that depending on --pty it either allocates a tty or not
     assert_neq "$(run0 --pty tty < /dev/null)" "not a tty"
     assert_eq "$(run0 --pipe tty < /dev/null)" "not a tty"
+
+    # Validate that --empower gives all capabilities to a non-root user.
+    caps="$(run0 -u testuser --empower systemd-analyze capability --mask "$(cat /proc/self/status | grep CapEff | cut -d':' -f2)" --json=pretty | jq -r length)"
+    assert_neq "$caps" "0"
 fi
 
 # Tests whether intermediate disconnects corrupt us (modified testcase from https://github.com/systemd/systemd/issues/27204)
