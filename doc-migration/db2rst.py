@@ -66,6 +66,8 @@ _buffer = ""
 
 _indent_next_listItem_by = 0
 
+_footnotes = []
+
 
 def _run(input_file, output_dir):
     sys.stderr.write("Parsing XML file `%s'...\n" % input_file)
@@ -248,12 +250,15 @@ def _join_children(el, sep):
     return sep.join(_conv(i) for i in el)
 
 
-def _block_separated_with_blank_line(el):
+def _block_separated_with_blank_line(el, stripInnerLinebreaks = False):
     s = ""
     id = el.get("id")
     if id is not None:
         s += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % id
-    s += "\n\n" + _concat(el)
+    if stripInnerLinebreaks:
+        s += "\n\n" + _remove_line_breaks(_concat(el))
+    else:
+        s += "\n\n" + _concat(el)
     if id is not None:
         s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
     return s
@@ -279,6 +284,9 @@ def _indent(el, indent, first_line=None, suppress_blank_line=False):
 def _normalize_whitespace(s):
     return " ".join(s.split())
 
+def _remove_line_breaks(s):
+    return s.replace('\n', ' ').replace('\r', '').strip()
+
 ###################           DocBook elements        #####################
 
 # special "elements"
@@ -292,6 +300,10 @@ def TreeRoot(el):
     output = re.sub(r"[ \t]+\n", "\n", output)
     # leave only one blank line
     output = re.sub(r"\n{3,}", "\n\n", output)
+    if len(_footnotes) > 0:
+        output += "\n\n.. rubric:: Footnotes"
+        for index, footnote in enumerate(_footnotes, start=1):
+            output += f"\n\n.. [#f{index}] {_remove_line_breaks(_conv(footnote))}"
     return output + '\n'
 
 
@@ -374,6 +386,12 @@ def arg(el):
             "print warning if there another choice"
             _warn("skipping arg with choice of: %s" % (choice))
 
+
+def footnote(el):
+    # TODO: handle footnotes with multiple children?
+    _footnotes.append(el.getchildren()[0])
+    currentNumber = len(_footnotes)
+    return f" [#f{currentNumber}]_ "
 
 # general inline elements
 
@@ -813,7 +831,7 @@ def warning(el):
 
 
 def para(el):
-    return _block_separated_with_blank_line(el) + '\n\n \n\n'
+    return _block_separated_with_blank_line(el, True) + '\n\n \n\n'
 
 
 def simpara(el):
