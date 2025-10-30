@@ -5,12 +5,14 @@
 #include "sd-json.h"
 
 #include "alloc-util.h"
+#include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "log.h"
 #include "nspawn.h"
 #include "machine-bind-user.h"
 #include "nspawn-bind-user.h"
+#include "strv.h"
 #include "user-record.h"
 #include "group-record.h"
 #include "path-util.h"
@@ -63,6 +65,37 @@ static int write_and_symlink(
         r = userns_lchown(p, 0, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust access mode of '%s': %m", p);
+
+        return 0;
+}
+
+static int write_membership(const char *root, const char *user, const char *group) {
+        int r;
+
+        assert(user);
+        assert(group);
+
+        _cleanup_free_ char *membership = strjoin(user, ":", group, ".membership");
+        if (!membership)
+                return log_oom();
+
+        _cleanup_free_ char *p = path_join(root, "/run/host/userdb/", membership);
+        if (!p)
+                return log_oom();
+
+        _cleanup_close_ int fd = open(p, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to create %s: %m", p);
+
+        r = userns_chown_at(fd, /* fname= */ NULL, /* uid= */ 0, /* gid= */ 0, /* flags= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust access mode of '%s': %m", p);
+
+        _cleanup_fclose_ FILE *f = take_fdopen(&fd, "w");
+        if (!f)
+                return log_oom();
+
+        fputs("{}\n", f);
 
         return 0;
 }
@@ -130,6 +163,12 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                 if (r < 0)
                         return r;
 
+                STRV_FOREACH(u, stripped_group->members) {
+                        r = write_membership(root, *u, stripped_group->group_name);
+                        if (r < 0)
+                                return r;
+                }
+
                 /* Third, write out user shadow data. i.e. extract privileged info from user record */
                 r = user_record_clone(d->payload_user, shadow_flags, &shadow_user);
                 if (r < 0)
@@ -161,6 +200,12 @@ int bind_user_setup(const MachineBindUserContext *c, const char *root) {
                                 0);
                 if (r < 0)
                         return r;
+
+                STRV_FOREACH(g, stripped_user->member_of) {
+                        r = write_membership(root, stripped_user->user_name, *g);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 1;
