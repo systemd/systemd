@@ -1105,11 +1105,11 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
                 r = serialize_fd_many(f, fds, "exec-parameters-fds", p->fds, p->n_socket_fds + p->n_storage_fds + p->n_extra_fds);
                 if (r < 0)
                         return r;
-        }
 
-        r = serialize_strv(f, "exec-parameters-fd-names", p->fd_names);
-        if (r < 0)
-                return r;
+                r = serialize_strv(f, "exec-parameters-fd-names", p->fd_names);
+                if (r < 0)
+                        return r;
+        }
 
         if (p->flags != 0) {
                 r = serialize_item_format(f, "exec-parameters-flags", "%u", (unsigned) p->flags);
