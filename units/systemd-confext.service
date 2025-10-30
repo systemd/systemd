@@ -19,7 +19,7 @@ ConditionDirectoryNotEmpty=|/usr/lib/confexts
 ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
-After=local-fs.target
+After=local-fs.target systemd-sysext.service
 Before=sysinit.target systemd-tmpfiles-setup.service
 Conflicts=shutdown.target
 Before=shutdown.target
