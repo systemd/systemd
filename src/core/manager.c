@@ -4268,6 +4268,7 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         m->defaults.start_limit = defaults->start_limit;
 
         m->defaults.memory_accounting = defaults->memory_accounting;
+        m->defaults.device_memory_accounting = defaults->device_memory_accounting;
         m->defaults.io_accounting = defaults->io_accounting;
         m->defaults.tasks_accounting = defaults->tasks_accounting;
         m->defaults.ip_accounting = defaults->ip_accounting;
@@ -5165,6 +5166,7 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
                 .start_limit = { DEFAULT_START_LIMIT_INTERVAL, DEFAULT_START_LIMIT_BURST },
 
                 .memory_accounting = MEMORY_ACCOUNTING_DEFAULT,
+                .device_memory_accounting = false,
                 .io_accounting = false,
                 .tasks_accounting = true,
                 .ip_accounting = false,

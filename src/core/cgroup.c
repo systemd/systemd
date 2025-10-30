@@ -491,6 +491,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         fprintf(f,
                 "%sIOAccounting: %s\n"
                 "%sMemoryAccounting: %s\n"
+                "%sDeviceMemoryAccounting: %s\n"
                 "%sTasksAccounting: %s\n"
                 "%sIPAccounting: %s\n"
                 "%sCPUWeight: %" PRIu64 "\n"
@@ -529,6 +530,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sCoredumpReceive: %s\n",
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->memory_accounting),
+                prefix, yes_no(c->device_memory_accounting),
                 prefix, yes_no(c->tasks_accounting),
                 prefix, yes_no(c->ip_accounting),
                 prefix, c->cpu_weight,
@@ -756,6 +758,32 @@ int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_typ
 
         LIST_PREPEND(programs, c->bpf_foreign_programs, TAKE_PTR(p));
 
+        return 0;
+}
+
+int cgroup_context_add_device_memory_limit(CGroupContext *c, const CGroupDeviceMemoryLimit *l) {
+        _cleanup_free_ CGroupDeviceMemoryLimit *n = NULL;
+
+        assert(c);
+        assert(l);
+
+        n = new(CGroupDeviceMemoryLimit, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupDeviceMemoryLimit){
+                        .region = strdup(l->region),
+                        .max = l->max,
+                        .low = l->low,
+                        .min = l->min,
+                        .max_valid = l->max_valid,
+                        .low_valid = l->low_valid,
+                        .min_valid = l->min_valid,
+        };
+        if (!n->region)
+                return -ENOMEM;
+
+        LIST_PREPEND(dev_limits, c->dev_mem_limits, TAKE_PTR(n));
         return 0;
 }
 
@@ -1299,6 +1327,25 @@ static bool unit_has_memory_config(Unit *u) {
                c->memory_zswap_max != CGROUP_LIMIT_MAX || c->startup_memory_zswap_max_set;
 }
 
+static bool unit_has_device_memory_config(Unit *u) {
+        CGroupContext *c;
+
+        assert(u);
+
+        assert_se(c = unit_get_cgroup_context(u));
+
+        if (c->dev_mem_limits)
+                return true;
+
+        while ((u = UNIT_GET_SLICE(u))) {
+                c = unit_get_cgroup_context(u);
+                if (c && c->dev_mem_limits)
+                        return true;
+        }
+
+        return false;
+}
+
 static void cgroup_apply_memory_limit(Unit *u, const char *file, uint64_t v) {
         char buf[DECIMAL_STR_MAX(uint64_t) + 1] = "max\n";
 
@@ -1306,6 +1353,22 @@ static void cgroup_apply_memory_limit(Unit *u, const char *file, uint64_t v) {
                 xsprintf(buf, "%" PRIu64 "\n", v);
 
         (void) set_attribute_and_warn(u, file, buf);
+}
+
+static int cgroup_apply_device_memory_limit(
+                Unit *u, const char *file, const char *region, uint64_t v) {
+        _cleanup_free_ char *buf = NULL;
+
+        if (v == CGROUP_LIMIT_MAX)
+                asprintf(&buf, "%s max\n", region);
+        else
+                asprintf(&buf, "%s %" PRIu64 "\n", region, v);
+
+        if (!buf)
+                return log_oom();
+
+        (void) set_attribute_and_warn(u, file, buf);
+        return 0;
 }
 
 static void cgroup_apply_firewall(Unit *u) {
@@ -1443,6 +1506,89 @@ static int cgroup_apply_devices(Unit *u) {
         return r;
 }
 
+static void cgroup_apply_device_memory_limits(Unit *u) {
+        Unit *parent;
+        CGroupContext *c, *parent_c;
+
+        assert_se((c = unit_get_cgroup_context(u)));
+
+        /* For device memory min/low limits, we need to gather all min/low limits from ancestors.
+         * These ancestors may set limits on devices that aren't in this unit's device limit list,
+         * so construct a new limit list by iterating over this unit and all ancestors while gathering all
+         * limits we encounter along the way. */
+        LIST_HEAD(CGroupDeviceMemoryLimit, ancestor_mem_limits);
+        LIST_HEAD_INIT(ancestor_mem_limits);
+
+        LIST_FOREACH(dev_limits, l, c->dev_mem_limits) {
+                CGroupDeviceMemoryLimit *new_l = new0(CGroupDeviceMemoryLimit, 1);
+                if (!new_l)
+                        goto fail;
+
+                *new_l = (CGroupDeviceMemoryLimit){
+                        .region = l->region,
+                        .max = l->max,
+                        .low = l->low,
+                        .min = l->min,
+                        .max_valid = l->max_valid,
+                        .low_valid = l->low_valid,
+                        .min_valid = l->min_valid,
+                };
+                LIST_APPEND(dev_limits, ancestor_mem_limits, new_l);
+        }
+
+        parent = u;
+        while ((parent = UNIT_GET_SLICE(parent))) {
+                parent_c = unit_get_cgroup_context(parent);
+                LIST_FOREACH(dev_limits, lim, parent_c->dev_mem_limits) {
+                        CGroupDeviceMemoryLimit *found = NULL, *target;
+
+                        LIST_FOREACH(dev_limits, l, ancestor_mem_limits)
+                                if (streq(lim->region, l->region)) {
+                                        found = l;
+                                        break;
+                                }
+
+                        if (found)
+                                target = found;
+                        else {
+                                target = new0(CGroupDeviceMemoryLimit, 1);
+                                if (!target)
+                                        goto fail;
+                                target->region = lim->region;
+                        }
+
+                        if (!target->min_valid && lim->min_valid) {
+                                target->min_valid = true;
+                                target->min = lim->min;
+                        }
+                        if (!target->low_valid && lim->low_valid) {
+                                target->low_valid = true;
+                                target->low = lim->low;
+                        }
+
+                        if (!found)
+                                LIST_APPEND(dev_limits, ancestor_mem_limits, target);
+                }
+        }
+
+        LIST_FOREACH(dev_limits, l, c->dev_mem_limits)
+                if (l->max_valid)
+                        cgroup_apply_device_memory_limit(u, "dmem.max", l->region, l->max);
+        LIST_FOREACH(dev_limits, l, ancestor_mem_limits) {
+                if (l->min_valid)
+                        cgroup_apply_device_memory_limit(u, "dmem.min", l->region, l->min);
+                if (l->low_valid)
+                        cgroup_apply_device_memory_limit(u, "dmem.low", l->region, l->low);
+        }
+
+fail:
+        while (ancestor_mem_limits) {
+                CGroupDeviceMemoryLimit *l = ancestor_mem_limits;
+                LIST_REMOVE(dev_limits, ancestor_mem_limits, l);
+                free(l);
+        }
+}
+
 static void set_io_weight(Unit *u, uint64_t weight) {
         char buf[STRLEN("default \n")+DECIMAL_STR_MAX(uint64_t)];
 
@@ -1553,6 +1699,9 @@ static void cgroup_context_apply(
                 (void) set_attribute_and_warn(u, "memory.oom.group", one_zero(c->memory_oom_group));
                 (void) set_attribute_and_warn(u, "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
         }
+
+        if (apply_mask & CGROUP_MASK_DMEM)
+                cgroup_apply_device_memory_limits(u);
 
         if (apply_mask & CGROUP_MASK_PIDS) {
 
@@ -1706,6 +1855,10 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         if (c->tasks_accounting ||
             cgroup_tasks_max_isset(&c->tasks_max))
                 mask |= CGROUP_MASK_PIDS;
+
+        if (c->device_memory_accounting ||
+            unit_has_device_memory_config(u))
+                mask |= CGROUP_MASK_DMEM;
 
         return mask;
 }
