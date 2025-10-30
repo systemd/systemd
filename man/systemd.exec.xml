@@ -114,15 +114,16 @@
         <term><varname>WorkingDirectory=</varname></term>
 
         <listitem><para>Takes a directory path relative to the service's root directory specified by
-        <varname>RootDirectory=</varname>, or the special value <literal>~</literal>. Sets the working directory for
-        executed processes. If set to <literal>~</literal>, the home directory of the user specified in
-        <varname>User=</varname> is used. If not set, defaults to the root directory when systemd is running as a
-        system instance and the respective user's home directory if run as user. If the setting is prefixed with the
-        <literal>-</literal> character, a missing working directory is not considered fatal. If
-        <varname>RootDirectory=</varname>/<varname>RootImage=</varname> is not set, then
-        <varname>WorkingDirectory=</varname> is relative to the root of the system running the service manager. Note
-        that setting this parameter might result in additional dependencies to be added to the unit (see
-        above).</para></listitem>
+        <varname>RootDirectory=</varname>, or the special value <literal>~</literal>. Sets the working
+        directory for executed processes. If set to <literal>~</literal>, the home directory of the user
+        specified in <varname>User=</varname> is used. If not set, defaults to the root directory when
+        systemd is running as a system instance and the respective user's home directory if run as user. If
+        the setting is prefixed with the <literal>-</literal> character, a missing working directory is not
+        considered fatal and the service won't automatically gained implicit dependencies required to access
+        the specified path. If <varname>RootDirectory=</varname>/<varname>RootImage=</varname> is not set,
+        then <varname>WorkingDirectory=</varname> is relative to the root of the system running the service
+        manager. Note that setting this parameter might result in additional dependencies to be added to the
+        unit (see above).</para></listitem>
       </varlistentry>
 
       <varlistentry>

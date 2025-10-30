@@ -2,6 +2,13 @@ systemd System and Service Manager
 
 CHANGES WITH 259 in spe:
 
+        Incompatible changes:
+
+        * When the WorkingDirectory= is prefixed with the '-' litteral, the
+          implicit dependencies on all mount units required to access the path
+          are not automatically set anymore. This restores the behavior prior
+          to v256.
+
         * homectl's --recovery-key= option may now be used with the "update"
           command to add recovery keys to existing user accounts. Previously,
           recovery keys could only be configured during initial user creation.
