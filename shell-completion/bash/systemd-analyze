@@ -78,6 +78,7 @@ _systemd_analyze() {
         [SECURITY]='security'
         [CONDITION]='condition'
         [INSPECT_ELF]='inspect-elf'
+        [DLOPEN_METADATA]='dlopen-metadata'
         [PLOT]='plot'
         [ARCHITECTURES]='architectures'
         [FDSTORE]='fdstore'
@@ -205,6 +206,14 @@ _systemd_analyze() {
         fi
 
     elif __contains_word "$verb" ${VERBS[INSPECT_ELF]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --json=off --json=pretty --json=short'
+        else
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
+        fi
+
+    elif __contains_word "$verb" ${VERBS[DLOPEN_METADATA]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version --json=off --json=pretty --json=short'
         else
