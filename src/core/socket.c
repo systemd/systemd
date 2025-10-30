@@ -2001,7 +2001,6 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
                 if (r < 0)
                         return r;
 
-                exec_params.flags |= EXEC_PASS_FDS;
                 exec_params.fds = TAKE_PTR(fds);
                 exec_params.fd_names = TAKE_PTR(fd_names);
                 exec_params.n_socket_fds = n_fds;
