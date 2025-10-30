@@ -5073,8 +5073,10 @@ int exec_invoke(
         n_fds = n_socket_fds + n_storage_fds + n_extra_fds;
 
         r = exec_context_named_iofds(context, params, named_iofds);
-        if (r < 0)
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to load a named file descriptor: %m");
+        }
 
         rename_process_from_path(command->path);
 
