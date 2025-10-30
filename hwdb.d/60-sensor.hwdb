@@ -599,7 +599,7 @@ sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1628-04:*
 
 # GPD WinMax2
 sensor:modalias:acpi:BMI0160*:dmi:*:svnGPD:pnG1619*:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0,
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 # GPD MicroPC 2
 sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1688-*:*
