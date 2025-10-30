@@ -41,6 +41,9 @@
     cases that require full NTP support (and where SNTP is not sufficient) are not covered by
     <filename>systemd-timesyncd.service</filename>.</para>
 
+    <para>The <filename>systemd-timesyncd.service</filename> service supports the Network Time Security (NTS)
+    mechanism for NTP. These allow for authentication of the time source and protect against spoofing attacks.</para>
+
     <para>The NTP servers contacted are determined from the global settings in
     <citerefentry><refentrytitle>timesyncd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>, the
     per-link static settings in <filename>.network</filename> files, and the per-link dynamic settings
