@@ -2,6 +2,14 @@ systemd System and Service Manager
 
 CHANGES WITH 259 in spe:
 
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * The parsing of RootImageOptions= and the mount image parameters of
+          ExtensionImages= and MountImages= will be change so that the last
+          duplicated definition for a given partition wins and is applied,
+          rather than the first, to keep these options coherent with other
+          unit settings.
+
         * homectl's --recovery-key= option may now be used with the "update"
           command to add recovery keys to existing user accounts. Previously,
           recovery keys could only be configured during initial user creation.
