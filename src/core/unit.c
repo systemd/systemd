@@ -1245,12 +1245,8 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
 
         /* Unlike unit_add_dependency() or friends, this always returns 0 on success. */
 
-        if (c->working_directory) {
-                r = unit_add_mounts_for(
-                                u,
-                                c->working_directory,
-                                UNIT_DEPENDENCY_FILE,
-                                c->working_directory_missing_ok ? UNIT_MOUNT_WANTS : UNIT_MOUNT_REQUIRES);
+        if (c->working_directory && !c->working_directory_missing_ok) {
+                r = unit_add_mounts_for(u, c->working_directory, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
         }
