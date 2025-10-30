@@ -1177,6 +1177,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        r = serialize_fd(f, fds, "exec-parameters-root-directory-fd", p->root_directory_fd);
+        if (r < 0)
+                return r;
+
         r = serialize_fd(f, fds, "exec-parameters-exec-fd", p->exec_fd);
         if (r < 0)
                 return r;
@@ -1422,6 +1426,16 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 continue;
 
                         close_and_replace(p->stderr_fd, fd);
+
+                } else if ((val = startswith(l, "exec-parameters-root-directory-fd="))) {
+                        int fd;
+
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                continue;
+
+                        close_and_replace(p->root_directory_fd, fd);
+
                 } else if ((val = startswith(l, "exec-parameters-exec-fd="))) {
                         int fd;
 
@@ -1991,6 +2005,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
                 return r;
 
         r = serialize_bool_elide(f, "exec-context-stdio-as-fds", c->stdio_as_fds);
+        if (r < 0)
+                return r;
+
+        r = serialize_bool_elide(f, "exec-context-root-directory-as-fd", c->root_directory_as_fd);
         if (r < 0)
                 return r;
 
@@ -3000,6 +3018,11 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->stdio_as_fds = r;
+                } else if ((val = startswith(l, "exec-context-root-directory-as-fd="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->root_directory_as_fd = r;
                 } else if ((val = startswith(l, "exec-context-std-input-fd-name="))) {
                         r = free_and_strdup(&c->stdio_fdname[STDIN_FILENO], val);
                         if (r < 0)
