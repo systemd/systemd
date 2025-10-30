@@ -1733,7 +1733,7 @@ static int in_child_chown(void) {
         return IN_SET(arg_userns_mode, USER_NAMESPACE_PICK, USER_NAMESPACE_FIXED);
 }
 
-static int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int flags) {
+int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int flags) {
         assert(fd >= 0 || fd == AT_FDCWD);
 
         if (!in_child_chown())
@@ -1755,6 +1755,9 @@ static int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int 
                 if (gid < (gid_t) arg_uid_shift || gid >= (gid_t) (arg_uid_shift + arg_uid_range))
                         return -EOVERFLOW;
         }
+
+        if (isempty(fname))
+                flags |= AT_EMPTY_PATH;
 
         return RET_NERRNO(fchownat(fd, strempty(fname), uid, gid, flags));
 }
