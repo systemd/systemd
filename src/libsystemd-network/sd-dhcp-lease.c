@@ -1360,6 +1360,10 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file, int dir_fd) {
         if (r >= 0)
                 fprintf(f, "TIMESTAMP_REALTIME=%s\n", FORMAT_TIMESTAMP_STYLE(t, TIMESTAMP_US));
 
+        r = sd_dhcp_lease_get_timestamp(lease, CLOCK_BOOTTIME, &t);
+        if (r >= 0)
+                fprintf(f, "TIMESTAMP_BOOTTIME=%s\n", FORMAT_TIMESTAMP_STYLE(t, TIMESTAMP_US));
+
         r = sd_dhcp_lease_get_vendor_specific(lease, &data, &data_len);
         if (r >= 0) {
                 _cleanup_free_ char *option_hex = NULL;
@@ -1428,7 +1432,6 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *lifetime = NULL,
                 *t1 = NULL,
                 *t2 = NULL,
-                *boot_id = NULL,
                 *saved_realtime = NULL,
                 *saved_boottime = NULL;
         _cleanup_(private_options_freep) char **options = NULL;
@@ -1475,7 +1478,6 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "T2", &t2,
                            "TIMESTAMP_REALTIME", &saved_realtime,
                            "TIMESTAMP_BOOTTIME", &saved_boottime,
-                           "BOOTID", &boot_id,
                            "OPTION_224", &options[0],
                            "OPTION_225", &options[1],
                            "OPTION_226", &options[2],
@@ -1672,12 +1674,6 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         ts.boottime = timestamp_usec;
 
                 dhcp_lease_set_timestamp(lease, &ts);
-        }
-
-        if(boot_id) {
-                r = sd_id128_from_string(boot_id, &lease->boot_id);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse Boot ID %s, ignoring: %m", boot_id);
         }
 
         if (client_id_hex) {
