@@ -145,6 +145,7 @@ static int convert_user(
                                         SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(h)),
                                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("shell", shell),
+                                        SD_JSON_BUILD_PAIR_STRV("memberOf", STRV_MAKE("wheel", "systemd-journal")),
                                         SD_JSON_BUILD_PAIR("privileged", SD_JSON_BUILD_OBJECT(
                                                                            SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "hashedPassword", SD_JSON_BUILD_VARIANT(hp)),
                                                                            SD_JSON_BUILD_PAIR_CONDITION(!!ssh, "sshAuthorizedKeys", SD_JSON_BUILD_VARIANT(ssh))))));
