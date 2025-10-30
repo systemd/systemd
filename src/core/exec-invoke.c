@@ -4324,12 +4324,11 @@ static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret
         return 0;
 }
 
-static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int *fd) {
+static int add_shifted_fd(int **fds, size_t *n_fds, int *fd) {
         int r;
 
         assert(fds);
         assert(n_fds);
-        assert(*n_fds < fds_size);
         assert(fd);
 
         if (*fd < 0)
@@ -4346,7 +4345,10 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int *fd) {
                 close_and_replace(*fd, r);
         }
 
-        fds[(*n_fds)++] = *fd;
+        if (!GREEDY_REALLOC(*fds, *n_fds + 1))
+                return -ENOMEM;
+
+        (*fds)[(*n_fds)++] = *fd;
         return 1;
 }
 
@@ -5108,23 +5110,26 @@ int exec_invoke(
         }
 
         size_t n_keep_fds = params->n_socket_fds + params->n_stashed_fds;
-        int keep_fds[n_keep_fds + 4];
-        memcpy_safe(keep_fds, params->fds, n_keep_fds * sizeof(int));
+        _cleanup_free_ int *keep_fds = newdup(int, params->fds, n_keep_fds);
+        if (!keep_fds) {
+                *exit_status = EXIT_MEMORY;
+                return log_oom();
+        }
 
-        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->exec_fd);
+        r = add_shifted_fd(&keep_fds, &n_keep_fds, &params->exec_fd);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to collect shifted fd: %m");
         }
 
-        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->handoff_timestamp_fd);
+        r = add_shifted_fd(&keep_fds, &n_keep_fds, &params->handoff_timestamp_fd);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to collect shifted fd: %m");
         }
 
 #if HAVE_LIBBPF
-        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->bpf_restrict_fs_map_fd);
+        r = add_shifted_fd(&keep_fds, &n_keep_fds, &params->bpf_restrict_fs_map_fd);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to collect shifted fd: %m");
@@ -5913,7 +5918,7 @@ int exec_invoke(
                 return r != -ENOMEM && FLAGS_SET(command->flags, EXEC_COMMAND_IGNORE_FAILURE) ? 1 : r;
         }
 
-        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &executable_fd);
+        r = add_shifted_fd(&keep_fds, &n_keep_fds, &executable_fd);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_error_errno(r, "Failed to collect shifted fd: %m");
