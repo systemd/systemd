@@ -1147,8 +1147,7 @@ int config_parse_dhcp_client_persist_leases(
                 DHCPClientPersistLeases t, *k = ASSERT_PTR(data);
                 /* Network *network = ASSERT_PTR(userdata); */
 
-        /* Not suree if the point to manager should be assigned here */
-        /*
+        /* Not sure if this is needed or what to do is value is empty
                 if (isempty(rvalue)) {
                 *k = ASSERT_PTR(network->manager)->dhcp_client_persist_leases;
                 return 0;
@@ -1191,6 +1190,7 @@ DEFINE_CONFIG_PARSE_ENUM(config_parse_activation_policy, activation_policy, Acti
 static const char* const dhcp_client_persist_leases_table[_DHCP_CLIENT_PERSIST_LEASES_MAX] = {
         [DHCP_CLIENT_PERSIST_LEASES_NO]              = "no",
         [DHCP_CLIENT_PERSIST_LEASES_YES]             = "yes",
+        [DHCP_CLIENT_PERSIST_LEASES_EXPIRED]         = "yes-with-expired",
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dhcp_client_persist_leases, DHCPClientPersistLeases, DHCP_CLIENT_PERSIST_LEASES_YES);
