@@ -44,14 +44,29 @@ WRITE_UNUSED_LABELS = False
 
 # The Files have sections that are used as includes in other files
 FILES_USED_FOR_INCLUDES = [
+    'cgroup-sandboxing.xml',
     'common-variables.xml',
+    'importctl.xml',
     'libsystemd-pkgconfig.xml',
     'sd_journal_get_data.xml',
+    'sd_bus_add_match.xml',
+    'sd_bus_message_append_basic.xml',
+    'sd_bus_message_read_basic.xml',
     'standard-conf.xml',
     'standard-options.xml',
+    'supported-controllers.xml',
+    'system-only.xml',
+    'system-or-user-ns.xml',
+    'systemctl.xml',
+    'systemd.service.xml',
+    'systemd.link.xml',
+    'systemd.mount.xml',
+    'systemd.netdev.xml',
+    'tc.xml',
     'threads-aware.xml',
+    'timedatectl.xml',
     'user-system-options.xml',
-    'vpick.xml'
+    'vpick.xml',
 ]
 
 # to avoid dupliate error reports
