@@ -117,6 +117,7 @@ static char *arg_shell_prompt_prefix = NULL;
 static int arg_lightweight = -1;
 static char *arg_area = NULL;
 static bool arg_via_shell = false;
+static bool arg_empower = true;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -244,6 +245,7 @@ static int help_sudo_mode(void) {
                "     --lightweight=BOOLEAN        Control whether to register a session with service manager\n"
                "                                  or without\n"
                "     --area=AREA                  Home area to log into\n"
+               "     --empower                    Give privileges to selected or current user\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -257,7 +259,7 @@ static bool privileged_execution(void) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return false;
 
-        return !arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0");
+        return !arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0") || arg_empower;
 }
 
 static int add_timer_property(const char *name, const char *val) {
@@ -859,6 +861,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_LIGHTWEIGHT,
                 ARG_AREA,
                 ARG_VIA_SHELL,
+                ARG_EMPOWER,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -888,6 +891,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
                 { "lightweight",         required_argument, NULL, ARG_LIGHTWEIGHT         },
                 { "area",                required_argument, NULL, ARG_AREA                },
+                { "empower",             no_argument,       NULL, ARG_EMPOWER             },
                 {},
         };
 
@@ -1027,6 +1031,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         arg_via_shell = true;
                         break;
 
+                case ARG_EMPOWER:
+                        arg_empower = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1034,9 +1042,13 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (!arg_exec_user && arg_area) {
+        if (!arg_exec_user && (arg_area || arg_empower)) {
                 /* If the user specifies --area= but not --user= then consider this an area switch request,
-                 * and default to logging into our own account */
+                 * and default to logging into our own account.
+                 *
+                 * If the user specifies --empower but not --user= then consider this a request to empower
+                 * the current user. */
+
                 arg_exec_user = getusername_malloc();
                 if (!arg_exec_user)
                         return log_oom();
@@ -1159,6 +1171,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         /* The service manager ignores SIGPIPE for all spawned processes by default. Let's explicitly override
          * that here, since we're primarily invoked in interactive environments where this does matter. */
         if (strv_extend(&arg_property, "IgnoreSIGPIPE=no") < 0)
+                return log_oom();
+
+        if (arg_empower && strv_extend(&arg_property, "AmbientCapabilities=~") < 0)
                 return log_oom();
 
         if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
