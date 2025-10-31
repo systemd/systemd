@@ -921,6 +921,18 @@ int strv_extendf_with_size(char ***l, size_t *n, const char *format, ...) {
         return strv_consume_with_size(l, n, x);
 }
 
+int strv_extend_joined_with_size_sentinel(char ***l, size_t *n, ...) {
+        va_list ap;
+
+        va_start(ap, n);
+        char *x = strextendv_with_separator(/* x= */ NULL, /* separator=*/ NULL, ap);
+        va_end(ap);
+        if (!x)
+                return -ENOMEM;
+
+        return strv_consume_with_size(l, n, x);
+}
+
 char* startswith_strv(const char *s, char * const *l) {
         STRV_FOREACH(i, l) {
                 char *found = startswith(s, *i);
