@@ -1999,9 +1999,8 @@ static int build_environment(
                 bool needs_sandboxing,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **our_env = NULL;
-        size_t n_env = 0;
-        char *x;
+        _cleanup_strv_free_ char **e = NULL;
+        size_t n = 0;
         int r;
 
         assert(c);
@@ -2009,57 +2008,50 @@ static int build_environment(
         assert(cgroup_context);
         assert(ret);
 
-#define N_ENV_VARS 20
-        our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX + 1);
-        if (!our_env)
-                return -ENOMEM;
-
         if (p->n_socket_fds + p->n_stashed_fds > 0) {
                 _cleanup_free_ char *joined = NULL;
 
-                if (asprintf(&x, "LISTEN_PID="PID_FMT, getpid_cached()) < 0)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extendf_with_size(&e, &n, "LISTEN_PID="PID_FMT, getpid_cached());
+                if (r < 0)
+                        return r;
 
                 uint64_t pidfdid;
                 if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
-                        if (asprintf(&x, "LISTEN_PIDFDID=%"PRIu64, pidfdid) < 0)
-                                return -ENOMEM;
-                        our_env[n_env++] = x;
+                        r = strv_extendf_with_size(&e, &n, "LISTEN_PIDFDID=%"PRIu64, pidfdid);
+                        if (r < 0)
+                                return r;
                 }
 
-                if (asprintf(&x, "LISTEN_FDS=%zu", p->n_socket_fds + p->n_stashed_fds) < 0)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extendf_with_size(&e, &n, "LISTEN_FDS=%zu", p->n_socket_fds + p->n_stashed_fds);
+                if (r < 0)
+                        return r;
 
                 joined = strv_join(p->fd_names, ":");
                 if (!joined)
                         return -ENOMEM;
 
-                x = strjoin("LISTEN_FDNAMES=", joined);
-                if (!x)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "LISTEN_FDNAMES=", joined);
+                if (r < 0)
+                        return r;
         }
 
         if ((p->flags & EXEC_SET_WATCHDOG) && p->watchdog_usec > 0) {
-                if (asprintf(&x, "WATCHDOG_PID="PID_FMT, getpid_cached()) < 0)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extendf_with_size(&e, &n, "WATCHDOG_PID="PID_FMT, getpid_cached());
+                if (r < 0)
+                        return r;
 
-                if (asprintf(&x, "WATCHDOG_USEC="USEC_FMT, p->watchdog_usec) < 0)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extendf_with_size(&e, &n, "WATCHDOG_USEC="USEC_FMT, p->watchdog_usec);
+                if (r < 0)
+                        return r;
         }
 
         /* If this is D-Bus, tell the nss-systemd module, since it relies on being able to use blocking
          * Varlink calls back to us for look up dynamic users in PID 1. Break the deadlock between D-Bus and
          * PID 1 by disabling use of PID1' NSS interface for looking up dynamic users. */
         if (p->flags & EXEC_NSS_DYNAMIC_BYPASS) {
-                x = strdup("SYSTEMD_NSS_DYNAMIC_BYPASS=1");
-                if (!x)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extend_with_size(&e, &n, "SYSTEMD_NSS_DYNAMIC_BYPASS=1");
+                if (r < 0)
+                        return r;
         }
 
         /* We query "root" if this is a system unit and User= is not specified. $USER is always set. $HOME
@@ -2077,16 +2069,14 @@ static int build_environment(
         bool set_user_login_env = exec_context_get_set_login_environment(c);
 
         if (username) {
-                x = strjoin("USER=", username);
-                if (!x)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "USER=", username);
+                if (r < 0)
+                        return r;
 
                 if (set_user_login_env) {
-                        x = strjoin("LOGNAME=", username);
-                        if (!x)
-                                return -ENOMEM;
-                        our_env[n_env++] = x;
+                        r = strv_extend_joined_with_size(&e, &n, "LOGNAME=", username);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -2094,51 +2084,51 @@ static int build_environment(
          * (i.e. are "/" or "/bin/nologin"). */
 
         if (home && set_user_login_env && !empty_or_root(home)) {
-                x = strjoin("HOME=", home);
-                if (!x)
-                        return -ENOMEM;
+                _cleanup_free_ char *x = NULL;
 
-                path_simplify(x + 5);
-                our_env[n_env++] = x;
+                r = path_simplify_alloc(home, &x);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_joined_with_size(&e, &n, "HOME=", x);
+                if (r < 0)
+                        return r;
         }
 
         if (shell && set_user_login_env && !shell_is_placeholder(shell)) {
-                x = strjoin("SHELL=", shell);
-                if (!x)
-                        return -ENOMEM;
+                _cleanup_free_ char *x = NULL;
 
-                path_simplify(x + 6);
-                our_env[n_env++] = x;
+                r = path_simplify_alloc(shell, &x);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_joined_with_size(&e, &n, "SHELL=", x);
+                if (r < 0)
+                        return r;
         }
 
         if (!sd_id128_is_null(p->invocation_id)) {
                 assert(p->invocation_id_string);
 
-                x = strjoin("INVOCATION_ID=", p->invocation_id_string);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "INVOCATION_ID=", p->invocation_id_string);
+                if (r < 0)
+                        return r;
         }
 
         if (journal_stream_dev != 0 && journal_stream_ino != 0) {
-                if (asprintf(&x, "JOURNAL_STREAM=" DEV_FMT ":" INO_FMT, journal_stream_dev, journal_stream_ino) < 0)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extendf_with_size(&e, &n, "JOURNAL_STREAM=" DEV_FMT ":" INO_FMT, journal_stream_dev, journal_stream_ino);
+                if (r < 0)
+                        return r;
         }
 
         if (c->log_namespace) {
-                x = strjoin("LOG_NAMESPACE=", c->log_namespace);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "LOG_NAMESPACE=", c->log_namespace);
+                if (r < 0)
+                        return r;
         }
 
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
                 _cleanup_free_ char *joined = NULL;
-                const char *n;
 
                 if (!p->prefix[t])
                         continue;
@@ -2146,8 +2136,8 @@ static int build_environment(
                 if (c->directories[t].n_items == 0)
                         continue;
 
-                n = exec_directory_env_name_to_string(t);
-                if (!n)
+                const char *name = exec_directory_env_name_to_string(t);
+                if (!name)
                         continue;
 
                 for (size_t i = 0; i < c->directories[t].n_items; i++) {
@@ -2161,11 +2151,9 @@ static int build_environment(
                                 return -ENOMEM;
                 }
 
-                x = strjoin(n, "=", joined);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, name, "=", joined);
+                if (r < 0)
+                        return r;
         }
 
         _cleanup_free_ char *creds_dir = NULL;
@@ -2173,27 +2161,22 @@ static int build_environment(
         if (r < 0)
                 return r;
         if (r > 0) {
-                x = strjoin("CREDENTIALS_DIRECTORY=", creds_dir);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "CREDENTIALS_DIRECTORY=", creds_dir);
+                if (r < 0)
+                        return r;
         }
 
-        if (asprintf(&x, "SYSTEMD_EXEC_PID=" PID_FMT, getpid_cached()) < 0)
-                return -ENOMEM;
-
-        our_env[n_env++] = x;
+        r = strv_extendf_with_size(&e, &n, "SYSTEMD_EXEC_PID=" PID_FMT, getpid_cached());
+        if (r < 0)
+                return r;
 
         if (memory_pressure_path) {
-                x = strjoin("MEMORY_PRESSURE_WATCH=", memory_pressure_path);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "MEMORY_PRESSURE_WATCH=", memory_pressure_path);
+                if (r < 0)
+                        return r;
 
                 if (!path_equal(memory_pressure_path, "/dev/null")) {
-                        _cleanup_free_ char *b = NULL, *e = NULL;
+                        _cleanup_free_ char *b = NULL, *x = NULL;
 
                         if (asprintf(&b, "%s " USEC_FMT " " USEC_FMT,
                                      MEMORY_PRESSURE_DEFAULT_TYPE,
@@ -2202,23 +2185,21 @@ static int build_environment(
                                      MEMORY_PRESSURE_DEFAULT_WINDOW_USEC) < 0)
                                 return -ENOMEM;
 
-                        if (base64mem(b, strlen(b) + 1, &e) < 0)
+                        if (base64mem(b, strlen(b) + 1, &x) < 0)
                                 return -ENOMEM;
 
-                        x = strjoin("MEMORY_PRESSURE_WRITE=", e);
-                        if (!x)
-                                return -ENOMEM;
-
-                        our_env[n_env++] = x;
+                        r = strv_extend_joined_with_size(&e, &n, "MEMORY_PRESSURE_WRITE=", x);
+                        if (r < 0)
+                                return r;
                 }
         }
 
         if (p->notify_socket) {
-                x = strjoin("NOTIFY_SOCKET=", exec_get_private_notify_socket_path(c, p, needs_sandboxing) ?: p->notify_socket);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(
+                                &e, &n, "NOTIFY_SOCKET=",
+                                exec_get_private_notify_socket_path(c, p, needs_sandboxing) ?: p->notify_socket);
+                if (r < 0)
+                        return r;
         }
 
         assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
@@ -2229,18 +2210,12 @@ static int build_environment(
                 /* When private tmpfs is enabled only on /tmp/, then explicitly set $TMPDIR to suggest the
                  * service to use /tmp/. */
 
-                x = strdup("TMPDIR=/tmp");
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_with_size(&e, &n, "TMPDIR=/tmp");
+                if (r < 0)
+                        return r;
         }
 
-        assert(n_env <= N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
-#undef N_ENV_VARS
-
-        *ret = TAKE_PTR(our_env);
-
+        *ret = TAKE_PTR(e);
         return 0;
 }
 
