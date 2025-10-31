@@ -4809,7 +4809,7 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
 }
 
 static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline) {
-#if HAVE_LIBCRYPTSETUP && HAVE_CRYPT_SET_DATA_OFFSET && HAVE_CRYPT_REENCRYPT_INIT_BY_PASSPHRASE && (HAVE_CRYPT_REENCRYPT_RUN || HAVE_CRYPT_REENCRYPT)
+#if HAVE_LIBCRYPTSETUP
         const char *node = partition_target_path(target);
         struct crypt_params_luks2 luks_params = {
                 .label = strempty(ASSERT_PTR(p)->new_label),
