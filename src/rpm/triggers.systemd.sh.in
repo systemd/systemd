@@ -19,6 +19,12 @@ exec {{SYSTEMD_UPDATE_HELPER_PATH}} --system daemon-reload-enqueue-marked
 %transfiletriggerin -P 900899 -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
 exec {{SYSTEMD_UPDATE_HELPER_PATH}} --global daemon-reload-enqueue-marked
 
+%filetriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
+{{SYSTEMD_UPDATE_HELPER_PATH}} --removed --stdin --system remove-units
+
+%filetriggerpostun -P 1000099 -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
+{{SYSTEMD_UPDATE_HELPER_PATH}} --removed --stdin --global remove-units
+
 %transfiletriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
 # On removal, we need to run daemon-reload after any units have been
 # removed.
