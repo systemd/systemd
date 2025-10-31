@@ -4444,13 +4444,13 @@ static int collect_open_file_fds(ExecParameters *p) {
                         return log_error_errno(fd, "Failed to get OpenFile= file descriptor for '%s': %m", of->path);
                 }
 
-                if (!GREEDY_REALLOC(p->fds, p->n_stashed_fds + 1))
+                if (!GREEDY_REALLOC(p->fds, p->n_socket_fds + p->n_stashed_fds + 1))
                         return log_oom();
 
                 if (strv_extend(&p->fd_names, of->fdname) < 0)
                         return log_oom();
 
-                p->fds[p->n_stashed_fds++] = TAKE_FD(fd);
+                p->fds[p->n_socket_fds + p->n_stashed_fds++] = TAKE_FD(fd);
         }
 
         return 0;
