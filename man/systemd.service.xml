@@ -1485,7 +1485,8 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     <literal>too</literal>.
     </para>
 
-    <para>To pass a literal dollar sign, use <literal>$$</literal>.
+    <para>Unless for commands with the special executable prefix <literal>:</literal>,
+    to pass a literal dollar sign, use <literal>$$</literal>.
     Variables whose value is not known at expansion time are treated
     as empty strings. Note that the first argument (i.e. the program
     to execute) may not be a variable.</para>
