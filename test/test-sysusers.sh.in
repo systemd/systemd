@@ -13,6 +13,12 @@ TESTDIR=$(mktemp --tmpdir --directory "test-sysusers.XXXXXXXXXX")
 # shellcheck disable=SC2064
 trap "rm -rf '$TESTDIR'" EXIT INT QUIT PIPE
 
+skip_nis() {
+    # musl seems to not support NIS entries. Let's skip the test case for NIS entries.
+    local path=${1:?}
+    [[ "${SYSTEMD_LIBC:-}" == musl && "${path##*/}" == "test-11.input" ]]
+}
+
 prepare_testdir() {
     mkdir -p "$TESTDIR/etc/sysusers.d/"
     mkdir -p "$TESTDIR/usr/lib/sysusers.d/"
@@ -50,6 +56,7 @@ rm -f "$TESTDIR"/etc/sysusers.d/* "$TESTDIR"/usr/lib/sysusers.d/*
 
 # happy tests
 for f in $(find "$SOURCE"/test-*.input | sort -V); do
+    skip_nis "$f" && continue
     echo "*** Running $f"
     prepare_testdir "${f%.input}"
     cp "$f" "$TESTDIR/usr/lib/sysusers.d/test.conf"
@@ -59,6 +66,7 @@ for f in $(find "$SOURCE"/test-*.input | sort -V); do
 done
 
 for f in $(find "$SOURCE"/test-*.input | sort -V); do
+    skip_nis "$f" && continue
     echo "*** Running $f on stdin"
     prepare_testdir "${f%.input}"
     touch "$TESTDIR/etc/sysusers.d/test.conf"
@@ -68,6 +76,7 @@ for f in $(find "$SOURCE"/test-*.input | sort -V); do
 done
 
 for f in $(find "$SOURCE"/test-*.input | sort -V); do
+    skip_nis "$f" && continue
     echo "*** Running $f on stdin with --replace"
     prepare_testdir "${f%.input}"
     touch "$TESTDIR/etc/sysusers.d/test.conf"
@@ -133,6 +142,7 @@ SYS_GID_MAX999
 EOF
 
 for f in $(find "$SOURCE"/test-*.input | sort -V); do
+    skip_nis "$f" && continue
     echo "*** Running $f (with login.defs)"
     prepare_testdir "${f%.input}"
     cp "$f" "$TESTDIR/usr/lib/sysusers.d/test.conf"
@@ -149,6 +159,7 @@ mv "$TESTDIR/etc/login.defs" "$TESTDIR/etc/login.defs.moved"
 ln -s ../../../../../etc/login.defs.moved "$TESTDIR/etc/login.defs"
 
 for f in $(find "$SOURCE"/test-*.input | sort -V); do
+    skip_nis "$f" && continue
     echo "*** Running $f (with login.defs symlinked)"
     prepare_testdir "${f%.input}"
     cp "$f" "$TESTDIR/usr/lib/sysusers.d/test.conf"
@@ -161,13 +172,22 @@ done
 
 rm -f "$TESTDIR"/etc/sysusers.d/* "$TESTDIR"/usr/lib/sysusers.d/*
 
+preprocess_error() {
+    # Convert error message for ERANGE from glibc to musl.
+    if [[ "${SYSTEMD_LIBC:-}" == musl ]]; then
+        sed -e 's/Numerical result out of range/Result not representable/' "${1:?}"
+    else
+        cat "${1:?}"
+    fi
+}
+
 # tests for error conditions
 for f in $(find "$SOURCE"/unhappy-*.input | sort -V); do
     echo "*** Running test $f"
     prepare_testdir "${f%.input}"
     cp "$f" "$TESTDIR/usr/lib/sysusers.d/test.conf"
     SYSTEMD_LOG_LEVEL=info "$SYSUSERS" --root="$TESTDIR" 2>&1 | tail -n1 | sed -r 's/^[^:]+:[^:]+://' >"$TESTDIR/err"
-    if ! diff -u "$TESTDIR/err"  "${f%.*}.expected-err" >&2; then
+    if ! diff -u "$TESTDIR/err"  <(preprocess_error "${f%.*}.expected-err") >&2; then
         echo >&2 "**** Unexpected error output for $f"
         cat >&2 "$TESTDIR/err"
         exit 1
