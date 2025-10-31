@@ -1601,7 +1601,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <listitem><para>Binds the home directory of the specified user on the host into the container. Takes
         the name of an existing user on the host as argument. May be used multiple times to bind multiple
-        users into the container. This does three things:</para>
+        users into the container. This does two things:</para>
 
         <orderedlist>
           <listitem><para>The user's home directory is bind mounted from the host into
@@ -1616,7 +1616,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
           user/group databases.</para></listitem>
         </orderedlist>
 
-        <para>The combination of the three operations above ensures that it is possible to log into the
+        <para>The combination of the two operations above ensures that it is possible to log into the
         container using the same account information as on the host. The user is only mapped transiently,
         while the container is running, and the mapping itself does not result in persistent changes to the
         container (except maybe for log messages generated at login time, and similar). Note that in
@@ -1665,6 +1665,19 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--bind-user-group=<replaceable>NAME</replaceable></option></term>
+
+        <listitem><para>When used with <option>--bind-user=</option>, includes the specified group as an
+        auxiliary group in the user records of users bound into the container. Takes a group name.</para>
+
+        <para>Note: This will not check whether the specified groups exist in the container.</para>
+
+        <para>This operation is only supported in combination with <option>--bind-user=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>
