@@ -32,6 +32,8 @@
 #include "strv.h"
 #include "uki.h"
 
+static int pe_find_uki_sections(int fd, const char *path, unsigned profile, char **ret_osrelease, char **ret_profile, char **ret_cmdline);
+
 static const char* const boot_entry_type_description_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_TYPE1]  = "Boot Loader Specification Type #1 (.conf)",
         [BOOT_ENTRY_TYPE2]  = "Boot Loader Specification Type #2 (UKI, .efi)",
@@ -244,6 +246,115 @@ static int parse_tries(const char *fname, const char **p, unsigned *ret) {
         return 1;
 }
 
+static int parse_profile_from_options(const char *options, unsigned *ret_profile, const char **ret_tail) {
+        unsigned u = 0;
+
+        assert(options);
+
+        if (options[0] != '@')
+                return 0;
+
+        size_t nr_of_digits = strspn(options + 1, DIGITS);
+        if (nr_of_digits == 0)
+                return 0;
+
+        size_t prefixlen = nr_of_digits + 1;
+        if (options[prefixlen] == '\0') {
+                if (safe_atou_full(options + 1, 10, &u) < 0)
+                        return 0;
+        } else if (options[prefixlen] == ' ') {
+                prefixlen++;
+
+                _cleanup_free_ char *profile = strndup(options + 1, nr_of_digits);
+                if (!profile)
+                        return log_oom();
+
+                if (safe_atou_full(profile, 10, &u) < 0)
+                        return 0;
+        } else
+                return 0;
+
+        if (ret_profile)
+                *ret_profile = u;
+        if (ret_tail)
+                *ret_tail = options + prefixlen;
+
+        return 1;
+}
+
+static int set_profile_from_options(char ***options, unsigned *profile) {
+        int r;
+
+        assert(options);
+        assert(profile);
+
+        if (!*options)
+                return 0;
+
+        assert(**options);
+
+        unsigned u = *profile;
+        const char *tail = NULL;
+        r = parse_profile_from_options(**options, &u, &tail);
+        if (r <= 0)
+                return r;
+
+        /* If options consisted only of the profile selector ('@X'), free it */
+        if (strv_length(*options) == 1 && *tail == 0)
+                *options = strv_free(*options);
+
+        else if (free_and_strdup(*options, tail) < 0)
+                return log_oom();
+
+        *profile = u;
+        return 1;
+}
+
+static int boot_uki_update_cmdline(BootEntry *entry, const char *root) {
+        _cleanup_close_ int uki_fd = -EBADF;
+        _cleanup_free_ char *uki_path = NULL, *uki_cmdline = NULL, *uki_osrelease = NULL, *uki_profile = NULL;
+        int r;
+
+        assert(entry);
+        assert(entry->uki);
+        assert(root);
+
+        /* If a profile has not been configured but tmp.options exists and contains a profile
+         * selector('@X'), use it to select the profile to use and remove it from tmp.options. */
+        if (IN_SET(entry->profile, 0, UINT_MAX)) {
+                r = set_profile_from_options(&entry->options, &entry->profile);
+                if (r < 0)
+                        return r;
+        }
+
+        /* If secure boot is disabled and options have been specified, the cmdline possibly embedded in the
+         * UKI is ignored anyway. */
+        if (!is_efi_secure_boot() && entry->options)
+                return 0;
+
+        /* Extract the cmdline from the UKI (if one exists) */
+        uki_fd = chase_and_open(entry->uki, root,
+                                CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MUST_BE_REGULAR,
+                                O_CLOEXEC, &uki_path);
+        if (uki_fd < 0)
+                return 0;
+
+        r = pe_find_uki_sections(uki_fd, uki_path, entry->profile == UINT_MAX ? 0 : entry->profile,
+                                 &uki_osrelease, &uki_profile, &uki_cmdline);
+        if (r <= 0)
+                return r;
+
+        /* Ignore the cmdline from options if one is specified in the UKI. */
+        if (uki_cmdline) {
+                strv_free(entry->options);
+                entry->options = strv_new(uki_cmdline);
+                if (!entry->options)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 int boot_filename_extract_tries(
                 const char *fname,
                 char **ret_stripped,
@@ -410,7 +521,8 @@ static int boot_entry_load_type1(
                 else if (streq(field, "uki-url"))
                         r = free_and_strdup(&tmp.uki_url, p);
                 else if (streq(field, "profile"))
-                        r = safe_atou_full(p, 10, &tmp.profile);
+                        r = safe_atou_full(p, 10|SAFE_ATO_REFUSE_PLUS_MINUS|SAFE_ATO_REFUSE_LEADING_WHITESPACE,
+                                           &tmp.profile);
                 else if (streq(field, "initrd"))
                         r = parse_path_strv(tmp.path, line, field, &tmp.initrd, p);
                 else if (streq(field, "devicetree"))
@@ -423,6 +535,14 @@ static int boot_entry_load_type1(
                 }
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, tmp.path, line, r, "Error while parsing: %m");
+        }
+
+        /* If a UKI has been configured, set tmp.options to the cmdline that would actually be used when
+         * selecting the boot entry. */
+        if (tmp.uki) {
+                r = boot_uki_update_cmdline(&tmp, root);
+                if (r < 0)
+                        return r;
         }
 
         *ret = TAKE_STRUCT(tmp);
