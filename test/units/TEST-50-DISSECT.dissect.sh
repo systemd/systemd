@@ -480,6 +480,36 @@ ln -s /tmp/app1.raw "$VDIR/${VBASE}_1.raw"
 
 systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" bash -o pipefail -c '/opt/script1.sh | grep ID'
 
+# Check image preloading on restart if we have mountfsd available
+if systemctl --quiet start systemd-mountfsd.socket; then
+    cat >/run/systemd/system/testservice-50e-vpick.service <<EOF
+[Service]
+Type=notify
+NotifyAccess=all
+MountAPIVFS=yes
+TemporaryFileSystem=/run /var/lib
+StateDirectory=app-vpick
+RootImage=$MINIMAL_IMAGE.raw
+ExtensionImages=$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR
+# Relevant only for sanitizer runs
+UnsetEnvironment=LD_PRELOAD
+ExecStartPre=bash -c '/opt/script1.sh | grep ID'
+ExecStart=sh -c 'echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; sleep infinity'
+EOF
+    systemctl start testservice-50e-vpick.service
+    systemctl is-active testservice-50e-vpick.service
+    journalctl --sync
+    since="$(date '+%H:%M:%S')"
+    systemctl restart testservice-50e-vpick.service
+    systemctl is-active testservice-50e-vpick.service
+    journalctl --sync
+    if systemd-analyze compare-versions "$(uname -r)" ge 6.15~; then
+        timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 2 -q -F 'Successfully used preloaded root image'
+        timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 2 -q -F 'Successfully used preloaded image'
+    fi
+    systemctl stop testservice-50e-vpick.service
+fi
+
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
 # ExtensionDirectories will set up an overlay
@@ -755,6 +785,59 @@ rm -f /run/systemd/system/testservice-50k.service
 
 systemctl daemon-reload
 rm -rf "$VDIR" "$VDIR2" /tmp/vpickminimg /tmp/markers/
+
+# Check image preloading on restart if we have mountfsd available
+if systemctl --quiet start systemd-mountfsd.socket; then
+    cat >/run/systemd/system/testservice-50l.service <<EOF
+[Service]
+Type=notify
+NotifyAccess=all
+ExecStartPre=test -e "/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity"
+ExecStart=sh -c 'echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; sleep infinity'
+TemporaryFileSystem=/run
+RootImage=$MINIMAL_IMAGE.gpt
+EOF
+    systemctl start testservice-50l.service
+    systemctl is-active testservice-50l.service
+    journalctl --sync
+    since="$(date '+%H:%M:%S')"
+    systemctl restart testservice-50l.service
+    systemctl is-active testservice-50l.service
+    journalctl --sync
+    if systemd-analyze compare-versions "$(uname -r)" ge 6.15~; then
+        timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 2 -q -F 'Successfully used preloaded root image'
+    fi
+    systemctl stop testservice-50l.service
+
+    cat >/run/systemd/system/testservice-50m.service <<EOF
+[Service]
+Type=notify
+NotifyAccess=all
+TemporaryFileSystem=/run /var/lib
+StateDirectory=app0
+RootImage=$MINIMAL_IMAGE.raw
+ExtensionImages=/tmp/app0.raw /tmp/app1.raw
+MountImages=/tmp/app1.raw:/var/lib/app1
+# Relevant only for sanitizer runs
+UnsetEnvironment=LD_PRELOAD
+ExecStartPre=bash -o pipefail -c '/opt/script0.sh | grep ID'
+ExecStartPre=bash -o pipefail -c '/opt/script1.sh | grep ID'
+ExecStartPre=test -e "/dev/mapper/$(</tmp/app0.roothash)-verity"
+ExecStart=sh -c 'echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; sleep infinity'
+EOF
+    systemctl start testservice-50m.service
+    systemctl is-active testservice-50m.service
+    journalctl --sync
+    since="$(date '+%H:%M:%S')"
+    systemctl restart testservice-50m.service
+    systemctl is-active testservice-50m.service
+    journalctl --sync
+    if systemd-analyze compare-versions "$(uname -r)" ge 6.15~; then
+        timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 4 -q -F 'Successfully used preloaded root image'
+        timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 12 -q -F 'Successfully used preloaded image'
+    fi
+    systemctl stop testservice-50m.service
+fi
 
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/

@@ -2664,7 +2664,7 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
                         job_finish_and_invalidate(j, JOB_DONE, true, false);
-                else if (j->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
+                else if (j->state == JOB_RUNNING && !IN_SET(ns, UNIT_DEACTIVATING, UNIT_REFRESHING)) {
                         unexpected = true;
                         job_finish_and_invalidate(j, JOB_FAILED, true, false);
                 }
