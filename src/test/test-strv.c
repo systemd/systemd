@@ -762,6 +762,30 @@ TEST(strv_extendf_with_size) {
         ASSERT_STREQ(a[1], "test3 bar foo 128");
 }
 
+TEST(strv_extend_joined) {
+        _cleanup_strv_free_ char **a = NULL;
+
+        ASSERT_OK(strv_extend_joined(&a, "hoge") >= 0);
+        ASSERT_OK(strv_extend_joined(&a, "aaa", "bbb", "ccc") >= 0);
+
+        ASSERT_EQ(strv_length(a), 2u);
+        ASSERT_STREQ(a[0], "hoge");
+        ASSERT_STREQ(a[1], "aaabbbccc");
+}
+
+TEST(strv_extend_joined_with_size) {
+        _cleanup_strv_free_ char **a = NULL;
+        size_t n = 0;
+
+        ASSERT_OK(strv_extend_joined_with_size(&a, &n, "hoge") >= 0);
+        ASSERT_OK(strv_extend_joined_with_size(&a, &n, "aaa", "bbb", "ccc") >= 0);
+
+        ASSERT_EQ(n, 2u);
+        ASSERT_EQ(strv_length(a), n);
+        ASSERT_STREQ(a[0], "hoge");
+        ASSERT_STREQ(a[1], "aaabbbccc");
+}
+
 TEST(strv_foreach) {
         _cleanup_strv_free_ char **a;
         unsigned i = 0;
