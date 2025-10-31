@@ -2419,6 +2419,7 @@ static const BusProperty execute_properties[] = {
         { "ProtectProc",                           bus_append_string                             },
         { "ProcSubset",                            bus_append_string                             },
         { "NetworkNamespacePath",                  bus_append_string                             },
+        { "UserNamespacePath",                     bus_append_string                             },
         { "IPCNamespacePath",                      bus_append_string                             },
         { "LogNamespace",                          bus_append_string                             },
         { "RootImagePolicy",                       bus_append_string                             },
