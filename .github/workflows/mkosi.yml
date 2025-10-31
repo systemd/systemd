@@ -169,6 +169,9 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: systemd/mkosi@d45142e329550abc9c6fc63c1f1f86e5286d3d67
 
+      - name: Arch CI Debug
+        run: curl -LI https://archlinux.org/packages/core/any/archlinux-keyring/download
+
       # Freeing up disk space with rm -rf can take multiple minutes. Since we don't need the extra free space
       # immediately, we remove the files in the background. However, we first move them to a different location
       # so that nothing tries to use anything in these directories anymore while we're busy deleting them.
