@@ -497,7 +497,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 tar_pull_report_progress(i, TAR_FINALIZING);
 
-                r = import_mangle_os_tree(i->local);
+                r = import_mangle_os_tree_fd(i->tree_fd, i->userns_fd, i->flags);
                 if (r < 0)
                         goto finish;
 
@@ -523,7 +523,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                         tar_pull_report_progress(i, TAR_FINALIZING);
 
-                        r = import_mangle_os_tree(i->temp_path);
+                        r = import_mangle_os_tree_fd(i->tree_fd, i->userns_fd, i->flags);
                         if (r < 0)
                                 goto finish;
 
