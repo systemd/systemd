@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mount.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -106,6 +107,7 @@ static bool arg_quiet = false;
 static bool arg_verbose = false;
 static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
+static char *arg_root_directory = NULL;
 static bool arg_shell = false;
 static JobMode arg_job_mode = JOB_FAIL;
 static char **arg_cmdline = NULL;
@@ -168,6 +170,8 @@ static int help(void) {
                "     --nice=NICE                  Nice level\n"
                "     --working-directory=PATH     Set working directory\n"
                "  -d --same-dir                   Inherit working directory from caller\n"
+               "     --root-directory=PATH        Set root directory\n"
+               "  -R --same-root-dir              Inherit root directory from caller\n"
                "  -E --setenv=NAME[=VALUE]        Set environment variable\n"
                "  -t --pty                        Run service on pseudo TTY as STDIN/STDOUT/\n"
                "                                  STDERR\n"
@@ -326,6 +330,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
+                ARG_ROOT_DIRECTORY,
                 ARG_SHELL,
                 ARG_JOB_MODE,
                 ARG_IGNORE_FAILURE,
@@ -379,6 +384,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "collect",            no_argument,       NULL, 'G'                    },
                 { "working-directory",  required_argument, NULL, ARG_WORKING_DIRECTORY  },
                 { "same-dir",           no_argument,       NULL, 'd'                    },
+                { "root-directory",     required_argument, NULL, ARG_ROOT_DIRECTORY     },
+                { "same-root-dir",      no_argument,       NULL, 'R'                    },
                 { "shell",              no_argument,       NULL, 'S'                    },
                 { "job-mode",           required_argument, NULL, ARG_JOB_MODE           },
                 { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
@@ -388,7 +395,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {},
         };
 
-        bool with_trigger = false;
+        bool with_trigger = false, same_dir = false;
         int r, c;
 
         assert(argc >= 0);
@@ -653,6 +660,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        same_dir = false;
                         break;
 
                 case 'd': {
@@ -666,8 +674,24 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_working_directory = mfree(arg_working_directory);
                         else
                                 free_and_replace(arg_working_directory, p);
+
+                        same_dir = true;
                         break;
                 }
+
+                case ARG_ROOT_DIRECTORY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root_directory);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case 'R':
+                        r = free_and_strdup_warn(&arg_root_directory, "/");
+                        if (r < 0)
+                                return r;
+
+                        break;
 
                 case 'G':
                         arg_aggressive_gc = true;
@@ -841,6 +865,10 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--wait may not be combined with --scope.");
         }
+
+        if (same_dir && arg_root_directory && !path_equal(arg_root_directory, "/"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--same-dir cannot be used with a root directory other than '/'");
 
         return 1;
 }
@@ -1402,6 +1430,16 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
 
         if (arg_working_directory) {
                 r = sd_bus_message_append(m, "(sv)", "WorkingDirectory", "s", arg_working_directory);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (arg_root_directory) {
+                _cleanup_close_ int fd = open_tree(AT_FDCWD, arg_root_directory, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to clone mount tree at '%s': %m", arg_root_directory);
+
+                r = sd_bus_message_append(m, "(sv)", "RootDirectoryFileDescriptor", "h", fd);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
