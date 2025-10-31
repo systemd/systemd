@@ -1359,7 +1359,7 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
 
         /* We assume /run/systemd/journal/ is available if not changing root, which isn't entirely accurate
          * but shouldn't matter, as either way the user would get ENOENT when accessing /dev/log */
-        if ((!p->root_image && !p->root_directory) || p->bind_log_sockets) {
+        if ((!p->root_image && !p->root_directory && p->root_directory_fd < 0) || p->bind_log_sockets) {
                 const char *devlog = strjoina(temporary_mount, "/dev/log");
                 if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
                         log_debug_errno(errno,
@@ -2948,7 +2948,18 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
                 return log_debug_errno(errno, "Failed to remount '/' as SLAVE: %m");
 
-        if (p->root_image) {
+        if (p->root_directory_fd >= 0) {
+
+                if (move_mount(p->root_directory_fd, "", AT_FDCWD, root, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to move detached mount to '%s': %m", root);
+
+                /* We just remounted / as slave, but that didn't affect the detached mount that we just
+                 * mounted, so remount that one as slave recursive as well now. */
+
+                if (mount(NULL, root, NULL, MS_SLAVE|MS_REC, NULL) < 0)
+                        return log_debug_errno(errno, "Failed to remount '%s' as SLAVE: %m", root);
+
+        } else if (p->root_image) {
                 /* A root image is specified, mount it to the right place */
                 r = dissected_image_mount(
                                 dissected_image,
@@ -2992,7 +3003,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         }
 
         /* Try to set up the new root directory before mounting anything else there. */
-        if (p->root_image || p->root_directory)
+        if (p->root_image || p->root_directory || p->root_directory_fd >= 0)
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
