@@ -749,6 +749,19 @@ TEST(strv_extendf) {
         ASSERT_STREQ(b[0], "test3 bar foo 128");
 }
 
+TEST(strv_extendf_with_size) {
+        _cleanup_strv_free_ char **a = NULL;
+        size_t n = 0;
+
+        ASSERT_OK(strv_extendf_with_size(&a, &n, "test2 %s %d %s", "foo", 128, "bar"));
+        ASSERT_OK(strv_extendf_with_size(&a, &n, "test3 %s %s %d", "bar", "foo", 128));
+
+        ASSERT_EQ(n, 2u);
+        ASSERT_EQ(strv_length(a), n);
+        ASSERT_STREQ(a[0], "test2 foo 128 bar");
+        ASSERT_STREQ(a[1], "test3 bar foo 128");
+}
+
 TEST(strv_foreach) {
         _cleanup_strv_free_ char **a;
         unsigned i = 0;
