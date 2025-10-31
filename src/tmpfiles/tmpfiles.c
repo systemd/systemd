@@ -4688,6 +4688,17 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        /* Group lookups with nss-systemd become terribly noisy and expensive when debug logging is enabled,
+         * because any group lookup will unconditionally send 2*N varlink requests where N is the number of
+         * sockets in /run/systemd/userdb (N queries to search for the group record, and N queries to search
+         * for the membership records), with none of those queries being useful for systemd-tmpfiles, as the
+         * group queries are coming from libacl trying to resolve group names to group IDs, all of which will
+         * be defined in /etc/group, and when querying group IDs there's no need to know group memberships,
+         * so let's disable userdbd queries by nss-systemd to avoid all the useless and expensive queries.
+         */
+        if (setenv("SYSTEMD_BYPASS_USERDB", "1", 1) < 0)
+                return log_error_errno(errno, "Failed to set SYSTEMD_BYPASS_USERDB environment variable: %m");
+
         /* Let's now link up all child/parent relationships */
         ORDERED_HASHMAP_FOREACH(a, c.items) {
                 r = link_parent(&c, a);
