@@ -1014,6 +1014,7 @@ static int verb_service(int argc, char **argv, void *userdata) {
                 return resolve_service(bus, argv[1], argv[2], argv[3]);
 }
 
+#if HAVE_OPENSSL
 static int resolve_openpgp(sd_bus *bus, const char *address) {
         const char *domain, *full;
         int r;
@@ -1045,23 +1046,25 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
                            arg_type ?: DNS_TYPE_OPENPGPKEY, false);
 
         if (IN_SET(r, -ENXIO, -ESRCH)) { /* NXDOMAIN or NODATA? */
-              hashed = mfree(hashed);
-              r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
-              if (r < 0)
-                    return log_error_errno(r, "Hashing failed: %m");
+                hashed = mfree(hashed);
+                r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
+                if (r < 0)
+                        return log_error_errno(r, "Hashing failed: %m");
 
-              full = strjoina(hashed, "._openpgpkey.", domain);
-              log_debug("Looking up \"%s\".", full);
+                full = strjoina(hashed, "._openpgpkey.", domain);
+                log_debug("Looking up \"%s\".", full);
 
-              return resolve_record(bus, full,
-                                    arg_class ?: DNS_CLASS_IN,
-                                    arg_type ?: DNS_TYPE_OPENPGPKEY, true);
+                return resolve_record(bus, full,
+                                      arg_class ?: DNS_CLASS_IN,
+                                      arg_type ?: DNS_TYPE_OPENPGPKEY, true);
         }
 
         return r;
 }
+#endif
 
 static int verb_openpgp(int argc, char **argv, void *userdata) {
+#if HAVE_OPENSSL
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -1076,6 +1079,9 @@ static int verb_openpgp(int argc, char **argv, void *userdata) {
                 RET_GATHER(ret, resolve_openpgp(bus, *p));
 
         return ret;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled, cannot query Open PGP keys.");
+#endif
 }
 
 static int resolve_tlsa(sd_bus *bus, const char *family, const char *address) {

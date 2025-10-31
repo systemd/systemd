@@ -490,8 +490,10 @@ typedef struct Context {
 
         bool from_scratch;
 
+#if HAVE_OPENSSL
         X509 *certificate;
         EVP_PKEY *private_key;
+#endif
 } Context;
 
 static const char *empty_mode_table[_EMPTY_MODE_MAX] = {
@@ -794,14 +796,8 @@ static Partition* partition_unlink_and_free(Context *context, Partition *p) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Partition*, partition_free);
 
-static Context* context_new(
-                sd_id128_t seed,
-                X509 *certificate,
-                EVP_PKEY *private_key) {
-
+static Context* context_new(sd_id128_t seed) {
         Context *context;
-
-        /* Note: This function takes ownership of the certificate and private_key arguments. */
 
         context = new(Context, 1);
         if (!context)
@@ -812,8 +808,6 @@ static Context* context_new(
                 .end = UINT64_MAX,
                 .total = UINT64_MAX,
                 .seed = seed,
-                .certificate = certificate,
-                .private_key = private_key,
         };
 
         return context;
@@ -848,8 +842,10 @@ static Context* context_free(Context *context) {
         else
                 free(context->node);
 
+#if HAVE_OPENSSL
         X509_free(context->certificate);
         EVP_PKEY_free(context->private_key);
+#endif
 
         return mfree(context);
 }
@@ -5337,9 +5333,8 @@ static int partition_format_verity_hash(
 }
 
 static int sign_verity_roothash(
+                Context *context,
                 const struct iovec *roothash,
-                X509 *certificate,
-                EVP_PKEY *private_key,
                 struct iovec *ret_signature) {
 
 #if HAVE_OPENSSL
@@ -5349,8 +5344,10 @@ static int sign_verity_roothash(
         _cleanup_free_ uint8_t *sig = NULL;
         int sigsz;
 
+        assert(context);
+        assert(context->certificate);
+        assert(context->private_key);
         assert(roothash);
-        assert(private_key);
         assert(iovec_is_set(roothash));
         assert(ret_signature);
 
@@ -5362,7 +5359,7 @@ static int sign_verity_roothash(
         if (!rb)
                 return log_oom();
 
-        p7 = PKCS7_sign(certificate, private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
+        p7 = PKCS7_sign(context->certificate, context->private_key, NULL, rb, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY);
         if (!p7)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
@@ -5410,6 +5407,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         Partition *hp, *rp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
         int whole_fd, r;
+        bool has_fp = false;
 
         assert(p->verity == VERITY_SIG);
 
@@ -5426,13 +5424,20 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         verity_settings = lookup_verity_settings_by_uuid_pair(rp->current_uuid, hp->current_uuid);
 
-        if (!context->private_key && !verity_settings)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verity signature partition signing requested but no private key provided (--private-key=).");
+        if (!verity_settings) {
+#if HAVE_OPENSSL
+                if (!context->private_key)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Verity signature partition signing requested but no private key provided (--private-key=).");
 
-        if (!context->certificate && !verity_settings)
+                if (!context->certificate)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Verity signature partition signing requested but no PEM certificate provided (--certificate=).");
+#else
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Verity signature partition signing requested but no PEM certificate provided (--certificate=).");
+                                       "Verity signature partition signing requested but OpenSSL support is disabled.");
+#endif
+        }
 
         (void) partition_hint(p, context->node, &hint);
 
@@ -5448,7 +5453,7 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                         .iov_len = verity_settings->root_hash_size,
                 };
         } else {
-                r = sign_verity_roothash(&hp->roothash, context->certificate, context->private_key, &sig_free);
+                r = sign_verity_roothash(context, &hp->roothash, &sig_free);
                 if (r < 0)
                         return r;
 
@@ -5456,14 +5461,17 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                 roothash = hp->roothash;
         }
 
+#if HAVE_OPENSSL
         r = x509_fingerprint(context->certificate, fp);
         if (r < 0)
                 return log_error_errno(r, "Unable to calculate X509 certificate fingerprint: %m");
+        has_fp = true;
+#endif
 
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR("rootHash", SD_JSON_BUILD_HEX(roothash.iov_base, roothash.iov_len)),
-                        SD_JSON_BUILD_PAIR("certificateFingerprint", SD_JSON_BUILD_HEX(fp, sizeof(fp))),
+                        SD_JSON_BUILD_PAIR_CONDITION(has_fp, "certificateFingerprint", SD_JSON_BUILD_HEX(fp, sizeof(fp))),
                         SD_JSON_BUILD_PAIR("signature", JSON_BUILD_IOVEC_BASE64(&sig)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build verity signature JSON object: %m");
@@ -8699,13 +8707,7 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(
-                int argc,
-                char *argv[],
-                X509 **ret_certificate,
-                EVP_PKEY **ret_private_key,
-                OpenSSLAskPasswordUI **ret_ui) {
-
+static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
@@ -8800,17 +8802,11 @@ static int parse_argv(
                 {}
         };
 
-        _cleanup_(X509_freep) X509 *certificate = NULL;
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         bool auto_public_key_pcr_mask = true, auto_pcrlock = true;
         int c, r;
 
         assert(argc >= 0);
         assert(argv);
-        assert(ret_certificate);
-        assert(ret_private_key);
-        assert(ret_ui);
 
         while ((c = getopt_long(argc, argv, "hs:SCP", options, NULL)) >= 0)
 
@@ -9332,47 +9328,6 @@ static int parse_argv(
                         *p = gpt_partition_type_override_architecture(*p, arg_architecture);
         }
 
-        if (arg_certificate) {
-                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
-                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_x509_certificate(
-                                arg_certificate_source_type,
-                                arg_certificate_source,
-                                arg_certificate,
-                                &certificate);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
-        }
-
-        if (arg_private_key) {
-                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
-                        r = parse_path_argument(arg_private_key, /*suppress_root=*/ false, &arg_private_key);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = openssl_load_private_key(
-                                arg_private_key_source_type,
-                                arg_private_key_source,
-                                arg_private_key,
-                                &(AskPasswordRequest) {
-                                        .tty_fd = -EBADF,
-                                        .id = "repart-private-key-pin",
-                                        .keyring = arg_private_key,
-                                        .credential = "repart.private-key-pin",
-                                        .until = USEC_INFINITY,
-                                        .hup_fd = -EBADF,
-                                },
-                                &private_key,
-                                &ui);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
-        }
-
         if (arg_append_fstab && !arg_generate_fstab)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No --generate-fstab= specified for --append-fstab=%s.", append_mode_to_string(arg_append_fstab));
 
@@ -9383,10 +9338,6 @@ static int parse_argv(
                 arg_varlink = true;
                 arg_pager_flags |= PAGER_DISABLE;
         }
-
-        *ret_certificate = TAKE_PTR(certificate);
-        *ret_private_key = TAKE_PTR(private_key);
-        *ret_ui = TAKE_PTR(ui);
 
         return 1;
 }
@@ -9909,9 +9860,6 @@ static int vl_server(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(X509_freep) X509 *certificate = NULL;
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
@@ -9920,7 +9868,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv, &certificate, &private_key, &ui);
+        r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
@@ -9982,12 +9930,52 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        context = context_new(arg_seed, certificate, private_key);
+        context = context_new(arg_seed);
         if (!context)
                 return log_oom();
 
-        TAKE_PTR(certificate);
-        TAKE_PTR(private_key);
+#if HAVE_OPENSSL
+        if (arg_certificate) {
+                if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                        r = parse_path_argument(arg_certificate, /*suppress_root=*/ false, &arg_certificate);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_x509_certificate(
+                                arg_certificate_source_type,
+                                arg_certificate_source,
+                                arg_certificate,
+                                &context->certificate);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+        }
+
+        if (arg_private_key) {
+                if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
+                        r = parse_path_argument(arg_private_key, /*suppress_root=*/ false, &arg_private_key);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = openssl_load_private_key(
+                                arg_private_key_source_type,
+                                arg_private_key_source,
+                                arg_private_key,
+                                &(AskPasswordRequest) {
+                                        .tty_fd = -EBADF,
+                                        .id = "repart-private-key-pin",
+                                        .keyring = arg_private_key,
+                                        .credential = "repart.private-key-pin",
+                                        .until = USEC_INFINITY,
+                                        .hup_fd = -EBADF,
+                                },
+                                &context->private_key,
+                                /* ret_user_interface= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load private key from %s: %m", arg_private_key);
+        }
+#endif
 
         r = context_read_seed(context, arg_root);
         if (r < 0)
