@@ -101,7 +101,7 @@
         icon name to <replaceable>NAME</replaceable>. The icon name is used by some
         graphical applications to visualize this host. The icon name
         should follow the <ulink
-        url="https://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon
+        url="https://specifications.freedesktop.org/icon-naming/latest">Icon
         Naming Specification</ulink>.</para>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
