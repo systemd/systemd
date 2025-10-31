@@ -114,6 +114,26 @@ int path_is_extension_tree(ImageClass image_class, const char *path, const char 
         return 1;
 }
 
+int fd_is_os_tree(int fd) {
+        int r;
+
+        assert(fd >= 0);
+
+        r = open_extension_release_at(
+                        fd,
+                        IMAGE_MACHINE,
+                        /* extension= */ NULL,
+                        /* relax_extension_release_check= */ false,
+                        /* ret_path= */ NULL,
+                        /* ret_fd= */ NULL);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        return true;
+}
+
 static int extension_release_strict_xattr_value(int extension_release_fd, const char *extension_release_dir_path, const char *filename) {
         int r;
 
