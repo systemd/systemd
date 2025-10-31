@@ -56,7 +56,12 @@ static inline int strv_extend(char ***l, const char *value) {
 int strv_extend_many_internal(char ***l, const char *value, ...);
 #define strv_extend_many(l, ...) strv_extend_many_internal(l, __VA_ARGS__, POINTER_MAX)
 
-int strv_extendf(char ***l, const char *format, ...) _printf_(2,3);
+int strv_extendf_with_size(char ***l, size_t *n, const char *format, ...) _printf_(3,4);
+#define strv_extendf(l, ...) strv_extendf_with_size(l, NULL, __VA_ARGS__)
+
+int strv_extend_joined_with_size_sentinel(char ***l, size_t *n, ...) _sentinel_;
+#define strv_extend_joined_with_size(l, n, ...) strv_extend_joined_with_size_sentinel(l, n, __VA_ARGS__, NULL)
+#define strv_extend_joined(l, ...) strv_extend_joined_with_size(l, NULL, __VA_ARGS__)
 
 int strv_push_with_size(char ***l, size_t *n, char *value);
 static inline int strv_push(char ***l, char *value) {

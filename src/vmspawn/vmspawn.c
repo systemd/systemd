@@ -1154,7 +1154,7 @@ static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel, const
                         if (strv_extend(cmdline, "-smbios") < 0)
                                 return log_oom();
 
-                        if (strv_extendf(cmdline, "type=11,path=%s", p) < 0)
+                        if (strv_extend_joined(cmdline, "type=11,path=", p) < 0)
                                 return log_oom();
                 }
         }
@@ -1191,7 +1191,7 @@ static int cmdline_add_smbios11(char ***cmdline, const char* smbios_dir) {
                 if (strv_extend(cmdline, "-smbios") < 0)
                         return log_oom();
 
-                if (strv_extendf(cmdline, "type=11,path=%s", p) < 0)
+                if (strv_extend_joined(cmdline, "type=11,path=", p) < 0)
                         return log_oom();
 
                 p = mfree(p);
@@ -1289,7 +1289,7 @@ static int start_tpm(
         if (!argv)
                 return log_oom();
 
-        r = strv_extendf(&argv, "dir=%s", state_dir);
+        r = strv_extend_joined(&argv, "dir=", state_dir);
         if (r < 0)
                 return log_oom();
 
@@ -1933,11 +1933,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return log_error_errno(r, "Failed to make up randomized vmgenid: %m");
                 }
 
-                _cleanup_free_ char *vmgenid_device = NULL;
-                if (asprintf(&vmgenid_device, "vmgenid,guid=" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(vmgenid)) < 0)
+                if (strv_extend(&cmdline, "-device") < 0)
                         return log_oom();
 
-                if (strv_extend_many(&cmdline, "-device", vmgenid_device) < 0)
+                if (strv_extendf(&cmdline, "vmgenid,guid=" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(vmgenid)) < 0)
                         return log_oom();
         }
 
@@ -2151,8 +2150,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 "-chardev") < 0)
                         return log_oom();
 
-                if (strv_extendf(&cmdline,
-                                 "serial,id=console,path=%s", pty_path) < 0)
+                if (strv_extend_joined(&cmdline, "serial,id=console,path=", pty_path) < 0)
                         return log_oom();
 
                 r = strv_extend_many(
@@ -2282,7 +2280,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (strv_extend(&cmdline, "-device") < 0)
                         return log_oom();
 
-                if (strv_extendf(&cmdline, "virtio-blk-pci,drive=vmspawn,bootindex=1,serial=%s", escaped_image_fn) < 0)
+                if (strv_extend_joined(&cmdline, "virtio-blk-pci,drive=vmspawn,bootindex=1,serial=", escaped_image_fn) < 0)
                         return log_oom();
 
                 r = grow_image(arg_image, arg_grow_image);
@@ -2552,7 +2550,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (strv_extend(&cmdline, "-chardev") < 0)
                         return log_oom();
 
-                if (strv_extendf(&cmdline, "socket,id=chrtpm,path=%s", tpm_socket_address) < 0)
+                if (strv_extend_joined(&cmdline, "socket,id=chrtpm,path=", tpm_socket_address) < 0)
                         return log_oom();
 
                 if (strv_extend_many(&cmdline, "-tpmdev", "emulator,id=tpm0,chardev=chrtpm") < 0)
@@ -2687,7 +2685,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (r < 0)
                                 return log_oom();
 
-                        r = strv_extendf(&cmdline, "type=11,path=%s", p);
+                        r = strv_extend_joined(&cmdline, "type=11,path=", p);
                         if (r < 0)
                                 return log_oom();
                 }
