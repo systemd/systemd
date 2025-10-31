@@ -1679,7 +1679,7 @@ static int verify_arguments(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
 
         if (arg_caps_ambient) {
-                if (arg_caps_ambient == UINT64_MAX)
+                if (arg_caps_ambient == CAP_MASK_UNSET)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= does not support the value all.");
 
                 if ((arg_caps_ambient & arg_caps_retain) != arg_caps_ambient)
