@@ -852,6 +852,18 @@ testcase_09_resolvectl_showcache() {
 }
 
 testcase_10_resolvectl_json() {
+    local status_json
+
+    # Cleanup
+    # shellcheck disable=SC2317
+    cleanup() {
+        rm -f /run/systemd/resolved.conf.d/90-fallback.conf
+        systemctl reload systemd-resolved.service
+        resolvectl revert dns0
+    }
+
+    trap cleanup RETURN ERR
+
     # Issue: https://github.com/systemd/systemd/issues/29580 (part #1)
     dig @127.0.0.54 signed.test
 
@@ -871,6 +883,68 @@ testcase_10_resolvectl_json() {
         # so we need to select it only if it's present, otherwise the type == "array" check would fail
         echo "$line" | jq -e '[. | .question, (select(has("answer")) | .answer) | type == "array"] | all'
     done
+
+
+    # Test some global-only settings.
+    mkdir -p /run/systemd/resolved.conf.d
+    {
+        echo "[Resolve]"
+        echo "FallbackDNS=10.0.0.1 10.0.0.2"
+    } >/run/systemd/resolved.conf.d/90-fallback.conf
+    systemctl reload systemd-resolved
+
+    status_json="$(mktemp)"
+    resolvectl --json=short >"$status_json"
+
+    # Delegates field should be empty when no delegates are configured.
+    (! jq -rce '.[] | select(.delegate != null)' "$status_json")
+
+    # Test that some links are present.
+    jq -rce '.[] | select(.ifname == "dns0")' "$status_json"
+
+    # Test some global-specific configuration.
+    assert_eq \
+        "$(jq -rc '.[] | select(.ifindex == null and .delegate == null) | [ .fallbackServers[] | .addressString ]' "$status_json")" \
+        '["10.0.0.1","10.0.0.2"]'
+    assert_eq \
+        "$(jq -rc '.[] | select(.ifindex == null and .delegate == null) | .resolvConfMode' "$status_json")" \
+        'stub'
+
+    # Test link status.
+    resolvectl dns dns0 '1.2.3.4'
+    resolvectl domain dns0 'foo'
+    resolvectl default-route dns0 'false'
+    resolvectl llmnr dns0 'no'
+    resolvectl mdns dns0 'no'
+    resolvectl dnsovertls dns0 'opportunistic'
+    resolvectl dnssec dns0 'yes'
+    resolvectl nta dns0 'bar'
+
+    resolvectl --json=short status dns0  >"$status_json"
+
+    assert_eq "$(resolvectl --json=short dns dns0 | jq -rc '.[0].servers | .[0].addressString')" '1.2.3.4'
+    assert_eq "$(jq -rc '.[0].servers | .[0].addressString' "$status_json")" '1.2.3.4'
+
+    assert_eq "$(resolvectl --json=short domain dns0 | jq -rc '.[0].searchDomains| .[0].name')" 'foo'
+    assert_eq "$(jq -rc '.[0].searchDomains | .[0].name' "$status_json")" 'foo'
+
+    assert_eq "$(resolvectl --json=short default-route dns0 | jq -rc '.[0].defaultRoute')" 'false'
+    assert_eq "$(jq -rc '.[0].defaultRoute' "$status_json")" 'false'
+
+    assert_eq "$(resolvectl --json=short llmnr dns0 | jq -rc '.[0].llmnr')" 'no'
+    assert_eq "$(jq -rc '.[0].llmnr' "$status_json")" 'no'
+
+    assert_eq "$(resolvectl --json=short mdns dns0 | jq -rc '.[0].mDNS')" 'no'
+    assert_eq "$(jq -rc '.[0].mDNS' "$status_json")" 'no'
+
+    assert_eq "$(resolvectl --json=short dnsovertls dns0 | jq -rc '.[0].dnsOverTLS')" 'opportunistic'
+    assert_eq "$(jq -rc '.[0].dnsOverTLS' "$status_json")" 'opportunistic'
+
+    assert_eq "$(resolvectl --json=short dnssec dns0 | jq -rc '.[0].dnssec')" 'yes'
+    assert_eq "$(jq -rc '.[0].dnssec' "$status_json")" 'yes'
+
+    assert_eq "$(resolvectl --json=short nta dns0 | jq -rc '.[0].negativeTrustAnchors | .[0]')" 'bar'
+    assert_eq "$(jq -rc '.[0].negativeTrustAnchors | .[0]' "$status_json")" 'bar'
 }
 
 # Test serve stale feature and NFTSet= if nftables is installed
@@ -1413,6 +1487,9 @@ Domains=exercise.test
 EOF
     systemctl reload systemd-resolved
     resolvectl status
+
+    assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .servers | .[0].addressString')" '192.168.77.78'
+    assert_eq "$(resolvectl --json=short | jq -rc '.[] | select(.delegate == "testcase") | .searchDomains | .[0].name')" 'exercise.test'
 
     # Now that we installed the delegation the resolution should fail, because nothing is listening on that IP address
     (! resolvectl query delegation.exercise.test)

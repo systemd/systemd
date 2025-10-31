@@ -1409,6 +1409,29 @@ fail:
         return log_debug_errno(r, "Failed to subscribe client to DNS configuration monitor: %m");
 }
 
+static int vl_method_dump_dns_configuration(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
+        Manager *m;
+        Link *l;
+        int r;
+
+        assert(link);
+
+        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+
+        /* Make sure the accessible flag is not stale. */
+        dns_server_reset_accessible_all(m->dns_servers);
+
+        HASHMAP_FOREACH(l, m->links)
+                dns_server_reset_accessible_all(l->dns_servers);
+
+        r = manager_dump_dns_configuration_json(m, &configuration);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, configuration);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1481,14 +1504,15 @@ static int varlink_main_server_init(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Resolve.ResolveHostname", vl_method_resolve_hostname,
-                        "io.systemd.Resolve.ResolveAddress",  vl_method_resolve_address,
-                        "io.systemd.Resolve.ResolveService",  vl_method_resolve_service,
-                        "io.systemd.Resolve.ResolveRecord",   vl_method_resolve_record,
-                        "io.systemd.service.Ping",            varlink_method_ping,
-                        "io.systemd.service.SetLogLevel",     varlink_method_set_log_level,
-                        "io.systemd.service.GetEnvironment",  varlink_method_get_environment,
-                        "io.systemd.Resolve.BrowseServices",  vl_method_browse_services);
+                        "io.systemd.Resolve.ResolveHostname",      vl_method_resolve_hostname,
+                        "io.systemd.Resolve.ResolveAddress",       vl_method_resolve_address,
+                        "io.systemd.Resolve.ResolveService",       vl_method_resolve_service,
+                        "io.systemd.Resolve.ResolveRecord",        vl_method_resolve_record,
+                        "io.systemd.service.Ping",                 varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",       varlink_method_get_environment,
+                        "io.systemd.Resolve.BrowseServices",       vl_method_browse_services,
+                        "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
