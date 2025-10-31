@@ -254,6 +254,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             Run command on the namespace of the service\n"
                "\n%3$sExecutable Analysis:%4$s\n"
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
+               "  dlopen-metadata FILE       Parse and print ELF dlopen metadata\n"
                "\n%3$sTPM Operations:%4$s\n"
                "  has-tpm2                   Report whether TPM2 support is available\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
