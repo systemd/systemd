@@ -16,6 +16,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "btrfs-util.h"
+#include "bus-get-properties.h"
 #include "chase.h"
 #include "chattr-util.h"
 #include "copy.h"
@@ -2220,3 +2221,5 @@ int image_root_pick(
         *ret = TAKE_PTR(s);
         return 0;
 }
+
+BUS_DEFINE_PROPERTY_GET(bus_property_get_image_is_read_only, "b", Image, (int) image_is_read_only);
