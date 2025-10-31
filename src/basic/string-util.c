@@ -793,12 +793,11 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
         return *ibuf;
 }
 
-char* strextend_with_separator_internal(char **x, const char *separator, ...) {
+char* strextendv_with_separator(char **x, const char *separator, va_list ap) {
         _cleanup_free_ char *buffer = NULL;
         size_t f, l, l_separator;
         bool need_separator;
         char *nr, *p;
-        va_list ap;
 
         if (!x)
                 x = &buffer;
@@ -808,11 +807,12 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
         need_separator = !isempty(*x);
         l_separator = strlen_ptr(separator);
 
-        va_start(ap, separator);
+        va_list aq;
+        va_copy(aq, ap);
         for (const char *t;;) {
                 size_t n;
 
-                t = va_arg(ap, const char *);
+                t = va_arg(aq, const char *);
                 if (!t)
                         break;
                 if (t == POINTER_MAX)
@@ -824,14 +824,14 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
                         n += l_separator;
 
                 if (n >= SIZE_MAX - l) {
-                        va_end(ap);
+                        va_end(aq);
                         return NULL;
                 }
 
                 l += n;
                 need_separator = true;
         }
-        va_end(ap);
+        va_end(aq);
 
         need_separator = !isempty(*x);
 
@@ -842,7 +842,6 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
         *x = nr;
         p = nr + f;
 
-        va_start(ap, separator);
         for (;;) {
                 const char *t;
 
@@ -859,7 +858,6 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
 
                 need_separator = true;
         }
-        va_end(ap);
 
         assert(p == nr + l);
         *p = 0;
@@ -870,6 +868,17 @@ char* strextend_with_separator_internal(char **x, const char *separator, ...) {
 
         /* Otherwise we extended the buffer: return the end */
         return p;
+}
+
+char* strextend_with_separator_internal(char **x, const char *separator, ...) {
+        va_list ap;
+        char *ret;
+
+        va_start(ap, separator);
+        ret = strextendv_with_separator(x, separator, ap);
+        va_end(ap);
+
+        return ret;
 }
 
 int strextendf_with_separator(char **x, const char *separator, const char *format, ...) {
