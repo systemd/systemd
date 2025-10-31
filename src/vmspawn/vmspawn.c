@@ -1933,11 +1933,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return log_error_errno(r, "Failed to make up randomized vmgenid: %m");
                 }
 
-                _cleanup_free_ char *vmgenid_device = NULL;
-                if (asprintf(&vmgenid_device, "vmgenid,guid=" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(vmgenid)) < 0)
+                if (strv_extend(&cmdline, "-device") < 0)
                         return log_oom();
 
-                if (strv_extend_many(&cmdline, "-device", vmgenid_device) < 0)
+                if (strv_extendf(&cmdline, "vmgenid,guid=" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(vmgenid)) < 0)
                         return log_oom();
         }
 
