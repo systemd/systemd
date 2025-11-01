@@ -312,7 +312,7 @@ TEST(real_memory_pressure) {
 
         ASSERT_OK(sd_bus_message_read(reply, "o", &object));
 
-        ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
+        ASSERT_OK(bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR));
 
         _cleanup_free_ char *uo = ASSERT_NOT_NULL(unit_dbus_path_from_name(scope));
         r = controller_supported_on_unit(bus, scope, uo, CGROUP_MASK_MEMORY);
@@ -457,7 +457,7 @@ TEST(real_cpu_pressure) {
 
         ASSERT_OK(sd_bus_message_read(reply, "o", &object));
 
-        ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
+        ASSERT_OK(bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR));
 
         _cleanup_free_ char *uo = ASSERT_NOT_NULL(unit_dbus_path_from_name(scope));
         r = controller_supported_on_unit(bus, scope, uo, CGROUP_MASK_CPU);
@@ -593,7 +593,7 @@ TEST(real_io_pressure) {
 
         ASSERT_OK(sd_bus_message_read(reply, "o", &object));
 
-        ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
+        ASSERT_OK(bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR));
 
         _cleanup_free_ char *uo = ASSERT_NOT_NULL(unit_dbus_path_from_name(scope));
         r = controller_supported_on_unit(bus, scope, uo, CGROUP_MASK_IO);
