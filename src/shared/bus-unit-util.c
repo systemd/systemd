@@ -2949,11 +2949,14 @@ int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref, bool allow_
                         "PIDs", "au", 1, pidref->pid);
 }
 
-int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
+int bus_deserialize_unit_file_changes(sd_bus_message *m, InstallChange **ret_changes, size_t *ret_n_changes) {
         const char *type, *path, *source;
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         int r;
+
+        assert(ret_changes);
+        assert(ret_n_changes);
 
         CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
@@ -2983,6 +2986,23 @@ int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
         r = sd_bus_message_exit_container(m);
         if (r < 0)
                 return bus_log_parse_error(r);
+
+        *ret_changes = TAKE_PTR(changes);
+        *ret_n_changes = n_changes;
+
+        return 0;
+}
+
+int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet) {
+        InstallChange *changes = NULL;
+        size_t n_changes = 0;
+        int r;
+
+        CLEANUP_ARRAY(changes, n_changes, install_changes_free);
+
+        r = bus_deserialize_unit_file_changes(m, &changes, &n_changes);
+        if (r < 0)
+                return r;
 
         install_changes_dump(0, NULL, changes, n_changes, quiet);
 
