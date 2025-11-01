@@ -1,11 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-bus.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
-#include "bus-locator.h"
-#include "bus-util.h"
 #include "glob-util.h"
 #include "json-util.h"
 #include "log.h"
@@ -14,56 +11,34 @@
 #include "networkctl-util.h"
 #include "stdio-util.h"
 #include "strv.h"
+#include "varlink-util.h"
 
-static int get_description(sd_bus *bus, sd_json_variant **ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const char *text;
+static int dump_manager_description(sd_varlink *vl) {
+        sd_json_variant *v;
         int r;
 
-        assert(bus);
-        assert(ret);
+        assert(vl);
 
-        r = bus_call_method(bus, bus_network_mgr, "Describe", &error, &reply, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get description: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_read(reply, "s", &text);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_json_parse(text, 0, ret, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse JSON: %m");
-
-        return 0;
-}
-
-static int dump_manager_description(sd_bus *bus) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        int r;
-
-        assert(bus);
-
-        r = get_description(bus, &v);
+        r = varlink_call_and_log(vl, "io.systemd.Network.Describe", /* parameters = */ NULL, &v);
         if (r < 0)
                 return r;
 
-        sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
+        r = sd_json_variant_dump(v, arg_json_format_flags, /* f = */ NULL, /* prefix = */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dump json object: %m");
         return 0;
 }
 
-static int dump_link_description(sd_bus *bus, char * const *patterns) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+static int dump_link_description(sd_varlink *vl, char * const *patterns) {
         _cleanup_free_ bool *matched_patterns = NULL;
-        sd_json_variant *i;
+        sd_json_variant *i, *v;
         size_t c = 0;
         int r;
 
-        assert(bus);
+        assert(vl);
         assert(patterns);
 
-        r = get_description(bus, &v);
+        r = varlink_call_and_log(vl, "io.systemd.Network.Describe", /* parameters = */ NULL, &v);
         if (r < 0)
                 return r;
 
@@ -122,20 +97,20 @@ static int dump_link_description(sd_bus *bus, char * const *patterns) {
 }
 
 int dump_description(int argc, char *argv[]) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         int r;
 
         if (!sd_json_format_enabled(arg_json_format_flags))
                 return 0;
 
-        r = acquire_bus(&bus);
+        r = varlink_connect_networkd(&vl);
         if (r < 0)
                 return r;
 
         if (arg_all || argc <= 1)
-                r = dump_manager_description(bus);
+                r = dump_manager_description(vl);
         else
-                r = dump_link_description(bus, strv_skip(argv, 1));
+                r = dump_link_description(vl, strv_skip(argv, 1));
         if (r < 0)
                 return r;
 
