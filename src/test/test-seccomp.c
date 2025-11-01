@@ -675,7 +675,7 @@ TEST(load_syscall_filter_set_raw) {
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, scmp_act_kill_process(), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, SCMP_ACT_KILL_PROCESS, true) >= 0);
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
@@ -784,7 +784,7 @@ TEST(native_syscalls_filtered) {
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, scmp_act_kill_process(), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, SCMP_ACT_KILL_PROCESS, true) >= 0);
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
