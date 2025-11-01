@@ -813,13 +813,17 @@ static int property_get_root_image_options(
         if (r < 0)
                 return r;
 
-        LIST_FOREACH(mount_options, m, c->root_image_options) {
-                r = sd_bus_message_append(reply, "(ss)",
-                                          partition_designator_to_string(m->partition_designator),
-                                          m->options);
-                if (r < 0)
-                        return r;
-        }
+        if (c->root_image_options)
+                for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                        if (!c->root_image_options->options[i])
+                                continue;
+
+                        r = sd_bus_message_append(reply, "(ss)",
+                                                  partition_designator_to_string(i),
+                                                  c->root_image_options->options[i]);
+                        if (r < 0)
+                                return r;
+                }
 
         return sd_bus_message_close_container(reply);
 }
@@ -861,13 +865,17 @@ static int property_get_mount_images(
                 if (r < 0)
                         return r;
 
-                LIST_FOREACH(mount_options, m, i->mount_options) {
-                        r = sd_bus_message_append(reply, "(ss)",
-                                                  partition_designator_to_string(m->partition_designator),
-                                                  m->options);
-                        if (r < 0)
-                                return r;
-                }
+                if (i->mount_options)
+                        for (PartitionDesignator j = 0; j < _PARTITION_DESIGNATOR_MAX; j++) {
+                                if (!i->mount_options->options[j])
+                                        continue;
+
+                                r = sd_bus_message_append(reply, "(ss)",
+                                                        partition_designator_to_string(j),
+                                                        i->mount_options->options[j]);
+                                if (r < 0)
+                                        return r;
+                        }
 
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)
@@ -917,13 +925,17 @@ static int property_get_extension_images(
                 if (r < 0)
                         return r;
 
-                LIST_FOREACH(mount_options, m, i->mount_options) {
-                        r = sd_bus_message_append(reply, "(ss)",
-                                                  partition_designator_to_string(m->partition_designator),
-                                                  m->options);
-                        if (r < 0)
-                                return r;
-                }
+                if (i->mount_options)
+                        for (PartitionDesignator j = 0; j < _PARTITION_DESIGNATOR_MAX; j++) {
+                                if (!i->mount_options->options[j])
+                                        continue;
+
+                                r = sd_bus_message_append(reply, "(ss)",
+                                                        partition_designator_to_string(j),
+                                                        i->mount_options->options[j]);
+                                if (r < 0)
+                                        return r;
+                        }
 
                 r = sd_bus_message_close_container(reply);
                 if (r < 0)
@@ -1897,17 +1909,16 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->root_image_options = mount_options_free_all(c->root_image_options);
                         if (options) {
-                                LIST_JOIN(mount_options, c->root_image_options, options);
+                                c->root_image_options = TAKE_PTR(options);
                                 unit_write_settingf(
                                                 u, flags|UNIT_ESCAPE_SPECIFIERS, name,
                                                 "%s=%s",
                                                 name,
                                                 format_str);
-                        } else {
-                                c->root_image_options = mount_options_free_all(c->root_image_options);
+                        } else
                                 unit_write_settingf(u, flags, name, "%s=", name);
-                        }
                 }
 
                 return 1;

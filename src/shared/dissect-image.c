@@ -4265,22 +4265,22 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
 }
 
 MountOptions* mount_options_free_all(MountOptions *options) {
-        MountOptions *m;
+        if (!options)
+                return NULL;
 
-        while ((m = LIST_POP(mount_options, options))) {
-                free(m->options);
-                free(m);
-        }
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++)
+                free(options->options[i]);
 
-        return NULL;
+        return mfree(options);
 }
 
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator) {
-        LIST_FOREACH(mount_options, m, options)
-                if (designator == m->partition_designator && !isempty(m->options))
-                        return m->options;
+        assert(designator >= 0 && designator < _PARTITION_DESIGNATOR_MAX);
 
-        return NULL;
+        if (!options)
+                return NULL;
+
+        return options->options[designator];
 }
 
 int mount_image_privately_interactively(
@@ -4399,8 +4399,7 @@ static bool mount_options_relax_extension_release_checks(const MountOptions *opt
                 return false;
 
         return string_contains_word(mount_options_from_designator(options, PARTITION_ROOT), ",", "x-systemd.relax-extension-release-check") ||
-                        string_contains_word(mount_options_from_designator(options, PARTITION_USR), ",", "x-systemd.relax-extension-release-check") ||
-                        string_contains_word(options->options, ",", "x-systemd.relax-extension-release-check");
+                        string_contains_word(mount_options_from_designator(options, PARTITION_USR), ",", "x-systemd.relax-extension-release-check");
 }
 
 int verity_dissect_and_mount(
