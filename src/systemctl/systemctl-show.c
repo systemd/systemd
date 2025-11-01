@@ -2284,6 +2284,8 @@ static int show_one(
                 { "ExecStartPostEx",                "a(sasasttttuii)", map_exec,       0                                                           },
                 { "ExecReload",                     "a(sasbttttuii)",  map_exec,       0                                                           },
                 { "ExecReloadEx",                   "a(sasasttttuii)", map_exec,       0                                                           },
+                { "ExecReloadPost",                 "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecReloadPostEx",               "a(sasasttttuii)", map_exec,       0                                                           },
                 { "ExecStopPre",                    "a(sasbttttuii)",  map_exec,       0                                                           },
                 { "ExecStop",                       "a(sasbttttuii)",  map_exec,       0                                                           },
                 { "ExecStopEx",                     "a(sasasttttuii)", map_exec,       0                                                           },
