@@ -34,6 +34,7 @@ int bus_append_unit_property_assignment_many(sd_bus_message *m, UnitType t, char
 
 int bus_append_scope_pidref(sd_bus_message *m, const PidRef *pidref, bool allow_pidfd);
 
+int bus_deserialize_unit_file_changes(sd_bus_message *m, InstallChange **ret_changes, size_t *ret_n_changes);
 int bus_deserialize_and_dump_unit_file_changes(sd_bus_message *m, bool quiet);
 
 int unit_load_state(sd_bus *bus, const char *name, char **ret);
