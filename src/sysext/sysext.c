@@ -651,7 +651,7 @@ static int dispatch_unit_method(sd_bus *bus, BusWaitForJobs *w, Set *units, cons
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, job, BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL);
+                r = bus_wait_for_jobs_one(w, job, BUS_WAIT_JOBS_LOG_ERROR);
                 if (r < 0)
                         log_warning_errno(r, "Failed to wait for %s job of unit '%s', ignoring: %m", m, unit);
         }
