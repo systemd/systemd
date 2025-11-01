@@ -161,7 +161,11 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **ret) {
                                           ret);
 }
 
-static void log_job_error_with_service_result(const char* service, const char *result, const char* const* extra_args) {
+static void log_job_error_with_service_result(
+                const char* service,
+                const char *result,
+                bool quiet,
+                const char* const* extra_args) {
 
         static const struct {
                 const char *result, *explanation;
@@ -195,24 +199,27 @@ static void log_job_error_with_service_result(const char* service, const char *r
         if (!isempty(result))
                 FOREACH_ELEMENT(i, explanations)
                         if (streq(result, i->result)) {
-                                log_error("Job for %s failed because %s.\n"
-                                          "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
-                                          service, i->explanation,
-                                          systemctl, service_shell_quoted ?: "<service>",
-                                          journalctl, service_shell_quoted ?: "<service>");
+                                log_full(quiet ? LOG_DEBUG : LOG_ERR,
+                                         "Job for %s failed because %s.\n"
+                                         "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
+                                         service, i->explanation,
+                                         systemctl, service_shell_quoted ?: "<service>",
+                                         journalctl, service_shell_quoted ?: "<service>");
                                 goto extra;
                         }
 
-        log_error("Job for %s failed.\n"
-                  "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
-                  service,
-                  systemctl, service_shell_quoted ?: "<service>",
-                  journalctl, service_shell_quoted ?: "<service>");
+        log_full(quiet ? LOG_DEBUG : LOG_ERR,
+                 "Job for %s failed.\n"
+                 "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
+                 service,
+                 systemctl, service_shell_quoted ?: "<service>",
+                 journalctl, service_shell_quoted ?: "<service>");
 
 extra:
         /* For some results maybe additional explanation is required */
         if (streq_ptr(result, "start-limit-hit"))
-                log_info("To force a start use \"%1$s reset-failed %2$s\"\n"
+                log_full(quiet ? LOG_DEBUG : LOG_INFO,
+                         "To force a start use \"%1$s reset-failed %2$s\"\n"
                          "followed by \"%1$s start %2$s\" again.",
                          systemctl,
                          service_shell_quoted ?: "<service>");
@@ -226,51 +233,51 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
         assert(d->result);
 
         if (streq(d->result, "done")) {
-                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
-                        log_info("Job for %s finished.", d->name);
+                log_full(FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS) ? LOG_INFO : LOG_DEBUG,
+                         "Job for %s finished.", d->name);
 
                 return 0;
         } else if (streq(d->result, "skipped")) {
-                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
-                        log_info("Job for %s was skipped.", d->name);
+                log_full(FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS) ? LOG_INFO : LOG_DEBUG,
+                         "Job for %s was skipped.", d->name);
 
                 return 0;
         }
 
-        if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR)) {
-                if (streq(d->result, "canceled"))
-                        log_error("Job for %s canceled.", d->name);
-                else if (streq(d->result, "timeout"))
-                        log_error("Job for %s timed out.", d->name);
-                else if (streq(d->result, "dependency"))
-                        log_error("A dependency job for %s failed. See 'journalctl -xe' for details.", d->name);
-                else if (streq(d->result, "invalid"))
-                        log_error("%s is not active, cannot reload.", d->name);
-                else if (streq(d->result, "assert"))
-                        log_error("Assertion failed on job for %s.", d->name);
-                else if (streq(d->result, "unsupported"))
-                        log_error("Operation on or unit type of %s not supported on this system.", d->name);
-                else if (streq(d->result, "collected"))
-                        log_error("Queued job for %s was garbage collected.", d->name);
-                else if (streq(d->result, "once"))
-                        log_error("Unit %s was started already once and can't be started again.", d->name);
-                else if (streq(d->result, "frozen"))
-                        log_error("Cannot perform operation on frozen unit %s.", d->name);
-                else if (streq(d->result, "concurrency"))
-                        log_error("Concurrency limit of a slice unit %s is contained in has been reached.", d->name);
-                else if (endswith(d->name, ".service")) {
-                        /* Job result is unknown. For services, let's also try Result property. */
-                        _cleanup_free_ char *result = NULL;
+        int priority = FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR) ? LOG_ERR : LOG_DEBUG;
 
-                        r = bus_job_get_service_result(d, &result);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to get Result property of unit %s, ignoring: %m",
-                                                d->name);
+        if (streq(d->result, "canceled"))
+                log_full(priority, "Job for %s canceled.", d->name);
+        else if (streq(d->result, "timeout"))
+                log_full(priority, "Job for %s timed out.", d->name);
+        else if (streq(d->result, "dependency"))
+                log_full(priority, "A dependency job for %s failed. See 'journalctl -xe' for details.", d->name);
+        else if (streq(d->result, "invalid"))
+                log_full(priority, "%s is not active, cannot reload.", d->name);
+        else if (streq(d->result, "assert"))
+                log_full(priority, "Assertion failed on job for %s.", d->name);
+        else if (streq(d->result, "unsupported"))
+                log_full(priority, "Operation on or unit type of %s not supported on this system.", d->name);
+        else if (streq(d->result, "collected"))
+                log_full(priority, "Queued job for %s was garbage collected.", d->name);
+        else if (streq(d->result, "once"))
+                log_full(priority, "Unit %s was started already once and can't be started again.", d->name);
+        else if (streq(d->result, "frozen"))
+                log_full(priority, "Cannot perform operation on frozen unit %s.", d->name);
+        else if (streq(d->result, "concurrency"))
+                log_full(priority, "Concurrency limit of a slice unit %s is contained in has been reached.", d->name);
+        else if (endswith(d->name, ".service")) {
+                /* Job result is unknown. For services, let's also try Result property. */
+                _cleanup_free_ char *result = NULL;
 
-                        log_job_error_with_service_result(d->name, result, extra_args);
-                } else /* Otherwise we just show a generic message. */
-                        log_error("Job failed. See \"journalctl -xe\" for details.");
-        }
+                r = bus_job_get_service_result(d, &result);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get Result property of unit %s, ignoring: %m",
+                                        d->name);
+
+                log_job_error_with_service_result(d->name, result, priority, extra_args);
+        } else /* Otherwise we just show a generic message. */
+                log_full(priority, "Job failed. See \"journalctl -xe\" for details.");
 
         if (STR_IN_SET(d->result, "canceled", "collected"))
                 return -ECANCELED;
