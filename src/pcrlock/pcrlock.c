@@ -155,7 +155,9 @@ typedef enum EventPayloadValid {
 
 struct EventLogRecord {
         EventLog *event_log;
-        uint32_t pcr;
+
+        uint32_t pcr;      /* Either 'pcr' or 'nv_index' are set, but not both. Other one is UINT32_MAX. */
+        uint32_t nv_index;
 
         const char *source;
         char *description;
@@ -184,6 +186,8 @@ struct EventLogRecord {
 
 #define EVENT_LOG_RECORD_IS_FIRMWARE(record) ((record)->firmware_event_type != UINT32_MAX)
 #define EVENT_LOG_RECORD_IS_USERSPACE(record) ((record)->userspace_event_type >= 0)
+#define EVENT_LOG_RECORD_IS_PCR(record) ((record)->pcr != UINT32_MAX)
+#define EVENT_LOG_RECORD_IS_NV_INDEX(record) ((record)->nv_index != UINT32_MAX)
 
 struct EventLogRegisterBank {
         TPM2B_DIGEST observed;
@@ -339,6 +343,8 @@ static EventLogRecord* event_log_record_new(EventLog *el) {
 
         *record = (EventLogRecord) {
                 .event_log = el,
+                .pcr = UINT32_MAX,
+                .nv_index = UINT32_MAX,
                 .firmware_event_type = UINT32_MAX,
                 .userspace_event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID,
                 .event_payload_valid = _EVENT_PAYLOAD_VALID_INVALID,
@@ -1003,9 +1009,6 @@ static int event_log_load_firmware(EventLog *el) {
 }
 
 static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *j) {
-        const char *rectype = NULL;
-        sd_json_variant *x, *k;
-        uint64_t u;
         int r;
 
         assert(record);
@@ -1014,23 +1017,44 @@ static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *
         if (!sd_json_variant_is_object(j))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "record object is not an object.");
 
-        x = sd_json_variant_by_key(j, "pcr");
-        if (!x)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field missing from TPM measurement log file entry.");
-        if (!sd_json_variant_is_unsigned(x))
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is not an integer.");
+        sd_json_variant *jp = sd_json_variant_by_key(j, "pcr");
+        sd_json_variant *jn = sd_json_variant_by_key(j, "nv_index");
+        if (jp) {
+                uint64_t u;
+                if (jn)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Both 'pcr' and 'nv_index' field found in TPM measurement log file entry.");
+                if (!sd_json_variant_is_unsigned(jp))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is not an integer.");
 
-        u = sd_json_variant_unsigned(x);
-        if (u >= TPM2_PCRS_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is out of range.");
-        record->pcr = sd_json_variant_unsigned(x);
+                u = sd_json_variant_unsigned(jp);
+                if (u >= TPM2_PCRS_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'pcr' field is out of range.");
 
-        x = sd_json_variant_by_key(j, "digests");
+                record->pcr = u;
+                record->nv_index = UINT32_MAX;
+        } else {
+                uint64_t u;
+
+                if (!jn)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Neither 'pcr' nor 'nv_index' field found in TPM measurement log file entry.");
+                if (!sd_json_variant_is_unsigned(jn))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'nv_index' field is not an integer.");
+
+                u = sd_json_variant_unsigned(jn);
+                if (u >= UINT32_MAX)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'nv_index' field is out of range.");
+
+                record->nv_index = u;
+                record->pcr = UINT32_MAX;
+        }
+
+        sd_json_variant *x = sd_json_variant_by_key(j, "digests");
         if (!x)
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'digests' field missing from TPM measurement log file entry.");
         if (!sd_json_variant_is_array(x))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "'digests' field is not an array.");
 
+        sd_json_variant *k;
         JSON_VARIANT_ARRAY_FOREACH(k, x) {
                 _cleanup_free_ void *hash = NULL;
                 size_t hash_size;
@@ -1067,6 +1091,7 @@ static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *
                         return log_error_errno(r, "Failed to add bank to event log record: %m");
         }
 
+        const char *rectype = NULL;
         x = sd_json_variant_by_key(j, "content_type");
         if (!x)
                 log_debug("'content_type' missing from TPM measurement log file entry, ignoring.");
@@ -1324,6 +1349,10 @@ static int event_log_calculate_pcrs(EventLog *el) {
                 }
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
+
+                if (!EVENT_LOG_RECORD_IS_PCR(*rr))
+                        continue;
+
                 EventLogRegister *reg = el->registers + (*rr)->pcr;
 
                 for (size_t i = 0; i < el->n_algorithms; i++) {
@@ -1626,6 +1655,9 @@ static int event_log_record_equal(const EventLogRecord *a, const EventLogRecord 
         if (a->pcr != b->pcr)
                 return false;
 
+        if (a->nv_index != b->nv_index)
+                return false;
+
         x = event_log_record_find_bank(a, a->event_log->primary_algorithm);
         y = event_log_record_find_bank(b, b->event_log->primary_algorithm);
         if (!x || !y)
@@ -1848,6 +1880,9 @@ static int event_log_validate_fully_recognized(EventLog *el) {
                 FOREACH_ARRAY(rr, el->records, el->n_records) {
                         EventLogRecord *rec = *rr;
 
+                        if (!EVENT_LOG_RECORD_IS_PCR(rec))
+                                continue;
+
                         if (rec->pcr != pcr)
                                 continue;
 
@@ -1916,8 +1951,13 @@ static uint32_t event_log_component_variant_pcrs(EventLogComponentVariant *i) {
 
         /* returns mask of PCRs touched by this variant */
 
-        FOREACH_ARRAY(rr, i->records, i->n_records)
+        FOREACH_ARRAY(rr, i->records, i->n_records) {
+
+                if (!EVENT_LOG_RECORD_IS_PCR(*rr))
+                        continue;
+
                 mask |= UINT32_C(1) << (*rr)->pcr;
+        }
 
         return mask;
 }
@@ -2123,11 +2163,19 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
         FOREACH_ARRAY(rr, el->records, el->n_records) {
                 EventLogRecord *record = *rr;
 
-                r = table_add_many(table,
-                                   TABLE_UINT32, record->pcr,
-                                   TABLE_STRING, glyph(GLYPH_FULL_BLOCK),
-                                   TABLE_SET_COLOR, color_for_pcr(el, record->pcr),
-                                   TABLE_STRING, tpm2_pcr_index_to_string(record->pcr));
+                if (EVENT_LOG_RECORD_IS_PCR(record))
+                        r = table_add_many(table,
+                                           TABLE_UINT32, record->pcr,
+                                           TABLE_STRING, glyph(GLYPH_FULL_BLOCK),
+                                           TABLE_SET_COLOR, color_for_pcr(el, record->pcr),
+                                           TABLE_STRING, tpm2_pcr_index_to_string(record->pcr));
+                else if EVENT_LOG_RECORD_IS_NV_INDEX(record)
+                        r = table_add_many(table,
+                                           TABLE_UINT32_HEX_0x, record->nv_index,
+                                           TABLE_EMPTY,
+                                           TABLE_EMPTY);
+                else
+                        assert_not_reached();
                 if (r < 0)
                         return table_log_add_error(r);
 
@@ -2538,7 +2586,8 @@ static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_
 
         r = sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR_UNSIGNED("pcr", record->pcr),
+                        SD_JSON_BUILD_PAIR_CONDITION(EVENT_LOG_RECORD_IS_PCR(record), "pcr", SD_JSON_BUILD_UNSIGNED(record->pcr)),
+                        SD_JSON_BUILD_PAIR_CONDITION(EVENT_LOG_RECORD_IS_NV_INDEX(record), "nv_index", SD_JSON_BUILD_UNSIGNED(record->nv_index)),
                         SD_JSON_BUILD_PAIR_UNSIGNED("recnum", ++(*recnum)),
                         SD_JSON_BUILD_PAIR_VARIANT("digests", ja),
                         SD_JSON_BUILD_PAIR_CONDITION(!!ct, "content_type", SD_JSON_BUILD_STRING(ct)),
@@ -4004,6 +4053,9 @@ static int event_log_component_variant_calculate(
         FOREACH_ARRAY(rr, variant->records, variant->n_records) {
                 EventLogRecord *rec = *rr;
 
+                if (!EVENT_LOG_RECORD_IS_PCR(rec))
+                        continue;
+
                 if (rec->pcr != pcr)
                         continue;
 
@@ -4900,7 +4952,7 @@ static int undefine_policy_nv_index(
         if (r < 0)
                 return r;
 
-        r = tpm2_undefine_policy_nv_index(
+        r = tpm2_undefine_nv_index(
                         tc,
                         encryption_session,
                         nv_index,
