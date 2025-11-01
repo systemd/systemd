@@ -2721,6 +2721,9 @@ static int start_transient_scope(sd_bus *bus) {
                         return log_error_errno(errno, "Failed to set nice level: %m");
         }
 
+        if (arg_root_directory && chroot(arg_root_directory) < 0)
+                return log_error_errno(errno, "Failed to change root directory to '%s': %m");
+
         if (arg_exec_group) {
                 gid_t gid;
 
