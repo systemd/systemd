@@ -16,6 +16,7 @@
 
 typedef struct BusWaitForJobs {
         sd_bus *bus;
+        bool bus_owned;
 
         /* The set of jobs to wait for, as bus object paths */
         Set *jobs;
@@ -37,7 +38,10 @@ BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
         sd_bus_slot_unref(d->slot_disconnected);
         sd_bus_slot_unref(d->slot_job_removed);
 
-        sd_bus_unref(d->bus);
+        if (d->bus_owned)
+                sd_bus_flush_close_unref(d->bus);
+        else
+                sd_bus_unref(d->bus);
 
         free(d->name);
         free(d->result);
@@ -345,4 +349,8 @@ int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, WaitJobsFlags fla
                 return log_oom();
 
         return bus_wait_for_jobs(d, flags, extra_args);
+}
+
+void bus_wait_for_jobs_set_bus_own(BusWaitForJobs *d, bool own) {
+        d->bus_owned = own;
 }
