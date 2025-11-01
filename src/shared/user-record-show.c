@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "capability-list.h"
+#include "capability-util.h"
 #include "format-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
@@ -404,7 +405,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf(" Access Mode: 0%03o\n", user_record_access_mode(hr));
 
         uint64_t caps = user_record_capability_bounding_set(hr);
-        if (caps != UINT64_MAX) {
+        if (caps != CAP_MASK_UNSET) {
                 _cleanup_free_ char *scaps = NULL;
 
                 (void) capability_set_to_string_negative(caps, &scaps);
@@ -412,7 +413,7 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         }
 
         caps = user_record_capability_ambient_set(hr);
-        if (caps != UINT64_MAX) {
+        if (caps != CAP_MASK_UNSET) {
                 _cleanup_free_ char *scaps = NULL;
 
                 (void) capability_set_to_string(caps, &scaps);

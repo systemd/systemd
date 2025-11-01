@@ -17,7 +17,6 @@
 #include "bpf-restrict-fs.h"
 #include "bus-error.h"
 #include "calendarspec.h"
-#include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
 #include "condition.h"
@@ -1873,41 +1872,22 @@ int config_parse_capability_set(
                 void *userdata) {
 
         uint64_t *capability_set = ASSERT_PTR(data);
-        uint64_t sum = 0, initial, def;
-        bool invert = false;
         int r;
 
         assert(filename);
         assert(lvalue);
         assert(rvalue);
 
-        if (rvalue[0] == '~') {
-                invert = true;
-                rvalue++;
-        }
+        uint64_t initial = streq(lvalue, "CapabilityBoundingSet") ? CAP_MASK_ALL : 0;
 
-        if (streq(lvalue, "CapabilityBoundingSet")) {
-                initial = CAP_MASK_ALL; /* initialized to all bits on */
-                def = CAP_MASK_UNSET;   /* not set */
-        } else
-                def = initial = 0; /* All bits off */
-
-        r = capability_set_from_string(rvalue, &sum);
+        r = parse_capability_set(rvalue, initial, capability_set);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse %s= specifier '%s', ignoring: %m", lvalue, rvalue);
                 return 0;
         }
 
-        if (sum == 0 || *capability_set == def)
-                /* "", "~" or uninitialized data -> replace */
-                *capability_set = invert ? ~sum : sum;
-        else {
-                /* previous data -> merge */
-                if (invert)
-                        *capability_set &= ~sum;
-                else
-                        *capability_set |= sum;
-        }
+        if (*capability_set == CAP_MASK_UNSET)
+                *capability_set = 0;
 
         return 0;
 }

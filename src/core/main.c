@@ -2768,7 +2768,7 @@ static void reset_arguments(void) {
         arg_default_environment = strv_free(arg_default_environment);
         arg_manager_environment = strv_free(arg_manager_environment);
 
-        arg_capability_bounding_set = CAP_MASK_UNSET;
+        arg_capability_bounding_set = CAP_MASK_ALL;
         arg_no_new_privs = false;
         arg_protect_system = -1;
         arg_timer_slack_nsec = NSEC_INFINITY;

@@ -391,6 +391,19 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
 #endif
 
 #ifdef __COVERITY__
+#  define ASSERT_STRNEQ(expr1, expr2, n) __coverity_check__(strneq_ptr((expr1), (expr2), (n)))
+#else
+#  define ASSERT_STRNEQ(expr1, expr2, n)                                                                        \
+        ({                                                                                                      \
+                const char *_expr1 = (expr1), *_expr2 = (expr2);                                                \
+                size_t _n = (n);                                                                                \
+                if (!strneq_ptr(_expr1, _expr2, _n))                                                            \
+                        log_test_failed("Expected \"%s == %s\", got \"%s != %s\" (first %zu characters)",       \
+                                        #expr1, #expr2, strnull(_expr1), strnull(_expr2), _n);                  \
+        })
+#endif
+
+#ifdef __COVERITY__
 #  define ASSERT_PTR_EQ(expr1, expr2) __coverity_check__((expr1) == (expr2))
 #else
 #  define ASSERT_PTR_EQ(expr1, expr2)                                                                           \
