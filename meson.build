@@ -1247,16 +1247,17 @@ libcryptsetup = dependency('libcryptsetup',
 libcryptsetup_cflags = libcryptsetup.partial_dependency(includes: true, compile_args: true)
 
 have = libcryptsetup.found()
-foreach ident : ['crypt_set_metadata_size',
-                 'crypt_activate_by_signed_key',
-                 'crypt_token_max',
-                 'crypt_reencrypt_init_by_passphrase',
-                 'crypt_reencrypt',
-                 'crypt_reencrypt_run',
-                 'crypt_set_data_offset',
-                 'crypt_set_keyring_to_link',
-                 'crypt_resume_by_volume_key',
-                 'crypt_token_set_external_path']
+conf.set10('HAVE_LIBCRYPTSETUP', have)
+conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS',
+           libcryptsetup_plugins.allowed() and libcryptsetup.version().version_compare('>=2.4.0'))
+
+foreach ident : [
+                'crypt_reencrypt_run',           # 2.4
+                'crypt_token_max',               # 2.4
+                'crypt_set_keyring_to_link',     # 2.7
+                'crypt_token_set_external_path', # 2.7
+        ]
+
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
@@ -1266,34 +1267,6 @@ foreach ident : ['crypt_set_metadata_size',
                 dependencies : libcryptsetup)
         conf.set10('HAVE_' + ident.to_upper(), have_ident)
 endforeach
-conf.set10('HAVE_LIBCRYPTSETUP', have)
-
-if meson.version().version_compare('>=1.3.0')
-        have = (cc.has_function(
-                        'crypt_activate_by_token_pin',
-                        prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup,
-                        required : libcryptsetup_plugins) and
-                cc.has_function(
-                        'crypt_token_external_path',
-                        prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup,
-                        required : libcryptsetup_plugins))
-else
-        if libcryptsetup_plugins.allowed()
-                have = (cc.has_function(
-                                'crypt_activate_by_token_pin',
-                                prefix : '#include <libcryptsetup.h>',
-                                dependencies : libcryptsetup) and
-                        cc.has_function(
-                                'crypt_token_external_path',
-                                prefix : '#include <libcryptsetup.h>',
-                                dependencies : libcryptsetup))
-        else
-                have = false
-        endif
-endif
-conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS', have)
 
 libcurl = dependency('libcurl',
                      version : '>= 7.32.0',
@@ -1589,8 +1562,7 @@ conf.set10('ENABLE_IMPORTD', have)
 have = get_option('homed').require(
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_LIBFDISK') == 1 and
-        conf.get('HAVE_LIBCRYPTSETUP') == 1 and
-        conf.get('HAVE_CRYPT_RESUME_BY_VOLUME_KEY') == 1,
+        conf.get('HAVE_LIBCRYPTSETUP') == 1,
         error_message : 'openssl, fdisk and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
