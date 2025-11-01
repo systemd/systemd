@@ -612,6 +612,10 @@
                 <entry><literal>ro</literal></entry>
                 <entry>Make this subvolume read-only.</entry>
               </row>
+              <row id='C'>
+                <entry><literal>nodatacow</literal></entry>
+                <entry>Disable data CoW for this subvolume.</entry>
+              </row>
             </tbody>
           </tgroup>
         </table>
