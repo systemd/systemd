@@ -17,3 +17,4 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret);
 int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path);
 int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args);
 int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, WaitJobsFlags flags, const char* const* extra_args);
+void bus_wait_for_jobs_set_bus_own(BusWaitForJobs *d, bool own);
