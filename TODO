@@ -63,6 +63,12 @@ Regularly:
 
 Janitorial Clean-ups:
 
+* machined: make remaining machine bus calls compatible with unpriv machined +
+  unpriv npsawn: GetAddresses(), GetSSHInfo(), GetOSRelease(), OpenPTY(),
+  OpenLogin(), OpenShell(), BindMount(), CopyFrom(), CopyTo(),
+  OpenRootDirectory(). Similar for images: GetHostname(), GetMachineID(),
+  GetMachineInfo(), GetOSRelease().
+
 * rework mount.c and swap.c to follow proper state enumeration/deserialization
   semantics, like we do for device.c now
 
@@ -469,17 +475,9 @@ Features:
 * allow dynamic modifications of ConcurrencyHardMax= and ConcurrencySoftMax=
   via DBus (and with that also by daemon-reload)
 
-* importd: introduce a per-user instance, that downloads into per-user DDI dirs
-
-* sysupdated: similar
+* sysupdated: introduce per-user version that can update per-user installed dDIs
 
 * portabled: similar
-
-* machined: implement a per-user instance, that manages per-user DDI dirs for
-  images. systemd-nspawn/systemd-vmspawn should probably register with both the
-  system and the user scoped machined instance. The former to get the machine
-  name registered as hostname, and the latter so that the image stuff is nicely
-  per-user managed.
 
 * resolved: make resolved process DNR DHCP info
 
@@ -490,14 +488,8 @@ Features:
 * start using STATX_SUBVOL in btrfs_is_subvol(). Also, make use of it
   generically, so that image discovery recognizes bcachefs subvols too.
 
-* "systemd-export tar" should reuse the libarchive export code from systemd-dissect
-  --archive.
-
-* "systemd-import tar" should be moved to libarchive
-
 * foreign uid:
-  - add support to export-fs, import-fs, import-tar, export-tar
-  - add tool for deleting foreign UID held container images
+  - add support to export-fs, import-fs
   - systemd-dissect should learn mappings, too, when doing mtree and such
 
 * format-table: introduce new cell type for strings with ansi sequences in
@@ -720,7 +712,6 @@ Features:
   from, tracing through overlayfs, DM, loopback block device.
 
 * importd/importctl
-  - port tar handling to libarchive
   - complete varlink interface
   - download images into .v/ dirs
 

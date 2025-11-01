@@ -2,7 +2,8 @@
 #pragma once
 
 typedef enum TarFlags {
-        TAR_SELINUX = 1 << 0,
+        TAR_SELINUX               = 1 << 0, /* Include SELinux xattr in tarball, or unpack it */
+        TAR_SQUASH_UIDS_ABOVE_64K = 1 << 1, /* Squash UIDs/GIDs above 64K when packing/unpacking to the nobody user */
 } TarFlags;
 
 int tar_x(int input_fd, int tree_fd, TarFlags flags);
