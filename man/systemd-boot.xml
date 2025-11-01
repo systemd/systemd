@@ -711,18 +711,26 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
   <refsect1>
     <title>Using <command>systemd-boot</command> in virtual machines</title>
 
-    <para>When using qemu with OVMF (UEFI Firmware for virtual machines) the <option>-kernel</option> switch
-    works not only for linux kernels, but for any EFI binary, including sd-boot and unified linux
-    kernels. Example command line for loading <command>systemd-boot</command> on x64:</para>
+    <para>When using <ulink url="https://www.qemu.org/docs/master/">qemu</ulink> with
+    <ulink url="https://www.linux-kvm.org/downloads/lersek/ovmf-whitepaper-c770f8c.txt">OVMF</ulink>
+    (UEFI Firmware for virtual machines) the <option>-kernel</option> switch works not only for linux
+    kernels, but for any EFI binary, including <filename>sd-boot</filename> and unified linux kernels.
+    Example command line for loading <command>systemd-boot</command> on x64:</para>
 
     <para>
-      <command>qemu-system-x86_64 <replaceable>[ ... ]</replaceable>
-      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi</command>
+      <command>qemu-system-x86_64
+      -drive if=pflash,format=qcow2,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE_4M.qcow2
+      -kernel /usr/lib/systemd/boot/efi/systemd-bootx64.efi
+      -drive file=<replaceable>...</replaceable>
+      <replaceable>[ ... ]</replaceable>
+      </command>
     </para>
 
-    <para>systemd-boot will detect that it was started directly instead of being loaded from ESP and will
-    search for the ESP in that case, taking into account boot order information from the hypervisor (if
-    available).</para>
+    <para>(The path to the firmware file might need to be adjusted depending on the distribution.)
+    <filename>sd-boot</filename> will detect that it was started directly instead of being loaded from ESP
+    and will search for the ESP in that case, taking into account boot order information from the hypervisor
+    (if available). Note that for this to yield a useful result, another <option>-drive</option> argument
+    needs to be used to attach an actual disk image with an ESP.</para>
   </refsect1>
 
   <refsect1>
