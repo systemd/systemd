@@ -998,6 +998,7 @@ static int mount_in_namespace_legacy(
         if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE)
                 r = verity_dissect_and_mount(
                                 chased_src_fd,
+                                /* mount_fds = */ NULL,
                                 chased_src_path,
                                 mount_tmp,
                                 options,
@@ -1221,6 +1222,7 @@ static int mount_in_namespace(
         if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE) {
                 r = verity_dissect_and_mount(
                                 chased_src_fd,
+                                /* mount_fds = */ NULL,
                                 chased_src_path,
                                 /* dest= */ NULL,
                                 options,

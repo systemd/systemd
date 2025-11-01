@@ -178,6 +178,7 @@ typedef struct ExecContext {
 
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
+        int root_image_fsmount_fds[_PARTITION_DESIGNATOR_MAX];
         void *root_hash, *root_hash_sig;
         size_t root_hash_size, root_hash_sig_size;
         LIST_HEAD(MountOptions, root_image_options);
@@ -517,6 +518,10 @@ void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
+void exec_context_images_fds_done(ExecContext *c);
+int exec_context_dissect_and_send_all(int socket, const ExecContext *c);
+void exec_context_dissect_receive_all(int socket, const Unit *u, ExecContext *c);
+
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
 int exec_context_destroy_mount_ns_dir(Unit *u);
 
@@ -559,6 +564,8 @@ bool exec_context_restrict_filesystems_set(const ExecContext *c);
 bool exec_context_with_rootfs(const ExecContext *c);
 
 int exec_context_has_vpicked_extensions(const ExecContext *context);
+bool exec_context_has_images(const ExecContext *context);
+bool exec_context_should_preload(const ExecContext *context);
 
 void exec_status_start(ExecStatus *s, pid_t pid, const dual_timestamp *ts);
 void exec_status_exit(ExecStatus *s, const ExecContext *context, pid_t pid, int code, int status);

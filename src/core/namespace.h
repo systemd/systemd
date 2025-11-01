@@ -6,6 +6,7 @@
 ***/
 
 #include "core-forward.h"
+#include "gpt.h"
 #include "list.h"
 #include "runtime-scope.h"
 
@@ -120,6 +121,7 @@ typedef enum MountImageType {
 typedef struct MountImage {
         char *source;
         char *destination; /* Unused if MountImageType == MOUNT_IMAGE_EXTENSION */
+        int fsmount_fds[_PARTITION_DESIGNATOR_MAX]; /* Pre-opened RootImage= or ExtensionImages= or MountImage= */
         LIST_HEAD(MountOptions, mount_options);
         bool ignore_enoent;
         MountImageType type;
@@ -131,6 +133,14 @@ typedef struct NamespaceParameters {
         int root_directory_fd;
         const char *root_directory;
         const char *root_image;
+        const char *root_hash;
+        size_t root_hash_size;
+        const char *root_hash_path;
+        const char *root_hash_sig;
+        size_t root_hash_sig_size;
+        const char *root_hash_sig_path;
+        const char *root_verity;
+        int root_image_fsmount_fds[_PARTITION_DESIGNATOR_MAX];
         const MountOptions *root_image_options;
         const ImagePolicy *root_image_policy;
 
@@ -161,7 +171,6 @@ typedef struct NamespaceParameters {
         const char *log_namespace;
 
         unsigned long mount_propagation_flag;
-        VeritySettings *verity;
 
         const MountImage *extension_images;
         size_t n_extension_images;
