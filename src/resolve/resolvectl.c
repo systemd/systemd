@@ -1015,14 +1015,12 @@ static int verb_service(int argc, char **argv, void *userdata) {
 }
 
 static int resolve_openpgp(sd_bus *bus, const char *address) {
-        const char *domain, *full;
         int r;
-        _cleanup_free_ char *hashed = NULL;
 
         assert(bus);
         assert(address);
 
-        domain = strrchr(address, '@');
+        const char *domain = strrchr(address, '@');
         if (!domain)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Address does not contain '@': \"%s\"", address);
@@ -1031,34 +1029,50 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
                                        "Address starts or ends with '@': \"%s\"", address);
         domain++;
 
+        _cleanup_free_ char *hashed = NULL;
         r = string_hashsum_sha256(address, domain - 1 - address, &hashed);
         if (r < 0)
                 return log_error_errno(r, "Hashing failed: %m");
 
         strshorten(hashed, 56);
 
-        full = strjoina(hashed, "._openpgpkey.", domain);
+        _cleanup_free_ char *suffix = NULL;
+        r = dns_name_concat("_openpgpkey", domain, /* flags= */ 0, &suffix);
+        if (r < 0)
+                return log_error_errno(r, "Failed to join DNS suffix: %m");
+
+        _cleanup_free_ char *full = NULL;
+        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full);
+        if (r < 0)
+                return log_error_errno(r, "Failed to join OPENPGPKEY name: %m");
         log_debug("Looking up \"%s\".", full);
 
-        r = resolve_record(bus, full,
-                           arg_class ?: DNS_CLASS_IN,
-                           arg_type ?: DNS_TYPE_OPENPGPKEY, false);
+        r = resolve_record(
+                        bus,
+                        full,
+                        arg_class ?: DNS_CLASS_IN,
+                        arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        /* warn_missing= */ false);
+        if (!IN_SET(r, -ENXIO, -ESRCH)) /* Not NXDOMAIN or NODATA? Then fail immedately. */
+                return r;
 
-        if (IN_SET(r, -ENXIO, -ESRCH)) { /* NXDOMAIN or NODATA? */
-              hashed = mfree(hashed);
-              r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
-              if (r < 0)
-                    return log_error_errno(r, "Hashing failed: %m");
+        hashed = mfree(hashed);
+        r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
+        if (r < 0)
+                return log_error_errno(r, "Hashing failed: %m");
 
-              full = strjoina(hashed, "._openpgpkey.", domain);
-              log_debug("Looking up \"%s\".", full);
+        full = mfree(full);
+        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full);
+        if (r < 0)
+                return log_error_errno(r, "Failed to join OPENPGPKEY name: %m");
+        log_debug("Looking up \"%s\".", full);
 
-              return resolve_record(bus, full,
-                                    arg_class ?: DNS_CLASS_IN,
-                                    arg_type ?: DNS_TYPE_OPENPGPKEY, true);
-        }
-
-        return r;
+        return resolve_record(
+                        bus,
+                        full,
+                        arg_class ?: DNS_CLASS_IN,
+                        arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        /* warn_missing= */ true);
 }
 
 static int verb_openpgp(int argc, char **argv, void *userdata) {
