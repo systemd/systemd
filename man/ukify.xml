@@ -45,11 +45,19 @@
     <title>Description</title>
 
     <para><command>ukify</command> is a tool whose primary purpose is to combine components (usually a
-    kernel, an initrd, and a UEFI boot stub) to create a
-    <ulink url="https://uapi-group.org/specifications/specs/unified_kernel_image/">Unified Kernel Image (UKI)</ulink>
-    — a PE binary that can be executed by the firmware to start the embedded linux kernel.
-    See <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-    for details about the stub.</para>
+    kernel, an initrd, and the
+    <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> UEFI
+    stub) to create a <ulink url="https://uapi-group.org/specifications/specs/unified_kernel_image/">Unified
+    Kernel Image (UKI)</ulink> — a single PE binary that boots the system. When the UKI is executed, the stub
+    extracts and boots the embedded linux kernel. The UKI can be started directly by the firmware or through
+    a boot loader. When used with <ulink url="https://www.qemu.org/docs/master/">qemu</ulink>, a UKI can also
+    be executed through "direct kernel boot", see example below.</para>
+
+    <para><command>ukify</command> can also be used generate other types of UKI-like images, in particular
+    extensions. See the description of the <command>build</command> verb below. <command>ukify</command> can
+    also generate certificates and keys for SecureBoot and PCR signing, see the description of the
+    <command>genkey</command> verb below. <command>ukify</command> can also print detailed information about
+    unified kernel images, see the description of <command>inspect</command> verb below.</para>
   </refsect1>
 
   <refsect1>
@@ -717,6 +725,27 @@
 </programlisting>
 
       <para>This creates an unsigned UKI <filename>./vmlinuz.unsigned.efi</filename>.</para>
+    </example>
+
+    <example>
+      <title>Direct kernel boot in a virtual machine</title>
+
+      <para>When using <ulink url="https://www.qemu.org/docs/master/">qemu</ulink> with
+      <ulink url="https://www.linux-kvm.org/downloads/lersek/ovmf-whitepaper-c770f8c.txt">OVMF</ulink>
+      (UEFI Firmware for virtual machines) the <option>-kernel</option> switch can be used directly with a
+      UKI. Example:</para>
+
+      <para>
+        <command>qemu-kvm
+        -drive if=pflash,format=qcow2,readonly=on,file=/usr/share/edk2/ovmf/OVMF_CODE_4M.qcow2
+        -kernel <filename index='false'>./vmlinuz.unsigned.efi</filename>
+        <replaceable>[ ... ]</replaceable>
+        </command>
+      </para>
+
+      <para>(The path to the firmware file might need to be adjusted depending on the distribution.) Usually,
+      another <option>-drive</option> argument would to be used to attach an actual disk image, but this
+      is not required.</para>
     </example>
 
     <example>
