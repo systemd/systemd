@@ -265,7 +265,7 @@ TEST(real_memory_pressure) {
 
         ASSERT_OK(sd_bus_message_read(reply, "o", &object));
 
-        ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
+        ASSERT_OK(bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR));
 
         ASSERT_OK(sd_event_default(&e));
 
@@ -406,7 +406,7 @@ TEST(real_cpu_pressure) {
 
         ASSERT_OK(sd_bus_message_read(reply, "o", &object));
 
-        ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
+        ASSERT_OK(bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR));
 
         ASSERT_OK(sd_event_default(&e));
 
@@ -535,7 +535,7 @@ TEST(real_io_pressure) {
 
         ASSERT_OK(sd_bus_message_read(reply, "o", &object));
 
-        ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
+        ASSERT_OK(bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR));
 
         ASSERT_OK(sd_event_default(&e));
 
