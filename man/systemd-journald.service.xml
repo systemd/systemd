@@ -20,6 +20,7 @@
     <refname>systemd-journald.service</refname>
     <refname>systemd-journald.socket</refname>
     <refname>systemd-journald-dev-log.socket</refname>
+    <refname>systemd-journald-remote-syslog.socket</refname>
     <refname>systemd-journald-audit.socket</refname>
     <refname>systemd-journald@.service</refname>
     <refname>systemd-journald@.socket</refname>
@@ -33,6 +34,7 @@
       <member><filename>systemd-journald.service</filename></member>
       <member><filename>systemd-journald.socket</filename></member>
       <member><filename>systemd-journald-dev-log.socket</filename></member>
+      <member><filename>systemd-journald-remote-syslog.socket</filename></member>
       <member><filename>systemd-journald-audit.socket</filename></member>
       <member><filename>systemd-journald@.service</filename></member>
       <member><filename>systemd-journald@.socket</filename></member>
@@ -418,7 +420,8 @@ systemd-tmpfiles --create --prefix /var/log/journal</programlisting>
         <command>systemd-journald</command> can listen for audit events using <citerefentry
         project='man-pages'><refentrytitle>netlink</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
         depending on whether <literal>systemd-journald-audit.socket</literal> is enabled or
-        not.</para>
+        not, and remote syslog messages on UDP if <literal>systemd-journald-remote-syslog.socket</literal>
+        is enabled.</para>
 
         <xi:include href="version-info.xml" xpointer="v228"/></listitem>
       </varlistentry>

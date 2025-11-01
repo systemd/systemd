@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/socket.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -255,14 +256,82 @@ size_t syslog_parse_identifier(const char **buf, char **identifier, char **pid) 
         return l;
 }
 
-static int syslog_skip_timestamp(const char **buf) {
+size_t syslog_get_rfc5424_token(const char **buf, char **word) {
+        const char *p;
+        char *t;
+        size_t l = 0;
+
+        assert(buf);
+        assert(word);
+
+        p = *buf;
+
+        p += strspn(p, WHITESPACE);
+        if (p[0] == '[') {
+                l = strcspn(p, "]");
+                if (l <= 0)
+                        return 0;
+                if (!p[l])
+                        return 0;
+                l++;
+        }
+        l += strcspn(p + l, WHITESPACE);
+
+        if (l <= 0)
+                return 0;
+
+        /* '-' is an empty token */
+        if ((l >= 2) ||
+            p[0] != '-') {
+                t = strndup(p, l);
+                if (t)
+                        *word = t;
+        }
+
+        if (p[l] != '\0' && strchr(WHITESPACE, p[l]))
+                l++;
+
+        *buf = p + l;
+        return l;
+}
+
+static bool syslog_check_and_skip_rfc5424(const char **buf) {
+        const char *p;
+        size_t l;
+
+        assert(buf);
+
+        p = *buf;
+        l = strspn(p, DIGITS);
+        if (l <= 0)
+                return false;
+
+        if (p[l] == '\0' || !strchr(WHITESPACE, p[l]))
+                return false;
+
+        *buf = p + l + 1;
+        return true;
+}
+
+static bool syslog_is_pid(const char *buf) {
+        if (!buf)
+                return false;
+
+        return strspn(buf, DIGITS) == strlen(buf);
+}
+
+static int syslog_skip_timestamp(const char **buf, bool rfc5424) {
         enum {
                 LETTER,
                 SPACE,
                 NUMBER,
                 SPACE_OR_NUMBER,
-                COLON
-        } sequence[] = {
+                COLON,
+                DASH,
+                T,
+                DOT,
+                PLUS
+        } sequence_3164[] = {
                 LETTER, LETTER, LETTER,
                 SPACE,
                 SPACE_OR_NUMBER, NUMBER,
@@ -273,7 +342,27 @@ static int syslog_skip_timestamp(const char **buf) {
                 COLON,
                 SPACE_OR_NUMBER, NUMBER,
                 SPACE
-        };
+        }, sequence_5424[] = {
+                NUMBER, NUMBER, NUMBER, NUMBER,
+                DASH,
+                NUMBER, NUMBER,
+                DASH,
+                NUMBER, NUMBER,
+                T,
+                NUMBER, NUMBER,
+                COLON,
+                NUMBER, NUMBER,
+                COLON,
+                NUMBER, NUMBER,
+                DOT,
+                NUMBER, NUMBER, NUMBER, NUMBER, NUMBER, NUMBER,
+                PLUS,
+                NUMBER, NUMBER,
+                COLON,
+                NUMBER, NUMBER,
+                SPACE
+        }, *sequence;
+        size_t elements;
 
         const char *p, *t;
         unsigned i;
@@ -281,7 +370,15 @@ static int syslog_skip_timestamp(const char **buf) {
         assert(buf);
         assert(*buf);
 
-        for (i = 0, p = *buf; i < ELEMENTSOF(sequence); i++, p++) {
+        if (rfc5424) {
+                sequence = sequence_5424;
+                elements = ELEMENTSOF(sequence_5424);
+        } else {
+                sequence = sequence_3164;
+                elements = ELEMENTSOF(sequence_3164);
+        }
+
+        for (i = 0, p = *buf; i < elements; i++, p++) {
                 if (!*p)
                         return 0;
 
@@ -314,6 +411,26 @@ static int syslog_skip_timestamp(const char **buf) {
                                 return 0;
                         break;
 
+                case DASH:
+                        if (*p != '-')
+                                return 0;
+                        break;
+
+                case T:
+                        if (*p != 'T')
+                                return 0;
+                        break;
+
+                case DOT:
+                        if (*p != '.')
+                                return 0;
+                        break;
+
+                case PLUS:
+                        if (*p != '+')
+                                return 0;
+                        break;
+
                 }
         }
 
@@ -329,18 +446,22 @@ void manager_process_syslog_message(
                 const struct ucred *ucred,
                 const struct timeval *tv,
                 const char *label,
-                size_t label_len) {
+                size_t label_len,
+                const union sockaddr_union *sa,
+                socklen_t salen) {
 
         char *t, syslog_priority[STRLEN("PRIORITY=") + DECIMAL_STR_MAX(int)],
                  syslog_facility[STRLEN("SYSLOG_FACILITY=") + DECIMAL_STR_MAX(int)];
+        char *hostname = NULL;
         const char *msg, *syslog_ts, *a;
         _cleanup_free_ char *identifier = NULL, *pid = NULL,
-                *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL;
+                *dummy = NULL, *msg_msg = NULL, *msg_raw = NULL,
+                *sap = NULL, *sni = NULL, *discard1 = NULL, *discard2 = NULL;
         int priority = LOG_USER | LOG_INFO, r;
         ClientContext *context = NULL;
         struct iovec *iovec;
         size_t n = 0, mm, i, leading_ws, syslog_ts_len;
-        bool store_raw;
+        bool store_raw, rfc5424;
 
         assert(m);
         assert(buf);
@@ -392,13 +513,32 @@ void manager_process_syslog_message(
         if (!client_context_test_priority(context, priority))
                 return;
 
+        rfc5424 = syslog_check_and_skip_rfc5424(&msg);
+
         syslog_ts = msg;
-        syslog_ts_len = syslog_skip_timestamp(&msg);
+        syslog_ts_len = syslog_skip_timestamp(&msg, rfc5424);
         if (syslog_ts_len == 0)
                 /* We failed to parse the full timestamp, store the raw message too */
                 store_raw = true;
 
-        syslog_parse_identifier(&msg, &identifier, &pid);
+        if (sa)
+                r = syslog_get_rfc5424_token(&msg, &hostname);
+
+        if (rfc5424) {
+                i = syslog_get_rfc5424_token(&msg, &identifier);
+                i = syslog_get_rfc5424_token(&msg, &pid);
+        } else
+                r = syslog_parse_identifier(&msg, &identifier, &pid);
+
+        /* check if we have a pid that's not a number */
+        if (pid && !syslog_is_pid(pid))
+                store_raw = true;
+
+        /* discard the next two tokens, message id and structured tags */
+        if (rfc5424) {
+                i = syslog_get_rfc5424_token(&msg, &discard1);
+                i = syslog_get_rfc5424_token(&msg, &discard2);
+        }
 
         if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
                 return;
@@ -415,7 +555,7 @@ void manager_process_syslog_message(
         if (m->config.forward_to_wall)
                 manager_forward_wall(m, priority, identifier, msg, ucred);
 
-        mm = N_IOVEC_META_FIELDS + 8 + client_context_extra_fields_n_iovec(context);
+        mm = N_IOVEC_META_FIELDS + 9 + client_context_extra_fields_n_iovec(context);
         iovec = newa(struct iovec, mm);
 
         iovec[n++] = IOVEC_MAKE_STRING("_TRANSPORT=syslog");
@@ -447,6 +587,30 @@ void manager_process_syslog_message(
 
                 iovec[n++] = IOVEC_MAKE(t, hlen + syslog_ts_len);
         }
+
+        if (m->config.syslog_hostname != SYSLOG_HOSTNAME_TRUST &&
+            sa &&
+            (salen == sizeof(struct sockaddr_in) ||
+             salen == sizeof(struct sockaddr_in6))) {
+                r = sockaddr_pretty(&sa->sa, salen, true, errno, &sap);
+                if (r < 0)
+                        hostname = NULL;
+                else
+                        hostname = sap;
+        }
+        if (m->config.syslog_hostname == SYSLOG_HOSTNAME_DNS &&
+            sa &&
+            (salen == sizeof(struct sockaddr_in) ||
+             salen == sizeof(struct sockaddr_in6))) {
+                r = socknameinfo_pretty(&sa->sa, salen, &sni);
+                if (r >= 0)
+                        hostname = sni;
+        }
+        if (hostname) {
+                a = strjoina("_HOSTNAME=", hostname);
+                iovec[n++] = IOVEC_MAKE_STRING(a);
+        } else if (sa) /* we should have a hostname */
+                store_raw = true;
 
         msg_msg = strjoin("MESSAGE=", msg);
         if (!msg_msg) {
@@ -528,6 +692,31 @@ int manager_open_syslog_socket(Manager *m, const char *syslog_socket) {
         r = sd_event_source_set_priority(m->syslog_event_source, SD_EVENT_PRIORITY_NORMAL+5);
         if (r < 0)
                 return log_error_errno(r, "Failed to adjust syslog event source priority: %m");
+
+        return 0;
+}
+
+int manager_open_udp_socket(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->udp_fd < 0) {
+                return log_error_errno(errno, "Not automatically opening UDP socket.");
+        } else
+                (void) fd_nonblock(m->syslog_fd, true);
+
+        r = setsockopt_int(m->udp_fd, SOL_SOCKET, SO_TIMESTAMP, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable SO_TIMESTAMP: %m");
+
+        r = sd_event_add_io(m->event, &m->udp_event_source, m->udp_fd, EPOLLIN, manager_process_datagram, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add remote syslog server fd to event loop: %m");
+
+        r = sd_event_source_set_priority(m->udp_event_source, SD_EVENT_PRIORITY_NORMAL+5);
+        if (r < 0)
+                return log_error_errno(r, "Failed to adjust remote syslog event source priority: %m");
 
         return 0;
 }
