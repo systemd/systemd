@@ -1017,7 +1017,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
 
         assert(q);
 
-        if (q->block_all_complete > 0) {
+        if (q->hook_query || q->block_all_complete > 0) {
                 TAKE_PTR(q);
                 return;
         }
@@ -1027,6 +1027,12 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 bool have_success = false;
 
                 LIST_FOREACH(auxiliary_queries, aux, q->auxiliary_queries) {
+
+                        if (aux->hook_query) {
+                                /* If an auxiliary query's hook is still pending, let's wait */
+                                TAKE_PTR(q);
+                                return;
+                        }
 
                         switch (aux->state) {
 

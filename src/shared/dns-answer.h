@@ -104,6 +104,8 @@ void dns_answer_randomize(DnsAnswer *a);
 
 uint32_t dns_answer_min_ttl(DnsAnswer *a);
 
+int dns_answer_to_json(DnsAnswer *answer, sd_json_variant **ret);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsAnswer*, dns_answer_unref);
 
 typedef struct DnsAnswerIterator {

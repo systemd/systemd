@@ -7,6 +7,7 @@
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "dns-type.h"
+#include "json-util.h"
 #include "socket-util.h"
 #include "string-util.h"
 
@@ -597,5 +598,39 @@ int dns_question_merge(DnsQuestion *a, DnsQuestion *b, DnsQuestion **ret) {
                 return r;
 
         *ret = TAKE_PTR(k);
+        return 0;
+}
+
+int dns_json_dispatch_question(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        DnsQuestion **q = ASSERT_PTR(userdata);
+        int r;
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        _cleanup_(dns_question_unrefp) DnsQuestion *nq = NULL;
+        nq = dns_question_new(sd_json_variant_elements(variant));
+        if (!nq)
+                return json_log_oom(variant, flags);
+
+        sd_json_variant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "key", SD_JSON_VARIANT_OBJECT, dns_json_dispatch_resource_key, 0, SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(i, dispatch_table, flags, &key);
+                if (r < 0)
+                        return r;
+
+                if (dns_question_add(nq, key, /* flags= */ 0) < 0)
+                        return json_log_oom(variant, flags);
+        }
+
+        dns_question_unref(*q);
+        *q = TAKE_PTR(nq);
         return 0;
 }

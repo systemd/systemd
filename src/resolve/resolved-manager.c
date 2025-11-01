@@ -918,6 +918,8 @@ Manager* manager_free(Manager *m) {
                 dns_service_browser_free(sb);
         hashmap_free(m->dns_service_browsers);
 
+        hashmap_free(m->hooks);
+
         return mfree(m);
 }
 

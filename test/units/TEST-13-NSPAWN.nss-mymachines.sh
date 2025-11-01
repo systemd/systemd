@@ -136,4 +136,12 @@ done
 (! getent group -s mymachines foo 11)
 (! getent passwd -s mymachines foo 11)
 
+# Now check the machined's hook for resolved too
+run_and_grep "10\.1\.0\.2" resolvectl query nss-mymachines-singleip
+
+run_and_grep "fd00:dead:beef:cafe::2" resolvectl query nss-mymachines-manyips
+for i in {100..120}; do
+    run_and_grep "10\.2\.0\.$i" resolvectl query nss-mymachines-manyips
+done
+
 machinectl stop nss-mymachines-{noip,singleip,manyips}

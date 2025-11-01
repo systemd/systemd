@@ -110,6 +110,9 @@ typedef struct DnsQuery {
         DnssdDiscoveredService *dnsservice_request;
         DnsServiceBrowser *service_browser_request;
 
+        /* Pending query to any installed hooks */
+        HookQuery *hook_query;
+
         /* Completion callback */
         void (*complete)(DnsQuery* q);
 

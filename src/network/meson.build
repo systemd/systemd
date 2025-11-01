@@ -74,6 +74,7 @@ systemd_networkd_extract_sources = files(
         'networkd-ntp.c',
         'networkd-queue.c',
         'networkd-radv.c',
+        'networkd-resolve-hook.c',
         'networkd-route.c',
         'networkd-route-metric.c',
         'networkd-route-nexthop.c',

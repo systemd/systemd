@@ -8,18 +8,19 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Network Management Netlink Socket
-Documentation=man:systemd-networkd.service(8) man:rtnetlink(7)
+Description=Network Management Resolve Hook Socket
+Documentation=man:systemd-networkd.service(8)
 ConditionCapability=CAP_NET_ADMIN
 DefaultDependencies=no
 Before=sockets.target shutdown.target
 Conflicts=shutdown.target
 
 [Socket]
-ReceiveBuffer=128M
-ListenNetlink=route 1361
-FileDescriptorName=rtnl
-PassPacketInfo=yes
+ListenStream=/run/systemd/resolve.hook/io.systemd.Network
+FileDescriptorName=resolve-hook
+SocketMode=0666
+Service=systemd-networkd.service
+RemoveOnStop=yes
 
 [Install]
 WantedBy=sockets.target

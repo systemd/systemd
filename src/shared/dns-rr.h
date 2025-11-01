@@ -444,3 +444,5 @@ int sshfp_algorithm_from_string(const char *s) _pure_;
 
 int sshfp_key_type_to_string_alloc(int i, char **ret);
 int sshfp_key_type_from_string(const char *s) _pure_;
+
+int dns_json_dispatch_resource_key(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
