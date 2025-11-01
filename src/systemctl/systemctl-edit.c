@@ -370,7 +370,8 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (!arg_no_reload && !install_client_side()) {
+        if (!arg_no_reload &&
+            install_client_side() == INSTALL_CLIENT_SIDE_NO) {
                 r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
                 if (r < 0)
                         return r;
