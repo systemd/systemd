@@ -2421,6 +2421,15 @@ _public_ int sd_varlink_collect_full(
                         if (sd_json_variant_elements(collected) >= VARLINK_COLLECT_MAX)
                                 return varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", sd_json_variant_elements(collected));
 
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
+                        if (!p) {
+                                r = sd_json_variant_new_array(&empty, /* array= */ NULL, /* n= */ 0);
+                                if (r < 0)
+                                        return r;
+
+                                p = empty;
+                        }
+
                         r = sd_json_variant_append_array(&collected, p);
                         if (r < 0)
                                 return varlink_log_errno(v, r, "Failed to append JSON object to array: %m");

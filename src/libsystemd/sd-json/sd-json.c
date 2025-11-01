@@ -5292,6 +5292,11 @@ _public_ int sd_json_dispatch_stdbool(const char *name, sd_json_variant *variant
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *b = false;
+                return 0;
+        }
+
         if (!sd_json_variant_is_boolean(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a boolean.", strna(name));
 
@@ -5304,6 +5309,11 @@ _public_ int sd_json_dispatch_intbool(const char *name, sd_json_variant *variant
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *b = false;
+                return 0;
+        }
 
         if (!sd_json_variant_is_boolean(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a boolean.", strna(name));
@@ -5336,6 +5346,11 @@ _public_ int sd_json_dispatch_int64(const char *name, sd_json_variant *variant, 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *i = -1;
+                return 0;
+        }
+
         /* Also accept numbers formatted as string, to increase compatibility with less capable JSON
          * implementations that cannot do 64bit integers. */
         if (sd_json_variant_is_string(variant) && safe_atoi64(sd_json_variant_string(variant), i) >= 0)
@@ -5353,6 +5368,11 @@ _public_ int sd_json_dispatch_uint64(const char *name, sd_json_variant *variant,
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *u = UINT64_MAX;
+                return 0;
+        }
 
         /* Since 64bit values (in particular unsigned ones) in JSON are problematic, let's also accept them
          * formatted as strings. If this is not desired make sure to set the .type field in
@@ -5377,6 +5397,11 @@ _public_ int sd_json_dispatch_uint32(const char *name, sd_json_variant *variant,
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *u = UINT32_MAX;
+                return 0;
+        }
+
         r = sd_json_dispatch_uint64(name, variant, flags, &u64);
         if (r < 0)
                 return r;
@@ -5398,6 +5423,11 @@ _public_ int sd_json_dispatch_int32(const char *name, sd_json_variant *variant, 
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *i = -1;
+                return 0;
+        }
 
         r = sd_json_dispatch_int64(name, variant, flags, &i64);
         if (r < 0)
@@ -5421,6 +5451,11 @@ _public_ int sd_json_dispatch_int16(const char *name, sd_json_variant *variant, 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *i = -1;
+                return 0;
+        }
+
         r = sd_json_dispatch_int64(name, variant, flags, &i64);
         if (r < 0)
                 return r;
@@ -5439,6 +5474,11 @@ _public_ int sd_json_dispatch_uint16(const char *name, sd_json_variant *variant,
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *u = UINT16_MAX;
+                return 0;
+        }
 
         r = sd_json_dispatch_uint64(name, variant, flags, &u64);
         if (r < 0)
@@ -5459,6 +5499,11 @@ _public_ int sd_json_dispatch_int8(const char *name, sd_json_variant *variant, s
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *i = -1;
+                return 0;
+        }
+
         r = sd_json_dispatch_int64(name, variant, flags, &i64);
         if (r < 0)
                 return r;
@@ -5478,6 +5523,11 @@ _public_ int sd_json_dispatch_uint8(const char *name, sd_json_variant *variant, 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
 
+        if (sd_json_variant_is_null(variant)) {
+                *u = UINT8_MAX;
+                return 0;
+        }
+
         r = sd_json_dispatch_uint64(name, variant, flags, &u64);
         if (r < 0)
                 return r;
@@ -5494,6 +5544,11 @@ _public_ int sd_json_dispatch_double(const char *name, sd_json_variant *variant,
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *d = NAN;
+                return 0;
+        }
 
         /* Note, this will take care of parsing NaN, -Infinity, Infinity for us */
         if (sd_json_variant_is_string(variant) && safe_atod(sd_json_variant_string(variant), d) >= 0)
@@ -5513,6 +5568,11 @@ _public_ int sd_json_dispatch_string(const char *name, sd_json_variant *variant,
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
+
+        if (sd_json_variant_is_null(variant)) {
+                *s = mfree(*s);
+                return 0;
+        }
 
         r = sd_json_dispatch_const_string(name, variant, flags, &n);
         if (r < 0)
@@ -5616,7 +5676,8 @@ _public_ int sd_json_dispatch_variant_noref(const char *name, sd_json_variant *v
 
 _public_ int sd_json_dispatch_uid_gid(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         uid_t *uid = userdata;
-        uint64_t k;
+        uint32_t k;
+        int r;
 
         assert_return(variant, -EINVAL);
         assert_return(userdata, -EINVAL);
@@ -5633,11 +5694,10 @@ _public_ int sd_json_dispatch_uid_gid(const char *name, sd_json_variant *variant
                 return 0;
         }
 
-        if (!sd_json_variant_is_unsigned(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
-
-        k = sd_json_variant_unsigned(variant);
-        if (k > UINT32_MAX || !uid_is_valid(k))
+        r = sd_json_dispatch_uint32(name, variant, flags, &k);
+        if (r < 0)
+                return r;
+        if (!uid_is_valid(k))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid UID/GID.", strna(name));
 
         *uid = k;
@@ -5678,12 +5738,18 @@ _public_ int sd_json_dispatch_signal(const char *name, sd_json_variant *variant,
         }
 
         int k;
-        r = sd_json_dispatch_int(name, variant, flags, &k);
-        if (r < 0)
-                return r;
+        if (sd_json_variant_is_string(variant)) {
+                k = signal_from_string(sd_json_variant_string(variant));
+                if (k < 0)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+        } else {
+                r = sd_json_dispatch_int(name, variant, flags, &k);
+                if (r < 0)
+                        return r;
 
-        if (!SIGNAL_VALID(k))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+                if (!SIGNAL_VALID(k))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid signal.", strna(name));
+        }
 
         *signo = k;
         return 0;

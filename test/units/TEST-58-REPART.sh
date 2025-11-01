@@ -141,6 +141,12 @@ SizeMaxBytes=64M
 PaddingMinBytes=92M
 EOF
 
+    systemd-repart --definitions="$defs" \
+                   --dry-run=yes \
+                   --seed="$seed" \
+                   --include-partitions=home,swap \
+                   "-"
+
     systemd-repart --offline="$OFFLINE" \
                    --definitions="$defs" \
                    --dry-run=no \
@@ -1688,6 +1694,70 @@ testcase_varlink_list_devices() {
     varlinkctl call "$REPART" --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
 
     varlinkctl call /run/systemd/io.systemd.Repart --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
+}
+
+testcase_get_size() {
+    local defs
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs'" RETURN
+
+    tee "$defs/a.conf" <<EOF
+[Partition]
+Type=root
+SizeMinBytes=15M
+EOF
+    tee "$defs/b.conf" <<EOF
+[Partition]
+Type=linux-generic
+SizeMinBytes=23M
+EOF
+
+    output="$(systemd-repart --definitions="$defs" - 2>&1)"
+    assert_in "Automatically determined minimal disk image size as 39M." "$output"
+}
+
+testcase_varlink_run() {
+    local defs
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    tee "$defs/a.conf" <<EOF
+[Partition]
+Type=root
+Format=empty
+EOF
+    tee "$defs/b.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=empty
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=50M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=yes \
+                   "$imgs/disk1.img"
+
+    REPART="$(which systemd-repart)"
+    truncate -s 50M "$imgs/disk2.img"
+    varlinkctl call "$REPART" io.systemd.Repart.Run '{"definitions":["'"$defs"'"],"empty":"force","seed":"'"$seed"'","dryRun":false,"node":"'"$imgs/disk2.img"'"}'
+
+    # Compare that the version from the command line and via Varlink result in the bit exact same output
+    cmp "$imgs/disk1.img" "$imgs/disk2.img"
+
+    # Try once more, this time with progress info
+    truncate -s 50M "$imgs/disk3.img"
+    varlinkctl --more --collect call "$REPART" io.systemd.Repart.Run '{"definitions":["'"$defs"'"],"empty":"force","seed":"'"$seed"'","dryRun":false,"node":"'"$imgs/disk3.img"'"}'
+
+    cmp "$imgs/disk1.img" "$imgs/disk3.img"
 }
 
 OFFLINE="yes"
