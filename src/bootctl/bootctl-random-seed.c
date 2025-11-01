@@ -122,6 +122,9 @@ int install_random_seed(const char *esp) {
 
         assert_cc(RANDOM_EFI_SEED_SIZE == SHA256_DIGEST_SIZE);
 
+        if (!arg_install_random_seed)
+                return 0;
+
         esp_fd = open(esp, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
         if (esp_fd < 0)
                 return log_error_errno(errno, "Failed to open ESP directory '%s': %m", esp);

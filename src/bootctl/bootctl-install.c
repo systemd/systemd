@@ -623,11 +623,12 @@ static int efi_timestamp(EFI_TIME *ret) {
 
         return 0;
 }
-#endif
 
 static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, EVP_PKEY *private_key) {
-#if HAVE_OPENSSL
         int r;
+
+        if (!arg_secure_boot_auto_enroll)
+                return 0;
 
         _cleanup_free_ uint8_t *dercert = NULL;
         int dercertsz;
@@ -752,10 +753,8 @@ static int install_secure_boot_auto_enroll(const char *esp, X509 *certificate, E
         }
 
         return 0;
-#else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot set up secure boot auto-enrollment.");
-#endif
 }
+#endif
 
 static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
         _cleanup_free_ char *opath = NULL;
@@ -963,6 +962,7 @@ static int are_we_installed(const char *esp_path) {
         return r == 0;
 }
 
+#if HAVE_OPENSSL
 static int load_secure_boot_auto_enroll(
                 X509 **ret_certificate,
                 EVP_PKEY **ret_private_key) {
@@ -1022,6 +1022,7 @@ static int load_secure_boot_auto_enroll(
 
         return 0;
 }
+#endif
 
 int verb_install(int argc, char *argv[], void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
@@ -1037,11 +1038,13 @@ int verb_install(int argc, char *argv[], void *userdata) {
         /* Support graceful mode only for updates, unless forcibly enabled in chroot environments */
         graceful = arg_graceful() == ARG_GRACEFUL_FORCE || (!install && arg_graceful() != ARG_GRACEFUL_NO);
 
+#if HAVE_OPENSSL
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         _cleanup_(X509_freep) X509 *certificate = NULL;
         r = load_secure_boot_auto_enroll(&certificate, &private_key);
         if (r < 0)
                 return r;
+#endif
 
         r = acquire_esp(/* unprivileged_mode= */ false, graceful, &part, &pstart, &psize, &uuid, NULL);
         if (graceful && r == -ENOKEY)
@@ -1101,17 +1104,15 @@ int verb_install(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return r;
 
-                        if (arg_install_random_seed) {
-                                r = install_random_seed(arg_esp_path);
-                                if (r < 0)
-                                        return r;
-                        }
+                        r = install_random_seed(arg_esp_path);
+                        if (r < 0)
+                                return r;
 
-                        if (arg_secure_boot_auto_enroll) {
-                                r = install_secure_boot_auto_enroll(arg_esp_path, certificate, private_key);
-                                if (r < 0)
-                                        return r;
-                        }
+#if HAVE_OPENSSL
+                        r = install_secure_boot_auto_enroll(arg_esp_path, certificate, private_key);
+                        if (r < 0)
+                                return r;
+#endif
                 }
 
                 r = install_loader_specification(arg_dollar_boot_path());
