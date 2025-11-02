@@ -7,6 +7,7 @@
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
+#include "sd-fiber.h"
 
 #include "ansi-color.h"
 #include "build.h"
@@ -376,7 +377,7 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
                         continue;
                 if (r < 0) {
                         (void) log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                              "%s: Failed to process bus, ignoring: %m", unit);
+                                              "Failed to process bus, ignoring: %m");
                         break;
                 }
 
@@ -384,32 +385,86 @@ static int bus_connect_user_unit(const char *unit, sd_bus **ret) {
                         break;
                 if (!sd_bus_is_open(bus)) {
                         (void) log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(ENOTCONN),
-                                              "%s: Failed to connect to bus, ignoring", unit);
+                                              "Failed to connect to bus, ignoring");
                         break;
                 }
 
                 uint64_t passed = now(CLOCK_MONOTONIC) - n;
                 if (passed > USER_BUS_HELLO_TIMEOUT) {
                         (void) log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(ETIMEDOUT),
-                                              "%s: Timed out connecting to bus, ignoring", unit);
+                                              "Timed out connecting to bus, ignoring");
                         break;
                 }
 
                 r = sd_bus_wait(bus, USER_BUS_HELLO_TIMEOUT - passed);
                 if (r == 0) {
                         (void) log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, SYNTHETIC_ERRNO(ETIMEDOUT),
-                                              "%s: Timed out connecting to bus, ignoring", unit);
+                                              "Timed out connecting to bus, ignoring");
                         break;
                 }
                 if (r < 0) {
                         (void) log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                              "%s: Failed to wait for bus, ignoring: %m", unit);
+                                              "Failed to wait for bus, ignoring: %m");
                         break;
                 }
         }
 
         *ret = r >= 0 ? TAKE_PTR(bus) : NULL;
         return r >= 0;
+}
+
+typedef struct UserUnitOperationArgs {
+        char **units;
+        UnitMarker marker;
+} UserUnitOperationArgs;
+
+typedef int (*UserUnitOperationFunc)(const char *user, const UserUnitOperationArgs *args);
+
+typedef struct UserUnitOperation {
+        char *user;
+        UserUnitOperationFunc func;
+        const UserUnitOperationArgs *args;
+} UserUnitOperation;
+
+static int user_unit_operation_fiber(void *userdata) {
+        UserUnitOperation *o = ASSERT_PTR(userdata);
+        return o->func(o->user, o->args);
+}
+
+static int user_units_operation(char **users, UserUnitOperationFunc func, const UserUnitOperationArgs *args) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        sd_fiber **fibers = NULL;
+        size_t n_fibers = 0;
+        int r;
+
+        CLEANUP_ARRAY(fibers, n_fibers, sd_fiber_unref_many);
+
+        r = sd_event_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_event_set_exit_on_idle(e, true);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(user, users) {
+                _cleanup_(sd_fiber_unrefp) sd_fiber *f = NULL;
+
+                r = sd_fiber_new_full(e, *user, user_unit_operation_fiber, &(UserUnitOperation) {
+                        .user = *user,
+                        .func = func,
+                        .args = args,
+                }, SD_FIBER_PRIORITY_DEFAULT, &f);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(fibers, n_fibers + 1))
+                        return log_oom();
+
+                fibers[n_fibers++] = TAKE_PTR(f);
+        }
+
+        return sd_event_loop(e);
 }
 
 static int install_units(int argc, char **argv, RuntimeScope scope) {
@@ -516,6 +571,67 @@ static void install_changes_dump_graceful(int error, InstallChange *changes, siz
 
         if (error < 0 && error != -ENOENT && !err_logged)
                 log_error_errno(error, "Failed to disable units: %m");
+}
+
+static int user_stop_units(const char *user, const UserUnitOperationArgs *args) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
+        int r;
+
+        assert(user);
+        assert(args->units);
+
+        r = bus_connect_user_unit(user, &user_bus);
+        if (r <= 0)
+                return r;
+
+        _cleanup_strv_free_ char **expanded = NULL;
+        r = expand_template_units(user_bus, args->units, &expanded);
+        if (r < 0)
+                return r;
+
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        r = bus_wait_for_jobs_new(user_bus, &w);
+        if (r < 0)
+                return log_error_errno(r, "Could not watch jobs: %m");
+
+        STRV_FOREACH(unit, expanded) {
+                if (arg_dry_run) {
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Would stop unit '%s''", *unit);
+                        continue;
+                }
+
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = bus_call_method(
+                                user_bus,
+                                bus_systemd_mgr,
+                                "StopUnit",
+                                &error,
+                                &reply,
+                                "ss", *unit, "replace");
+                if (r < 0) {
+                        if (r != -ENOENT)
+                                log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
+                                               "Failed to stop unit '%s', ignoring: %s",
+                                               *unit, bus_error_message(&error, r));
+                        continue;
+                }
+
+                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Stopping unit '%s'", *unit);
+
+                const char *path;
+                r = sd_bus_message_read(reply, "o", &path);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = bus_wait_for_jobs_add(w, path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to watch job '%s': %m", path);
+        }
+
+        (void) bus_wait_for_jobs(w, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR);
+
+        return 0;
 }
 
 static int remove_units(int argc, char **argv, RuntimeScope scope) {
@@ -648,77 +764,11 @@ static int remove_units(int argc, char **argv, RuntimeScope scope) {
                 if (r < 0)
                         return r;
 
-                BusWaitForJobs **waiters = NULL;
-                size_t n_waiters = 0;
-
-                CLEANUP_ARRAY(waiters, n_waiters, bus_wait_for_jobs_free_many);
-
-                STRV_FOREACH(user, users) {
-                        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
-
-                        r = bus_connect_user_unit(*user, &user_bus);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                continue;
-
-                        _cleanup_strv_free_ char **expanded = NULL;
-                        r = expand_template_units(user_bus, units, &expanded);
-                        if (r < 0)
-                                return r;
-
-                        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-                        r = bus_wait_for_jobs_new(user_bus, &w);
-                        if (r < 0)
-                                return log_error_errno(r, "Could not watch jobs: %m");
-
-                        STRV_FOREACH(unit, expanded) {
-                                if (arg_dry_run) {
-                                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                                                 "%s: Would stop unit '%s''", *user, *unit);
-                                        continue;
-                                }
-
-                                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                                r = bus_call_method(
-                                                user_bus,
-                                                bus_systemd_mgr,
-                                                "StopUnit",
-                                                &error,
-                                                &reply,
-                                                "ss", *unit, "replace");
-                                if (r < 0) {
-                                        if (r != -ENOENT)
-                                                log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                                               "%s: Failed to stop unit '%s', ignoring: %s",
-                                                               *user, *unit, bus_error_message(&error, r));
-                                        continue;
-                                }
-
-                                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                                         "%s: Stopping unit '%s'", *user, *unit);
-
-                                const char *path;
-                                r = sd_bus_message_read(reply, "o", &path);
-                                if (r < 0)
-                                        return bus_log_parse_error(r);
-
-                                r = bus_wait_for_jobs_add(w, path);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to watch job '%s': %m", path);
-                        }
-
-                        if (!GREEDY_REALLOC(waiters, n_waiters + 1))
-                                return log_oom();
-
-                        bus_wait_for_jobs_set_bus_close(w, true);
-                        sd_bus_unref(TAKE_PTR(user_bus));
-                        waiters[n_waiters++] = TAKE_PTR(w);
-                }
-
-                FOREACH_ARRAY(w, waiters, n_waiters)
-                        (void) bus_wait_for_jobs(*w, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR);
+                r = user_units_operation(users, user_stop_units, &(UserUnitOperationArgs) {
+                        .units = units,
+                });
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -774,6 +824,39 @@ static int unit_set_property(sd_bus *bus, const char *unit, const char *property
         return 0;
 }
 
+static int user_set_marker(const char *user, const UserUnitOperationArgs *args) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
+        int r;
+
+        assert(user);
+        assert(args->units);
+
+        r = bus_connect_user_unit(user, &user_bus);
+        if (r <= 0)
+                return r;
+
+        _cleanup_free_ char *property = strjoin("Markers=+", unit_marker_to_string(args->marker));
+        if (!property)
+                return log_oom();
+
+        STRV_FOREACH(unit, args->units) {
+                if (arg_dry_run) {
+                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
+                                 "Would set marker '%s' for unit '%s'",
+                                 unit_marker_to_string(args->marker), *unit);
+                        continue;
+                }
+
+                r = unit_set_property(user_bus, *unit, property);
+                if (r < 0)
+                        return r;
+
+                log_debug("Configured marker '%s' for unit '%s'", unit_marker_to_string(args->marker), *unit);
+        }
+
+        return 0;
+}
+
 static int set_markers(int argc, char **argv, RuntimeScope scope, UnitMarker marker) {
         int r;
 
@@ -785,16 +868,16 @@ static int set_markers(int argc, char **argv, RuntimeScope scope, UnitMarker mar
         if (offline())
                 return 0;
 
-        _cleanup_free_ char *property = strjoin("Markers=+", unit_marker_to_string(marker));
-        if (!property)
-                return log_oom();
-
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         r = bus_connect_system_systemd(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to private bus: %m");
 
-        if (scope == RUNTIME_SCOPE_SYSTEM)
+        if (scope == RUNTIME_SCOPE_SYSTEM) {
+                _cleanup_free_ char *property = strjoin("Markers=+", unit_marker_to_string(marker));
+                if (!property)
+                        return log_oom();
+
                 STRV_FOREACH(unit, units) {
                         if (arg_dry_run) {
                                 log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
@@ -809,38 +892,19 @@ static int set_markers(int argc, char **argv, RuntimeScope scope, UnitMarker mar
 
                         log_debug("Configured marker '%s' for unit '%s'", unit_marker_to_string(marker), *unit);
                 }
-        else {
+        } else {
                 _cleanup_strv_free_ char **users = NULL;
 
                 r = list_units(bus, STRV_MAKE("user@*.service"), &users);
                 if (r < 0)
                         return r;
 
-                STRV_FOREACH(user, users) {
-                        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
-
-                        r = bus_connect_user_unit(*user, &user_bus);
-                        if (r < 0)
-                                return r;
-                        if (r == 0)
-                                continue;
-
-                        STRV_FOREACH(unit, units) {
-                                if (arg_dry_run) {
-                                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                                                 "%s: Would set marker '%s' for unit '%s'",
-                                                 *user, unit_marker_to_string(marker), *unit);
-                                        continue;
-                                }
-
-                                r = unit_set_property(user_bus, *unit, property);
-                                if (r < 0)
-                                        return r;
-
-                                log_debug("%s: Configured marker '%s' for unit '%s'",
-                                          *user, unit_marker_to_string(marker), *unit);
-                        }
-                }
+                r = user_units_operation(users, user_set_marker, &(UserUnitOperationArgs) {
+                        .units = units,
+                        .marker = marker,
+                });
+                if (r < 0)
+                        return r;
         }
 
         return 0;
@@ -868,6 +932,50 @@ static int verb_mark_reload_system_units(int argc, char **argv, void *userdata) 
 
 static int verb_mark_reload_user_units(int argc, char **argv, void *userdata) {
         return set_markers(argc, argv, RUNTIME_SCOPE_GLOBAL, UNIT_MARKER_NEEDS_RELOAD);
+}
+
+static int user_enqueue_marked(const char *user, const UserUnitOperationArgs *args) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
+        int r;
+
+        r = bus_connect_user_unit(user, &user_bus);
+        if (r <= 0)
+                return r;
+
+        if (arg_dry_run) {
+                log_full(arg_quiet ? LOG_DEBUG : LOG_INFO, "Would enqueue marked jobs");
+                return 0;
+        }
+
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        r = bus_wait_for_jobs_new(user_bus, &w);
+        if (r < 0)
+                return log_error_errno(r, "Could not watch jobs: %m");
+
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        r = bus_call_method(user_bus, bus_systemd_mgr, "EnqueueMarkedJobs", &error, &reply, NULL);
+        if (r < 0) {
+                log_full_errno(arg_quiet ? LOG_WARNING : LOG_DEBUG, r,
+                               "Failed to enqueue marked jobs, ignoring: %s",
+                               bus_error_message(&error, r));
+                return 0;
+        }
+
+        _cleanup_strv_free_ char **paths = NULL;
+        r = sd_bus_message_read_strv(reply, &paths);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        STRV_FOREACH(path, paths) {
+                r = bus_wait_for_jobs_add(w, *path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to watch job '%s': %m", *path);
+        }
+
+        (void) bus_wait_for_jobs(w, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR);
+
+        return 0;
 }
 
 static int reload_daemon_enqueue_marked(int argc, char **argv, RuntimeScope scope) {
@@ -946,8 +1054,7 @@ static int reload_daemon_enqueue_marked(int argc, char **argv, RuntimeScope scop
 
                         STRV_FOREACH(user, users) {
                                 log_full(arg_dry_run && !arg_quiet ? LOG_INFO : LOG_DEBUG,
-                                         "%s: %s service manager",
-                                         *user, arg_dry_run ? "Would reload" : "Reloading");
+                                         "%s service manager", arg_dry_run ? "Would reload" : "Reloading");
 
                                 if (arg_dry_run)
                                         continue;
@@ -963,8 +1070,8 @@ static int reload_daemon_enqueue_marked(int argc, char **argv, RuntimeScope scop
                                                 "ss", *user, "replace");
                                 if (r < 0) {
                                         log_full_errno(arg_quiet ? LOG_DEBUG : LOG_WARNING, r,
-                                                       "%s: Failed to queue reload, ignoring: %s",
-                                                       *user, bus_error_message(&error, r));
+                                                       "Failed to queue reload, ignoring: %s",
+                                                       bus_error_message(&error, r));
                                         continue;
                                 }
 
@@ -982,62 +1089,9 @@ static int reload_daemon_enqueue_marked(int argc, char **argv, RuntimeScope scop
                 }
 
                 if (enqueue) {
-                        BusWaitForJobs **waiters = NULL;
-                        size_t n_waiters = 0;
-
-                        CLEANUP_ARRAY(waiters, n_waiters, bus_wait_for_jobs_free_many);
-
-                        STRV_FOREACH(user, users) {
-                                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
-
-                                r = bus_connect_user_unit(*user, &user_bus);
-                                if (r < 0)
-                                        return r;
-                                if (r == 0)
-                                        continue;
-
-                                if (arg_dry_run) {
-                                        log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                                                 "%s: Would enqueue marked jobs", *user);
-                                        continue;
-                                }
-
-                                _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-                                r = bus_wait_for_jobs_new(user_bus, &w);
-                                if (r < 0)
-                                        return log_error_errno(r, "Could not watch jobs: %m");
-
-                                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                                r = bus_call_method(user_bus, bus_systemd_mgr, "EnqueueMarkedJobs", &error, &reply, NULL);
-                                if (r < 0) {
-                                        log_full_errno(arg_quiet ? LOG_WARNING : LOG_DEBUG, r,
-                                                       "%s: Failed to enqueue marked jobs, ignoring: %s",
-                                                       *user, bus_error_message(&error, r));
-                                        continue;
-                                }
-
-                                _cleanup_strv_free_ char **paths = NULL;
-                                r = sd_bus_message_read_strv(reply, &paths);
-                                if (r < 0)
-                                        return bus_log_parse_error(r);
-
-                                STRV_FOREACH(path, paths) {
-                                        r = bus_wait_for_jobs_add(w, *path);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to watch job '%s': %m", *path);
-                                }
-
-                                if (!GREEDY_REALLOC(waiters, n_waiters + 1))
-                                        return log_oom();
-
-                                bus_wait_for_jobs_set_bus_close(w, true);
-                                sd_bus_unref(TAKE_PTR(user_bus));
-                                waiters[n_waiters++] = TAKE_PTR(w);
-                        }
-
-                        FOREACH_ARRAY(w, waiters, n_waiters)
-                                (void) bus_wait_for_jobs(*w, arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR);
+                        r = user_units_operation(users, user_enqueue_marked, &(UserUnitOperationArgs) {});
+                        if (r < 0)
+                                return r;
                 }
         }
 
