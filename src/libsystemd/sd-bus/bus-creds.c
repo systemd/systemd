@@ -1096,7 +1096,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
         if (missing & (SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_USER_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID)) {
 
                 if (!c->cgroup) {
-                        r = cg_pid_get_path(NULL, pidref->pid, &c->cgroup);
+                        r = cg_pid_get_path(pidref->pid, &c->cgroup);
                         if (r < 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
                                 return r;
                 }

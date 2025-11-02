@@ -136,7 +136,7 @@ static int set_attribute_and_warn(Unit *u, const char *attribute, const char *va
         if (!crt || !crt->cgroup_path)
                 return -EOWNERDEAD;
 
-        r = cg_set_attribute(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, attribute, value);
+        r = cg_set_attribute(crt->cgroup_path, attribute, value);
         if (r < 0)
                 log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%.*s': %m",
                                     attribute, empty_to_root(crt->cgroup_path), (int) strcspn(value, NEWLINE), value);
@@ -287,7 +287,7 @@ static int unit_get_kernel_memory_limit(Unit *u, const char *file, uint64_t *ret
         if (!crt || !crt->cgroup_path)
                 return -EOWNERDEAD;
 
-        return cg_get_attribute_as_uint64("memory", crt->cgroup_path, file, ret);
+        return cg_get_attribute_as_uint64(crt->cgroup_path, file, ret);
 }
 
 static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_t *ret_unit_value, uint64_t *ret_kernel_value) {
@@ -1139,7 +1139,7 @@ static void cgroup_apply_cpu_idle(Unit *u, uint64_t weight) {
 
         is_idle = weight == CGROUP_WEIGHT_IDLE;
         idle_val = one_zero(is_idle);
-        r = cg_set_attribute("cpu", crt->cgroup_path, "cpu.idle", idle_val);
+        r = cg_set_attribute(crt->cgroup_path, "cpu.idle", idle_val);
         if (r < 0 && (r != -ENOENT || is_idle))
                 log_unit_full_errno(u, LOG_LEVEL_CGROUP_WRITE(r), r, "Failed to set '%s' attribute on '%s' to '%s': %m",
                                     "cpu.idle", empty_to_root(crt->cgroup_path), idle_val);
@@ -1211,7 +1211,7 @@ static int set_bfq_weight(Unit *u, dev_t dev, uint64_t io_weight) {
         else
                 xsprintf(buf, "%" PRIu64 "\n", bfq_weight);
 
-        r = cg_set_attribute(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "io.bfq.weight", buf);
+        r = cg_set_attribute(crt->cgroup_path, "io.bfq.weight", buf);
         if (r >= 0 && io_weight != bfq_weight)
                 log_unit_debug(u, "%s=%" PRIu64 " scaled to io.bfq.weight=%" PRIu64,
                                major(dev) > 0 ? "IODeviceWeight" : "IOWeight",
@@ -1236,7 +1236,7 @@ static void cgroup_apply_io_device_weight(Unit *u, const char *dev_path, uint64_
         r1 = set_bfq_weight(u, dev, io_weight);
 
         xsprintf(buf, DEVNUM_FORMAT_STR " %" PRIu64 "\n", DEVNUM_FORMAT_VAL(dev), io_weight);
-        r2 = cg_set_attribute("io", crt->cgroup_path, "io.weight", buf);
+        r2 = cg_set_attribute(crt->cgroup_path, "io.weight", buf);
 
         /* Look at the configured device, when both fail, prefer io.weight errno. */
         r = r2 == -EOPNOTSUPP ? r1 : r2;
@@ -1989,7 +1989,7 @@ static int unit_watch_cgroup(Unit *u) {
         if (r < 0)
                 return log_oom();
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "cgroup.events", &events);
+        r = cg_get_path(crt->cgroup_path, "cgroup.events", &events);
         if (r < 0)
                 return log_oom();
 
@@ -2044,7 +2044,7 @@ static int unit_watch_cgroup_memory(Unit *u) {
         if (r < 0)
                 return log_oom();
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "memory.events", &events);
+        r = cg_get_path(crt->cgroup_path, "memory.events", &events);
         if (r < 0)
                 return log_oom();
 
@@ -2103,7 +2103,7 @@ static int unit_update_cgroup(
         CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
 
         uint64_t cgroup_id = 0;
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &cgroup_full_path);
+        r = cg_get_path(crt->cgroup_path, /* suffix = */ NULL, &cgroup_full_path);
         if (r == 0) {
                 r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
                 if (r < 0)
@@ -2714,7 +2714,7 @@ int unit_cgroup_is_empty(Unit *u) {
         if (!crt->cgroup_path)
                 return -EOWNERDEAD;
 
-        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path);
+        r = cg_is_empty(crt->cgroup_path);
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to determine whether cgroup %s is empty: %m", empty_to_root(crt->cgroup_path));
         return r;
@@ -2857,7 +2857,7 @@ int unit_search_main_pid(Unit *u, PidRef *ret) {
         if (!crt || !crt->cgroup_path)
                 return -ENXIO;
 
-        r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, &f);
+        r = cg_enumerate_processes(crt->cgroup_path, &f);
         if (r < 0)
                 return r;
 
@@ -3033,7 +3033,6 @@ int unit_check_oom(Unit *u) {
 
         if (ctx->memory_oom_group) {
                 r = cg_get_keyed_attribute(
-                                "memory",
                                 crt->cgroup_path,
                                 "memory.events.local",
                                 STRV_MAKE("oom_group_kill"),
@@ -3044,7 +3043,6 @@ int unit_check_oom(Unit *u) {
 
         if (isempty(oom_kill)) {
                 r = cg_get_keyed_attribute(
-                                "memory",
                                 crt->cgroup_path,
                                 "memory.events",
                                 STRV_MAKE("oom_kill"),
@@ -3156,7 +3154,6 @@ static int unit_check_cgroup_events(Unit *u) {
                 return 0;
 
         r = cg_get_keyed_attribute(
-                        SYSTEMD_CGROUP_CONTROLLER,
                         crt->cgroup_path,
                         "cgroup.events",
                         STRV_MAKE("populated", "frozen"),
@@ -3260,7 +3257,7 @@ int manager_setup_cgroup(Manager *m) {
 
         /* 1. Determine hierarchy */
         m->cgroup_root = mfree(m->cgroup_root);
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &m->cgroup_root);
+        r = cg_pid_get_path(0, &m->cgroup_root);
         if (r < 0)
                 return log_error_errno(r, "Cannot determine cgroup we are running in: %m");
 
@@ -3404,7 +3401,7 @@ Unit* manager_get_unit_by_pidref_cgroup(Manager *m, const PidRef *pid) {
 
         assert(m);
 
-        if (cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup) < 0)
+        if (cg_pidref_get_path(pid, &cgroup) < 0)
                 return NULL;
 
         return manager_get_unit_by_cgroup(m, cgroup);
@@ -3538,7 +3535,7 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
         if (!FLAGS_SET(crt->cgroup_realized_mask, CGROUP_MASK_MEMORY))
                 return -ENODATA;
 
-        r = cg_get_attribute_as_uint64("memory", crt->cgroup_path, attributes_table[metric], &bytes);
+        r = cg_get_attribute_as_uint64(crt->cgroup_path, attributes_table[metric], &bytes);
         if (r < 0 && r != -ENODATA)
                 return r;
         updated = r >= 0;
@@ -3581,7 +3578,7 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret) {
         if ((crt->cgroup_realized_mask & CGROUP_MASK_PIDS) == 0)
                 return -ENODATA;
 
-        return cg_get_attribute_as_uint64("pids", crt->cgroup_path, "pids.current", ret);
+        return cg_get_attribute_as_uint64(crt->cgroup_path, "pids.current", ret);
 }
 
 static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_t *ret) {
@@ -3601,7 +3598,7 @@ static int unit_get_cpu_usage_raw(const Unit *u, const CGroupRuntime *crt, nsec_
         _cleanup_free_ char *val = NULL;
         uint64_t us;
 
-        r = cg_get_keyed_attribute("cpu", crt->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
+        r = cg_get_keyed_attribute(crt->cgroup_path, "cpu.stat", STRV_MAKE("usage_usec"), &val);
         if (r < 0)
                 return r;
 
@@ -3772,7 +3769,7 @@ static int unit_get_io_accounting_raw(
         if (!FLAGS_SET(crt->cgroup_realized_mask, CGROUP_MASK_IO))
                 return -ENODATA;
 
-        r = cg_get_path("io", crt->cgroup_path, "io.stat", &path);
+        r = cg_get_path(crt->cgroup_path, "io.stat", &path);
         if (r < 0)
                 return r;
 
@@ -4037,7 +4034,6 @@ static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
                 return -EOWNERDEAD;
 
         r = cg_get_keyed_attribute(
-                        SYSTEMD_CGROUP_CONTROLLER,
                         crt->cgroup_path,
                         "cgroup.events",
                         STRV_MAKE("frozen"),
@@ -4111,7 +4107,7 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
                         assert_not_reached();
         }
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, "cgroup.freeze", &path);
+        r = cg_get_path(crt->cgroup_path, "cgroup.freeze", &path);
         if (r < 0)
                 return r;
 
@@ -4142,7 +4138,7 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
         if ((crt->cgroup_realized_mask & CGROUP_MASK_CPUSET) == 0)
                 return -ENODATA;
 
-        r = cg_get_attribute("cpuset", crt->cgroup_path, name, &v);
+        r = cg_get_attribute(crt->cgroup_path, name, &v);
         if (r == -ENOENT)
                 return -ENODATA;
         if (r < 0)

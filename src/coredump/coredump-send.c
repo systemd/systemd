@@ -132,7 +132,7 @@ static int can_forward_coredump(PidRef *pidref, PidRef *leader) {
         }
 
         _cleanup_free_ char *cgroup = NULL;
-        r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, leader, &cgroup);
+        r = cg_pidref_get_path(leader, &cgroup);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get cgroup of the leader process, ignoring: %m");
 
