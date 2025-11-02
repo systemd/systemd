@@ -4366,7 +4366,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
                 </row>
                 <row>
                   <entry><literal>exec-condition</literal></entry>
-                  <entry>Service did not run because <varname>ExecCondition=</varname> failed.</entry>
+                  <entry>Service did not run because <varname>ExecCondition=</varname> failed (that is its command exited with an exit status of 1 through 254 (inclusive)).</entry>
                 </row>
                 <row>
                   <entry><literal>oom-kill</literal></entry>
