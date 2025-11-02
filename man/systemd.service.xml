@@ -1367,9 +1367,7 @@
     <varname>ExecStopPost=</varname>, and
     <varname>ExecCondition=</varname> options.</para>
 
-    <para>Multiple command lines may be specified by using the relevant setting multiple times.  A standalone
-    <literal>;</literal> in a command line will split it and have the same effect as specifying the setting
-    multiple times.</para>
+    <para>Multiple command lines may be specified by using the relevant setting multiple times.</para>
 
     <para>Each command line is unquoted using the rules described in "Quoting" section in
     <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
@@ -1455,7 +1453,9 @@
     <para>The command line accepts <literal>%</literal> specifiers as described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-    <para>An argument solely consisting of <literal>;</literal> must be escaped, i.e. specified as <literal>\;</literal>.</para>
+    <para>An argument solely consisting of <literal>;</literal> must be escaped, i.e. specified as <literal>\;</literal>.
+    Without the escape, a <literal>;</literal> provides a deprecated method to chain multiple values for the
+    setting, it will be removed in the future.</para>
 
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its
