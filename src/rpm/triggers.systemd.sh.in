@@ -14,10 +14,16 @@
 # upgraded. We care about the case where a package is initially
 # installed, because other cases are covered by the *un scriptlets,
 # so sometimes we will reload needlessly.
-{{SYSTEMD_UPDATE_HELPER_PATH}} system-reload-restart || :
+exec {{SYSTEMD_UPDATE_HELPER_PATH}} --system daemon-reload-enqueue-marked
 
 %transfiletriggerin -P 900899 -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
-{{SYSTEMD_UPDATE_HELPER_PATH}} user-reload-restart || :
+exec {{SYSTEMD_UPDATE_HELPER_PATH}} --global daemon-reload-enqueue-marked
+
+%filetriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
+exec {{SYSTEMD_UPDATE_HELPER_PATH}} --stdin --system remove-units
+
+%filetriggerpostun -P 1000099 -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
+exec {{SYSTEMD_UPDATE_HELPER_PATH}} --stdin --global remove-units
 
 %transfiletriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
 # On removal, we need to run daemon-reload after any units have been
@@ -25,19 +31,19 @@
 # On upgrade, we need to run daemon-reload after any new unit files
 # have been installed, but before %postun scripts in packages get
 # executed.
-{{SYSTEMD_UPDATE_HELPER_PATH}} system-reload || :
+exec {{SYSTEMD_UPDATE_HELPER_PATH}} --system daemon-reload
 
 %transfiletriggerpostun -P 1000099 -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
 # Execute daemon-reload in user managers.
-{{SYSTEMD_UPDATE_HELPER_PATH}} user-reload || :
+exec {{SYSTEMD_UPDATE_HELPER_PATH}} --global daemon-reload
 
 %transfiletriggerpostun -P 10000 -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
 # We restart remaining system services that should be restarted here.
-{{SYSTEMD_UPDATE_HELPER_PATH}} system-restart || :
+exec {{SYSTEMD_UPDATE_HELPER_PATH}} --system enqueue-marked
 
 %transfiletriggerpostun -P  9999 -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
 # We restart remaining user services that should be restarted here.
-{{SYSTEMD_UPDATE_HELPER_PATH}} user-restart || :
+exec {{SYSTEMD_UPDATE_HELPER_PATH}} --global enqueue-marked
 
 %transfiletriggerin -P 1000700 -- {{SYSUSERS_DIR}}/
 # This script will process files installed in {{SYSUSERS_DIR}} to create
@@ -75,7 +81,7 @@ fi
 %transfiletriggerin -P 1000600 udev -- {{UDEV_RULES_DIR}}/
 # This script will automatically update udev with new rules if files
 # have been installed or updated in {{UDEV_RULES_DIR}}.
-{{SYSTEMD_UPDATE_HELPER_PATH}} mark-reload-system-units systemd-udevd.service || :
+exec {{SYSTEMD_UPDATE_HELPER_PATH}} --system mark-reload-units systemd-udevd.service
 
 %transfiletriggerin -P 1000500 -- {{SYSCTL_DIR}}/
 # This script will automatically apply sysctl rules if files have been
