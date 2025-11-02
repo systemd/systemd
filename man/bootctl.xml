@@ -608,7 +608,7 @@ System:
  TPM2 Support: yes
  Boot into FW: supported                     ← does the firmware support booting into itself
 
-Current Boot Loader:                         ← details about sd-boot or another boot loader
+Current Boot Loader:                         ← details about systemd-boot or another boot loader
       Product: systemd-boot <replaceable>version</replaceable>            implementing the <ulink
     url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>
      Features: ✓ Boot counting
