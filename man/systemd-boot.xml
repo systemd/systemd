@@ -383,10 +383,10 @@
     <para>Optionally, a random seed for early boot entropy pool provisioning is stored in
     <filename>/loader/random-seed</filename> in the ESP.</para>
 
-    <para>During initialization, <command>sd-boot</command> automatically loads all driver files placed in
-    the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have an
-    extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means a
-    suffix of <filename>x64.efi</filename>). This may be used to automatically load file system drivers and
+    <para>During initialization, <command>systemd-boot</command> automatically loads all driver files placed
+    in the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have
+    an extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means
+    a suffix of <filename>x64.efi</filename>). This may be used to automatically load file system drivers and
     similar, to extend the native firmware support.</para>
 
     <para>Enrollment of Secure Boot variables can be performed manually or automatically if files are available
@@ -727,10 +727,10 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
     </para>
 
     <para>(The path to the firmware file might need to be adjusted depending on the distribution.)
-    <filename>sd-boot</filename> will detect that it was started directly instead of being loaded from ESP
-    and will search for the ESP in that case, taking into account boot order information from the hypervisor
-    (if available). Note that for this to yield a useful result, another <option>-drive</option> argument
-    needs to be used to attach an actual disk image with an ESP.</para>
+    <filename>systemd-boot</filename> will detect that it was started directly instead of being loaded from
+    ESP and will search for the ESP in that case, taking into account boot order information from the
+    hypervisor (if available). Note that for this to yield a useful result, another <option>-drive</option>
+    argument needs to be used to attach an actual disk image with an ESP.</para>
   </refsect1>
 
   <refsect1>
