@@ -94,6 +94,17 @@
       </para></listitem>
     </varlistentry>
 
+    <varlistentry id='log-executable'>
+      <term><varname>$SYSTEMD_LOG_EXECUTABLE</varname></term>
+
+      <listitem><para id='log-executable-body'>A boolean. If true, messages will be prefixed with the current
+      executable name.</para>
+
+      <para>Note that the this information is attached as metadata to journal entries anyway. Including it
+      directly in the message text can nevertheless be convenient when debugging programs.</para>
+      </listitem>
+    </varlistentry>
+
     <varlistentry id='pager'>
       <term><varname>$SYSTEMD_PAGER</varname></term>
       <term><varname>$PAGER</varname></term>
