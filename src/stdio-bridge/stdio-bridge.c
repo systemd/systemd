@@ -17,7 +17,7 @@
 #include "parse-argument.h"
 #include "time-util.h"
 
-static const char *arg_bus_path = DEFAULT_SYSTEM_BUS_ADDRESS;
+static const char *arg_bus_path = NULL;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static bool arg_quiet = false;
@@ -108,6 +108,45 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int bus_set_address(
+                sd_bus *bus,
+                BusTransport transport,
+                const char *bus_path,
+                RuntimeScope runtime_scope) {
+
+        int r;
+
+        assert(bus);
+
+        switch (transport) {
+
+        case BUS_TRANSPORT_LOCAL:
+
+                if (bus_path)
+                        return sd_bus_set_address(bus, bus_path);
+
+                switch (runtime_scope) {
+
+                case RUNTIME_SCOPE_USER:
+                        return bus_set_address_user(bus);
+
+                case RUNTIME_SCOPE_SYSTEM:
+                        return bus_set_address_system(bus);
+
+                default:
+                        assert_not_reached();
+                }
+
+        case BUS_TRANSPORT_MACHINE:
+                return bus_set_address_machine(bus, runtime_scope, bus_path);
+
+        default:
+                assert_not_reached();
+        }
+
+        return r;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *a = NULL, *b = NULL;
         sd_id128_t server_id;
@@ -141,10 +180,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_full_errno(priority, r, "Failed to allocate bus: %m");
 
-        if (arg_transport == BUS_TRANSPORT_MACHINE)
-                r = bus_set_address_machine(a, arg_runtime_scope, arg_bus_path);
-        else
-                r = sd_bus_set_address(a, arg_bus_path);
+        r = bus_set_address(a, arg_transport, arg_bus_path, arg_runtime_scope);
         if (r < 0)
                 return log_full_errno(priority, r, "Failed to set address to connect to: %m");
 
