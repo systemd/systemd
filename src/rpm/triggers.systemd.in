@@ -13,10 +13,16 @@
 -- upgraded. We care about the case where a package is initially
 -- installed, because other cases are covered by the *un scriptlets,
 -- so sometimes we will reload needlessly.
-assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-reload-restart"))
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--system", "daemon-reload-enqueue-marked"))
 
 %transfiletriggerin -P 900899 -p <lua> -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
-assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload-restart"))
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--global", "daemon-reload-enqueue-marked"))
+
+%filetriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--removed", "--stdin", "--system", "remove-units"))
+
+%filetriggerpostun -P 1000100 -p <lua> -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--removed", "--stdin", "--global", "remove-units"))
 
 %transfiletriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
 -- On removal, we need to run daemon-reload after any units have been
@@ -24,19 +30,19 @@ assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload-restart"))
 -- On upgrade, we need to run daemon-reload after any new unit files
 -- have been installed, but before %postun scripts in packages get
 -- executed.
-assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-reload"))
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--system", "daemon-reload"))
 
 %transfiletriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
 -- Execute daemon-reload in user managers.
-assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload"))
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--global", "daemon-reload"))
 
 %transfiletriggerpostun -P 10000 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
 -- We restart remaining system services that should be restarted here.
-assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-restart"))
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--system", "enqueue-marked"))
 
 %transfiletriggerpostun -P 9999 -p <lua> -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
 -- We restart remaining user services that should be restarted here.
-assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-restart"))
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--global", "enqueue-marked"))
 
 %transfiletriggerin -P 1000700 -p <lua> -- {{SYSUSERS_DIR}}/
 -- This script will process files installed in {{SYSUSERS_DIR}} to create
@@ -70,7 +76,7 @@ assert(rpm.execute("systemd-tmpfiles", "--create"))
 %transfiletriggerin -P 1000600 udev -p <lua> -- {{UDEV_RULES_DIR}}/
 -- This script will automatically update udev with new rules if files
 -- have been installed or updated in {{UDEV_RULES_DIR}}.
-assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "mark-reload-system-units", "systemd-udevd.service"))
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--system", "mark-reload-units", "systemd-udevd.service"))
 
 %transfiletriggerin -P 1000500 -p <lua> -- {{SYSCTL_DIR}}/
 -- This script will automatically apply sysctl rules if files have been
