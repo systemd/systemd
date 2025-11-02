@@ -1053,7 +1053,7 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
                         arg_class ?: DNS_CLASS_IN,
                         arg_type ?: DNS_TYPE_OPENPGPKEY,
                         /* warn_missing= */ false);
-        if (!IN_SET(r, -ENXIO, -ESRCH)) /* Not NXDOMAIN or NODATA? Then fail immedately. */
+        if (!IN_SET(r, -ENXIO, -ESRCH)) /* Not NXDOMAIN or NODATA? Then fail immediately. */
                 return r;
 
         hashed = mfree(hashed);
