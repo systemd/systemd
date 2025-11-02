@@ -66,6 +66,7 @@ static int show_color = -1; /* tristate */
 static bool show_location = false;
 static bool show_time = false;
 static bool show_tid = false;
+static bool show_executable = false;
 
 static bool upgrade_syslog_to_journal = false;
 static bool always_reopen_console = false;
@@ -435,7 +436,7 @@ static int write_to_console(
              header_time[FORMAT_TIMESTAMP_MAX],
              prefix[1 + DECIMAL_STR_MAX(int) + 2],
              tid_string[3 + DECIMAL_STR_MAX(pid_t) + 1];
-        struct iovec iovec[11];
+        struct iovec iovec[13];
         const char *on = NULL, *off = NULL;
         size_t n = 0;
 
@@ -457,6 +458,11 @@ static int write_to_console(
             format_timestamp(header_time, sizeof(header_time), now(CLOCK_REALTIME))) {
                 iovec[n++] = IOVEC_MAKE_STRING(header_time);
                 iovec[n++] = IOVEC_MAKE_STRING(" ");
+        }
+
+        if (show_executable) {
+                iovec[n++] = IOVEC_MAKE_STRING(program_invocation_short_name);
+                iovec[n++] = IOVEC_MAKE_STRING(": ");
         }
 
         if (show_tid) {
@@ -1379,6 +1385,10 @@ void log_parse_environment_variables(void) {
         e = getenv("SYSTEMD_LOG_RATELIMIT_KMSG");
         if (e && log_set_ratelimit_kmsg_from_string(e) < 0)
                 log_warning("Failed to parse log ratelimit kmsg boolean '%s', ignoring.", e);
+
+        e = getenv("SYSTEMD_LOG_EXECUTABLE");
+        if (e && log_show_executable_from_string(e) < 0)
+                log_warning("Failed to parse log executable '%s', ignoring.", e);
 }
 
 void log_parse_environment(void) {
@@ -1454,6 +1464,14 @@ bool log_get_show_tid(void) {
         return show_tid;
 }
 
+void log_show_executable(bool b) {
+        show_executable = b;
+}
+
+bool log_get_show_executable(void) {
+        return show_executable;
+}
+
 int log_show_color_from_string(const char *e) {
         int r;
 
@@ -1495,6 +1513,17 @@ int log_show_tid_from_string(const char *e) {
                 return r;
 
         log_show_tid(r);
+        return 0;
+}
+
+int log_show_executable_from_string(const char *e) {
+        int r;
+
+        r = parse_boolean(e);
+        if (r < 0)
+                return r;
+
+        log_show_executable(r);
         return 0;
 }
 
