@@ -1,11 +1,28 @@
-#ifndef SD_DNS_RESOLVER_H
-#define SD_DNS_RESOLVER_H
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+#ifndef foosddnsresolverhfoo
+#define foosddnsresolverhfoo
+
+/***
+  systemd is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as published by
+  the Free Software Foundation; either version 2.1 of the License, or
+  (at your option) any later version.
+
+  systemd is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License
+  along with systemd; If not, see <https://www.gnu.org/licenses/>.
+***/
 
 #include "_sd-common.h"
 
-#include "sd-forward.h"
-
 _SD_BEGIN_DECLARATIONS;
+
+struct in_addr;
+struct in6_addr;
 
 typedef struct sd_dns_resolver sd_dns_resolver;
 
@@ -38,4 +55,4 @@ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dns_resolver, sd_dns_resolver_unref);
 
 _SD_END_DECLARATIONS;
 
-#endif /* SD_DNS_RESOLVER_H */
+#endif
