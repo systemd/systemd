@@ -17,7 +17,7 @@ if ! command -v dnf >/dev/null; then
     exit 77
 fi
 
-minor=$(systemctl --version | awk '/^systemd/{print$2}')
+version="$(systemctl show -P Version)"
 networkd=
 unitscmd='systemctl list-units --failed *systemd*'
 
@@ -88,12 +88,12 @@ if command -v networkctl >/dev/null; then
     networkd=1
 fi
 
-newminor=$(systemctl --version | awk '/^systemd/{print$2}')
+newversion="$(systemctl show -P Version)"
 
-if [[ $newminor -lt $minor ]]; then
-    echo "Downgrade to $newminor was successful."
+if systemd-analyze compare-versions "$newversion" lt "$version"; then
+    echo "Downgrade to $newversion was successful."
 else
-    echo "Downgrade failed. Current version is still $newminor."
+    echo "Downgrade failed. Current version is still $version."
     exit 1
 fi
 
@@ -104,11 +104,34 @@ check_sd
 # Finally test the upgrade
 dnf -y upgrade --disablerepo '*' "$pkgdir"/devel/*.rpm
 
+newversion="$(systemctl show -P Version)"
+
+if systemd-analyze compare-versions "$newversion" eq "$version"; then
+    echo "Upgrade to $version was successful."
+else
+    echo "Upgrade failed. Current version is still $newversion."
+    exit 1
+fi
+
 # TODO: sanity checks
 check_sd
 
 # Restore post.sh
 mkdir -p /usr/lib/systemd/tests/testdata/units
 mv /tmp/post.sh /usr/lib/systemd/tests/testdata/units/.
+
+loginctl enable-linger testuser
+
+run0 -u testuser systemctl --user start systemd-machined
+dnf remove systemd-container
+(! run0 -u testuser systemctl --user status systemd-machined)
+
+dnf -y install --disablerepo '*' "$pkgdir"/devel/systemd-container*.rpm
+
+run0 -u testuser systemctl --user start systemd-machined
+systemctl freeze user-4711.slice
+dnf remove systemd-container
+systemctl thaw user-4711.slice
+run0 -u testuser systemctl --user status systemd-machined
 
 touch /testok
