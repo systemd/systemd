@@ -405,6 +405,9 @@
 
         <para>Unless <varname>Type=forking</varname> is set, the process started via this command line will
         be considered the main process of the daemon.</para>
+
+        <para>See the Command Lines section below for details on parsing and a full list of available
+        prefixes.</para>
         </listitem>
       </varlistentry>
 
@@ -1364,7 +1367,9 @@
     <varname>ExecStopPost=</varname>, and
     <varname>ExecCondition=</varname> options.</para>
 
-    <para>Multiple command lines may be specified by using the relevant setting multiple times.</para>
+    <para>Multiple command lines may be specified by using the relevant setting multiple times.  A standalone
+    <literal>;</literal> in a command line will split it and have the same effect as specifying the setting
+    multiple times.</para>
 
     <para>Each command line is unquoted using the rules described in "Quoting" section in
     <citerefentry><refentrytitle>systemd.syntax</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
