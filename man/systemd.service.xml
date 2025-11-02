@@ -405,6 +405,9 @@
 
         <para>Unless <varname>Type=forking</varname> is set, the process started via this command line will
         be considered the main process of the daemon.</para>
+
+        <para>See the Command Lines section below for details on parsing and a full list of available
+        prefixes.</para>
         </listitem>
       </varlistentry>
 
@@ -1450,7 +1453,9 @@
     <para>The command line accepts <literal>%</literal> specifiers as described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
-    <para>An argument solely consisting of <literal>;</literal> must be escaped, i.e. specified as <literal>\;</literal>.</para>
+    <para>An argument solely consisting of <literal>;</literal> must be escaped, i.e. specified as <literal>\;</literal>.
+    Without the escape, a <literal>;</literal> provides a deprecated method to chain multiple values for the
+    setting, it will be removed in the future.</para>
 
     <para>Basic environment variable substitution is supported. Use
     <literal>${FOO}</literal> as part of a word, or as a word of its
