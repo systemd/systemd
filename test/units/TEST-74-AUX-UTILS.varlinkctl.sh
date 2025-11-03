@@ -184,6 +184,9 @@ rm /tmp/describe1.json /tmp/describe2.json
 varlinkctl info /run/systemd/io.systemd.Manager
 varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Manager
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'
+# This will disconnect and fail, as the manager reexec and drops connections
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reexecute '{}' ||:
 
 # test io.systemd.Network
 varlinkctl info /run/systemd/netif/io.systemd.Network
