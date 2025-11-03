@@ -18,6 +18,12 @@ assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "system-reload-restart"))
 %transfiletriggerin -P 900899 -p <lua> -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
 assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "user-reload-restart"))
 
+%filetriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--stdin", "--system", "remove-units"))
+
+%filetriggerpostun -P 1000100 -p <lua> -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
+assert(rpm.execute("{{SYSTEMD_UPDATE_HELPER_PATH}}", "--stdin", "--global", "remove-units"))
+
 %transfiletriggerpostun -P 1000100 -p <lua> -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
 -- On removal, we need to run daemon-reload after any units have been
 -- removed.

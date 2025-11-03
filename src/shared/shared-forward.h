@@ -64,6 +64,7 @@ typedef struct Fido2HmacSalt Fido2HmacSalt;
 typedef struct GroupRecord GroupRecord;
 typedef struct Image Image;
 typedef struct ImagePolicy ImagePolicy;
+typedef struct InstallChange InstallChange;
 typedef struct InstallInfo InstallInfo;
 typedef struct LookupPaths LookupPaths;
 typedef struct LoopDevice LoopDevice;
