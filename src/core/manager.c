@@ -2570,7 +2570,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
-        if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message_dbus)
+        if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message_dbus || m->pending_reload_message_vl)
                 budget = UINT_MAX; /* infinite budget in this case */
         else {
                 /* Anything to do at all? */
@@ -2625,6 +2625,11 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         if (m->pending_reload_message_dbus) {
                 bus_send_pending_reload_message(m);
+                n++;
+        }
+
+        if (m->pending_reload_message_vl) {
+                manager_varlink_send_pending_reload_message(m);
                 n++;
         }
 
