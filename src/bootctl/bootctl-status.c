@@ -572,7 +572,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                  * to _either_ of them, print a warning. */
                                 if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(stub_partition_uuid, esp_uuid) &&
                                     !sd_id128_is_null(xbootldr_uuid) && !sd_id128_equal(stub_partition_uuid, xbootldr_uuid))
-                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP and XBOOTDLR partitions "
+                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP and XBOOTLDR partitions "
                                                "("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
                                                SD_ID128_FORMAT_VAL(stub_partition_uuid),
                                                SD_ID128_FORMAT_VAL(esp_uuid),
