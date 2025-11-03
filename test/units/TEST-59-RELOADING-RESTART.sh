@@ -89,6 +89,9 @@ systemctl daemon-reload
 # The timeout will hit (and the test will fail) if the reloads are not rate-limited
 timeout 15 bash -c 'while systemctl daemon-reload --no-block; do true; done'
 
+# Same for varlink, rate limiting is shared
+timeout 15 bash -c 'while varlinkctl call --timeout=1 /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'; do true; done'
+
 # Rate limit should reset after 9s
 sleep 10
 
@@ -96,6 +99,7 @@ systemctl daemon-reload
 
 # Same test for reexec, but we wait here
 timeout 15 bash -c 'while systemctl daemon-reexec; do true; done'
+timeout 15 bash -c 'while varlinkctl call --timeout=infinity /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'; do true; done'
 
 # Rate limit should reset after 9s
 sleep 10

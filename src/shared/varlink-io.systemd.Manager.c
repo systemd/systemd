@@ -173,10 +173,21 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the manager"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, ManagerRuntime, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                Reexecute);
+
+static SD_VARLINK_DEFINE_METHOD(
+                Reload);
+
+static SD_VARLINK_DEFINE_ERROR(RateLimitReached);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Manager,
                 "io.systemd.Manager",
                 &vl_method_Describe,
+                &vl_method_Reexecute,
+                &vl_method_Reload,
+                &vl_error_RateLimitReached,
                 &vl_type_ManagerContext,
                 &vl_type_ManagerRuntime,
                 &vl_type_Timestamp,
