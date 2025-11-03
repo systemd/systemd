@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/mount.h>
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -25,6 +26,7 @@
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
+#include "capability-util.h"
 #include "capsule-util.h"
 #include "chase.h"
 #include "env-util.h"
@@ -105,6 +107,7 @@ static bool arg_quiet = false;
 static bool arg_verbose = false;
 static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
+static char *arg_root_directory = NULL;
 static bool arg_shell = false;
 static JobMode arg_job_mode = JOB_FAIL;
 static char **arg_cmdline = NULL;
@@ -117,6 +120,7 @@ static char *arg_shell_prompt_prefix = NULL;
 static int arg_lightweight = -1;
 static char *arg_area = NULL;
 static bool arg_via_shell = false;
+static bool arg_empower = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -166,6 +170,8 @@ static int help(void) {
                "     --nice=NICE                  Nice level\n"
                "     --working-directory=PATH     Set working directory\n"
                "  -d --same-dir                   Inherit working directory from caller\n"
+               "     --root-directory=PATH        Set root directory\n"
+               "  -R --same-root-dir              Inherit root directory from caller\n"
                "  -E --setenv=NAME[=VALUE]        Set environment variable\n"
                "  -t --pty                        Run service on pseudo TTY as STDIN/STDOUT/\n"
                "                                  STDERR\n"
@@ -244,6 +250,7 @@ static int help_sudo_mode(void) {
                "     --lightweight=BOOLEAN        Control whether to register a session with service manager\n"
                "                                  or without\n"
                "     --area=AREA                  Home area to log into\n"
+               "     --empower                    Give privileges to selected or current user\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -253,11 +260,15 @@ static int help_sudo_mode(void) {
         return 0;
 }
 
+static bool become_root(void) {
+        return !arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0");
+}
+
 static bool privileged_execution(void) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return false;
 
-        return !arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0");
+        return become_root() || arg_empower;
 }
 
 static int add_timer_property(const char *name, const char *val) {
@@ -319,6 +330,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_ASK_PASSWORD,
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
+                ARG_ROOT_DIRECTORY,
                 ARG_SHELL,
                 ARG_JOB_MODE,
                 ARG_IGNORE_FAILURE,
@@ -372,6 +384,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "collect",            no_argument,       NULL, 'G'                    },
                 { "working-directory",  required_argument, NULL, ARG_WORKING_DIRECTORY  },
                 { "same-dir",           no_argument,       NULL, 'd'                    },
+                { "root-directory",     required_argument, NULL, ARG_ROOT_DIRECTORY     },
+                { "same-root-dir",      no_argument,       NULL, 'R'                    },
                 { "shell",              no_argument,       NULL, 'S'                    },
                 { "job-mode",           required_argument, NULL, ARG_JOB_MODE           },
                 { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
@@ -381,7 +395,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {},
         };
 
-        bool with_trigger = false;
+        bool with_trigger = false, same_dir = false;
         int r, c;
 
         assert(argc >= 0);
@@ -646,6 +660,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
 
+                        same_dir = false;
                         break;
 
                 case 'd': {
@@ -659,8 +674,24 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_working_directory = mfree(arg_working_directory);
                         else
                                 free_and_replace(arg_working_directory, p);
+
+                        same_dir = true;
                         break;
                 }
+
+                case ARG_ROOT_DIRECTORY:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root_directory);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case 'R':
+                        r = free_and_strdup_warn(&arg_root_directory, "/");
+                        if (r < 0)
+                                return r;
+
+                        break;
 
                 case 'G':
                         arg_aggressive_gc = true;
@@ -835,6 +866,10 @@ static int parse_argv(int argc, char *argv[]) {
                                                "--wait may not be combined with --scope.");
         }
 
+        if (same_dir && arg_root_directory && !path_equal(arg_root_directory, "/"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--same-dir cannot be used with a root directory other than '/'");
+
         return 1;
 }
 
@@ -859,6 +894,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_LIGHTWEIGHT,
                 ARG_AREA,
                 ARG_VIA_SHELL,
+                ARG_EMPOWER,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -888,6 +924,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "shell-prompt-prefix", required_argument, NULL, ARG_SHELL_PROMPT_PREFIX },
                 { "lightweight",         required_argument, NULL, ARG_LIGHTWEIGHT         },
                 { "area",                required_argument, NULL, ARG_AREA                },
+                { "empower",             no_argument,       NULL, ARG_EMPOWER             },
                 {},
         };
 
@@ -1027,6 +1064,10 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         arg_via_shell = true;
                         break;
 
+                case ARG_EMPOWER:
+                        arg_empower = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1034,9 +1075,13 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (!arg_exec_user && arg_area) {
+        if (!arg_exec_user && (arg_area || arg_empower)) {
                 /* If the user specifies --area= but not --user= then consider this an area switch request,
-                 * and default to logging into our own account */
+                 * and default to logging into our own account.
+                 *
+                 * If the user specifies --empower but not --user= then consider this a request to empower
+                 * the current user. */
+
                 arg_exec_user = getusername_malloc();
                 if (!arg_exec_user)
                         return log_oom();
@@ -1211,8 +1256,8 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                 if (arg_lightweight >= 0) {
                         const char *class =
-                                arg_lightweight ? (arg_stdio == ARG_STDIO_PTY ? (privileged_execution() ? "user-early-light" : "user-light") : "background-light") :
-                                                  (arg_stdio == ARG_STDIO_PTY ? (privileged_execution() ? "user-early" : "user") : "background");
+                                arg_lightweight ? (arg_stdio == ARG_STDIO_PTY ? (become_root() ? "user-early-light" : "user-light") : "background-light") :
+                                                  (arg_stdio == ARG_STDIO_PTY ? (become_root() ? "user-early" : "user") : "background");
 
                         log_debug("Setting XDG_SESSION_CLASS to '%s'.", class);
 
@@ -1371,6 +1416,12 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         return bus_log_create_error(r);
         }
 
+        if (arg_empower) {
+                r = sd_bus_message_append(m, "(sv)", "AmbientCapabilities", "t", CAP_MASK_ALL);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
         if (arg_nice_set) {
                 r = sd_bus_message_append(m, "(sv)", "Nice", "i", arg_nice);
                 if (r < 0)
@@ -1379,6 +1430,16 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
 
         if (arg_working_directory) {
                 r = sd_bus_message_append(m, "(sv)", "WorkingDirectory", "s", arg_working_directory);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (arg_root_directory) {
+                _cleanup_close_ int fd = open_tree(AT_FDCWD, arg_root_directory, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to clone mount tree at '%s': %m", arg_root_directory);
+
+                r = sd_bus_message_append(m, "(sv)", "RootDirectoryFileDescriptor", "h", fd);
                 if (r < 0)
                         return bus_log_create_error(r);
         }

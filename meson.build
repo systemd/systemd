@@ -1247,53 +1247,30 @@ libcryptsetup = dependency('libcryptsetup',
 libcryptsetup_cflags = libcryptsetup.partial_dependency(includes: true, compile_args: true)
 
 have = libcryptsetup.found()
-foreach ident : ['crypt_set_metadata_size',
-                 'crypt_activate_by_signed_key',
-                 'crypt_token_max',
-                 'crypt_reencrypt_init_by_passphrase',
-                 'crypt_reencrypt',
-                 'crypt_reencrypt_run',
-                 'crypt_set_data_offset',
-                 'crypt_set_keyring_to_link',
-                 'crypt_resume_by_volume_key',
-                 'crypt_token_set_external_path']
+conf.set10('HAVE_LIBCRYPTSETUP', have)
+
+foreach ident : [
+                'crypt_activate_by_token_pin',   # 2.4
+                'crypt_logf',                    # 2.4
+                'crypt_reencrypt_run',           # 2.4
+                'crypt_token_external_path',     # 2.4
+                'crypt_token_max',               # 2.4
+                'crypt_set_keyring_to_link',     # 2.7
+                'crypt_token_set_external_path', # 2.7
+        ]
+
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
-                # crypt_reencrypt() raises a deprecation warning so make sure -Wno-deprecated-declarations is
-                # specified otherwise we fail to detect crypt_reencrypt() if -Werror is used.
-                args : '-Wno-deprecated-declarations',
                 dependencies : libcryptsetup)
         conf.set10('HAVE_' + ident.to_upper(), have_ident)
 endforeach
-conf.set10('HAVE_LIBCRYPTSETUP', have)
 
-if meson.version().version_compare('>=1.3.0')
-        have = (cc.has_function(
-                        'crypt_activate_by_token_pin',
-                        prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup,
-                        required : libcryptsetup_plugins) and
-                cc.has_function(
-                        'crypt_token_external_path',
-                        prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup,
-                        required : libcryptsetup_plugins))
-else
-        if libcryptsetup_plugins.allowed()
-                have = (cc.has_function(
-                                'crypt_activate_by_token_pin',
-                                prefix : '#include <libcryptsetup.h>',
-                                dependencies : libcryptsetup) and
-                        cc.has_function(
-                                'crypt_token_external_path',
-                                prefix : '#include <libcryptsetup.h>',
-                                dependencies : libcryptsetup))
-        else
-                have = false
-        endif
-endif
-conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS', have)
+conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS',
+           libcryptsetup_plugins.allowed() and
+           conf.get('HAVE_CRYPT_ACTIVATE_BY_TOKEN_PIN') == 1 and
+           conf.get('HAVE_CRYPT_LOGF') == 1 and
+           conf.get('HAVE_CRYPT_TOKEN_EXTERNAL_PATH') == 1)
 
 libcurl = dependency('libcurl',
                      version : '>= 7.32.0',
@@ -1366,6 +1343,7 @@ tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
 tpm2_cflags = tpm2.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_TPM2', tpm2.found())
 conf.set10('HAVE_TSS2_ESYS3', tpm2.found() and tpm2.version().version_compare('>= 3.0.0'))
+conf.set('TPM2_NVPCR_BASE', get_option('tpm2-nvpcr-base'))
 
 libdw = dependency('libdw',
                    required : get_option('elfutils'))
@@ -1589,8 +1567,7 @@ conf.set10('ENABLE_IMPORTD', have)
 have = get_option('homed').require(
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_LIBFDISK') == 1 and
-        conf.get('HAVE_LIBCRYPTSETUP') == 1 and
-        conf.get('HAVE_CRYPT_RESUME_BY_VOLUME_KEY') == 1,
+        conf.get('HAVE_LIBCRYPTSETUP') == 1,
         error_message : 'openssl, fdisk and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
@@ -3052,6 +3029,7 @@ summary({
         'default user $PATH'                        : default_user_path != '' ? default_user_path : '(same as system services)',
         'systemd service watchdog'                  : service_watchdog == '' ? 'disabled' : service_watchdog,
         'time epoch'                                : f'@time_epoch@ (@alt_time_epoch@)',
+        'TPM2 nvpcr base'                           : run_command(sh, '-c', 'printf 0x%x @0@'.format(get_option('tpm2-nvpcr-base')), check : true).stdout()
 })
 
 # TODO:

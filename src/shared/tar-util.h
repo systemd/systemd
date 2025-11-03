@@ -6,3 +6,4 @@ typedef enum TarFlags {
 } TarFlags;
 
 int tar_x(int input_fd, int tree_fd, TarFlags flags);
+int tar_c(int tree_fd, int output_fd, const char *filename, TarFlags flags);

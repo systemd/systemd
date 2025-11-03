@@ -18,7 +18,7 @@ systemd-analyze time || :
 systemd-analyze critical-chain || :
 # blame
 systemd-analyze blame
-systemd-run --wait --user --pipe -M testuser@.host systemd-analyze blame
+systemd-run --wait --user --pipe -M testuser@.host systemd-analyze blame --no-pager
 (! systemd-analyze blame --global)
 # plot
 systemd-analyze plot >/dev/null || :
@@ -1006,7 +1006,16 @@ systemd-analyze security --threshold=25 --offline=true \
 rm /tmp/img/usr/lib/systemd/system/testfile.service
 
 if systemd-analyze --version | grep -q -F "+ELFUTILS"; then
+    systemd-analyze inspect-elf /lib/systemd/systemd
     systemd-analyze inspect-elf --json=short /lib/systemd/systemd | grep -q -F '"elfType":"executable"'
+
+    # For some unknown reason the .note.dlopen sections are removed when building with sanitizers, so only
+    # run this test if we're not running under sanitizers.
+    if [[ ! -v ASAN_OPTIONS ]]; then
+        shared="$(ldd /lib/systemd/systemd | grep shared | cut -d' ' -f3)"
+        systemd-analyze dlopen-metadata "$shared"
+        systemd-analyze dlopen-metadata --json=short "$shared"
+    fi
 fi
 
 systemd-analyze --threshold=90 security systemd-journald.service
@@ -1084,6 +1093,11 @@ systemd-analyze image-policy 'home=encrypted:usr=verity' 2>&1 | grep -q -e '^usr
 systemd-analyze pcrs
 systemd-analyze pcrs --json=pretty
 systemd-analyze pcrs 14 7 0 ima
+if systemd-analyze has-tpm2 -q ; then
+    systemd-analyze nvpcrs
+    systemd-analyze nvpcrs --json=pretty
+    systemd-analyze nvpcrs hardware cryptsetup
+fi
 
 systemd-analyze architectures
 systemd-analyze architectures --json=pretty

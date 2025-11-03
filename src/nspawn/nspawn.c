@@ -240,6 +240,7 @@ static MachineCredentialContext arg_credentials = {};
 static char **arg_bind_user = NULL;
 static char *arg_bind_user_shell = NULL;
 static bool arg_bind_user_shell_copy = false;
+static char **arg_bind_user_groups = NULL;
 static bool arg_suppress_sync = false;
 static char *arg_settings_filename = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
@@ -283,6 +284,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_done);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
@@ -429,6 +431,8 @@ static int help(void) {
                "     --bind-user=NAME       Bind user from host to container\n"
                "     --bind-user-shell=BOOL|PATH\n"
                "                            Configure the shell to use for --bind-user= users\n"
+               "     --bind-user-group=GROUP\n"
+               "                            Add an auxiliary group to --bind-user= users\n"
                "\n%3$sInput/Output:%4$s\n"
                "     --console=MODE         Select how stdin/stdout/stderr and /dev/console are\n"
                "                            set up for the container.\n"
@@ -660,6 +664,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOAD_CREDENTIAL,
                 ARG_BIND_USER,
                 ARG_BIND_USER_SHELL,
+                ARG_BIND_USER_GROUP,
                 ARG_SUPPRESS_SYNC,
                 ARG_IMAGE_POLICY,
                 ARG_BACKGROUND,
@@ -738,6 +743,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "load-credential",        required_argument, NULL, ARG_LOAD_CREDENTIAL        },
                 { "bind-user",              required_argument, NULL, ARG_BIND_USER              },
                 { "bind-user-shell",        required_argument, NULL, ARG_BIND_USER_SHELL        },
+                { "bind-user-group",        required_argument, NULL, ARG_BIND_USER_GROUP        },
                 { "suppress-sync",          required_argument, NULL, ARG_SUPPRESS_SYNC          },
                 { "image-policy",           required_argument, NULL, ARG_IMAGE_POLICY           },
                 { "background",             required_argument, NULL, ARG_BACKGROUND             },
@@ -1514,6 +1520,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_BIND_USER_GROUP:
+                        if (!valid_user_group_name(optarg, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid bind user auxiliary group name: %s", optarg);
+
+                        if (strv_extend(&arg_bind_user_groups, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
                 case ARG_SUPPRESS_SYNC:
                         r = parse_boolean_argument("--suppress-sync=", optarg, &arg_suppress_sync);
                         if (r < 0)
@@ -1679,7 +1694,7 @@ static int verify_arguments(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
 
         if (arg_caps_ambient) {
-                if (arg_caps_ambient == UINT64_MAX)
+                if (arg_caps_ambient == CAP_MASK_UNSET)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= does not support the value all.");
 
                 if ((arg_caps_ambient & arg_caps_retain) != arg_caps_ambient)
@@ -1689,11 +1704,15 @@ static int verify_arguments(void) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "AmbientCapability= setting is not useful for boot mode.");
         }
 
-        /* Drop duplicate --bind-user= entries */
+        /* Drop duplicate --bind-user= and --bind-user-group= entries */
         strv_uniq(arg_bind_user);
+        strv_uniq(arg_bind_user_groups);
 
         if (arg_bind_user_shell && strv_isempty(arg_bind_user))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-shell= without --bind-user=");
+
+        if (!strv_isempty(arg_bind_user_groups) && strv_isempty(arg_bind_user))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-group= without --bind-user=");
 
         r = custom_mount_check_all();
         if (r < 0)
@@ -1733,7 +1752,7 @@ static int in_child_chown(void) {
         return IN_SET(arg_userns_mode, USER_NAMESPACE_PICK, USER_NAMESPACE_FIXED);
 }
 
-static int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int flags) {
+int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int flags) {
         assert(fd >= 0 || fd == AT_FDCWD);
 
         if (!in_child_chown())
@@ -1755,6 +1774,9 @@ static int userns_chown_at(int fd, const char *fname, uid_t uid, gid_t gid, int 
                 if (gid < (gid_t) arg_uid_shift || gid >= (gid_t) (arg_uid_shift + arg_uid_range))
                         return -EOVERFLOW;
         }
+
+        if (isempty(fname))
+                flags |= AT_EMPTY_PATH;
 
         return RET_NERRNO(fchownat(fd, strempty(fname), uid, gid, flags));
 }
@@ -4020,6 +4042,7 @@ static int outer_child(
                         arg_bind_user_shell,
                         arg_bind_user_shell_copy,
                         "/run/host/home",
+                        arg_bind_user_groups,
                         &bind_user_context);
         if (r < 0)
                 return r;

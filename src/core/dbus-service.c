@@ -484,9 +484,8 @@ static int bus_set_transient_exit_status(
         return 1;
 }
 
-static int bus_set_transient_std_fd(
+static int bus_set_transient_exec_context_fd(
                 Unit *u,
-                const char *name,
                 int *p,
                 bool *b,
                 sd_bus_message *message,
@@ -688,13 +687,13 @@ static int bus_service_set_transient_property(
                 return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
 
         if (streq(name, "StandardInputFileDescriptor"))
-                return bus_set_transient_std_fd(u, name, &s->stdin_fd, &s->exec_context.stdio_as_fds, message, flags, error);
+                return bus_set_transient_exec_context_fd(u, &s->stdin_fd, &s->exec_context.stdio_as_fds, message, flags, error);
 
         if (streq(name, "StandardOutputFileDescriptor"))
-                return bus_set_transient_std_fd(u, name, &s->stdout_fd, &s->exec_context.stdio_as_fds, message, flags, error);
+                return bus_set_transient_exec_context_fd(u, &s->stdout_fd, &s->exec_context.stdio_as_fds, message, flags, error);
 
         if (streq(name, "StandardErrorFileDescriptor"))
-                return bus_set_transient_std_fd(u, name, &s->stderr_fd, &s->exec_context.stdio_as_fds, message, flags, error);
+                return bus_set_transient_exec_context_fd(u, &s->stderr_fd, &s->exec_context.stdio_as_fds, message, flags, error);
 
         if (streq(name, "OpenFile")) {
                 const char *path, *fdname;
@@ -799,6 +798,9 @@ static int bus_service_set_transient_property(
 
                 return 1;
         }
+
+        if (streq(name, "RootDirectoryFileDescriptor"))
+                return bus_set_transient_exec_context_fd(u, &s->root_directory_fd, &s->exec_context.root_directory_as_fd, message, flags, error);
 
         return 0;
 }

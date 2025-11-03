@@ -139,8 +139,8 @@
         <term><option>-g</option></term>
 
         <listitem><para>Switches to the specified user/group. If not specified defaults to
-        <literal>root</literal>, unless <option>--area=</option> is used (see below), in which case this
-        defaults to the invoking user.</para>
+        <literal>root</literal>, unless <option>--area=</option> or <option>--empower</option> are used (see
+        below), in which case this defaults to the invoking user.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -288,6 +288,17 @@
 
         <xi:include href="version-info.xml" xpointer="v258"/>
         </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--empower</option></term>
+
+        <listitem><para>If specified, run0 will elevate the privileges of the selected user (using
+        <option>--user=</option>) or the current user if no user is explicitly selected. Currently this means
+        we give the user all available capabilities, but other privileges may be granted in the future as
+        well when using this option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>

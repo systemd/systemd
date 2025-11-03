@@ -267,6 +267,9 @@ bool exec_needs_mount_namespace(
         if (context->root_image)
                 return true;
 
+        if (context->root_directory_as_fd)
+                return true;
+
         if (!strv_isempty(context->read_write_paths) ||
             !strv_isempty(context->read_only_paths) ||
             !strv_isempty(context->inaccessible_paths) ||
@@ -354,7 +357,7 @@ const char* exec_get_private_notify_socket_path(const ExecContext *context, cons
         if (!needs_sandboxing)
                 return NULL;
 
-        if (!context->root_directory && !context->root_image)
+        if (!context->root_directory && !context->root_image && !context->root_directory_as_fd)
                 return NULL;
 
         if (!exec_context_get_effective_mount_apivfs(context))
@@ -486,8 +489,8 @@ int exec_spawn(
         assert(command);
         assert(context);
         assert(params);
-        assert(!params->fds || FLAGS_SET(params->flags, EXEC_PASS_FDS));
-        assert(params->fds || (params->n_socket_fds + params->n_storage_fds + params->n_extra_fds == 0));
+        assert(params->fds || (params->n_socket_fds + params->n_stashed_fds == 0 && !params->fd_names));
+        assert(params->n_stashed_fds == 0 || FLAGS_SET(params->flags, EXEC_PASS_FDS));
         assert(!params->files_env); /* We fill this field, ensure it comes NULL-initialized to us */
         assert(ret);
 
@@ -633,7 +636,7 @@ void exec_context_init(ExecContext *c) {
                 .timer_slack_nsec = NSEC_INFINITY,
                 .personality = PERSONALITY_INVALID,
                 .timeout_clean_usec = USEC_INFINITY,
-                .capability_bounding_set = CAP_MASK_UNSET,
+                .capability_bounding_set = CAP_MASK_ALL,
                 .restrict_namespaces = NAMESPACE_FLAGS_INITIAL,
                 .delegate_namespaces = NAMESPACE_FLAGS_INITIAL,
                 .log_level_max = -1,
@@ -1048,7 +1051,6 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 "%sRuntimeScope: %s\n"
                 "%sExecFlags: %u\n"
                 "%sSELinuxContextNetwork: %s\n"
-                "%sCgroupSupportedMask: %u\n"
                 "%sCgroupPath: %s\n"
                 "%sCrededentialsDirectory: %s\n"
                 "%sEncryptedCredentialsDirectory: %s\n"
@@ -1061,7 +1063,6 @@ void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix) {
                 prefix, runtime_scope_to_string(p->runtime_scope),
                 prefix, p->flags,
                 prefix, yes_no(p->selinux_context_net),
-                prefix, p->cgroup_supported,
                 prefix, p->cgroup_path,
                 prefix, strempty(p->received_credentials_directory),
                 prefix, strempty(p->received_encrypted_credentials_directory),
@@ -2049,9 +2050,9 @@ bool exec_context_restrict_filesystems_set(const ExecContext *c) {
 bool exec_context_with_rootfs(const ExecContext *c) {
         assert(c);
 
-        /* Checks if RootDirectory= or RootImage= are used */
+        /* Checks if RootDirectory=, RootImage= or RootDirectoryFileDescriptor= are used */
 
-        return !empty_or_root(c->root_directory) || c->root_image;
+        return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd;
 }
 
 int exec_context_has_vpicked_extensions(const ExecContext *context) {
@@ -2830,7 +2831,7 @@ void exec_params_deep_clear(ExecParameters *p) {
          * to be fully cleaned up to make sanitizers and analyzers happy, as opposed as the shallow clean
          * function above. */
 
-        close_many_unset(p->fds, p->n_socket_fds + p->n_storage_fds + p->n_extra_fds);
+        close_many_unset(p->fds, p->n_socket_fds + p->n_stashed_fds);
 
         p->cgroup_path = mfree(p->cgroup_path);
 
@@ -2850,6 +2851,7 @@ void exec_params_deep_clear(ExecParameters *p) {
         p->stdin_fd = safe_close(p->stdin_fd);
         p->stdout_fd = safe_close(p->stdout_fd);
         p->stderr_fd = safe_close(p->stderr_fd);
+        p->root_directory_fd = safe_close(p->root_directory_fd);
 
         p->notify_socket = mfree(p->notify_socket);
 

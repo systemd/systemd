@@ -218,6 +218,7 @@ typedef struct ExecContext {
         /* At least one of stdin/stdout/stderr was initialized from an fd passed in. This boolean survives
          * the fds being closed. This only makes sense for transient units. */
         bool stdio_as_fds;
+        bool root_directory_as_fd;
 
         char *stdio_fdname[3];
         char *stdio_file[3];
@@ -392,18 +393,16 @@ typedef enum ExecFlags {
 typedef struct ExecParameters {
         RuntimeScope runtime_scope;
 
+        ExecFlags flags;
+
         char **environment;
+        char **files_env;
 
         int *fds;
         char **fd_names;
         size_t n_socket_fds;
-        size_t n_storage_fds;
-        size_t n_extra_fds;
+        size_t n_stashed_fds;
 
-        ExecFlags flags;
-        bool selinux_context_net:1;
-
-        CGroupMask cgroup_supported;
         char *cgroup_path;
         uint64_t cgroup_id;
 
@@ -421,6 +420,7 @@ typedef struct ExecParameters {
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
+        int root_directory_fd;
 
         /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done. */
         int exec_fd;
@@ -431,7 +431,6 @@ typedef struct ExecParameters {
 
         char *fallback_smack_process_label;
 
-        char **files_env;
         int user_lookup_fd;
         int handoff_timestamp_fd;
         int pidref_transport_fd;
@@ -444,6 +443,7 @@ typedef struct ExecParameters {
         char invocation_id_string[SD_ID128_STRING_MAX];
 
         bool debug_invocation;
+        bool selinux_context_net;
 } ExecParameters;
 
 #define EXEC_PARAMETERS_INIT(_flags)              \
@@ -452,6 +452,7 @@ typedef struct ExecParameters {
                 .stdin_fd               = -EBADF, \
                 .stdout_fd              = -EBADF, \
                 .stderr_fd              = -EBADF, \
+                .root_directory_fd      = -EBADF, \
                 .exec_fd                = -EBADF, \
                 .bpf_restrict_fs_map_fd = -EBADF, \
                 .user_lookup_fd         = -EBADF, \
@@ -520,7 +521,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
 int exec_context_destroy_mount_ns_dir(Unit *u);
 
-const char* exec_context_fdname(const ExecContext *c, int fd_index);
+const char* exec_context_fdname(const ExecContext *c, int fd_index) _pure_;
 
 bool exec_context_may_touch_console(const ExecContext *c);
 bool exec_context_maintains_privileges(const ExecContext *c);
@@ -586,8 +587,8 @@ void exec_runtime_clear(ExecRuntime *rt);
 int exec_params_needs_control_subcgroup(const ExecParameters *params);
 int exec_params_get_cgroup_path(const ExecParameters *params, const CGroupContext *c, const char *prefix, char **ret);
 void exec_params_shallow_clear(ExecParameters *p);
-void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix);
 void exec_params_deep_clear(ExecParameters *p);
+void exec_params_dump(const ExecParameters *p, FILE* f, const char *prefix);
 
 bool exec_context_get_cpu_affinity_from_numa(const ExecContext *c);
 

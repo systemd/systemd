@@ -165,6 +165,7 @@ static void service_init(Unit *u) {
         s->type = _SERVICE_TYPE_INVALID;
         s->socket_fd = -EBADF;
         s->stdin_fd = s->stdout_fd = s->stderr_fd = -EBADF;
+        s->root_directory_fd = -EBADF;
         s->guess_main_pid = true;
         s->main_pid = PIDREF_NULL;
         s->control_pid = PIDREF_NULL;
@@ -542,6 +543,7 @@ static void service_done(Unit *u) {
         service_release_stdio_fd(s);
         service_release_fd_store(s);
         service_release_extra_fds(s);
+        s->root_directory_fd = asynchronous_close(s->root_directory_fd);
 
         s->mount_request = sd_bus_message_unref(s->mount_request);
 }
@@ -1108,6 +1110,9 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
                                        f,
                                        prefix);
 
+        if (s->root_directory_fd >= 0)
+                (void) service_dump_fd(s->root_directory_fd, "Root Directory File Descriptor", "", f, prefix);
+
         if (s->open_files)
                 LIST_FOREACH(open_files, of, s->open_files) {
                         _cleanup_free_ char *ofs = NULL;
@@ -1451,8 +1456,7 @@ static int service_collect_fds(
                 int **fds,
                 char ***fd_names,
                 size_t *n_socket_fds,
-                size_t *n_storage_fds,
-                size_t *n_extra_fds) {
+                size_t *n_stashed_fds) {
 
         _cleanup_strv_free_ char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
@@ -1463,8 +1467,6 @@ static int service_collect_fds(
         assert(fds);
         assert(fd_names);
         assert(n_socket_fds);
-        assert(n_storage_fds);
-        assert(n_extra_fds);
 
         if (s->socket_fd >= 0) {
                 Socket *sock = ASSERT_PTR(SOCKET(UNIT_DEREF(s->accept_socket)));
@@ -1511,7 +1513,7 @@ static int service_collect_fds(
                 }
         }
 
-        if (s->n_fd_store + s->n_extra_fds > 0) {
+        if (n_stashed_fds && s->n_fd_store + s->n_extra_fds > 0) {
                 int *t = reallocarray(rfds, rn_socket_fds + s->n_fd_store + s->n_extra_fds, sizeof(int));
                 if (!t)
                         return -ENOMEM;
@@ -1548,8 +1550,8 @@ static int service_collect_fds(
         *fds = TAKE_PTR(rfds);
         *fd_names = TAKE_PTR(rfd_names);
         *n_socket_fds = rn_socket_fds;
-        *n_storage_fds = s->n_fd_store;
-        *n_extra_fds = s->n_extra_fds;
+        if (n_stashed_fds)
+                *n_stashed_fds = s->n_fd_store + s->n_extra_fds;
 
         return 0;
 }
@@ -1733,25 +1735,32 @@ static int service_spawn_internal(
                         exec_params.flags &= ~EXEC_APPLY_CHROOT;
         }
 
-        if (FLAGS_SET(exec_params.flags, EXEC_PASS_FDS) ||
-            s->exec_context.std_input == EXEC_INPUT_SOCKET ||
-            s->exec_context.std_output == EXEC_OUTPUT_SOCKET ||
-            s->exec_context.std_error == EXEC_OUTPUT_SOCKET) {
+        if (FLAGS_SET(exec_params.flags, EXEC_PASS_FDS)) {
+                r = service_collect_fds(s,
+                                        &exec_params.fds,
+                                        &exec_params.fd_names,
+                                        &exec_params.n_socket_fds,
+                                        &exec_params.n_stashed_fds);
+                if (r < 0)
+                        return r;
+
+                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_stashed_fds);
+
+                exec_params.open_files = s->open_files;
+
+        } else if (IN_SET(s->exec_context.std_input, EXEC_INPUT_SOCKET, EXEC_INPUT_NAMED_FD) ||
+                   IN_SET(s->exec_context.std_output, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD) ||
+                   IN_SET(s->exec_context.std_error, EXEC_OUTPUT_SOCKET, EXEC_OUTPUT_NAMED_FD)) {
 
                 r = service_collect_fds(s,
                                         &exec_params.fds,
                                         &exec_params.fd_names,
                                         &exec_params.n_socket_fds,
-                                        &exec_params.n_storage_fds,
-                                        &exec_params.n_extra_fds);
+                                        /* n_stashed_fds = */ NULL);
                 if (r < 0)
                         return r;
 
-                exec_params.open_files = s->open_files;
-
-                exec_params.flags |= EXEC_PASS_FDS;
-
-                log_unit_debug(UNIT(s), "Passing %zu fds to service", exec_params.n_socket_fds + exec_params.n_storage_fds + exec_params.n_extra_fds);
+                log_unit_debug(UNIT(s), "Passing %zu sockets to service", exec_params.n_socket_fds);
         }
 
         if (!FLAGS_SET(exec_params.flags, EXEC_IS_CONTROL) && s->type == SERVICE_EXEC) {
@@ -1921,6 +1930,7 @@ static int service_spawn_internal(
         exec_params.stdin_fd = s->stdin_fd;
         exec_params.stdout_fd = s->stdout_fd;
         exec_params.stderr_fd = s->stderr_fd;
+        exec_params.root_directory_fd = s->root_directory_fd;
 
         r = exec_spawn(UNIT(s),
                        c,
@@ -2830,6 +2840,7 @@ static void service_enter_refresh_extensions(Service *s) {
                         .n_extension_images = s->exec_context.n_extension_images,
                         .extension_directories = s->exec_context.extension_directories,
                         .extension_image_policy = s->exec_context.extension_image_policy,
+                        .root_directory_fd = -EBADF,
                 };
 
                 /* Only reload confext, and not sysext as they also typically contain the executable(s) used
@@ -3222,10 +3233,16 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         r = serialize_fd(f, fds, "stdin-fd", s->stdin_fd);
         if (r < 0)
                 return r;
+
         r = serialize_fd(f, fds, "stdout-fd", s->stdout_fd);
         if (r < 0)
                 return r;
+
         r = serialize_fd(f, fds, "stderr-fd", s->stderr_fd);
+        if (r < 0)
+                return r;
+
+        r = serialize_fd(f, fds, "root-directory-fd", s->root_directory_fd);
         if (r < 0)
                 return r;
 
@@ -3632,6 +3649,13 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 s->stderr_fd = deserialize_fd(fds, value);
                 if (s->stderr_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
+
+        } else if (streq(key, "root-directory-fd")) {
+
+                asynchronous_close(s->root_directory_fd);
+                s->root_directory_fd = deserialize_fd(fds, value);
+                if (s->root_directory_fd >= 0)
+                        s->exec_context.root_directory_as_fd = true;
 
         } else if (streq(key, "exec-fd")) {
                 _cleanup_close_ int fd = -EBADF;
@@ -5585,6 +5609,7 @@ static void service_release_resources(Unit *u) {
         service_release_socket_fd(s);
         service_release_stdio_fd(s);
         service_release_extra_fds(s);
+        s->root_directory_fd = asynchronous_close(s->root_directory_fd);
 
         if (s->fd_store_preserve_mode != EXEC_PRESERVE_YES)
                 service_release_fd_store(s);
@@ -5618,7 +5643,10 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
                 return -ENODATA;
 
         _cleanup_free_ char *path = NULL;
-        r = chase(c->path, s->exec_context.root_directory, CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS, &path, NULL);
+        if (s->exec_context.root_directory_as_fd)
+                r = chaseat(s->root_directory_fd, c->path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &path, NULL);
+        else
+                r = chase(c->path, s->exec_context.root_directory, CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS, &path, NULL);
         if (r < 0) {
                 log_unit_debug_errno(UNIT(s), r, "Failed to resolve service binary '%s', ignoring.", c->path);
                 return -ENODATA;
