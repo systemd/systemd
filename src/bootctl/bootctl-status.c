@@ -74,7 +74,7 @@ static int status_entries(
 
         printf("%sBoot Loader Entry Locations:%s\n", ansi_underline(), ansi_normal());
 
-        printf("          ESP: %s (", esp_path);
+        printf("          ESP: %s (", strna(esp_path));
         if (!sd_id128_is_null(esp_partition_uuid))
                 printf("/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "",
                        SD_ID128_FORMAT_VAL(esp_partition_uuid));
@@ -160,7 +160,7 @@ static int print_efi_option(uint16_t id, int *n_printed, bool in_order) {
         printf("    Partition: /dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR "\n",
                SD_ID128_FORMAT_VAL(partition));
         printf("         File: %s%s%s/%s%s\n",
-               glyph(GLYPH_TREE_RIGHT), ansi_grey(), arg_esp_path, ansi_normal(), path);
+               glyph(GLYPH_TREE_RIGHT), ansi_grey(), strna(arg_esp_path), ansi_normal(), path);
         printf("\n");
 
         (*n_printed)++;
