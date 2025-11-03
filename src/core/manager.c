@@ -1014,18 +1014,20 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         }
 
         if (test_run_flags == 0) {
-                if (MANAGER_IS_SYSTEM(m))
+                if (MANAGER_IS_SYSTEM(m)) {
                         r = mkdir_label("/run/systemd/units", 0755);
-                else {
+                        if (r < 0 && r != -EEXIST)
+                                return log_debug_errno(r, "Failed to create units directory '/run/systemd/units': %m");
+                } else {
                         _cleanup_free_ char *units_path = NULL;
                         r = xdg_user_runtime_dir("/systemd/units", &units_path);
                         if (r < 0)
                                 return r;
 
                         r = mkdir_label(units_path, 0755);
+                        if (r < 0 && r != -EEXIST)
+                                return log_debug_errno(r, "Failed to create units directory '/%s': %m", units_path);
                 }
-                if (r < 0 && r != -EEXIST)
-                        return r;
         }
 
         if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
