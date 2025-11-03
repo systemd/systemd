@@ -7,6 +7,10 @@
 #if HAVE_LIBARCHIVE
 static void *libarchive_dl = NULL;
 
+DLSYM_PROTOTYPE(archive_entry_acl_add_entry) = NULL;
+DLSYM_PROTOTYPE(archive_entry_acl_next) = NULL;
+DLSYM_PROTOTYPE(archive_entry_acl_reset) = NULL;
+DLSYM_PROTOTYPE(archive_entry_fflags) = NULL;
 DLSYM_PROTOTYPE(archive_entry_filetype) = NULL;
 DLSYM_PROTOTYPE(archive_entry_free) = NULL;
 DLSYM_PROTOTYPE(archive_entry_gid) = NULL;
@@ -26,8 +30,10 @@ DLSYM_PROTOTYPE(archive_entry_pathname) = NULL;
 DLSYM_PROTOTYPE(archive_entry_rdevmajor) = NULL;
 DLSYM_PROTOTYPE(archive_entry_rdevminor) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_ctime) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_fflags) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_filetype) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_gid) = NULL;
+DLSYM_PROTOTYPE(archive_entry_set_hardlink) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_mtime) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_pathname) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_perm) = NULL;
@@ -36,11 +42,13 @@ DLSYM_PROTOTYPE(archive_entry_set_rdevminor) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_size) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_symlink) = NULL;
 DLSYM_PROTOTYPE(archive_entry_set_uid) = NULL;
+DLSYM_PROTOTYPE(archive_entry_sparse_add_entry) = NULL;
 DLSYM_PROTOTYPE(archive_entry_symlink) = NULL;
 DLSYM_PROTOTYPE(archive_entry_uid) = NULL;
 #if HAVE_LIBARCHIVE_UID_IS_SET
 DLSYM_PROTOTYPE(archive_entry_uid_is_set) = NULL;
 #endif
+DLSYM_PROTOTYPE(archive_entry_xattr_add_entry) = NULL;
 DLSYM_PROTOTYPE(archive_entry_xattr_next) = NULL;
 DLSYM_PROTOTYPE(archive_entry_xattr_reset) = NULL;
 DLSYM_PROTOTYPE(archive_error_string) = NULL;
@@ -59,7 +67,7 @@ DLSYM_PROTOTYPE(archive_write_new) = NULL;
 DLSYM_PROTOTYPE(archive_write_open_FILE) = NULL;
 DLSYM_PROTOTYPE(archive_write_open_fd) = NULL;
 DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext) = NULL;
-DLSYM_PROTOTYPE(archive_write_set_format_gnutar) = NULL;
+DLSYM_PROTOTYPE(archive_write_set_format_pax) = NULL;
 
 int dlopen_libarchive(void) {
         ELF_NOTE_DLOPEN("archive",
@@ -71,6 +79,10 @@ int dlopen_libarchive(void) {
                         &libarchive_dl,
                         "libarchive.so.13",
                         LOG_DEBUG,
+                        DLSYM_ARG(archive_entry_acl_add_entry),
+                        DLSYM_ARG(archive_entry_acl_next),
+                        DLSYM_ARG(archive_entry_acl_reset),
+                        DLSYM_ARG(archive_entry_fflags),
                         DLSYM_ARG(archive_entry_filetype),
                         DLSYM_ARG(archive_entry_free),
                         DLSYM_ARG(archive_entry_gid),
@@ -90,8 +102,10 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_entry_rdevmajor),
                         DLSYM_ARG(archive_entry_rdevminor),
                         DLSYM_ARG(archive_entry_set_ctime),
+                        DLSYM_ARG(archive_entry_set_fflags),
                         DLSYM_ARG(archive_entry_set_filetype),
                         DLSYM_ARG(archive_entry_set_gid),
+                        DLSYM_ARG(archive_entry_set_hardlink),
                         DLSYM_ARG(archive_entry_set_mtime),
                         DLSYM_ARG(archive_entry_set_pathname),
                         DLSYM_ARG(archive_entry_set_perm),
@@ -100,11 +114,13 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_entry_set_size),
                         DLSYM_ARG(archive_entry_set_symlink),
                         DLSYM_ARG(archive_entry_set_uid),
+                        DLSYM_ARG(archive_entry_sparse_add_entry),
                         DLSYM_ARG(archive_entry_symlink),
                         DLSYM_ARG(archive_entry_uid),
 #if HAVE_LIBARCHIVE_UID_IS_SET
                         DLSYM_ARG(archive_entry_uid_is_set),
 #endif
+                        DLSYM_ARG(archive_entry_xattr_add_entry),
                         DLSYM_ARG(archive_entry_xattr_next),
                         DLSYM_ARG(archive_entry_xattr_reset),
                         DLSYM_ARG(archive_error_string),
@@ -123,8 +139,7 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_write_open_FILE),
                         DLSYM_ARG(archive_write_open_fd),
                         DLSYM_ARG(archive_write_set_format_filter_by_ext),
-                        DLSYM_ARG(archive_write_set_format_gnutar)
-        );
+                        DLSYM_ARG(archive_write_set_format_pax));
 }
 
 /* libarchive uses its own file type macros. They happen to be defined the same way as the Linux ones, and
