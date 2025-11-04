@@ -417,15 +417,15 @@ static int link_apply_bearer_dns(Link *link, size_t n_dns, struct in_addr_data *
         if (!n_dns)
                 return 0;
 
-        if (link->n_dns != UINT_MAX)
-                for (i = 0; i < link->n_dns; i++)
-                        in_addr_full_free(link->dns[i]);
-        link->n_dns = UINT_MAX;
+        if (link->mm_n_dns != UINT_MAX)
+                for (i = 0; i < link->mm_n_dns; i++)
+                        in_addr_full_free(link->mm_dns[i]);
+        link->mm_n_dns = UINT_MAX;
 
-        if (!GREEDY_REALLOC(link->dns, n_dns))
+        if (!GREEDY_REALLOC(link->mm_dns, n_dns))
                 return log_oom();
 
-        link->n_dns = 0;
+        link->mm_n_dns = 0;
         for (i = 0; i < n_dns; i++) {
                 struct in_addr_full *a;
 
@@ -433,7 +433,7 @@ static int link_apply_bearer_dns(Link *link, size_t n_dns, struct in_addr_data *
                 if (r <0)
                         return log_link_error_errno(link, r, "Cannot create new DNS address: %m");
 
-                link->dns[link->n_dns++] = TAKE_PTR(a);
+                link->mm_dns[link->mm_n_dns++] = TAKE_PTR(a);
         }
 
         return 0;
