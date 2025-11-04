@@ -39,11 +39,11 @@ chance that your distribution's packaged version of mkosi will be too old.
 Then, you can build, run and test systemd executables as follows:
 
 ```sh
-$ mkosi -f genkey                                  # Generate signing keys once.
+$ mkosi -f genkey                                            # Generate signing keys once.
 $ mkosi -f box -- meson setup -Dbpf-framework=disabled build # bpftool detection inside mkosi box is broken on Ubuntu Noble and older
 $ mkosi -f box -- meson compile -C build
 $ mkosi -f box -- build/systemctl --version
-$ mkosi -f box -- meson test -C build          # Run the unit tests
+$ mkosi -f box -- meson test -C build --print-errorlogs      # Run the unit tests
 ```
 
 To build and boot an OS image with the latest systemd installed:
