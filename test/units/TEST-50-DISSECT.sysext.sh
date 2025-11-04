@@ -1130,10 +1130,13 @@ extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
 fake_root=${roots_dir:+"$roots_dir/mutable-directory-with-invalid-permissions"}
 hierarchy=/opt
 extension_data_dir="$fake_root/var/lib/extensions.mutable$hierarchy"
+extension_data_dir_usr="$fake_root/var/lib/extensions.mutable/usr"
 
 prepare_root "$fake_root" "$hierarchy"
 prepare_extension_image "$fake_root" "$hierarchy"
 prepare_extension_mutable_dir "$extension_data_dir"
+prepend_trap "rm -rf ${extension_data_dir@Q}"
+prepend_trap "rm -rf ${extension_data_dir_usr@Q}"
 prepare_hierarchy "$fake_root" "$hierarchy"
 
 old_mode=$(stat --format '%#a' "$fake_root$hierarchy")
@@ -1142,6 +1145,29 @@ prepend_trap "chmod ${old_mode@Q} ${fake_root@Q}${hierarchy@Q}"
 chmod 0700 "$extension_data_dir"
 
 (! run_systemd_sysext "$fake_root" --mutable=yes merge)
+)
+
+( init_trap
+: "Check if merging fails in case of --root= being an initrd but the extension is not for it"
+# Since this is really about whether --root= gets prepended for the /etc/initrd-release check,
+# this also tests the more interesting reverse case that we are in the initrd and prepare
+# the mounts for the final system with --root=/sysroot
+fake_root=${roots_dir:+"$roots_dir/initrd-env-with-non-initrd-extension"}
+hierarchy=/opt
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+mkdir -p "${fake_root}/etc"
+touch "${fake_root}/etc/initrd-release"
+prepare_read_only_hierarchy "$fake_root" "$hierarchy"
+
+# Should be a no-op, thus we also don't run unmerge afterwards (otherwise the test is broken)
+run_systemd_sysext "$fake_root" merge
+if run_systemd_sysext "$fake_root" status --json=pretty |  jq -r '.[].extensions' | grep -v '^none$' ; then
+    echo >&2 "Extension got loaded for an initrd structure passed as --root= while the extension does not declare itself compatible with the initrd scope"
+    exit 1
+fi
+rm "${fake_root}/etc/initrd-release"
 )
 
 } # End of run_sysext_tests
