@@ -384,6 +384,8 @@ int manager_setup_varlink_server(Manager *m) {
         r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.Manager.Describe", vl_method_describe_manager,
+                        "io.systemd.Manager.Reexecute", vl_method_reexecute_manager,
+                        "io.systemd.Manager.Reload", vl_method_reload_manager,
                         "io.systemd.Unit.List", vl_method_list_units,
                         "io.systemd.service.Ping", varlink_method_ping,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
@@ -494,4 +496,19 @@ void manager_varlink_done(Manager *m) {
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
+}
+
+void manager_varlink_send_pending_reload_message(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (!m->pending_reload_message_vl)
+                return;
+
+        r = sd_varlink_reply(m->pending_reload_message_vl, /* parameters= */ NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
+
+        m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
 }
