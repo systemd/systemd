@@ -51,7 +51,7 @@ typedef enum SecureBootMode {
         SECURE_BOOT_DEPLOYED,
         SECURE_BOOT_SETUP,
         SECURE_BOOT_USER,
-        SECURE_BOOT_INSECURE,
+        SECURE_BOOT_TAINTED,
         _SECURE_BOOT_MAX,
         _SECURE_BOOT_INVALID = -EINVAL,
 } SecureBootMode;

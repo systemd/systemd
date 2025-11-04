@@ -10,7 +10,7 @@ static const sd_char * const table[_SECURE_BOOT_MAX] = {
         [SECURE_BOOT_DEPLOYED]    = STR_C("deployed"),
         [SECURE_BOOT_SETUP]       = STR_C("setup"),
         [SECURE_BOOT_USER]        = STR_C("user"),
-        [SECURE_BOOT_INSECURE]    = STR_C("insecure"),
+        [SECURE_BOOT_TAINTED]     = STR_C("tainted"),
 };
 
 const sd_char *secure_boot_mode_to_string(SecureBootMode m) {
@@ -20,7 +20,7 @@ const sd_char *secure_boot_mode_to_string(SecureBootMode m) {
 SecureBootMode decode_secure_boot_mode(bool secure, bool audit, bool deployed, bool setup, bool moksb) {
         /* shim verification can be disabled by moksb, some OEMs set it */
         if (secure && moksb)
-                return SECURE_BOOT_INSECURE;
+                return SECURE_BOOT_TAINTED;
         /* See figure 32-4 Secure Boot Modes from UEFI Specification 2.9 */
         if (secure && deployed && !audit && !setup)
                 return SECURE_BOOT_DEPLOYED;
