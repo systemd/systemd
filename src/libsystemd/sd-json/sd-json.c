@@ -3474,13 +3474,26 @@ _public_ int sd_json_parse_file(
         return sd_json_parse_file_at(f, AT_FDCWD, path, flags, ret, reterr_line, reterr_column);
 }
 
-static char *underscorify(char *p) {
-        assert(p);
+char *json_underscorify(char *p) {
+        if (!p)
+                return NULL;
 
         /* Replaces "-", "+" by "_", to deal with the usual enum naming rules we have. */
 
         for (char *q = p; *q; q++)
                 *q = IN_SET(*q, '_', '-', '+') ? '_' : *q;
+
+        return p;
+}
+
+char *json_dashify(char *p) {
+        if (!p)
+                return NULL;
+
+        /* Replaces "-", "+" by "-", to (somewhat) undo what json_underscorify() does */
+
+        for (char *q = p; *q; q++)
+                *q = IN_SET(*q, '_', '-', '+') ? '-' : *q;
 
         return p;
 }
@@ -3538,7 +3551,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                                 goto finish;
                                         }
 
-                                        p = underscorify(c);
+                                        p = json_underscorify(c);
                                 }
 
                                 r = sd_json_variant_new_string(&add, p);
