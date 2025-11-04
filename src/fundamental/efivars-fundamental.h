@@ -51,9 +51,10 @@ typedef enum SecureBootMode {
         SECURE_BOOT_DEPLOYED,
         SECURE_BOOT_SETUP,
         SECURE_BOOT_USER,
+        SECURE_BOOT_TAINTED,
         _SECURE_BOOT_MAX,
         _SECURE_BOOT_INVALID = -EINVAL,
 } SecureBootMode;
 
 const sd_char *secure_boot_mode_to_string(SecureBootMode m);
-SecureBootMode decode_secure_boot_mode(bool secure, bool audit, bool deployed, bool setup);
+SecureBootMode decode_secure_boot_mode(bool secure, bool audit, bool deployed, bool setup, bool moksb);
