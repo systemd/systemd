@@ -11,3 +11,6 @@ set -o pipefail
 # Check if sd-executor doesn't complain about not being able to (de)serialize stuff
 (! journalctl -q -o short-monotonic --grep "[F]ailed to parse serialized line" >>/failed)
 (! journalctl -q -o short-monotonic --grep "[F]ailed to (de)?serialize \w+" >>/failed)
+
+# Check for qemu bug https://gitlab.com/qemu-project/qemu/-/issues/2879
+(! journalctl -q -o short-monotonic --grep "Failed to base64 decode credential[ ].*" >>/failed)
