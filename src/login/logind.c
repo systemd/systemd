@@ -473,10 +473,10 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
 
         r = pidref_set_pidfd_take(&leader_fdstore, fd);
         if (r < 0) {
-                if (r == -ESRCH)
-                        log_debug_errno(r, "Leader of session '%s' is gone while deserializing.", s->id);
-                else
-                        log_warning_errno(r, "Failed to create reference to leader of session '%s': %m", s->id);
+                log_warning_errno(r,
+                                  r == -ESRCH ? "Leader of session '%s' is gone while deserializing."
+                                              : "Failed to create reference to leader of session '%s': %m",
+                                  s->id);
                 goto fail_close;
         }
         TAKE_FD(fd);
@@ -566,7 +566,7 @@ static int manager_enumerate_sessions(Manager *m) {
                 session_add_to_gc_queue(s);
 
                 k = session_load(s);
-                if (k < 0)
+                if (k < 0 && k != -ESRCH)
                         RET_GATHER(r, log_warning_errno(k, "Failed to deserialize session '%s', ignoring: %m", s->id));
         }
 
