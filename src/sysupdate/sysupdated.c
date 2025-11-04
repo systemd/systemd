@@ -221,10 +221,8 @@ static int job_new(JobType type, Target *t, sd_bus_message *msg, JobComplete com
 }
 
 static int job_parse_child_output(int _fd, sd_json_variant **ret) {
+        _cleanup_close_ int fd = ASSERT_FD(_fd); /* Take ownership of the passed fd */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        /* Take ownership of the passed fd */
-        _cleanup_close_ int fd = _fd;
-        _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
         int r;
 
@@ -240,16 +238,10 @@ static int job_parse_child_output(int _fd, sd_json_variant **ret) {
                 return 0;
         }
 
-        if (lseek(fd, SEEK_SET, 0) == (off_t) -1)
-                return log_debug_errno(errno, "Failed to seek to beginning of memfd: %m");
-
-        f = take_fdopen(&fd, "r");
-        if (!f)
-                return log_debug_errno(errno, "Failed to reopen memfd: %m");
-
-        r = sd_json_parse_file(f, "stdout", 0, &v, NULL, NULL);
+        r = sd_json_parse_file_at(/* f = */ NULL, fd, /* path = */ NULL, /* flags = */ 0,
+                                  &v, /* reterr_line = */ NULL, /* reterr_column = */ NULL);
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse JSON: %m");
+                return log_debug_errno(r, "Failed to parse child output as JSON: %m");
 
         *ret = TAKE_PTR(v);
         return 0;

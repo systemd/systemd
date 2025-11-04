@@ -3453,10 +3453,8 @@ _public_ int sd_json_parse_file_at(
 
         if (f)
                 r = read_full_stream(f, &text, NULL);
-        else if (path)
-                r = read_full_file_full(dir_fd, path, UINT64_MAX, SIZE_MAX, 0, NULL, &text, NULL);
         else
-                return -EINVAL;
+                r = read_full_file_full(dir_fd, path, UINT64_MAX, SIZE_MAX, 0, NULL, &text, NULL);
         if (r < 0)
                 return r;
 

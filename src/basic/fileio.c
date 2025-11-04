@@ -1011,7 +1011,7 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
         assert(mode);
         assert(ret);
 
-        if (dir_fd == AT_FDCWD && open_flags == 0 && path)
+        if (dir_fd == AT_FDCWD && path && open_flags == 0)
                 f = fopen(path, mode);
         else {
                 _cleanup_close_ int fd = -EBADF;
@@ -1029,7 +1029,7 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
                         if (dir_fd == AT_FDCWD)
                                 return -EBADF;
 
-                        fd = fd_reopen(dir_fd, mode_flags | open_flags);
+                        fd = fd_reopen(dir_fd, (mode_flags | open_flags) & ~O_NOFOLLOW);
                         if (fd < 0)
                                 return fd;
                 }
