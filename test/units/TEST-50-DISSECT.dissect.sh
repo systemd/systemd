@@ -80,14 +80,20 @@ systemd-dissect --umount "$IMAGE_DIR/mount2"
 
 # Ensure the deferred close flag is set up correctly and we don't leak verity devices
 # when sharing is disabled
-set +o pipefail
 # The devices are named 'loopXYZ-verity' when sharing is disabled
-n_before=$(dmsetup ls | grep loop | grep -c verity || true)
 SYSTEMD_VERITY_SHARING=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
-test $((n_before + 1)) -eq "$(dmsetup ls | grep loop | grep -c verity || true)"
+d=""
+for f in /dev/mapper/*; do
+    if [[ "$(basename "$f")" =~ ^loop.*-verity ]] && veritysetup status "$(basename "$f")" | grep -q "$MINIMAL_IMAGE.raw"; then
+        d="$f"
+        break
+    fi
+done
+test -n "$d"
+dmsetup ls | grep -q "$(basename "$d")"
 umount -R "$IMAGE_DIR/mount"
-test "$n_before" -eq "$(dmsetup ls | grep loop | grep -c verity || true)"
-set -o pipefail
+timeout 60 bash -c "while test -e $d; do sleep 0.1; done"
+( ! dmsetup ls | grep -q "$(basename "$d")")
 
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
