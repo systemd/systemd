@@ -184,6 +184,8 @@ rm /tmp/describe1.json /tmp/describe2.json
 varlinkctl info /run/systemd/io.systemd.Manager
 varlinkctl introspect /run/systemd/io.systemd.Manager io.systemd.Manager
 varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Describe '{}'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reload '{}'
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.Reexecute '{}'
 
 # test io.systemd.Unit
 varlinkctl info /run/systemd/io.systemd.Manager

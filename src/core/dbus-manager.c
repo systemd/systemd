@@ -1520,16 +1520,7 @@ static void log_caller(sd_bus_message *message, Manager *manager, const char *me
         if (bus_creds_get_pidref(creds, &pidref) < 0)
                 return;
 
-        const char *comm = NULL;
-        Unit *caller;
-
-        (void) sd_bus_creds_get_comm(creds, &comm);
-        caller = manager_get_unit_by_pidref(manager, &pidref);
-
-        log_notice("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
-                   method, pidref.pid,
-                   comm ? " ('" : "", strempty(comm), comm ? "')" : "",
-                   caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
+        manager_log_caller(manager, &pidref, method);
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1564,8 +1555,9 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
          * is finished. That way the caller knows when the reload
          * finished. */
 
-        assert(!m->pending_reload_message);
-        r = sd_bus_message_new_method_return(message, &m->pending_reload_message);
+        assert(!m->pending_reload_message_dbus);
+        assert(!m->pending_reload_message_vl);
+        r = sd_bus_message_new_method_return(message, &m->pending_reload_message_dbus);
         if (r < 0)
                 return r;
 
