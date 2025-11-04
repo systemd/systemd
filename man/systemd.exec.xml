@@ -213,8 +213,7 @@
         <varname>RootImage=</varname>. Optionally a partition name can be prefixed, followed by colon, in
         case the image has multiple partitions, otherwise partition name <literal>root</literal> is implied.
         Options for multiple partitions can be specified in a single line with space separators. Assigning an empty
-        string removes previous assignments. Duplicated options are ignored. For a list of valid mount options, please
-        refer to
+        string removes previous assignments. For a list of valid mount options, please refer to
         <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         </para>
 
