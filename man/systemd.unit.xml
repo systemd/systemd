@@ -277,6 +277,12 @@
     effective way to fully disable a unit, making it impossible to
     start it even manually.</para>
 
+    <para>Files (including directories) with names matching various patterns are
+    generally ignored. This includes names that start with a <literal>.</literal> or
+    end with a <literal>.ignored</literal>. For the full list of patterns see
+    <function>hidden_or_backup_file()</function> in
+    <filename>src/basic/path-util.c</filename> of the systemd sources.</para>
+
     <para>The unit file format is covered by the
     <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface
     Portability and Stability Promise</ulink>.</para>
