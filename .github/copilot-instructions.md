@@ -14,6 +14,20 @@ Always include the following files in the context:
 
 Include any other files from the [documentation](../docs) in the context as needed based on whether you think it might be helpful to solve your current task or help to review the current PR.
 
+## Build + Test instructions
+
+**CRITICAL: Read and follow these instructions exactly.**
+
+- **NEVER** compile individual files or targets. **ALWAYS** run `mkosi -f box meson compile -C build` to build the entire project. Meson handles incremental compilation automatically.
+- **NEVER** run `meson compile` followed by `meson test` as separate steps. **ALWAYS** run `mkosi -f box meson test -C build -v <TEST-NAME>` directly. Meson will automatically rebuild any required targets before running tests.
+- **NEVER** invent your own build commands or try to optimize the build process.
+- **NEVER** use `head`, `tail`, or pipe (`|`) the output of build or test commands. Always let the full output display. This is critical for diagnosing build and test failures.
+- When asked to build and test code changes:
+  - **CORRECT**: Run `mkosi -f box -- meson test -C build -v <TEST-NAME>` (this builds and runs tests in one command)
+  - **WRONG**: Run `mkosi -f box -- meson compile -C build` followed by `mkosi -f box -- meson test -C build -v <TEST-NAME>`
+  - **WRONG**: Run `mkosi -f box -- meson compile -C build src/core/systemd` or similar individual target compilation
+  - **WRONG**: Run `mkosi -f box -- meson test -C build -v <TEST-NAME> 2>&1 | tail -100` or similar piped commands
+
 ## Pull Request review instructions
 
 - Focus on making sure the coding style is followed as documented in `docs/CODING_STYLE.md`
