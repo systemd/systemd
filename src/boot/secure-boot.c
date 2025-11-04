@@ -32,7 +32,7 @@ SecureBootMode secure_boot_mode(void) {
         (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"AuditMode", &audit);
         (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"DeployedMode", &deployed);
         (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"SetupMode", &setup);
-        (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_SHIMLOCK), u"MokSBStateRT", &moksb);
+        (void) efivar_get_boolean_u8(MAKE_GUID_PTR(SHIM_LOCK), u"MokSBStateRT", &moksb);
 
         return decode_secure_boot_mode(secure, audit, deployed, setup, moksb);
 }
