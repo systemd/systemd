@@ -1304,6 +1304,7 @@ bool hidden_or_backup_file(const char *filename) {
          */
 
         return STR_IN_SET(dot + 1,
+                          "ignore",
                           "rpmnew",
                           "rpmsave",
                           "rpmorig",
