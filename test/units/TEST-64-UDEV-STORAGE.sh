@@ -868,8 +868,8 @@ EOF
     for ((i = 0; i < ${#devices[@]}; i++)); do
         # Intentionally use weaker cipher-related settings, since we don't care
         # about security here as it's a throwaway LUKS partition
-        udevadm lock --timeout=30 --device="${devices[$i]}" \
-                cryptsetup luksFormat -q \
+        SYSTEMD_LOG_LEVEL=debug udevadm lock --timeout=30 --device="${devices[$i]}" \
+                cryptsetup luksFormat -q --debug \
                 --use-urandom --pbkdf pbkdf2 --pbkdf-force-iterations 1000 \
                 --uuid "deadbeef-dead-dead-beef-11111111111$i" --label "encdisk$i" "${devices[$i]}" /etc/btrfs_keyfile
         udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/deadbeef-dead-dead-beef-11111111111$i" "/dev/disk/by-label/encdisk$i"
