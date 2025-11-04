@@ -1202,6 +1202,7 @@ TEST(hidden_or_backup_file) {
         assert_se(hidden_or_backup_file("aquota.user"));
         assert_se(hidden_or_backup_file("aquota.group"));
 
+        assert_se(hidden_or_backup_file("test.ignore"));
         assert_se(hidden_or_backup_file("test.rpmnew"));
         assert_se(hidden_or_backup_file("test.dpkg-old"));
         assert_se(hidden_or_backup_file("test.dpkg-remove"));
