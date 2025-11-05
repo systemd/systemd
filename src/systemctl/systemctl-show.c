@@ -1215,7 +1215,8 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                 break;
 
         case SD_BUS_TYPE_UINT64:
-                if (endswith(name, "Timestamp")) {
+                if (endswith(name, "Timestamp") ||
+                    STR_IN_SET(name, "NextElapseUSecRealtime", "LastTriggerUSec")) {
                         uint64_t timestamp;
 
                         r = sd_bus_message_read_basic(m, bus_type, &timestamp);
