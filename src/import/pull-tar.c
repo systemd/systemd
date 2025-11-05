@@ -65,8 +65,6 @@ typedef struct TarPull {
         char *settings_path;
         char *settings_temp_path;
 
-        struct iovec checksum;
-
         int tree_fd;
         int userns_fd;
 
@@ -98,7 +96,6 @@ TarPull* tar_pull_unref(TarPull *i) {
         free(i->settings_path);
         free(i->image_root);
         free(i->local);
-        iovec_done(&i->checksum);
 
         safe_close(i->tree_fd);
         safe_close(i->userns_fd);
@@ -478,7 +475,6 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 clear_progress_bar(/* prefix= */ NULL);
                 r = pull_verify(i->verify,
-                                &i->checksum,
                                 i->tar_job,
                                 i->checksum_job,
                                 i->signature_job,
@@ -723,9 +719,6 @@ int tar_pull_start(
         if (r < 0)
                 return r;
 
-        if (!iovec_memdup(checksum, &i->checksum))
-                return -ENOMEM;
-
         i->flags = flags;
         i->verify = verify;
 
@@ -736,7 +729,14 @@ int tar_pull_start(
 
         i->tar_job->on_finished = tar_pull_job_on_finished;
         i->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
-        i->tar_job->calc_checksum = checksum || IN_SET(verify, IMPORT_VERIFY_CHECKSUM, IMPORT_VERIFY_SIGNATURE);
+
+        if (iovec_is_set(checksum)) {
+                if (!iovec_memdup(checksum, &i->tar_job->expected_checksum))
+                        return -ENOMEM;
+
+                i->tar_job->calc_checksum = true;
+        } else
+                i->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
 
         if (!FLAGS_SET(flags, IMPORT_DIRECT)) {
                 r = pull_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
@@ -749,7 +749,6 @@ int tar_pull_start(
                         &i->checksum_job,
                         &i->signature_job,
                         verify,
-                        checksum,
                         url,
                         i->glue,
                         tar_pull_job_on_finished,
