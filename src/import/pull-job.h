@@ -67,6 +67,7 @@ typedef struct PullJob {
         struct stat disk_stat;
 
         usec_t mtime;
+        char *content_type;
 
         ImportCompress compress;
 
