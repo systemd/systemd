@@ -48,7 +48,7 @@ PullJob* pull_job_unref(PullJob *j) {
         free(j->etag);
         strv_free(j->old_etags);
         free(j->payload);
-        free(j->checksum);
+        iovec_done(&j->checksum);
 
         return mfree(j);
 }
@@ -92,7 +92,7 @@ static int pull_job_restart(PullJob *j, const char *new_url) {
         j->etag = mfree(j->etag);
         j->etag_exists = false;
         j->mtime = 0;
-        j->checksum = mfree(j->checksum);
+        iovec_done(&j->checksum);
         j->expected_content_length = UINT64_MAX;
 
         curl_glue_remove_and_free(j->glue, j->curl);
@@ -233,22 +233,31 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
 
         if (j->checksum_ctx) {
                 unsigned checksum_len;
-                uint8_t k[EVP_MAX_MD_SIZE];
 
-                r = EVP_DigestFinal_ex(j->checksum_ctx, k, &checksum_len);
-                if (r == 0) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum.");
-                        goto finish;
-                }
-                assert(checksum_len <= sizeof k);
-
-                j->checksum = hexmem(k, checksum_len);
-                if (!j->checksum) {
+                iovec_done(&j->checksum);
+                j->checksum.iov_base = malloc(EVP_MAX_MD_SIZE);
+                if (!j->checksum.iov_base) {
                         r = log_oom();
                         goto finish;
                 }
 
-                log_debug("SHA256 of %s is %s.", j->url, j->checksum);
+                r = EVP_DigestFinal_ex(j->checksum_ctx, j->checksum.iov_base, &checksum_len);
+                if (r == 0) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum.");
+                        goto finish;
+                }
+                assert(checksum_len <= EVP_MAX_MD_SIZE);
+                j->checksum.iov_len = checksum_len;
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *h = hexmem(j->checksum.iov_base, j->checksum.iov_len);
+                        if (!h) {
+                                r = log_oom();
+                                goto finish;
+                        }
+
+                        log_debug("%s of %s is %s.", EVP_MD_CTX_get0_name(j->checksum_ctx), j->url, h);
+                }
         }
 
         /* Do a couple of finishing disk operations, but only if we are the sole owner of the file (i.e. no
