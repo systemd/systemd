@@ -1932,6 +1932,10 @@ int vsock_get_local_cid(unsigned *ret) {
                 return log_debug_errno(errno, "Failed to query local AF_VSOCK CID: %m");
         log_debug("Local AF_VSOCK CID: %u", tmp);
 
+        if (IN_SET(tmp, VMADDR_CID_LOCAL, VMADDR_CID_HOST))
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                       "IOCTL_VM_SOCKETS_GET_LOCAL_CID returned bogus value (%u), ignoring.", tmp);
+
         if (ret)
                 *ret = tmp;
         return 0;
