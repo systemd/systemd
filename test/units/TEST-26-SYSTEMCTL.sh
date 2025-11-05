@@ -287,6 +287,59 @@ for value in pretty us µs utc us+utc µs+utc; do
     systemctl show -P KernelTimestamp --timestamp="$value"
 done
 
+# --timestamp with timer properties (issue #39282)
+TIMER1="timestamp-test1-$RANDOM.timer"
+SERVICE1="${TIMER1%.timer}.service"
+cat >"/run/systemd/system/$SERVICE1" <<EOF
+[Service]
+Type=oneshot
+ExecStart=true
+EOF
+
+cat >"/run/systemd/system/$TIMER1" <<EOF
+[Timer]
+OnCalendar=*-*-* 00:00:00
+EOF
+
+systemctl daemon-reload
+systemctl start "$TIMER1"
+
+output=$(systemctl show -P NextElapseUSecRealtime --timestamp=unix "$TIMER1")
+if [[ ! "$output" =~ ^@[0-9]+$ ]]; then
+    echo "NextElapseUSecRealtime: expected @<number> with --timestamp=unix, got: $output" >&2
+    exit 1
+fi
+
+systemctl stop "$TIMER1"
+rm -f "/run/systemd/system/$TIMER1" "/run/systemd/system/$SERVICE1"
+
+TIMER2="timestamp-test2-$RANDOM.timer"
+SERVICE2="${TIMER2%.timer}.service"
+cat >"/run/systemd/system/$SERVICE2" <<EOF
+[Service]
+Type=oneshot
+ExecStart=true
+EOF
+
+cat >"/run/systemd/system/$TIMER2" <<EOF
+[Timer]
+OnActiveSec=100ms
+EOF
+
+systemctl daemon-reload
+systemctl start "$TIMER2"
+sleep 0.5
+
+output=$(systemctl show -P LastTriggerUSec --timestamp=unix "$TIMER2")
+if [[ ! "$output" =~ ^@[0-9]+$ ]]; then
+    echo "LastTriggerUSec: expected @<number> with --timestamp=unix, got: $output" >&2
+    exit 1
+fi
+
+systemctl stop "$TIMER2"
+rm -f "/run/systemd/system/$TIMER2" "/run/systemd/system/$SERVICE2"
+systemctl daemon-reload
+
 # set-default/get-default
 test_get_set_default() {
     target="$(systemctl get-default "$@")"
