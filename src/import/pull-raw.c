@@ -68,7 +68,7 @@ typedef struct RawPull {
         char *verity_path;
         char *verity_temp_path;
 
-        char *checksum;
+        struct iovec checksum;
 } RawPull;
 
 RawPull* raw_pull_unref(RawPull *i) {
@@ -99,7 +99,7 @@ RawPull* raw_pull_unref(RawPull *i) {
         free(i->verity_path);
         free(i->image_root);
         free(i->local);
-        free(i->checksum);
+        iovec_done(&i->checksum);
 
         return mfree(i);
 }
@@ -585,7 +585,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
                 raw_pull_report_progress(i, RAW_VERIFYING);
 
                 r = pull_verify(i->verify,
-                                i->checksum,
+                                &i->checksum,
                                 i->raw_job,
                                 i->checksum_job,
                                 i->signature_job,
@@ -827,7 +827,7 @@ int raw_pull_start(
                 uint64_t size_max,
                 ImportFlags flags,
                 ImportVerify verify,
-                const char *checksum) {
+                const struct iovec *checksum) {
 
         int r;
 
@@ -854,9 +854,8 @@ int raw_pull_start(
         if (r < 0)
                 return r;
 
-        r = free_and_strdup(&i->checksum, checksum);
-        if (r < 0)
-                return r;
+        if (!iovec_memdup(checksum, &i->checksum))
+                return -ENOMEM;
 
         i->flags = flags;
         i->verify = verify;
@@ -869,7 +868,7 @@ int raw_pull_start(
         i->raw_job->on_finished = raw_pull_job_on_finished;
         i->raw_job->on_open_disk = raw_pull_job_on_open_disk_raw;
 
-        if (checksum)
+        if (iovec_is_set(checksum))
                 i->raw_job->calc_checksum = true;
         else if (verify != IMPORT_VERIFY_NO) {
                 /* Calculate checksum of the main download unless the users asks for a SHA256SUM file or its
@@ -899,7 +898,7 @@ int raw_pull_start(
                         &i->checksum_job,
                         &i->signature_job,
                         verify,
-                        i->checksum,
+                        &i->checksum,
                         url,
                         i->glue,
                         raw_pull_job_on_finished,
