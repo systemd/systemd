@@ -872,8 +872,8 @@ int raw_pull_start(
                         return r;
 
                 i->raw_job->calc_checksum = r;
-                i->raw_job->force_memory = true; /* make sure this is both written to disk if that's
-                                                  * requested and into memory, since we need to verify it */
+                i->raw_job->force_memory = !r; /* make sure this is both written to disk if that's
+                                                * requested and into memory, since we need to verify it */
         }
 
         if (size_max != UINT64_MAX)
