@@ -60,6 +60,7 @@ PullJob* pull_job_unref(PullJob *j) {
         iovec_done(&j->payload);
         iovec_done(&j->checksum);
         iovec_done(&j->expected_checksum);
+        free(j->content_type);
 
         return mfree(j);
 }
@@ -105,6 +106,7 @@ static int pull_job_restart(PullJob *j, const char *new_url) {
         iovec_done(&j->checksum);
         iovec_done(&j->expected_checksum);
         j->expected_content_length = UINT64_MAX;
+        j->content_type = mfree(j->content_type);
 
         curl_glue_remove_and_free(j->glue, j->curl);
         j->curl = NULL;
@@ -546,7 +548,7 @@ fail:
 }
 
 static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
-        _cleanup_free_ char *length = NULL, *last_modified = NULL, *etag = NULL;
+        _cleanup_free_ char *length = NULL, *last_modified = NULL, *etag = NULL, *ct = NULL;
         size_t sz = size * nmemb;
         PullJob *j = ASSERT_PTR(userdata);
         CURLcode code;
@@ -627,6 +629,16 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
         }
         if (r > 0) {
                 (void) curl_parse_http_time(last_modified, &j->mtime);
+                return sz;
+        }
+
+        r = curl_header_strdup(contents, sz, "Content-Type:", &ct);
+        if (r < 0) {
+                log_oom();
+                goto fail;
+        }
+        if (r > 0) {
+                free_and_replace(j->content_type, ct);
                 return sz;
         }
 
