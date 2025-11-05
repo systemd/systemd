@@ -343,10 +343,10 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
         }
 
         if (j->disk_fd < 0 || j->force_memory) {
-                if (!GREEDY_REALLOC(j->payload, j->payload_size + sz))
+                if (!GREEDY_REALLOC(j->payload, j->payload_size + sz + 1))
                         return log_oom();
 
-                memcpy(j->payload + j->payload_size, p, sz);
+                *((char*) mempcpy(j->payload + j->payload_size, p, sz)) = 0;
                 j->payload_size += sz;
         }
 
