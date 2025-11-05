@@ -248,7 +248,6 @@ int pull_make_verification_jobs(
                 PullJob **ret_checksum_job,
                 PullJob **ret_signature_job,
                 ImportVerify verify,
-                const struct iovec *checksum, /* set if literal checksum verification is requested, in which case 'verify' is set to _IMPORT_VERIFY_INVALID */
                 const char *url,
                 CurlGlue *glue,
                 PullJobFinished on_finished,
@@ -262,13 +261,13 @@ int pull_make_verification_jobs(
         assert(ret_signature_job);
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
-        assert((verify < 0) || !checksum);
         assert(url);
         assert(glue);
 
         /* If verification is turned off, or if the checksum to validate is already specified we don't need
          * to download a checksum file or signature, hence shortcut things */
-        if (verify == IMPORT_VERIFY_NO || iovec_is_set(checksum)) {
+        if (verify < 0 ||                  /* verification already done (via literal checksum) */
+            verify == IMPORT_VERIFY_NO) {  /* verification turned off */
                 *ret_checksum_job = *ret_signature_job = NULL;
                 return 0;
         }
@@ -515,7 +514,6 @@ finish:
 }
 
 int pull_verify(ImportVerify verify,
-                const struct iovec *checksum, /* Verify with literal checksum */
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
@@ -531,32 +529,12 @@ int pull_verify(ImportVerify verify,
 
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
-        assert((verify < 0) || !checksum);
         assert(main_job);
         assert(main_job->state == PULL_JOB_DONE);
 
-        if (verify == IMPORT_VERIFY_NO) /* verification turned off */
+        if (verify < 0 ||               /* verification already done (via literal checksum) */
+            verify == IMPORT_VERIFY_NO) /* verification turned off */
                 return 0;
-
-        if (checksum) {
-                /* Verification by literal checksum */
-                assert(!checksum_job);
-                assert(!signature_job);
-                assert(!settings_job);
-                assert(!roothash_job);
-                assert(!roothash_signature_job);
-                assert(!verity_job);
-
-                assert(main_job->calc_checksum);
-                assert(iovec_is_set(&main_job->checksum));
-
-                if (iovec_memcmp(checksum, &main_job->checksum) != 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "DOWNLOAD INVALID: Checksum of %s file did not check out, file has been tampered with.",
-                                               main_job->url);
-
-                return 0;
-        }
 
         r = import_url_last_component(main_job->url, &fn);
         if (r < 0)
