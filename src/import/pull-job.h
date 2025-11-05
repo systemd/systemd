@@ -94,4 +94,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result);
 
 void pull_job_close_disk_fd(PullJob *j);
 
+int pull_job_add_request_header(PullJob *j, const char *hdr);
+int pull_job_set_accept(PullJob *j, char * const *l);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(PullJob*, pull_job_unref);

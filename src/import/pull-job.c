@@ -736,6 +736,27 @@ int pull_job_new(
         return 0;
 }
 
+int pull_job_add_request_header(PullJob *j, const char *hdr) {
+        assert(j);
+        assert(hdr);
+
+        if (j->request_header) {
+                struct curl_slist *l;
+
+                l = curl_slist_append(j->request_header, hdr);
+                if (!l)
+                        return -ENOMEM;
+
+                j->request_header = l;
+        } else {
+                j->request_header = curl_slist_new(hdr, NULL);
+                if (!j->request_header)
+                        return -ENOMEM;
+        }
+
+        return 0;
+}
+
 int pull_job_begin(PullJob *j) {
         int r;
 
@@ -759,19 +780,9 @@ int pull_job_begin(PullJob *j) {
                 if (!hdr)
                         return -ENOMEM;
 
-                if (!j->request_header) {
-                        j->request_header = curl_slist_new(hdr, NULL);
-                        if (!j->request_header)
-                                return -ENOMEM;
-                } else {
-                        struct curl_slist *l;
-
-                        l = curl_slist_append(j->request_header, hdr);
-                        if (!l)
-                                return -ENOMEM;
-
-                        j->request_header = l;
-                }
+                r = pull_job_add_request_header(j, hdr);
+                if (r < 0)
+                        return r;
         }
 
         if (j->request_header) {
@@ -807,4 +818,21 @@ int pull_job_begin(PullJob *j) {
         j->state = PULL_JOB_ANALYZING;
 
         return 0;
+}
+
+int pull_job_set_accept(PullJob *j, char * const *l) {
+        assert(j);
+
+        if (strv_isempty(l))
+                return 0;
+
+        _cleanup_free_ char *joined = strv_join(l, ", ");
+        if (!joined)
+                return -ENOMEM;
+
+        _cleanup_free_ char *f = strjoin("Accept: ", joined);
+        if (!f)
+                return -ENOMEM;
+
+        return pull_job_add_request_header(j, f);
 }
