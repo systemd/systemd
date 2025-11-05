@@ -418,7 +418,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 if (r < 0)
                         goto fail;
 
-                if (!IN_SET(q.family, AF_INET, AF_INET6))
+                if (q.family != af)
                         continue;
 
                 if (q.address_size != FAMILY_ADDRESS_SIZE(q.family)) {
