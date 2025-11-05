@@ -50,6 +50,7 @@ trap 'touch /terminate; kill 0' RTMIN+3
 trap 'touch /poweroff' RTMIN+4
 trap 'touch /reboot' INT
 trap 'touch /trap' TRAP
+trap 'exit 0' TERM
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
@@ -327,6 +328,7 @@ ip address add 192.0.2.1/24 dev hoge
 PID=0
 
 trap 'kill 0' RTMIN+3
+trap 'exit 0' TERM
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
