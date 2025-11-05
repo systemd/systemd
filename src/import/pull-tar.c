@@ -65,7 +65,7 @@ typedef struct TarPull {
         char *settings_path;
         char *settings_temp_path;
 
-        char *checksum;
+        struct iovec checksum;
 
         int tree_fd;
         int userns_fd;
@@ -98,7 +98,7 @@ TarPull* tar_pull_unref(TarPull *i) {
         free(i->settings_path);
         free(i->image_root);
         free(i->local);
-        free(i->checksum);
+        iovec_done(&i->checksum);
 
         safe_close(i->tree_fd);
         safe_close(i->userns_fd);
@@ -478,7 +478,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
 
                 clear_progress_bar(/* prefix= */ NULL);
                 r = pull_verify(i->verify,
-                                i->checksum,
+                                &i->checksum,
                                 i->tar_job,
                                 i->checksum_job,
                                 i->signature_job,
@@ -698,17 +698,17 @@ int tar_pull_start(
                 const char *local,
                 ImportFlags flags,
                 ImportVerify verify,
-                const char *checksum) {
+                const struct iovec *checksum) {
 
         int r;
 
         assert(i);
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
-        assert((verify < 0) || !checksum);
+        assert((verify < 0) || !iovec_is_set(checksum));
         assert(!(flags & ~IMPORT_PULL_FLAGS_MASK_TAR));
         assert(!(flags & IMPORT_PULL_SETTINGS) || !(flags & IMPORT_DIRECT));
-        assert(!(flags & IMPORT_PULL_SETTINGS) || !checksum);
+        assert(!(flags & IMPORT_PULL_SETTINGS) || !iovec_is_set(checksum));
 
         if (!http_url_is_valid(url) && !file_url_is_valid(url))
                 return -EINVAL;
@@ -723,9 +723,8 @@ int tar_pull_start(
         if (r < 0)
                 return r;
 
-        r = free_and_strdup(&i->checksum, checksum);
-        if (r < 0)
-                return r;
+        if (!iovec_memdup(checksum, &i->checksum))
+                return -ENOMEM;
 
         i->flags = flags;
         i->verify = verify;
