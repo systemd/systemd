@@ -399,13 +399,10 @@ static bool tar_pull_is_done(TarPull *i) {
 }
 
 static void tar_pull_job_on_finished(PullJob *j) {
-        TarPull *i;
         int r;
 
         assert(j);
-        assert(j->userdata);
-
-        i = j->userdata;
+        TarPull *i = ASSERT_PTR(j->userdata);
 
         if (j->error != 0) {
                 clear_progress_bar(/* prefix= */ NULL);
@@ -582,13 +579,11 @@ finish:
 
 static int tar_pull_job_on_open_disk_tar(PullJob *j) {
         const char *where;
-        TarPull *i;
         int r;
 
         assert(j);
-        assert(j->userdata);
 
-        i = j->userdata;
+        TarPull *i = ASSERT_PTR(j->userdata);
         assert(i->tar_job == j);
         assert(!pidref_is_set(&i->tar_pid));
         assert(i->tree_fd < 0);
