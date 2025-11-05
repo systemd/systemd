@@ -173,7 +173,7 @@ typedef struct Manager {
         LIST_HEAD(Unit, load_queue); /* this is actually more a stack than a queue, but uh. */
 
         /* Jobs that need to be run */
-        struct Prioq *run_queue;
+        Prioq *run_queue;
 
         /* Units and jobs that have not yet been announced via
          * D-Bus. When something about a job changes it is added here
@@ -321,18 +321,15 @@ typedef struct Manager {
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
 
-        bool send_reloading_done;
-
         uint32_t current_job_id;
-        uint32_t default_unit_job_id;
 
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;
 
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_unit;
-        CGroupMask cgroup_supported;
         char *cgroup_root;
+        CGroupMask cgroup_supported;
 
         /* Notifications from cgroups, when the unified hierarchy is used is done via inotify. */
         int cgroup_inotify_fd;
@@ -364,6 +361,8 @@ typedef struct Manager {
         /* Flags */
         bool dispatching_load_queue;
         int may_dispatch_stop_notify_queue; /* tristate */
+
+        bool send_reloading_done;
 
         /* Have we already sent out the READY=1 notification? */
         bool ready_sent;
