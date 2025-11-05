@@ -49,6 +49,7 @@ PullJob* pull_job_unref(PullJob *j) {
         strv_free(j->old_etags);
         free(j->payload);
         iovec_done(&j->checksum);
+        iovec_done(&j->expected_checksum);
 
         return mfree(j);
 }
@@ -93,6 +94,7 @@ static int pull_job_restart(PullJob *j, const char *new_url) {
         j->etag_exists = false;
         j->mtime = 0;
         iovec_done(&j->checksum);
+        iovec_done(&j->expected_checksum);
         j->expected_content_length = UINT64_MAX;
 
         curl_glue_remove_and_free(j->glue, j->curl);
@@ -257,6 +259,12 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                         }
 
                         log_debug("%s of %s is %s.", EVP_MD_CTX_get0_name(j->checksum_ctx), j->url, h);
+                }
+
+                if (iovec_is_set(&j->expected_checksum) &&
+                    iovec_memcmp(&j->checksum, &j->expected_checksum) != 0) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes.");
+                        goto finish;
                 }
         }
 
