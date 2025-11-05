@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "in-addr-util.h"
 #include "networkd-forward.h"
 #include "networkd-util.h"
 #include "networkd-wwan-bus.h"
