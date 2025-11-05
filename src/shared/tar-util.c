@@ -529,7 +529,7 @@ static int archive_entry_read_acl(
 
                 r = acl_set_perm(p, ACL_EXECUTE, permset & ARCHIVE_ENTRY_ACL_EXECUTE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to set ACL entry excute bit: %m");
+                        return log_error_errno(r, "Failed to set ACL entry execute bit: %m");
 
                 if (sym_acl_set_permset(e, p) < 0)
                         return log_error_errno(errno, "Failed to set ACL entry permission set: %m");
