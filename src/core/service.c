@@ -1810,7 +1810,9 @@ static int service_spawn_internal(
                                 return -ENOMEM;
         }
 
-        if (MANAGER_IS_USER(UNIT(s)->manager)) {
+        if (MANAGER_IS_USER(UNIT(s)->manager) &&
+            !exec_needs_pid_namespace(&s->exec_context, /* params = */ NULL)) {
+
                 if (asprintf(our_env + n_env++, "MANAGERPID="PID_FMT, getpid_cached()) < 0)
                         return -ENOMEM;
 
