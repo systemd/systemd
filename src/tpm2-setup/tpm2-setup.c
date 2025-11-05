@@ -467,7 +467,7 @@ static int setup_nvpcr(void) {
 
         if (c.n_already > 0 && c.n_anchored == 0 && !arg_early) {
                 /* If we didn't anchor anything right now, but we anchored something earlier, then it might
-                 * have happened in the initrd, and thus the anchor ID was not commited to /var/ or the ESP
+                 * have happened in the initrd, and thus the anchor ID was not committed to /var/ or the ESP
                  * yet. Hence, let's explicitly do so now, to catch up. */
 
                 r = tpm2_nvpcr_acquire_anchor_secret(/* ret= */ NULL, /* sync_secondary= */ true);
