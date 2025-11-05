@@ -4468,6 +4468,12 @@ static void log_command_line(
 
 static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParameters *params) {
         assert(context);
+        assert(params);
+
+        /* We only want to ever imply PrivateUsers= for user managers, as they're not expected to setuid() to
+         * other users, unlike the system manager which needs all users to be around. */
+        if (params->runtime_scope != RUNTIME_SCOPE_USER)
+                return false;
 
         return context->private_users != PRIVATE_USERS_NO ||
                context->private_tmp != PRIVATE_TMP_NO ||
