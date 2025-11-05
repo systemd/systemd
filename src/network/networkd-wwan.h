@@ -2,6 +2,7 @@
 #pragma once
 
 #include "networkd-forward.h"
+#include "networkd-util.h"
 #include "networkd-wwan-bus.h"
 
 typedef struct Modem Modem;
