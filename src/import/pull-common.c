@@ -6,6 +6,7 @@
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
@@ -247,7 +248,7 @@ int pull_make_verification_jobs(
                 PullJob **ret_checksum_job,
                 PullJob **ret_signature_job,
                 ImportVerify verify,
-                const char *checksum, /* set if literal checksum verification is requested, in which case 'verify' is set to _IMPORT_VERIFY_INVALID */
+                const struct iovec *checksum, /* set if literal checksum verification is requested, in which case 'verify' is set to _IMPORT_VERIFY_INVALID */
                 const char *url,
                 CurlGlue *glue,
                 PullJobFinished on_finished,
@@ -267,7 +268,7 @@ int pull_make_verification_jobs(
 
         /* If verification is turned off, or if the checksum to validate is already specified we don't need
          * to download a checksum file or signature, hence shortcut things */
-        if (verify == IMPORT_VERIFY_NO || checksum) {
+        if (verify == IMPORT_VERIFY_NO || iovec_is_set(checksum)) {
                 *ret_checksum_job = *ret_signature_job = NULL;
                 return 0;
         }
@@ -351,7 +352,7 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                 return 0;
 
         assert(job->calc_checksum);
-        assert(job->checksum);
+        assert(iovec_is_set(&job->checksum));
 
         r = import_url_last_component(job->url, &fn);
         if (r < 0)
@@ -365,6 +366,10 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                 return log_error_errno(SYNTHETIC_ERRNO(ELOOP),
                                        "Cannot verify checksum/signature files via themselves.");
 
+        _cleanup_free_ char *cs = hexmem(job->checksum.iov_base, job->checksum.iov_len);
+        if (!cs)
+                return log_oom();
+
         const char *p = NULL;
         FOREACH_STRING(separator,
                        " *", /* separator for binary mode */
@@ -372,7 +377,7 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                        " "   /* non-standard separator used by linuxcontainers.org */) {
                 _cleanup_free_ char *line = NULL;
 
-                line = strjoin(job->checksum, separator, fn, "\n");
+                line = strjoin(cs, separator, fn, "\n");
                 if (!line)
                         return log_oom();
 
@@ -510,7 +515,7 @@ finish:
 }
 
 int pull_verify(ImportVerify verify,
-                const char *checksum, /* Verify with literal checksum */
+                const struct iovec *checksum, /* Verify with literal checksum */
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
@@ -543,9 +548,9 @@ int pull_verify(ImportVerify verify,
                 assert(!verity_job);
 
                 assert(main_job->calc_checksum);
-                assert(main_job->checksum);
+                assert(iovec_is_set(&main_job->checksum));
 
-                if (!strcaseeq(checksum, main_job->checksum))
+                if (iovec_memcmp(checksum, &main_job->checksum) != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "DOWNLOAD INVALID: Checksum of %s file did not check out, file has been tampered with.",
                                                main_job->url);
@@ -566,7 +571,7 @@ int pull_verify(ImportVerify verify,
                 verify_job = main_job;
         } else {
                 assert(main_job->calc_checksum);
-                assert(main_job->checksum);
+                assert(iovec_is_set(&main_job->checksum));
                 assert(checksum_job);
                 assert(checksum_job->state == PULL_JOB_DONE);
 
