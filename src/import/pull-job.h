@@ -58,6 +58,8 @@ typedef struct PullJob {
         uint64_t uncompressed_max;
         uint64_t compressed_max;
 
+        uint64_t expected_content_length;
+
         uint8_t *payload;
         size_t payload_size;
 
