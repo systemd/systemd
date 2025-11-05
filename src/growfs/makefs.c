@@ -41,7 +41,7 @@ static int run(int argc, char *argv[]) {
         if (S_ISBLK(st.st_mode)) {
                 /* Lock the device so that udev doesn't interfere with our work */
 
-                lock_fd = lock_whole_block_device(st.st_rdev, LOCK_EX);
+                lock_fd = lock_whole_block_device(st.st_rdev, O_WRONLY, LOCK_EX);
                 if (lock_fd < 0)
                         return log_error_errno(lock_fd, "Failed to lock whole block device of \"%s\": %m", device);
         } else
