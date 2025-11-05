@@ -908,6 +908,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         SD_JSON_BUILD_PAIR_BOOLEAN("RemoveIPC", c->remove_ipc),
                         JSON_BUILD_PAIR_TRISTATE_NON_NULL("PrivateMounts", c->private_mounts),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("MountFlags", mount_propagation_flag_to_string(c->mount_propagation_flag)),
+                        SD_JSON_BUILD_PAIR_STRING("MemoryTHP", memory_thp_to_string(c->memory_thp)),
 
                         /* System Call Filtering */
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("SystemCallFilter", syscall_filter_build_json, c),
