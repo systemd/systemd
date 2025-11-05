@@ -163,6 +163,8 @@ static inline bool osc_char_is_valid(char c) {
         return (unsigned char) c >= 32 && (unsigned char) c < 127;
 }
 
+#define VTNR_MAX 63
+
 static inline bool vtnr_is_valid(unsigned n) {
-        return n >= 1 && n <= 63;
+        return n >= 1 && n <= VTNR_MAX;
 }

@@ -6436,9 +6436,7 @@ void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret_ne
                 assert_not_reached();
         }
 
-        objective = freezer_state_finish(next);
-        if (objective == FREEZER_FROZEN_BY_PARENT)
-                objective = FREEZER_FROZEN;
+        objective = freezer_state_objective(next);
         assert(IN_SET(objective, FREEZER_RUNNING, FREEZER_FROZEN));
 
         *ret_next = next;
