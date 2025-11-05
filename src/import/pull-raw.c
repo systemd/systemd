@@ -500,13 +500,10 @@ static int raw_pull_rename_auxiliary_file(
 }
 
 static void raw_pull_job_on_finished(PullJob *j) {
-        RawPull *i;
         int r;
 
         assert(j);
-        assert(j->userdata);
-
-        i = j->userdata;
+        RawPull *i = ASSERT_PTR(j->userdata);
 
         if (j->error != 0) {
                 /* Only the main job and the checksum job are fatal if they fail. The other fails are just
