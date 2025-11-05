@@ -79,6 +79,7 @@ typedef struct PullJob {
         EVP_MD_CTX *checksum_ctx;
 
         struct iovec checksum;
+        struct iovec expected_checksum;
 
         bool sync;
         bool force_memory;
