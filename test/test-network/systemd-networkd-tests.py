@@ -81,10 +81,10 @@ valgrind_cmd = ''
 enable_debug = True
 env = {}
 wait_online_env = {}
-asan_options = None
-lsan_options = None
-ubsan_options = None
-with_coverage = False
+asan_options = os.getenv('ASAN_OPTIONS')
+lsan_options = os.getenv('LSAN_OPTIONS')
+ubsan_options = os.getenv('UBSAN_OPTIONS')
+with_coverage = os.getenv('COVERAGE_BUILD_DIR') != None
 show_journal = True # When true, show journal on stopping networkd.
 
 active_units = []
