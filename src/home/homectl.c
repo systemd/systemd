@@ -3887,7 +3887,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SETENV: {
-                        _cleanup_free_ char **l = NULL;
+                        _cleanup_strv_free_ char **l = NULL;
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
                         sd_json_variant *e;
 
