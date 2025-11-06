@@ -2071,12 +2071,7 @@ static int dns_configuration_json_append(
         SET_FOREACH(scope, dns_scopes) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                r = dns_scope_dump_cache_to_json(scope, &v);
-                if (r < 0)
-                        return r;
-
-                /* The cache is not relevant to the configuration of the scope. */
-                r = sd_json_variant_filter(&v, STRV_MAKE("cache"));
+                r = dns_scope_to_json(scope, /* with_cache= */ false, &v);
                 if (r < 0)
                         return r;
 
