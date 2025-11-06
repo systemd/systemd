@@ -111,9 +111,9 @@ static int map_dns(
                 void *userdata) {
 
         Bearer *b = ASSERT_PTR(userdata);
-        union in_addr_union a;
+        struct in_addr_full *a;
         const char *s;
-        int family, r;
+        int r;
 
         assert(m);
 
@@ -121,17 +121,14 @@ static int map_dns(
         if (r < 0)
                 return r;
 
-        r = in_addr_from_string_auto(s, &family, &a);
+        r = in_addr_full_new_from_string(s, &a);
         if (r < 0)
                 return r;
 
         if (!GREEDY_REALLOC(b->dns, b->n_dns + 1))
                 return -ENOMEM;
 
-        b->dns[b->n_dns++] = (struct in_addr_data) {
-                .family = family,
-                .address = a,
-        };
+        b->dns[b->n_dns++] = TAKE_PTR(a);
 
         return 0;
 }
