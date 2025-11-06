@@ -1,6 +1,47 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "resolve-util.h"
 #include "varlink-io.systemd.Resolve.h"
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                DNSProtocol,
+                SD_VARLINK_FIELD_COMMENT("DNS"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(dns),
+                SD_VARLINK_FIELD_COMMENT("Multicast DNS"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(mdns),
+                SD_VARLINK_FIELD_COMMENT("LLMNR"),
+                SD_VARLINK_DEFINE_ENUM_VALUE(llmnr));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                DNSOverTLSMode,
+                SD_VARLINK_FIELD_COMMENT("DNSOverTLS is disabled."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(no),
+                SD_VARLINK_FIELD_COMMENT("DNSOverTLS is enabled."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(yes),
+                SD_VARLINK_FIELD_COMMENT("Try to use DNSOverTLS, but disabled when the server does not support it."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(opportunistic));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                ResolveSupport,
+                SD_VARLINK_FIELD_COMMENT("The protocol is disabled."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(no),
+                SD_VARLINK_FIELD_COMMENT("The protocol is enabled."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(yes),
+                SD_VARLINK_FIELD_COMMENT("The protocol is used only for resolving."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(resolve));
+
+SD_VARLINK_DEFINE_ENUM_TYPE(
+                ResolvConfMode,
+                SD_VARLINK_FIELD_COMMENT("/etc/resolv.conf is a symbolic link to "PRIVATE_UPLINK_RESOLV_CONF"."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(uplink),
+                SD_VARLINK_FIELD_COMMENT("/etc/resolv.conf is a symbolic link to "PRIVATE_STUB_RESOLV_CONF"."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(stub),
+                SD_VARLINK_FIELD_COMMENT("/etc/resolv.conf is a symbolic link to "PRIVATE_STATIC_RESOLV_CONF"."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(static),
+                SD_VARLINK_FIELD_COMMENT("/etc/resolv.conf does not exist."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(missing),
+                SD_VARLINK_FIELD_COMMENT("/etc/resolv.conf is not managed by systemd-resolved."),
+                SD_VARLINK_DEFINE_ENUM_VALUE(foreign));
 
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ResourceKey,
@@ -199,7 +240,7 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DNSScope,
                 SD_VARLINK_FIELD_COMMENT("Protocol associated with this scope."),
-                SD_VARLINK_DEFINE_FIELD(protocol, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(protocol, DNSProtocol, 0),
                 SD_VARLINK_FIELD_COMMENT("Address family associated with this scope."),
                 SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Interface index associated with this scope."),
@@ -209,7 +250,7 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("DNSSEC mode associated with this scope."),
                 SD_VARLINK_DEFINE_FIELD(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode associated with this scope."),
-                SD_VARLINK_DEFINE_FIELD(dnsOverTLS, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(dnsOverTLS, DNSOverTLSMode, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DNSConfiguration,
@@ -234,13 +275,14 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("DNSSEC mode."),
                 SD_VARLINK_DEFINE_FIELD(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode."),
-                SD_VARLINK_DEFINE_FIELD(dnsOverTLS, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(dnsOverTLS, DNSOverTLSMode, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("LLMNR support."),
+                //SD_VARLINK_DEFINE_FIELD_BY_TYPE(llmnr, ResolveSupport, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(llmnr, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("mDNS support."),
-                SD_VARLINK_DEFINE_FIELD(mDNS, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(mDNS, ResolveSupport, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("resolv.conf mode, set for global configuration only."),
-                SD_VARLINK_DEFINE_FIELD(resolvConfMode, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(resolvConfMode, ResolvConfMode, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Array of current DNS scopes."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(scopes, DNSScope, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
@@ -317,6 +359,14 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_BrowseServices,
                 SD_VARLINK_SYMBOL_COMMENT("Current global and per-link DNS configurations."),
                 &vl_method_DumpDNSConfiguration,
+                SD_VARLINK_SYMBOL_COMMENT("The type of protocol."),
+                &vl_type_DNSProtocol,
+                SD_VARLINK_SYMBOL_COMMENT("The mode of DNSOverTLS."),
+                &vl_type_DNSOverTLSMode,
+                SD_VARLINK_SYMBOL_COMMENT("Whether the protocol is enabled."),
+                &vl_type_ResolveSupport,
+                SD_VARLINK_SYMBOL_COMMENT("The management mode of /etc/resolve.conf file."),
+                &vl_type_ResolvConfMode,
                 SD_VARLINK_SYMBOL_COMMENT("Encapsulates a resolved address."),
                 &vl_type_ResolvedAddress,
                 SD_VARLINK_SYMBOL_COMMENT("Encapsulates a resolved host name."),

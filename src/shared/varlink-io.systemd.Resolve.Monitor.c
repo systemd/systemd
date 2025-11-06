@@ -5,6 +5,10 @@
 
 /* We want to reuse several structures from the io.systemd.Resolve interface, namely:
  *
+ * - DNSProtocol
+ * - DNSOverTLSMode
+ * - ResolveSupport
+ * - ResolvConfMode
  * - ResourceKey
  * - ResourceRecord
  * - DNSServer
@@ -52,13 +56,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 ScopeCache,
-                SD_VARLINK_DEFINE_FIELD(protocol, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(protocol, DNSProtocol, 0),
                 SD_VARLINK_DEFINE_FIELD(family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(ifindex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD(ifname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(cache, CacheEntry, SD_VARLINK_ARRAY),
                 SD_VARLINK_DEFINE_FIELD(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_FIELD(dnsOverTLS, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(dnsOverTLS, DNSOverTLSMode, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 DumpCache,
@@ -137,6 +141,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_DumpServerState,
                 &vl_method_DumpStatistics,
                 &vl_method_ResetStatistics,
+                &vl_type_DNSProtocol,
+                &vl_type_DNSOverTLSMode,
+                &vl_type_ResolveSupport,
+                &vl_type_ResolvConfMode,
                 &vl_type_ResourceKey,
                 &vl_type_ResourceRecord,
                 &vl_type_ResourceRecordArray,
