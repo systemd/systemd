@@ -1,0 +1,50 @@
+#compdef -value-,DBUS_SESSION_BUS_ADDRESS,-default- -value-,DBUS_SYSTEM_BUS_ADDRESS,-default-
+
+local context state state_descr line
+typeset -A val_args
+
+_values -S: kind \
+	'unix[a unix domain socket]:unix properties:->unix' \
+	'tcp[a tcp socket]:tcp properties:->tcp' \
+	'unixexec[a process]:unixexec properties:->unixexec' \
+	'x-machine-unix[a container]:machine properties:->x-machine-unix'
+
+_sd_bus_get_guid() {
+	local TYPE VALUE
+	local -a busname=(org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus)
+
+	_call_program -l dbus-guid busctl call $busname GetId |
+	while read TYPE VALUE; do
+		[[ $TYPE == 's' && -n $VALUE ]] && compadd "$@" - ${(Q)VALUE};
+	done
+}
+
+local expl ret
+case $context in
+	unix)
+		_values -s, 'unix socket properties' \
+			'guid[bus guid]:bus guid:_sd_bus_get_guid -qS,' \
+			'(abstract)path[unix domain socket path]:path:_files -r, -g "*(=)"' \
+			'(path)abstract[unix domain socket path in the abstract namespace]:abstract path:_files -r, -P@ -g "*(=)"' \
+			'uid[unix uid]:uid:_numbers' \
+			'gid[unix gid]:gid:_numbers'
+		;;
+	tcp)
+		_values -s, 'unix socket properties' \
+			'guid[bus guid]:bus guid:_sd_bus_get_guid -qS,' \
+			'host[hostname]:hostname:_hosts -r,'\
+			'port[port]:port:_numbers' \
+			'family[address family]:address family:(ipv4 ipv6)'
+		;;
+	unixexec)
+		_values -s, 'unixexec properties' \
+			'guid[bus guid]:bus guid:_sd_bus_get_guid -qS,' \
+			'path[command path]:command path:_absolute_command_paths -r,'\
+		;;
+	x-machine-unix)
+		_values -s, 'machine properties' \
+			'guid[bus guid]:bus guid:_sd_bus_get_guid -qS,' \
+			'(pid)machine[machine]:machine:_call_function ret _sd_machines' \
+			'(machine)pid[pid]:pid:_pids'
+		;;
+esac
