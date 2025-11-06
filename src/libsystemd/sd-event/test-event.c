@@ -943,4 +943,43 @@ TEST(leave_ratelimit) {
         ASSERT_TRUE(manually_left_ratelimit);
 }
 
+static int defer_post_handler(sd_event_source *s, void *userdata) {
+        bool *dispatched_post = ASSERT_PTR(userdata);
+
+        *dispatched_post = true;
+
+        return 0;
+}
+
+static int defer_adds_post_handler(sd_event_source *s, void *userdata) {
+        sd_event *e = sd_event_source_get_event(s);
+
+        /* Add a post event source from within the defer handler */
+        ASSERT_OK(sd_event_add_post(e, NULL, defer_post_handler, userdata));
+
+        return 0;
+}
+
+TEST(defer_add_post) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        bool dispatched_post = false;
+
+        ASSERT_OK(sd_event_default(&e));
+
+        /* Add a oneshot defer event source that will add a post event source */
+        ASSERT_OK(sd_event_add_defer(e, NULL, defer_adds_post_handler, &dispatched_post));
+
+        /* Run one iteration - this should dispatch the defer handler */
+        ASSERT_OK_POSITIVE(sd_event_run(e, UINT64_MAX));
+
+        /* The post handler should have been added but not yet dispatched */
+        ASSERT_FALSE(dispatched_post);
+
+        /* Run another iteration - this should dispatch the post handler */
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+
+        /* Now the post handler should have been dispatched */
+        ASSERT_TRUE(dispatched_post);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
