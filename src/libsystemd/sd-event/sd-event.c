@@ -4116,21 +4116,6 @@ static int source_dispatch(sd_event_source *s) {
                         return r;
         }
 
-        if (s->type != SOURCE_POST) {
-                sd_event_source *z;
-
-                /* If we execute a non-post source, let's mark all post sources as pending. */
-
-                SET_FOREACH(z, s->event->post_sources) {
-                        if (event_source_is_offline(z))
-                                continue;
-
-                        r = source_set_pending(z, true);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
         if (s->type == SOURCE_MEMORY_PRESSURE) {
                 r = source_memory_pressure_initiate_dispatch(s);
                 if (r == -EIO) /* handle EIO errors similar to callback errors */
@@ -4236,6 +4221,21 @@ static int source_dispatch(sd_event_source *s) {
         }
 
         s->dispatching = false;
+
+        if (s->type != SOURCE_POST) {
+                sd_event_source *z;
+
+                /* If we execute a non-post source, let's mark all post sources as pending. */
+
+                SET_FOREACH(z, s->event->post_sources) {
+                        if (event_source_is_offline(z))
+                                continue;
+
+                        r = source_set_pending(z, true);
+                        if (r < 0)
+                                return r;
+                }
+        }
 
 finish:
         if (r < 0) {
