@@ -15,8 +15,12 @@
 #include "process-util.h"
 #include "string-util.h"
 
+/* Maximum namespace name length */
+#define NAMESPACE_NAME_MAX 16U
+
 static int make_pid_name(char **ret) {
         char comm[TASK_COMM_LEN];
+        static uint64_t counter = 0;
 
         assert(ret);
 
@@ -32,12 +36,23 @@ static int make_pid_name(char **ret) {
         char spid[DECIMAL_STR_MAX(pid_t)];
         xsprintf(spid, PID_FMT, getpid_cached());
 
-        assert(strlen(spid) <= 16);
-        strshorten(comm, 16 - strlen(spid));
+        /* Include a counter in the name, so that we can allocate multiple namespaces per process, with
+         * unique names. For the first namespace we suppress the suffix */
+        char scounter[sizeof(counter) * 2 + 1];
+        if (counter == 0)
+                scounter[0] = 0;
+        else
+                xsprintf(scounter, "%" PRIx64, counter);
+        counter++;
 
-        _cleanup_free_ char *s = strjoin(comm, spid);
+        /* 16 → namespace max name, see above */
+        strshorten(comm, LESS_BY(LESS_BY(NAMESPACE_NAME_MAX, strlen(spid)), strlen(scounter)));
+
+        _cleanup_free_ char *s = strjoin(comm, spid, scounter);
         if (!s)
                 return -ENOMEM;
+
+        strshorten(s, NAMESPACE_NAME_MAX);
 
         *ret = TAKE_PTR(s);
         return 0;
