@@ -102,7 +102,7 @@ typedef enum StatusMode {
         STATUS_DEFAULT_ROUTE,
         STATUS_LLMNR,
         STATUS_MDNS,
-        STATUS_PRIVATE,
+        STATUS_DNS_OVER_TLS,
         STATUS_DNSSEC,
         STATUS_NTA,
 } StatusMode;
@@ -1814,7 +1814,7 @@ static const char* status_mode_to_json_field(StatusMode mode) {
         case STATUS_MDNS:
                 return "mDNS";
 
-        case STATUS_PRIVATE:
+        case STATUS_DNS_OVER_TLS:
                 return "dnsOverTLS";
 
         case STATUS_DNSSEC:
@@ -2037,7 +2037,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
 
                 return 0;
 
-        case STATUS_PRIVATE:
+        case STATUS_DNS_OVER_TLS:
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.dns_over_tls));
@@ -2265,7 +2265,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
                 return 0;
 
-        case STATUS_PRIVATE:
+        case STATUS_DNS_OVER_TLS:
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.dns_over_tls));
 
@@ -3010,10 +3010,10 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_PRIVATE);
+                return status_all(bus, STATUS_DNS_OVER_TLS);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_PRIVATE, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS_OVER_TLS, NULL);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
