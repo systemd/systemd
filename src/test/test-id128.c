@@ -8,6 +8,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "id128-util.h"
 #include "path-util.h"
@@ -278,7 +279,7 @@ TEST(id128_at) {
         ASSERT_OK(sd_id128_randomize(&id));
 
         ASSERT_OK(id128_write_at(tfd, "etc/machine-id", ID128_FORMAT_PLAIN, id));
-        if (geteuid() == 0)
+        if (have_effective_cap(CAP_DAC_OVERRIDE))
                 ASSERT_OK(id128_write_at(tfd, "etc/machine-id", ID128_FORMAT_PLAIN, id));
         else
                 ASSERT_ERROR(id128_write_at(tfd, "etc/machine-id", ID128_FORMAT_PLAIN, id), EACCES);
