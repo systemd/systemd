@@ -2068,30 +2068,6 @@ static int dns_configuration_json_append(
 
         assert(configuration);
 
-        if (dns_servers) {
-                r = sd_json_variant_new_array(&dns_servers_json, NULL, 0);
-                if (r < 0)
-                        return r;
-        }
-
-        if (search_domains) {
-                r = sd_json_variant_new_array(&search_domains_json, NULL, 0);
-                if (r < 0)
-                        return r;
-        }
-
-        if (current_dns_server) {
-                r = dns_server_dump_configuration_to_json(current_dns_server, &current_dns_server_json);
-                if (r < 0)
-                        return r;
-        }
-
-        if (fallback_dns_servers) {
-                r = sd_json_variant_new_array(&fallback_dns_servers_json, NULL, 0);
-                if (r < 0)
-                        return r;
-        }
-
         SET_FOREACH(scope, dns_scopes) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
@@ -2112,8 +2088,6 @@ static int dns_configuration_json_append(
         LIST_FOREACH(servers, s, dns_servers) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                assert(dns_servers_json);
-
                 r = dns_server_dump_configuration_to_json(s, &v);
                 if (r < 0)
                         return r;
@@ -2126,8 +2100,6 @@ static int dns_configuration_json_append(
         LIST_FOREACH(domains, d, search_domains) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                assert(search_domains_json);
-
                 r = dns_search_domain_dump_to_json(d, &v);
                 if (r < 0)
                         return r;
@@ -2139,8 +2111,6 @@ static int dns_configuration_json_append(
 
         LIST_FOREACH(servers, s, fallback_dns_servers) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                assert(fallback_dns_servers_json);
 
                 r = dns_server_dump_configuration_to_json(s, &v);
                 if (r < 0)
