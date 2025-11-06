@@ -38,6 +38,8 @@ typedef struct PullJob {
         void *userdata;
         free_func_t free_userdata;
 
+        char *description;
+
         PullJobFinished on_finished;
         PullJobOpenDisk on_open_disk;
         PullJobHeader on_header;
