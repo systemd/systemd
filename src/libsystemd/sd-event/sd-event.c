@@ -4237,6 +4237,22 @@ static int source_dispatch(sd_event_source *s) {
 
         s->dispatching = false;
 
+        if (saved_type != SOURCE_POST) {
+                sd_event_source *z;
+
+                /* More post sources might have been added while executing the callback, let's make sure
+                 * those are marked pending as well. */
+
+                SET_FOREACH(z, saved_event->post_sources) {
+                        if (event_source_is_offline(z))
+                                continue;
+
+                        r = source_set_pending(z, true);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
 finish:
         if (r < 0) {
                 log_debug_errno(r, "Event source %s (type %s) returned error, %s: %m",
