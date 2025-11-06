@@ -4,7 +4,5 @@ Description=Verbose successful service
 
 [Service]
 Type=oneshot
-# If the service finishes extremely fast, journald cannot find the source of the
-# stream. Hence, we need to call 'journalctl --sync' before service finishes.
-ExecStart=bash -c 'echo success; journalctl --sync'
+ExecStart=echo success
 LogLevelMax=info
