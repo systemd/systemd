@@ -57,7 +57,11 @@ __systemd_osc_context_precmdline() {
 }
 
 if [[ -n "${BASH_VERSION:-}" ]] && [[ "${TERM:-}" != "dumb" ]]; then
-    # Whenever a new prompt is shown close the previous command, and prepare new command
+    # Legacy bashrc will assign PROMPT_COMMAND=, which is equivalent to assigning
+    # index 0 in the array. Leave an empty spot to handle this gracefully.
+    [ -n "$(declare -p PROMPT_COMMAND 2>/dev/null)" ] || PROMPT_COMMAND+=('')
+
+    # Whenever a new prompt is shown, close the previous command, and prepare new command
     PROMPT_COMMAND+=(__systemd_osc_context_precmdline)
 
     # PS0 is shown right after a prompt completed, but before the command is executed
