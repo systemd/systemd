@@ -1850,7 +1850,6 @@ static int status_json_filter_links(sd_json_variant **configuration, char **link
         if (links)
                 STRV_FOREACH(ifname, links) {
                         int ifindex = rtnl_resolve_interface_or_warn(/* rtnl= */ NULL, *ifname);
-
                         if (ifindex < 0)
                                 return ifindex;
 
