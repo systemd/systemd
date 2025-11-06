@@ -48,7 +48,7 @@ static bool EVENT_SOURCE_WATCH_PIDFD(const sd_event_source *s) {
         /* Returns true if this is a PID event source and can be implemented by watching EPOLLIN */
         return s &&
                 s->type == SOURCE_CHILD &&
-                s->child.options == WEXITED;
+                (s->child.options & ~WNOWAIT) == WEXITED;
 }
 
 static bool event_source_is_online(sd_event_source *s) {
@@ -1583,7 +1583,7 @@ _public_ int sd_event_add_child(
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(pid > 1, -EINVAL);
-        assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED)), -EINVAL);
+        assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED|WNOWAIT)), -EINVAL);
         assert_return(options != 0, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_origin_changed(e), -ECHILD);
@@ -1675,7 +1675,7 @@ _public_ int sd_event_add_child_pidfd(
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(pidfd >= 0, -EBADF);
-        assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED)), -EINVAL);
+        assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED|WNOWAIT)), -EINVAL);
         assert_return(options != 0, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_origin_changed(e), -ECHILD);
@@ -3689,7 +3689,7 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
 
                 zero(s->child.siginfo);
                 if (waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo,
-                           WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | s->child.options) < 0)
+                           WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | (s->child.options & ~WNOWAIT)) < 0)
                         return negative_errno();
 
                 if (s->child.siginfo.si_pid != 0) {
@@ -3737,7 +3737,6 @@ static int process_pidfd(sd_event *e, sd_event_source *s, uint32_t revents) {
         /* Note that pidfd would also generate EPOLLHUP when the process gets reaped. But at this point we
          * only permit EPOLLIN, under the assumption that upon EPOLLHUP the child source should already
          * be set to pending, and we would have returned early above. */
-        assert(!s->child.exited);
 
         zero(s->child.siginfo);
         if (waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo, WNOHANG | WNOWAIT | s->child.options) < 0)
@@ -4174,10 +4173,11 @@ static int source_dispatch(sd_event_source *s) {
 
                 r = s->child.callback(s, &s->child.siginfo, s->userdata);
 
-                /* Now, reap the PID for good. */
+                /* Now, reap the PID for good (unless WNOWAIT was specified by the caller). */
                 if (zombie) {
-                        (void) waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo, WNOHANG|WEXITED);
-                        s->child.waited = true;
+                        (void) waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo, WNOHANG|WEXITED|(s->child.options & WNOWAIT));
+                        if (!FLAGS_SET(s->child.options, WNOWAIT))
+                                s->child.waited = true;
                 }
 
                 break;
