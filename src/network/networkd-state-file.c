@@ -109,8 +109,9 @@ static int link_put_dns(Link *link, OrderedSet **s) {
         if (r < 0)
                 return r;
 
-        if (link->mm_n_dns != UINT_MAX)
-                return ordered_set_put_dns_servers(s, link->ifindex, link->mm_dns, link->mm_n_dns);
+        r = ordered_set_put_dns_servers(s, link->ifindex, link->mm_dns, link->mm_n_dns);
+        if (r < 0)
+                return r;
 
         if (link->dhcp_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                 const struct in_addr *addresses;
@@ -804,8 +805,7 @@ static int link_save(Link *link) {
                         space = false;
                         link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
 
-                        if (link->mm_n_dns != UINT_MAX)
-                                link_save_dns(link, f, link->mm_dns, link->mm_n_dns, &space);
+                        link_save_dns(link, f, link->mm_dns, link->mm_n_dns, &space);
 
                         /* DNR resolvers are not required to provide Do53 service, however resolved doesn't
                          * know how to handle such a server so for now Do53 service is required, and

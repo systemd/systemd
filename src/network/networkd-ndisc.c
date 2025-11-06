@@ -2976,9 +2976,6 @@ int ndisc_start(Link *link) {
         if (!link->ndisc || !link->dhcp6_client)
                 return 0;
 
-        if (link_dhcp_enabled_by_bearer(link, AF_INET6) == 0)
-                return 0;
-
         if (!link_has_carrier(link))
                 return 0;
 
