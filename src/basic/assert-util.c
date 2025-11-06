@@ -4,39 +4,12 @@
 #include <stdlib.h>
 
 #include "assert-util.h"
-#include "env-util.h"
 #include "errno-util.h"
 #include "log.h"
-
-static bool assert_return_is_critical = BUILD_MODE_DEVELOPER;
 
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
 static char *log_abort_msg = NULL;
-
-void log_set_assert_return_is_critical(bool b) {
-        assert_return_is_critical = b;
-}
-
-void log_set_assert_return_is_critical_from_env(void) {
-        static int cached = INT_MIN;
-        int r;
-
-        if (cached == INT_MIN) {
-                r = secure_getenv_bool("SYSTEMD_ASSERT_RETURN_IS_CRITICAL");
-                if (r < 0 && r != -ENXIO)
-                        log_debug_errno(r, "Failed to parse $SYSTEMD_ASSERT_RETURN_IS_CRITICAL, ignoring: %m");
-
-                cached = r;
-        }
-
-        if (cached >= 0)
-                log_set_assert_return_is_critical(cached);
-}
-
-bool log_get_assert_return_is_critical(void) {
-        return assert_return_is_critical;
-}
 
 static void log_assert(
         int level,
@@ -73,8 +46,8 @@ _noreturn_ void log_assert_failed_unreachable(const char *file, int line, const 
 }
 
 void log_assert_failed_return(const char *text, const char *file, int line, const char *func) {
-
-        if (assert_return_is_critical)
+        /* log_get_assert_return_is_critical is a weak symbol. It may be NULL. */
+        if (log_get_assert_return_is_critical && log_get_assert_return_is_critical())
                 log_assert_failed(text, file, line, func);
 
         PROTECT_ERRNO;
