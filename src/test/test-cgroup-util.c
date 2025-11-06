@@ -527,7 +527,9 @@ TEST(cgroupid) {
 
         fd2 = cg_cgroupid_open(fd, id);
 
-        if (ERRNO_IS_NEG_PRIVILEGE(fd2))
+        /* The kernel converts a bunch of errors to ESTALE in the open_by_handle_at() codepath so we treat
+         * it as missing privs but it could be absolutely anything really. */
+        if (ERRNO_IS_NEG_PRIVILEGE(fd2) || fd2 == -ESTALE)
                 log_notice("Skipping open-by-cgroup-id test because lacking privs.");
         else if (ERRNO_IS_NEG_NOT_SUPPORTED(fd2))
                 log_notice("Skipping open-by-cgroup-id test because syscall is missing or blocked.");
