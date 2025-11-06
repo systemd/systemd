@@ -20,6 +20,16 @@
 #include "time-util.h"
 #include "xattr-util.h"
 
+static int http_status_ok(CURLcode status) {
+        /* Consider all HTTP status code in the 2xx range as OK */
+        return status >= 200 && status <= 299;
+}
+
+static int http_status_etag_exists(CURLcode status) {
+        /* This one is special, it's triggered by our etag mgmt logic */
+        return status == 304;
+}
+
 void pull_job_close_disk_fd(PullJob *j) {
         if (!j)
                 return;
@@ -178,7 +188,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                         goto finish;
                 }
 
-                if (status == 304) {
+                if (http_status_etag_exists(status)) {
                         log_info("Image already downloaded. Skipping download.");
                         j->etag_exists = true;
                         r = 0;
@@ -543,16 +553,6 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
 fail:
         pull_job_finish(j, r);
         return 0;
-}
-
-static int http_status_ok(CURLcode status) {
-        /* Consider all HTTP status code in the 2xx range as OK */
-        return status >= 200 && status <= 299;
-}
-
-static int http_status_etag_exists(CURLcode status) {
-        /* This one is special, it's triggered by our etag mgmt logic */
-        return status == 304;
 }
 
 static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
