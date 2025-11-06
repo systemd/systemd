@@ -1358,11 +1358,42 @@ bool nice_is_valid(int n) {
 }
 
 bool sched_policy_is_valid(int i) {
-        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR);
+        return IN_SET(i, SCHED_OTHER, SCHED_BATCH, SCHED_IDLE, SCHED_FIFO, SCHED_RR, SCHED_EXT);
 }
 
 bool sched_priority_is_valid(int i) {
         return i >= 0 && i <= sched_get_priority_max(SCHED_RR);
+}
+
+bool sched_policy_supported(int policy) {
+        return sched_get_priority_min(policy) >= 0;
+}
+
+/* Wrappers around sched_get_priority_{min,max}() that gracefully handles missing SCHED_EXT support in the kernel */
+int sched_priority_min(int policy) {
+        int r;
+
+        r = sched_get_priority_min(policy);
+        if (r >= 0)
+                return r;
+
+        if (policy == SCHED_EXT)
+                return 0;
+
+        return r;
+}
+
+int sched_priority_max(int policy) {
+        int r;
+
+        r = sched_get_priority_max(policy);
+        if (r >= 0)
+                return r;
+
+        if (policy == SCHED_EXT)
+                return 0;
+
+        return r;
 }
 
 /* The cached PID, possible values:
@@ -2305,6 +2336,7 @@ static const char* const sched_policy_table[] = {
         [SCHED_BATCH] = "batch",
         [SCHED_IDLE] = "idle",
         [SCHED_FIFO] = "fifo",
+        [SCHED_EXT] = "ext",
         [SCHED_RR] = "rr",
 };
 
