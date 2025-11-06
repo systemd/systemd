@@ -29,6 +29,7 @@
 #include "reboot-util.h"
 #include "runtime-scope.h"
 #include "set.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "systemctl.h"
@@ -592,6 +593,13 @@ int unit_find_paths(
                         path = strdup(_path);
                         if (!path)
                                 return log_oom();
+
+                        /* Check if unit is masked (symlinked to /dev/null or empty) */
+                        r = null_or_empty_path(path);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check if '%s' is masked: %m", unit_name);
+                        if (r > 0)
+                                return -ERFKILL; /* special case: no logging */
                 }
 
                 if (ret_dropin_paths) {
