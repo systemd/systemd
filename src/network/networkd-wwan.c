@@ -14,6 +14,7 @@
 #include "networkd-ndisc.h"
 #include "networkd-route.h"
 #include "networkd-wwan.h"
+#include "parse-util.h"
 #include "sd-dhcp-client.h"
 #include "sd-dhcp6-client.h"
 #include "sd-ndisc.h"
@@ -388,7 +389,7 @@ static int link_request_bearer_route(
         route->family = family;
         route->nexthop.family = family;
         route->nexthop.gw = *gw;
-        if (link->network->mm_route_metric) {
+        if (link->network->mm_route_metric_set) {
                 route->priority = link->network->mm_route_metric;
                 route->priority_set = true;
         }
@@ -630,4 +631,36 @@ void bearer_drop(Bearer *b) {
         (void) bearer_update_link(b);
 
         bearer_free(b);
+}
+
+int config_parse_mm_route_metric(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->mm_route_metric_set = false;
+                return 0;
+        }
+
+        r = safe_atou32(rvalue, &network->mm_route_metric);
+        if (r < 0)
+                return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+
+        network->mm_route_metric_set = true;
+        return 0;
 }
