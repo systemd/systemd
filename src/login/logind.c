@@ -440,13 +440,13 @@ static int deliver_session_device_fd(Session *s, const char *fdname, int fd, dev
         return 0;
 }
 
-static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int fd) {
+static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int fd_consume) {
+        _cleanup_close_ int fd = ASSERT_FD(fd_consume);
         _cleanup_(pidref_done) PidRef leader_fdstore = PIDREF_NULL;
         int r;
 
         assert(s);
         assert(fdname);
-        assert(fd >= 0);
 
         if (!pid_is_valid(s->deserialized_pid)) {
                 r = log_warning_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
@@ -469,6 +469,7 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
                         log_warning_errno(r, "Failed to create reference to leader of session '%s': %m", s->id);
                 goto fail_close;
         }
+        TAKE_FD(fd);
 
         if (leader_fdstore.pid != s->deserialized_pid)
                 log_warning("Leader from pidfd (" PID_FMT ") doesn't match with LEADER=" PID_FMT " for session '%s', proceeding anyway.",
@@ -481,7 +482,7 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
         return 0;
 
 fail_close:
-        close_and_notify_warn(fd, fdname);
+        close_and_notify_warn(TAKE_FD(fd), fdname);
         return r;
 }
 
