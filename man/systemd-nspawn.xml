@@ -924,7 +924,7 @@
 
         <para><citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>--shift</option> switch may be used to shift UID/GID ownership from or to the 0, foreign or
-        specific container UID/GID base outside of any <command>systemd-nspawn</command></para> invocation.
+        specific container UID/GID base outside of any <command>systemd-nspawn</command> invocation.</para>
 
         <xi:include href="version-info.xml" xpointer="v230"/></listitem>
       </varlistentry>
@@ -1601,7 +1601,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <listitem><para>Binds the home directory of the specified user on the host into the container. Takes
         the name of an existing user on the host as argument. May be used multiple times to bind multiple
-        users into the container. This does three things:</para>
+        users into the container. This does two things:</para>
 
         <orderedlist>
           <listitem><para>The user's home directory is bind mounted from the host into
@@ -1616,7 +1616,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
           user/group databases.</para></listitem>
         </orderedlist>
 
-        <para>The combination of the three operations above ensures that it is possible to log into the
+        <para>The combination of the two operations above ensures that it is possible to log into the
         container using the same account information as on the host. The user is only mapped transiently,
         while the container is running, and the mapping itself does not result in persistent changes to the
         container (except maybe for log messages generated at login time, and similar). Note that in
