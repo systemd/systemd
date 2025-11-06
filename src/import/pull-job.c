@@ -64,8 +64,15 @@ PullJob* pull_job_unref(PullJob *j) {
 
         if (j->free_userdata)
                 j->free_userdata(j->userdata);
+        free(j->description);
 
         return mfree(j);
+}
+
+static const char* pull_job_description(PullJob *j) {
+        assert(j);
+
+        return j->description ?: j->url;
 }
 
 static void pull_job_finish(PullJob *j, int ret) {
@@ -77,7 +84,7 @@ static void pull_job_finish(PullJob *j, int ret) {
         if (ret == 0) {
                 j->state = PULL_JOB_DONE;
                 j->progress_percent = 100;
-                log_info("Download of %s complete.", j->url);
+                log_info("Download of %s complete.", pull_job_description(j));
         } else {
                 j->state = PULL_JOB_FAILED;
                 j->error = ret;
@@ -272,7 +279,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                                 goto finish;
                         }
 
-                        log_debug("%s of %s is %s.", EVP_MD_CTX_get0_name(j->checksum_ctx), j->url, h);
+                        log_debug("%s of %s is %s.", EVP_MD_CTX_get0_name(j->checksum_ctx), pull_job_description(j), h);
                 }
 
                 if (iovec_is_set(&j->expected_checksum) &&
@@ -336,7 +343,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 }
         }
 
-        log_info("Acquired %s.", FORMAT_BYTES(j->written_uncompressed));
+        log_info("Acquired %s for %s.", FORMAT_BYTES(j->written_uncompressed), pull_job_description(j));
 
         r = 0;
 
@@ -619,7 +626,7 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
                                 goto fail;
                         }
 
-                        log_info("Downloading %s for %s.", FORMAT_BYTES(j->content_length), j->url);
+                        log_info("Downloading %s for %s.", FORMAT_BYTES(j->content_length), pull_job_description(j));
                 }
 
                 return sz;
@@ -681,11 +688,11 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
 
                         log_info("Got %u%% of %s. %s left at %s/s.",
                                  percent,
-                                 j->url,
+                                 pull_job_description(j),
                                  FORMAT_TIMESPAN(left, USEC_PER_SEC),
                                  FORMAT_BYTES((uint64_t) ((double) dlnow / ((double) done / (double) USEC_PER_SEC))));
                 } else
-                        log_info("Got %u%% of %s.", percent, j->url);
+                        log_info("Got %u%% of %s.", percent, pull_job_description(j));
 
                 j->progress_percent = percent;
                 j->last_status_usec = n;
