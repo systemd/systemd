@@ -198,10 +198,6 @@ typedef struct Link {
 
         /* Similar, but NTP server configuration */
         char **ntp;
-
-        /* ModemManager */
-        struct in_addr_full **mm_dns;
-        unsigned mm_n_dns;
 } Link;
 
 extern const struct hash_ops link_hash_ops;
