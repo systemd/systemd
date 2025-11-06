@@ -1793,16 +1793,18 @@ bool dns_scope_is_default_route(DnsScope *scope) {
                 return true;
 }
 
-int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
+int dns_scope_to_json(DnsScope *scope, bool with_cache, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cache = NULL;
         int r;
 
         assert(scope);
         assert(ret);
 
-        r = dns_cache_dump_to_json(&scope->cache, &cache);
-        if (r < 0)
-                return r;
+        if (with_cache) {
+                r = dns_cache_dump_to_json(&scope->cache, &cache);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_json_buildo(
                         ret,
@@ -1810,7 +1812,7 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", SD_JSON_BUILD_INTEGER(scope->family)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(dns_scope_ifindex(scope))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(dns_scope_ifname(scope))),
-                        SD_JSON_BUILD_PAIR_VARIANT("cache", cache),
+                        SD_JSON_BUILD_PAIR_CONDITION(with_cache, "cache", SD_JSON_BUILD_VARIANT(cache)),
                         SD_JSON_BUILD_PAIR_CONDITION(scope->protocol == DNS_PROTOCOL_DNS,
                                                      "dnssec",
                                                      SD_JSON_BUILD_STRING(dnssec_mode_to_string(scope->dnssec_mode))),
