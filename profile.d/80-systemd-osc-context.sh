@@ -13,6 +13,10 @@
 # Not bash?
 [ -n "${BASH_VERSION:-}" ] || return 0
 
+# If we're on a "dumb" terminal, do not install the prompt. Treat missing $TERM
+# same as "dumb". We're almost certainly at a dump terminal in that case.
+[ "${TERM:-dumb}" = "dumb" ] && return 0
+
 __systemd_osc_context_escape() {
     # Escape according to the OSC 3008 spec. Since this requires shelling out
     # to 'sed' we'll only do it where it's strictly necessary, and skip it when
@@ -56,7 +60,7 @@ __systemd_osc_context_precmdline() {
     read -r systemd_osc_context_cmd_id </proc/sys/kernel/random/uuid
 }
 
-if [[ -n "${BASH_VERSION:-}" ]] && [[ "${TERM:-}" != "dumb" ]]; then
+if [ -n "${BASH_VERSION:-}" ]; then
     # Legacy bashrc will assign PROMPT_COMMAND=, which is equivalent to assigning
     # index 0 in the array. Leave an empty spot to handle this gracefully.
     [ -n "$(declare -p PROMPT_COMMAND 2>/dev/null)" ] || PROMPT_COMMAND+=('')
