@@ -233,11 +233,6 @@ void link_dns_settings_clear(Link *link) {
         link->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
 
         link->dnssec_negative_trust_anchors = set_free(link->dnssec_negative_trust_anchors);
-
-        if (link->mm_n_dns != UINT_MAX)
-                for (unsigned i = 0; i < link->mm_n_dns; i++)
-                        in_addr_full_free(link->mm_dns[i]);
-        link->mm_dns = mfree(link->mm_dns);
 }
 
 static void link_free_engines(Link *link) {
@@ -2812,8 +2807,6 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .mdns = _RESOLVE_SUPPORT_INVALID,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
-
-                .mm_n_dns = UINT_MAX,
         };
 
         r = hashmap_ensure_put(&manager->links_by_index, &link_hash_ops, INT_TO_PTR(link->ifindex), link);

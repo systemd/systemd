@@ -148,9 +148,7 @@ static int manager_connect_bus(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to request match for PrepareForSleep, ignoring: %m");
 
-        r = manager_match_mm_signals(m);
-        if (r < 0)
-                return r;
+        (void) manager_match_mm_signals(m);
 
         return 0;
 }
