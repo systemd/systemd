@@ -938,11 +938,12 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 Documentation: man:systemd(1)
 
-A unit transaction was initiated that contains an ordering cycle, i.e. some
-unit that was requested to be started (either directly, or indirectly due to a
-requirement dependency such as Wants= or Requires=) is ordered before some
-other unit (via After=/Before=), but that latter unit is also ordered before
-the former by some dependency (either directly or indirectly).
+A unit transaction (with ID @TRANSACTION_ID@) was initiated that contains
+an ordering cycle, i.e. some unit that was requested to be started
+(either directly, or indirectly due to a requirement dependency such as
+Wants= or Requires=) is ordered before some other unit (via After=/Before=),
+but that latter unit is also ordered before the former by some dependency
+(either directly or indirectly).
 
 Ordering cycles consist of at least two units, but might involve many
 more. They generally indicate a bug in the unit definitions, as a unit

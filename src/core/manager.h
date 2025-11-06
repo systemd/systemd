@@ -236,6 +236,11 @@ typedef struct Manager {
         /* A set which contains all currently failed units */
         Set *failed_units;
 
+        uint64_t last_transaction_id;
+
+        /* IDs of transactions that once encountered ordering cycle */
+        Set *transactions_with_cycle;
+
         sd_event_source *run_queue_event_source;
 
         char *notify_socket;
