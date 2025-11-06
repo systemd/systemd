@@ -63,6 +63,7 @@
 #include "runtime-scope.h"
 #include "signal-util.h"
 #include "siphash24.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -70,6 +71,7 @@
 #include "udev-util.h"
 #include "user-util.h"
 #include "varlink-util.h"
+#include "vpick.h"
 #include "xattr-util.h"
 
 /* how many times to wait for the device nodes to appear */
@@ -510,7 +512,7 @@ static void check_partition_flags(
         }
 }
 
-static int dissected_image_new(const char *path, DissectedImage **ret) {
+int dissected_image_new(const char *path, DissectedImage **ret) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_free_ char *name = NULL;
         int r;
@@ -550,6 +552,48 @@ static int dissected_image_new(const char *path, DissectedImage **ret) {
         return 0;
 }
 #endif
+
+int dissected_image_new_from_fsmount_fds(const char *path, const int *fsmount_fds, DissectedImage **ret) {
+#if HAVE_BLKID
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        bool found = false;
+        int r;
+
+        assert(fsmount_fds);
+        assert(ret);
+
+        r = dissected_image_new(path, &m);
+        if (r < 0)
+                return r;
+
+        /* Need to clone the mount FDs, as they cannot be applied multiple times */
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                if (fsmount_fds[i] < 0)
+                        continue;
+
+                int fd = open_tree(fsmount_fds[i], "", OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_EMPTY_PATH);
+                if (fd < 0) {
+                        /* The kernel returns EINVAL if it does not support cloning mounts */
+                        if (ERRNO_IS_NOT_SUPPORTED(errno) || errno == EINVAL)
+                                return -EOPNOTSUPP;
+                        return log_debug_errno(errno, "Failed to open mount source for partition %s of mount source %s: %m",
+                                               partition_designator_to_string(i), strna(path));
+                }
+                m->partitions[i].found = true;
+                m->partitions[i].fsmount_fd = fd;
+                found = true;
+        }
+
+        /* If we got nothing we tell the caller to go through the normal path */
+        if (!found)
+                return -ENOPKG;
+
+        *ret = TAKE_PTR(m);
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
 
 static void dissected_partition_done(DissectedPartition *p) {
         assert(p);
@@ -4395,8 +4439,138 @@ static bool mount_options_relax_extension_release_checks(const MountOptions *opt
                         string_contains_word(options->options, ",", "x-systemd.relax-extension-release-check");
 }
 
+int verity_settings_prepare(
+                VeritySettings *verity,
+                const char *root_image,
+                const void *root_hash,
+                size_t root_hash_size,
+                const char *root_hash_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
+                const char *root_hash_sig_path,
+                const char *verity_data_path) {
+
+        int r;
+
+        assert(verity);
+
+        if (root_hash) {
+                void *d;
+
+                d = memdup(root_hash, root_hash_size);
+                if (!d)
+                        return -ENOMEM;
+
+                free_and_replace(verity->root_hash, d);
+                verity->root_hash_size = root_hash_size;
+                verity->designator = PARTITION_ROOT;
+        }
+
+        if (root_hash_sig) {
+                void *d;
+
+                d = memdup(root_hash_sig, root_hash_sig_size);
+                if (!d)
+                        return -ENOMEM;
+
+                free_and_replace(verity->root_hash_sig, d);
+                verity->root_hash_sig_size = root_hash_sig_size;
+                verity->designator = PARTITION_ROOT;
+        }
+
+        if (verity_data_path) {
+                r = free_and_strdup(&verity->data_path, verity_data_path);
+                if (r < 0)
+                        return r;
+        }
+
+        r = verity_settings_load(
+                        verity,
+                        root_image,
+                        root_hash_path,
+                        root_hash_sig_path);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to load root hash: %m");
+
+        return 0;
+}
+
+int verity_dissect_and_send(
+                int socket,
+                const char *source,
+                const void *root_hash,
+                size_t root_hash_size,
+                const char *root_hash_path,
+                const void *root_hash_sig,
+                size_t root_hash_sig_size,
+                const char *root_hash_sig_path,
+                const char *verity_data_path,
+                bool ignore_enoent,
+                const MountOptions *mount_options,
+                const ImagePolicy *image_policy) {
+
+        _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+        int r;
+
+        assert(socket >= 0);
+        assert(source);
+
+        r = path_pick(/* toplevel_path= */ NULL,
+                      /* toplevel_fd= */ AT_FDCWD,
+                      source,
+                      &pick_filter_image_raw,
+                      PICK_ARCHITECTURE|PICK_TRIES,
+                      &result);
+        if (r < 0)
+                return r;;
+        if (!result.path) {
+                if (ignore_enoent)
+                        return 0;
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", source);
+        }
+
+        r = verity_settings_prepare(
+                        &verity,
+                        result.path,
+                        root_hash, root_hash_size, root_hash_path,
+                        root_hash_sig, root_hash_sig_size, root_hash_sig_path,
+                        verity_data_path);
+        if (r < 0)
+                return r;
+
+        r = mountfsd_mount_image(
+                        result.path,
+                        /* userns_fd= */ -EBADF,
+                        image_policy,
+                        &verity,
+                        DISSECT_IMAGE_VERITY_SHARE,
+                        &dissected_image);
+        if (r < 0)
+                return r;
+
+        for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
+                if (!dissected_image->partitions[i].found)
+                        continue;
+
+                _cleanup_free_ char *part = NULL;
+                part = strjoin(source, " ", partition_designator_to_string(i));
+                if (!part)
+                        return log_oom_debug();
+
+                struct iovec iov = IOVEC_MAKE_STRING(part);
+                r = send_one_fd_iov(socket, dissected_image->partitions[i].fsmount_fd, &iov, 1, /* flags= */ 0);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to send %s image fd to parent: %m", partition_designator_to_string(i));
+        }
+
+        return 1;
+}
+
 int verity_dissect_and_mount(
                 int src_fd,
+                const int *mount_fds,
                 const char *src,
                 const char *dest,
                 const MountOptions *options,
@@ -4423,10 +4597,18 @@ int verity_dissect_and_mount(
 
         relax_extension_release_check = mount_options_relax_extension_release_checks(options);
 
+        if (mount_fds) {
+                r = dissected_image_new_from_fsmount_fds(src, mount_fds, &dissected_image);
+                if (r < 0 && !IN_SET(r, -EOPNOTSUPP, -ENOPKG))
+                        return log_debug_errno(r, "Failed to create dissected image: %m");
+                else if (r >= 0)
+                        log_debug("Successfully used preloaded image %s", src);
+        }
+
         /* We might get an FD for the image, but we use the original path to look for the dm-verity files.
          * The caller might also give us a pre-loaded VeritySettings, in which case we just use it. It will
          * also be extended, as dissected_image_load_verity_sig_partition() is invoked. */
-        if (!verity) {
+        if (!dissected_image && (!verity || verity->designator == _PARTITION_DESIGNATOR_INVALID)) {
                 r = verity_settings_load(&local_verity, src, NULL, NULL);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load root hash: %m");
@@ -4435,77 +4617,80 @@ int verity_dissect_and_mount(
         }
 
         dissect_image_flags =
-                (verity->data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
+                // (mount_fds ? DISSECT_IMAGE_MOUNT_ROOT_ONLY : 0) |
+                (verity && verity->data_path ? DISSECT_IMAGE_NO_PARTITION_TABLE : 0) |
                 (relax_extension_release_check ? DISSECT_IMAGE_RELAX_EXTENSION_CHECK : 0) |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
                 DISSECT_IMAGE_VERITY_SHARE;
 
-        if (runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
-                * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
-                r = loop_device_make_by_path(
-                                src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
-                                /* open_flags= */ -1,
-                                /* sector_size= */ UINT32_MAX,
-                                verity->data_path ? 0 : LO_FLAGS_PARTSCAN,
-                                LOCK_SH,
-                                &loop_device);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create loop device for image: %m");
+        if (!dissected_image) {
+                if (runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                        /* Note that we don't use loop_device_make here, as the FD is most likely O_PATH which would not be
+                        * accepted by LOOP_CONFIGURE, so just let loop_device_make_by_path reopen it as a regular FD. */
+                        r = loop_device_make_by_path(
+                                        src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
+                                        /* open_flags= */ -1,
+                                        /* sector_size= */ UINT32_MAX,
+                                        verity->data_path ? 0 : LO_FLAGS_PARTSCAN,
+                                        LOCK_SH,
+                                        &loop_device);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to create loop device for image: %m");
 
-                r = dissect_loop_device(
-                                loop_device,
-                                verity,
-                                options,
-                                image_policy,
-                                image_filter,
-                                dissect_image_flags,
-                                &dissected_image);
-                /* No partition table? Might be a single-filesystem image, try again */
-                if (!verity->data_path && r == -ENOPKG)
                         r = dissect_loop_device(
                                         loop_device,
                                         verity,
                                         options,
                                         image_policy,
                                         image_filter,
-                                        dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
+                                        dissect_image_flags,
                                         &dissected_image);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to dissect image: %m");
+                        /* No partition table? Might be a single-filesystem image, try again */
+                        if (!verity->data_path && r == -ENOPKG)
+                                r = dissect_loop_device(
+                                                loop_device,
+                                                verity,
+                                                options,
+                                                image_policy,
+                                                image_filter,
+                                                dissect_image_flags | DISSECT_IMAGE_NO_PARTITION_TABLE,
+                                                &dissected_image);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to dissect image: %m");
 
-                r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, verity);
-                if (r < 0)
-                        return r;
+                        r = dissected_image_load_verity_sig_partition(dissected_image, loop_device->fd, verity);
+                        if (r < 0)
+                                return r;
 
-                r = dissected_image_guess_verity_roothash(dissected_image, verity);
-                if (r < 0)
-                        return r;
+                        r = dissected_image_guess_verity_roothash(dissected_image, verity);
+                        if (r < 0)
+                                return r;
 
-                r = dissected_image_decrypt(
-                                dissected_image,
-                                NULL,
-                                verity,
-                                image_policy,
-                                dissect_image_flags);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to decrypt dissected image: %m");
-        } else {
-                userns_fd = namespace_open_by_type(NAMESPACE_USER);
-                if (userns_fd < 0)
-                        return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
+                        r = dissected_image_decrypt(
+                                        dissected_image,
+                                        NULL,
+                                        verity,
+                                        image_policy,
+                                        dissect_image_flags);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+                } else {
+                        userns_fd = namespace_open_by_type(NAMESPACE_USER);
+                        if (userns_fd < 0)
+                                return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
 
-                r = mountfsd_mount_image(
-                                src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
-                                userns_fd,
-                                image_policy,
-                                verity,
-                                dissect_image_flags,
-                                &dissected_image);
-                if (r < 0)
-                        return r;
+                        r = mountfsd_mount_image(
+                                        src_fd >= 0 ? FORMAT_PROC_FD_PATH(src_fd) : src,
+                                        userns_fd,
+                                        image_policy,
+                                        verity,
+                                        dissect_image_flags,
+                                        &dissected_image);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (dest) {

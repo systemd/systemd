@@ -950,7 +950,9 @@ TEST(unit_is_recursive_template_dependency) {
         }
 
 TEST(config_parse_log_filter_patterns) {
-        ExecContext c = {};
+        ExecContext c = {
+                .root_image_fsmount_fds = { [0 ... _PARTITION_DESIGNATOR_MAX - 1] = -EBADF },
+        };
 
         static const struct {
                 const char *regex;
