@@ -105,7 +105,23 @@ typedef enum StatusMode {
         STATUS_DNS_OVER_TLS,
         STATUS_DNSSEC,
         STATUS_NTA,
+        _STATUS_MAX,
+        _STATUS_INVALID = -EINVAL,
 } StatusMode;
+
+static const char* const status_mode_json_field_table[_STATUS_MAX] = {
+        [STATUS_ALL]           = NULL,
+        [STATUS_DNS]           = "servers",
+        [STATUS_DOMAIN]        = "searchDomains",
+        [STATUS_DEFAULT_ROUTE] = "defaultRoute",
+        [STATUS_LLMNR]         = "llmnr",
+        [STATUS_MDNS]          = "mDNS",
+        [STATUS_DNS_OVER_TLS]  = "dnsOverTLS",
+        [STATUS_DNSSEC]        = "dnssec",
+        [STATUS_NTA]           = "negativeTrustAnchors",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(status_mode_json_field, StatusMode);
 
 typedef struct InterfaceInfo {
         int index;
@@ -1793,41 +1809,6 @@ static char** global_protocol_status(const GlobalInfo *info) {
         return TAKE_PTR(s);
 }
 
-static const char* status_mode_to_json_field(StatusMode mode) {
-        switch (mode) {
-
-        case STATUS_ALL:
-                return NULL;
-
-        case STATUS_DNS:
-                return "servers";
-
-        case STATUS_DOMAIN:
-                return "searchDomains";
-
-        case STATUS_DEFAULT_ROUTE:
-                return "defaultRoute";
-
-        case STATUS_LLMNR:
-                return "llmnr";
-
-        case STATUS_MDNS:
-                return "mDNS";
-
-        case STATUS_DNS_OVER_TLS:
-                return "dnsOverTLS";
-
-        case STATUS_DNSSEC:
-                return "dnssec";
-
-        case STATUS_NTA:
-                return "negativeTrustAnchors";
-
-        default:
-                assert_not_reached();
-        }
-}
-
 static int status_json_filter_fields(sd_json_variant **configuration, StatusMode mode) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         sd_json_variant *w;
@@ -1836,7 +1817,7 @@ static int status_json_filter_fields(sd_json_variant **configuration, StatusMode
 
         assert(configuration);
 
-        field = status_mode_to_json_field(mode);
+        field = status_mode_json_field_to_string(mode);
         if (!field)
                 /* Nothing to filter for this mode. */
                 return 0;
