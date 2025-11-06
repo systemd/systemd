@@ -1685,6 +1685,72 @@ EOF
     grep -q 'UUID=[0-9a-f-]* /home btrfs discard,rw,nodev,suid,exec,subvol=@home,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
 }
 
+testcase_btrfs_compression() {
+    local defs imgs loop output
+
+    if ! command -v btrfs &>/dev/null; then
+        echo "btrfs-progs not installed, skipping btrfs compression test."
+        return 0
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for btrfs compression with CopyFiles (OFFLINE=$OFFLINE) ***"
+
+    dd if=/dev/zero of="$imgs/test-source-file" bs=1M count=1 2>/dev/null
+    test -f "$imgs/test-source-file"
+
+    tee "$defs/btrfs-compressed.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=btrfs
+Compression=zstd
+CopyFiles=$imgs/test-source-file:/test-file
+SizeMinBytes=100M
+SizeMaxBytes=100M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --copy-source=/ \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=auto \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/btrfs-compressed.img" 2>&1 | tee "$imgs/repart-output.txt"
+
+    output=$(cat "$imgs/repart-output.txt")
+
+    assert_in "Rootdir from:" "$output"
+    assert_in "Compress:" "$output"
+
+    if [[ "$OFFLINE" == "yes" ]] || systemd-detect-virt --quiet --container; then
+        echo "Skipping mount verification (requires loop devices)"
+        return 0
+    fi
+    loop="$(losetup -P --show --find "$imgs/btrfs-compressed.img")"
+    echo "Loop device: $loop"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    mkdir -p "$imgs/mount"
+    mount -t btrfs "${loop:?}p1" "$imgs/mount"
+
+    [[ -f "$imgs/mount/test-file" ]]
+    [[ "$(stat -c%s "$imgs/mount/test-file")" == "1048576" ]]
+
+    if command -v compsize &>/dev/null; then
+        output=$(compsize "$imgs/mount/test-file" 2>&1)
+        assert_in "zstd" "$output"
+    fi
+
+    umount "$imgs/mount"
+    losetup -d "$loop"
+}
+
 testcase_varlink_list_devices() {
     REPART="$(which systemd-repart)"
     varlinkctl introspect "$REPART"
