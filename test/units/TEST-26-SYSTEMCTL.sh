@@ -570,4 +570,47 @@ systemctl daemon-reload
 systemctl enable --now test-WantedBy.service || :
 systemctl daemon-reload
 
+# Test systemctl edit --global and systemctl cat --global (issue #31272)
+export GLOBAL_UNIT_NAME="systemctl-test-$RANDOM.service"
+export GLOBAL_MASKED_UNIT="systemctl-test-masked-$RANDOM.service"
+
+# Test 1: Create a new global user unit with --force
+systemctl edit --global --stdin --full --force "$GLOBAL_UNIT_NAME" <<EOF
+[Unit]
+Description=Test global unit
+
+[Service]
+ExecStart=/bin/true
+EOF
+
+# Verify the unit file was created in /etc/systemd/user/
+test -f "/etc/systemd/user/$GLOBAL_UNIT_NAME"
+
+# Test 2: Read the global unit with systemctl cat --global
+systemctl cat --global "$GLOBAL_UNIT_NAME" | grep -q "ExecStart=/bin/true"
+
+# Test 3: Edit existing global unit (add a drop-in)
+systemctl edit --global --stdin "$GLOBAL_UNIT_NAME" <<EOF
+[Service]
+Environment=TEST=value
+EOF
+
+# Verify drop-in was created
+test -f "/etc/systemd/user/$GLOBAL_UNIT_NAME.d/override.conf"
+systemctl cat --global "$GLOBAL_UNIT_NAME" | grep -q "Environment=TEST=value"
+
+# Test 4: Create a masked global unit
+ln -sf /dev/null "/etc/systemd/user/$GLOBAL_MASKED_UNIT"
+
+# Test 5: Verify cat shows it's masked
+systemctl cat --global "$GLOBAL_MASKED_UNIT" 2>&1 | grep -q "masked"
+
+# Test 6: Verify edit refuses to edit masked unit
+(! systemctl edit --global --stdin --full "$GLOBAL_MASKED_UNIT" </dev/null 2>&1) | grep -q "masked"
+
+# Cleanup global test units
+rm -f "/etc/systemd/user/$GLOBAL_UNIT_NAME"
+rm -rf "/etc/systemd/user/$GLOBAL_UNIT_NAME.d"
+rm -f "/etc/systemd/user/$GLOBAL_MASKED_UNIT"
+
 touch /testok
