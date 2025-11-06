@@ -365,6 +365,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 
         printf("                     log-level: %s\n", log_level_to_string(log_get_max_level()));
 
+        printf("                log-level: %s\n", log_level_to_string(log_get_max_level()));
+
         if (!ps_continue())
                 return;
 
