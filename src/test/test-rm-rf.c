@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "capability-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
@@ -29,7 +30,8 @@ static void test_rm_rf_chmod_inner(void) {
         ASSERT_OK_ERRNO(chmod(x, 0500));
         ASSERT_OK_ERRNO(chmod(d, 0500));
 
-        ASSERT_ERROR(rm_rf(d, REMOVE_PHYSICAL), EACCES);
+        if (!have_effective_cap(CAP_DAC_OVERRIDE))
+                ASSERT_ERROR(rm_rf(d, REMOVE_PHYSICAL), EACCES);
 
         ASSERT_OK_ERRNO(access(d, F_OK));
         ASSERT_OK_ERRNO(access(x, F_OK));
