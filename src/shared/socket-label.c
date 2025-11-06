@@ -10,6 +10,7 @@
 #include "mkdir-label.h"
 #include "parse-util.h"
 #include "selinux-util.h"
+#include "smack-util.h"
 #include "socket-label.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -46,7 +47,8 @@ int socket_address_listen(
                 bool transparent,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                const char *label) {
+                const char *selinux_label,
+                const char *smack_label) {
 
         _cleanup_close_ int fd = -EBADF;
         const char *p;
@@ -61,19 +63,25 @@ int socket_address_listen(
         if (socket_address_family(a) == AF_INET6 && !socket_ipv6_is_supported())
                 return -EAFNOSUPPORT;
 
-        if (label) {
-                r = mac_selinux_create_socket_prepare(label);
+        if (selinux_label) {
+                r = mac_selinux_create_socket_prepare(selinux_label);
                 if (r < 0)
                         return r;
         }
 
         fd = RET_NERRNO(socket(socket_address_family(a), a->type | flags, a->protocol));
 
-        if (label)
+        if (selinux_label)
                 mac_selinux_create_socket_clear();
 
         if (fd < 0)
                 return fd;
+
+        if (smack_label) {
+                r = mac_smack_apply_fd(fd, SMACK_ATTR_ACCESS, smack_label);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to apply SMACK label for socket FD, ignoring: %m");
+        }
 
         if (socket_address_family(a) == AF_INET6 && only != SOCKET_ADDRESS_DEFAULT) {
                 r = setsockopt_int(fd, IPPROTO_IPV6, IPV6_V6ONLY, only == SOCKET_ADDRESS_IPV6_ONLY);
@@ -129,6 +137,11 @@ int socket_address_listen(
                         }
                         if (r < 0)
                                 return r;
+                }
+                if (smack_label) {
+                        r = mac_smack_apply(p, SMACK_ATTR_ACCESS, smack_label);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to apply SMACK label for socket path, ignoring: %m");
                 }
         } else {
                 if (bind(fd, &a->sockaddr.sa, a->size) < 0)

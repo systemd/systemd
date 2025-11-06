@@ -26,4 +26,5 @@ int socket_address_listen(
                 bool transparent,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                const char *label);
+                const char *selinux_label,
+                const char *smack_label);
