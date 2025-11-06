@@ -12,6 +12,7 @@
 #include "fd-util.h"
 #include "json-util.h"
 #include "pretty-print.h"
+#include "resolve-util.h"
 #include "tests.h"
 #include "varlink-idl-util.h"
 #include "varlink-io.systemd.h"
@@ -512,6 +513,8 @@ TEST(enums_idl) {
         TEST_IDL_ENUM(BootEntryType, boot_entry_type, vl_type_BootEntryType);
         TEST_IDL_ENUM_TO_STRING(BootEntrySource, boot_entry_source, vl_type_BootEntrySource);
         TEST_IDL_ENUM(PartitionDesignator, partition_designator, vl_type_PartitionDesignator);
+        TEST_IDL_ENUM(DnsOverTlsMode, dns_over_tls_mode, vl_type_DNSOverTLSMode);
+        TEST_IDL_ENUM(ResolveSupport, resolve_support, vl_type_ResolveSupport);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
