@@ -466,17 +466,22 @@ int make_filesystem(
                         return log_oom();
 
                 if (compression) {
-                        _cleanup_free_ char *c = NULL;
+                        if (!root)
+                                log_warning("Btrfs compression setting ignored because no files are being copied. "
+                                            "Compression= can only be applied when CopyFiles= is also specified.");
+                        else {
+                                _cleanup_free_ char *c = NULL;
 
-                        c = strdup(compression);
-                        if (!c)
-                                return log_oom();
+                                c = strdup(compression);
+                                if (!c)
+                                        return log_oom();
 
-                        if (compression_level && !strextend(&c, ":", compression_level))
-                                return log_oom();
+                                if (compression_level && !strextend(&c, ":", compression_level))
+                                        return log_oom();
 
-                        if (strv_extend_many(&argv, "--compress", c) < 0)
-                                return log_oom();
+                                if (strv_extend_many(&argv, "--compress", c) < 0)
+                                        return log_oom();
+                        }
                 }
 
                 /* mkfs.btrfs unconditionally warns about several settings changing from v5.15 onwards which
