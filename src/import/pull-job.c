@@ -62,6 +62,9 @@ PullJob* pull_job_unref(PullJob *j) {
         iovec_done(&j->expected_checksum);
         free(j->content_type);
 
+        if (j->free_userdata)
+                j->free_userdata(j->userdata);
+
         return mfree(j);
 }
 
