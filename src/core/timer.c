@@ -392,7 +392,8 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                         continue;
 
                 if (v->base == TIMER_CALENDAR) {
-                        usec_t b, rebased, random_offset = 0;
+                        bool rebase_after_boot_time = false;
+                        usec_t b, random_offset = 0;
 
                         if (t->random_offset_usec != 0)
                                 random_offset = timer_get_fixed_delay_hash(t) % t->random_offset_usec;
@@ -417,8 +418,10 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                                 b = t->last_trigger.realtime;
                         else if (dual_timestamp_is_set(&UNIT(t)->inactive_exit_timestamp))
                                 b = UNIT(t)->inactive_exit_timestamp.realtime - random_offset;
-                        else
+                        else {
                                 b = ts.realtime - random_offset;
+                                rebase_after_boot_time = true;
+                        }
 
                         r = calendar_spec_next_usec(v->calendar_spec, b, &v->next_elapse);
                         if (r < 0)
@@ -426,14 +429,16 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
 
                         v->next_elapse += random_offset;
 
-                        /* To make the delay due to RandomizedDelaySec= work even at boot, if the scheduled
-                         * time has already passed, set the time when systemd first started as the scheduled
-                         * time. Note that we base this on the monotonic timestamp of the boot, not the
-                         * realtime one, since the wallclock might have been off during boot. */
-                        rebased = map_clock_usec(UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic,
-                                                 CLOCK_MONOTONIC, CLOCK_REALTIME);
-                        if (v->next_elapse < rebased)
-                                v->next_elapse = rebased;
+                        if (rebase_after_boot_time) {
+                                /* To make the delay due to RandomizedDelaySec= work even at boot, if the scheduled
+                                 * time has already passed, set the time when systemd first started as the scheduled
+                                 * time. Note that we base this on the monotonic timestamp of the boot, not the
+                                 * realtime one, since the wallclock might have been off during boot. */
+                                usec_t rebased = map_clock_usec(UNIT(t)->manager->timestamps[MANAGER_TIMESTAMP_USERSPACE].monotonic,
+                                                         CLOCK_MONOTONIC, CLOCK_REALTIME);
+                                if (v->next_elapse < rebased)
+                                        v->next_elapse = rebased;
+                        }
 
                         if (!found_realtime)
                                 t->next_elapse_realtime = v->next_elapse;

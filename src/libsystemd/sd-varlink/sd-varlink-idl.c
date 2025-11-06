@@ -1704,32 +1704,52 @@ static int varlink_idl_validate_field_element_type(const sd_varlink_field *field
 
         case SD_VARLINK_BOOL:
                 if (!sd_json_variant_is_boolean(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a bool, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be a bool, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 break;
 
         case SD_VARLINK_INT:
                 /* Allow strings here too, since integers with > 53 bits are often passed in as strings */
                 if (!sd_json_variant_is_integer(v) && !sd_json_variant_is_unsigned(v) && !sd_json_variant_is_string(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an int, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be an int, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 break;
 
         case SD_VARLINK_FLOAT:
                 if (!sd_json_variant_is_number(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a float, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be a float, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 break;
 
         case SD_VARLINK_STRING:
                 if (!sd_json_variant_is_string(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a string, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be a string, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 break;
 
         case SD_VARLINK_OBJECT:
                 if (!sd_json_variant_is_object(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an object, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be an object, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 break;
 
@@ -1758,7 +1778,10 @@ static int varlink_idl_validate_field(const sd_varlink_field *field, sd_json_var
                 sd_json_variant *i;
 
                 if (!sd_json_variant_is_array(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an array, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an array, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 JSON_VARIANT_ARRAY_FOREACH(i, v) {
                         r = varlink_idl_validate_field_element_type(field, i);
@@ -1771,7 +1794,11 @@ static int varlink_idl_validate_field(const sd_varlink_field *field, sd_json_var
                 sd_json_variant *e;
 
                 if (!sd_json_variant_is_object(v))
-                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an object, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(
+                                        SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                        "Field '%s' should be an object, but it is of type '%s', refusing.",
+                                        strna(field->name),
+                                        strna(sd_json_variant_type_to_string(sd_json_variant_type(v))));
 
                 JSON_VARIANT_OBJECT_FOREACH(k, e, v) {
                         r = varlink_idl_validate_field_element_type(field, e);
