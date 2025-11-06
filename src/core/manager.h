@@ -317,7 +317,7 @@ typedef struct Manager {
 
         /* This is used during reloading: before the reload we queue
          * the reply message here, and afterwards we send it */
-        sd_bus_message *pending_reload_message;
+        sd_bus_message *pending_reload_message_dbus;
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
 
@@ -635,6 +635,8 @@ int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor);
 int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor);
 
 LogTarget manager_get_executor_log_target(Manager *m);
+
+void manager_log_caller(Manager *manager, PidRef *caller, const char *method);
 
 int manager_allocate_idle_pipe(Manager *m);
 
