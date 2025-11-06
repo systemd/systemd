@@ -75,3 +75,5 @@ Modem* modem_free(Modem *modem);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Modem*, modem_free);
 
 int modem_get_by_path(Manager *m, const char *path, Modem **ret);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_mm_route_metric);
