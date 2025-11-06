@@ -982,4 +982,40 @@ TEST(defer_add_post) {
         ASSERT_TRUE(dispatched_post);
 }
 
+static int child_handler_wnowait(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+        return 0;
+}
+
+TEST(child_wnowait) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        pid_t pid;
+        siginfo_t si;
+
+        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
+
+        ASSERT_OK(sd_event_default(&e));
+
+        /* Fork a subprocess */
+        pid = fork();
+        ASSERT_OK_ERRNO(pid);
+
+        if (pid == 0)
+                /* Child process - exit with a specific code */
+                _exit(42);
+
+        /* Add a child source with WNOWAIT flag */
+        ASSERT_OK(sd_event_add_child(e, NULL, pid, WEXITED|WNOWAIT, child_handler_wnowait, NULL));
+
+        /* Run the event loop - this should call the handler */
+        ASSERT_OK(sd_event_loop(e));
+
+        /* Since we used WNOWAIT, the child should still be waitable */
+        zero(si);
+        ASSERT_OK_ERRNO(waitid(P_PID, pid, &si, WEXITED | WNOHANG));
+        ASSERT_EQ(si.si_pid, pid);
+        ASSERT_EQ(si.si_code, CLD_EXITED);
+        ASSERT_EQ(si.si_status, 42);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
