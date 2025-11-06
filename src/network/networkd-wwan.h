@@ -27,7 +27,7 @@ typedef struct Bearer {
         union in_addr_union ip6_address;
         union in_addr_union ip4_gateway;
         union in_addr_union ip6_gateway;
-        struct in_addr_data *dns;
+        struct in_addr_full **dns;
         size_t n_dns;
         uint32_t ip4_mtu;
         uint32_t ip6_mtu;
