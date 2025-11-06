@@ -346,7 +346,8 @@ EOF
     bootctl remove
 }
 
-testcase_secureboot() {
+# Order this first, as other test cases mess with the ESP and might break 'bootctl status' output
+testcase_00_secureboot() {
     if [ ! -d /sys/firmware/efi ]; then
         echo "Not booted with EFI, skipping secureboot tests."
         return 0
