@@ -44,18 +44,9 @@
  *      be successful this time or when modem has recovered after an error state and so on.
  * 5.3. networkd will automatically start reconnection if any external entity disconnects modem from
  *      the network.
- *
- * 6. Open questions
- * 6.1. WWAN interfaces cannot be configured now with the existing .network file:
- *      - ModemSimpleConnectProps - simple connect properties used to (re)connect: I've put
- *        this under [Network] section for now. Is there a better name for that and location?
- *      - RouteMetric - as we configure address/route dynamically (provided by the modem), we
- *        do not use any section of .network to define/alter relevant parts. This patch uses
- *        [DHCP]:RouteMetric for that for now.
- *      - I have a use-case when I do not want the default gateway to be set for WWAN inteface.
- *        I use [DHCPv4]:UseGateway now which probably needs a better way of defining.
  */
 
+#include "af-list.h"
 #include "alloc-util.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -80,7 +71,7 @@ static const char * const MODEM_STATE_FAILED_STR[__MM_MODEM_STATE_FAILED_REASON_
         [MM_MODEM_STATE_FAILED_REASON_NONE]                  = "No error",
         [MM_MODEM_STATE_FAILED_REASON_UNKNOWN]               = "Unknown error",
         [MM_MODEM_STATE_FAILED_REASON_SIM_MISSING]           = "SIM is required, but missing",
-        [MM_MODEM_STATE_FAILED_REASON_SIM_ERROR]             = "SIM is available,, but unusable",
+        [MM_MODEM_STATE_FAILED_REASON_SIM_ERROR]             = "SIM is available, but unusable",
         [MM_MODEM_STATE_FAILED_REASON_UNKNOWN_CAPABILITIES]  = "Unknown modem capabilities",
         [MM_MODEM_STATE_FAILED_REASON_ESIM_WITHOUT_PROFILES] = "eSIM is not initialized",
 };
@@ -158,6 +149,7 @@ static int map_in_addr(
         int r;
 
         assert(m);
+        assert(IN_SET(family, AF_INET, AF_INET6));
 
         r = sd_bus_message_read_basic(m, 's', &s);
         if (r < 0)
@@ -193,6 +185,7 @@ static int map_prefixlen(
                 sd_bus_error *error,
                 void *userdata,
                 int family) {
+
         unsigned *prefixlen = ASSERT_PTR(userdata);
         unsigned p;
         int r;
@@ -203,11 +196,10 @@ static int map_prefixlen(
         if (r < 0)
                 return r;
 
-        if (p > (family == AF_INET ? 32 : 128)) {
-                log_debug("Bearer has invalid prefix length %u for %s address, ignoring.",
-                          p, family == AF_INET ? "IPv4" : "IPv6");
-                return -EINVAL;
-        }
+        if (p > FAMILY_ADDRESS_SIZE(family) * 8)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Bearer has invalid prefix length %u for %s address, ignoring.",
+                                       p, af_to_ipv4_ipv6(family));
 
         *prefixlen = p;
 
@@ -220,6 +212,7 @@ static int map_prefixlen4(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         return map_prefixlen(bus, member, m, error, userdata, AF_INET);
 }
 
@@ -229,6 +222,7 @@ static int map_prefixlen6(
                 sd_bus_message *m,
                 sd_bus_error *error,
                 void *userdata) {
+
         return map_prefixlen(bus, member, m, error, userdata, AF_INET6);
 }
 
@@ -257,10 +251,7 @@ static int map_ip4_config(
          * property contains the addressing details for assignment to the data interface.
          * We may have both IPv4 and IPv6 configured.
          */
-        if (b->ip_type & ADDRESS_FAMILY_IPV6)
-                b->ip_type = ADDRESS_FAMILY_YES;
-        else
-                b->ip_type |= ADDRESS_FAMILY_IPV4;
+        b->ip_type |= ADDRESS_FAMILY_IPV4;
 
         return bus_message_map_all_properties(m, map, 0, error, userdata);
 }
@@ -290,10 +281,7 @@ static int map_ip6_config(
          * property contains the addressing details for assignment to the data interface.
          * We may have both IPv4 and IPv6 configured.
          */
-        if (b->ip_type & ADDRESS_FAMILY_IPV4)
-                b->ip_type = ADDRESS_FAMILY_YES;
-        else
-                b->ip_type |= ADDRESS_FAMILY_IPV6;
+        b->ip_type |= ADDRESS_FAMILY_IPV6;
 
         return bus_message_map_all_properties(m, map, 0, error, userdata);
 }
@@ -325,7 +313,7 @@ static int bus_message_check_properties(
         assert(m);
         assert(map);
 
-        *ret_found_cnt = found_cnt = 0;
+        found_cnt = 0;
 
         r = sd_bus_message_enter_container(m, SD_BUS_TYPE_ARRAY, "{sv}");
         if (r < 0)
@@ -414,7 +402,7 @@ static int bearer_get_all_handler(sd_bus_message *message, void *userdata, sd_bu
          * and do not involve link state change, e.g. we do not want to bearer_update_link on Rx/Tx counters
          * change. So, see if this callback was called with the changes we want to track.
          */
-        if (!found_cnt)
+        if (found_cnt == 0)
                 return 0;
 
         r = sd_bus_message_rewind(message, true);
@@ -429,9 +417,9 @@ static int bearer_get_all_handler(sd_bus_message *message, void *userdata, sd_bu
                                          b->path, bus_error_message(ret_error, r));
 
         if (b->name)
-                log_info("ModemManager: %s %s is%s connected, interface %s",
-                         b->modem->manufacturer, b->modem->model,
-                         b->connected ? "" : " not", b->name);
+                log_info("%s: ModemManager announces %s %s is%s connected.",
+                         b->name, b->modem->manufacturer, b->modem->model,
+                         b->connected ? "" : " not");
 
         if (b->connected)
                 b->modem->reconnect_state = MODEM_RECONNECT_DONE;
@@ -614,8 +602,7 @@ static int bus_call_method_async_props(
 
         STRV_FOREACH(prop, link->network->mm_simple_connect_props) {
                 const char *type;
-                _cleanup_free_ char *left = NULL;
-                _cleanup_free_ char *right = NULL;
+                _cleanup_free_ char *left = NULL, *right = NULL;
 
                 r = split_pair(*prop, "=", &left, &right);
                 if (r < 0)
@@ -675,22 +662,18 @@ static void modem_simple_connect(Modem *modem) {
                 return;
 
         (void) link_get_by_name(modem->manager, modem->port_name, &link);
-        if (!link) {
-                log_debug("ModemManager: cannot find link for %s", modem->port_name);
-                return;
-        }
+        if (!link)
+                return (void) log_debug("ModemManager: cannot find link for %s", modem->port_name);
 
         /* Check if .network file found at all */
-        if (!link->state) {
-                log_debug("ModemManager: no .network file provideded for %s", modem->port_name);
-                return;
-        }
+        if (!link->network)
+                return (void) log_debug("ModemManager: no .network file provideded for %s",
+                                        modem->port_name);
 
         /* Check if we are provided with simple connection properties */
-        if (!link->network->mm_simple_connect_props) {
-                log_debug("ModemManager: no simple connect properties provided for %s", modem->port_name);
-                return;
-        }
+        if (!link->network->mm_simple_connect_props)
+                return (void) log_debug("ModemManager: no simple connect properties provided for %s",
+                                        modem->port_name);
 
         log_info("ModemManager: starting simple connect on %s %s interface %s",
                  modem->manufacturer, modem->model, modem->port_name);
@@ -705,10 +688,9 @@ static void modem_simple_connect(Modem *modem) {
          * If we failed to (re)start the connection now then rely on the priodic
          * timer and wait when it retries the connection attempt.
          */
-        if (r < 0) {
+        if (r < 0)
                 log_warning_errno(r, "Could not start modem connection %s %s, will retry: %m",
                                   modem->manufacturer, modem->model);
-        }
 }
 
 static int reset_timer(Manager *m, sd_event *e, sd_event_source **s);
@@ -770,8 +752,7 @@ static int modem_on_state_change(
                 MMModemState old_state,
                 MMModemStateFailedReason old_fail_reason) {
 
-        if (IN_SET(modem->state, MM_MODEM_STATE_CONNECTING,
-                   MM_MODEM_STATE_CONNECTED)) {
+        if (IN_SET(modem->state, MM_MODEM_STATE_CONNECTING, MM_MODEM_STATE_CONNECTED))
                 /*
                  * Connection is ok or reconnect is already in progress: either initiataed by us or an
                  * external entity. Make sure we do not try to start reconnection logic and wait for th
@@ -780,7 +761,6 @@ static int modem_on_state_change(
                  * connecting|connected if failed reason is not NONE, e.g. modem is all good.
                  */
                 return 0;
-        }
 
         /* Check if modem is still in failed state. */
         if (modem->state_fail_reason != MM_MODEM_STATE_FAILED_REASON_NONE) {
@@ -797,10 +777,9 @@ static int modem_on_state_change(
                 return 0;
         }
 
-        if (modem->reconnect_state == MODEM_RECONNECT_SCHEDULED) {
+        if (modem->reconnect_state == MODEM_RECONNECT_SCHEDULED)
                 /* We are reconnecting now. */
                 return 0;
-        }
 
         /*
          * Modem is not in failed state and is not connected: try now. It is ok to fail and re-try to
@@ -808,23 +787,6 @@ static int modem_on_state_change(
          */
         modem->reconnect_state = MODEM_RECONNECT_SCHEDULED;
         modem_simple_connect(modem);
-
-        return 0;
-}
-
-static int modem_new_and_initialize(Manager *manager, const char *path, Modem **ret) {
-        Modem *modem = NULL;
-        int r;
-
-        assert(manager);
-        assert(path);
-
-        r = modem_new(manager, path, &modem);
-        if (r < 0)
-                return log_warning_errno(r, "Failed to allocate new modem \"%s\": %m", path);
-
-        if (ret)
-                *ret = modem;
 
         return 0;
 }
@@ -843,9 +805,6 @@ static int bearer_properties_changed_handler(
 
         path = sd_bus_message_get_path(message);
         if (!path)
-                return 0;
-
-        if (streq(path, "/org/freedesktop/ModemManager1/Bearer"))
                 return 0;
 
         if (bearer_get_by_path(manager, path, &modem, &b) < 0) {
@@ -1051,7 +1010,7 @@ static int modem_add(Manager *m, const char *path, sd_bus_message *message, sd_b
 
         log_info("ModemManager: modem found at %s\n", path);
 
-        r = modem_new_and_initialize(m, path, &modem);
+        r = modem_new(m, path, &modem);
         if (r < 0)
                 return log_warning_errno(r, "Failed to initialize modem at %s, ignoring", path);
 
@@ -1066,17 +1025,16 @@ static int modem_add(Manager *m, const char *path, sd_bus_message *message, sd_b
         return 0;
 }
 
-static int modem_remove(Manager *m, const char *path) {
+static void modem_remove(Manager *m, const char *path) {
         Modem *modem;
         int r;
 
         r = modem_get_by_path(m, path, &modem);
         if (r < 0)
-                return 0;
+                return;
 
         log_error("ModemManager: %s %s %s removed", modem->manufacturer, modem->model, modem->port_name);
         modem_free(modem);
-        return 0;
 }
 
 static int enumerate_modems_handler(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
@@ -1175,9 +1133,9 @@ static int interface_add_remove_signal(sd_bus_message *message, void *userdata, 
 
         manager->slot_mm = sd_bus_slot_unref(manager->slot_mm);
 
-        if (streq(message->member, "InterfacesAdded")) {
+        if (streq(message->member, "InterfacesAdded"))
                 log_info("ModemManager: modem(s) added");
-        } else {
+        else {
                 const char *path;
                 int r;
 
@@ -1185,7 +1143,8 @@ static int interface_add_remove_signal(sd_bus_message *message, void *userdata, 
                 if (r < 0)
                         return r;
 
-                return modem_remove(manager, path);
+                modem_remove(manager, path);
+                return 0;
         }
 
         return enumerate_modems(manager);
