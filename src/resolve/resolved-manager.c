@@ -2068,39 +2068,10 @@ static int dns_configuration_json_append(
 
         assert(configuration);
 
-        if (dns_servers) {
-                r = sd_json_variant_new_array(&dns_servers_json, NULL, 0);
-                if (r < 0)
-                        return r;
-        }
-
-        if (search_domains) {
-                r = sd_json_variant_new_array(&search_domains_json, NULL, 0);
-                if (r < 0)
-                        return r;
-        }
-
-        if (current_dns_server) {
-                r = dns_server_dump_configuration_to_json(current_dns_server, &current_dns_server_json);
-                if (r < 0)
-                        return r;
-        }
-
-        if (fallback_dns_servers) {
-                r = sd_json_variant_new_array(&fallback_dns_servers_json, NULL, 0);
-                if (r < 0)
-                        return r;
-        }
-
         SET_FOREACH(scope, dns_scopes) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                r = dns_scope_dump_cache_to_json(scope, &v);
-                if (r < 0)
-                        return r;
-
-                /* The cache is not relevant to the configuration of the scope. */
-                r = sd_json_variant_filter(&v, STRV_MAKE("cache"));
+                r = dns_scope_to_json(scope, /* with_cache= */ false, &v);
                 if (r < 0)
                         return r;
 
@@ -2111,8 +2082,6 @@ static int dns_configuration_json_append(
 
         LIST_FOREACH(servers, s, dns_servers) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                assert(dns_servers_json);
 
                 r = dns_server_dump_configuration_to_json(s, &v);
                 if (r < 0)
@@ -2126,8 +2095,6 @@ static int dns_configuration_json_append(
         LIST_FOREACH(domains, d, search_domains) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                assert(search_domains_json);
-
                 r = dns_search_domain_dump_to_json(d, &v);
                 if (r < 0)
                         return r;
@@ -2139,8 +2106,6 @@ static int dns_configuration_json_append(
 
         LIST_FOREACH(servers, s, fallback_dns_servers) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-
-                assert(fallback_dns_servers_json);
 
                 r = dns_server_dump_configuration_to_json(s, &v);
                 if (r < 0)
@@ -2156,9 +2121,7 @@ static int dns_configuration_json_append(
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ifname", ifname),
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("delegate", delegate),
-                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(ifindex > 0 || !!delegate,
-                                                          "defaultRoute",
-                                                          default_route > 0),
+                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("defaultRoute", default_route),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("currentServer", current_dns_server_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("servers", dns_servers_json),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("fallbackServers", fallback_dns_servers_json),
@@ -2189,7 +2152,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         /* ifname = */ NULL,
                         /* ifindex = */ 0,
                         /* delegate = */ NULL,
-                        /* default_route = */ 0,
+                        /* default_route = */ -1,
                         manager_get_dns_server(m),
                         m->dns_servers,
                         m->fallback_dns_servers,
@@ -2275,7 +2238,7 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                         /* ifname = */ NULL,
                         /* ifindex = */ 0,
                         d->id,
-                        d->default_route,
+                        d->default_route > 0, /* Defaults to false. See dns_scope_is_default_route(). */
                         dns_delegate_get_dns_server(d),
                         d->dns_servers,
                         /* fallback_dns_servers = */ NULL,
