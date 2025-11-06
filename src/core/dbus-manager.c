@@ -1513,23 +1513,14 @@ static void log_caller(sd_bus_message *message, Manager *manager, const char *me
         assert(manager);
         assert(method);
 
-        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM, &creds) < 0)
+        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT, &creds) < 0)
                 return;
 
         /* We need at least the PID, otherwise there's nothing to log, the rest is optional. */
         if (bus_creds_get_pidref(creds, &pidref) < 0)
                 return;
 
-        const char *comm = NULL;
-        Unit *caller;
-
-        (void) sd_bus_creds_get_comm(creds, &comm);
-        caller = manager_get_unit_by_pidref(manager, &pidref);
-
-        log_notice("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
-                   method, pidref.pid,
-                   comm ? " ('" : "", strempty(comm), comm ? "')" : "",
-                   caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
+        manager_log_caller(manager, &pidref, method);
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1564,8 +1555,8 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
          * is finished. That way the caller knows when the reload
          * finished. */
 
-        assert(!m->pending_reload_message);
-        r = sd_bus_message_new_method_return(message, &m->pending_reload_message);
+        assert(!m->pending_reload_message_dbus);
+        r = sd_bus_message_new_method_return(message, &m->pending_reload_message_dbus);
         if (r < 0)
                 return r;
 
