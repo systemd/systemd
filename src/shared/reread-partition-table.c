@@ -259,8 +259,16 @@ static int reread_partition_table_full(sd_device *dev, int fd, RereadPartitionTa
                 if (lock_fd < 0)
                         return log_device_debug_errno(dev, lock_fd, "Failed top open lock fd for block device '%s': %m", p);
 
-                if (flock(lock_fd, LOCK_EX|LOCK_NB) < 0)
-                        return log_device_debug_errno(dev, errno, "Failed to take BSD lock on block device '%s': %m", p);
+                if (flock(lock_fd, LOCK_EX|LOCK_NB) < 0) {
+                        r = log_device_debug_errno(dev, errno, "Failed to take BSD lock on block device '%s': %m", p);
+
+                        if (r == -EBUSY && FLAGS_SET(flags, REREADPT_FORCE_UEVENT)) {
+                                log_device_debug(dev, "Giving up rereading partition table of '%s'. Triggering change events for the device and its partitions.", p);
+                                (void) trigger_partitions(dev, /* blkrrpart_success= */ false);
+                        }
+
+                        return r;
+                }
         }
 
         r = blockdev_partscan_enabled(dev);
