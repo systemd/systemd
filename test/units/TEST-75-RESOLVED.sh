@@ -64,11 +64,13 @@ monitor_check_rr() (
 )
 
 restart_resolved() {
+    systemctl stop systemd-resolved-monitor.socket systemd-resolved-varlink.socket
     systemctl stop systemd-resolved.service
     (! systemctl is-failed systemd-resolved.service)
     # Reset the restart counter since we call this method a bunch of times
     # and can occasionally hit the default rate limit
     systemctl reset-failed systemd-resolved.service
+    systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket
     systemctl start systemd-resolved.service
     systemctl service-log-level systemd-resolved.service debug
 }
@@ -183,8 +185,8 @@ EOF
         chown -R knot:knot /run/knot
     fi
     systemctl start knot
-    # Wait a bit for the keys to propagate
-    sleep 4
+    # Wait for signed.test's zone DS records to get pushed to the parent zone
+    timeout 30s bash -xec 'until knotc zone-read test. signed.test. ds | grep -E "signed\.test\. [0-9]+ DS"; do sleep 2; done'
 
     systemctl status resolved-dummy-server
     networkctl status
@@ -334,6 +336,7 @@ manual_testcase_02_mdns_llmnr() {
     } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     restart_resolved
     # make sure networkd is not running.
+    systemctl stop systemd-networkd.socket systemd-networkd-varlink.socket
     systemctl stop systemd-networkd.service
     assert_in 'no' "$(resolvectl mdns hoge)"
     assert_in 'no' "$(resolvectl llmnr hoge)"
@@ -1368,7 +1371,9 @@ testcase_15_wait_online_dns() {
     resolvectl domain dns0 ""
 
     # Stop systemd-resolved before calling systemd-networkd-wait-online. It should retry connections.
+    systemctl stop systemd-resolved-monitor.socket systemd-resolved-varlink.socket
     systemctl stop systemd-resolved.service
+    systemctl start systemd-resolved-monitor.socket systemd-resolved-varlink.socket
 
     # Begin systemd-networkd-wait-online --dns
     systemd-run -u "$unit" -p "Environment=SYSTEMD_LOG_LEVEL=debug" -p "Environment=SYSTEMD_LOG_TARGET=journal" --service-type=exec \

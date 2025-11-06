@@ -1133,6 +1133,8 @@ static int ask_password_credential(const AskPasswordRequest *req, AskPasswordFla
         r = read_credential(req->credential, (void**) &buffer, &size);
         if (IN_SET(r, -ENXIO, -ENOENT)) /* No credentials passed or this credential not defined? */
                 return -ENOKEY;
+        if (r < 0)
+                return r;
 
         l = strv_parse_nulstr(buffer, size);
         if (!l)

@@ -104,10 +104,12 @@ diff /tmp/expected /tmp/output
 
 # test that LogLevelMax can also suppress logging about services, not only by services
 systemctl start silent-success
+journalctl --sync
 [[ -z "$(journalctl -b -q -u silent-success.service)" ]]
 
 # Test syslog identifiers exclusion
 systemctl start verbose-success.service
+journalctl --sync
 [[ -n "$(journalctl -b -q -u verbose-success.service -t systemd)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -t bash)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -T systemd)" ]]

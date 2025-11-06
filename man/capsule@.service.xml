@@ -83,7 +83,7 @@
 
     <para>Capsule names may be chosen freely by the user, however, they must be suitable as UNIX filenames
     (i.e. 255 characters max, and contain no <literal>/</literal>), and when prefixed with
-    <literal>p-</literal> be suitable as a user name matching strict POSIX rules, see <ulink
+    <literal>c-</literal> be suitable as a user name matching strict POSIX rules, see <ulink
     url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink> for details.</para>
 
     <xi:include href="version-info.xml" xpointer="v256"/>
