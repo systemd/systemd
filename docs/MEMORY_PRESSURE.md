@@ -227,12 +227,15 @@ handling, it's typically sufficient to add a line such as:
 
 Other programming environments might have native APIs to watch memory
 pressure/low memory events. Most notable is probably GLib's
-[GMemoryMonitor](https://docs.gtk.org/gio/iface.MemoryMonitor.html). It
-currently uses the per-system Linux PSI interface as the backend, but operates
-differently than the above: memory pressure events are picked up by a system
-service, which then propagates this through D-Bus to the applications. This is
-typically less than ideal, since this means each notification event has to
-traverse three processes before being handled. This traversal creates
+[GMemoryMonitor](https://docs.gtk.org/gio/iface.MemoryMonitor.html). As of GLib
+2.86.0, it uses the per-cgroup PSI kernel file to monitor for memory pressure,
+but does not yet read the environment variables recommended above.
+
+In older versions, it used the per-system Linux PSI interface as the backend, but operated
+differently than the above: memory pressure events were picked up by a system
+service, which then propagated this through D-Bus to the applications. This was
+typically less than ideal, since this means each notification event had to
+traverse three processes before being handled. This traversal created
 additional latencies at a time where the system is already experiencing adverse
-latencies. Moreover, it focuses on system-wide PSI events, even though
+latencies. Moreover, it focused on system-wide PSI events, even though
 service-local ones are generally the better approach.
