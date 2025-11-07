@@ -40,7 +40,7 @@ done
 # Create one "long running" container with some basic signal handling
 create_dummy_container /var/lib/machines/long-running
 cat >/var/lib/machines/long-running/sbin/init <<\EOF
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 set -x
 
@@ -317,7 +317,7 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Unreg
 # test io.systemd.Machine.List with addresses, OSRelease, and UIDShift fields
 create_dummy_container "/var/lib/machines/container-without-os-release"
 cat >>/var/lib/machines/container-without-os-release/sbin/init <<\EOF
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 set -x
 
@@ -399,13 +399,13 @@ rm -f /tmp/none-existent-file
 # server side, to not generate early SIGHUP. Hence, let's just invoke "sleep
 # infinity" client side, once we acquired the fd (passing it to it), and kill
 # it once we verified everything worked.
-PID=$(systemd-notify --fork -- varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/bash", "args": ["/bin/bash", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}' -- sleep infinity)
+PID=$(systemd-notify --fork -- varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/usr/bin/bash", "args": ["bash", "-c", "echo $FOO > /tmp/none-existent-file"], "environment": ["FOO=BAR"]}' -- sleep infinity)
 timeout 30 bash -c "until test -e /tmp/none-existent-file; do sleep .5; done"
 grep -q "BAR" /tmp/none-existent-file
 kill "$PID"
 
 # Test varlinkctl's --exec fd passing logic properly
-assert_eq "$(varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/bin/bash", "args": ["/bin/bash", "-c", "echo $((7 + 8))"], "environment": ["TERM=dumb"]}' -- bash -c 'read -r -N 2 x <&3 ; echo "$x"')" 15
+assert_eq "$(varlinkctl --exec call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.Open '{"name": ".host", "mode": "shell", "user": "root", "path": "/usr/bin/bash", "args": ["bash", "-c", "echo $((7 + 8))"], "environment": ["TERM=dumb"]}' -- bash -c 'read -r -N 2 x <&3 ; echo "$x"')" 15
 
 # test io.systemd.Machine.MapFrom
 varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.MapFrom '{"name": "long-running", "uid":0, "gid": 0}'

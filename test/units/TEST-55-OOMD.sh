@@ -93,7 +93,7 @@ EOF
 else
     # Ensure that we can start services even with a very low hard memory cap without oom-kills, but skip
     # under sanitizers as they balloon memory usage.
-    systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
+    systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 true
 fi
 
 test_basic() {

@@ -1405,7 +1405,7 @@ static int load_credential_one(
 
         if (ur)
                 STRV_FOREACH(g, ur->member_of) {
-                        _cleanup_free_ char *membership = strjoin(ur->user_name, ":", *g);
+                        _cleanup_free_ char *membership = strjoin(ur->user_name, ":", *g, ".membership");
                         if (!membership)
                                 return log_oom();
 
@@ -1417,7 +1417,7 @@ static int load_credential_one(
                 }
         else
                 STRV_FOREACH(u, gr->members) {
-                        _cleanup_free_ char *membership = strjoin(*u, ":", gr->group_name);
+                        _cleanup_free_ char *membership = strjoin(*u, ":", gr->group_name, ".membership");
                         if (!membership)
                                 return log_oom();
 

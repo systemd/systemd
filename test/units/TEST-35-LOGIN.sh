@@ -21,7 +21,7 @@ cleanup_test_user() (
 
 setup_test_user() {
     mkdir -p /var/spool/cron /var/spool/mail
-    useradd -m -s /bin/bash logind-test-user
+    useradd -m -s /usr/bin/bash logind-test-user
     trap cleanup_test_user EXIT
 }
 
@@ -351,7 +351,7 @@ create_session() {
 [Service]
 Type=simple
 ExecStart=
-ExecStart=-/sbin/agetty --autologin logind-test-user --noclear %I $TERM
+ExecStart=-agetty --autologin logind-test-user --noclear %I $TERM
 Restart=no
 EOF
     systemctl daemon-reload
@@ -679,7 +679,7 @@ session required   pam_unix.so
 EOF
 
     cat > "$SCRIPT" <<'EOF'
-#!/bin/bash
+#!/usr/bin/env bash
 set -ex
 typeset -i AMB MASK
 AMB="0x$(grep 'CapAmb:' /proc/self/status | cut -d: -f2 | tr -d '[:space:]')"

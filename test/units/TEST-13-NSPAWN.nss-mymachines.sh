@@ -25,7 +25,8 @@ mount --bind "$(mktemp --tmpdir=/var/tmp -d)" /var/lib/machines
 # 1) Have no IP addresses assigned
 create_dummy_container /var/lib/machines/nss-mymachines-noip
 cat >/var/lib/machines/nss-mymachines-noip/sbin/init <<\EOF
-#!/usr/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 ip addr show dev ve-noip
 touch /initialized
@@ -38,7 +39,8 @@ EOF
 # 2) Have one IP address assigned (IPv4 only)
 create_dummy_container /var/lib/machines/nss-mymachines-singleip
 cat >/var/lib/machines/nss-mymachines-singleip/sbin/init <<\EOF
-#!/usr/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 ip addr add 10.1.0.2/24 dev ve-singleip
 ip addr show dev ve-singleip
@@ -51,7 +53,8 @@ EOF
 # 3) Have bunch of IP addresses assigned (both IPv4 and IPv6)
 create_dummy_container /var/lib/machines/nss-mymachines-manyips
 cat >/var/lib/machines/nss-mymachines-manyips/sbin/init <<\EOF
-#!/usr/bin/bash -ex
+#!/usr/bin/env bash
+set -ex
 
 ip addr add 10.2.0.2/24 dev ve-manyips
 for i in {100..120}; do
