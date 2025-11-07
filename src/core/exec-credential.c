@@ -426,36 +426,20 @@ static int credential_search_path(const ExecParameters *params, CredentialSearch
         return 0;
 }
 
-static bool device_nodes_restricted(
-                const ExecContext *c,
-                const CGroupContext *cgroup_context) {
-
-        assert(c);
-        assert(cgroup_context);
-
-        /* Returns true if we have any reason to believe we might not be able to access the TPM device
-         * directly, even if we run as root/PID 1. This could be because /dev/ is replaced by a private
-         * version, or because a device node access list is configured. */
-
-        if (c->private_devices)
-                return true;
-
-        if (cgroup_context_has_device_policy(cgroup_context))
-                return true;
-
-        return false;
-}
-
 struct load_cred_args {
         const ExecContext *context;
-        const CGroupContext *cgroup_context;
         const ExecParameters *params;
         const char *unit;
+
+        bool always_ipc;
+
         bool encrypted;
+
         int write_dfd;
         uid_t uid;
         gid_t gid;
         bool ownership_ok;
+
         uint64_t left;
 };
 
@@ -486,7 +470,7 @@ static int maybe_decrypt_and_write_credential(
 
                         flags |= CREDENTIAL_ANY_SCOPE;
 
-                        if (!device_nodes_restricted(args->context, args->cgroup_context)) {
+                        if (!args->always_ipc) {
                                 r = decrypt_credential_and_warn(
                                                 id,
                                                 now(CLOCK_REALTIME),
@@ -787,6 +771,26 @@ static int load_cred_recurse_dir_cb(
         return RECURSE_DIR_CONTINUE;
 }
 
+static bool device_nodes_restricted(
+                const ExecContext *c,
+                const CGroupContext *cgroup_context) {
+
+        assert(c);
+        assert(cgroup_context);
+
+        /* Returns true if we have any reason to believe we might not be able to access the TPM device
+         * directly, even if we run as root/PID 1. This could be because /dev/ is replaced by a private
+         * version, or because a device node access list is configured. */
+
+        if (c->private_devices)
+                return true;
+
+        if (cgroup_context_has_device_policy(cgroup_context))
+                return true;
+
+        return false;
+}
+
 static int acquire_credentials(
                 const ExecContext *context,
                 const CGroupContext *cgroup_context,
@@ -816,9 +820,9 @@ static int acquire_credentials(
 
         struct load_cred_args args = {
                 .context = context,
-                .cgroup_context = cgroup_context,
                 .params = params,
                 .unit = unit,
+                .always_ipc = device_nodes_restricted(context, cgroup_context),
                 .write_dfd = dfd,
                 .uid = uid,
                 .gid = gid,
