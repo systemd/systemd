@@ -57,7 +57,7 @@ PullJob* pull_job_unref(PullJob *j) {
         free(j->url);
         free(j->etag);
         strv_free(j->old_etags);
-        free(j->payload);
+        iovec_done(&j->payload);
         iovec_done(&j->checksum);
         iovec_done(&j->expected_checksum);
 
@@ -95,8 +95,7 @@ static int pull_job_restart(PullJob *j, const char *new_url) {
 
         j->state = PULL_JOB_INIT;
         j->error = 0;
-        j->payload = mfree(j->payload);
-        j->payload_size = 0;
+        iovec_done(&j->payload);
         j->written_compressed = 0;
         j->written_uncompressed = 0;
         j->content_length = UINT64_MAX;
@@ -381,11 +380,14 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
         }
 
         if (j->disk_fd < 0 || j->force_memory) {
-                if (!GREEDY_REALLOC(j->payload, j->payload_size + sz + 1))
+                uint8_t *a = j->payload.iov_base;
+
+                if (!GREEDY_REALLOC(a, j->payload.iov_len + sz + 1))
                         return log_oom();
 
-                *((char*) mempcpy(j->payload + j->payload_size, p, sz)) = 0;
-                j->payload_size += sz;
+                *((uint8_t*) mempcpy(a + j->payload.iov_len, p, sz)) = 0;
+                j->payload.iov_base = a;
+                j->payload.iov_len += sz;
         }
 
         j->written_uncompressed += sz;
@@ -397,39 +399,39 @@ finish:
         return 0;
 }
 
-static int pull_job_write_compressed(PullJob *j, void *p, size_t sz) {
+static int pull_job_write_compressed(PullJob *j, const struct iovec *data) {
         int r;
 
         assert(j);
-        assert(p);
+        assert(iovec_is_valid(data));
 
-        if (sz <= 0)
+        if (!iovec_is_set(data))
                 return 0;
 
-        if (j->written_compressed + sz < j->written_compressed)
+        if (j->written_compressed + data->iov_len < j->written_compressed)
                 return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
 
-        if (j->written_compressed + sz > j->compressed_max)
+        if (j->written_compressed + data->iov_len > j->compressed_max)
                 return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
 
         uint64_t cl = pull_job_content_length_effective(j);
         if (cl != UINT64_MAX &&
-            j->written_compressed + sz > cl)
+            j->written_compressed + data->iov_len > cl)
                 return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
                                        "Content length incorrect.");
 
         if (j->checksum_ctx) {
-                r = EVP_DigestUpdate(j->checksum_ctx, p, sz);
+                r = EVP_DigestUpdate(j->checksum_ctx, data->iov_base, data->iov_len);
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Could not hash chunk.");
         }
 
-        r = import_uncompress(&j->compress, p, sz, pull_job_write_uncompressed, j);
+        r = import_uncompress(&j->compress, data->iov_base, data->iov_len, pull_job_write_uncompressed, j);
         if (r < 0)
                 return r;
 
-        j->written_compressed += sz;
+        j->written_compressed += data->iov_len;
 
         return 0;
 }
@@ -470,14 +472,11 @@ static int pull_job_open_disk(PullJob *j) {
 }
 
 static int pull_job_detect_compression(PullJob *j) {
-        _cleanup_free_ uint8_t *stub = NULL;
-        size_t stub_size;
-
         int r;
 
         assert(j);
 
-        r = import_uncompress_detect(&j->compress, j->payload, j->payload_size);
+        r = import_uncompress_detect(&j->compress, j->payload.iov_base, j->payload.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize compressor: %m");
         if (r == 0)
@@ -490,15 +489,11 @@ static int pull_job_detect_compression(PullJob *j) {
                 return r;
 
         /* Now, take the payload we read so far, and decompress it */
-        stub = j->payload;
-        stub_size = j->payload_size;
-
-        j->payload = NULL;
-        j->payload_size = 0;
+        _cleanup_(iovec_done) struct iovec stub = TAKE_STRUCT(j->payload);
 
         j->state = PULL_JOB_RUNNING;
 
-        r = pull_job_write_compressed(j, stub, stub_size);
+        r = pull_job_write_compressed(j, &stub);
         if (r < 0)
                 return r;
 
@@ -516,14 +511,10 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
 
         case PULL_JOB_ANALYZING:
                 /* Let's first check what it actually is */
-
-                if (!GREEDY_REALLOC(j->payload, j->payload_size + sz)) {
+                if (!iovec_append(&j->payload, &IOVEC_MAKE(contents, sz))) {
                         r = log_oom();
                         goto fail;
                 }
-
-                memcpy(j->payload + j->payload_size, contents, sz);
-                j->payload_size += sz;
 
                 r = pull_job_detect_compression(j);
                 if (r < 0)
@@ -532,8 +523,7 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
                 break;
 
         case PULL_JOB_RUNNING:
-
-                r = pull_job_write_compressed(j, contents, sz);
+                r = pull_job_write_compressed(j, &IOVEC_MAKE(contents, sz));
                 if (r < 0)
                         goto fail;
 
