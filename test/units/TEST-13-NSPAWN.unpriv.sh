@@ -175,8 +175,14 @@ chattr +A /home/testuser/.local/state/machines/inodetest/testfile
 chown foreign-0:foreign-0 /home/testuser/.local/state/machines/inodetest/testfile.hard /home/testuser/.local/state/machines/inodetest
 ls -al /home/testuser/.local/state/machines/inodetest
 
+# Verify UID squashing
 echo gaga > /home/testuser/.local/state/machines/inodetest/squashtest
 chown 1000:1000 /home/testuser/.local/state/machines/inodetest/squashtest
+
+# Ensure hardlinked symlinks work
+ln -s sometarget /home/testuser/.local/state/machines/inodetest/testfile.sym
+ln /home/testuser/.local/state/machines/inodetest/testfile.sym /home/testuser/.local/state/machines/inodetest/testfile.symhard
+chown -h foreign-0:foreign-0 /home/testuser/.local/state/machines/inodetest/testfile.symhard
 
 run0 --pipe -u testuser importctl -m --user export-tar inodetest |
     run0 --pipe -u testuser importctl -m --user import-tar - inodetest2
@@ -199,7 +205,11 @@ cmp <(lsattr /home/testuser/.local/state/machines/inodetest/testfile | cut -d " 
 # verify that squashing outside of 64K works
 test "$(stat -c'%U:%G' /home/testuser/.local/state/machines/inodetest2/squashtest)" = "foreign-65534:foreign-65534"
 
-# chown to foreing UID range, so that removal works
+# Verify that the hardlinked symlink is restored as such
+cmp <(stat -c"%i" /home/testuser/.local/state/machines/inodetest2/testfile.sym) <(stat -c"%i" /home/testuser/.local/state/machines/inodetest2/testfile.symhard)
+test "$(readlink /home/testuser/.local/state/machines/inodetest2/testfile.symhard)" = "sometarget"
+
+# chown to foreign UID range, so that removal works
 chown foreign-4711:foreign-4711 /home/testuser/.local/state/machines/inodetest/squashtest
 
 run0 -u testuser machinectl --user remove inodetest
