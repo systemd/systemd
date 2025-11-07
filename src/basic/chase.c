@@ -68,7 +68,7 @@ static int log_autofs_mount_point(int fd, const char *path, ChaseFlags flags) {
         (void) fd_get_path(fd, &n1);
 
         return log_warning_errno(SYNTHETIC_ERRNO(EREMOTE),
-                                 "Detected autofs mount point %s during canonicalization of %s.",
+                                 "Detected autofs mount point '%s' during canonicalization of '%s'.",
                                  strna(n1), path);
 }
 
@@ -83,7 +83,7 @@ static int log_prohibited_symlink(int fd, ChaseFlags flags) {
         (void) fd_get_path(fd, &n1);
 
         return log_warning_errno(SYNTHETIC_ERRNO(EREMCHG),
-                                 "Detected symlink where not symlink is allowed at %s, refusing.",
+                                 "Detected symlink where no symlink is allowed at '%s', refusing.",
                                  strna(n1));
 }
 
