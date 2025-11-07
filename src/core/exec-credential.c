@@ -1014,7 +1014,7 @@ static int setup_credentials_internal(
                 if (!final_mounted)
                         /* Nothing is mounted on the workspace yet, let's try to mount a new tmpfs if
                          * not using the final place. */
-                        r = mount_credentials_fs(workspace, CREDENTIALS_TOTAL_SIZE_MAX, /* ro= */ false);
+                        r = mount_credentials_fs(workspace);
                 if (final_mounted || r < 0) {
                         /* If using final place or failed to mount new tmpfs, make a bind mount from
                          * the final to the workspace, so that we can make it writable there. */
