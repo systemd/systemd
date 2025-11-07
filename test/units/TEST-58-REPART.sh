@@ -1706,7 +1706,13 @@ testcase_btrfs_compression_copyfiles() {
 
     echo "*** testcase for btrfs compression with CopyFiles ***"
 
-    echo "test content" > "$imgs/test-source-file"
+    # Create a test file large enough to be compressed (btrfs doesn't compress very small files)
+    # Use 1MB of compressible data
+    dd if=/dev/zero of="$imgs/test-source-file" bs=1M count=1 2>/dev/null
+
+    # Verify source file was created
+    test -f "$imgs/test-source-file"
+    echo "Source file created at: $imgs/test-source-file ($(stat -c%s "$imgs/test-source-file") bytes)"
 
     tee "$defs/btrfs-compressed.conf" <<EOF
 [Partition]
@@ -1718,28 +1724,54 @@ SizeMinBytes=100M
 SizeMaxBytes=100M
 EOF
 
-    output=$(systemd-repart --offline="$OFFLINE" \
-                            --definitions="$defs" \
-                            --empty=create \
-                            --size=auto \
-                            --dry-run=no \
-                            --seed="$seed" \
-                            "$imgs/btrfs-compressed.img" 2>&1)
+    echo "Config file created:"
+    cat "$defs/btrfs-compressed.conf"
 
+    # Run repart and show full output for debugging
+    echo "Running systemd-repart with OFFLINE=$OFFLINE..."
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=auto \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/btrfs-compressed.img" 2>&1 | tee "$imgs/repart-output.txt"
+
+    output=$(cat "$imgs/repart-output.txt")
+
+    # Verify that the output shows rootdir and compression being used
     assert_in "Rootdir from:" "$output"
     assert_in "Compress:" "$output"
 
+    # Mount the partition and verify the file was copied and compression was applied
     loop="$(losetup -P --show --find "$imgs/btrfs-compressed.img")"
+    echo "Loop device: $loop"
     udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    lsblk "$loop"
 
     mkdir -p "$imgs/mount"
     mount -t btrfs "${loop:?}p1" "$imgs/mount"
+    echo "Mounted at: $imgs/mount"
 
-    [[ -f "$imgs/mount/test-file" ]]
-    [[ "$(cat "$imgs/mount/test-file")" == "test content" ]]
+    # Show what's actually in the mounted filesystem
+    echo "Filesystem contents:"
+    ls -laR "$imgs/mount" || true
+    find "$imgs/mount" -type f || true
+
+    # Verify the file was copied
+    if [[ ! -f "$imgs/mount/test-file" ]]; then
+        echo "ERROR: test-file not found in mounted filesystem!"
+        echo "Expected: $imgs/mount/test-file"
+        exit 1
+    fi
+
+    [[ "$(stat -c%s "$imgs/mount/test-file")" == "1048576" ]]
 
     if command -v compsize &>/dev/null; then
         output=$(compsize "$imgs/mount/test-file" 2>&1)
+        # For a 1MB file of zeros, compression should be extremely effective
+        # Check that zstd compression was actually used
         assert_in "zstd" "$output"
     else
         echo "Warning: compsize not available, skipping compression verification" >&2
