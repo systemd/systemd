@@ -100,7 +100,7 @@ static void pull_job_finish(PullJob *j, int ret) {
                 j->on_finished(j);
 }
 
-static int pull_job_restart(PullJob *j, const char *new_url) {
+int pull_job_restart(PullJob *j, const char *new_url) {
         int r;
 
         assert(j);
