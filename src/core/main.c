@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <linux/oom.h>
+#include <linux/vt.h>
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/prctl.h>
@@ -1927,6 +1928,32 @@ static void finish_remaining_processes(ManagerObjective objective) {
                 broadcast_signal(SIGKILL, /* wait_for_exit= */ false, /* send_sighup= */ false, arg_defaults.timeout_stop_usec);
 }
 
+static void reduce_vt(ManagerObjective objective) {
+        int r;
+
+        if (objective != MANAGER_SOFT_REBOOT)
+                return;
+
+        /* Switches back to VT 1, and releases all other VTs, in an attempt to return to a situation similar
+         * to how it was during the original kernel initialization. This is important because if some random
+         * TTY is in foreground, /dev/console will end up pointing to it, where the future init system will
+         * then write its status output to, but where it probably shouldn't be writing to. */
+
+        r = chvt(1);
+        if (r < 0)
+                log_debug_errno(r, "Failed to switch to VT TTY 1, ignoring: %m");
+
+        _cleanup_close_ int tty0_fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        if (tty0_fd < 0)
+                return (void) log_debug_errno(tty0_fd, "Failed to open '/dev/tty0', ignoring: %m");
+
+        for (int ttynr = 2; ttynr <= VTNR_MAX; ttynr++)
+                if (ioctl(tty0_fd, VT_DISALLOCATE, ttynr) < 0)
+                        log_debug_errno(errno, "Failed to disallocate VT TTY %i, ignoring: %m", ttynr);
+                else
+                        log_debug("Successfully disallocated VT TTY %i.", ttynr);
+}
+
 static int do_reexecute(
                 ManagerObjective objective,
                 int argc,
@@ -1994,6 +2021,7 @@ static int do_reexecute(
                 (void) setrlimit(RLIMIT_MEMLOCK, saved_rlimit_memlock);
 
         finish_remaining_processes(objective);
+        reduce_vt(objective);
 
         if (switch_root_dir) {
                 r = switch_root(/* new_root= */ switch_root_dir,
