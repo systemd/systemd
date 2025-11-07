@@ -345,7 +345,7 @@ static int extend_nvpcr_now(
                    "MESSAGE_ID=" SD_MESSAGE_TPM_NVPCR_EXTEND_STR,
                    LOG_MESSAGE("Extended NvPCR index '%s' with '%s'.", name, safe),
                    "MEASURING=%s", safe,
-                   "NVPCR=%u", name);
+                   "NVPCR=%s", name);
 
         return 0;
 }
