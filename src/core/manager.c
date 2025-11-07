@@ -2570,7 +2570,7 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
 
         /* When we are reloading, let's not wait with generating signals, since we need to exit the manager as quickly
          * as we can. There's no point in throttling generation of signals in that case. */
-        if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message)
+        if (MANAGER_IS_RELOADING(m) || m->send_reloading_done || m->pending_reload_message_dbus || m->pending_reload_message_vl)
                 budget = UINT_MAX; /* infinite budget in this case */
         else {
                 /* Anything to do at all? */
@@ -2623,8 +2623,13 @@ static unsigned manager_dispatch_dbus_queue(Manager *m) {
                 n++;
         }
 
-        if (m->pending_reload_message) {
+        if (m->pending_reload_message_dbus) {
                 bus_send_pending_reload_message(m);
+                n++;
+        }
+
+        if (m->pending_reload_message_vl) {
+                manager_varlink_send_pending_reload_message(m);
                 n++;
         }
 
@@ -5195,6 +5200,22 @@ LogTarget manager_get_executor_log_target(Manager *m) {
                 return LOG_TARGET_KMSG;
 
         return log_get_target();
+}
+
+void manager_log_caller(Manager *manager, PidRef *caller, const char *method) {
+        _cleanup_free_ char *comm = NULL;
+
+        assert(manager);
+        assert(pidref_is_set(caller));
+        assert(method);
+
+        (void) pidref_get_comm(caller, &comm);
+        Unit *caller_unit = manager_get_unit_by_pidref(manager, caller);
+
+        log_notice("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
+                   method, caller->pid,
+                   comm ? " ('" : "", strempty(comm), comm ? "')" : "",
+                   caller_unit ? " (unit " : "", caller_unit ? caller_unit->id : "", caller_unit ? ")" : "");
 }
 
 static const char* const manager_state_table[_MANAGER_STATE_MAX] = {
