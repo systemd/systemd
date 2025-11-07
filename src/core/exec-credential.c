@@ -796,27 +796,18 @@ static int acquire_credentials(
                 const CGroupContext *cgroup_context,
                 const ExecParameters *params,
                 const char *unit,
-                const char *p,
+                int dfd,
                 uid_t uid,
                 gid_t gid,
                 bool ownership_ok) {
 
-        _cleanup_close_ int dfd = -EBADF;
         int r;
 
         assert(context);
         assert(cgroup_context);
         assert(params);
         assert(unit);
-        assert(p);
-
-        dfd = open(p, O_DIRECTORY|O_CLOEXEC);
-        if (dfd < 0)
-                return -errno;
-
-        r = fd_acl_make_writable(dfd); /* Add the "w" bit, if we are reusing an already set up credentials dir where it was unset */
-        if (r < 0)
-                return r;
+        assert(dfd >= 0);
 
         struct load_cred_args args = {
                 .context = context,
@@ -923,7 +914,15 @@ static int acquire_credentials(
                         return r;
         }
 
-        r = fd_acl_make_read_only(dfd); /* Now take away the "w" bit */
+        return 0;
+}
+
+static int credentials_dir_finalize_permissions(int dfd, uid_t uid, gid_t gid, bool ownership_ok) {
+        int r;
+
+        assert(dfd >= 0);
+
+        r = fd_acl_make_read_only(dfd); /* Take away the "w" bit */
         if (r < 0)
                 return r;
 
@@ -947,156 +946,152 @@ static int acquire_credentials(
         return 0;
 }
 
+static int setup_credentials_plain_dir(
+                const ExecContext *context,
+                const CGroupContext *cgroup_context,
+                const ExecParameters *params,
+                const char *unit,
+                const char *cred_dir,
+                uid_t uid,
+                gid_t gid) {
+
+        _cleanup_free_ char *t = NULL, *workspace = NULL;
+        _cleanup_close_ int dfd = -EBADF;
+        int r;
+
+        assert(context);
+        assert(params);
+        assert(unit);
+        assert(cred_dir);
+
+        /* Temporary workspace, that remains inaccessible all the time. We prepare stuff there before moving
+         * it into place, so that users can't access half-initialized credential stores. */
+        t = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "systemd/temporary-credentials");
+        if (!t)
+                return -ENOMEM;
+
+        r = mkdir_label(t, 0700);
+        if (r < 0 && r != -EEXIST)
+                return r;
+
+        workspace = path_join(t, unit);
+        if (!workspace)
+                return -ENOMEM;
+
+        dfd = open_mkdir(workspace, O_CLOEXEC|O_EXCL, 0700);
+        if (dfd < 0)
+                return log_debug_errno(dfd, "Failed to create workspace for credentials: %m");
+
+        (void) label_fix_full(dfd, /* inode_path = */ NULL, cred_dir, /* flags = */ 0);
+
+        r = acquire_credentials(context, cgroup_context, params, unit, dfd, uid, gid, /* ownership_ok = */ false);
+        if (r < 0)
+                goto purge;
+
+        r = RET_NERRNO(rename(workspace, cred_dir));
+        if (r >= 0)
+                goto finalize;
+        if (r == -EEXIST)
+                r = RET_NERRNO(renameat2(AT_FDCWD, workspace, AT_FDCWD, cred_dir, RENAME_EXCHANGE));
+        if (r < 0)
+                log_debug_errno(r, "Failed to move credentials workspace into place: %m");
+
+purge:
+        (void) rm_rf(workspace, REMOVE_ROOT|REMOVE_CHMOD);
+
+finalize:
+        if (r >= 0) {
+                r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok = */ false);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");;
+        }
+
+        return r;
+}
+
 static int setup_credentials_internal(
                 const ExecContext *context,
                 const CGroupContext *cgroup_context,
                 const ExecParameters *params,
                 const char *unit,
-                const char *final,        /* This is where the credential store shall eventually end up at */
-                const char *workspace,    /* This is where we can prepare it before moving it to the final place */
-                bool reuse_workspace,     /* Whether to reuse any existing workspace mount if it already is a mount */
-                bool must_mount,          /* Whether to require that we mount something, it's not OK to use the plain directory fall back */
+                const char *cred_dir,
                 uid_t uid,
                 gid_t gid) {
 
-        bool final_mounted;
-        int r, workspace_mounted; /* negative if we don't know yet whether we have/can mount something; true
-                                   * if we mounted something; false if we definitely can't mount anything */
+        _cleanup_close_ int mfd = -EBADF, dfd = -EBADF;
+        bool dir_mounted;
+        int r;
 
         assert(context);
         assert(params);
         assert(unit);
-        assert(final);
-        assert(workspace);
+        assert(cred_dir);
 
-        r = path_is_mount_point(final);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to determine if '%s' is a mountpoint: %m", final);
-        final_mounted = r > 0;
-
-        if (final_mounted) {
-                if (FLAGS_SET(params->flags, EXEC_SETUP_CREDENTIALS_FRESH)) {
-                        r = umount_verbose(LOG_DEBUG, final, MNT_DETACH|UMOUNT_NOFOLLOW);
-                        if (r < 0)
-                                return r;
-
-                        final_mounted = false;
-                } else {
-                        /* We can reuse the previous credential dir */
-                        r = dir_is_empty(final, /* ignore_hidden_or_backup = */ false);
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
-                                log_debug("Credential dir for unit '%s' already set up, skipping.", unit);
-                                return 0;
-                        }
+        if (!FLAGS_SET(params->flags, EXEC_SETUP_CREDENTIALS_FRESH)) {
+                /* We may reuse the previous credential dir */
+                r = dir_is_empty(cred_dir, /* ignore_hidden_or_backup = */ false);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        log_debug("Credential dir for unit '%s' already set up, skipping.", unit);
+                        return 0;
                 }
         }
 
-        if (reuse_workspace) {
-                r = path_is_mount_point(workspace);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        workspace_mounted = true; /* If this is already a mount, and we are supposed to reuse
-                                                   * it, let's keep this in mind */
-                else
-                        workspace_mounted = -1; /* We need to figure out if we can mount something to the workspace */
-        } else
-                workspace_mounted = -1; /* ditto */
+        r = path_is_mount_point(cred_dir);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine if '%s' is a mountpoint: %m", cred_dir);
+        dir_mounted = r > 0;
 
-        /* If both the final place and the workspace are mounted, we have no mounts to set up, based on
-         * the assumption that they're actually the same tmpfs (but the latter with MS_RDONLY different).
-         * If the workspace is not mounted, we just bind the final place over and make it writable. */
-        must_mount = must_mount || final_mounted;
-
-        if (workspace_mounted < 0) {
-                if (!final_mounted)
-                        /* Nothing is mounted on the workspace yet, let's try to mount a new tmpfs if
-                         * not using the final place. */
-                        r = mount_credentials_fs(workspace);
-                if (final_mounted || r < 0) {
-                        /* If using final place or failed to mount new tmpfs, make a bind mount from
-                         * the final to the workspace, so that we can make it writable there. */
-                        r = mount_nofollow_verbose(LOG_DEBUG, final, workspace, NULL, MS_BIND|MS_REC, NULL);
-                        if (r < 0) {
-                                if (!ERRNO_IS_PRIVILEGE(r))
-                                        /* Propagate anything that isn't a permission problem. */
-                                        return r;
-
-                                if (must_mount)
-                                        /* If it's not OK to use the plain directory fallback, propagate all
-                                         * errors too. */
-                                        return r;
-
-                                /* If we lack privileges to bind mount stuff, then let's gracefully proceed
-                                 * for compat with container envs, and just use the final dir as is.
-                                 * Final place must not be mounted in this case (refused by must_mount
-                                 * above) */
-
-                                workspace_mounted = false;
-                        } else {
-                                /* Make the new bind mount writable (i.e. drop MS_RDONLY) */
-                                r = mount_nofollow_verbose(LOG_DEBUG,
-                                                           NULL,
-                                                           workspace,
-                                                           NULL,
-                                                           MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false),
-                                                           NULL);
-                                if (r < 0)
-                                        return r;
-
-                                workspace_mounted = true;
-                        }
-                } else
-                        workspace_mounted = true;
+        mfd = fsmount_credentials_fs();
+        if (ERRNO_IS_NEG_PRIVILEGE(mfd) && !dir_mounted) {
+                log_debug_errno(mfd, "Lacking privilege to mount credentials fs, falling back to plain directory.");
+                return setup_credentials_plain_dir(context, cgroup_context, params, unit, cred_dir, uid, gid);
         }
+        if (mfd < 0)
+                return log_debug_errno(mfd, "Failed to mount credentials fs: %m");
 
-        assert(workspace_mounted >= 0);
-        assert(!must_mount || workspace_mounted);
+        dfd = fd_reopen(mfd, O_DIRECTORY|O_CLOEXEC);
+        if (dfd < 0)
+                return dfd;
 
-        const char *where = workspace_mounted ? workspace : final;
+        (void) label_fix_full(dfd, /* inode_path = */ NULL, cred_dir, /* flags = */ 0);
 
-        (void) label_fix_full(AT_FDCWD, where, final, 0);
-
-        r = acquire_credentials(context, cgroup_context, params, unit, where, uid, gid, workspace_mounted);
-        if (r < 0) {
-                /* If we're using final place as workspace, and failed to acquire credentials, we might
-                 * have left half-written creds there. Let's get rid of the whole mount, so future
-                 * calls won't reuse it. */
-                if (final_mounted)
-                        (void) umount_verbose(LOG_DEBUG, final, MNT_DETACH|UMOUNT_NOFOLLOW);
-
+        r = acquire_credentials(context, cgroup_context, params, unit, dfd, uid, gid, /* ownership_ok = */ true);
+        if (r < 0)
                 return r;
-        }
 
-        if (workspace_mounted) {
-                if (!final_mounted) {
-                        /* Make workspace read-only now, so that any bind mount we make from it defaults to
-                         * read-only too */
-                        r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ true), NULL);
-                        if (r < 0)
-                                return r;
+        r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok = */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");
 
-                        /* And mount it to the final place, read-only */
-                        r = mount_nofollow_verbose(LOG_DEBUG, workspace, final, NULL, MS_MOVE, NULL);
-                } else
-                        /* Otherwise we just get rid of the bind mount of final place */
-                        r = umount_verbose(LOG_DEBUG, workspace, MNT_DETACH|UMOUNT_NOFOLLOW);
+        _cleanup_close_ int fs_fd = fspick(mfd, "", FSPICK_EMPTY_PATH|FSPICK_CLOEXEC);
+        if (fs_fd < 0)
+                return -errno;
+
+        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", NULL, 0) < 0)
+                return -errno;
+
+        if (fsconfig(fs_fd, FSCONFIG_CMD_RECONFIGURE, NULL, NULL, 0) < 0)
+                return -errno;
+
+        log_debug("Successfully reconfigured credentials fs to be read only.");
+
+        if (dir_mounted) {
+                r = move_mount(mfd, "", AT_FDCWD, cred_dir, MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_BENEATH);
+                if (r >= 0)
+                        return umount_verbose(LOG_DEBUG, cred_dir, MNT_DETACH|UMOUNT_NOFOLLOW);
+                if (errno != EINVAL)
+                        return log_debug_errno(errno, "Failed to move credentials fs into place: %m");
+
+                r = umount_verbose(LOG_DEBUG, cred_dir, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
                         return r;
-        } else {
-                _cleanup_free_ char *parent = NULL;
-
-                /* If we do not have our own mount put used the plain directory fallback, then we need to
-                 * open access to the top-level credential directory and the per-service directory now */
-
-                r = path_extract_directory(final, &parent);
-                if (r < 0)
-                        return r;
-                if (chmod(parent, 0755) < 0)
-                        return -errno;
         }
+
+        r = move_mount(mfd, "", AT_FDCWD, cred_dir, MOVE_MOUNT_F_EMPTY_PATH);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to move credentials fs into place: %m");
 
         return 0;
 }
@@ -1140,96 +1135,12 @@ int exec_setup_credentials(
         if (r < 0 && r != -EEXIST)
                 return r;
 
-        r = safe_fork("(sd-mkdcreds)", FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_NEW_MOUNTNS, NULL);
-        if (r < 0) {
-                _cleanup_(rmdir_and_freep) char *u = NULL; /* remove the temporary workspace if we can */
-                _cleanup_free_ char *t = NULL;
-
-                /* If this is not a privilege or support issue then propagate the error */
-                if (!ERRNO_IS_NOT_SUPPORTED(r) && !ERRNO_IS_PRIVILEGE(r))
-                        return r;
-
-                /* Temporary workspace, that remains inaccessible all the time. We prepare stuff there before moving
-                 * it into place, so that users can't access half-initialized credential stores. */
-                t = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "systemd/temporary-credentials");
-                if (!t)
-                        return -ENOMEM;
-
-                /* We can't set up a mount namespace. In that case operate on a fixed, inaccessible per-unit
-                 * directory outside of /run/credentials/ first, and then move it over to /run/credentials/
-                 * after it is fully set up */
-                u = path_join(t, unit);
-                if (!u)
-                        return -ENOMEM;
-
-                FOREACH_STRING(i, t, u) {
-                        r = mkdir_label(i, 0700);
-                        if (r < 0 && r != -EEXIST)
-                                return log_debug_errno(r, "Failed to make directory '%s': %m", i);
-                }
-
-                r = setup_credentials_internal(
-                                context,
-                                cgroup_context,
-                                params,
-                                unit,
-                                p,       /* final mount point */
-                                u,       /* temporary workspace to overmount */
-                                true,    /* reuse the workspace if it is already a mount */
-                                false,   /* it's OK to fall back to a plain directory if we can't mount anything */
-                                uid,
-                                gid);
-                if (r < 0)
-                        return r;
-
-        } else if (r == 0) {
-
-                /* We managed to set up a mount namespace, and are now in a child. That's great. In this case
-                 * we can use the same directory for all cases, after turning off propagation. Question
-                 * though is: where do we turn off propagation exactly, and where do we place the workspace
-                 * directory? We need some place that is guaranteed to be a mount point in the host, and
-                 * which is guaranteed to have a subdir we can mount over. /run/ is not suitable for this,
-                 * since we ultimately want to move the resulting file system there, i.e. we need propagation
-                 * for /run/ eventually. We could use our own /run/systemd/bind mount on itself, but that
-                 * would be visible in the host mount table all the time, which we want to avoid. Hence, what
-                 * we do here instead we use /dev/ and /dev/shm/ for our purposes. We know for sure that
-                 * /dev/ is a mount point and we now for sure that /dev/shm/ exists. Hence we can turn off
-                 * propagation on the former, and then overmount the latter.
-                 *
-                 * Yes it's nasty playing games with /dev/ and /dev/shm/ like this, since it does not exist
-                 * for this purpose, but there are few other candidates that work equally well for us, and
-                 * given that we do this in a privately namespaced short-lived single-threaded process that
-                 * no one else sees this should be OK to do. */
-
-                /* Turn off propagation from our namespace to host */
-                r = mount_nofollow_verbose(LOG_DEBUG, NULL, "/dev", NULL, MS_SLAVE|MS_REC, NULL);
-                if (r < 0)
-                        goto child_fail;
-
-                r = setup_credentials_internal(
-                                context,
-                                cgroup_context,
-                                params,
-                                unit,
-                                p,           /* final mount point */
-                                "/dev/shm",  /* temporary workspace to overmount */
-                                false,       /* do not reuse /dev/shm if it is already a mount, under no circumstances */
-                                true,        /* insist that something is mounted, do not allow fallback to plain directory */
-                                uid,
-                                gid);
-                if (r < 0)
-                        goto child_fail;
-
-                _exit(EXIT_SUCCESS);
-
-        child_fail:
-                _exit(EXIT_FAILURE);
-        }
+        r = setup_credentials_internal(context, cgroup_context, params, unit, p, uid, gid);
 
         /* If the credentials dir is empty and not a mount point, then there's no point in having it. Let's
          * try to remove it. This matters in particular if we created the dir as mount point but then didn't
          * actually end up mounting anything on it. In that case we'd rather have ENOENT than EACCESS being
          * seen by users when trying access this inode. */
         (void) rmdir(p);
-        return 0;
+        return r;
 }
