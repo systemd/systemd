@@ -131,7 +131,7 @@ systemd-run --remain-after-exit \
             true
 systemctl cat "$UNIT.service" "$UNIT.timer"
 grep -q "^OnUnitInactiveSec=16h$" "/run/systemd/transient/$UNIT.timer"
-grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.timer" "$UNIT.service" || :
 
 UNIT="timer-1-$RANDOM"
@@ -167,7 +167,7 @@ grep -q "^OnTimezoneChange=yes$" "/run/systemd/transient/$UNIT.timer"
 grep -q "^After=systemd-journald.service$" "/run/systemd/transient/$UNIT.timer"
 grep -q "^Description=My Fancy Timer$" "/run/systemd/transient/$UNIT.service"
 grep -q "^RemainAfterExit=yes$" "/run/systemd/transient/$UNIT.service"
-grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 (! grep -q "^After=systemd-journald.service$" "/run/systemd/transient/$UNIT.service")
 systemctl stop "$UNIT.timer" "$UNIT.service" || :
 
@@ -185,7 +185,7 @@ systemd-analyze verify --recursive-errors=no "/run/systemd/transient/$UNIT.path"
 grep -q "^PathExists=/tmp$" "/run/systemd/transient/$UNIT.path"
 grep -q "^PathExists=/tmp/foo$" "/run/systemd/transient/$UNIT.path"
 grep -q "^PathChanged=/root/bar$" "/run/systemd/transient/$UNIT.path"
-grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.path" "$UNIT.service" || :
 
 : "Transient socket unit"
@@ -202,7 +202,7 @@ systemd-analyze verify --recursive-errors=no "/run/systemd/transient/$UNIT.socke
 grep -q "^ListenFIFO=/tmp/socket.fifo$" "/run/systemd/transient/$UNIT.socket"
 grep -q "^SocketMode=0666$" "/run/systemd/transient/$UNIT.socket"
 grep -q "^SocketMode=0644$" "/run/systemd/transient/$UNIT.socket"
-grep -qE "^ExecStart=.*/bin/true.*$" "/run/systemd/transient/$UNIT.service"
+grep -qE "^ExecStart=.*true.*$" "/run/systemd/transient/$UNIT.service"
 systemctl stop "$UNIT.socket" "$UNIT.service" || :
 
 : "Job mode"
@@ -220,8 +220,8 @@ SHELL=/bin/true systemd-run --shell
 SHELL=/bin/true systemd-run --scope --shell
 systemd-run --wait --pty true
 systemd-run --wait --machine=.host --pty true
-systemd-run --json=short /bin/true | jq . >/dev/null
-systemd-run --json=pretty /bin/true | jq . >/dev/null
+systemd-run --json=short true | jq . >/dev/null
+systemd-run --json=pretty true | jq . >/dev/null
 (! SHELL=/bin/false systemd-run --quiet --shell)
 
 (! systemd-run)

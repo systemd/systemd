@@ -17,9 +17,9 @@ KERNEL!="null", GOTO="end"
 ACTION=="remove", GOTO="end"
 
 IMPORT{db}="INVOCATIONS"
-IMPORT{program}="/bin/bash -c 'systemctl show --property=InvocationID systemd-udevd.service'"
+IMPORT{program}="/usr/bin/bash -c 'systemctl show --property=InvocationID systemd-udevd.service'"
 ENV{INVOCATIONS}+="%E{ACTION}_%E{SEQNUM}_%E{InvocationID}"
-ACTION=="add", RUN+="/bin/bash -c ':> /tmp/marker'", RUN+="/usr/bin/sleep 10"
+ACTION=="add", RUN+="/usr/bin/bash -c ':> /tmp/marker'", RUN+="/usr/bin/sleep 10"
 
 LABEL="end"
 EOF

@@ -351,7 +351,8 @@ EOF
 # Create a simple "entrypoint" script that validates that the container
 # is created correctly according to the OCI config
 cat >"$OCI/rootfs/entrypoint.sh" <<EOF
-#!/usr/bin/bash -e
+#!/usr/bin/env bash
+set -e
 
 # Mounts
 mountpoint /root
