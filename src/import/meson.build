@@ -14,12 +14,14 @@ systemd_importd_extract_sources = files(
 )
 
 systemd_pull_sources = files(
+        'curl-util.c',
+        'oci-util.c',
         'pull.c',
+        'pull-common.c',
+        'pull-job.c',
+        'pull-oci.c',
         'pull-raw.c',
         'pull-tar.c',
-        'pull-job.c',
-        'pull-common.c',
-        'curl-util.c',
 )
 
 systemd_import_sources = files(
@@ -104,7 +106,10 @@ executables += [
                 'conditions' : ['HAVE_ZLIB'],
                 'type' : 'manual',
         },
-
+        test_template + {
+                'sources' : files('test-oci-util.c', 'oci-util.c'),
+                'dependencies' : common_deps,
+        },
 ]
 
 install_data('org.freedesktop.import1.conf',
@@ -120,3 +125,21 @@ install_data('org.freedesktop.import1.policy',
 install_data('import-pubring.pgp',
              install_dir : libexecdir)
 # TODO: shouldn't this be in pkgdatadir?
+
+ocireg_files = [
+        'default.ocireg',
+        'image.alpine.ocireg',
+        'image.archlinux.ocireg',
+        'image.debian.ocireg',
+        'image.fedora-minimal.ocireg',
+        'image.fedora.ocireg',
+        'image.ubuntu.ocireg',
+        'registry.docker.io.ocireg',
+        'registry.fedora.ocireg',
+]
+
+foreach file : ocireg_files
+        install_data('ocireg' / file,
+                     install_dir : libexecdir / 'ocireg',
+                     follow_symlinks : false)
+endforeach
