@@ -101,7 +101,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result);
 void pull_job_close_disk_fd(PullJob *j);
 
 int pull_job_add_request_header(PullJob *j, const char *hdr);
-int pull_job_set_accept(PullJob *j, char **l);
+int pull_job_set_accept(PullJob *j, char *const *l);
 int pull_job_set_bearer_token(PullJob *j, const char *token);
 
 int pull_job_restart(PullJob *j, const char *new_url);
