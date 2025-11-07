@@ -75,7 +75,7 @@ PullJob* pull_job_unref(PullJob *j) {
         return mfree(j);
 }
 
-static const char *pull_job_description(PullJob *j) {
+static const char* pull_job_description(PullJob *j) {
         assert(j);
 
         return j->description ?: j->url;
@@ -855,7 +855,7 @@ int pull_job_begin(PullJob *j) {
         return 0;
 }
 
-int pull_job_set_accept(PullJob *j, char **l) {
+int pull_job_set_accept(PullJob *j, char * const *l) {
         assert(j);
 
         if (strv_isempty(l))
