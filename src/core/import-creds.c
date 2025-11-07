@@ -103,7 +103,7 @@ static int acquire_credential_directory(ImportCredentialsContext *c, const char 
                 (void) mount_nofollow_verbose(LOG_WARNING, NULL, path, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false), NULL);
         else if (with_mount)
                 /* If not a mount point yet, and the credentials are not encrypted, then let's try to mount a no-swap fs there */
-                (void) mount_credentials_fs(path, CREDENTIALS_TOTAL_SIZE_MAX, /* ro= */ false);
+                (void) mount_credentials_fs(path);
 
         c->target_dir_fd = open(path, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         if (c->target_dir_fd < 0)
