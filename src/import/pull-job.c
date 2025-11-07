@@ -100,15 +100,16 @@ static void pull_job_finish(PullJob *j, int ret) {
                 j->on_finished(j);
 }
 
-static int pull_job_restart(PullJob *j, const char *new_url) {
+int pull_job_restart(PullJob *j, const char *new_url) {
         int r;
 
         assert(j);
-        assert(new_url);
 
-        r = free_and_strdup(&j->url, new_url);
-        if (r < 0)
-                return r;
+        if (new_url) {
+                r = free_and_strdup(&j->url, new_url);
+                if (r < 0)
+                        return r;
+        }
 
         j->state = PULL_JOB_INIT;
         j->error = 0;
@@ -120,15 +121,16 @@ static int pull_job_restart(PullJob *j, const char *new_url) {
         j->etag_exists = false;
         j->mtime = 0;
         iovec_done(&j->checksum);
-        iovec_done(&j->expected_checksum);
-        j->expected_content_length = UINT64_MAX;
         j->content_type = mfree(j->content_type);
+
+        if (new_url) {
+                /* Reset expectations if the URL changes */
+                iovec_done(&j->expected_checksum);
+                j->expected_content_length = UINT64_MAX;
+        }
 
         curl_glue_remove_and_free(j->glue, j->curl);
         j->curl = NULL;
-
-        curl_slist_free_all(j->request_header);
-        j->request_header = NULL;
 
         import_compress_free(&j->compress);
 
