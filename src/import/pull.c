@@ -5,12 +5,14 @@
 #include <stdio.h>
 
 #include "sd-event.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "build.h"
 #include "discover-image.h"
 #include "env-util.h"
+#include "json-util.h"
 #include "hexdecoct.h"
 #include "import-common.h"
 #include "import-util.h"
@@ -23,8 +25,11 @@
 #include "pull-raw.h"
 #include "pull-tar.h"
 #include "runtime-scope.h"
+#include "string-table.h"
 #include "signal-util.h"
 #include "string-util.h"
+#include "varlink-io.systemd.PullBackend.h"
+#include "varlink-util.h"
 #include "verbs.h"
 #include "web-util.h"
 
@@ -35,6 +40,7 @@ static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
 static char *arg_checksum = NULL;
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_checksum, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
@@ -288,6 +294,31 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int set_checksum(const char *checksum) {
+        int r;
+        _cleanup_free_ void *h = NULL;
+        char *hh;
+        size_t n;
+
+        r = unhexmem(checksum, &h, &n);
+        if (r < 0 || n == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid verification setting: %s", checksum);
+        if (n != 32)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "64 hex character SHA256 hash required when specifying explicit checksum, %zu specified", n * 2);
+
+        hh = hexmem(h, n); /* bring into canonical (lowercase) form */
+        if (!hh)
+                return log_oom();
+
+        free_and_replace(arg_checksum, hh);
+        arg_import_flags &= ~(IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY);
+        arg_verify = _IMPORT_VERIFY_INVALID;
+
+        return 1;
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -370,28 +401,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         v = import_verify_from_string(optarg);
                         if (v < 0) {
-                                _cleanup_free_ void *h = NULL;
-                                char *hh;
-                                size_t n;
 
                                 /* If this is not a valid verification mode, maybe it's a literally specified
                                  * SHA256 hash? We can handle that too... */
 
-                                r = unhexmem(optarg, &h, &n);
-                                if (r < 0 || n == 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Invalid verification setting: %s", optarg);
-                                if (n != 32)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "64 hex character SHA256 hash required when specifying explicit checksum, %zu specified", n * 2);
-
-                                hh = hexmem(h, n); /* bring into canonical (lowercase) form */
-                                if (!hh)
-                                        return log_oom();
-
-                                free_and_replace(arg_checksum, hh);
-                                arg_import_flags &= ~(IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY);
-                                arg_verify = _IMPORT_VERIFY_INVALID;
+                                r = set_checksum (optarg);
+                                if (r < 0)
+                                        return r;
                         } else
                                 arg_verify = v;
 
@@ -602,6 +618,116 @@ static int pull_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+typedef enum PullMode {
+        PULL_RAW,
+        PULL_TAR,
+        _PULL_MODE_MAX,
+        _PULL_MODE_INVALID = -EINVAL,
+} PullMode;
+
+static const char* pull_mode_table[_PULL_MODE_MAX] = {
+        [PULL_RAW]    = "raw",
+        [PULL_TAR]    = "tar",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(pull_mode, PullMode, PULL_RAW);
+
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_pull_mode, PullMode, pull_mode_from_string);
+
+typedef struct MethodPullParameters {
+        PullMode mode;
+        bool fsync;
+        const char *checksum;
+        const char *source;
+        const char *destination;
+} MethodPullParameters;
+
+static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+
+        // parse only the parameters used by systemd-pull
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "version",     SD_JSON_VARIANT_STRING,  0, 0, 0 },
+                { "mode",        SD_JSON_VARIANT_STRING,  dispatch_pull_mode,            offsetof(MethodPullParameters, mode),        0 },
+                { "fsync",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodPullParameters, fsync),       0 },
+                { "checksum",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, checksum),    0 },
+                { "source",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, source),      0 },
+                { "destination", SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, destination), 0 },
+                { "cachedir",    SD_JSON_VARIANT_STRING,  0, 0, 0 },
+                { "instances",   SD_JSON_VARIANT_ARRAY,  0, 0, 0 },
+                {}
+        };
+
+        MethodPullParameters p = {
+                .fsync = true,
+                .mode = _PULL_MODE_INVALID,
+        };
+        int r;
+
+        assert(link);
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        SET_FLAG(arg_import_flags, IMPORT_SYNC, p.fsync);
+
+        arg_import_flags |= IMPORT_DIRECT;
+        arg_import_flags &= ~(IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY);
+
+        r = set_checksum(p.checksum);
+        if (r < 0) {
+                sd_varlink_error(link, "io.systemd.PullBackend.InvalidChecksum", NULL);
+                return r;
+        }
+
+        if (!arg_image_root) {
+                r = image_root_pick(arg_runtime_scope < 0 ? RUNTIME_SCOPE_SYSTEM : arg_runtime_scope, arg_class, /* runtime= */ false, &arg_image_root);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pick image root: %m");
+        }
+
+        char *argv[] = {
+                NULL,
+                strdup(p.source),
+                strdup(p.destination),
+        };
+        if (p.mode == PULL_RAW) {
+                r = pull_raw (3, argv, NULL);
+        } else if (p.mode == PULL_TAR) {
+                r = pull_tar (3, argv, NULL);
+        } else {
+                assert_not_reached ();
+        }
+        if (r < 0)
+               sd_varlink_error(link, "io.systemd.PullBackend.PullError", NULL);
+
+        return sd_varlink_reply(link, NULL);
+}
+
+static int vl_server(void) {
+        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        int r;
+
+        r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, /* userdata= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PullBackend);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+        r = sd_varlink_server_bind_method(varlink_server, "io.systemd.PullBackend.Pull", vl_method_pull);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method: %m");
+
+        r = sd_varlink_server_loop_auto(varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -610,11 +736,20 @@ static int run(int argc, char *argv[]) {
 
         parse_env();
 
+        (void) ignore_signals(SIGPIPE);
+
+        r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                arg_varlink = true;
+
+        if (arg_varlink)
+                return vl_server(); /* Invocation as Varlink service */
+
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
-
-        (void) ignore_signals(SIGPIPE);
 
         return pull_main(argc, argv);
 }
