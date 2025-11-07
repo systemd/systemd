@@ -2009,6 +2009,7 @@ static int build_environment(
 
         _cleanup_strv_free_ char **e = NULL;
         size_t n = 0;
+        pid_t exec_pid;
         int r;
 
         assert(c);
@@ -2016,10 +2017,12 @@ static int build_environment(
         assert(cgroup_context);
         assert(ret);
 
+        exec_pid = needs_sandboxing && exec_needs_pid_namespace(c, p) ? 1 : getpid_cached();
+
         if (p->n_socket_fds + p->n_stashed_fds > 0) {
                 _cleanup_free_ char *joined = NULL;
 
-                r = strv_extendf_with_size(&e, &n, "LISTEN_PID="PID_FMT, getpid_cached());
+                r = strv_extendf_with_size(&e, &n, "LISTEN_PID="PID_FMT, exec_pid);
                 if (r < 0)
                         return r;
 
@@ -2044,7 +2047,7 @@ static int build_environment(
         }
 
         if ((p->flags & EXEC_SET_WATCHDOG) && p->watchdog_usec > 0) {
-                r = strv_extendf_with_size(&e, &n, "WATCHDOG_PID="PID_FMT, getpid_cached());
+                r = strv_extendf_with_size(&e, &n, "WATCHDOG_PID="PID_FMT, exec_pid);
                 if (r < 0)
                         return r;
 
@@ -2174,7 +2177,7 @@ static int build_environment(
                         return r;
         }
 
-        r = strv_extendf_with_size(&e, &n, "SYSTEMD_EXEC_PID=" PID_FMT, getpid_cached());
+        r = strv_extendf_with_size(&e, &n, "SYSTEMD_EXEC_PID=" PID_FMT, exec_pid);
         if (r < 0)
                 return r;
 
