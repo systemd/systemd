@@ -116,7 +116,14 @@ void manager_merge_configs(Manager *m) {
 
         journal_config_done(&m->config);
 
-        MERGE_NON_NEGATIVE(storage, STORAGE_AUTO);
+        MERGE_NON_NEGATIVE(storage, JOURNAL_STORAGE_DEFAULT_VAL);
+
+        /* In the initrd, only 'none' and 'volatile' make sense.
+         * Clamp the storage mode to be STORAGE_VOLATILE at most.
+         */
+        if (in_initrd())
+                storage = CLAMP(storage, STORAGE_NONE, STORAGE_VOLATILE);
+
         manager_merge_journal_compress_options(m);
         MERGE_NON_NEGATIVE(seal, true);
         /* By default, /dev/kmsg is read only by the main namespace instance. */
