@@ -1834,6 +1834,7 @@ unsigned long credentials_fs_mount_flags(bool ro) {
 
 int fsmount_credentials_fs(void) {
         _cleanup_close_ int fs_fd = -EBADF;
+        char s[DECIMAL_STR_MAX(size_t)];
 
         /* Mounts a file system we can place credentials in, i.e. with tight access modes right from the
          * beginning, and ideally swapping turned off. In order of preference:
@@ -1850,7 +1851,8 @@ int fsmount_credentials_fs(void) {
         if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "nr_inodes", "1024", 0) < 0)
                 return -errno;
 
-        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "size", STRINGIFY(CREDENTIALS_TOTAL_SIZE_MAX), 0) < 0)
+        xsprintf(s, "%zu", CREDENTIALS_TOTAL_SIZE_MAX);
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "size", s, 0) < 0)
                 return -errno;
 
         if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "noswap", NULL, 0) < 0) {
