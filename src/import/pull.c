@@ -15,11 +15,14 @@
 #include "import-common.h"
 #include "import-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "oci-util.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pull-oci.h"
 #include "pull-raw.h"
 #include "pull-tar.h"
 #include "runtime-scope.h"
@@ -32,11 +35,11 @@ static char *arg_image_root = NULL;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static ImportFlags arg_import_flags = IMPORT_PULL_SETTINGS | IMPORT_PULL_ROOTHASH | IMPORT_PULL_ROOTHASH_SIGNATURE | IMPORT_PULL_VERITY | IMPORT_BTRFS_SUBVOL | IMPORT_BTRFS_QUOTA | IMPORT_CONVERT_QCOW2 | IMPORT_SYNC;
 static uint64_t arg_offset = UINT64_MAX, arg_size_max = UINT64_MAX;
-static char *arg_checksum = NULL;
+static struct iovec arg_checksum = {};
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
-STATIC_DESTRUCTOR_REGISTER(arg_checksum, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_checksum, iovec_done);
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
 
 static int normalize_local(const char *local, const char *url, char **ret) {
@@ -162,7 +165,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                         normalized,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                         arg_verify,
-                        arg_checksum);
+                        &arg_checksum);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -231,7 +234,72 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                         arg_size_max,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
                         arg_verify,
-                        arg_checksum);
+                        &arg_checksum);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pull image: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        log_info("Exiting.");
+        return -r;
+}
+
+static void on_oci_finished(OciPull *pull, int error, void *userdata) {
+        sd_event *event = userdata;
+        assert(pull);
+
+        if (error == 0)
+                log_info("Operation completed successfully.");
+
+        sd_event_exit(event, ABS(error));
+}
+
+static int pull_oci(int argc, char *argv[], void *userdata) {
+        int r;
+
+        const char *ref = argv[1];
+
+        _cleanup_free_ char *image = NULL;
+        r = oci_ref_parse(ref, /* ret_registry= */ NULL, &image, /* ret_tag= */ NULL);
+        if (r == -EINVAL)
+                return log_error_errno(r, "OCI ref '%s' is invalid.", ref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check of OCI ref '%s' is valid: %m", ref);
+
+        _cleanup_free_ char *l = NULL;
+        const char *local;
+        if (argc >= 3)
+                local = empty_or_dash_to_null(argv[2]);
+        else {
+                r = path_extract_filename(image, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get extract final component of '%s': %m", image);
+
+                local = l;
+        }
+
+        _cleanup_free_ char *normalized = NULL;
+        r = normalize_local(local, ref, &normalized);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        r = import_allocate_event_with_signals(&event);
+        if (r < 0)
+                return r;
+
+        _cleanup_(oci_pull_unrefp) OciPull *pull = NULL;
+        r = oci_pull_new(&pull, event, arg_image_root, on_oci_finished, event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate puller: %m");
+
+        r = oci_pull_start(
+                        pull,
+                        ref,
+                        normalized,
+                        arg_import_flags & IMPORT_PULL_FLAGS_MASK_OCI);
         if (r < 0)
                 return log_error_errno(r, "Failed to pull image: %m");
 
@@ -250,6 +318,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%2$sCommands:%3$s\n"
                "  tar URL [NAME]              Download a TAR image\n"
                "  raw URL [NAME]              Download a RAW image\n"
+               "  oci REF [NAME]              Download an OCI image\n"
                "\n%2$sOptions:%3$s\n"
                "  -h --help                   Show this help\n"
                "     --version                Show package version\n"
@@ -371,7 +440,6 @@ static int parse_argv(int argc, char *argv[]) {
                         v = import_verify_from_string(optarg);
                         if (v < 0) {
                                 _cleanup_free_ void *h = NULL;
-                                char *hh;
                                 size_t n;
 
                                 /* If this is not a valid verification mode, maybe it's a literally specified
@@ -385,11 +453,10 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "64 hex character SHA256 hash required when specifying explicit checksum, %zu specified", n * 2);
 
-                                hh = hexmem(h, n); /* bring into canonical (lowercase) form */
-                                if (!hh)
-                                        return log_oom();
+                                iovec_done(&arg_checksum);
+                                arg_checksum.iov_base = TAKE_PTR(h);
+                                arg_checksum.iov_len = n;
 
-                                free_and_replace(arg_checksum, hh);
                                 arg_import_flags &= ~(IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY);
                                 arg_verify = _IMPORT_VERIFY_INVALID;
                         } else
@@ -542,7 +609,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_offset != UINT64_MAX && !FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset only supported in --direct mode.");
 
-        if (arg_checksum && (arg_import_flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) != 0)
+        if (iovec_is_set(&arg_checksum) && (arg_import_flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Literal checksum verification only supported if no associated files are downloaded.");
 
         if (!arg_image_root) {
@@ -596,6 +663,7 @@ static int pull_main(int argc, char *argv[]) {
                 { "help", VERB_ANY, VERB_ANY, 0, help     },
                 { "tar",  2,        3,        0, pull_tar },
                 { "raw",  2,        3,        0, pull_raw },
+                { "oci",  2,        3,        0, pull_oci },
                 {}
         };
 
