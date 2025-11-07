@@ -104,4 +104,6 @@ int pull_job_add_request_header(PullJob *j, const char *hdr);
 int pull_job_set_accept(PullJob *j, char * const *l);
 int pull_job_set_bearer_token(PullJob *j, const char *token);
 
+int pull_job_restart(PullJob *j, const char *new_url);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(PullJob*, pull_job_unref);
