@@ -60,8 +60,7 @@ typedef struct PullJob {
 
         uint64_t expected_content_length;
 
-        uint8_t *payload;
-        size_t payload_size;
+        struct iovec payload;
 
         int disk_fd;
         bool close_disk_fd;
