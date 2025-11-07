@@ -581,9 +581,9 @@
         </para>
 
         <para><varname>DefaultTimeoutStartSec=</varname> and <varname>DefaultTimeoutStopSec=</varname>
-        default to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
-        <varname>DefaultTimeoutAbortSec=</varname> is not set by default so that all units fall back to
-        <varname>TimeoutStopSec=</varname>. <varname>DefaultRestartSec=</varname> defaults to 100 ms.
+        default to &DEFAULT_TIMEOUT_SEC; in the system manager and &DEFAULT_USER_TIMEOUT_SEC; in the user
+        manager. <varname>DefaultTimeoutAbortSec=</varname> is not set by default so that all units fall back
+        to <varname>TimeoutStopSec=</varname>. <varname>DefaultRestartSec=</varname> defaults to 100 ms.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
@@ -597,8 +597,8 @@
         and <filename>/etc/crypttab</filename> (see
         <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
         <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-        Defaults to &DEFAULT_TIMEOUT; in the system manager and &DEFAULT_USER_TIMEOUT; in the user manager.
-        </para>
+        Defaults to &DEFAULT_TIMEOUT_SEC; in the system manager and &DEFAULT_USER_TIMEOUT_SEC; in the user
+        manager.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
