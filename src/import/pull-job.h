@@ -58,8 +58,9 @@ typedef struct PullJob {
         uint64_t uncompressed_max;
         uint64_t compressed_max;
 
-        uint8_t *payload;
-        size_t payload_size;
+        uint64_t expected_content_length;
+
+        struct iovec payload;
 
         int disk_fd;
         bool close_disk_fd;
@@ -76,7 +77,9 @@ typedef struct PullJob {
         bool calc_checksum;
         EVP_MD_CTX *checksum_ctx;
 
-        char *checksum;
+        struct iovec checksum;
+        struct iovec expected_checksum;
+
         bool sync;
         bool force_memory;
 } PullJob;

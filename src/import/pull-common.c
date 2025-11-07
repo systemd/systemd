@@ -6,6 +6,7 @@
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
@@ -247,7 +248,6 @@ int pull_make_verification_jobs(
                 PullJob **ret_checksum_job,
                 PullJob **ret_signature_job,
                 ImportVerify verify,
-                const char *checksum, /* set if literal checksum verification is requested, in which case 'verify' is set to _IMPORT_VERIFY_INVALID */
                 const char *url,
                 CurlGlue *glue,
                 PullJobFinished on_finished,
@@ -261,13 +261,13 @@ int pull_make_verification_jobs(
         assert(ret_signature_job);
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
-        assert((verify < 0) || !checksum);
         assert(url);
         assert(glue);
 
         /* If verification is turned off, or if the checksum to validate is already specified we don't need
          * to download a checksum file or signature, hence shortcut things */
-        if (verify == IMPORT_VERIFY_NO || checksum) {
+        if (verify < 0 ||                  /* verification already done (via literal checksum) */
+            verify == IMPORT_VERIFY_NO) {  /* verification turned off */
                 *ret_checksum_job = *ret_signature_job = NULL;
                 return 0;
         }
@@ -351,7 +351,7 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                 return 0;
 
         assert(job->calc_checksum);
-        assert(job->checksum);
+        assert(iovec_is_set(&job->checksum));
 
         r = import_url_last_component(job->url, &fn);
         if (r < 0)
@@ -365,6 +365,10 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                 return log_error_errno(SYNTHETIC_ERRNO(ELOOP),
                                        "Cannot verify checksum/signature files via themselves.");
 
+        _cleanup_free_ char *cs = hexmem(job->checksum.iov_base, job->checksum.iov_len);
+        if (!cs)
+                return log_oom();
+
         const char *p = NULL;
         FOREACH_STRING(separator,
                        " *", /* separator for binary mode */
@@ -372,12 +376,12 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                        " "   /* non-standard separator used by linuxcontainers.org */) {
                 _cleanup_free_ char *line = NULL;
 
-                line = strjoin(job->checksum, separator, fn, "\n");
+                line = strjoin(cs, separator, fn, "\n");
                 if (!line)
                         return log_oom();
 
-                p = memmem_safe(checksum_job->payload,
-                                checksum_job->payload_size,
+                p = memmem_safe(checksum_job->payload.iov_base,
+                                checksum_job->payload.iov_len,
                                 line,
                                 strlen(line));
                 if (p)
@@ -385,7 +389,7 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
         }
 
         /* Only counts if found at beginning of a line */
-        if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n'))
+        if (!p || (p != (char*) checksum_job->payload.iov_base && p[-1] != '\n'))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "DOWNLOAD INVALID: Checksum of %s file did not check out, file has been tampered with.", fn);
 
@@ -394,8 +398,8 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
 }
 
 static int verify_gpg(
-                const void *payload, size_t payload_size,
-                const void *signature, size_t signature_size) {
+                const struct iovec *payload,
+                const struct iovec *signature) {
 
         _cleanup_close_pair_ int gpg_pipe[2] = EBADF_PAIR;
         _cleanup_(rm_rf_physical_and_freep) char *gpg_home = NULL;
@@ -403,21 +407,21 @@ static int verify_gpg(
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         int r;
 
-        assert(payload || payload_size == 0);
-        assert(signature || signature_size == 0);
+        assert(iovec_is_valid(payload));
+        assert(iovec_is_valid(signature));
 
         r = pipe2(gpg_pipe, O_CLOEXEC);
         if (r < 0)
                 return log_error_errno(errno, "Failed to create pipe for gpg: %m");
 
-        if (signature_size > 0) {
+        if (iovec_is_set(signature)) {
                 _cleanup_close_ int sig_file = -EBADF;
 
                 sig_file = mkostemp(sig_file_path, O_RDWR);
                 if (sig_file < 0)
                         return log_error_errno(errno, "Failed to create temporary file: %m");
 
-                r = loop_write(sig_file, signature, signature_size);
+                r = loop_write(sig_file, signature->iov_base, signature->iov_len);
                 if (r < 0) {
                         log_error_errno(r, "Failed to write to temporary file: %m");
                         goto finish;
@@ -483,10 +487,12 @@ static int verify_gpg(
 
         gpg_pipe[0] = safe_close(gpg_pipe[0]);
 
-        r = loop_write(gpg_pipe[1], payload, payload_size);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write to pipe: %m");
-                goto finish;
+        if (iovec_is_set(payload)) {
+                r = loop_write(gpg_pipe[1], payload->iov_base, payload->iov_len);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to write to pipe: %m");
+                        goto finish;
+                }
         }
 
         gpg_pipe[1] = safe_close(gpg_pipe[1]);
@@ -503,14 +509,13 @@ static int verify_gpg(
         }
 
 finish:
-        if (signature_size > 0)
+        if (iovec_is_set(signature))
                 (void) unlink(sig_file_path);
 
         return r;
 }
 
 int pull_verify(ImportVerify verify,
-                const char *checksum, /* Verify with literal checksum */
                 PullJob *main_job,
                 PullJob *checksum_job,
                 PullJob *signature_job,
@@ -526,32 +531,12 @@ int pull_verify(ImportVerify verify,
 
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
-        assert((verify < 0) || !checksum);
         assert(main_job);
         assert(main_job->state == PULL_JOB_DONE);
 
-        if (verify == IMPORT_VERIFY_NO) /* verification turned off */
+        if (verify < 0 ||               /* verification already done (via literal checksum) */
+            verify == IMPORT_VERIFY_NO) /* verification turned off */
                 return 0;
-
-        if (checksum) {
-                /* Verification by literal checksum */
-                assert(!checksum_job);
-                assert(!signature_job);
-                assert(!settings_job);
-                assert(!roothash_job);
-                assert(!roothash_signature_job);
-                assert(!verity_job);
-
-                assert(main_job->calc_checksum);
-                assert(main_job->checksum);
-
-                if (!strcaseeq(checksum, main_job->checksum))
-                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "DOWNLOAD INVALID: Checksum of %s file did not check out, file has been tampered with.",
-                                               main_job->url);
-
-                return 0;
-        }
 
         r = import_url_last_component(main_job->url, &fn);
         if (r < 0)
@@ -566,11 +551,11 @@ int pull_verify(ImportVerify verify,
                 verify_job = main_job;
         } else {
                 assert(main_job->calc_checksum);
-                assert(main_job->checksum);
+                assert(iovec_is_set(&main_job->checksum));
                 assert(checksum_job);
                 assert(checksum_job->state == PULL_JOB_DONE);
 
-                if (!checksum_job->payload || checksum_job->payload_size <= 0)
+                if (!iovec_is_set(&checksum_job->payload))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Checksum is empty, cannot verify.");
 
@@ -596,11 +581,11 @@ int pull_verify(ImportVerify verify,
         assert(signature_job);
         assert(signature_job->state == PULL_JOB_DONE);
 
-        if (!signature_job->payload || signature_job->payload_size <= 0)
+        if (!iovec_is_set(&signature_job->payload))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Signature is empty, cannot verify.");
 
-        return verify_gpg(verify_job->payload, verify_job->payload_size, signature_job->payload, signature_job->payload_size);
+        return verify_gpg(&verify_job->payload, &signature_job->payload);
 }
 
 int verification_style_from_url(const char *url, VerificationStyle *ret) {
