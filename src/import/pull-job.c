@@ -30,6 +30,10 @@ static int http_status_etag_exists(CURLcode status) {
         return status == 304;
 }
 
+static int http_status_need_authentication(CURLcode status) {
+        return status == 401;
+}
+
 void pull_job_close_disk_fd(PullJob *j) {
         if (!j)
                 return;
@@ -65,6 +69,7 @@ PullJob* pull_job_unref(PullJob *j) {
         if (j->free_userdata)
                 j->free_userdata(j->userdata);
         free(j->description);
+        free(j->authentication_challenge);
 
         return mfree(j);
 }
@@ -203,6 +208,10 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                         log_info("Image already downloaded. Skipping download.");
                         j->etag_exists = true;
                         r = 0;
+                        goto finish;
+                } else if (http_status_need_authentication(status)) {
+                        log_info("Access to image requires authentication.");
+                        r = -ENOKEY;
                         goto finish;
                 } else if (status >= 300) {
 
@@ -580,6 +589,19 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
                 goto fail;
         }
 
+        if (http_status_need_authentication(status)) {
+                _cleanup_free_ char *challenge = NULL;
+
+                r = curl_header_strdup(contents, sz, "WWW-Authenticate:", &challenge);
+                if (r < 0) {
+                        log_oom();
+                        goto fail;
+                }
+                if (r > 0)
+                        free_and_replace(j->authentication_challenge, challenge);
+                return sz;
+        }
+
         if (http_status_ok(status) || http_status_etag_exists(status)) {
                 /* Check Etag on OK and etag exists responses. */
 
@@ -841,6 +863,16 @@ int pull_job_set_accept(PullJob *j, char * const *l) {
                 return -ENOMEM;
 
         _cleanup_free_ char *f = strjoin("Accept: ", joined);
+        if (!f)
+                return -ENOMEM;
+
+        return pull_job_add_request_header(j, f);
+}
+
+int pull_job_set_bearer_token(PullJob *j, const char *token) {
+        assert(j);
+
+        _cleanup_free_ char *f = strjoin("Authorization: Bearer ", token);
         if (!f)
                 return -ENOMEM;
 
