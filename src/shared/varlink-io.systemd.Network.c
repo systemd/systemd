@@ -509,7 +509,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Model, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DNS servers configured for this interface"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DNS, DNS, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                /* FIXME: DNR Addresses fied (json array or arrays) is incompatible with Varlink type system */
+                /* FIXME: DNR Addresses field (json array or arrays) is incompatible with Varlink type system */
                 SD_VARLINK_FIELD_COMMENT("Discovery of Network-designated Resolvers (RFC9463)"),
                 SD_VARLINK_DEFINE_FIELD(DNR, SD_VARLINK_OBJECT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("NTP servers configured for this interface"),
