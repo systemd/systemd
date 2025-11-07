@@ -17,7 +17,7 @@
 # See journald.conf(5) for details.
 
 [Journal]
-#Storage=auto
+#Storage={{ JOURNAL_STORAGE_DEFAULT }}
 #Compress=yes
 #Seal=yes
 #SplitMode=uid

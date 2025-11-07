@@ -116,7 +116,7 @@ void manager_merge_configs(Manager *m) {
 
         journal_config_done(&m->config);
 
-        MERGE_NON_NEGATIVE(storage, STORAGE_AUTO);
+        MERGE_NON_NEGATIVE(storage, JOURNAL_STORAGE_DEFAULT_VAL);
         manager_merge_journal_compress_options(m);
         MERGE_NON_NEGATIVE(seal, true);
         /* By default, /dev/kmsg is read only by the main namespace instance. */

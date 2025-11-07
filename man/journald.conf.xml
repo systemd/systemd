@@ -83,7 +83,8 @@
         (the existence of the directory controls the storage mode). <literal>none</literal> turns off all
         storage, all log data received will be dropped (but forwarding to other targets, such as the console,
         the kernel log buffer, or a syslog socket will still work). Defaults to <literal>auto</literal> in
-        the default journal namespace, and <literal>persistent</literal> in all others.</para>
+        the default journal namespace, and <literal>persistent</literal> in all others. The default
+        for the main journal namespace may be overriden at compilation time.</para>
 
         <para>Note that journald will initially use volatile storage, until a call to
         <command>journalctl --flush</command> (or sending <constant>SIGUSR1</constant> to journald) will cause
