@@ -380,8 +380,8 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
                 if (!line)
                         return log_oom();
 
-                p = memmem_safe(checksum_job->payload,
-                                checksum_job->payload_size,
+                p = memmem_safe(checksum_job->payload.iov_base,
+                                checksum_job->payload.iov_len,
                                 line,
                                 strlen(line));
                 if (p)
@@ -389,7 +389,7 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
         }
 
         /* Only counts if found at beginning of a line */
-        if (!p || (p != (char*) checksum_job->payload && p[-1] != '\n'))
+        if (!p || (p != (char*) checksum_job->payload.iov_base && p[-1] != '\n'))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "DOWNLOAD INVALID: Checksum of %s file did not check out, file has been tampered with.", fn);
 
@@ -398,8 +398,8 @@ static int verify_one(PullJob *checksum_job, PullJob *job) {
 }
 
 static int verify_gpg(
-                const void *payload, size_t payload_size,
-                const void *signature, size_t signature_size) {
+                const struct iovec *payload,
+                const struct iovec *signature) {
 
         _cleanup_close_pair_ int gpg_pipe[2] = EBADF_PAIR;
         _cleanup_(rm_rf_physical_and_freep) char *gpg_home = NULL;
@@ -407,21 +407,21 @@ static int verify_gpg(
         _cleanup_(sigkill_waitp) pid_t pid = 0;
         int r;
 
-        assert(payload || payload_size == 0);
-        assert(signature || signature_size == 0);
+        assert(iovec_is_valid(payload));
+        assert(iovec_is_valid(signature));
 
         r = pipe2(gpg_pipe, O_CLOEXEC);
         if (r < 0)
                 return log_error_errno(errno, "Failed to create pipe for gpg: %m");
 
-        if (signature_size > 0) {
+        if (iovec_is_set(signature)) {
                 _cleanup_close_ int sig_file = -EBADF;
 
                 sig_file = mkostemp(sig_file_path, O_RDWR);
                 if (sig_file < 0)
                         return log_error_errno(errno, "Failed to create temporary file: %m");
 
-                r = loop_write(sig_file, signature, signature_size);
+                r = loop_write(sig_file, signature->iov_base, signature->iov_len);
                 if (r < 0) {
                         log_error_errno(r, "Failed to write to temporary file: %m");
                         goto finish;
@@ -487,10 +487,12 @@ static int verify_gpg(
 
         gpg_pipe[0] = safe_close(gpg_pipe[0]);
 
-        r = loop_write(gpg_pipe[1], payload, payload_size);
-        if (r < 0) {
-                log_error_errno(r, "Failed to write to pipe: %m");
-                goto finish;
+        if (iovec_is_set(payload)) {
+                r = loop_write(gpg_pipe[1], payload->iov_base, payload->iov_len);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to write to pipe: %m");
+                        goto finish;
+                }
         }
 
         gpg_pipe[1] = safe_close(gpg_pipe[1]);
@@ -507,7 +509,7 @@ static int verify_gpg(
         }
 
 finish:
-        if (signature_size > 0)
+        if (iovec_is_set(signature))
                 (void) unlink(sig_file_path);
 
         return r;
@@ -553,7 +555,7 @@ int pull_verify(ImportVerify verify,
                 assert(checksum_job);
                 assert(checksum_job->state == PULL_JOB_DONE);
 
-                if (!checksum_job->payload || checksum_job->payload_size <= 0)
+                if (!iovec_is_set(&checksum_job->payload))
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Checksum is empty, cannot verify.");
 
@@ -579,11 +581,11 @@ int pull_verify(ImportVerify verify,
         assert(signature_job);
         assert(signature_job->state == PULL_JOB_DONE);
 
-        if (!signature_job->payload || signature_job->payload_size <= 0)
+        if (!iovec_is_set(&signature_job->payload))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Signature is empty, cannot verify.");
 
-        return verify_gpg(verify_job->payload, verify_job->payload_size, signature_job->payload, signature_job->payload_size);
+        return verify_gpg(&verify_job->payload, &signature_job->payload);
 }
 
 int verification_style_from_url(const char *url, VerificationStyle *ret) {
