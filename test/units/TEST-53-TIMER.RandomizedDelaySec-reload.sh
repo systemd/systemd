@@ -75,16 +75,16 @@ check_elapse_timestamp() {
 systemctl restart "$UNIT_NAME.timer"
 check_elapse_timestamp
 
-# Bump the system date to 1 minute after the original calendar timer would've expired (without any random
-# delay!) - systemd should recalculate the next elapse timestamp with a new randomized delay, but it should
-# use the original inactive exit timestamp as a "base", so the final timestamp should not end up beyond the
-# original calendar timestamp + randomized delay range.
+# Bump the system date to exactly the original calendar timer time (without any random delay!) - systemd
+# should recalculate the next elapse timestamp with a new randomized delay, but it should use the original
+# inactive exit timestamp as a "base", so the final timestamp should not end up beyond the original calendar
+# timestamp + randomized delay range.
 #
 # Similarly, do the same check after doing daemon-reload, as that also forces systemd to recalculate the next
 # elapse timestamp (this goes through a slightly different codepath that actually contained the original
 # issue).
 : "Next elapse timestamp after time jump"
-date -s "tomorrow 00:11"
+date -s "tomorrow 00:10"
 check_elapse_timestamp
 
 : "Next elapse timestamp after daemon-reload"
