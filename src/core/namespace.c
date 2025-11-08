@@ -2811,12 +2811,20 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return log_oom_debug();
 
                 *me = (MountEntry) {
-                        .path_const = "/run/credentials",
                         .mode = MOUNT_TMPFS,
                         .read_only = true,
                         .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
                         .flags = MS_NODEV|MS_STRICTATIME|MS_NOSUID|MS_NOEXEC,
                 };
+
+                if (p->runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                        me->path_const = "/run/credentials";
+                else {
+                        r = path_extract_directory(p->creds_path, &me->path_malloc);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract parent directory from '%s': %m",
+                                                       p->creds_path);
+                }
 
                 me = mount_list_extend(&ml);
                 if (!me)
@@ -2829,9 +2837,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .source_const = p->creds_path,
                         .ignore = true,
                 };
-        } else {
-                /* If our service has no credentials store configured, then make the whole credentials tree
-                 * inaccessible wholesale. */
+        }
+
+        if (!p->creds_path || p->runtime_scope != RUNTIME_SCOPE_SYSTEM) {
+                /* If our service has no credentials store configured, or we're running in user scope, then
+                 * make the system credentials tree inaccessible wholesale. */
 
                 MountEntry *me = mount_list_extend(&ml);
                 if (!me)
