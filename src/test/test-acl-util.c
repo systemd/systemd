@@ -112,30 +112,6 @@ TEST_RET(fd_acl_make_read_only) {
         cmd = strjoina("stat ", fn);
         ASSERT_OK_ZERO_ERRNO(system(cmd));
 
-        log_info("writable");
-        ASSERT_OK_POSITIVE(fd_acl_make_writable(fd));
-
-        ASSERT_OK_ERRNO(fstat(fd, &st));
-        ASSERT_EQ(st.st_mode & 0222, 0200u);
-
-        cmd = strjoina("getfacl -p ", fn);
-        ASSERT_OK_ZERO_ERRNO(system(cmd));
-
-        cmd = strjoina("stat ", fn);
-        ASSERT_OK_ZERO_ERRNO(system(cmd));
-
-        log_info("read-only");
-        ASSERT_OK_POSITIVE(fd_acl_make_read_only(fd));
-
-        ASSERT_OK_ERRNO(fstat(fd, &st));
-        ASSERT_EQ(st.st_mode & 0222, 0000u);
-
-        cmd = strjoina("getfacl -p ", fn);
-        ASSERT_OK_ZERO_ERRNO(system(cmd));
-
-        cmd = strjoina("stat ", fn);
-        ASSERT_OK_ZERO_ERRNO(system(cmd));
-
         return 0;
 }
 

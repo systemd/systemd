@@ -4,7 +4,6 @@
 #include "shared-forward.h"
 
 int fd_acl_make_read_only_fallback(int fd);
-int fd_acl_make_writable_fallback(int fd);
 
 #if HAVE_ACL
 #include <acl/libacl.h> /* IWYU pragma: export */
@@ -56,7 +55,6 @@ int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *ret);
 int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask);
 
 int fd_acl_make_read_only(int fd);
-int fd_acl_make_writable(int fd);
 
 /* acl_free() takes multiple argument types. Multiple cleanup functions are necessary. */
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(acl_t, sym_acl_free, acl_freep, NULL);
@@ -88,10 +86,6 @@ static inline int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask) {
 
 static inline int fd_acl_make_read_only(int fd) {
         return fd_acl_make_read_only_fallback(fd);
-}
-
-static inline int fd_acl_make_writable(int fd) {
-        return fd_acl_make_writable_fallback(fd);
 }
 #endif
 
