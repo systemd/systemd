@@ -333,11 +333,8 @@ static int parse_one_option(const char *option) {
                 arg_no_write_workqueue = true;
         else if (streq(option, "luks"))
                 arg_type = ANY_LUKS;
-/* since cryptsetup 2.3.0 (Feb 2020) */
-#ifdef CRYPT_BITLK
         else if (streq(option, "bitlk"))
                 arg_type = CRYPT_BITLK;
-#endif
         else if (streq(option, "tcrypt"))
                 arg_type = CRYPT_TCRYPT;
         else if (STR_IN_SET(option, "tcrypt-hidden", "tcrypthidden")) {
@@ -2494,11 +2491,9 @@ static uint32_t determine_flags(void) {
         if (arg_no_write_workqueue)
                 flags |= CRYPT_ACTIVATE_NO_WRITE_WORKQUEUE;
 
-#ifdef CRYPT_ACTIVATE_SERIALIZE_MEMORY_HARD_PBKDF
         /* Try to decrease the risk of OOM event if memory hard key derivation function is in use */
         /* https://gitlab.com/cryptsetup/cryptsetup/issues/446/ */
         flags |= CRYPT_ACTIVATE_SERIALIZE_MEMORY_HARD_PBKDF;
-#endif
 
         return flags;
 }
@@ -2674,14 +2669,11 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                 }
         }
 
-/* since cryptsetup 2.3.0 (Feb 2020) */
-#ifdef CRYPT_BITLK
         if (streq_ptr(arg_type, CRYPT_BITLK)) {
                 r = crypt_load(cd, CRYPT_BITLK, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to load Bitlocker superblock on device %s: %m", crypt_get_device_name(cd));
         }
-#endif
 
         bool use_cached_passphrase = true, try_discover_key = !key_file;
         const char *discovered_key_fn = strjoina(volume, ".key");

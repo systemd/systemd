@@ -5323,11 +5323,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (r < 0)
                         return log_error_errno(r, "Failed to load reencryption context: %m");
 
-#if HAVE_CRYPT_REENCRYPT_RUN
                 r = sym_crypt_reencrypt_run(cd, NULL, NULL);
-#else
-                r = sym_crypt_reencrypt(cd, NULL);
-#endif
                 if (r < 0)
                         return log_error_errno(r, "Failed to encrypt %s: %m", node);
         } else {
@@ -5369,7 +5365,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         return 0;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "libcryptsetup is not supported or is missing required symbols, cannot encrypt.");
+                               "libcryptsetup is not supported, cannot encrypt.");
 #endif
 }
 
