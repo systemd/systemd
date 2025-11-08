@@ -101,7 +101,6 @@ executables += [
                 'sources' : files('test-qcow2.c'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
-                'conditions' : ['HAVE_ZLIB'],
                 'type' : 'manual',
         },
 
