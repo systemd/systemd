@@ -82,6 +82,16 @@ int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, i
 #  define fsconfig missing_fsconfig
 #endif
 
+/* Equivalent of fopen for an existing mount point.  */
+/* Defined since glibc-2.36.
+ * Supported since kernel v5.2 (cf3cba4a429be43e5527a3f78859b1bfd9ebc5fb). */
+#if HAVE_FSPICK
+extern int fspick(int __dfd, const char *__path, unsigned int __flags) __THROW;
+#else
+int missing_fspick(int dfd, const char *path, unsigned flags);
+#  define fspick missing_fspick
+#endif
+
 /* Open the mount point FILENAME in directory DFD using FLAGS.  */
 /* Defined since glibc-2.36.
  * Supported since kernel v5.2 (a07b20004793d8926f78d63eb5980559f7813404). */
