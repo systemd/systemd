@@ -959,7 +959,7 @@ static int setup_credentials_plain_dir(
 
         r = mkdir_label(t, 0700);
         if (r < 0 && r != -EEXIST)
-                return r;
+                return log_error_errno(r, "mkdir_label: %m");
 
         workspace = path_join(t, unit);
         if (!workspace)
@@ -967,13 +967,17 @@ static int setup_credentials_plain_dir(
 
         dfd = open_mkdir(workspace, O_CLOEXEC|O_EXCL, 0700);
         if (dfd < 0)
-                return log_debug_errno(dfd, "Failed to create workspace for credentials: %m");
+                return log_error_errno(dfd, "Failed to create workspace for credentials: %m");
 
         (void) label_fix_full(dfd, /* inode_path = */ NULL, cred_dir, /* flags = */ 0);
+
+        log_error("About to acquire_credentials()");
 
         r = acquire_credentials(context, cgroup_context, params, unit, dfd, uid, gid, /* ownership_ok = */ false);
         if (r < 0)
                 goto purge;
+
+        log_error("acquire_credentials() succeeded, proceeding to rename()");
 
         r = RET_NERRNO(rename(workspace, cred_dir));
         if (r >= 0)
@@ -981,7 +985,7 @@ static int setup_credentials_plain_dir(
         if (r == -EEXIST)
                 r = RET_NERRNO(renameat2(AT_FDCWD, workspace, AT_FDCWD, cred_dir, RENAME_EXCHANGE));
         if (r < 0)
-                log_debug_errno(r, "Failed to move credentials workspace into place: %m");
+                log_error_errno(r, "Failed to move credentials workspace into place: %m");
 
 purge:
         (void) rm_rf(workspace, REMOVE_ROOT|REMOVE_CHMOD);
@@ -990,7 +994,7 @@ finalize:
         if (r >= 0) {
                 r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok = */ false);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");;
+                        log_error_errno(r, "Failed to adjust ACLs of credentials dir: %m");;
         }
 
         return r;
@@ -1032,7 +1036,7 @@ static int setup_credentials_internal(
 
         mfd = fsmount_credentials_fs(&fs_fd);
         if (ERRNO_IS_NEG_PRIVILEGE(mfd) && !dir_mounted) {
-                log_debug_errno(mfd, "Lacking privilege to mount credentials fs, falling back to plain directory.");
+                log_error_errno(mfd, "Lacking privilege to mount credentials fs, falling back to plain directory.");
                 return setup_credentials_plain_dir(context, cgroup_context, params, unit, cred_dir, uid, gid);
         }
         if (mfd < 0)
@@ -1040,43 +1044,49 @@ static int setup_credentials_internal(
 
         dfd = fd_reopen(mfd, O_DIRECTORY|O_CLOEXEC);
         if (dfd < 0)
-                return dfd;
+                return log_error_errno(dfd, "fd_reopen(): %m");
 
         (void) label_fix_full(dfd, /* inode_path = */ NULL, cred_dir, /* flags = */ 0);
+
+        log_error("About to acquire_credentials()");
 
         r = acquire_credentials(context, cgroup_context, params, unit, dfd, uid, gid, /* ownership_ok = */ true);
         if (r < 0)
                 return r;
 
+        log_error("acquire_credentials() succeeded, proceeding to credentials_dir_finalize_permissions()");
+
         r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok = */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");
 
+        log_error("credentials_dir_finalize_permissions() done, remounting fs as ro");
+
         if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", NULL, 0) < 0)
-                return -errno;
+                return log_error_errno(errno, "fsconfig(ro): %m");
 
         if (fsconfig(fs_fd, FSCONFIG_CMD_RECONFIGURE, NULL, NULL, 0) < 0)
-                return -errno;
+                return log_error_errno(errno, "fsconfig(FSCONFIG_CMD_RECONFIGURE): %m");
 
-        log_debug("Successfully reconfigured credentials fs to be read only.");
+        log_error("Successfully reconfigured credentials fs to be read only. dir_mounted: %s", one_zero(dir_mounted));
 
         if (dir_mounted) {
                 r = move_mount(mfd, "", AT_FDCWD, cred_dir, MOVE_MOUNT_F_EMPTY_PATH|MOVE_MOUNT_BENEATH);
                 if (r >= 0)
-                        return umount_verbose(LOG_DEBUG, cred_dir, MNT_DETACH|UMOUNT_NOFOLLOW);
+                        return umount_verbose(LOG_ERR, cred_dir, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (errno != EINVAL)
-                        return log_debug_errno(errno, "Failed to move credentials fs into place: %m");
+                        return log_error_errno(errno, "Failed to move credentials fs into place (MOVE_MOUNT_BENEATH): %m");
 
-                log_debug_errno(errno, "Unable to move credentials fs beneath existing mount '%s', unmounting instead: %m");
+                log_error("MOVE_MOUNT_BENEATH not supported, falling back");
 
-                r = umount_verbose(LOG_DEBUG, cred_dir, MNT_DETACH|UMOUNT_NOFOLLOW);
+                r = umount_verbose(LOG_ERR, cred_dir, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
                         return r;
         }
 
         r = move_mount(mfd, "", AT_FDCWD, cred_dir, MOVE_MOUNT_F_EMPTY_PATH);
         if (r < 0)
-                return log_debug_errno(errno, "Failed to move credentials fs into place: %m");
+                return log_error_errno(errno, "Failed to move credentials fs into place: %m");
 
         return 0;
 }
