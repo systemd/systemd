@@ -446,6 +446,13 @@ systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
             --service-type=oneshot --wait --pipe \
             true | cmp /etc/os-release
 
+# https://github.com/systemd/systemd/issues/35788
+systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
+            -p 'ExecCondition=systemd-creds cat os' \
+            --unit=test-54-exec-condition.service \
+            --service-type=oneshot --wait --pipe \
+            true | cmp /etc/os-release
+
 # https://github.com/systemd/systemd/pull/24734#issuecomment-1925440546
 # Also ExecStartPre= should be able to update creds
 dd if=/dev/urandom of=/tmp/cred-huge bs=600K count=1
