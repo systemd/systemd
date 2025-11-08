@@ -1175,7 +1175,7 @@ endif
 
 feature = get_option('polkit')
 libpolkit = dependency('polkit-gobject-1',
-                       required : feature.disabled() ? feature : false)
+                       required : false)
 install_polkit = feature.allowed()
 install_polkit_pkla = libpolkit.found() and libpolkit.version().version_compare('< 0.106')
 if install_polkit_pkla
@@ -1214,13 +1214,13 @@ libxenctrl_cflags = libxenctrl.partial_dependency(includes: true, compile_args: 
 
 feature = get_option('pam')
 libpam = dependency('pam',
-                    required : feature.disabled() ? feature : false)
+                    required : false)
 if not libpam.found()
         # Debian older than bookworm and Ubuntu older than 22.10 do not provide the .pc file.
         libpam = cc.find_library('pam', required : feature)
 endif
 libpam_misc = dependency('pam_misc',
-                         required : feature.disabled() ? feature : false)
+                         required : false)
 if not libpam_misc.found()
         libpam_misc = cc.find_library('pam_misc', required : feature)
 endif
@@ -1301,7 +1301,7 @@ feature = get_option('gcrypt')
 libgcrypt = dependency('libgcrypt',
                        required : feature)
 libgpg_error = dependency('gpg-error',
-                          required : feature.disabled() ? feature : false)
+                          required : feature)
 
 have = libgcrypt.found() and libgpg_error.found()
 if not have
@@ -1367,7 +1367,7 @@ conf.set10('HAVE_ZLIB', libz.found())
 
 feature = get_option('bzip2')
 libbzip2 = dependency('bzip2',
-                      required : feature.disabled() ? feature : false)
+                      required : false)
 if not libbzip2.found()
         # Debian and Ubuntu do not provide the .pc file.
         libbzip2 = cc.find_library('bz2', required : feature)
@@ -1882,7 +1882,7 @@ if have and efi_arch == 'x64' and cc.links('''
         efi_cpu_family_alt = 'x86'
 endif
 
-pefile = pymod.find_installation('python3', required: false, modules : ['pefile'])
+pefile = pymod.find_installation('python3', required : false, modules : ['pefile'])
 
 want_ukify = get_option('ukify').require(python_39 and (want_tests != 'true' or pefile.found()), error_message : 'Python >= 3.9 and pefile required').allowed()
 conf.set10('ENABLE_UKIFY', want_ukify)
