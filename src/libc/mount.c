@@ -28,6 +28,12 @@ int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, i
 }
 #endif
 
+#if !HAVE_FSPICK
+int missing_fspick(int dfd, const char *path, unsigned flags) {
+        return syscall(__NR_fspick, dfd, path, flags);
+}
+#endif
+
 #if !HAVE_OPEN_TREE
 int missing_open_tree(int dfd, const char *filename, unsigned flags) {
         return syscall(__NR_open_tree, dfd, filename, flags);
