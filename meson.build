@@ -1539,7 +1539,7 @@ have = get_option('importd').require(
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_ZLIB') == 1 and
         conf.get('HAVE_XZ') == 1,
-        error_message : 'curl, openssl/grypt, zlib and xz required').allowed()
+        error_message : 'curl, openssl, zlib and xz required').allowed()
 conf.set10('ENABLE_IMPORTD', have)
 
 have = get_option('sysupdate').require(
