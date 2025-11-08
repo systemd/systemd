@@ -1270,7 +1270,7 @@ static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, s
         LIST_FOREACH(scopes, s, m->dns_scopes) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
 
-                r = dns_scope_dump_cache_to_json(s, &j);
+                r = dns_scope_to_json(s, /* with_cache= */ true, &j);
                 if (r < 0)
                         return r;
 
