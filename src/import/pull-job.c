@@ -20,6 +20,21 @@
 #include "time-util.h"
 #include "xattr-util.h"
 
+static int http_status_ok(CURLcode status) {
+        /* Consider all HTTP status code in the 2xx range as OK */
+        return status >= 200 && status <= 299;
+}
+
+static int http_status_etag_exists(CURLcode status) {
+        /* This one is special, it's triggered by our etag mgmt logic */
+        return status == 304;
+}
+
+static int http_status_need_authentication(CURLcode status) {
+        /* This resource requires authentication */
+        return status == 401;
+}
+
 void pull_job_close_disk_fd(PullJob *j) {
         if (!j)
                 return;
@@ -47,10 +62,23 @@ PullJob* pull_job_unref(PullJob *j) {
         free(j->url);
         free(j->etag);
         strv_free(j->old_etags);
-        free(j->payload);
-        free(j->checksum);
+        iovec_done(&j->payload);
+        iovec_done(&j->checksum);
+        iovec_done(&j->expected_checksum);
+        free(j->content_type);
+
+        if (j->free_userdata)
+                j->free_userdata(j->userdata);
+        free(j->description);
+        free(j->authentication_challenge);
 
         return mfree(j);
+}
+
+static const char *pull_job_description(PullJob *j) {
+        assert(j);
+
+        return j->description ?: j->url;
 }
 
 static void pull_job_finish(PullJob *j, int ret) {
@@ -62,7 +90,7 @@ static void pull_job_finish(PullJob *j, int ret) {
         if (ret == 0) {
                 j->state = PULL_JOB_DONE;
                 j->progress_percent = 100;
-                log_info("Download of %s complete.", j->url);
+                log_info("Download of %s complete.", pull_job_description(j));
         } else {
                 j->state = PULL_JOB_FAILED;
                 j->error = ret;
@@ -72,33 +100,37 @@ static void pull_job_finish(PullJob *j, int ret) {
                 j->on_finished(j);
 }
 
-static int pull_job_restart(PullJob *j, const char *new_url) {
+int pull_job_restart(PullJob *j, const char *new_url) {
         int r;
 
         assert(j);
-        assert(new_url);
 
-        r = free_and_strdup(&j->url, new_url);
-        if (r < 0)
-                return r;
+        if (new_url) {
+                r = free_and_strdup(&j->url, new_url);
+                if (r < 0)
+                        return r;
+        }
 
         j->state = PULL_JOB_INIT;
         j->error = 0;
-        j->payload = mfree(j->payload);
-        j->payload_size = 0;
+        iovec_done(&j->payload);
         j->written_compressed = 0;
         j->written_uncompressed = 0;
         j->content_length = UINT64_MAX;
         j->etag = mfree(j->etag);
         j->etag_exists = false;
         j->mtime = 0;
-        j->checksum = mfree(j->checksum);
+        iovec_done(&j->checksum);
+        j->content_type = mfree(j->content_type);
+
+        if (new_url) {
+                /* Reset expectations if the URL changes */
+                iovec_done(&j->expected_checksum);
+                j->expected_content_length = UINT64_MAX;
+        }
 
         curl_glue_remove_and_free(j->glue, j->curl);
         j->curl = NULL;
-
-        curl_slist_free_all(j->request_header);
-        j->request_header = NULL;
 
         import_compress_free(&j->compress);
 
@@ -112,6 +144,15 @@ static int pull_job_restart(PullJob *j, const char *new_url) {
                 return r;
 
         return 0;
+}
+
+static uint64_t pull_job_content_length_effective(PullJob *j) {
+        assert(j);
+
+        if (j->expected_content_length != UINT64_MAX)
+                return j->expected_content_length;
+
+        return j->content_length;
 }
 
 void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
@@ -166,10 +207,14 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                         goto finish;
                 }
 
-                if (status == 304) {
+                if (http_status_etag_exists(status)) {
                         log_info("Image already downloaded. Skipping download.");
                         j->etag_exists = true;
                         r = 0;
+                        goto finish;
+                } else if (http_status_need_authentication(status)) {
+                        log_info("Access to image requires authentication.");
+                        r = -ENOKEY;
                         goto finish;
                 } else if (status >= 300) {
 
@@ -214,30 +259,46 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 goto finish;
         }
 
-        if (j->content_length != UINT64_MAX &&
-            j->content_length != j->written_compressed) {
+        uint64_t cl = pull_job_content_length_effective(j);
+        if (cl != UINT64_MAX &&
+            cl != j->written_compressed) {
                 r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Download truncated.");
                 goto finish;
         }
 
         if (j->checksum_ctx) {
                 unsigned checksum_len;
-                uint8_t k[EVP_MAX_MD_SIZE];
 
-                r = EVP_DigestFinal_ex(j->checksum_ctx, k, &checksum_len);
-                if (r == 0) {
-                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum.");
-                        goto finish;
-                }
-                assert(checksum_len <= sizeof k);
-
-                j->checksum = hexmem(k, checksum_len);
-                if (!j->checksum) {
+                iovec_done(&j->checksum);
+                j->checksum.iov_base = malloc(EVP_MAX_MD_SIZE);
+                if (!j->checksum.iov_base) {
                         r = log_oom();
                         goto finish;
                 }
 
-                log_debug("SHA256 of %s is %s.", j->url, j->checksum);
+                r = EVP_DigestFinal_ex(j->checksum_ctx, j->checksum.iov_base, &checksum_len);
+                if (r == 0) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to get checksum.");
+                        goto finish;
+                }
+                assert(checksum_len <= EVP_MAX_MD_SIZE);
+                j->checksum.iov_len = checksum_len;
+
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *h = hexmem(j->checksum.iov_base, j->checksum.iov_len);
+                        if (!h) {
+                                r = log_oom();
+                                goto finish;
+                        }
+
+                        log_debug("%s of %s is %s.", EVP_MD_CTX_get0_name(j->checksum_ctx), pull_job_description(j), h);
+                }
+
+                if (iovec_is_set(&j->expected_checksum) &&
+                    iovec_memcmp(&j->checksum, &j->expected_checksum) != 0) {
+                        r = log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Checksum of downloaded resource does not match expected checksum, yikes.");
+                        goto finish;
+                }
         }
 
         /* Do a couple of finishing disk operations, but only if we are the sole owner of the file (i.e. no
@@ -294,7 +355,7 @@ void pull_job_curl_on_finished(CurlGlue *g, CURL *curl, CURLcode result) {
                 }
         }
 
-        log_info("Acquired %s.", FORMAT_BYTES(j->written_uncompressed));
+        log_info("Acquired %s for %s.", FORMAT_BYTES(j->written_uncompressed), pull_job_description(j));
 
         r = 0;
 
@@ -343,11 +404,14 @@ static int pull_job_write_uncompressed(const void *p, size_t sz, void *userdata)
         }
 
         if (j->disk_fd < 0 || j->force_memory) {
-                if (!GREEDY_REALLOC(j->payload, j->payload_size + sz))
+                uint8_t *a = j->payload.iov_base;
+
+                if (!GREEDY_REALLOC(a, j->payload.iov_len + sz + 1))
                         return log_oom();
 
-                memcpy(j->payload + j->payload_size, p, sz);
-                j->payload_size += sz;
+                *((uint8_t*) mempcpy(a + j->payload.iov_len, p, sz)) = 0;
+                j->payload.iov_base = a;
+                j->payload.iov_len += sz;
         }
 
         j->written_uncompressed += sz;
@@ -359,38 +423,39 @@ finish:
         return 0;
 }
 
-static int pull_job_write_compressed(PullJob *j, void *p, size_t sz) {
+static int pull_job_write_compressed(PullJob *j, const struct iovec *data) {
         int r;
 
         assert(j);
-        assert(p);
+        assert(iovec_is_valid(data));
 
-        if (sz <= 0)
+        if (!iovec_is_set(data))
                 return 0;
 
-        if (j->written_compressed + sz < j->written_compressed)
+        if (j->written_compressed + data->iov_len < j->written_compressed)
                 return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "File too large, overflow");
 
-        if (j->written_compressed + sz > j->compressed_max)
+        if (j->written_compressed + data->iov_len > j->compressed_max)
                 return log_error_errno(SYNTHETIC_ERRNO(EFBIG), "File overly large, refusing.");
 
-        if (j->content_length != UINT64_MAX &&
-            j->written_compressed + sz > j->content_length)
+        uint64_t cl = pull_job_content_length_effective(j);
+        if (cl != UINT64_MAX &&
+            j->written_compressed + data->iov_len > cl)
                 return log_error_errno(SYNTHETIC_ERRNO(EFBIG),
                                        "Content length incorrect.");
 
         if (j->checksum_ctx) {
-                r = EVP_DigestUpdate(j->checksum_ctx, p, sz);
+                r = EVP_DigestUpdate(j->checksum_ctx, data->iov_base, data->iov_len);
                 if (r == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                                "Could not hash chunk.");
         }
 
-        r = import_uncompress(&j->compress, p, sz, pull_job_write_uncompressed, j);
+        r = import_uncompress(&j->compress, data->iov_base, data->iov_len, pull_job_write_uncompressed, j);
         if (r < 0)
                 return r;
 
-        j->written_compressed += sz;
+        j->written_compressed += data->iov_len;
 
         return 0;
 }
@@ -431,14 +496,11 @@ static int pull_job_open_disk(PullJob *j) {
 }
 
 static int pull_job_detect_compression(PullJob *j) {
-        _cleanup_free_ uint8_t *stub = NULL;
-        size_t stub_size;
-
         int r;
 
         assert(j);
 
-        r = import_uncompress_detect(&j->compress, j->payload, j->payload_size);
+        r = import_uncompress_detect(&j->compress, j->payload.iov_base, j->payload.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize compressor: %m");
         if (r == 0)
@@ -451,15 +513,11 @@ static int pull_job_detect_compression(PullJob *j) {
                 return r;
 
         /* Now, take the payload we read so far, and decompress it */
-        stub = j->payload;
-        stub_size = j->payload_size;
-
-        j->payload = NULL;
-        j->payload_size = 0;
+        _cleanup_(iovec_done) struct iovec stub = TAKE_STRUCT(j->payload);
 
         j->state = PULL_JOB_RUNNING;
 
-        r = pull_job_write_compressed(j, stub, stub_size);
+        r = pull_job_write_compressed(j, &stub);
         if (r < 0)
                 return r;
 
@@ -477,14 +535,10 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
 
         case PULL_JOB_ANALYZING:
                 /* Let's first check what it actually is */
-
-                if (!GREEDY_REALLOC(j->payload, j->payload_size + sz)) {
+                if (!iovec_append(&j->payload, &IOVEC_MAKE(contents, sz))) {
                         r = log_oom();
                         goto fail;
                 }
-
-                memcpy(j->payload + j->payload_size, contents, sz);
-                j->payload_size += sz;
 
                 r = pull_job_detect_compression(j);
                 if (r < 0)
@@ -493,8 +547,7 @@ static size_t pull_job_write_callback(void *contents, size_t size, size_t nmemb,
                 break;
 
         case PULL_JOB_RUNNING:
-
-                r = pull_job_write_compressed(j, contents, sz);
+                r = pull_job_write_compressed(j, &IOVEC_MAKE(contents, sz));
                 if (r < 0)
                         goto fail;
 
@@ -516,18 +569,8 @@ fail:
         return 0;
 }
 
-static int http_status_ok(CURLcode status) {
-        /* Consider all HTTP status code in the 2xx range as OK */
-        return status >= 200 && status <= 299;
-}
-
-static int http_status_etag_exists(CURLcode status) {
-        /* This one is special, it's triggered by our etag mgmt logic */
-        return status == 304;
-}
-
 static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb, void *userdata) {
-        _cleanup_free_ char *length = NULL, *last_modified = NULL, *etag = NULL;
+        _cleanup_free_ char *length = NULL, *last_modified = NULL, *etag = NULL, *ct = NULL;
         size_t sz = size * nmemb;
         PullJob *j = ASSERT_PTR(userdata);
         CURLcode code;
@@ -547,6 +590,19 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
         if (code != CURLE_OK) {
                 r = log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve response code: %s", curl_easy_strerror(code));
                 goto fail;
+        }
+
+        if (http_status_need_authentication(status)) {
+                _cleanup_free_ char *challenge = NULL;
+
+                r = curl_header_strdup(contents, sz, "WWW-Authenticate:", &challenge);
+                if (r < 0) {
+                        log_oom();
+                        goto fail;
+                }
+                if (r > 0)
+                        free_and_replace(j->authentication_challenge, challenge);
+                return sz;
         }
 
         if (http_status_ok(status) || http_status_etag_exists(status)) {
@@ -589,7 +645,13 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
                                 goto fail;
                         }
 
-                        log_info("Downloading %s for %s.", FORMAT_BYTES(j->content_length), j->url);
+                        if (j->expected_content_length != UINT64_MAX &&
+                            j->expected_content_length != j->content_length) {
+                                r = log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Content does not have expected size.");
+                                goto fail;
+                        }
+
+                        log_info("Downloading %s for %s.", FORMAT_BYTES(j->content_length), pull_job_description(j));
                 }
 
                 return sz;
@@ -602,6 +664,16 @@ static size_t pull_job_header_callback(void *contents, size_t size, size_t nmemb
         }
         if (r > 0) {
                 (void) curl_parse_http_time(last_modified, &j->mtime);
+                return sz;
+        }
+
+        r = curl_header_strdup(contents, sz, "Content-Type:", &ct);
+        if (r < 0) {
+                log_oom();
+                goto fail;
+        }
+        if (r > 0) {
+                free_and_replace(j->content_type, ct);
                 return sz;
         }
 
@@ -641,11 +713,11 @@ static int pull_job_progress_callback(void *userdata, curl_off_t dltotal, curl_o
 
                         log_info("Got %u%% of %s. %s left at %s/s.",
                                  percent,
-                                 j->url,
+                                 pull_job_description(j),
                                  FORMAT_TIMESPAN(left, USEC_PER_SEC),
                                  FORMAT_BYTES((uint64_t) ((double) dlnow / ((double) done / (double) USEC_PER_SEC))));
                 } else
-                        log_info("Got %u%% of %s.", percent, j->url);
+                        log_info("Got %u%% of %s.", percent, pull_job_description(j));
 
                 j->progress_percent = percent;
                 j->last_status_usec = n;
@@ -691,9 +763,31 @@ int pull_job_new(
                 .url = TAKE_PTR(u),
                 .offset = UINT64_MAX,
                 .sync = true,
+                .expected_content_length = UINT64_MAX,
         };
 
         *ret = TAKE_PTR(j);
+
+        return 0;
+}
+
+int pull_job_add_request_header(PullJob *j, const char *hdr) {
+        assert(j);
+        assert(hdr);
+
+        if (j->request_header) {
+                struct curl_slist *l;
+
+                l = curl_slist_append(j->request_header, hdr);
+                if (!l)
+                        return -ENOMEM;
+
+                j->request_header = l;
+        } else {
+                j->request_header = curl_slist_new(hdr, NULL);
+                if (!j->request_header)
+                        return -ENOMEM;
+        }
 
         return 0;
 }
@@ -721,19 +815,9 @@ int pull_job_begin(PullJob *j) {
                 if (!hdr)
                         return -ENOMEM;
 
-                if (!j->request_header) {
-                        j->request_header = curl_slist_new(hdr, NULL);
-                        if (!j->request_header)
-                                return -ENOMEM;
-                } else {
-                        struct curl_slist *l;
-
-                        l = curl_slist_append(j->request_header, hdr);
-                        if (!l)
-                                return -ENOMEM;
-
-                        j->request_header = l;
-                }
+                r = pull_job_add_request_header(j, hdr);
+                if (r < 0)
+                        return r;
         }
 
         if (j->request_header) {
@@ -769,4 +853,31 @@ int pull_job_begin(PullJob *j) {
         j->state = PULL_JOB_ANALYZING;
 
         return 0;
+}
+
+int pull_job_set_accept(PullJob *j, char **l) {
+        assert(j);
+
+        if (strv_isempty(l))
+                return 0;
+
+        _cleanup_free_ char *joined = strv_join(l, ", ");
+        if (!joined)
+                return -ENOMEM;
+
+        _cleanup_free_ char *f = strjoin("Accept: ", joined);
+        if (!f)
+                return -ENOMEM;
+
+        return pull_job_add_request_header(j, f);
+}
+
+int pull_job_set_bearer_token(PullJob *j, const char *token) {
+        assert(j);
+
+        _cleanup_free_ char *f = strjoin("Authorization: Bearer ", token);
+        if (!f)
+                return -ENOMEM;
+
+        return pull_job_add_request_header(j, f);
 }
