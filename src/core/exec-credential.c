@@ -1052,6 +1052,8 @@ static int setup_credentials_internal(
         if (r < 0)
                 return log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");
 
+        (void) fsconfig(fs_fd, FSCONFIG_SET_FLAG, "noswap", NULL, 0);
+
         if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", NULL, 0) < 0)
                 return -errno;
 
