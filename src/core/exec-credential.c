@@ -29,7 +29,6 @@
 #include "siphash24.h"
 #include "stat-util.h"
 #include "strv.h"
-#include "tmpfile-util.h"
 #include "user-util.h"
 
 ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc) {
@@ -320,7 +319,6 @@ static int write_credential(
                 gid_t gid,
                 bool ownership_ok) {
 
-        _cleanup_free_ char *tmp = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -328,15 +326,9 @@ static int write_credential(
         assert(id);
         assert(data || size == 0);
 
-        r = tempfn_random_child("", "cred", &tmp);
-        if (r < 0)
-                return r;
-
-        fd = openat(dfd, tmp, O_CREAT|O_RDWR|O_CLOEXEC|O_EXCL|O_NOFOLLOW|O_NOCTTY, 0600);
+        fd = openat(dfd, id, O_CREAT|O_TRUNC|O_WRONLY|O_CLOEXEC|O_NOFOLLOW|O_NOCTTY, 0600);
         if (fd < 0)
                 return -errno;
-
-        CLEANUP_TMPFILE_AT(dfd, tmp);
 
         r = loop_write(fd, data, size);
         if (r < 0)
@@ -359,11 +351,6 @@ static int write_credential(
                         return r;
         }
 
-        r = RET_NERRNO(renameat(dfd, tmp, dfd, id));
-        if (r < 0)
-                return r;
-
-        tmp = mfree(tmp); /* disarm CLEANUP_TMPFILE_AT() */
         return 0;
 }
 
