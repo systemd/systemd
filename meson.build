@@ -582,6 +582,7 @@ foreach ident : [
         ['fsconfig',          '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsmount',           '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['fsopen',            '''#include <sys/mount.h>'''],    # since glibc-2.36
+        ['fspick',            '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['mount_setattr',     '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['move_mount',        '''#include <sys/mount.h>'''],    # since glibc-2.36
         ['open_tree',         '''#include <sys/mount.h>'''],    # since glibc-2.36
