@@ -9,7 +9,7 @@
 #define CREDENTIAL_NAME_MAX FDNAME_MAX
 
 /* Put a size limit on the individual credential */
-#define CREDENTIAL_SIZE_MAX (1024U*1024U)
+#define CREDENTIAL_SIZE_MAX (1U * U64_MB)
 
 /* Refuse to store more than 1M per service, after all this is unswappable memory. Note that for now we put
  * this to the same limit as the per-credential limit, i.e. if the user has n > 1 credentials instead of 1 it
@@ -18,7 +18,7 @@
 
 /* Put a size limit on encrypted credentials (which is the same as the unencrypted size plus a spacious 128K of extra
  * space for headers, IVs, exported TPM2 key material and so on. */
-#define CREDENTIAL_ENCRYPTED_SIZE_MAX (CREDENTIAL_SIZE_MAX + 128U*1024U)
+#define CREDENTIAL_ENCRYPTED_SIZE_MAX (CREDENTIAL_SIZE_MAX + 128U * U64_KB)
 
 bool credential_name_valid(const char *s);
 bool credential_glob_valid(const char *s);
