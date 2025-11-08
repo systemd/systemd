@@ -682,16 +682,12 @@ int fd_acl_make_read_only(int fd) {
 
         r = dlopen_libacl();
         if (r < 0)
-                return r;
+                goto maybe_fallback;
 
         acl = sym_acl_get_fd(fd);
         if (!acl) {
-
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -errno;
-
-                /* No ACLs? Then just update the regular mode_t */
-                return fd_acl_make_read_only_fallback(fd);
+                r = -errno;
+                goto maybe_fallback;
         }
 
         for (r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
@@ -729,13 +725,18 @@ int fd_acl_make_read_only(int fd) {
                 return 0;
 
         if (sym_acl_set_fd(fd, acl) < 0) {
-                if (!ERRNO_IS_NOT_SUPPORTED(errno))
-                        return -errno;
-
-                return fd_acl_make_read_only_fallback(fd);
+                r = -errno;
+                goto maybe_fallback;
         }
 
         return 1;
+
+maybe_fallback:
+        if (!ERRNO_IS_NEG_SUPPORTED(r))
+                return r;
+
+        /* No ACLs? Then just update the regular mode_t */
+        return fd_acl_make_read_only_fallback(fd);
 }
 #endif
 
