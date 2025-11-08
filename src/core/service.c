@@ -1676,6 +1676,8 @@ static ExecFlags service_exec_flags(ServiceExecCommand command_id, ExecFlags cre
         /* All start phases get access to credentials. ExecStartPre= gets a new credential store upon
          * every invocation, so that updating credential files through it works. When the first main process
          * starts, passed creds become stable. Also see 'cred_flag'. */
+        if (command_id == SERVICE_EXEC_CONDITION)
+                flags |= EXEC_SETUP_CREDENTIALS_FRESH;
         if (command_id == SERVICE_EXEC_START_PRE)
                 flags |= EXEC_SETUP_CREDENTIALS_FRESH;
         if (command_id == SERVICE_EXEC_START_POST)
