@@ -975,6 +975,14 @@ static int setup_credentials_plain_dir(
         if (r < 0)
                 goto purge;
 
+        r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok = */ false);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");
+                goto purge;
+        }
+
+        log_error("Adjusted permissions before rename()");
+
         r = RET_NERRNO(rename(workspace, cred_dir));
         if (r >= 0)
                 goto finalize;
@@ -987,11 +995,6 @@ purge:
         (void) rm_rf(workspace, REMOVE_ROOT|REMOVE_CHMOD);
 
 finalize:
-        if (r >= 0) {
-                r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok = */ false);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");
-        }
 
         return r;
 }
