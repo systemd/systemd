@@ -1065,6 +1065,11 @@ static int setup_credentials_internal(
         if (r < 0)
                 return log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");
 
+        // Work around a kernel bug that results in tmpfs reconfiguration failure.
+        // FIXME: drop this once https://lore.kernel.org/linux-fsdevel/20251108190930.440685-1-me@yhndnzj.com/
+        // is merged and hits the distro kernels.
+        (void) fsconfig(fs_fd, FSCONFIG_SET_FLAG, "noswap", NULL, 0);
+
         if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "ro", NULL, 0) < 0)
                 return -errno;
 
