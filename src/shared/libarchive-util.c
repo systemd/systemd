@@ -3,6 +3,7 @@
 #include <syslog.h>
 
 #include "libarchive-util.h"
+#include "user-util.h"
 
 #if HAVE_LIBARCHIVE
 static void *libarchive_dl = NULL;
@@ -14,11 +15,15 @@ DLSYM_PROTOTYPE(archive_entry_fflags) = NULL;
 DLSYM_PROTOTYPE(archive_entry_filetype) = NULL;
 DLSYM_PROTOTYPE(archive_entry_free) = NULL;
 DLSYM_PROTOTYPE(archive_entry_gid) = NULL;
-#if HAVE_LIBARCHIVE_UID_IS_SET
+#if HAVE_ARCHIVE_ENTRY_GID_IS_SET
 DLSYM_PROTOTYPE(archive_entry_gid_is_set) = NULL;
+#else
+int sym_archive_entry_gid_is_set(struct archive_entry *e) {
+        return gid_is_valid(sym_archive_entry_gid(e));
+}
 #endif
 DLSYM_PROTOTYPE(archive_entry_hardlink) = NULL;
-#if HAVE_LIBARCHIVE_HARDLINK_IS_SET
+#if HAVE_ARCHIVE_ENTRY_HARDLINK_IS_SET
 DLSYM_PROTOTYPE(archive_entry_hardlink_is_set) = NULL;
 #endif
 DLSYM_PROTOTYPE(archive_entry_mode) = NULL;
@@ -45,8 +50,12 @@ DLSYM_PROTOTYPE(archive_entry_set_uid) = NULL;
 DLSYM_PROTOTYPE(archive_entry_sparse_add_entry) = NULL;
 DLSYM_PROTOTYPE(archive_entry_symlink) = NULL;
 DLSYM_PROTOTYPE(archive_entry_uid) = NULL;
-#if HAVE_LIBARCHIVE_UID_IS_SET
+#if HAVE_ARCHIVE_ENTRY_UID_IS_SET
 DLSYM_PROTOTYPE(archive_entry_uid_is_set) = NULL;
+#else
+int sym_archive_entry_uid_is_set(struct archive_entry *e) {
+        return uid_is_valid(sym_archive_entry_uid(e));
+}
 #endif
 DLSYM_PROTOTYPE(archive_entry_xattr_add_entry) = NULL;
 DLSYM_PROTOTYPE(archive_entry_xattr_next) = NULL;
@@ -86,11 +95,11 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_entry_filetype),
                         DLSYM_ARG(archive_entry_free),
                         DLSYM_ARG(archive_entry_gid),
-#if HAVE_LIBARCHIVE_UID_IS_SET
+#if HAVE_ARCHIVE_ENTRY_GID_IS_SET
                         DLSYM_ARG(archive_entry_gid_is_set),
 #endif
                         DLSYM_ARG(archive_entry_hardlink),
-#if HAVE_LIBARCHIVE_HARDLINK_IS_SET
+#if HAVE_ARCHIVE_ENTRY_HARDLINK_IS_SET
                         DLSYM_ARG(archive_entry_hardlink_is_set),
 #endif
                         DLSYM_ARG(archive_entry_mode),
@@ -117,7 +126,7 @@ int dlopen_libarchive(void) {
                         DLSYM_ARG(archive_entry_sparse_add_entry),
                         DLSYM_ARG(archive_entry_symlink),
                         DLSYM_ARG(archive_entry_uid),
-#if HAVE_LIBARCHIVE_UID_IS_SET
+#if HAVE_ARCHIVE_ENTRY_UID_IS_SET
                         DLSYM_ARG(archive_entry_uid_is_set),
 #endif
                         DLSYM_ARG(archive_entry_xattr_add_entry),
