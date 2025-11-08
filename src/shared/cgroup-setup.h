@@ -21,3 +21,4 @@ int cg_enable(CGroupMask supported, CGroupMask mask, const char *p, CGroupMask *
 int cg_migrate(const char *from, const char *to, CGroupFlags flags);
 
 int cg_has_legacy(void);
+int cg_is_ready(void);
