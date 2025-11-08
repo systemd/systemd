@@ -1427,10 +1427,16 @@ libarchive = dependency('libarchive',
                         required : get_option('libarchive'))
 libarchive_cflags = libarchive.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBARCHIVE', libarchive.found())
-conf.set10('HAVE_LIBARCHIVE_UID_IS_SET',
-           libarchive.found() and cc.has_function('archive_entry_uid_is_set', dependencies : libarchive))
-conf.set10('HAVE_LIBARCHIVE_HARDLINK_IS_SET',
-           libarchive.found() and cc.has_function('archive_entry_hardlink_is_set', dependencies : libarchive))
+
+foreach ident : [
+                'archive_entry_gid_is_set',      # since 3.7.3
+                'archive_entry_uid_is_set',      # since 3.7.3
+                'archive_entry_hardlink_is_set', # since 3.7.5
+        ]
+
+        have = libarchive.found() and cc.has_function(ident, dependencies : libarchive)
+        conf.set10('HAVE_' + ident.to_upper(), have)
+endforeach
 
 libxkbcommon = dependency('xkbcommon',
                           version : '>= 0.3.0',
