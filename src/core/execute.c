@@ -2070,7 +2070,7 @@ bool exec_context_with_rootfs_strict(const ExecContext *c) {
          * true in more cases: when a root directory is explicitly configured, even if it's our usual
          * root. */
 
-        return c->root_directory || c->root_image || c->root_directory_as_fd;
+        return c->root_directory || c->root_image || c->root_directory_as_fd || c->root_mstack;
 }
 
 int exec_context_has_vpicked_extensions(const ExecContext *context) {
