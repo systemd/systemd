@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/loop.h>
+#include <sys/file.h>
 
 #include "blockdev-util.h"
 #include "fd-util.h"
