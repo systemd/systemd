@@ -229,6 +229,9 @@ selinux:
 shell-completion:
   - changed-files:
     - any-glob-to-any-file: 'shell-completion/*'
+shell profile:
+  - changed-files:
+    - any-glob-to-any-file: 'profile.d/*'
 shutdown:
   - changed-files:
     - any-glob-to-any-file: ['src/shutdown/*', 'units/**/*shutdown*']
