@@ -2504,8 +2504,9 @@ static int start_transient_service(sd_bus *bus) {
         /* Optionally, wait for the start job to complete. If we are supposed to read the service's stdin
          * lets skip this however, because we should start that already when the start job is running, and
          * there's little point in waiting for the start job to complete in that case anyway, as we'll wait
-         * for EOF anyway, which is going to be much later. */
-        if (!arg_no_block && arg_stdio == ARG_STDIO_NONE) {
+         * for EOF anyway, which is going to be much later. Similar applies to --wait where we're going
+         * to wait for the service to terminate. */
+        if (!arg_no_block && !arg_wait && arg_stdio == ARG_STDIO_NONE) {
                 r = bus_wait_for_jobs_new(bus, &w);
                 if (r < 0)
                         return log_error_errno(r, "Could not watch jobs: %m");
