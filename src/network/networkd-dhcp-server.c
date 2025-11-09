@@ -733,7 +733,12 @@ static int dhcp4_server_configure(Link *link) {
         }
 
         HASHMAP_FOREACH(static_lease, link->network->dhcp_static_leases_by_section) {
-                r = sd_dhcp_server_set_static_lease(link->dhcp_server, &static_lease->address, static_lease->client_id, static_lease->client_id_size);
+                r = sd_dhcp_server_set_static_lease(
+                                link->dhcp_server,
+                                &static_lease->address,
+                                static_lease->client_id,
+                                static_lease->client_id_size,
+                                static_lease->hostname);
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
