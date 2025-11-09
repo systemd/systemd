@@ -25,19 +25,21 @@ struct bpf_map_create_opts;
  *  - after bpf_map_create_opts struct has been defined for older libbpf
  *  - before the compat static inline helpers that use them.
  * When removing this file move these back to bpf-dlopen.h */
-extern int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
+extern int (*sym_bpf_map_create)(enum bpf_map_type, const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
 extern struct bpf_map* (*sym_bpf_object__next_map)(const struct bpf_object *obj, const struct bpf_map *map);
 
 /* compat symbols removed in libbpf 1.0 */
 extern int (*sym_bpf_create_map)(enum bpf_map_type, int key_size, int value_size, int max_entries, __u32 map_flags);
 
 /* helpers to use the available variant behind new API */
-static inline int compat_bpf_map_create(enum bpf_map_type map_type,
+static inline int compat_bpf_map_create(
+                enum bpf_map_type map_type,
                 const char *map_name,
                 __u32 key_size,
                 __u32 value_size,
                 __u32 max_entries,
                 const struct bpf_map_create_opts *opts) {
+
         if (sym_bpf_map_create)
                 return sym_bpf_map_create(map_type, map_name, key_size,
                                           value_size, max_entries, opts);
