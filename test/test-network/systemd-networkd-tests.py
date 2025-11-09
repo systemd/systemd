@@ -7340,6 +7340,32 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
         self.assertRegex(output, 'DHCPv4 Client ID: IAID:[0-9a-z]*/DUID')
 
+    def test_dhcp_server_static_lease_hostname_simple(self):
+        copy_network_unit('25-veth.netdev',
+                          '25-dhcp-client-simple-hostname.network',
+                          '25-dhcp-server-static-hostname.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_json('veth99')
+        check_json(output)
+        print(output)
+        data = json.loads(output)
+        self.assertEqual(data['DHCPv4Client']['Lease']['Hostname'], 'simple-host')
+
+    def test_dhcp_server_static_lease_hostname_fqdn(self):
+        copy_network_unit('25-veth.netdev',
+                          '25-dhcp-client-fqdn-hostname.network',
+                          '25-dhcp-server-static-hostname.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_json('veth99')
+        check_json(output)
+        print(output)
+        data = json.loads(output)
+        self.assertEqual(data['DHCPv4Client']['Lease']['Hostname'], 'fqdn.example.com')
+
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
     def setUp(self):
