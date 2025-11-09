@@ -529,6 +529,21 @@ run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
 run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
 run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
 
+# https://github.com/systemd/systemd/pull/39651
+TESTUSER_CRED_DIR="/run/user/$(id -u testuser)/credentials"
+
+PID="$(systemd-notify --fork -- systemd-run -M testuser@ --user --wait --unit=brummbaer.service -p LoadCredential=brummbaer sleep infinity)"
+[[ -d "$TESTUSER_CRED_DIR/brummbaer.service" ]]
+[[ -f "$TESTUSER_CRED_DIR/brummbaer.service/brummbaer" ]]
+
+systemd-run -M testuser@ --user --wait -p PrivateMounts=yes -p ImportCredential=brummbaer \
+    bash -xec "[[ ! -d '$TESTUSER_CRED_DIR/brummbaer.service' ]] && [[ \$(stat -c %a /run/credentials) -eq 0 ]]"
+systemd-run -M testuser@ --user --wait -p ImportCredential=brummbaer \
+    test -d "$TESTUSER_CRED_DIR/brummbaer.service"
+
+kill "$PID"
+
 systemd-analyze log-level info
+
 
 touch /testok
