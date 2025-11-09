@@ -132,7 +132,7 @@ login:
     - any-glob-to-any-file: ['src/login/*', '**/sd-login*/**']
 machine:
   - changed-files:
-    - any-glob-to-any-file: ['src/machine/*', 'units/*machine*']
+    - any-glob-to-any-file: ['src/machine/*', 'units/**/*machine*']
 meson:
   - changed-files:
     - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
