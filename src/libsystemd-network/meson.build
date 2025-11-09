@@ -78,6 +78,10 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-dhcp-server.c'),
+                'link_args' : [
+                        '-Wl,--wrap=dhcp_network_send_raw_socket',
+                        '-Wl,--wrap=dhcp_network_send_udp_socket',
+                ],
         },
         network_test_template + {
                 'sources' : files('test-dhcp6-client.c'),
