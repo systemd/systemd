@@ -1300,6 +1300,7 @@ static int dhcp6_client_append_json(Link *link, sd_json_variant **v) {
 static int dhcp_client_lease_append_json(Link *link, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         usec_t lease_timestamp_usec = USEC_INFINITY, t1 = USEC_INFINITY, t2 = USEC_INFINITY;
+        const char *hostname = NULL;
         int r;
 
         assert(link);
@@ -1320,10 +1321,16 @@ static int dhcp_client_lease_append_json(Link *link, sd_json_variant **v) {
         if (r < 0 && r != -ENODATA)
                 return r;
 
-        r = sd_json_buildo(&w,
-                           JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", lease_timestamp_usec),
-                           JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
-                           JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2));
+        r = sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
+        if (r < 0 && r != -ENODATA)
+                return r;
+
+        r = sd_json_buildo(
+                        &w,
+                        JSON_BUILD_PAIR_FINITE_USEC("LeaseTimestampUSec", lease_timestamp_usec),
+                        JSON_BUILD_PAIR_FINITE_USEC("Timeout1USec", t1),
+                        JSON_BUILD_PAIR_FINITE_USEC("Timeout2USec", t2),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", hostname));
         if (r < 0)
                 return r;
 
