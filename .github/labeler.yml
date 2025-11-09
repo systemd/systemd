@@ -108,7 +108,7 @@ hwdb:
     - any-glob-to-any-file: '**/*hwdb*'
 import:
   - changed-files:
-    - any-glob-to-any-file: '**/*import*'
+    - any-glob-to-any-file: ['src/import/*', 'src/shared/*import*', 'units/**/*import*']
 integritysetup:
   - changed-files:
     - any-glob-to-any-file: '**/*integrity*'
