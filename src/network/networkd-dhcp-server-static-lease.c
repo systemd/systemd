@@ -2,8 +2,10 @@
 
 #include "alloc-util.h"
 #include "conf-parser.h"
+#include "dns-domain.h"
 #include "ether-addr-util.h"
 #include "hashmap.h"
+#include "hostname-util.h"
 #include "networkd-dhcp-server-static-lease.h"
 #include "networkd-network.h"
 #include "string-util.h"
@@ -17,6 +19,7 @@ static DHCPStaticLease* dhcp_static_lease_free(DHCPStaticLease *static_lease) {
 
         config_section_free(static_lease->section);
         free(static_lease->client_id);
+        free(static_lease->hostname);
         return mfree(static_lease);
 }
 
@@ -211,6 +214,55 @@ int config_parse_dhcp_static_lease_hwaddr(
 
         free_and_replace(lease->client_id, c);
         lease->client_id_size = ETH_ALEN + 1;
+
+        TAKE_PTR(lease);
+        return 0;
+}
+
+int config_parse_dhcp_static_lease_hostname(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_(dhcp_static_lease_free_or_set_invalidp) DHCPStaticLease *lease = NULL;
+        Network *network = ASSERT_PTR(userdata);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = lease_new_static(network, filename, section_line, &lease);
+        if (r < 0)
+                return log_oom();
+
+        if (isempty(rvalue)) {
+                lease->hostname = mfree(lease->hostname);
+                TAKE_PTR(lease);
+                return 0;
+        }
+
+        if (!hostname_is_valid(rvalue, VALID_HOSTNAME_TRAILING_DOT)) {
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           0,
+                           "Invalid hostname for DHCPv4 static lease, ignoring assignment: %s",
+                           rvalue);
+                return 0;
+        }
+
+        r = free_and_strdup(&lease->hostname, rvalue);
+        if (r < 0)
+                return log_oom();
 
         TAKE_PTR(lease);
         return 0;
