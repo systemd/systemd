@@ -46,7 +46,10 @@ else
         pkg-config wget python3-jinja2 zipmerge zstd
 
     if [[ "$ARCHITECTURE" == i386 ]]; then
-        apt-get install -y pkg-config:i386 libmount-dev:i386
+        apt-get install -y pkg-config:i386 libcrypt-dev:i386 libmount-dev:i386
+        if command -v i386-linux-gnu-pkgconf >/dev/null; then
+            export PKG_CONFIG=i386-linux-gnu-pkgconf
+        fi
     fi
 
     pip3 install -r .github/workflows/requirements.txt --require-hashes
