@@ -4227,6 +4227,25 @@ ServerAddress=192.168.0.1/24</programlisting>
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>Hostname=</varname></term>
+
+        <listitem><para>The hostname to send to the client in DHCP replies. This can be either a simple
+        hostname (e.g., <literal>mydevice</literal>) or a fully qualified domain name (e.g.,
+        <literal>mydevice.example.com</literal>), following RFC 1123 naming conventions. Each label can be
+        up to 63 characters, with a total maximum length of 253 characters for FQDNs. When this option is
+        set, the DHCP server will include the hostname in DHCP replies (both OFFER and ACK) to the client
+        with the matched MAC address.</para>
+
+        <para>The server automatically selects the appropriate DHCP option based on the hostname format:
+        simple hostnames (without dots) are sent via option 12 (Host Name) per RFC 2132, while FQDNs
+        (containing dots) are sent via option 81 (Client FQDN) per RFC 4702 using DNS wire format encoding.
+        The configured hostname is sent unconditionally, any hostname requested by the client in its DHCP
+        message is ignored.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
