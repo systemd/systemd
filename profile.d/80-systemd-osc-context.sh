@@ -60,6 +60,13 @@ __systemd_osc_context_precmdline() {
     read -r systemd_osc_context_cmd_id </proc/sys/kernel/random/uuid
 }
 
+__systemd_osc_context_ps0() {
+    # Skip if PROMPT_COMMAND= is cleared manually or by other profiles.
+    [ -n "${systemd_osc_context_cmd_id:-}" ] || return
+
+    printf "\033]3008;start=%s%s;type=command;cwd=%s\033\\" "$systemd_osc_context_cmd_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
+}
+
 if [ -n "${BASH_VERSION:-}" ]; then
     # Legacy bashrc will assign PROMPT_COMMAND=, which is equivalent to assigning
     # index 0 in the array. Leave an empty spot to handle this gracefully.
@@ -69,5 +76,5 @@ if [ -n "${BASH_VERSION:-}" ]; then
     PROMPT_COMMAND+=(__systemd_osc_context_precmdline)
 
     # PS0 is shown right after a prompt completed, but before the command is executed
-    PS0='\033]3008;start=$systemd_osc_context_cmd_id$(__systemd_osc_context_common);type=command;cwd=$(__systemd_osc_context_escape "$PWD")\033\\'"${PS0:-}"
+    PS0='$(__systemd_osc_context_ps0)'"${PS0:-}"
 fi
