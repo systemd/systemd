@@ -77,7 +77,8 @@ REQUIREMENTS:
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
                                 and block device 'partscan' sysfs attribute
                      ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
-                     ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat()
+                     ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat() and
+                                FSCONFIG_SET_FD support for overlayfs layers
                      ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
