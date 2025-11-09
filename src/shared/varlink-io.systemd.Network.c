@@ -351,7 +351,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("T1 timeout (lease renewal time) in microseconds"),
                 SD_VARLINK_DEFINE_FIELD(Timeout1USec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("T2 timeout (lease rebinding time) in microseconds"),
-                SD_VARLINK_DEFINE_FIELD(Timeout2USec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(Timeout2USec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Hostname received from DHCP server"),
+                SD_VARLINK_DEFINE_FIELD(Hostname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 PrivateOption,
