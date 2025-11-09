@@ -177,11 +177,12 @@ verify:
         return static_lease;
 }
 
-int sd_dhcp_server_set_static_lease(
+int sd_dhcp_server_set_static_lease_with_hostname(
                 sd_dhcp_server *server,
                 const struct in_addr *address,
                 uint8_t *client_id_raw,
-                size_t client_id_size) {
+                size_t client_id_size,
+                const char *hostname) {
 
         _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
         sd_dhcp_client_id client_id;
@@ -213,12 +214,28 @@ int sd_dhcp_server_set_static_lease(
                 .client_id = client_id,
         };
 
+        if (hostname) {
+                lease->hostname = strdup(hostname);
+                if (!lease->hostname)
+                        return -ENOMEM;
+        }
+
         r = dhcp_server_put_lease(server, lease, /* is_static = */ true);
         if (r < 0)
                 return r;
 
         TAKE_PTR(lease);
         return 0;
+}
+
+int sd_dhcp_server_set_static_lease(
+                sd_dhcp_server *server,
+                const struct in_addr *address,
+                uint8_t *client_id_raw,
+                size_t client_id_size) {
+
+        return sd_dhcp_server_set_static_lease_with_hostname(
+                        server, address, client_id_raw, client_id_size, NULL);
 }
 
 static int dhcp_server_lease_append_json(sd_dhcp_server_lease *lease, sd_json_variant **ret) {
