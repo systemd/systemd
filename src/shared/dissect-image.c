@@ -118,6 +118,7 @@ int dissect_fstype_ok(const char *fstype) {
         return false;
 }
 
+#if HAVE_BLKID
 static const char *getenv_fstype(PartitionDesignator d) {
 
         if (d < 0 ||
@@ -128,6 +129,7 @@ static const char *getenv_fstype(PartitionDesignator d) {
         char *v = strjoina("SYSTEMD_DISSECT_FSTYPE_", partition_designator_to_string(d));
         return secure_getenv(ascii_strupper(v));
 }
+#endif
 
 int probe_sector_size(int fd, uint32_t *ret) {
 
