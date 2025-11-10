@@ -1292,15 +1292,15 @@ msgstr "Der kræves godkendelse for at genstarte '$(unit)'."
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "Der kræves godkendelse for at indstille egenskaber på '$(unit)'."
 
 #: src/core/dbus-unit.c:620
 #, fuzzy
 #| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
+#| "Authentication is required to send a UNIX signal to the processes of '$"
+#| "(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1317,8 +1317,8 @@ msgstr "Der kræves godkendelse for at indstille egenskaber på '$(unit)'."
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "Der kræves godkendelse for at nulstille \"fejl\"-tilstanden på '$(unit)'."
 

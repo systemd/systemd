@@ -156,7 +156,8 @@ msgstr "Hantera nycklar för signering av hemkatalog"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
+msgstr ""
+"Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
@@ -1263,11 +1264,11 @@ msgstr "Autentisering krävs för att starta om \"$(unit)\"."
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
-"Autentisering krävs för att skicka en UNIX-signal till processerna i "
-"”$(unit)”."
+"Autentisering krävs för att skicka en UNIX-signal till processerna i ”$"
+"(unit)”."
 
 #: src/core/dbus-unit.c:620
 msgid ""
@@ -1280,8 +1281,8 @@ msgstr ""
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
-"Autentisering krävs för att återställa det \"fallerade\" tillståndet för "
-"\"$(unit)\"."
+"Autentisering krävs för att återställa det \"fallerade\" tillståndet för \"$"
+"(unit)\"."
 
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
@@ -1289,11 +1290,11 @@ msgstr "Autentisering krävs för att ställa in egenskaper på \"$(unit)\"."
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
-"Autentisering krävs för att radera filer och kataloger associerade med "
-"”$(unit)”."
+"Autentisering krävs för att radera filer och kataloger associerade med ”$"
+"(unit)”."
 
 #: src/core/dbus-unit.c:812
 msgid ""

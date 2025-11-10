@@ -1259,15 +1259,15 @@ msgstr "Pro restart „$(unit)” je vyžadováno ověření."
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "Pro odeslání UNIX signálu procesům „$(unit)” je vyžadováno ověření."
 
 #: src/core/dbus-unit.c:620
 #, fuzzy
 #| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
+#| "Authentication is required to send a UNIX signal to the processes of '$"
+#| "(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1283,8 +1283,8 @@ msgstr "Pro nastavení vlastností na „$(unit)” je vyžadováno ověření."
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "Pro odstranění souborů nebo adresářů souvisejících s „$(unit)” je vyžadováno "
 "ověření."

@@ -1300,11 +1300,11 @@ msgstr "É necessária autenticação para reiniciar “$(unit)”."
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
-"É necessária autenticação para enviar um sinal UNIX para os processos de "
-"“$(unit)”."
+"É necessária autenticação para enviar um sinal UNIX para os processos de “$"
+"(unit)”."
 
 #: src/core/dbus-unit.c:620
 msgid ""
@@ -1325,8 +1325,8 @@ msgstr "É necessária autenticação para definir propriedades em “$(unit)”
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "É necessária autenticação para excluir arquivos e diretórios associados com "
 "“$(unit)”."

@@ -976,8 +976,8 @@ msgstr "Ota käyttöön/poista käytöstä DNS TLS:n kautta"
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
 msgstr ""
-"Todennus vaaditaan DNS:n käyttöön ottamiseksi tai poistamiseksi käytöstä TLS:"
-"n kautta."
+"Todennus vaaditaan DNS:n käyttöön ottamiseksi tai poistamiseksi käytöstä "
+"TLS:n kautta."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
@@ -1266,8 +1266,8 @@ msgstr "Todennus vaaditaan $(unit):n uudelleen käynnistämiseksi."
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
 "Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
 
@@ -1289,8 +1289,8 @@ msgstr "Todennus vaaditaan, jotta ominaisuudet asetetaan arvoon '$(unit)'."
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "Todennus vaaditaan tiedostojen ja hakemistojen poistamiseen, jotka liittyvät "
 "'$(unit)':iin."

@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-24 02:24+0900\n"
+"POT-Creation-Date: 2025-07-23 15:38+0100\n"
 "PO-Revision-Date: 2025-03-17 03:11+0000\n"
 "Last-Translator: Y T <yi818670@gmail.com>\n"
 "Language-Team: Japanese <https://translate.fedoraproject.org/projects/"
@@ -848,7 +848,7 @@ msgstr "ローカルに存在する仮想マシンやコンテナを作成する
 msgid "Register a local virtual machine or container"
 msgstr "ローカルに存在する仮想マシンやコンテナの登録"
 
-#: src/machine/org.freedesktop.machine1.policy:117
+#: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr "ローカルに存在する仮想マシンやコンテナを登録するには認証が必要です。"
@@ -861,7 +861,9 @@ msgstr "ローカルに存在する仮想マシンやコンテナのイメージ
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
-msgstr "ローカルに存在する仮想マシンやコンテナのイメージを管理するには認証が必要です。"
+msgstr ""
+"ローカルに存在する仮想マシンやコンテナのイメージを管理するには認証が必要で"
+"す。"
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1206,15 +1208,16 @@ msgstr "'$(unit)'を再起動するには認証が必要です。"
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "'$(unit)'のプロセスにUNIXシグナルを送るには認証が必要です。"
 
 #: src/core/dbus-unit.c:620
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "'$(unit)'のサブグループ内のプロセスにUNIXシグナルを送るには認証が必要です。"
+msgstr ""
+"'$(unit)'のサブグループ内のプロセスにUNIXシグナルを送るには認証が必要です。"
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1226,8 +1229,8 @@ msgstr "'$(unit)'のプロパティを設定するには認証が必要です。
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "'$(unit)'に関連付けられたファイルやディレクトリの削除には認証が必要です。"
 
