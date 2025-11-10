@@ -89,6 +89,12 @@
             'has-tpm2:Report whether TPM2 support is available'
             'transient-settings:List transient settings for unit types'
             'architectures:List known architectures'
+            'smbios11:List strings passed via SMBIOS Type #11'
+            'chid:List local CHIDs'
+            'compare-versions:Compare two version strings'
+            'image-policy:Analyze image policy string'
+            'pcrs:Show TPM2 PCRs and their names'
+            'srk:Write TPM2 SRK (to FILE)'
             # log-level, log-target, service-watchdogs have been deprecated
         )
 
