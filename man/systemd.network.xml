@@ -1344,7 +1344,7 @@ DuplicateAddressDetection=none</programlisting></para>
           <para>Takes a boolean or one of <literal>static</literal>, <literal>dynamic-on-stop</literal>, and
           <literal>dynamic</literal>. When <literal>static</literal>, <command>systemd-networkd</command>
           will not drop statically configured addresses and routes on starting up process. When
-          <literal>dynamic-on-stop</literal>, the dynamically configurad addresses and routes, such as
+          <literal>dynamic-on-stop</literal>, the dynamically configured addresses and routes, such as
           DHCPv4, DHCPv6, SLAAC, and IPv4 link-local address, will not be dropped when
           <command>systemd-networkd</command> is being stopped. When <literal>dynamic</literal>, the
           dynamically configured addresses and routes will never be dropped, and the lifetime of DHCPv4
