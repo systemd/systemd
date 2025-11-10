@@ -88,8 +88,31 @@ _footnotes = []
 def _run(input_file, output_dir):
     sys.stderr.write("Parsing XML file `%s'...\n" % input_file)
 
+    # Read the XML file content as string for preprocessing
+    with open(input_file, 'r', encoding='utf-8') as f:
+        xml_content = f.read()
+
+    # Reformat variable syntax so we can later apply
+    # the global_substitutions from conf.py.
+    #
+    # This means converting from `&UMOUNT_PATH;` to `|UMOUNT_PATH|`
+    # We’re using these delimiters to match the syntax of Sphinx’s
+    # rst_prolog replacement feature, see https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-rst_prolog,
+    # although we’re not actually using it. This is to future-proof the rst files
+    # in case rst ever supports nested inline syntax or systemd
+    # wants to move to rst_prolog for some other reason.
+    # We’re playing it safe and only converting vars that are
+    # actually defined, as opposed to using a regex.
+    for key, value in conf.global_substitutions.items():
+        _warn(f'checking for &{key}; to replace with |{key}|')
+        xml_content = xml_content.replace(f'&{key};', f'|{key}|')
+
     parser = ET.XMLParser(remove_comments=REMOVE_COMMENTS, no_network=False)
-    tree = ET.parse(input_file, parser=parser)
+
+    # Parse the preprocessed XML content
+    tree = ET.fromstring(xml_content, parser=parser)
+    # Convert back to ElementTree for compatibility with existing code
+    tree = ET.ElementTree(tree)
 
     for elem in tree.iter():
         if elem.tag in ("xref", "link"):

@@ -6,8 +6,8 @@
   - [Transformation Process](#transformation-process)
     - [1. Docbook to `rst`](#1-docbook-to-rst)
     - [2. `rst` to Sphinx](#2-rst-to-sphinx)
+      - [Sphinx Preprocessor Script](#sphinx-preprocessor-script)
       - [Sphinx Extensions](#sphinx-extensions)
-        - [sphinxcontrib-globalsubs](#sphinxcontrib-globalsubs)
       - [Custom Sphinx Extensions](#custom-sphinx-extensions)
         - [directive\_roles.py (90% done)](#directive_rolespy-90-done)
         - [external\_man\_links.py](#external_man_linkspy)
@@ -28,7 +28,7 @@ Python dependencies for generating `html` and `man` pages from `rst`:
 
 To install these (see [Sphinx Docs](https://www.sphinx-doc.org/en/master/tutorial/getting-started.html#setting-up-your-project-and-development-environment)):
 
-`sudo dnf install python3-{lxml,furo,sphinx,sphinxcontrib-globalsubs}'
+`sudo dnf install python3-{lxml,furo,sphinx}'
 
 ### Manual installation
 
@@ -39,7 +39,6 @@ $ source .venv/bin/activate
 # Install deps
 $ .venv/bin/pip install lxml
 $ .venv/bin/pip install sphinx
-$ .venv/bin/pip install sphinxcontrib-globalsubs
 $ .venv/bin/pip install furo
 $ cd doc-migration && ./convert.sh
 ```
@@ -91,13 +90,13 @@ $ make html man
 - The `html` files end up in `/doc-migration/build/html`. Open the `index.html` there to browse the docs.
 - The `man` files end up in `/doc-migration/build/man`. Preview an individual file with `$ mandoc -l build/man/busctl.1`
 
+#### Sphinx Preprocessor Script
+
+The makefile runs `/doc-migration/preprocess_rst.py` before Sphinx. This script does the  variable substitutions defined in the `global_substitutions` object in `/doc-migrations/source/conf.py` (the Sphinx config file). The reasoning for this instead of using Sphinx-native substitutions is explained at the top of `preprocess_rst.py`.
+
 #### Sphinx Extensions
 
 We use the following Sphinx extensions to achieve parity with the old docs:
-
-##### sphinxcontrib-globalsubs
-
-Allows referencing variables in the `global_substitutions` object in `/doc-migrations/source/conf.py` (the Sphinx config file).
 
 #### Custom Sphinx Extensions
 
@@ -165,16 +164,31 @@ a full list of these roles can be found in [external_man_links](source/_ext/exte
 
 An incomplete list.
 
+- [ ] Generate `man_pages` file list in conf somehow
+- [ ] env vars in conf don’t work
+  - [x] Do the substitutions in a safe manner
+  - [ ] systemd needs to implement the env vars themselves
+- [ ] Headers after the `..only:: html`: directive are sometimes dropped
+- [ ]  `..only:: html` directive shows up in man and html
+  - `..only:: man` directive only shows up in man, so that’s useful at least
 - [ ] Some xml files contain invisible whitespace instead of proper spaces, eg. `U+00a0` in `man/libsystemd-pkgconfig.xml`, these will mess up conversion to .rst in some cases.
 - [x] Handle nested includes, eg in `man/libsystemd-pkgconfig.xml` used in `man/sd_machine_get_class.xml` -> seems to work fine
+- [ ] Ignore `man/directives-template.xml`
 - [ ] Custom Link transformations:
   - [ ] `custom-man.xsl`
   - [x] `custom-html.xsl`
 - [ ] See whether `tools/tools/xml_helper.py` does anything we don’t do, this also contains useful code for:
   - [ ] Build a man index, as in `tools/make-man-index.py`
   - [x] Build a directives index, as in `tools/make-directive-index.py`
+    - [ ] Fix this:
+      - [ ] missing groups
+      - [ ] Unknown Title(Unknown Volume)
+      - [ ] Duplicate references
+      - [ ] Order things properly
+      - [ ] Make higher order headlines foldable?
+
   - [ ] DBUS doc generation `tools/update-dbus-docs.py`
 - [ ] See whether `tools/update-man-rules.py` does anything we don’t do
 - [ ] Make sure the `global_substitutions` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build`
-- [ ] Make sure the `man_pages` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build`
+- [ ] Make sure the `man_pages` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build` -> [see this PR comment](https://github.com/systemd/systemd/pull/33673#discussion_r1672128044)
 - [ ] Re-implement check-api-docs

@@ -20,8 +20,8 @@ sys.path.append(os.path.abspath("./_ext"))
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = ['sphinxcontrib.globalsubs',
-              'directive_roles', 'external_man_links', 'autogen_index']
+# extensions = ['sphinxcontrib.globalsubs', 'directive_roles', 'external_man_links', 'autogen_index']
+extensions = ['directive_roles', 'external_man_links', 'autogen_index']
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
@@ -51,12 +51,23 @@ html_theme_options = {
 
 
 man_pages = [
+    # ('docs/systemd-directives', 'directives', 'Systemd Directives', None, '7'),
     ('docs/busctl', 'busctl', 'Introspect the bus', None, '1'),
+    ('docs/systemctl', 'systemctl', 'Control the systemd system and service manager', None, '1'),
     ('docs/journalctl', 'journalctl', 'Print log entries from the systemd journal', None, '1'),
     ('docs/os-release', 'os-release', 'Operating system identification', None, '5'),
     ('docs/systemd', 'systemd, init', 'systemd system and service manager', None, '1'),
+    ('docs/kernel-install', 'kernel-install', 'Add and remove kernel and initrd images to and from the boot partition', None, '8'),
+    ('docs/sd_machine_get_class', 'sd_machine_get_class', 'Determine the class and network interface indices of a locally running virtual machine or container', None, '3'),
 ]
 
+# Note that these substitutions are performed _before_ Sphinx runs.
+# They live in doc-migration/preprocess_rst.py, which is called by
+# the makefile.
+#
+# The function at the start generates version number substitutions, eg.
+# {'v183': '183', 'v184': '184', etc…}
+# These don't seem to be used, but we’re leaving them in just in case.
 global_substitutions = {f'v{n}': f'{n}' for n in range(183, 300)} | {
     # Custom Entities
     'MOUNT_PATH': '{{MOUNT_PATH}}',
