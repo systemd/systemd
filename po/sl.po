@@ -1326,11 +1326,11 @@ msgstr "Preverjanje pristnosti je potrebno za vnovični zagon »$(unit)«."
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
-"Preverjanje pristnosti je potrebno za pošiljanje signala UNIX procesom "
-"»$(unit)«."
+"Preverjanje pristnosti je potrebno za pošiljanje signala UNIX procesom »$"
+"(unit)«."
 
 #: src/core/dbus-unit.c:620
 msgid ""
@@ -1343,19 +1343,19 @@ msgstr ""
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
-"Preverjanje pristnosti je potrebno za ponastavitev stanja »ni uspelo« za "
-"»$(unit)«."
+"Preverjanje pristnosti je potrebno za ponastavitev stanja »ni uspelo« za »$"
+"(unit)«."
 
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
-"Preverjanje pristnosti je potrebno, če želite lastnosti nastaviti na "
-"»$(unit)«."
+"Preverjanje pristnosti je potrebno, če želite lastnosti nastaviti na »$"
+"(unit)«."
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "Preverjanje pristnosti je potrebno za brisanje datotek in map, povezanih s/z "
 "»$(unit)«."

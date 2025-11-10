@@ -1327,8 +1327,8 @@ msgstr "За рестартиране на „$(unit)“ е необходима
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
 "За изпращане на сигнал на UNIX към процесите на „$(unit)“ е необходима "
 "идентификация."
@@ -1336,8 +1336,8 @@ msgstr ""
 #: src/core/dbus-unit.c:620
 #, fuzzy
 #| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
+#| "Authentication is required to send a UNIX signal to the processes of '$"
+#| "(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1357,8 +1357,8 @@ msgstr "За задаване на свойства на „$(unit)“ е нео
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "За изтриване на файловете и директориите свързани с „$(unit)“ е необходима "
 "идентификация."

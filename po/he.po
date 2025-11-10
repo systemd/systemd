@@ -1182,15 +1182,15 @@ msgstr "נדרש אימות כדי להפעיל את ‚$(unit)’ מחדש."
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "נדרש אימות כדי לשלוח אות יוניקס לתהליכים של ‚$(unit)’."
 
 #: src/core/dbus-unit.c:620
 #, fuzzy
 #| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of "
-#| "'$(unit)'."
+#| "Authentication is required to send a UNIX signal to the processes of '$"
+#| "(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1206,8 +1206,8 @@ msgstr "נדרש אימות כדי להגדיר מאפיינים על ‚$(unit)
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr "נדרש אימות כדי למחוק קבצים ותיקיות שמשויכים אל ‚$(unit)’."
 
 #: src/core/dbus-unit.c:812

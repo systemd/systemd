@@ -1309,11 +1309,11 @@ msgstr "Autenticazione richiesta per riavviare '$(unit)'."
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
-"Autenticazione richiesta per inviare un segnale UNIX ai processi di "
-"'$(unit)'."
+"Autenticazione richiesta per inviare un segnale UNIX ai processi di '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:620
 msgid ""
@@ -1334,15 +1334,15 @@ msgstr "Autenticazione richiesta per configurare le proprietà di '$(unit)'."
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
-"Autenticazione richiesta per eliminare i file e le directory associate a "
-"'$(unit)'."
+"Autenticazione richiesta per eliminare i file e le directory associate a '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:812
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
-"Autenticazione richiesta per bloccare/sbloccare il processo dell'unità "
-"'$(unit)'."
+"Autenticazione richiesta per bloccare/sbloccare il processo dell'unità '$"
+"(unit)'."
