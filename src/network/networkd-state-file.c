@@ -766,7 +766,7 @@ static int link_save(Link *link) {
         }
 
         if (link->network) {
-                const char *online_state, *captive_portal;
+                const char *online_state, *captive_portal, *hostname = NULL;
                 bool space = false;
 
                 online_state = link_online_state_to_string(link->online_state);
@@ -871,6 +871,17 @@ static int link_save(Link *link) {
 
                 if (captive_portal)
                         fprintf(f, "CAPTIVE_PORTAL=%s\n", captive_portal);
+
+                /************************************************************/
+
+                if (link->dhcp_lease) {
+                        r = sd_dhcp_lease_get_hostname(link->dhcp_lease, &hostname);
+                        if (r < 0 && r != -ENODATA)
+                                return r;
+                }
+
+                if (hostname)
+                        fprintf(f, "HOSTNAME=%s\n", hostname);
 
                 /************************************************************/
 
