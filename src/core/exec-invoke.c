@@ -508,9 +508,6 @@ static int setup_output(
         i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
         o = fixup_output(context->std_output, socket_fd);
 
-        // FIXME: we probably should spend some time here to verify that if we inherit an fd from stdin
-        // (possibly indirect via inheritance from stdout) it is actually opened for write!
-
         if (fileno == STDERR_FILENO) {
                 ExecOutput e;
                 e = fixup_output(context->std_error, socket_fd);
@@ -527,8 +524,16 @@ static int setup_output(
                         return fileno;
 
                 /* Duplicate from stdout if possible */
-                if (can_inherit_stderr_from_stdout(context, o, e))
+                if (can_inherit_stderr_from_stdout(context, o, e)) {
+                        r = fd_is_writable(STDOUT_FILENO);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_warning("Inherited stdout is not writable for stderr, falling back to /dev/null.");
+                                return open_null_as(O_WRONLY, fileno);
+                        }
                         return RET_NERRNO(dup2(STDOUT_FILENO, fileno));
+                }
 
                 o = e;
 
@@ -538,8 +543,17 @@ static int setup_output(
                         return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
                 /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
-                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA))
+                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA)) {
+                        r = fd_is_writable(STDIN_FILENO);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_warning("Inherited stdin is not writable for %s, falling back to /dev/null.",
+                                            fileno == STDOUT_FILENO ? "stdout" : "stderr");
+                                return open_null_as(O_WRONLY, fileno);
+                        }
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
+                }
 
                 /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
                 if (getppid() != 1)
@@ -555,8 +569,17 @@ static int setup_output(
                 return open_null_as(O_WRONLY, fileno);
 
         case EXEC_OUTPUT_TTY:
-                if (exec_input_is_terminal(i))
+                if (exec_input_is_terminal(i)) {
+                        r = fd_is_writable(STDIN_FILENO);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_warning("Inherited stdin is not writable for TTY's %s, falling back to opening terminal.",
+                                            fileno == STDOUT_FILENO ? "stdout" : "stderr");
+                                return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
+                        }
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
+                }
 
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 

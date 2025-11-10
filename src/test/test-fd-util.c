@@ -878,4 +878,39 @@ TEST(fd_get_path) {
         assert_se(chdir(saved_cwd) >= 0);
 }
 
+TEST(fd_is_writable) {
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fd-writable.XXXXXX";
+        _cleanup_close_ int fd_ro = -EBADF, fd_wo = -EBADF, fd_rw = -EBADF, fd_path = -EBADF;
+        int r;
+
+        fd_rw = mkostemp_safe(name);
+        assert_se(fd_rw >= 0);
+
+        fd_ro = open(name, O_RDONLY | O_CLOEXEC);
+        assert_se(fd_ro >= 0);
+        r = fd_is_writable(fd_ro);
+        assert_se(r == 0);
+
+        fd_wo = open(name, O_WRONLY | O_CLOEXEC);
+        assert_se(fd_wo >= 0);
+        r = fd_is_writable(fd_wo);
+        assert_se(r > 0);
+
+        r = fd_is_writable(fd_rw);
+        assert_se(r > 0);
+
+        fd_path = open(name, O_PATH | O_CLOEXEC);
+        assert_se(fd_path >= 0);
+        r = fd_is_writable(fd_path);
+        assert_se(r == 0);
+
+        r = fd_is_writable(-1);
+        assert_se(r < 0);
+
+        safe_close(fd_ro);
+        r = fd_is_writable(fd_ro);
+        assert_se(r < 0);
+        TAKE_FD(fd_ro);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
