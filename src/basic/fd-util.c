@@ -960,6 +960,23 @@ int fd_is_opath(int fd) {
         return FLAGS_SET(r, O_PATH);
 }
 
+int fd_is_writable(int fd) {
+        int flags, mode;
+
+        if (fd < 0)
+                return -EBADF;
+
+        flags = fcntl(fd, F_GETFL);
+        if (flags < 0)
+                return -errno;
+
+        if (FLAGS_SET(flags, O_PATH))
+                return 0;
+
+        mode = flags & O_ACCMODE_STRICT;
+        return IN_SET(mode, O_WRONLY, O_RDWR);
+}
+
 int fd_verify_safe_flags_full(int fd, int extra_flags) {
         int flags, unexpected_flags;
 
