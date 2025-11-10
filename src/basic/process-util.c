@@ -1662,7 +1662,7 @@ int pidref_safe_fork_full(
                 }
 
                 if (ret_pid) {
-                        if (FLAGS_SET(flags, FORK_PID_ONLY))
+                        if (FLAGS_SET(flags, _FORK_PID_ONLY))
                                 *ret_pid = PIDREF_MAKE_FROM_PID(pid);
                         else {
                                 r = pidref_set_pid(ret_pid, pid);
@@ -1840,7 +1840,7 @@ int pidref_safe_fork_full(
                 freeze();
 
         if (ret_pid) {
-                if (FLAGS_SET(flags, FORK_PID_ONLY))
+                if (FLAGS_SET(flags, _FORK_PID_ONLY))
                         *ret_pid = PIDREF_MAKE_FROM_PID(getpid_cached());
                 else {
                         r = pidref_set_self(ret_pid);
@@ -1869,7 +1869,7 @@ int safe_fork_full(
          * a pidref to the caller. */
         assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
 
-        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|FORK_PID_ONLY, ret_pid ? &pidref : NULL);
+        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|_FORK_PID_ONLY, ret_pid ? &pidref : NULL);
         if (r < 0 || !ret_pid)
                 return r;
 
