@@ -7340,6 +7340,54 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
         self.assertRegex(output, 'DHCPv4 Client ID: IAID:[0-9a-z]*/DUID')
 
+    def test_dhcp_server_static_lease_hostname_simple(self):
+        copy_network_unit('25-veth.netdev',
+                          '25-dhcp-client-simple-hostname.network',
+                          '25-dhcp-server-static-hostname.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
+        self.assertIn('DHCPv4 Client ID: 12:34:56:78:9a:bc', output)
+
+        for _ in range(20):
+            output = read_link_state_file('veth99')
+            if 'HOSTNAME=simple-host' in output:
+                break
+            time.sleep(0.5)
+        else:
+            print(output)
+            self.fail('Timed out waiting for HOSTNAME=simple-host in state file')
+
+        print(output)
+        self.assertIn('HOSTNAME=simple-host', output)
+
+    def test_dhcp_server_static_lease_hostname_fqdn(self):
+        copy_network_unit('25-veth.netdev',
+                          '25-dhcp-client-fqdn-hostname.network',
+                          '25-dhcp-server-static-hostname.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_status('veth99')
+        print(output)
+        self.assertIn('Address: 10.1.1.201 (DHCPv4 via 10.1.1.1)', output)
+        self.assertIn('DHCPv4 Client ID: 12:34:56:78:9a:bd', output)
+
+        for _ in range(20):
+            output = read_link_state_file('veth99')
+            if 'HOSTNAME=fqdn.example.com' in output:
+                break
+            time.sleep(0.5)
+        else:
+            print(output)
+            self.fail('Timed out waiting for HOSTNAME=fqdn.example.com in state file')
+
+        print(output)
+        self.assertIn('HOSTNAME=fqdn.example.com', output)
+
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
     def setUp(self):
