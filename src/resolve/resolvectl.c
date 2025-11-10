@@ -102,10 +102,26 @@ typedef enum StatusMode {
         STATUS_DEFAULT_ROUTE,
         STATUS_LLMNR,
         STATUS_MDNS,
-        STATUS_PRIVATE,
+        STATUS_DNS_OVER_TLS,
         STATUS_DNSSEC,
         STATUS_NTA,
+        _STATUS_MAX,
+        _STATUS_INVALID = -EINVAL,
 } StatusMode;
+
+static const char* const status_mode_json_field_table[_STATUS_MAX] = {
+        [STATUS_ALL]           = NULL,
+        [STATUS_DNS]           = "servers",
+        [STATUS_DOMAIN]        = "searchDomains",
+        [STATUS_DEFAULT_ROUTE] = "defaultRoute",
+        [STATUS_LLMNR]         = "llmnr",
+        [STATUS_MDNS]          = "mDNS",
+        [STATUS_DNS_OVER_TLS]  = "dnsOverTLS",
+        [STATUS_DNSSEC]        = "dnssec",
+        [STATUS_NTA]           = "negativeTrustAnchors",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(status_mode_json_field, StatusMode);
 
 typedef struct InterfaceInfo {
         int index;
@@ -1793,41 +1809,6 @@ static char** global_protocol_status(const GlobalInfo *info) {
         return TAKE_PTR(s);
 }
 
-static const char* status_mode_to_json_field(StatusMode mode) {
-        switch (mode) {
-
-        case STATUS_ALL:
-                return NULL;
-
-        case STATUS_DNS:
-                return "servers";
-
-        case STATUS_DOMAIN:
-                return "searchDomains";
-
-        case STATUS_DEFAULT_ROUTE:
-                return "defaultRoute";
-
-        case STATUS_LLMNR:
-                return "llmnr";
-
-        case STATUS_MDNS:
-                return "mDNS";
-
-        case STATUS_PRIVATE:
-                return "dnsOverTLS";
-
-        case STATUS_DNSSEC:
-                return "dnssec";
-
-        case STATUS_NTA:
-                return "negativeTrustAnchors";
-
-        default:
-                assert_not_reached();
-        }
-}
-
 static int status_json_filter_fields(sd_json_variant **configuration, StatusMode mode) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         sd_json_variant *w;
@@ -1836,7 +1817,7 @@ static int status_json_filter_fields(sd_json_variant **configuration, StatusMode
 
         assert(configuration);
 
-        field = status_mode_to_json_field(mode);
+        field = status_mode_json_field_to_string(mode);
         if (!field)
                 /* Nothing to filter for this mode. */
                 return 0;
@@ -1869,7 +1850,6 @@ static int status_json_filter_links(sd_json_variant **configuration, char **link
         if (links)
                 STRV_FOREACH(ifname, links) {
                         int ifindex = rtnl_resolve_interface_or_warn(/* rtnl= */ NULL, *ifname);
-
                         if (ifindex < 0)
                                 return ifindex;
 
@@ -2037,7 +2017,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
 
                 return 0;
 
-        case STATUS_PRIVATE:
+        case STATUS_DNS_OVER_TLS:
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.dns_over_tls));
@@ -2265,7 +2245,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
                 return 0;
 
-        case STATUS_PRIVATE:
+        case STATUS_DNS_OVER_TLS:
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.dns_over_tls));
 
@@ -3010,10 +2990,10 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_PRIVATE);
+                return status_all(bus, STATUS_DNS_OVER_TLS);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_PRIVATE, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS_OVER_TLS, NULL);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
