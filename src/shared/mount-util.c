@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "chase.h"
+#include "creds-util.h"
 #include "dissect-image.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -1831,58 +1832,65 @@ unsigned long credentials_fs_mount_flags(bool ro) {
         return MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported()|(ro ? MS_RDONLY : 0);
 }
 
-int mount_credentials_fs(const char *path, size_t size, bool ro) {
-        _cleanup_free_ char *opts = NULL;
-        int r, noswap_supported;
+int fsmount_credentials_fs(int *ret_fsfd) {
+        _cleanup_close_ int fs_fd = -EBADF;
+        char size_str[DECIMAL_STR_MAX(uint64_t)];
 
         /* Mounts a file system we can place credentials in, i.e. with tight access modes right from the
          * beginning, and ideally swapping turned off. In order of preference:
          *
-         *      1. tmpfs if it supports "noswap"
+         *      1. tmpfs if it supports "noswap" (needs kernel >= 6.3)
          *      2. ramfs
-         *      3. tmpfs if it doesn't support "noswap"
+         *      3. tmpfs without "noswap"
          */
 
-        noswap_supported = mount_option_supported("tmpfs", "noswap", NULL); /* Check explicitly to avoid kmsg noise */
-        if (noswap_supported > 0) {
-                _cleanup_free_ char *noswap_opts = NULL;
+        fs_fd = fsopen("tmpfs", FSOPEN_CLOEXEC);
+        if (fs_fd < 0)
+                return -errno;
 
-                if (asprintf(&noswap_opts, "mode=0700,nr_inodes=1024,size=%zu,noswap", size) < 0)
-                        return -ENOMEM;
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "nr_inodes", "1024", 0) < 0)
+                return -errno;
 
-                /* Best case: tmpfs with noswap (needs kernel >= 6.3) */
+        xsprintf(size_str, "%" PRIu64, CREDENTIALS_TOTAL_SIZE_MAX);
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "size", size_str, 0) < 0)
+                return -errno;
 
-                r = mount_nofollow_verbose(
-                                LOG_DEBUG,
-                                "tmpfs",
-                                path,
-                                "tmpfs",
-                                credentials_fs_mount_flags(ro),
-                                noswap_opts);
-                if (r >= 0)
-                        return r;
+        if (fsconfig(fs_fd, FSCONFIG_SET_FLAG, "noswap", NULL, 0) < 0) {
+                if (errno != EINVAL)
+                        return -errno;
+
+                int ramfs_fd = fsopen("ramfs", FSOPEN_CLOEXEC);
+                if (ramfs_fd >= 0)
+                        close_and_replace(fs_fd, ramfs_fd);
         }
 
-        r = mount_nofollow_verbose(
-                        LOG_DEBUG,
-                        "ramfs",
-                        path,
-                        "ramfs",
-                        credentials_fs_mount_flags(ro),
-                        "mode=0700");
-        if (r >= 0)
-                return r;
+        if (fsconfig(fs_fd, FSCONFIG_SET_STRING, "mode", "0700", 0) < 0)
+                return -errno;
 
-        if (asprintf(&opts, "mode=0700,nr_inodes=1024,size=%zu", size) < 0)
-                return -ENOMEM;
+        if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
+                return -errno;
 
-        return mount_nofollow_verbose(
-                        LOG_DEBUG,
-                        "tmpfs",
-                        path,
-                        "tmpfs",
-                        credentials_fs_mount_flags(ro),
-                        opts);
+        int mfd = fsmount(fs_fd, FSMOUNT_CLOEXEC,
+                          ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro = */ false)));
+        if (mfd < 0)
+                return -errno;
+
+        if (ret_fsfd)
+                *ret_fsfd = TAKE_FD(fs_fd);
+
+        return mfd;
+}
+
+int mount_credentials_fs(const char *path) {
+        _cleanup_close_ int mfd = -EBADF;
+
+        assert(path);
+
+        mfd = fsmount_credentials_fs(/* ret_fsfd = */ NULL);
+        if (mfd < 0)
+                return mfd;
+
+        return RET_NERRNO(move_mount(mfd, "", AT_FDCWD, path, MOVE_MOUNT_F_EMPTY_PATH));
 }
 
 int make_fsmount(
