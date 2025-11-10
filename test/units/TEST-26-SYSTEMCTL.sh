@@ -306,7 +306,10 @@ systemctl show systemd-logind.service
 systemctl status
 # Ignore the exit code in this case, as it might try to load non-existing units
 systemctl status -a >/dev/null || :
-systemctl status -a --state active,running,plugged >/dev/null
+# Ditto - there is a window between the first ListUnitsByByPatterns and the querying of individual units in
+# which some units might change their state (e.g. running -> stop-sigterm), which then causes systemctl to
+# return EC > 0
+systemctl status -a --state active,running,plugged >/dev/null || :
 systemctl status "systemd-*.timer"
 systemctl status "systemd-journald*.socket"
 systemctl status "sys-devices-*-ttyS0.device"
