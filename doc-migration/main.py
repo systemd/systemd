@@ -7,13 +7,30 @@ from typing import List
 from db2rst import convert_xml_to_rst
 
 FILES_USED_FOR_INCLUDES = [
+    'cgroup-sandboxing.xml',
     'common-variables.xml',
+    'importctl.xml',
     'libsystemd-pkgconfig.xml',
+    'org.freedesktop.locale1.xml',
     'sd_journal_get_data.xml',
+    'sd_bus_add_match.xml',
+    'sd_bus_message_append_basic.xml',
+    'sd_bus_message_read_basic.xml',
     'standard-conf.xml',
     'standard-options.xml',
+    'supported-controllers.xml',
+    'system-only.xml',
+    'system-or-user-ns.xml',
+    'systemctl.xml',
+    'systemd.service.xml',
+    'systemd.link.xml',
+    'systemd.mount.xml',
+    'systemd.netdev.xml',
+    'tc.xml',
     'threads-aware.xml',
+    'timedatectl.xml',
     'user-system-options.xml',
+    'vpick.xml',
 ]
 
 INCLUDES_DIR = "includes"
