@@ -377,7 +377,7 @@ int pidref_gethostname_full(PidRef *pidref, GetHostnameFlags flags, char **ret) 
                 return -errno;
 
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
-        r = pidref_safe_fork("(gethostname)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &child);
+        r = pidref_safe_fork("(sd-gethostname)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &child);
         if (r < 0)
                 return r;
         if (r == 0) {
