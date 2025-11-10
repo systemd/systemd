@@ -98,11 +98,11 @@
   <refsect1>
     <title>Signal</title>
     <variablelist>
-       <varlistentry>
-         <term><constant>SIGHUP</constant></term>
-         <listitem><para>Reloads the daemon configuration.
-         </para></listitem>
-    </varlistentry>
+      <varlistentry>
+        <term><constant>SIGHUP</constant></term>
+        <listitem><para>Reloads the service configuration.</para></listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
