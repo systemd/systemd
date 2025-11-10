@@ -133,29 +133,30 @@ def process_xml_files_in_directory(dir: str, output_dir: str, specific_file: str
         output_subdir = includes_output_dir if filename in FILES_USED_FOR_INCLUDES else files_output_dir
         print('converting file: ', filename)
         try:
-            unhandled_tags, error = convert_xml_to_rst(filepath, output_subdir)
-            if error:
-                result = {
-                    "file": filename,
-                    "status": "error",
-                    "unhandled_tags": unhandled_tags,
-                    "error": error
-                }
-                updated_errors.append(result)
-            else:
-                result = {
-                    "file": filename,
-                    "status": "success",
-                    "unhandled_tags": unhandled_tags,
-                    "error": error
-                }
-                if len(unhandled_tags) > 0:
-                    updated_successes_with_unhandled_tags.append(result)
+            if filename != 'directives-template.xml':
+                unhandled_tags, error = convert_xml_to_rst(filepath, output_subdir)
+                if error:
+                    result = {
+                        "file": filename,
+                        "status": "error",
+                        "unhandled_tags": unhandled_tags,
+                        "error": error
+                    }
+                    updated_errors.append(result)
+                else:
+                    result = {
+                        "file": filename,
+                        "status": "success",
+                        "unhandled_tags": unhandled_tags,
+                        "error": error
+                    }
+                    if len(unhandled_tags) > 0:
+                        updated_successes_with_unhandled_tags.append(result)
 
-            existing_errors = [
-                entry for entry in existing_errors if entry['file'] != filename]
-            existing_unhandled = [
-                entry for entry in existing_unhandled if entry['file'] != filename]
+                existing_errors = [
+                    entry for entry in existing_errors if entry['file'] != filename]
+                existing_unhandled = [
+                    entry for entry in existing_unhandled if entry['file'] != filename]
 
         except Exception as e:
             result = {
