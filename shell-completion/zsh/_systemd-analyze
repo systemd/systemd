@@ -11,6 +11,11 @@
         _files -W '(/run/systemd/ /etc/systemd/ /usr/lib/systemd/)' -P 'systemd/'
     }
 
+(( $+functions[_systemd-analyze_inspect-elf] )) ||
+    _systemd-analyze_inspect-elf() {
+        _files
+    }
+
 (( $+functions[_systemd-analyze_critical-chain] )) ||
     _systemd-analyze_critical-chain() {
         local -a _units
