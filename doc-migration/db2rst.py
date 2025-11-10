@@ -48,6 +48,7 @@ FILES_USED_FOR_INCLUDES = [
     'common-variables.xml',
     'importctl.xml',
     'libsystemd-pkgconfig.xml',
+    'org.freedesktop.locale1.xml',
     'sd_journal_get_data.xml',
     'sd_bus_add_match.xml',
     'sd_bus_message_append_basic.xml',
