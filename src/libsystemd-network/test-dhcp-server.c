@@ -3,15 +3,209 @@
   Copyright © 2013 Intel Corporation. All rights reserved.
 ***/
 
+#include <arpa/inet.h>
 #include <net/if_arp.h>
+#include <string.h>
 
 #include "sd-dhcp-server.h"
 #include "sd-event.h"
 
+#include "dhcp-network.h"
+#include "dhcp-option.h"
+#include "dhcp-packet.h"
 #include "dhcp-server-internal.h"
+#include "dns-domain.h"
 #include "hashmap.h"
 #include "siphash24.h"
+#include "string-util.h"
 #include "tests.h"
+
+static uint8_t *last_packet = NULL;
+static size_t last_packet_len = 0;
+
+int __wrap_dhcp_network_send_raw_socket(int s, const union sockaddr_union *link, const void *packet, size_t len);
+int __wrap_dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port, const void *packet, size_t len);
+
+int __wrap_dhcp_network_send_raw_socket(int s, const union sockaddr_union *link, const void *packet, size_t len) {
+        assert(s >= 0);
+        assert(packet);
+        assert(len > 0);
+
+        free(last_packet);
+        last_packet = memdup(packet, len);
+        assert(last_packet);
+        last_packet_len = len;
+
+        return 0;
+}
+
+int __wrap_dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port, const void *packet, size_t len) {
+        assert(s >= 0);
+        assert(packet);
+        assert(len > 0);
+
+        free(last_packet);
+        last_packet = memdup(packet, len);
+        assert(last_packet);
+        last_packet_len = len;
+
+        return 0;
+}
+
+static DHCPMessage *get_last_reply_dhcp_message(size_t *ret_len) {
+        DHCPMessage *msg;
+
+        assert_se(last_packet);
+        assert_se(last_packet_len > 0);
+
+        if (last_packet_len >= sizeof(DHCPPacket)) {
+                DHCPPacket *packet = (DHCPPacket *) last_packet;
+                msg = &packet->dhcp;
+                if (ret_len)
+                        *ret_len = last_packet_len - offsetof(DHCPPacket, dhcp);
+        } else if (last_packet_len >= sizeof(DHCPMessage)) {
+                msg = (DHCPMessage *) last_packet;
+                if (ret_len)
+                        *ret_len = last_packet_len;
+        } else {
+                assert_not_reached();
+        }
+
+        assert_se(be32toh(msg->magic) == DHCP_MAGIC_COOKIE);
+        return msg;
+}
+
+static void assert_message_type(uint8_t expected_type) {
+        DHCPMessage *msg;
+        size_t len, offset;
+        uint8_t type;
+        int r;
+        uint8_t option_len;
+
+        msg = get_last_reply_dhcp_message(&len);
+
+        r = dhcp_option_find_option(
+                        msg->options, len - offsetof(DHCPMessage, options), SD_DHCP_OPTION_MESSAGE_TYPE, &offset);
+        assert_se(r >= 0);
+
+        option_len = msg->options[offset + 1];
+        assert_se(option_len == 1);
+        type = msg->options[offset + 2];
+        assert_se(type == expected_type);
+}
+
+static void assert_offered_address(const struct in_addr *expected_addr) {
+        DHCPMessage *msg;
+
+        msg = get_last_reply_dhcp_message(NULL);
+        assert_se(msg->yiaddr == expected_addr->s_addr);
+}
+
+static void assert_option_12_present(const char *expected_hostname) {
+        DHCPMessage *msg;
+        size_t len, offset;
+        _cleanup_free_ char *hostname = NULL;
+        int r;
+
+        msg = get_last_reply_dhcp_message(&len);
+
+        r = dhcp_option_find_option(
+                        msg->options, len - offsetof(DHCPMessage, options), SD_DHCP_OPTION_HOST_NAME, &offset);
+        assert_se(r >= 0);
+
+        r = dhcp_option_parse_hostname(&msg->options[offset + 2], msg->options[offset + 1], &hostname);
+        assert_se(r >= 0);
+        assert_se(hostname);
+        assert_se(streq(hostname, expected_hostname));
+}
+
+static void assert_option_15_present(const char *expected_domain) {
+        DHCPMessage *msg;
+        size_t len, offset;
+        _cleanup_free_ char *domain = NULL;
+        int r;
+
+        msg = get_last_reply_dhcp_message(&len);
+
+        r = dhcp_option_find_option(
+                        msg->options, len - offsetof(DHCPMessage, options), SD_DHCP_OPTION_DOMAIN_NAME, &offset);
+        assert_se(r >= 0);
+
+        r = dhcp_option_parse_string(&msg->options[offset + 2], msg->options[offset + 1], &domain);
+        assert_se(r >= 0);
+        assert_se(domain);
+        assert_se(streq(domain, expected_domain));
+}
+
+static void assert_option_54_present(const struct in_addr *expected_server_id) {
+        DHCPMessage *msg;
+        size_t len, offset;
+        struct in_addr server_id;
+        int r;
+        uint8_t option_len;
+
+        msg = get_last_reply_dhcp_message(&len);
+
+        r = dhcp_option_find_option(
+                        msg->options,
+                        len - offsetof(DHCPMessage, options),
+                        SD_DHCP_OPTION_SERVER_IDENTIFIER,
+                        &offset);
+        assert_se(r >= 0);
+
+        option_len = msg->options[offset + 1];
+        assert_se(option_len == sizeof(struct in_addr));
+        memcpy(&server_id, &msg->options[offset + 2], sizeof(server_id));
+        assert_se(server_id.s_addr == expected_server_id->s_addr);
+}
+
+static void assert_option_81_present(const char *expected_fqdn) {
+        DHCPMessage *msg;
+        size_t len, offset;
+        _cleanup_free_ char *fqdn = NULL;
+        const uint8_t *wire_data;
+        size_t wire_len;
+        uint8_t option_len;
+        int r;
+
+        msg = get_last_reply_dhcp_message(&len);
+
+        r = dhcp_option_find_option(
+                        msg->options, len - offsetof(DHCPMessage, options), SD_DHCP_OPTION_FQDN, &offset);
+        assert_se(r >= 0);
+
+        option_len = msg->options[offset + 1];
+        wire_data = &msg->options[offset + 2];
+
+        assert_se(option_len >= 3);
+        assert_se(wire_data[0] & DHCP_FQDN_FLAG_O);
+
+        wire_data += 3;
+        wire_len = option_len - 3;
+
+        r = dns_name_from_wire_format(&wire_data, &wire_len, &fqdn);
+        assert_se(r >= 0);
+        assert_se(fqdn);
+        assert_se(streq(fqdn, expected_fqdn));
+}
+
+static void assert_hostname_options_absent(void) {
+        DHCPMessage *msg;
+        size_t len, offset;
+
+        msg = get_last_reply_dhcp_message(&len);
+
+        assert_se(dhcp_option_find_option(
+                                  msg->options,
+                                  len - offsetof(DHCPMessage, options),
+                                  SD_DHCP_OPTION_HOST_NAME,
+                                  &offset) < 0);
+        assert_se(dhcp_option_find_option(
+                                  msg->options,
+                                  len - offsetof(DHCPMessage, options),
+                                  SD_DHCP_OPTION_FQDN,
+                                  &offset) < 0);
+}
 
 static void test_pool(struct in_addr *address, unsigned size, int ret) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
@@ -132,6 +326,12 @@ static void test_message_handler(void) {
         struct in_addr static_lease_address = {
                 .s_addr = htobe32(INADDR_LOOPBACK + 42),
         };
+        struct in_addr expected_ip_3 = { .s_addr = htobe32(INADDR_LOOPBACK + 3) };
+        struct in_addr expected_ip_4 = { .s_addr = htobe32(INADDR_LOOPBACK + 4) };
+        struct in_addr expected_ip_29 = { .s_addr = htobe32(INADDR_LOOPBACK + 29) };
+        struct in_addr expected_ip_30 = { .s_addr = htobe32(INADDR_LOOPBACK + 30) };
+        struct in_addr expected_ip_31 = { .s_addr = htobe32(INADDR_LOOPBACK + 31) };
+        struct in_addr expected_ip_42 = { .s_addr = htobe32(INADDR_LOOPBACK + 42) };
         static uint8_t static_lease_client_id[7] = {0x01, 'A', 'B', 'C', 'D', 'E', 'G' };
         int r;
 
@@ -144,16 +344,26 @@ static void test_message_handler(void) {
         ASSERT_OK(sd_dhcp_server_attach_event(server, NULL, 0));
         ASSERT_OK(sd_dhcp_server_start(server));
 
+        free(last_packet);
+        last_packet = NULL;
         r = dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL);
         if (r == -ENETDOWN)
                 return (void) log_tests_skipped("Network is not available");
         ASSERT_OK_EQ(r, DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
+        assert_option_54_present(&address_lo);
 
         test.end = 0;
         /* TODO, shouldn't this fail? */
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
         test.end = SD_DHCP_OPTION_END;
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
 
         test.option_type.code = 0;
         test.option_type.length = 0;
@@ -162,43 +372,74 @@ static void test_message_handler(void) {
         test.option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE;
         test.option_type.length = 1;
         test.option_type.type = DHCP_DISCOVER;
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
 
         test.message.op = 0;
         ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
         test.message.op = BOOTREQUEST;
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
 
         test.message.htype = 0;
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
         test.message.htype = ARPHRD_ETHER;
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
 
         test.message.hlen = 0;
         ASSERT_ERROR(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), EBADMSG);
         test.message.hlen = ETHER_ADDR_LEN;
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
 
         test.option_type.type = DHCP_REQUEST;
         ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
         test.option_requested_ip.code = SD_DHCP_OPTION_REQUESTED_IP_ADDRESS;
         test.option_requested_ip.length = 4;
         test.option_requested_ip.address = htobe32(0x12345678);
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_NAK);
+
         test.option_server_id.code = SD_DHCP_OPTION_SERVER_IDENTIFIER;
         test.option_server_id.length = 4;
         test.option_server_id.address = htobe32(INADDR_LOOPBACK);
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        assert_message_type(DHCP_ACK);
+        assert_offered_address(&expected_ip_3);
 
         test.option_server_id.address = htobe32(0x12345678);
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
         ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
         test.option_server_id.address = htobe32(INADDR_LOOPBACK);
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 4);
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        assert_message_type(DHCP_ACK);
+        assert_offered_address(&expected_ip_4);
+
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        assert_message_type(DHCP_ACK);
+        assert_offered_address(&expected_ip_3);
 
         test.option_client_id.code = SD_DHCP_OPTION_CLIENT_IDENTIFIER;
         test.option_client_id.length = 7;
@@ -209,10 +450,18 @@ static void test_message_handler(void) {
         test.option_client_id.id[4] = 'D';
         test.option_client_id.id[5] = 'E';
         test.option_client_id.id[6] = 'F';
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        assert_message_type(DHCP_ACK);
+        assert_offered_address(&expected_ip_3);
 
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 30);
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        assert_message_type(DHCP_ACK);
+        assert_offered_address(&expected_ip_30);
 
         /* add the static lease for the client ID */
         ASSERT_OK(sd_dhcp_server_stop(server));
@@ -222,7 +471,11 @@ static void test_message_handler(void) {
 
         /* discover */
         test.option_type.type = DHCP_DISCOVER;
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
+        assert_offered_address(&expected_ip_31);
 
         /* request neither bound nor static address */
         test.option_type.type = DHCP_REQUEST;
@@ -235,7 +488,11 @@ static void test_message_handler(void) {
 
         /* request the new static address */
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 31);
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        assert_message_type(DHCP_ACK);
+        assert_offered_address(&expected_ip_31);
 
         /* release the bound static lease */
         test.message.ciaddr = htobe32(INADDR_LOOPBACK + 31);
@@ -251,7 +508,11 @@ static void test_message_handler(void) {
         test.message.ciaddr = 0;
         test.option_type.type = DHCP_REQUEST;
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 29);
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        assert_message_type(DHCP_ACK);
+        assert_offered_address(&expected_ip_29);
 
         /* request address reserved for static lease (unmatching client ID) */
         test.option_client_id.id[6] = 'H';
@@ -266,12 +527,20 @@ static void test_message_handler(void) {
         /* request matching address */
         test.option_client_id.id[6] = 'G';
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 42);
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        assert_message_type(DHCP_ACK);
+        assert_offered_address(&expected_ip_42);
 
         /* try again */
         test.option_client_id.id[6] = 'G';
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 42);
+        free(last_packet);
+        last_packet = NULL;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
+        assert_message_type(DHCP_ACK);
+        assert_offered_address(&expected_ip_42);
 }
 
 static uint64_t client_id_hash_helper(sd_dhcp_client_id *id, uint8_t key[HASH_KEY_SIZE]) {
@@ -357,19 +626,64 @@ static void test_static_lease(void) {
 
 static void test_domain_name(void) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        struct {
+                struct {
+                        DHCP_MESSAGE_HEADER_DEFINITION;
+                } _packed_ message;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        uint8_t type;
+                } _packed_ option_type;
+                uint8_t end;
+        } _packed_ test_discover = {
+                .message.op = BOOTREQUEST,
+                .message.htype = ARPHRD_ETHER,
+                .message.hlen = ETHER_ADDR_LEN,
+                .message.xid = htobe32(0xABCDEF01),
+                .message.chaddr = { 'd', 'o', 'm', 'a', 'i', 'n' },
+                .option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE,
+                .option_type.length = 1,
+                .option_type.type = DHCP_DISCOVER,
+                .end = SD_DHCP_OPTION_END,
+        };
+        struct in_addr address_lo = {
+                .s_addr = htobe32(INADDR_LOOPBACK),
+        };
+        int r;
 
         log_debug("/* %s */", __func__);
 
         ASSERT_OK(sd_dhcp_server_new(&server, 1));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, NULL, 0));
+        ASSERT_OK(sd_dhcp_server_start(server));
 
         /* Test setting domain name */
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "example.com"));
+
+        /* Now verify it's sent in the OFFER */
+        free(last_packet);
+        last_packet = NULL;
+        r = dhcp_server_handle_message(server, (DHCPMessage *) &test_discover, sizeof(test_discover), NULL);
+        if (r == -ENETDOWN)
+                return (void) log_tests_skipped("Network is not available");
+        ASSERT_OK_EQ(r, DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
+        assert_option_15_present("example.com");
 
         /* Test setting same domain name (should return 0 - no change) */
         ASSERT_OK_ZERO(sd_dhcp_server_set_domain_name(server, "example.com"));
 
         /* Test changing domain name */
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "test.local"));
+        free(last_packet);
+        last_packet = NULL;
+        ASSERT_OK_EQ(dhcp_server_handle_message(
+                                     server, (DHCPMessage *) &test_discover, sizeof(test_discover), NULL),
+                     DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
+        assert_option_15_present("test.local");
 
         /* Test clearing domain name */
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, NULL));
@@ -388,9 +702,300 @@ static void test_domain_name(void) {
 
         /* Test valid domain with subdomain */
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "sub.example.com"));
+        free(last_packet);
+        last_packet = NULL;
+        ASSERT_OK_EQ(dhcp_server_handle_message(
+                                     server, (DHCPMessage *) &test_discover, sizeof(test_discover), NULL),
+                     DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
+        assert_option_15_present("sub.example.com");
 
         /* Test single-label domain */
         ASSERT_OK_POSITIVE(sd_dhcp_server_set_domain_name(server, "local"));
+        free(last_packet);
+        last_packet = NULL;
+        ASSERT_OK_EQ(dhcp_server_handle_message(
+                                     server, (DHCPMessage *) &test_discover, sizeof(test_discover), NULL),
+                     DHCP_OFFER);
+        assert_message_type(DHCP_OFFER);
+        assert_option_15_present("local");
+}
+
+static void test_static_lease_hostname_simple(void) {
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        struct {
+                struct {
+                        DHCP_MESSAGE_HEADER_DEFINITION;
+                } _packed_ message;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        uint8_t type;
+                } _packed_ option_type;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        be32_t address;
+                } _packed_ option_requested_ip;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        be32_t address;
+                } _packed_ option_server_id;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        uint8_t id[7];
+                } _packed_ option_client_id;
+                uint8_t end;
+        } _packed_ test = {
+                .message.op = BOOTREQUEST,
+                .message.htype = ARPHRD_ETHER,
+                .message.hlen = ETHER_ADDR_LEN,
+                .message.xid = htobe32(0x19871119),
+                .message.chaddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
+                .option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE,
+                .option_type.length = 1,
+                .option_type.type = DHCP_DISCOVER,
+                .option_client_id.code = SD_DHCP_OPTION_CLIENT_IDENTIFIER,
+                .option_client_id.length = 7,
+                .option_client_id.id = { 0x01, 'T', 'E', 'S', 'T', 'P', 'C' },
+                .end = SD_DHCP_OPTION_END,
+        };
+        struct in_addr address_lo = {
+                .s_addr = htobe32(INADDR_LOOPBACK),
+        };
+        struct in_addr static_lease_address = {
+                .s_addr = htobe32(INADDR_LOOPBACK + 50),
+        };
+        static uint8_t static_lease_client_id[7] = { 0x01, 'T', 'E', 'S', 'T', 'P', 'C' };
+        const char *hostname = "testhost";
+        int r;
+
+        log_debug("/* %s */", __func__);
+
+        free(last_packet);
+        last_packet = NULL;
+        last_packet_len = 0;
+
+        ASSERT_OK(sd_dhcp_server_new(&server, 1));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_set_static_lease_with_hostname(
+                        server,
+                        &static_lease_address,
+                        static_lease_client_id,
+                        ELEMENTSOF(static_lease_client_id),
+                        hostname));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, NULL, 0));
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        r = dhcp_server_handle_message(server, (DHCPMessage *) &test, sizeof(test), NULL);
+        if (r == -ENETDOWN)
+                return (void) log_tests_skipped("Network is not available");
+        ASSERT_OK_EQ(r, DHCP_OFFER);
+
+        assert_message_type(DHCP_OFFER);
+        assert_option_12_present(hostname);
+
+        test.option_type.type = DHCP_REQUEST;
+        test.option_server_id.code = SD_DHCP_OPTION_SERVER_IDENTIFIER;
+        test.option_server_id.length = 4;
+        test.option_server_id.address = htobe32(INADDR_LOOPBACK);
+        test.option_requested_ip.code = SD_DHCP_OPTION_REQUESTED_IP_ADDRESS;
+        test.option_requested_ip.length = 4;
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 50);
+        free(last_packet);
+        last_packet = NULL;
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage *) &test, sizeof(test), NULL), DHCP_ACK);
+
+        assert_message_type(DHCP_ACK);
+        assert_option_12_present(hostname);
+}
+
+static void test_static_lease_hostname_fqdn(void) {
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        struct {
+                struct {
+                        DHCP_MESSAGE_HEADER_DEFINITION;
+                } _packed_ message;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        uint8_t type;
+                } _packed_ option_type;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        be32_t address;
+                } _packed_ option_requested_ip;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        be32_t address;
+                } _packed_ option_server_id;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        uint8_t id[7];
+                } _packed_ option_client_id;
+                uint8_t end;
+        } _packed_ test = {
+                .message.op = BOOTREQUEST,
+                .message.htype = ARPHRD_ETHER,
+                .message.hlen = ETHER_ADDR_LEN,
+                .message.xid = htobe32(0x20140110),
+                .message.chaddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
+                .option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE,
+                .option_type.length = 1,
+                .option_type.type = DHCP_DISCOVER,
+                .option_client_id.code = SD_DHCP_OPTION_CLIENT_IDENTIFIER,
+                .option_client_id.length = 7,
+                .option_client_id.id = { 0x01, 'F', 'Q', 'D', 'N', 'T', 'S' },
+                .end = SD_DHCP_OPTION_END,
+        };
+        struct in_addr address_lo = {
+                .s_addr = htobe32(INADDR_LOOPBACK),
+        };
+        struct in_addr static_lease_address = {
+                .s_addr = htobe32(INADDR_LOOPBACK + 51),
+        };
+        static uint8_t static_lease_client_id[7] = { 0x01, 'F', 'Q', 'D', 'N', 'T', 'S' };
+        const char *fqdn = "device.example.com";
+        int r;
+
+        log_debug("/* %s */", __func__);
+
+        free(last_packet);
+        last_packet = NULL;
+        last_packet_len = 0;
+
+        ASSERT_OK(sd_dhcp_server_new(&server, 1));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_set_static_lease_with_hostname(
+                        server,
+                        &static_lease_address,
+                        static_lease_client_id,
+                        ELEMENTSOF(static_lease_client_id),
+                        fqdn));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, NULL, 0));
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        r = dhcp_server_handle_message(server, (DHCPMessage *) &test, sizeof(test), NULL);
+        if (r == -ENETDOWN)
+                return (void) log_tests_skipped("Network is not available");
+        ASSERT_OK_EQ(r, DHCP_OFFER);
+
+        assert_message_type(DHCP_OFFER);
+        assert_option_81_present(fqdn);
+
+        test.option_type.type = DHCP_REQUEST;
+        test.option_server_id.code = SD_DHCP_OPTION_SERVER_IDENTIFIER;
+        test.option_server_id.length = 4;
+        test.option_server_id.address = htobe32(INADDR_LOOPBACK);
+        test.option_requested_ip.code = SD_DHCP_OPTION_REQUESTED_IP_ADDRESS;
+        test.option_requested_ip.length = 4;
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 51);
+        free(last_packet);
+        last_packet = NULL;
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage *) &test, sizeof(test), NULL), DHCP_ACK);
+
+        assert_message_type(DHCP_ACK);
+        assert_option_81_present(fqdn);
+}
+
+static void test_static_lease_hostname_none(void) {
+        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        struct {
+                struct {
+                        DHCP_MESSAGE_HEADER_DEFINITION;
+                } _packed_ message;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        uint8_t type;
+                } _packed_ option_type;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        be32_t address;
+                } _packed_ option_requested_ip;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        be32_t address;
+                } _packed_ option_server_id;
+                struct {
+                        uint8_t code;
+                        uint8_t length;
+                        uint8_t id[7];
+                } _packed_ option_client_id;
+                uint8_t end;
+        } _packed_ test = {
+                .message.op = BOOTREQUEST,
+                .message.htype = ARPHRD_ETHER,
+                .message.hlen = ETHER_ADDR_LEN,
+                .message.xid = htobe32(0x20160604),
+                .message.chaddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
+                .option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE,
+                .option_type.length = 1,
+                .option_type.type = DHCP_DISCOVER,
+                .option_client_id.code = SD_DHCP_OPTION_CLIENT_IDENTIFIER,
+                .option_client_id.length = 7,
+                .option_client_id.id = { 0x01, 'N', 'O', 'H', 'O', 'S', 'T' },
+                .end = SD_DHCP_OPTION_END,
+        };
+        struct in_addr address_lo = {
+                .s_addr = htobe32(INADDR_LOOPBACK),
+        };
+        struct in_addr static_lease_address = {
+                .s_addr = htobe32(INADDR_LOOPBACK + 52),
+        };
+        static uint8_t static_lease_client_id[7] = { 0x01, 'N', 'O', 'H', 'O', 'S', 'T' };
+        int r;
+
+        log_debug("/* %s */", __func__);
+
+        free(last_packet);
+        last_packet = NULL;
+        last_packet_len = 0;
+
+        ASSERT_OK(sd_dhcp_server_new(&server, 1));
+        ASSERT_OK(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0));
+        ASSERT_OK(sd_dhcp_server_set_static_lease(
+                        server,
+                        &static_lease_address,
+                        static_lease_client_id,
+                        ELEMENTSOF(static_lease_client_id)));
+        ASSERT_OK(sd_dhcp_server_attach_event(server, NULL, 0));
+        ASSERT_OK(sd_dhcp_server_start(server));
+
+        r = dhcp_server_handle_message(server, (DHCPMessage *) &test, sizeof(test), NULL);
+        if (r == -ENETDOWN)
+                return (void) log_tests_skipped("Network is not available");
+        ASSERT_OK_EQ(r, DHCP_OFFER);
+
+        assert_message_type(DHCP_OFFER);
+        assert_hostname_options_absent();
+
+        test.option_type.type = DHCP_REQUEST;
+        test.option_server_id.code = SD_DHCP_OPTION_SERVER_IDENTIFIER;
+        test.option_server_id.length = 4;
+        test.option_server_id.address = htobe32(INADDR_LOOPBACK);
+        test.option_requested_ip.code = SD_DHCP_OPTION_REQUESTED_IP_ADDRESS;
+        test.option_requested_ip.length = 4;
+        test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 52);
+        free(last_packet);
+        last_packet = NULL;
+        ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage *) &test, sizeof(test), NULL), DHCP_ACK);
+
+        assert_message_type(DHCP_ACK);
+        assert_hostname_options_absent();
+}
+
+static void test_static_lease_hostname(void) {
+        test_static_lease_hostname_simple();
+        test_static_lease_hostname_fqdn();
+        test_static_lease_hostname_none();
 }
 
 int main(int argc, char *argv[]) {
@@ -401,6 +1006,7 @@ int main(int argc, char *argv[]) {
         test_client_id_hash();
         test_static_lease();
         test_domain_name();
+        test_static_lease_hostname();
 
         r = test_basic(true);
         if (r < 0)
