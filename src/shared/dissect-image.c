@@ -723,6 +723,99 @@ static bool image_filter_test(const ImageFilter *filter, PartitionDesignator d, 
         return fnmatch(filter->pattern[d], strempty(label),  FNM_NOESCAPE) == 0;
 }
 
+static int parse_verity_sig_json(
+                int fd,
+                const DissectedPartition *p,
+                const VeritySettings *verity,
+                void **ret_root_hash,
+                size_t *ret_root_hash_size,
+                void **ret_root_hash_sig,
+                size_t *ret_root_hash_sig_size) {
+
+        int r;
+
+        assert(fd >= 0);
+        assert(p);
+        assert(p->found);
+        assert(!!ret_root_hash == !!ret_root_hash_size);
+        assert(!!ret_root_hash_sig == !!ret_root_hash_sig_size);
+
+        if (!verity && !ret_root_hash && !ret_root_hash_sig)
+                return 0; /* Nothing to do, skip pointless I/O */
+
+        if (p->offset == UINT64_MAX || p->size == UINT64_MAX)
+                return -EINVAL;
+
+        if (p->size > 4*1024*1024) /* Signature data cannot possible be larger than 4M, refuse that */
+                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "Verity signature partition is larger than 4M, refusing.");
+
+        _cleanup_free_ char *buf = new(char, p->size+1);
+        if (!buf)
+                return -ENOMEM;
+
+        ssize_t n = pread(fd, buf, p->size, p->offset);
+        if (n < 0)
+                return -ENOMEM;
+        if ((uint64_t) n != p->size)
+                return -EIO;
+
+        const char *e = memchr(buf, 0, p->size);
+        if (e) {
+                /* If we found a NUL byte then the rest of the data must be NUL too */
+                if (!memeqzero(e, p->size - (e - buf)))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature data contains embedded NUL byte.");
+        } else
+                buf[p->size] = 0;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse(buf, 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse signature JSON data: %m");
+
+        sd_json_variant *rh = sd_json_variant_by_key(v, "rootHash");
+        if (!rh)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
+
+        _cleanup_free_ void *root_hash = NULL;
+        size_t root_hash_size;
+        r = sd_json_variant_unhex(rh, &root_hash, &root_hash_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse root hash field: %m");
+
+        /* Check if specified root hash matches if it is specified */
+        if (verity && verity->root_hash &&
+            memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
+                _cleanup_free_ char *a = NULL, *b = NULL;
+
+                a = hexmem(root_hash, root_hash_size);
+                b = hexmem(verity->root_hash, verity->root_hash_size);
+
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(a), strna(b));
+        }
+
+        sd_json_variant *sig = sd_json_variant_by_key(v, "signature");
+        if (!sig)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
+
+        _cleanup_free_ void *root_hash_sig = NULL;
+        size_t root_hash_sig_size;
+        r = sd_json_variant_unbase64(sig, &root_hash_sig, &root_hash_sig_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse signature field: %m");
+
+        if (ret_root_hash) {
+                *ret_root_hash = TAKE_PTR(root_hash);
+                *ret_root_hash_size = root_hash_size;
+        }
+
+        if (ret_root_hash_sig) {
+                *ret_root_hash_sig = TAKE_PTR(root_hash_sig);
+                *ret_root_hash_sig_size = root_hash_sig_size;
+        }
+
+        return 0;
+}
+
 static int dissect_image(
                 DissectedImage *m,
                 int fd,
@@ -1157,6 +1250,20 @@ static int dissect_image(
                                 rw = false;
 
                         } else if (type.designator == PARTITION_ROOT_VERITY_SIG) {
+                                r = parse_verity_sig_json(
+                                                fd,
+                                                &(DissectedPartition) {
+                                                        .found = true,
+                                                        .offset = (uint64_t) start * 512,
+                                                        .size = (uint64_t) size * 512,
+                                                },
+                                                verity,
+                                                /* ret_root_hash= */ NULL,
+                                                /* ret_root_hash_size= */ NULL,
+                                                /* ret_root_hash_sig= */ NULL,
+                                                /* ret_root_hash_sig_size= */ NULL);
+                                if (r < 0)
+                                        continue;
 
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
@@ -1200,6 +1307,20 @@ static int dissect_image(
                                 rw = false;
 
                         } else if (type.designator == PARTITION_USR_VERITY_SIG) {
+                                r = parse_verity_sig_json(
+                                                fd,
+                                                &(DissectedPartition) {
+                                                        .found = true,
+                                                        .offset = (uint64_t) start * 512,
+                                                        .size = (uint64_t) size * 512,
+                                                },
+                                                verity,
+                                                /* ret_root_hash= */ NULL,
+                                                /* ret_root_hash_size= */ NULL,
+                                                /* ret_root_hash_sig= */ NULL,
+                                                /* ret_root_hash_sig_size= */ NULL);
+                                if (r < 0)
+                                        continue;
 
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
@@ -3659,65 +3780,13 @@ int dissected_image_load_verity_sig_partition(
         DissectedPartition *p = m->partitions + ds;
         if (!p->found)
                 return 0;
-        if (p->offset == UINT64_MAX || p->size == UINT64_MAX)
-                return -EINVAL;
 
-        if (p->size > 4*1024*1024) /* Signature data cannot possible be larger than 4M, refuse that */
-                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "Verity signature partition is larger than 4M, refusing.");
+        _cleanup_free_ void *root_hash = NULL, *root_hash_sig = NULL;
+        size_t root_hash_size, root_hash_sig_size;
 
-        _cleanup_free_ char *buf = new(char, p->size+1);
-        if (!buf)
-                return -ENOMEM;
-
-        ssize_t n = pread(fd, buf, p->size, p->offset);
-        if (n < 0)
-                return -ENOMEM;
-        if ((uint64_t) n != p->size)
-                return -EIO;
-
-        const char *e = memchr(buf, 0, p->size);
-        if (e) {
-                /* If we found a NUL byte then the rest of the data must be NUL too */
-                if (!memeqzero(e, p->size - (e - buf)))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature data contains embedded NUL byte.");
-        } else
-                buf[p->size] = 0;
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        r = sd_json_parse(buf, 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        r = parse_verity_sig_json(fd, p, verity, &root_hash, &root_hash_size, &root_hash_sig, &root_hash_sig_size);
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse signature JSON data: %m");
-
-        sd_json_variant *rh = sd_json_variant_by_key(v, "rootHash");
-        if (!rh)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
-
-        _cleanup_free_ void *root_hash = NULL;
-        size_t root_hash_size;
-        r = sd_json_variant_unhex(rh, &root_hash, &root_hash_size);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse root hash field: %m");
-
-        /* Check if specified root hash matches if it is specified */
-        if (verity->root_hash &&
-            memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
-                _cleanup_free_ char *a = NULL, *b = NULL;
-
-                a = hexmem(root_hash, root_hash_size);
-                b = hexmem(verity->root_hash, verity->root_hash_size);
-
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(a), strna(b));
-        }
-
-        sd_json_variant *sig = sd_json_variant_by_key(v, "signature");
-        if (!sig)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
-
-        _cleanup_free_ void *root_hash_sig = NULL;
-        size_t root_hash_sig_size;
-        r = sd_json_variant_unbase64(sig, &root_hash_sig, &root_hash_sig_size);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse signature field: %m");
+                return r;
 
         free_and_replace(verity->root_hash, root_hash);
         verity->root_hash_size = root_hash_size;
