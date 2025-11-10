@@ -37,7 +37,12 @@ _journalctl_none() {
 (( $+functions[_journalctl_field_values] )) ||
 _journalctl_field_values() {
     local -a _fields cmd
-    cmd=("journalctl $_sys_service_mgr" "-F ${@[-1]}" "2>/dev/null" )
+    # Use --completion-names for systemd unit fields to get base name augmentation
+    if [[ ${@[-1]} == "_SYSTEMD_UNIT" || ${@[-1]} == "_SYSTEMD_USER_UNIT" || ${@[-1]} == "USER_UNIT" ]]; then
+        cmd=("journalctl $_sys_service_mgr" "-F ${@[-1]}" "--completion-names" "2>/dev/null" )
+    else
+        cmd=("journalctl $_sys_service_mgr" "-F ${@[-1]}" "2>/dev/null" )
+    fi
     _fields=$(_call_program fields $cmd[@])
     _fields=${_fields//'\'/'\\'}
     _fields=${_fields//':'/'\:'}

@@ -74,6 +74,7 @@ const char *arg_host = NULL;
 unsigned arg_lines = 10;
 OutputMode arg_output = OUTPUT_SHORT;
 bool arg_plain = false;
+bool arg_completion_names = false;
 bool arg_firmware_setup = false;
 usec_t arg_boot_loader_menu = USEC_INFINITY;
 const char *arg_boot_loader_entry = NULL;
@@ -305,6 +306,7 @@ static int systemctl_help(void) {
                "     --reboot-argument=ARG\n"
                "                         Specify argument string to pass to reboot()\n"
                "     --plain             Print unit dependencies as a list instead of a tree\n"
+               "     --completion-names  Include base names for shell completion\n"
                "     --timestamp=FORMAT  Change format of printed timestamps (pretty, unix,\n"
                "                             us, utc, us+utc)\n"
                "     --read-only         Create read-only bind mount\n"
@@ -421,6 +423,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_FAILED,
                 ARG_RUNTIME,
                 ARG_PLAIN,
+                ARG_COMPLETION_NAMES,
                 ARG_STATE,
                 ARG_JOB_MODE,
                 ARG_PRESET_MODE,
@@ -492,6 +495,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "lines",               required_argument, NULL, 'n'                     },
                 { "output",              required_argument, NULL, 'o'                     },
                 { "plain",               no_argument,       NULL, ARG_PLAIN               },
+                { "completion-names",    no_argument,       NULL, ARG_COMPLETION_NAMES    },
                 { "state",               required_argument, NULL, ARG_STATE               },
                 { "recursive",           no_argument,       NULL, 'r'                     },
                 { "with-dependencies",   no_argument,       NULL, ARG_WITH_DEPENDENCIES   },
@@ -837,6 +841,14 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                 case ARG_PLAIN:
                         arg_plain = true;
+                        break;
+
+                case ARG_COMPLETION_NAMES:
+                        arg_completion_names = true;
+                        /* Automatically enable flags needed for completion */
+                        arg_plain = true;
+                        arg_legend = 0;
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
                 case ARG_FIRMWARE_SETUP:

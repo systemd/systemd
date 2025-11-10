@@ -17,13 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with systemd; If not, see <https://www.gnu.org/licenses/>.
 
-__systemctl() {
-    local mode=$1; shift 1
-    systemctl $mode --full --no-legend --no-pager --plain "$@"
-}
-
-__get_slice_units () { __systemctl $1 list-units --all -t slice 2>/dev/null |
-                           { while read -r a b c d; do echo " $a"; done; }; }
+__get_slice_units () { systemctl $1 list-units --completion-names --all -t slice 2>/dev/null; }
 
 __get_properties () {
     systemd-analyze transient-settings scope service 2>/dev/null |

@@ -74,6 +74,7 @@ extern int arg_invocation_offset;
 extern char *arg_field;
 extern bool arg_catalog;
 extern bool arg_reverse;
+extern bool arg_completion_names;
 extern int arg_journal_type;
 extern int arg_journal_additional_open_flags;
 extern int arg_namespace_flags;
