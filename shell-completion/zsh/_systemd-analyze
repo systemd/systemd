@@ -40,6 +40,13 @@
         _describe -t groups 'file system groups' _groups || compadd "$@"
     }
 
+(( $+functions[_systemd-analyze_architectures] )) ||
+    _systemd-analyze_architectures() {
+        local -a _architectures
+        _architectures=( $(systemd-analyze --quiet --no-pager --no-legend architectures | { while read -r a b; do echo " $a"; done; } 2>/dev/null) )
+        _describe -t architectures 'architectures' _architectures || compadd "$@"
+    }
+
 (( $+functions[_systemd-analyze_plot] )) ||
     _systemd-analyze_plot() {
         local -a _options
@@ -81,6 +88,7 @@
             'inspect-elf:Parse and print ELF package metadata'
             'has-tpm2:Report whether TPM2 support is available'
             'transient-settings:List transient settings for unit types'
+            'architectures:List known architectures'
             # log-level, log-target, service-watchdogs have been deprecated
         )
 
