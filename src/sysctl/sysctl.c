@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+#include "sd-path.h"
+
 #include "alloc-util.h"
 #include "build.h"
 #include "conf-files.h"
@@ -279,10 +281,10 @@ static int parse_line(const char *fname, unsigned line, const char *buffer, bool
         return 0;
 }
 
-static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ignore_enoent) {
+static int parse_file(OrderedHashmap **sysctl_options, const char *path, bool ignore_enoent, const char **search_paths) {
         return conf_file_read(
                         /* root = */ NULL,
-                        (const char**) CONF_PATHS_STRV("sysctl.d"),
+                        search_paths,
                         path,
                         parse_line,
                         sysctl_options,
@@ -305,7 +307,7 @@ static int read_credential_lines(OrderedHashmap **sysctl_options) {
         if (!j)
                 return log_oom();
 
-        return parse_file(sysctl_options, j, /* ignore_enoent= */ true);
+        return parse_file(sysctl_options, j, /* ignore_enoent= */ true, /* search_paths= */ NULL);
 }
 
 static int cat_config(char **files) {
@@ -440,7 +442,12 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
+        _cleanup_strv_free_ char **search_paths = NULL;
         int r;
+
+        r = sd_path_lookup_strv(SD_PATH_SEARCH_SYSCTL, /* suffix= */ NULL, &search_paths);
+        if (r < 0)
+               return log_error_errno(r, "Failed to get sysctl.d/ search paths: %m");
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -458,12 +465,12 @@ static int run(int argc, char *argv[]) {
                                 /* Use (argument):n, where n==1 for the first positional arg */
                                 RET_GATHER(r, parse_line("(argument)", ++pos, *arg, /* invalid_config = */ NULL, &sysctl_options));
                         else
-                                RET_GATHER(r, parse_file(&sysctl_options, *arg, false));
+                                RET_GATHER(r, parse_file(&sysctl_options, *arg, /* ignore_enoent= */ false, (const char**) search_paths));
                 }
         } else {
                 _cleanup_strv_free_ char **files = NULL;
 
-                r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("sysctl.d"));
+                r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) search_paths);
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
 
@@ -471,7 +478,7 @@ static int run(int argc, char *argv[]) {
                         return cat_config(files);
 
                 STRV_FOREACH(f, files)
-                        RET_GATHER(r, parse_file(&sysctl_options, *f, true));
+                        RET_GATHER(r, parse_file(&sysctl_options, *f, /* ignore_enoent= */ true, /* search_paths= */ NULL));
 
                 RET_GATHER(r, read_credential_lines(&sysctl_options));
         }
