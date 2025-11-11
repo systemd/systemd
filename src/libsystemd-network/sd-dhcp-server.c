@@ -534,6 +534,59 @@ static int server_message_init(
         return 0;
 }
 
+static int dhcp_server_append_static_hostname(
+                sd_dhcp_server *server, DHCPPacket *packet, size_t *offset, DHCPRequest *req) {
+
+        sd_dhcp_server_lease *static_lease;
+        int r;
+
+        assert(req);
+
+        static_lease = dhcp_server_get_static_lease(server, req);
+        if (!static_lease || !static_lease->hostname)
+                return 0;
+
+        if (!dns_name_is_single_label(static_lease->hostname)) {
+                /* Option 81 */
+                uint8_t buffer[DHCP_MAX_FQDN_LENGTH + 3];
+
+                /* Flags: S=0 (will not update RR), O=1 (are overriding client),
+                 * E=1 (using DNS wire format), N=1 (will not update DNS) */
+                buffer[0] = DHCP_FQDN_FLAG_O | DHCP_FQDN_FLAG_E | DHCP_FQDN_FLAG_N;
+
+                /* RFC 4702: A server SHOULD set these to 255 when sending the option and MUST ignore them on
+                 * receipt. */
+                buffer[1] = 255;
+                buffer[2] = 255;
+
+                r = dns_name_to_wire_format(static_lease->hostname, buffer + 3, sizeof(buffer) - 3, false);
+                if (r < 0)
+                        return log_dhcp_server_errno(server, r, "Failed to encode FQDN for static lease: %m");
+                if (r > DHCP_MAX_FQDN_LENGTH)
+                        return log_dhcp_server_errno(
+                                        server, SYNTHETIC_ERRNO(EINVAL), "FQDN for static lease too long");
+
+                return dhcp_option_append(
+                                &packet->dhcp,
+                                req->max_optlen,
+                                offset,
+                                /* overload= */ 0,
+                                SD_DHCP_OPTION_FQDN,
+                                3 + r,
+                                buffer);
+        } else {
+                /* Option 12 */
+                return dhcp_option_append(
+                                &packet->dhcp,
+                                req->max_optlen,
+                                offset,
+                                /* overload= */ 0,
+                                SD_DHCP_OPTION_HOST_NAME,
+                                strlen(static_lease->hostname),
+                                static_lease->hostname);
+        }
+}
+
 static int server_send_offer_or_ack(
                 sd_dhcp_server *server,
                 DHCPRequest *req,
@@ -674,6 +727,10 @@ static int server_send_offer_or_ack(
                 if (r < 0)
                         return r;
         }
+
+        r = dhcp_server_append_static_hostname(server, packet, &offset, req);
+        if (r < 0)
+                return r;
 
         return dhcp_server_send_packet(server, req, packet, type, offset);
 }
