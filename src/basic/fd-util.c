@@ -960,6 +960,35 @@ int fd_is_opath(int fd) {
         return FLAGS_SET(r, O_PATH);
 }
 
+int fd_vet_accmode(int fd, int mode) {
+        int flags;
+
+        /* Check if fd is opened with desired access mode.
+         *
+         * Returns > 0 on strict match, == 0 if opened for both reading and writing (partial match),
+         * -EPROTOTYPE otherwise. O_PATH fds are always refused with -EBADFD. */
+
+        assert(fd >= 0);
+        assert((mode & ~O_ACCMODE_STRICT) == 0);
+
+        flags = fcntl(fd, F_GETFL);
+        if (flags < 0)
+                return -errno;
+
+        if (FLAGS_SET(flags, O_PATH))
+                return -EBADFD;
+
+        flags &= O_ACCMODE_STRICT;
+
+        if (flags == mode)
+                return 1;
+
+        if (FLAGS_SET(flags, O_RDWR))
+                return 0;
+
+        return -EPROTOTYPE;
+}
+
 int fd_verify_safe_flags_full(int fd, int extra_flags) {
         int flags, unexpected_flags;
 
