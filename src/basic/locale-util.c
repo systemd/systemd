@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "dirent-util.h"
 #include "env-util.h"
@@ -299,11 +300,25 @@ int locale_is_installed(const char *name) {
         if (STR_IN_SET(name, "C", "POSIX")) /* These ones are always OK */
                 return true;
 
+#ifdef __GLIBC__
         _cleanup_(freelocalep) locale_t loc = newlocale(LC_ALL_MASK, name, (locale_t) 0);
         if (loc == (locale_t) 0)
                 return errno == ENOMEM ? -ENOMEM : false;
 
         return true;
+#else
+        /* musl also has C.UTF-8 as builtin */
+        if (streq(name, "C.UTF-8"))
+                return true;
+
+        /* musl's newlocale() always succeeds and provides a fake locale object even when the locale does
+         * not exist. Hence, we need to explicitly check if the locale file exists. */
+        _cleanup_free_ char *p = path_join("/usr/share/i18n/locales/musl/", name);
+        if (!p)
+                return -ENOMEM;
+
+        return access(p, F_OK) >= 0;
+#endif
 }
 
 static bool is_locale_utf8_impl(void) {
