@@ -51,6 +51,7 @@ logind.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="Kill
 logind.conf.xml ./refsect1[title="Options"]/variablelist/varlistentry[term="InhibitDelayMaxSec="]
 machine-info.xml ./refsect1[title="Options"]/refsect2[title="Machine Information"]/variablelist/varlistentry[term="PRETTY_HOSTNAME="]
 machine-info.xml ./refsect1[title="Options"]/refsect2[title="Machine Information"]/variablelist/varlistentry[term="ICON_NAME="]
+networkd.conf.xml ./refsect1[title="[ModemManager] Section Options"]/variablelist/varlistentry[term="SimpleConnectProperties="]
 os-release.xml ./refsect1[title="Options"]/refsect2[title="General information identifying the operating system"]/variablelist/varlistentry[term="NAME="]
 os-release.xml ./refsect1[title="Options"]/refsect2[title="Information about the version of the operating system"]/variablelist/varlistentry[term="VERSION="]
 os-release.xml ./refsect1[title="Options"]/refsect2[title="General information identifying the operating system"]/variablelist/varlistentry[term="ID="]

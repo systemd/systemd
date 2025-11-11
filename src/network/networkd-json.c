@@ -25,6 +25,7 @@
 #include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-wwan.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "string-util.h"
@@ -520,6 +521,7 @@ static int dns_append_json_one(Link *link, const struct in_addr_full *a, Network
 
 static int dns_append_json(Link *link, sd_json_variant **v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        Bearer *b = NULL;
         int r;
 
         assert(link);
@@ -540,6 +542,13 @@ static int dns_append_json(Link *link, sd_json_variant **v) {
                         if (r < 0)
                                 return r;
                 }
+
+                if (link_get_bearer(link, &b) == 0)
+                        for (unsigned i = 0; i < b->n_dns; i++) {
+                                r = dns_append_json_one(link, b->dns[i], NETWORK_CONFIG_SOURCE_MODEM_MANAGER, NULL, &array);
+                                if (r < 0)
+                                        return r;
+                        }
 
                 if (link->dhcp_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                         const struct in_addr *dns;
