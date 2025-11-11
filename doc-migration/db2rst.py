@@ -434,8 +434,21 @@ def footnote(el):
 
 # general inline elements
 
+# This might run into the rst limitation that inline syntax end delimiters
+# must be followed by whitespace, so
+# <emphasis>PATTERN</emphasis>s
+# would result in *PATTERN*s and have Sphinx throw
+# WARNING: Inline emphasis start-string without end-string.
+# The workaround is *PATTERN*\s
 def emphasis(el):
-    return "*%s*" % _concat(el).strip()
+    result = f"*{_concat(el).strip()}*"
+    if el.tail and re.match(r'^\w', el.tail):
+        # tail starts with a word char → needs escaping
+        result += '\\' + el.tail
+    else:
+        result += el.tail or ''
+
+    return result
 
 
 phrase = emphasis
@@ -518,17 +531,32 @@ filename = command
 def optional(el):
     return "[%s]" % _concat(el).strip()
 
-
+# This might also run into the rst limitation that inline syntax end delimiters
+# must be followed by whitespace, so
+# <replaceable>PATTERN</replaceable>s
+# would result in *<PATTERN>*s and have Sphinx throw
+# WARNING: Inline emphasis start-string without end-string.
+# The workaround is: *<PATTERN>*\s
 def replaceable(el):
     # If it’s in an arg with `choice="opt"`, it should have brackets
     isInsideArg = False
+    result = ''
     for arg in el.iterancestors(tag='arg'):
         if arg.get("choice") == 'opt':
             isInsideArg = True
     if isInsideArg:
-        return "*[%s]*" % _concat(el).strip()
-    # Otherwise < >
-    return "*<%s>*" % _concat(el).strip()
+        result = "*[%s]*" % _concat(el).strip()
+    else:
+        # Otherwise < >
+        result = "*<%s>*" % _concat(el).strip()
+
+    if el.tail and re.match(r'^\w', el.tail):
+        # tail starts with a word char → needs escaping
+        result += '\\' + el.tail
+    else:
+        result += el.tail or ''
+
+    return result
 
 
 def term(el):
