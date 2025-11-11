@@ -625,6 +625,14 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         return buf;
 }
 
+const char* get_tzname(bool dst) {
+        /* musl leaves the DST timezone name unset if there is no DST, map this back to no DST */
+        if (dst && isempty(tzname[1]))
+                dst = false;
+
+        return empty_to_null(tzname[dst]);
+}
+
 int parse_gmtoff(const char *t, long *ret) {
         int r;
 
@@ -1078,10 +1086,7 @@ int parse_timestamp(const char *t, usec_t *ret) {
          * not follow the timezone change in the current area. */
         tzset();
         for (int j = 0; j <= 1; j++) {
-                if (isempty(tzname[j]))
-                        continue;
-
-                if (!streq(tz, tzname[j]))
+                if (!streq_ptr(tz, get_tzname(j)))
                         continue;
 
                 /* The specified timezone matches tzname[] of the local timezone. */

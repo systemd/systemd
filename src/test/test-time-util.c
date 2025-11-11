@@ -15,7 +15,7 @@
 static void set_timezone(const char *tz) {
         ASSERT_OK(set_unset_env("TZ", tz, /* overwrite = */ true));
         tzset();
-        log_info("TZ=%s, tzname[0]=%s, tzname[1]=%s", strna(getenv("TZ")), strempty(tzname[0]), strempty(tzname[1]));
+        log_info("TZ=%s, tzname[0]=%s, tzname[1]=%s", strna(getenv("TZ")), strempty(get_tzname(/* dst= */ false)), strempty(get_tzname(/* dst= */ true)));
 }
 
 TEST(parse_sec) {
@@ -1109,15 +1109,15 @@ TEST(in_utc_timezone) {
 
         assert_se(setenv("TZ", "UTC", 1) >= 0);
         assert_se(in_utc_timezone());
-        ASSERT_STREQ(tzname[0], "UTC");
-        ASSERT_STREQ(tzname[1], "UTC");
+        ASSERT_STREQ(get_tzname(/* dst= */ false), "UTC");
+        ASSERT_STREQ(get_tzname(/* dst= */ true), "UTC");
         assert_se(timezone == 0);
         assert_se(daylight == 0);
 
         assert_se(setenv("TZ", "Europe/Berlin", 1) >= 0);
         assert_se(!in_utc_timezone());
-        ASSERT_STREQ(tzname[0], "CET");
-        ASSERT_STREQ(tzname[1], "CEST");
+        ASSERT_STREQ(get_tzname(/* dst= */ false), "CET");
+        ASSERT_STREQ(get_tzname(/* dst= */ true), "CEST");
 }
 
 TEST(map_clock_usec) {

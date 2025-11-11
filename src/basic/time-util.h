@@ -149,6 +149,7 @@ static inline char* format_timestamp(char *buf, size_t l, usec_t t) {
 #define FORMAT_TIMESTAMP_STYLE(t, style) \
         format_timestamp_style((char[FORMAT_TIMESTAMP_MAX]){}, FORMAT_TIMESTAMP_MAX, t, style)
 
+const char* get_tzname(bool dst);
 int parse_gmtoff(const char *t, long *ret);
 int parse_timestamp(const char *t, usec_t *ret);
 

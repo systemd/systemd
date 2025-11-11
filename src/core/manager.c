@@ -3208,7 +3208,7 @@ static int manager_dispatch_timezone_change(
         /* Read the new timezone */
         tzset();
 
-        log_debug("Timezone has been changed (now: %s).", tzname[daylight]);
+        log_debug("Timezone has been changed (now: %s).", get_tzname(daylight));
 
         HASHMAP_FOREACH(u, m->units)
                 if (UNIT_VTABLE(u)->timezone_change)
