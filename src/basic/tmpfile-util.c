@@ -447,7 +447,9 @@ void cleanup_tmpfile_data_done(struct cleanup_tmpfile_data *d) {
             !*d->filename)
                 return;
 
-        (void) unlinkat(*d->dir_fd, *d->filename, 0);
+        PROTECT_ERRNO;
+
+        (void) unlinkat(*d->dir_fd, *d->filename, /* flags= */ 0);
         d->dir_fd = NULL;
         d->filename = NULL;
 }
