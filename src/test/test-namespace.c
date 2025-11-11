@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/prctl.h>
 #include <sched.h>
 #include <stdlib.h>
 #include <sys/prctl.h>

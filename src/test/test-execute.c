@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
-#include <linux/prctl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mount.h>
