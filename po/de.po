@@ -9,14 +9,15 @@
 # Christian Wehrli <christian@chw.onl>, 2021.
 # Christian Kirbach <christian.kirbach@gmail.com>, 2023.
 # Jarne Förster <fedora@mymailclient.de>, 2024.
-# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024, 2025.
 # Anselm Schueler <mail@anselmschueler.com>, 2024.
+# Marcel Leismann <tiixrigjekfv@use.startmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2024-12-30 22:38+0000\n"
-"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
+"PO-Revision-Date: 2025-11-11 11:42+0000\n"
+"Last-Translator: Marcel Leismann <tiixrigjekfv@use.startmail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -24,7 +25,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.9.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -163,9 +164,8 @@ msgstr ""
 "Benutzers notwendig."
 
 #: src/home/org.freedesktop.home1.policy:83
-#, fuzzy
 msgid "Activate a home area"
-msgstr "Einen persönlichen Bereich anlegen"
+msgstr "Einen persönlichen Bereich aktivieren"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
@@ -175,15 +175,13 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Die Signierschlüssel des Benutzerverzeichnisses verwalten"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Legitimierung ist notwendig für die Verwaltung von Systemdiensten und "
-"anderen Einheiten."
+"Legitimierung ist notwendig für die Verwaltung von Signierschlüsseln von "
+"Benutzerverzeichnissen."
 
 #: src/home/pam_systemd_home.c:336
 #, c-format
@@ -191,7 +189,7 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
-"Der persönliche Ordner von %s ist nicht verfügbar. Bitte hängen Sie das "
+"Das Benutzerverzeichnis von %s ist nicht verfügbar. Bitte hängen Sie das "
 "benötigte Speichermedium oder Dateisystem ein."
 
 #: src/home/pam_systemd_home.c:341
@@ -208,7 +206,7 @@ msgstr "Passwort: "
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr "Passwort nicht korrekt oder unzureichend um %s zu authentifizieren."
+msgstr "Falsches Passwort oder unzureichende Authentifizierung für Nutzer %s."
 
 #: src/home/pam_systemd_home.c:356
 msgid "Sorry, try again: "
@@ -229,16 +227,16 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:381
 msgid "Sorry, reenter recovery key: "
-msgstr "Entschuldigung, bitte Wiederherstellungsschlüssel erneut eingeben: "
+msgstr "Bitte Wiederherstellungsschlüssel erneut eingeben: "
 
 #: src/home/pam_systemd_home.c:401
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr "Sicherheitstoken für %s nicht eingesteckt."
+msgstr "Sicherheitstoken für Benutzer %s nicht eingesteckt."
 
 #: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
 msgid "Try again with password: "
-msgstr "Erneut mit Passwort probieren: "
+msgstr "Bitte noch einmal mit Passwort versuchen: "
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
@@ -246,8 +244,8 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
-"Passwort falsch oder unzureichend und konfigurierter Sicherheitstoken für %s "
-"nicht eingesteckt."
+"Passwort falsch oder unzureichend und konfigurierter Sicherheitstoken für "
+"Benutzer %s nicht eingesteckt."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN: "
@@ -386,7 +384,7 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr "Die Produkte-UUID erhalten"
+msgstr "Produkt UUID erhalten"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
@@ -594,8 +592,8 @@ msgstr "Nicht angemeldetem Benutzer die Ausführung von Programmen erlauben"
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
-"Legitimierung ist erforderlich, damit nicht angemeldete Benutzer Programme "
-"ausführen dürfen."
+"Eine explizite Anfrage ist notwendig, um Programme als nicht angemeldeter "
+"Benutzer auszuführen."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -648,7 +646,7 @@ msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
-"Legitimierung ist zum Herunterfahren des Systems notwendig, während andere "
+"Legitimierung ist notwendig, um das System herunterzufahren, während andere "
 "Benutzer angemeldet sind."
 
 #: src/login/org.freedesktop.login1.policy:191
@@ -719,17 +717,15 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
-"Das System in den Ruhezustand versetzen, während eine Anwendung wünscht dies "
-"zu verhindern"
+msgstr "Das System herunterfahren, während eine Anwendung dies verhindert"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
-"Legitimierung ist zum Versetzen des System in den Ruhezustand notwendig, "
-"während eine Anwendung wünscht dies zu verhindern."
+"Legitimierung ist notwendig, um das System in den Ruhezustand zu versetzen, "
+"während eine Anwendung dies verhindert."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -792,8 +788,8 @@ msgstr ""
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
 msgstr ""
-"Das System in den Ruhezustand versetzen, während eine Anwendung wünscht dies "
-"zu verhindern"
+"Das System in den Ruhezustand versetzen, während eine Anwendung dies "
+"verhindert"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
@@ -873,7 +869,6 @@ msgid "Set a wall message"
 msgstr "Nachricht an alle einstellen"
 
 #: src/login/org.freedesktop.login1.policy:397
-#, fuzzy
 msgid "Authentication is required to set a wall message."
 msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig."
 
@@ -964,20 +959,15 @@ msgstr ""
 "Containers erforderlich."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
-msgstr "Lokale virtuelle Maschinen oder Container erstellen"
+msgstr "Lokale virtuelle Maschinen oder Container registrieren"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
-"Legitimierung ist zum Erstellen einer lokalen virtuellen Maschine oder eines "
-"Containers erforderlich."
+"Legitimierung ist für die Registrierung einer lokalen virtuellen Maschine "
+"oder eines Containers erforderlich."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -1109,7 +1099,8 @@ msgstr "Der DHCP-Server sendet Nachricht zum erzwungenen Erneuern"
 
 #: src/network/org.freedesktop.network1.policy:144
 msgid "Authentication is required to send force renew message."
-msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig."
+msgstr ""
+"Legitimierung ist zum Versenden einer Zwangserneuerungsnachricht notwendig."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
@@ -1189,7 +1180,7 @@ msgstr "Einen DNS-SD-Dienst registrieren"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 msgid "Authentication is required to register a DNS-SD service."
-msgstr "Legitimierung ist zum Anmelden eines DNS-SD-Dienstes notwendig"
+msgstr "Legitimierung ist zum Anmelden eines DNS-SD-Dienstes notwendig."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
@@ -1197,7 +1188,7 @@ msgstr "Einen DNS-SD-Dienst deregistrieren"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr "Legitimierung ist zum Deregistrieren eines DNS-SD-Dienstes notwendig."
+msgstr "Legitimierung ist zum Abmelden eines DNS-SD-Dienstes erforderlich."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
@@ -1219,37 +1210,35 @@ msgstr "Legitimierung ist zum Abonnieren von Abfrageergebnissen erforderlich."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "DNS Konfiguration abonnieren"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "Legitimierung ist zum Abonnieren von Abfrageergebnissen erforderlich."
+msgstr "Legitimierung ist zum Abonnieren der DNS-Konfiguration erforderlich."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
-msgstr ""
+msgstr "Cache leeren"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
 msgid "Authentication is required to dump cache."
-msgstr ""
+msgstr "Legitimierung ist zum Leeren des Caches notwendig."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump server state"
-msgstr ""
+msgstr "Serverstatus verwerfen"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 msgid "Authentication is required to dump server state."
-msgstr ""
+msgstr "Legitimierung ist zum Verwerfen des Serverstatus erforderlich."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
-msgstr ""
+msgstr "Statistik verwerfen"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
 msgid "Authentication is required to dump statistics."
-msgstr ""
+msgstr "Legitimierung ist zum Verwerfen der Statistiken notwendig."
 
 #: src/resolve/org.freedesktop.resolve1.policy:198
 msgid "Reset statistics"
@@ -1265,7 +1254,7 @@ msgstr "Auf Systemaktualisierungen prüfen"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
 msgid "Authentication is required to check for system updates."
-msgstr "Legitimierung ist zum Prüfen auf Systemaktualisierungen notwendig."
+msgstr "Legitimierung ist zum Prüfen auf Systemaktualisierungen erforderlich."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
@@ -1274,7 +1263,7 @@ msgstr "Systemaktualisierungen installieren"
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
 msgid "Authentication is required to install system updates."
 msgstr ""
-"Legitimierung ist zum Installieren von Systemaktualisierungen notwendig."
+"Legitimierung ist zum Installieren von Systemaktualisierungen erforderlich."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
@@ -1371,22 +1360,18 @@ msgstr ""
 "(unit)« notwendig."
 
 #: src/core/dbus-unit.c:620
-#, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of '$"
-#| "(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
-"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse von »$"
-"(unit)« notwendig."
+"Legitimierung ist zum Senden eines UNIX-Signals an die Prozesse der "
+"Untergruppe »$(unit)« notwendig."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Legitimierung ist zum Zurücksetzen des Status »fehlgeschlagen« von »$(unit)« "
-"notwendig"
+"notwendig."
 
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
