@@ -54,6 +54,7 @@ static char* normalize_locale(const char *name) {
         return strdup(name);
 }
 
+#ifdef __GLIBC__
 static int add_locales_from_archive(Set *locales) {
         /* Stolen from glibc... */
 
@@ -182,6 +183,34 @@ static int add_locales_from_libdir(Set *locales) {
         return 0;
 }
 
+#else
+
+static int add_locales_for_musl(Set *locales) {
+        int r;
+
+        assert(locales);
+
+        _cleanup_closedir_ DIR *dir = opendir("/usr/share/i18n/locales/musl/");
+        if (!dir)
+                return errno == ENOENT ? 0 : -errno;
+
+        FOREACH_DIRENT(de, dir, return -errno) {
+                if (de->d_type != DT_REG)
+                        continue;
+
+                char *z = normalize_locale(de->d_name);
+                if (!z)
+                        return -ENOMEM;
+
+                r = set_consume(locales, z);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+#endif
+
 int get_locales(char ***ret) {
         _cleanup_set_free_ Set *locales = NULL;
         int r;
@@ -190,6 +219,7 @@ int get_locales(char ***ret) {
         if (!locales)
                 return -ENOMEM;
 
+#ifdef __GLIBC__
         r = add_locales_from_archive(locales);
         if (r < 0 && r != -ENOENT)
                 return r;
@@ -197,6 +227,11 @@ int get_locales(char ***ret) {
         r = add_locales_from_libdir(locales);
         if (r < 0)
                 return r;
+#else
+        r = add_locales_for_musl(locales);
+        if (r < 0)
+                return r;
+#endif
 
         char *locale;
         SET_FOREACH(locale, locales) {
