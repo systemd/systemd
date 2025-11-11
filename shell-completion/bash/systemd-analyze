@@ -77,7 +77,7 @@ _systemd_analyze() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame unit-files unit-paths exit-status compare-versions calendar timestamp timespan pcrs srk has-tpm2 smbios11 chid image-policy'
+        [STANDALONE]='time blame unit-files unit-paths exit-status compare-versions timestamp timespan pcrs srk has-tpm2 smbios11 chid image-policy'
         [CRITICAL_CHAIN]='critical-chain'
         [DOT]='dot'
         [DUMP]='dump'
@@ -95,6 +95,7 @@ _systemd_analyze() {
         [UNIT_SHELL]='unit-shell'
         [UNIT_GDB]='unit-gdb'
         [FILESYSTEMS]='filesystems'
+        [CALENDAR]='calendar'
     )
 
     local CONFIGS='locale.conf systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -272,6 +273,11 @@ _systemd_analyze() {
             comps='--help --version --no-pager'
         else
             comps=$( __get_filesystem_sets )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[CALENDAR]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --iterations --base-time'
         fi
     fi
 
