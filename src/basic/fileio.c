@@ -131,6 +131,12 @@ int write_string_stream_full(
         if (ferror(f))
                 return -EIO;
 
+        /* Even the file is opened as read-only, fputs() and fputc() by musl succeed but nothing actually
+         * written. Let's check if the file stream is writable before writing, and fail with EBADF, as
+         * fputs() and fputc() by glibc fail with EBADF when a stream is not writable. */
+        if (__fwritable(f) == 0)
+                return -EBADF;
+
         if (ts) {
                 /* If we shall set the timestamp we need the fd. But fmemopen() streams generally don't have
                  * an fd. Let's fail early in that case. */
