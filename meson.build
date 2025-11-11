@@ -1679,14 +1679,10 @@ conf.set10('ENABLE_SSH_USERDB_CONFIG', conf.get('ENABLE_USERDB') == 1 and sshdco
 
 conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', want_slow_tests)
 
-nts = get_option('timesync-nts')
-if nts == 'enabled'
-        have = true
-elif nts == 'auto'
-        have = conf.get('HAVE_OPENSSL') == 1 and libopenssl.version().version_compare('>= 3.5')
-else
-        have = false
-endif
+have = get_option('timesync-nts').require(
+        conf.get('HAVE_OPENSSL') == 1 and
+        libopenssl.version().version_compare('>= 3.5'),
+        error_message : 'openssl version >= 3.5 required').allowed()
 conf.set10('ENABLE_TIMESYNC_NTS', have)
 
 
