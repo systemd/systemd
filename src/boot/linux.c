@@ -113,48 +113,40 @@ static EFI_STATUS load_via_boot_services(
         return log_error_status(err, "Error starting kernel image with shim: %m");
 }
 
-static EFI_STATUS kernel_set_nx(EFI_PHYSICAL_ADDRESS addr, uint64_t length) {
-        EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto;
+static EFI_STATUS memory_mark_ro_x(EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto, struct iovec *nx_section) {
         EFI_STATUS err;
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_MEMORY_ATTRIBUTE_PROTOCOL), NULL, (void **) &memory_proto);
-        if (err != EFI_SUCCESS) {
-                /* only log if the UEFI should have support in the first place (version >=2.10) */
-                if (ST->Hdr.Revision >= ((2U << 16) | 100U))
-                        log_debug("No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
+        assert(memory_proto);
+        assert(nx_section);
 
-                return EFI_SUCCESS; /* ignore if firmware lacks support */
-        }
+        /* As per MSFT requirement, memory pages need to be marked W^X, so mark code pages RO+X.
+         * Firmwares will start enforcing this at some point in the near-ish future.
+         * The kernel needs to mark this as supported explicitly, otherwise it will crash.
+         * https://microsoft.github.io/mu/WhatAndWhy/enhancedmemoryprotection/
+         * https://www.kraxel.org/blog/2023/12/uefi-nx-linux-boot/ */
 
-        err = memory_proto->SetMemoryAttributes(memory_proto, addr, length, EFI_MEMORY_RO);
+        err = memory_proto->SetMemoryAttributes(memory_proto, POINTER_TO_PHYSICAL_ADDRESS(nx_section->iov_base), nx_section->iov_len, EFI_MEMORY_RO);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot make kernel image read-only: %m");
 
-        err = memory_proto->ClearMemoryAttributes(memory_proto, addr, length, EFI_MEMORY_XP);
+        err = memory_proto->ClearMemoryAttributes(memory_proto, POINTER_TO_PHYSICAL_ADDRESS(nx_section->iov_base), nx_section->iov_len, EFI_MEMORY_XP);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot make kernel image executable: %m");
 
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS kernel_clear_nx(EFI_PHYSICAL_ADDRESS addr, uint64_t length) {
-        EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto;
+static EFI_STATUS memory_mark_rw_nx(EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto, struct iovec *nx_section) {
         EFI_STATUS err;
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_MEMORY_ATTRIBUTE_PROTOCOL), NULL, (void **) &memory_proto);
-        if (err != EFI_SUCCESS) {
-                /* only log if the UEFI should have support in the first place (version >=2.10) */
-                if (ST->Hdr.Revision >= ((2U << 16) | 100U))
-                        log_debug("No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
+        assert(memory_proto);
+        assert(nx_section);
 
-                return EFI_SUCCESS; /* ignore if firmware lacks support */
-        }
-
-        err = memory_proto->SetMemoryAttributes(memory_proto, addr, length, EFI_MEMORY_XP);
+        err = memory_proto->SetMemoryAttributes(memory_proto, POINTER_TO_PHYSICAL_ADDRESS(nx_section->iov_base), nx_section->iov_len, EFI_MEMORY_XP);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot make kernel image non-executable: %m");
 
-        err = memory_proto->ClearMemoryAttributes(memory_proto, addr, length, EFI_MEMORY_RO);
+        err = memory_proto->ClearMemoryAttributes(memory_proto, POINTER_TO_PHYSICAL_ADDRESS(nx_section->iov_base), nx_section->iov_len, EFI_MEMORY_RO);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Cannot make kernel image writable: %m");
 
@@ -245,15 +237,25 @@ EFI_STATUS linux_exec(
         if (err != EFI_SUCCESS)
                 return err;
 
-        /* As per MSFT requirement, memory pages need to be marked W^X.
+        /* As per MSFT requirement, memory pages need to be marked W^X, so mark code pages RO+X.
          * Firmwares will start enforcing this at some point in the near-ish future.
          * The kernel needs to mark this as supported explicitly, otherwise it will crash.
          * https://microsoft.github.io/mu/WhatAndWhy/enhancedmemoryprotection/
          * https://www.kraxel.org/blog/2023/12/uefi-nx-linux-boot/ */
-        _cleanup_free_ EFI_PHYSICAL_ADDRESS *nx_sections_addrs = NULL;
-        _cleanup_free_ uint64_t *nx_sections_lengths = NULL;
-        size_t nx_sections = 0;
-        bool nx_compat = pe_kernel_check_nx_compat(kernel->iov_base);
+        EFI_MEMORY_ATTRIBUTE_PROTOCOL *memory_proto = NULL;
+        _cleanup_free_ struct iovec *nx_sections = NULL;
+        size_t n_nx_sections = 0;
+
+        if (pe_kernel_check_nx_compat(kernel->iov_base)) {
+                /* LocateProtocol() is not quite that quick if you have many protocols, so only look for it
+                 * if required for NX_COMPAT */
+                err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_MEMORY_ATTRIBUTE_PROTOCOL), /* Registration= */ NULL, (void **) &memory_proto);
+                if (err != EFI_SUCCESS)
+                        /* Only warn if the UEFI should have support in the first place (version >= 2.10) */
+                        log_full(err,
+                                 ST->Hdr.Revision >= ((2U << 16) | 100U) ? LOG_WARNING : LOG_DEBUG,
+                                 "No EFI_MEMORY_ATTRIBUTE_PROTOCOL found, skipping NX_COMPAT support.");
+        }
 
         const PeSectionHeader *headers;
         size_t n_headers;
@@ -284,17 +286,16 @@ EFI_STATUS linux_exec(
                         h->VirtualSize - h->SizeOfRawData);
 
                 /* Not a code section? Nothing to do, leave as-is. */
-                if (nx_compat && ((h->Characteristics & PE_CODE) || (h->Characteristics & PE_EXECUTE))) {
-                        nx_sections_addrs = xrealloc(nx_sections_addrs, nx_sections * sizeof(EFI_PHYSICAL_ADDRESS), (nx_sections + 1) * sizeof(EFI_PHYSICAL_ADDRESS));
-                        nx_sections_lengths = xrealloc(nx_sections_lengths, nx_sections * sizeof(uint64_t), (nx_sections + 1) * sizeof(uint64_t));
-                        nx_sections_addrs[nx_sections] = POINTER_TO_PHYSICAL_ADDRESS(loaded_kernel + h->VirtualAddress - image_base);
-                        nx_sections_lengths[nx_sections] = h->VirtualSize;
+                if (memory_proto && (h->Characteristics & (PE_CODE|PE_EXECUTE))) {
+                        nx_sections = xrealloc(nx_sections, n_nx_sections * sizeof(struct iovec), (n_nx_sections + 1) * sizeof(struct iovec));
+                        nx_sections[n_nx_sections].iov_base = loaded_kernel + h->VirtualAddress - image_base;
+                        nx_sections[n_nx_sections].iov_len = h->VirtualSize;
 
-                        err = kernel_set_nx(nx_sections_addrs[nx_sections], nx_sections_lengths[nx_sections]);
+                        err = memory_mark_ro_x(memory_proto, &nx_sections[n_nx_sections]);
                         if (err != EFI_SUCCESS)
                                 return err;
 
-                        ++nx_sections;
+                        ++n_nx_sections;
                 }
         }
 
@@ -337,8 +338,8 @@ EFI_STATUS linux_exec(
         /* On failure we'll free the buffers. EDK2 requires the memory buffers to be writable and
          * non-executable, as in some configurations it will overwrite them with a fixed pattern, so if the
          * attributes are not restored FreePages() will crash. */
-        for (size_t i = 0; i < nx_sections; i++)
-                (void) kernel_clear_nx(nx_sections_addrs[i], nx_sections_lengths[i]);
+        for (size_t i = 0; i < n_nx_sections; i++)
+                (void) memory_mark_rw_nx(memory_proto, &nx_sections[i]);
 
         return log_error_status(err, "Error starting kernel image: %m");
 }
