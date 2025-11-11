@@ -104,7 +104,6 @@ def _run(input_file, output_dir):
     # We’re playing it safe and only converting vars that are
     # actually defined, as opposed to using a regex.
     for key, value in conf.global_substitutions.items():
-        _warn(f'checking for &{key}; to replace with |{key}|')
         xml_content = xml_content.replace(f'&{key};', f'|{key}|')
 
     parser = ET.XMLParser(remove_comments=REMOVE_COMMENTS, no_network=False)
@@ -293,13 +292,13 @@ def _block_separated_with_blank_line(el, stripInnerLinebreaks = False):
     s = ""
     id = el.get("id")
     if id is not None:
-        s += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % id
+        s += f"\n\n.. inclusion-marker-do-not-remove {id}\n \n "
     if stripInnerLinebreaks:
         s += "\n\n" + _remove_line_breaks(_concat(el))
     else:
         s += "\n\n" + _concat(el)
     if id is not None:
-        s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
+        s += f"\n \n.. inclusion-end-marker-do-not-remove {id}\n\n"
     return s
 
 
@@ -950,4 +949,5 @@ def convert_xml_to_rst(xml_file_path, output_dir):
         return list(_not_handled_tags), ''
     except Exception as e:
         _warn('Failed to convert file %s' % xml_file_path)
+        _warn(e)
         return [], str(e)
