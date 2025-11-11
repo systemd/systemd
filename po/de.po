@@ -9,14 +9,15 @@
 # Christian Wehrli <christian@chw.onl>, 2021.
 # Christian Kirbach <christian.kirbach@gmail.com>, 2023.
 # Jarne Förster <fedora@mymailclient.de>, 2024.
-# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
+# Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024, 2025.
 # Anselm Schueler <mail@anselmschueler.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-07-23 15:38+0100\n"
-"PO-Revision-Date: 2024-12-30 22:38+0000\n"
-"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
+"PO-Revision-Date: 2025-11-11 11:42+0000\n"
+"Last-Translator: Weblate Translation Memory <noreply-mt-weblate-translation-"
+"memory@weblate.org>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -24,7 +25,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.9.2\n"
+"X-Generator: Weblate 5.14.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -873,9 +874,8 @@ msgid "Set a wall message"
 msgstr "Nachricht an alle einstellen"
 
 #: src/login/org.freedesktop.login1.policy:397
-#, fuzzy
 msgid "Authentication is required to set a wall message."
-msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig."
+msgstr "Legitimierung ist zum Einstellen einer Nachricht an alle notwendig"
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -1265,7 +1265,7 @@ msgstr "Auf Systemaktualisierungen prüfen"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
 msgid "Authentication is required to check for system updates."
-msgstr "Legitimierung ist zum Prüfen auf Systemaktualisierungen notwendig."
+msgstr "Legitimierung ist zum Prüfen auf Systemaktualisierungen erforderlich."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
@@ -1274,7 +1274,7 @@ msgstr "Systemaktualisierungen installieren"
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
 msgid "Authentication is required to install system updates."
 msgstr ""
-"Legitimierung ist zum Installieren von Systemaktualisierungen notwendig."
+"Legitimierung ist zum Installieren von Systemaktualisierungen erforderlich."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
