@@ -437,7 +437,7 @@ IPv6AcceptRA=no
         <listitem>
           <para>Specifies the white-space separated list of simple connect properties used to connect a modem. See
           <ulink url="https://www.freedesktop.org/software/ModemManager/man/latest/mmcli.1.html" /> for more
-          information about simple connect.</para>
+          information about simple connect. If no properties provided then the connection is not initiated.</para>
 
           <varlistentry>
             <term><option>apn</option></term>
