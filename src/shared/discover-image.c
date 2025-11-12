@@ -36,6 +36,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "mountpoint-util.h"
+#include "mstack.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
@@ -478,11 +479,66 @@ static int image_make(
                 on_mount_id = _mnt_id;
 
         if (S_ISDIR(st->st_mode)) {
-                unsigned file_attr = 0;
-                usec_t crtime = 0;
 
                 if (!ret)
                         return 0;
+
+                if (endswith(path, ".mstack")) {
+                        usec_t crtime = 0;
+                        r = fd_getcrtime(fd, &crtime);
+                        if (r < 0)
+                                log_debug_errno(r, "Unable to read creation time of '%s', ignoring: %m", path);
+
+                        if (!pretty) {
+                                r = extract_image_basename(
+                                                path,
+                                                image_class_suffix_to_string(c),
+                                                STRV_MAKE(".mstack"),
+                                                &pretty_buffer,
+                                                /* ret_suffix= */ NULL);
+                                if (r < 0)
+                                        return r;
+
+                                pretty = pretty_buffer;
+                        }
+
+                        _cleanup_(mstack_freep) MStack *mstack = NULL;
+                        r = mstack_load(path, fd, &mstack);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to load mstack '%s', ignoring: %m", path);
+                                read_only = true;
+                        } else if (!read_only) {
+                                r = mstack_is_read_only(mstack);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine if mstack '%s' is read-only, assuming it is: %m", path);
+
+                                read_only = r != 0;
+                        }
+
+                        r = image_new(IMAGE_MSTACK,
+                                      c,
+                                      pretty,
+                                      path,
+                                      read_only,
+                                      crtime,
+                                      /* mtime= */ 0,
+                                      fh,
+                                      on_mount_id,
+                                      (uint64_t) st->st_ino,
+                                      ret);
+                        if (r < 0)
+                                return r;
+
+                        if (mstack) {
+                                r = mstack_is_foreign_uid_owned(mstack);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine if mstack '%s' is foreign UID owned, assuming it is not: %m", path);
+                                if (r > 0)
+                                        (*ret)->foreign_uid_owned = true;
+                        }
+
+                        return 0;
+                }
 
                 if (!pretty) {
                         r = extract_image_basename(
@@ -532,10 +588,12 @@ static int image_make(
                 }
 
                 /* Get directory creation time (not available everywhere, but that's OK */
+                usec_t crtime = 0;
                 (void) fd_getcrtime(fd, &crtime);
 
                 /* If the IMMUTABLE bit is set, we consider the directory read-only. Since the ioctl is not
                  * supported everywhere we ignore failures. */
+                unsigned file_attr = 0;
                 (void) read_attr_fd(fd, &file_attr);
 
                 /* It's just a normal directory. */
@@ -767,7 +825,7 @@ static char** make_possible_filenames(ImageClass class, const char *image_name) 
         assert(image_name);
 
         FOREACH_STRING(v_suffix, "", ".v")
-                FOREACH_STRING(format_suffix, "", ".raw") {
+                FOREACH_STRING(format_suffix, "", ".raw", ".mstack") {
                         _cleanup_free_ char *j = NULL;
                         const char *class_suffix;
 
@@ -862,6 +920,12 @@ int image_find(RuntimeScope scope,
                         if (endswith(fname, ".raw")) {
                                 if (!S_ISREG(st.st_mode)) {
                                         log_debug("Ignoring non-regular file '%s' with .raw suffix.", fname);
+                                        continue;
+                                }
+                        } else if (endswith(fname, ".mstack")) {
+
+                                if (!S_ISDIR(st.st_mode)) {
+                                        log_debug("Ignoring non-directory '%s' with .mstack suffix.", fname);
                                         continue;
                                 }
 
@@ -1088,7 +1152,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         nov,
                                                         image_class_suffix_to_string(class),
-                                                        STRV_MAKE(".raw", ""),
+                                                        STRV_MAKE(".raw", ".mstack", ""),
                                                         &pretty,
                                                         &suffix);
                                         if (r < 0) {
@@ -1139,7 +1203,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         fname,
                                                         image_class_suffix_to_string(class),
-                                                        /* format_suffixes= */ NULL,
+                                                        STRV_MAKE(".mstack", ""),
                                                         &pretty,
                                                         /* ret_suffix= */ NULL);
                                         if (r < 0) {
@@ -2367,6 +2431,7 @@ static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_SUBVOLUME] = "subvolume",
         [IMAGE_RAW]       = "raw",
         [IMAGE_BLOCK]     = "block",
+        [IMAGE_MSTACK]    = "mstack",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);
