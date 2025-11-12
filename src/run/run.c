@@ -1420,6 +1420,15 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 r = sd_bus_message_append(m, "(sv)", "AmbientCapabilities", "t", CAP_MASK_ALL);
                 if (r < 0)
                         return bus_log_create_error(r);
+
+                r = getgrnam_malloc("empower", /* ret= */ NULL);
+                if (r < 0 && r != -ESRCH)
+                        return log_error_errno(r, "Failed to look up group 'empower' via NSS: %m");
+                if (r >= 0) {
+                        r = sd_bus_message_append(m, "(sv)", "SupplementaryGroups", "as", 1, "empower");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+                }
         }
 
         if (arg_nice_set) {
