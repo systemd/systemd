@@ -46,6 +46,7 @@
 #include "hostname-setup.h"
 #include "image-policy.h"
 #include "import-util.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "loop-util.h"
@@ -61,6 +62,7 @@
 #include "process-util.h"
 #include "resize-fs.h"
 #include "runtime-scope.h"
+#include "sha256.h"
 #include "signal-util.h"
 #include "siphash24.h"
 #include "stat-util.h"
@@ -4668,6 +4670,31 @@ int verity_dissect_and_mount(
 
         if (ret_image)
                 *ret_image = TAKE_PTR(dissected_image);
+
+        return 0;
+}
+
+int verity_sig_derive_uuid(const struct iovec *root_hash, const sd_id128_t *partition_type_uuid, sd_id128_t *ret_uuid) {
+        union {
+                uint8_t md[SHA256_DIGEST_SIZE];
+                sd_id128_t id;
+        } result;
+        struct sha256_ctx hash;
+
+        assert(iovec_is_set(root_hash));
+        assert(partition_type_uuid);
+        assert(ret_uuid);
+
+        /* As per DPS, derive the verity signature UUID from the root hash and partition GUID. */
+        sha256_init_ctx(&hash);
+        sha256_process_bytes(partition_type_uuid->bytes, sizeof(partition_type_uuid->bytes), &hash);
+        sha256_process_bytes(root_hash->iov_base, root_hash->iov_len, &hash);
+        sha256_finish_ctx(&hash, result.md);
+
+        /* Take the first half, mark it as v4 UUID */
+        assert_cc(sizeof(result.md) == sizeof(result.id) * 2);
+
+        *ret_uuid = id128_make_v4_uuid(result.id);
 
         return 0;
 }
