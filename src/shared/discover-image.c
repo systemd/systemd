@@ -37,6 +37,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "mkdir.h"
+#include "mstack.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
@@ -440,11 +441,60 @@ static int image_make(
                 (faccessat(fd, "", W_OK, AT_EACCESS|AT_EMPTY_PATH) < 0 && errno == EROFS);
 
         if (S_ISDIR(st->st_mode)) {
-                unsigned file_attr = 0;
-                usec_t crtime = 0;
 
                 if (!ret)
                         return 0;
+
+                if (endswith(filename, ".mstack")) {
+                        usec_t crtime = 0;
+                        r = fd_getcrtime(fd, &crtime);
+                        if (r < 0)
+                                log_debug_errno(r, "Unable to read creation time of '%s', ignoring: %m", filename);
+
+                        if (!pretty) {
+                                r = extract_image_basename(
+                                                filename,
+                                                image_class_suffix_to_string(c),
+                                                STRV_MAKE(".mstack"),
+                                                &pretty_buffer,
+                                                /* ret_suffix= */ NULL);
+                                if (r < 0)
+                                        return r;
+
+                                pretty = pretty_buffer;
+                        }
+
+                        _cleanup_free_ char *j = path_join(dir_path, filename);
+                        if (!j)
+                                return -ENOMEM;
+
+                        _cleanup_(mstack_freep) MStack *mstack = NULL;
+                        r = mstack_load(dir_path, fd, &mstack);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to load mstack '%s', ignoring: %m", filename);
+                                read_only = true;
+                        } else if (!read_only) {
+                                r = mstack_is_read_only(mstack);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine of mstack '%s' is read-only, assuming it is: %m", filename);
+
+                                read_only = r != 0;
+                        }
+
+                        r = image_new(IMAGE_MSTACK,
+                                      c,
+                                      pretty,
+                                      dir_path,
+                                      filename,
+                                      read_only,
+                                      crtime,
+                                      /* mtime= */ 0,
+                                      ret);
+                        if (r < 0)
+                                return r;
+
+                        return 0;
+                }
 
                 if (!pretty) {
                         r = extract_image_basename(
@@ -492,10 +542,12 @@ static int image_make(
                 }
 
                 /* Get directory creation time (not available everywhere, but that's OK */
+                usec_t crtime = 0;
                 (void) fd_getcrtime(fd, &crtime);
 
                 /* If the IMMUTABLE bit is set, we consider the directory read-only. Since the ioctl is not
                  * supported everywhere we ignore failures. */
+                unsigned file_attr = 0;
                 (void) read_attr_fd(fd, &file_attr);
 
                 /* It's just a normal directory. */
@@ -721,7 +773,7 @@ static char** make_possible_filenames(ImageClass class, const char *image_name) 
         assert(image_name);
 
         FOREACH_STRING(v_suffix, "", ".v")
-                FOREACH_STRING(format_suffix, "", ".raw") {
+                FOREACH_STRING(format_suffix, "", ".raw", ".mstack") {
                         _cleanup_free_ char *j = NULL;
                         const char *class_suffix;
 
@@ -804,6 +856,12 @@ int image_find(RuntimeScope scope,
                         if (endswith(fname, ".raw")) {
                                 if (!S_ISREG(st.st_mode)) {
                                         log_debug("Ignoring non-regular file '%s' with .raw suffix.", fname);
+                                        continue;
+                                }
+                        } else if (endswith(fname, ".mstack")) {
+
+                                if (!S_ISDIR(st.st_mode)) {
+                                        log_debug("Ignoring non-directory '%s' with .mstack suffix.", fname);
                                         continue;
                                 }
 
@@ -1021,7 +1079,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         nov,
                                                         image_class_suffix_to_string(class),
-                                                        STRV_MAKE(".raw", ""),
+                                                        STRV_MAKE("", ".raw", ".mstack"),
                                                         &pretty,
                                                         &suffix);
                                         if (r < 0) {
@@ -2206,6 +2264,7 @@ static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_SUBVOLUME] = "subvolume",
         [IMAGE_RAW]       = "raw",
         [IMAGE_BLOCK]     = "block",
+        [IMAGE_MSTACK]    = "mstack",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);
