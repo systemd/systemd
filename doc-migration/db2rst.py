@@ -342,6 +342,8 @@ def TreeRoot(el):
         output += "\n\n.. rubric:: Footnotes"
         for index, footnote in enumerate(_footnotes, start=1):
             output += f"\n\n.. [#f{index}] {_remove_line_breaks(_conv(footnote))}"
+    # Reset footnotes list after rendering them
+    _footnotes.clear()
     return output + '\n'
 
 
