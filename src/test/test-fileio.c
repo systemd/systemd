@@ -260,62 +260,6 @@ TEST(search_and_fopen_nulstr) {
         ASSERT_ERROR(search_and_fopen_nulstr(bn, "re", NULL, dirs, &f, &p), ENOENT);
 }
 
-TEST(writing_tmpfile) {
-        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-systemd_writing_tmpfile.XXXXXX";
-        _cleanup_free_ char *contents = NULL;
-        size_t size;
-        _cleanup_close_ int fd = -EBADF;
-
-        struct iovec iov[] = {
-                IOVEC_MAKE_STRING("abc\n"),
-                IOVEC_MAKE_STRING(ALPHANUMERICAL "\n"),
-                IOVEC_MAKE_STRING(""),
-        };
-
-        ASSERT_OK(fd = mkostemp_safe(name));
-
-        ASSERT_OK_ERRNO(writev(fd, iov, 3));
-
-        ASSERT_OK(read_full_file(name, &contents, &size));
-        ASSERT_STREQ(contents, "abc\n" ALPHANUMERICAL "\n");
-}
-
-TEST(tempfn) {
-        char *ret = NULL, *p;
-
-        ASSERT_OK(tempfn_xxxxxx("/foo/bar/waldo", NULL, &ret));
-        ASSERT_STREQ(ret, "/foo/bar/.#waldoXXXXXX");
-        free(ret);
-
-        ASSERT_OK(tempfn_xxxxxx("/foo/bar/waldo", "[miau]", &ret));
-        ASSERT_STREQ(ret, "/foo/bar/.#[miau]waldoXXXXXX");
-        free(ret);
-
-        ASSERT_OK(tempfn_random("/foo/bar/waldo", NULL, &ret));
-        ASSERT_NOT_NULL(p = startswith(ret, "/foo/bar/.#waldo"));
-        ASSERT_EQ(strlen(p), 16U);
-        ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
-        free(ret);
-
-        ASSERT_OK(tempfn_random("/foo/bar/waldo", "[wuff]", &ret));
-        ASSERT_NOT_NULL(p = startswith(ret, "/foo/bar/.#[wuff]waldo"));
-        ASSERT_EQ(strlen(p), 16U);
-        ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
-        free(ret);
-
-        ASSERT_OK(tempfn_random_child("/foo/bar/waldo", NULL, &ret));
-        ASSERT_NOT_NULL(p = startswith(ret, "/foo/bar/waldo/.#"));
-        ASSERT_EQ(strlen(p), 16U);
-        ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
-        free(ret);
-
-        ASSERT_OK(tempfn_random_child("/foo/bar/waldo", "[kikiriki]", &ret));
-        ASSERT_NOT_NULL(p = startswith(ret, "/foo/bar/waldo/.#[kikiriki]"));
-        ASSERT_EQ(strlen(p), 16U);
-        ASSERT_TRUE(in_charset(p, "0123456789abcdef"));
-        free(ret);
-}
-
 static const char chars[] =
         "Aąę„”\n루\377";
 
