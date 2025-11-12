@@ -156,6 +156,11 @@ def _has_no_text(el):
     if el.text is not None and not el.text.isspace():
         _warn("skipping text of <%s>: %s" % (_get_path(el), el.text))
     for i in el:
+        # Skip complaining about these tails, we handle them elsewhere
+        if i.tag == "replaceable":
+            continue
+        if i.tag == "emphasis":
+            continue
         if i.tail is not None and not i.tail.isspace():
             _warn("skipping tail of <%s>: %s" % (_get_path(i), i.tail))
 
@@ -392,8 +397,7 @@ def refname(el):
 
 
 def refpurpose(el):
-    _has_only_text(el)
-    return "%s" % el.text
+    return _concat(el)
 
 
 def cmdsynopsis(el):
@@ -443,8 +447,8 @@ def footnote(el):
 # The workaround is *PATTERN*\s
 def emphasis(el):
     result = f"*{_concat(el).strip()}*"
-    if el.tail and re.match(r'^\w', el.tail):
-        # tail starts with a word char → needs escaping
+    if el.tail and re.match(r'^\S', el.tail):
+        # tail starts with a non-whitespace char → needs escaping
         result += '\\' + el.tail
     else:
         result += el.tail or ''
@@ -457,7 +461,8 @@ citetitle = emphasis
 
 
 acronym = _no_special_markup
-
+structname = _no_special_markup
+type = _no_special_markup
 
 def command(el):
     # Only enclose in backticks if it’s not part of a term
@@ -470,6 +475,10 @@ def command(el):
         return _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
+token = command
+interfacename = command
+# structfield is italic inline code in the old docs, but we can’t do that in rst
+structfield = command
 
 def literal(el):
     return "\"%s\"" % _concat(el).strip()
@@ -551,8 +560,8 @@ def replaceable(el):
         # Otherwise < >
         result = "*<%s>*" % _concat(el).strip()
 
-    if el.tail and re.match(r'^\w', el.tail):
-        # tail starts with a word char → needs escaping
+    if el.tail and re.match(r'^\S', el.tail):
+        # tail starts with a non-whitespace char → needs escaping
         result += '\\' + el.tail
     else:
         result += el.tail or ''
@@ -802,6 +811,7 @@ def videodata(el):
 
 
 def programlisting(el):
+    # TODO: newlines at the end aren’t applied properly
     xi_include = el.find('.//{http://www.w3.org/2001/XInclude}include')
     if xi_include is not None:
         return _includes(xi_include)
