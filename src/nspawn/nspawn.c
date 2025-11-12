@@ -3154,7 +3154,7 @@ static int determine_names(void) {
         return 0;
 }
 
-static int chase_and_update(char **p, unsigned flags) {
+static int chase_and_update(char **p, ChaseFlags flags) {
         char *chased;
         int r;
 
@@ -3163,7 +3163,7 @@ static int chase_and_update(char **p, unsigned flags) {
         if (!*p)
                 return 0;
 
-        r = chase(*p, NULL, flags, &chased, NULL);
+        r = chase(*p, /* root= */ NULL, flags, &chased, /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to resolve path %s: %m", *p);
 
