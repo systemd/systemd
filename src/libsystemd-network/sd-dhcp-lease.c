@@ -505,6 +505,65 @@ static int lease_parse_domain(const uint8_t *option, size_t len, char **ret) {
         return 0;
 }
 
+static int lease_parse_fqdn(const uint8_t *option, size_t len, char **ret) {
+        _cleanup_free_ char *name = NULL, *normalized = NULL;
+        int r;
+
+        assert(option);
+        assert(ret);
+
+        /* RFC 4702 Section 2.1: Client FQDN Option Format
+         * Byte 0: Flags (S, O, E, N)
+         * Byte 1: RCODE1 (ignored on receipt)
+         * Byte 2: RCODE2 (ignored on receipt)
+         * Bytes 3+: Domain Name
+         *
+         * In practice, many servers send DNS wire format regardless of the E flag,
+         * so we try wire format first, then fall back to ASCII if that fails. */
+
+        if (len < 3)
+                /* Too short, need at least 3-byte header - don't clear existing hostname */
+                return 0;
+
+        if (len == 3)
+                /* No domain name provided - don't clear existing hostname */
+                return 0;
+
+        /* Try DNS wire format first (most common) */
+        const uint8_t *data = option + 3;
+        size_t data_len = len - 3;
+
+        r = dns_name_from_wire_format(&data, &data_len, &name);
+        if (r < 0) {
+                /* Wire format failed, try ASCII format */
+                r = dhcp_option_parse_string(option + 3, len - 3, &name);
+                if (r < 0) {
+                        /* Both failed - don't clear existing hostname, just log and return */
+                        log_debug_errno(r, "Failed to parse FQDN in both wire and ASCII format: %m");
+                        return 0;
+                }
+        }
+
+        if (!name)
+                /* Empty name - don't clear existing hostname */
+                return 0;
+
+        r = dns_name_normalize(name, 0, &normalized);
+        if (r < 0) {
+                /* Normalization failed - don't clear existing hostname */
+                log_debug_errno(r, "Failed to normalize FQDN: %m");
+                return 0;
+        }
+
+        if (is_localhost(normalized) || dns_name_is_root(normalized))
+                /* Invalid hostname - don't clear existing hostname */
+                return 0;
+
+        free_and_replace(*ret, normalized);
+
+        return 0;
+}
+
 static int lease_parse_captive_portal(const uint8_t *option, size_t len, char **ret) {
         _cleanup_free_ char *uri = NULL;
         int r;
@@ -967,9 +1026,22 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_HOST_NAME:
+                /* FQDN option (81) always takes precedence. If it was already set, do not overwrite it. */
+                if (lease->hostname)
+                        break;
+
                 r = lease_parse_domain(option, len, &lease->hostname);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to parse hostname, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        case SD_DHCP_OPTION_FQDN:
+                r = lease_parse_fqdn(option, len, &lease->hostname);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse FQDN, ignoring: %m");
                         return 0;
                 }
 

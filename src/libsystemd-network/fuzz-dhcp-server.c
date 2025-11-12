@@ -56,9 +56,11 @@ static int add_static_lease(sd_dhcp_server *server, uint8_t i) {
         assert(server);
 
         return sd_dhcp_server_set_static_lease(
-                                server,
-                                &(struct in_addr) { .s_addr = htobe32(UINT32_C(10) << 24 | i)},
-                                id, ELEMENTSOF(id));
+                        server,
+                        &(struct in_addr) { .s_addr = htobe32(UINT32_C(10) << 24 | i) },
+                        id,
+                        ELEMENTSOF(id),
+                        /* hostname= */ NULL);
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
