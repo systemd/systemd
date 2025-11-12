@@ -1,0 +1,6 @@
+[Unit]
+Description=Test notify-reload with handler that can be removed
+
+[Service]
+Type=notify-reload
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-80-NOTIFYACCESS.units/notify-reload-harness.sh toggle-handler /tmp/reload-toggle-in /tmp/reload-toggle-out
