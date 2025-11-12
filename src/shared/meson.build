@@ -58,6 +58,7 @@ shared_sources = files(
         'data-fd-util.c',
         'dev-setup.c',
         'device-nodes.c',
+        'devlink-util.c',
         'discover-image.c',
         'dissect-image.c',
         'dm-util.c',
