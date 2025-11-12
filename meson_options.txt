@@ -295,6 +295,8 @@ option('dialout-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "dialout" group')
 option('disk-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "disk" group')
+option('empower-gid', type : 'integer', value : 0,
+       description : 'soft-static allocation for the "empower" group')
 option('input-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "input" group')
 option('kmem-gid', type : 'integer', value : 0,
