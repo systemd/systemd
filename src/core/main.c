@@ -2137,6 +2137,8 @@ static int do_reexecute(
          * but let's hope that doesn't matter.) */
 
         arg_serialization = safe_fclose(arg_serialization);
+        if (fds && !fdset_isempty(fds))
+                log_warning("%u unused deserialisation file descriptors passed, closing.", fdset_size(fds));
         fds = fdset_free(fds);
 
         /* Drop /run/systemd directory. Some of its content can be used as a flag indicating that systemd is
