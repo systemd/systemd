@@ -647,6 +647,9 @@ int parse_gmtoff(const char *t, long *ret) {
                 return 0;
         }
 
+#ifdef __GLIBC__
+        return -EINVAL;
+#else
         /* musl v1.2.5 does not support %z specifier in strptime(). Since
          * https://github.com/kraj/musl/commit/fced99e93daeefb0192fd16304f978d4401d1d77
          * %z is supported, but it only supports strict RFC-822/ISO 8601 format, that is, 4 digits with sign
@@ -714,6 +717,7 @@ finalize:
         }
 
         return 0;
+#endif
 }
 
 static int parse_timestamp_impl(
