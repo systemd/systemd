@@ -2149,6 +2149,7 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-common',
         'src/libsystemd/sd-device',
         'src/libsystemd/sd-event',
+        'src/libsystemd/sd-future',
         'src/libsystemd/sd-hwdb',
         'src/libsystemd/sd-id128',
         'src/libsystemd/sd-journal',
