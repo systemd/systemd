@@ -4,6 +4,9 @@
 #include "basic-forward.h"
 #include "strv.h"
 
+/* HOST_NAME_MAX should be 64 on linux, but musl uses the one by POSIX (255). */
+#define LINUX_HOST_NAME_MAX CONST_MIN((size_t) HOST_NAME_MAX, (size_t) 64)
+
 char* get_default_hostname_raw(void);
 
 bool valid_ldh_char(char c) _const_;
