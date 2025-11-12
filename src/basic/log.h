@@ -380,6 +380,10 @@ int log_syntax_parse_error_internal(
 void log_setup(void);
 
 const char* _log_set_prefix(const char *prefix, bool force);
+
+/* Atomically swap the thread-local log prefix with the value pointed to by *prefix. Used by sd-fiber to
+ * stash/restore the caller's log prefix when entering/leaving a fiber. */
+void log_prefix_swap(const char **prefix);
 static inline const char* _log_unset_prefixp(const char **p) {
         assert(p);
         _log_set_prefix(*p, true);
