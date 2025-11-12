@@ -1705,6 +1705,7 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
 
         case IMAGE_RAW:
         case IMAGE_BLOCK: {
+                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                 DissectImageFlags flags =
@@ -1727,25 +1728,46 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                                 LOCK_SH,
                                 &d);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to create loopback device of '%s': %m", i->path);
 
                 r = dissect_loop_device(
                                 d,
-                                /* verity= */ NULL,
+                                &verity,
                                 /* mount_options= */ NULL,
                                 image_policy,
                                 /* image_filter= */ NULL,
                                 flags,
                                 &m);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to dissect image '%s': %m", i->path);
+
+                r = dissected_image_load_verity_sig_partition(
+                                m,
+                                d->fd,
+                                &verity);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to load Verity signature partition of '%s': %m", i->path);
+
+                r = dissected_image_guess_verity_roothash(
+                                m,
+                                &verity);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to guess Verity root hash of '%s': %m", i->path);
+
+                r = dissected_image_decrypt(
+                                m,
+                                /* passphrase= */ NULL,
+                                &verity,
+                                flags);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to decrypt image '%s': %m", i->path);
 
                 r = dissected_image_acquire_metadata(
                                 m,
                                 /* userns_fd= */ -EBADF,
                                 flags);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(r, "Failed to acquire medata from image '%s': %m", i->path);
 
                 free_and_replace(i->hostname, m->hostname);
                 i->machine_id = m->machine_id;
@@ -1753,7 +1775,6 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 strv_free_and_replace(i->os_release, m->os_release);
                 strv_free_and_replace(i->sysext_release, m->sysext_release);
                 strv_free_and_replace(i->confext_release, m->confext_release);
-
                 break;
         }
 
