@@ -15,7 +15,7 @@
 static void set_timezone(const char *tz) {
         ASSERT_OK(set_unset_env("TZ", tz, /* overwrite = */ true));
         tzset();
-        log_info("TZ=%s, tzname[0]=%s, tzname[1]=%s", strna(getenv("TZ")), strempty(tzname[0]), strempty(tzname[1]));
+        log_info("TZ=%s, tzname[0]=%s, tzname[1]=%s", strna(getenv("TZ")), strempty(get_tzname(/* dst= */ false)), strempty(get_tzname(/* dst= */ true)));
 }
 
 TEST(parse_sec) {
@@ -399,6 +399,28 @@ TEST(format_timestamp) {
 static void test_format_timestamp_impl(usec_t x) {
         const char *xx = FORMAT_TIMESTAMP(x);
         ASSERT_NOT_NULL(xx);
+
+        /* Because of the timezone change, format_timestamp() may set timezone that is currently unused.
+         * E.g. Africa/Juba uses EAT since Sat Jan 15 10:00:00 2000 and until Sun Jan 31 20:59:59 2021, but
+         * now CAT/CAST is used there (see zdump for more details). In such cases, format_timestamp() may set
+         * the timezone used at the specified time (which happens when built with musl), but it may not match
+         * the timezone currently used, thus we may not parse back the timestamp. */
+
+        const char *space;
+        ASSERT_NOT_NULL(space = strrchr(xx, ' '));
+
+        const char *tz = space + 1;
+        if (!streq_ptr(tz, get_tzname(/* dst= */ false)) &&
+            !streq_ptr(tz, get_tzname(/* dst= */ true)) &&
+            parse_gmtoff(tz, NULL) < 0) {
+
+                log_warning("@" USEC_FMT " → %s, timezone '%s' is currently unused, ignoring.", x, xx, tz);
+
+                /* Verify the generated string except for the timezone part. Of course, in most cases, parsed
+                 * time does not match with the input, hence only check if it is parsable. */
+                ASSERT_OK(parse_timestamp(strndupa_safe(xx, space - xx), NULL));
+                return;
+        }
 
         usec_t y;
         ASSERT_OK(parse_timestamp(xx, &y));
@@ -1109,15 +1131,15 @@ TEST(in_utc_timezone) {
 
         assert_se(setenv("TZ", "UTC", 1) >= 0);
         assert_se(in_utc_timezone());
-        ASSERT_STREQ(tzname[0], "UTC");
-        ASSERT_STREQ(tzname[1], "UTC");
+        ASSERT_STREQ(get_tzname(/* dst= */ false), "UTC");
+        ASSERT_STREQ(get_tzname(/* dst= */ true), "UTC");
         assert_se(timezone == 0);
         assert_se(daylight == 0);
 
         assert_se(setenv("TZ", "Europe/Berlin", 1) >= 0);
         assert_se(!in_utc_timezone());
-        ASSERT_STREQ(tzname[0], "CET");
-        ASSERT_STREQ(tzname[1], "CEST");
+        ASSERT_STREQ(get_tzname(/* dst= */ false), "CET");
+        ASSERT_STREQ(get_tzname(/* dst= */ true), "CEST");
 }
 
 TEST(map_clock_usec) {
