@@ -2697,6 +2697,26 @@ int tpm2_get_best_pcr_bank(
         assert(c);
         assert(ret);
 
+        uint32_t efi_banks;
+        r = efi_get_active_pcr_banks(&efi_banks);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+
+                /* If variable is not set use guesswork below */
+                log_debug("Boot loader didn't set LoaderTpm2ActivePcrBanks EFI variable, we have to guess used PCR banks.");
+        } else {
+                if (BIT_SET(efi_banks, TPM2_ALG_SHA256))
+                        *ret = TPM2_ALG_SHA256;
+                else if (BIT_SET(efi_banks, TPM2_ALG_SHA1))
+                        *ret = TPM2_ALG_SHA1;
+                else
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Firmware reports neither SHA1 nor SHA256 PCR banks, cannot operate.");
+
+                log_debug("Picked best PCR bank %s based on firmware reported banks.", tpm2_hash_alg_to_string(*ret));
+                return 0;
+        }
+
         if (pcr_mask == 0) {
                 log_debug("Asked to pick best PCR bank but no PCRs selected we could derive this from. Defaulting to SHA256.");
                 *ret = TPM2_ALG_SHA256; /* if no PCRs are selected this doesn't matter anyway... */
@@ -2783,6 +2803,30 @@ int tpm2_get_good_pcr_banks(
 
         assert(c);
         assert(ret);
+
+        uint32_t efi_banks;
+        r = efi_get_active_pcr_banks(&efi_banks);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+
+                /* If the variable is not set we have to guess via the code below */
+                log_debug("Boot loader didn't set LoaderTpm2ActivePcrBanks EFI variable, we have to guess used PCR banks.");
+        } else {
+                FOREACH_ARRAY(hash, tpm2_hash_algorithms, TPM2_N_HASH_ALGORITHMS) {
+                        if (!BIT_SET(efi_banks, *hash))
+                                continue;
+
+                        if (!GREEDY_REALLOC(good_banks, n_good_banks+1))
+                                return log_oom_debug();
+
+                        good_banks[n_good_banks++] = *hash;
+                }
+
+                log_debug("Found %zu initialized TPM2 banks reported by firmware.", n_good_banks);
+                *ret = TAKE_PTR(good_banks);
+                return (int) n_good_banks;
+        }
 
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &c->capability_pcrs) {
                 TPMI_ALG_HASH hash = selection->hash;
