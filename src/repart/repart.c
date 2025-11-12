@@ -5654,6 +5654,14 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         if (fsync(whole_fd) < 0)
                 return log_error_errno(errno, "Failed to synchronize partition %s: %m", strna(hint));
 
+        if (!p->new_uuid_is_set) {
+                r = verity_sig_derive_uuid(&roothash, &p->type.uuid, &p->new_uuid);
+                if (r < 0)
+                        return r;
+
+                p->new_uuid_is_set = true;
+        }
+
         return 0;
 }
 
@@ -7029,12 +7037,12 @@ static int context_acquire_partition_uuids_and_labels(Context *context) {
                         if (r < 0)
                                 return r;
 
-                        /* The final verity hash/data UUIDs can only be determined after formatting the
+                        /* The final verity hash/data/sig UUIDs can only be determined after formatting the
                          * verity hash partition. However, we still want to use the generated partition UUID
                          * to derive other UUIDs to keep things unique and reproducible, so we always
                          * generate a UUID if none is set, but we only use it as the actual partition UUID if
                          * verity is not configured. */
-                        if (!IN_SET(p->verity, VERITY_DATA, VERITY_HASH)) {
+                        if (!IN_SET(p->verity, VERITY_DATA, VERITY_HASH, VERITY_SIG)) {
                                 p->new_uuid = uuid;
                                 p->new_uuid_is_set = true;
                         }

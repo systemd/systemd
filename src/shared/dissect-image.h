@@ -240,6 +240,8 @@ int mount_image_privately_interactively(const char *path, const ImagePolicy *ima
 
 int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, const ExtensionReleaseData *required_release_data, ImageClass required_class, VeritySettings *verity, RuntimeScope runtime_scope, DissectedImage **ret_image);
 
+int verity_sig_derive_uuid(const struct iovec *root_hash, const sd_id128_t *partition_type_uuid, sd_id128_t *ret_uuid);
+
 int dissect_fstype_ok(const char *fstype);
 
 int probe_sector_size(int fd, uint32_t *ret);
