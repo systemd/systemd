@@ -229,9 +229,7 @@ TEST(sd_bus_error_set_errnof) {
 
         assert_se(sd_bus_error_set_errnof(&error, EACCES, NULL) == -EACCES);
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_ACCESS_DENIED));
-        errno = EACCES;
-        assert_se(asprintf(&str, "%m") >= 0);
-        assert_se(streq(error.message, str));
+        ASSERT_STREQ(error.message, STRERROR(EACCES));
         assert_se(error._need_free == 0);
 
         str = mfree(str);
@@ -239,9 +237,7 @@ TEST(sd_bus_error_set_errnof) {
 
         assert_se(sd_bus_error_set_errnof(&error, ENOANO, NULL) == -ENOANO);
         assert_se(sd_bus_error_has_name(&error, "System.Error.ENOANO"));
-        errno = ENOANO;
-        assert_se(asprintf(&str, "%m") >= 0);
-        assert_se(streq(error.message, str));
+        ASSERT_STREQ(error.message, STRERROR(ENOANO));
         assert_se(error._need_free == 1);
 
         str = mfree(str);
@@ -249,9 +245,7 @@ TEST(sd_bus_error_set_errnof) {
 
         assert_se(sd_bus_error_set_errnof(&error, 100000, NULL) == -100000);
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_FAILED));
-        errno = 100000;
-        assert_se(asprintf(&str, "%m") >= 0);
-        assert_se(streq(error.message, str));
+        ASSERT_STREQ(error.message, STRERROR(100000));
         assert_se(error._need_free == 1);
 
         str = mfree(str);
