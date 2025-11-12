@@ -878,4 +878,29 @@ TEST(fd_get_path) {
         assert_se(chdir(saved_cwd) >= 0);
 }
 
+TEST(fd_vet_accmode) {
+        _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fd-accmode.XXXXXX";
+        _cleanup_close_ int fd_rw = -EBADF, fd_ro = -EBADF, fd_wo = -EBADF, fd_opath = -EBADF;
+
+        ASSERT_OK(fd_rw = mkostemp_safe(name));
+        ASSERT_OK_ZERO(fd_vet_accmode(fd_rw, O_RDONLY));
+        ASSERT_OK_ZERO(fd_vet_accmode(fd_rw, O_WRONLY));
+        ASSERT_OK_POSITIVE(fd_vet_accmode(fd_rw, O_RDWR));
+
+        ASSERT_OK_ERRNO(fd_ro = open(name, O_RDONLY | O_CLOEXEC));
+        ASSERT_OK_POSITIVE(fd_vet_accmode(fd_ro, O_RDONLY));
+        ASSERT_ERROR(fd_vet_accmode(fd_ro, O_WRONLY), EPROTOTYPE);
+        ASSERT_ERROR(fd_vet_accmode(fd_ro, O_RDWR), EPROTOTYPE);
+
+        ASSERT_OK_ERRNO(fd_wo = open(name, O_WRONLY | O_CLOEXEC));
+        ASSERT_ERROR(fd_vet_accmode(fd_wo, O_RDONLY), EPROTOTYPE);
+        ASSERT_OK_POSITIVE(fd_vet_accmode(fd_wo, O_WRONLY));
+        ASSERT_ERROR(fd_vet_accmode(fd_wo, O_RDWR), EPROTOTYPE);
+
+        ASSERT_OK_ERRNO(fd_opath = open(name, O_PATH | O_CLOEXEC));
+        ASSERT_ERROR(fd_vet_accmode(fd_opath, O_RDONLY), EBADFD);
+        ASSERT_ERROR(fd_vet_accmode(fd_opath, O_WRONLY), EBADFD);
+        ASSERT_ERROR(fd_vet_accmode(fd_opath, O_RDWR), EBADFD);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
