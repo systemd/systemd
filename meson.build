@@ -117,6 +117,9 @@ conf.set10('BUMP_PROC_SYS_FS_FILE_MAX', get_option('bump-proc-sys-fs-file-max'))
 conf.set10('BUMP_PROC_SYS_FS_NR_OPEN',  get_option('bump-proc-sys-fs-nr-open'))
 conf.set('HIGH_RLIMIT_NOFILE',          512*1024)
 
+conf.set('JOURNAL_STORAGE_DEFAULT',     get_option('journal-storage-default'))
+conf.set('JOURNAL_STORAGE_DEFAULT_VAL', 'STORAGE_' + get_option('journal-storage-default').to_upper())
+
 # Meson ignores the preceding arguments when joining paths if an absolute
 # component is encountered, so this should canonicalize various paths when they
 # are absolute or relative.
@@ -3096,6 +3099,7 @@ summary({
         'default locale'                            : default_locale,
         'default nspawn locale'                     : nspawn_locale,
         'default status unit format'                : status_unit_format_default,
+        'default journal storage mode'              : conf.get('JOURNAL_STORAGE_DEFAULT'),
         'default user $PATH'                        : default_user_path != '' ? default_user_path : '(same as system services)',
         'systemd service watchdog'                  : service_watchdog == '' ? 'disabled' : service_watchdog,
         'time epoch'                                : f'@time_epoch@ (@alt_time_epoch@)',

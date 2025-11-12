@@ -153,10 +153,12 @@ executables += [
         },
 ]
 
-if install_sysconfdir_samples
-        install_data('journald.conf',
-                     install_dir : pkgconfigfiledir)
-endif
+custom_target(
+        input : 'journald.conf.in',
+        output: 'journald.conf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : install_sysconfdir_samples,
+        install_dir : pkgconfigfiledir)
 
 if get_option('create-log-dirs')
         install_emptydir('/var/log/journal',
