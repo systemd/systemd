@@ -53,6 +53,12 @@ int pidref_get_ppid_as_pidref(const PidRef *pidref, PidRef *ret);
 int pid_get_start_time(pid_t pid, usec_t *ret);
 int pidref_get_start_time(const PidRef *pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
+int pid_get_sigcgt(pid_t pid, uint64_t *mask);
+int pid_has_sigcgt(pid_t pid, int sig);
+int pidref_has_sigcgt(PidRef *pr, int sig);
+int pid_get_sigblk(pid_t pid, uint64_t *mask);
+int pid_has_sigblk(pid_t pid, int sig);
+int pidref_has_sigblk(PidRef *pr, int sig);
 
 int container_get_leader(const char *machine, pid_t *pid);
 
