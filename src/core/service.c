@@ -2773,6 +2773,26 @@ static void service_enter_reload_signal(Service *s) {
                         goto fail;
                 }
 
+                /* This is naturally racy, but that's fine. The issue we're looking for is almost always a
+                 * static programming error (handler not yet installed), but if a user wants to shoot
+                 * themself in the foot intentionally by racing with us, who are we to stop them :-) */
+                r = pidref_has_sigcgt(&s->main_pid, s->reload_signal);
+                if (r < 0) {
+                        if (r != -ESRCH)
+                                log_unit_warning_errno(
+                                                UNIT(s), r, "Failed to check for reload signal handler: %m");
+                        goto fail;
+                }
+                if (r == 0) {
+                        log_unit_warning(
+                                        UNIT(s),
+                                        "Process " PID_FMT
+                                        " does not have a handler for signal %s, refusing to reload.",
+                                        s->main_pid.pid,
+                                        signal_to_string(s->reload_signal));
+                        goto fail;
+                }
+
                 r = pidref_kill_and_sigcont(&s->main_pid, s->reload_signal);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to send reload signal: %m");
@@ -4877,6 +4897,28 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                 if (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD) &&
                     s->state == SERVICE_START)
                         service_enter_start_post(s);
+
+                if (s->type == SERVICE_NOTIFY_RELOAD && pidref_is_set(&s->main_pid)) {
+                        r = pidref_has_sigcgt(&s->main_pid, s->reload_signal);
+                        if (r < 0) {
+                                log_unit_error_errno(
+                                                UNIT(s),
+                                                r,
+                                                "Failed to check for reload signal handler at READY=1: %m");
+                                service_enter_failed_set_result(s, SERVICE_FAILURE_PROTOCOL);
+                                return;
+                        }
+                        if (r == 0) {
+                                log_unit_error(UNIT(s),
+                                               "Service's main process " PID_FMT
+                                               " lacks handler for %s at READY=1. "
+                                               "Service must install signal handler before sending READY=1.",
+                                               s->main_pid.pid,
+                                               signal_to_string(s->reload_signal));
+                                service_enter_failed_set_result(s, SERVICE_FAILURE_PROTOCOL);
+                                return;
+                        }
+                }
 
                 /* Sending READY=1 while we are reloading informs us that the reloading is complete. */
                 if (s->state == SERVICE_RELOAD_NOTIFY)
