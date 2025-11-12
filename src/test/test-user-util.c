@@ -4,7 +4,6 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
-#include "libcrypt-util.h"
 #include "log.h"
 #include "memory-util.h"
 #include "path-util.h"
@@ -392,18 +391,6 @@ TEST(get_group_creds) {
         test_get_group_creds_one("0", "root", 0);
         test_get_group_creds_one(NOBODY_GROUP_NAME, NOBODY_GROUP_NAME, GID_NOBODY);
         test_get_group_creds_one("65534", NOBODY_GROUP_NAME, GID_NOBODY);
-}
-
-TEST(make_salt) {
-        _cleanup_free_ char *s, *t;
-
-        assert_se(make_salt(&s) == 0);
-        log_info("got %s", s);
-
-        assert_se(make_salt(&t) == 0);
-        log_info("got %s", t);
-
-        assert_se(!streq(s, t));
 }
 
 TEST(in_gid) {
