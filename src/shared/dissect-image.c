@@ -41,11 +41,13 @@
 #include "format-util.h"
 #include "fsck-util.h"
 #include "gpt.h"
+#include "hmac.h"
 #include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "image-policy.h"
 #include "import-util.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "loop-util.h"
@@ -1237,29 +1239,44 @@ static int dissect_image(
 
                         } else if (type.designator == PARTITION_ROOT_VERITY_SIG) {
                                 if (verity && verity->root_hash) {
-                                        _cleanup_free_ void *root_hash = NULL;
-                                        size_t root_hash_size;
+                                        sd_id128_t expected_uuid;
 
-                                        r = acquire_sig_for_roothash(
-                                                        fd,
-                                                        start * 512,
-                                                        size * 512,
-                                                        &root_hash,
-                                                        &root_hash_size,
-                                                        /* ret_root_hash_sig= */ NULL,
-                                                        /* ret_root_hash_sig_size= */ NULL);
+                                        r = verity_sig_derive_uuid(
+                                                        verity->root_hash,
+                                                        verity->root_hash_size,
+                                                        &type.uuid,
+                                                        &expected_uuid);
                                         if (r < 0)
                                                 return r;
-                                        if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
-                                                if (DEBUG_LOGGING) {
-                                                        _cleanup_free_ char *found = NULL, *expected = NULL;
+                                        if (!sd_id128_equal(id, expected_uuid)) {
+                                                _cleanup_free_ void *root_hash = NULL;
+                                                size_t root_hash_size;
 
-                                                        found = hexmem(root_hash, root_hash_size);
-                                                        expected = hexmem(verity->root_hash, verity->root_hash_size);
+                                                log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from root verity hash, checking embedded roothash instead...",
+                                                          SD_ID128_TO_UUID_STRING(id),
+                                                          SD_ID128_TO_UUID_STRING(expected_uuid));
 
-                                                        log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
+                                                r = acquire_sig_for_roothash(
+                                                                fd,
+                                                                start * 512,
+                                                                size * 512,
+                                                                &root_hash,
+                                                                &root_hash_size,
+                                                                /* ret_root_hash_sig= */ NULL,
+                                                                /* ret_root_hash_sig_size= */ NULL);
+                                                if (r < 0)
+                                                        return r;
+                                                if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
+                                                        if (DEBUG_LOGGING) {
+                                                                _cleanup_free_ char *found = NULL, *expected = NULL;
+
+                                                                found = hexmem(root_hash, root_hash_size);
+                                                                expected = hexmem(verity->root_hash, verity->root_hash_size);
+
+                                                                log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
+                                                        }
+                                                        continue;
                                                 }
-                                                continue;
                                         }
                                 }
 
@@ -1306,29 +1323,44 @@ static int dissect_image(
 
                         } else if (type.designator == PARTITION_USR_VERITY_SIG) {
                                 if (verity && verity->root_hash) {
-                                        _cleanup_free_ void *root_hash = NULL;
-                                        size_t root_hash_size;
+                                        sd_id128_t expected_uuid;
 
-                                        r = acquire_sig_for_roothash(
-                                                        fd,
-                                                        start * 512,
-                                                        size * 512,
-                                                        &root_hash,
-                                                        &root_hash_size,
-                                                        /* ret_root_hash_sig= */ NULL,
-                                                        /* ret_root_hash_sig_size= */ NULL);
+                                        r = verity_sig_derive_uuid(
+                                                        verity->root_hash,
+                                                        verity->root_hash_size,
+                                                        &type.uuid,
+                                                        &expected_uuid);
                                         if (r < 0)
                                                 return r;
-                                        if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
-                                                if (DEBUG_LOGGING) {
-                                                        _cleanup_free_ char *found = NULL, *expected = NULL;
+                                        if (!sd_id128_equal(id, expected_uuid)) {
+                                                _cleanup_free_ void *root_hash = NULL;
+                                                size_t root_hash_size;
 
-                                                        found = hexmem(root_hash, root_hash_size);
-                                                        expected = hexmem(verity->root_hash, verity->root_hash_size);
+                                                log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from root verity hash, checking embedded roothash instead...",
+                                                          SD_ID128_TO_UUID_STRING(id),
+                                                          SD_ID128_TO_UUID_STRING(expected_uuid));
 
-                                                        log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
+                                                r = acquire_sig_for_roothash(
+                                                                fd,
+                                                                start * 512,
+                                                                size * 512,
+                                                                &root_hash,
+                                                                &root_hash_size,
+                                                                /* ret_root_hash_sig= */ NULL,
+                                                                /* ret_root_hash_sig_size= */ NULL);
+                                                if (r < 0)
+                                                        return r;
+                                                if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
+                                                        if (DEBUG_LOGGING) {
+                                                                _cleanup_free_ char *found = NULL, *expected = NULL;
+
+                                                                found = hexmem(root_hash, root_hash_size);
+                                                                expected = hexmem(verity->root_hash, verity->root_hash_size);
+
+                                                                log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
+                                                        }
+                                                        continue;
                                                 }
-                                                continue;
                                         }
                                 }
 
@@ -4668,6 +4700,29 @@ int verity_dissect_and_mount(
 
         if (ret_image)
                 *ret_image = TAKE_PTR(dissected_image);
+
+        return 0;
+}
+
+int verity_sig_derive_uuid(const void *root_hash, size_t root_hash_size, const sd_id128_t *partition_guid, sd_id128_t *ret_uuid) {
+        union {
+                uint8_t md[SHA256_DIGEST_SIZE];
+                sd_id128_t id;
+        } result;
+
+        assert(root_hash);
+        assert(root_hash_size > 0);
+        assert(partition_guid);
+        assert(ret_uuid);
+
+        /* As per DPS, derive the verity signature UUID from the root hash and partition GUID. */
+
+        hmac_sha256(root_hash, root_hash_size, partition_guid->bytes, sizeof(partition_guid->bytes), result.md);
+
+        /* Take the first half, mark it as v4 UUID */
+        assert_cc(sizeof(result.md) == sizeof(result.id) * 2);
+
+        *ret_uuid = id128_make_v4_uuid(result.id);
 
         return 0;
 }
