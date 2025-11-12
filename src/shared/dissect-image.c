@@ -41,11 +41,13 @@
 #include "format-util.h"
 #include "fsck-util.h"
 #include "gpt.h"
+#include "hmac.h"
 #include "hash-funcs.h"
 #include "hexdecoct.h"
 #include "hostname-setup.h"
 #include "image-policy.h"
 #include "import-util.h"
+#include "id128-util.h"
 #include "io-util.h"
 #include "json-util.h"
 #include "loop-util.h"
@@ -4668,6 +4670,29 @@ int verity_dissect_and_mount(
 
         if (ret_image)
                 *ret_image = TAKE_PTR(dissected_image);
+
+        return 0;
+}
+
+int verity_sig_derive_uuid(const void *root_hash, size_t root_hash_size, const sd_id128_t *partition_guid, sd_id128_t *ret_uuid) {
+        union {
+                uint8_t md[SHA256_DIGEST_SIZE];
+                sd_id128_t id;
+        } result;
+
+        assert(root_hash);
+        assert(root_hash_size > 0);
+        assert(partition_guid);
+        assert(ret_uuid);
+
+        /* As per DPS, derive the verity signature UUID from the root hash and partition GUID. */
+
+        hmac_sha256(root_hash, root_hash_size, partition_guid->bytes, sizeof(partition_guid->bytes), result.md);
+
+        /* Take the first half, mark it as v4 UUID */
+        assert_cc(sizeof(result.md) == sizeof(result.id) * 2);
+
+        *ret_uuid = id128_make_v4_uuid(result.id);
 
         return 0;
 }
