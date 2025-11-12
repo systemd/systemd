@@ -7,6 +7,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-server-lease-internal.h"
+#include "dns-domain.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -181,7 +182,8 @@ int sd_dhcp_server_set_static_lease(
                 sd_dhcp_server *server,
                 const struct in_addr *address,
                 uint8_t *client_id_raw,
-                size_t client_id_size) {
+                size_t client_id_size,
+                const char *hostname) {
 
         _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
         sd_dhcp_client_id client_id;
@@ -203,6 +205,14 @@ int sd_dhcp_server_set_static_lease(
                 return 0;
         }
 
+        if (hostname) {
+                r = dns_name_is_valid_ldh(hostname);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EINVAL;
+        }
+
         lease = new(sd_dhcp_server_lease, 1);
         if (!lease)
                 return -ENOMEM;
@@ -212,6 +222,12 @@ int sd_dhcp_server_set_static_lease(
                 .address = address->s_addr,
                 .client_id = client_id,
         };
+
+        if (hostname) {
+                lease->hostname = strdup(hostname);
+                if (!lease->hostname)
+                        return -ENOMEM;
+        }
 
         r = dhcp_server_put_lease(server, lease, /* is_static = */ true);
         if (r < 0)
