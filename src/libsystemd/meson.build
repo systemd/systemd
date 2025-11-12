@@ -33,6 +33,7 @@ sd_daemon_sources = files('sd-daemon/sd-daemon.c')
 ############################################################
 
 sd_event_sources = files(
+        'sd-event/event-future.c',
         'sd-event/event-util.c',
         'sd-event/sd-event.c',
 )
@@ -71,6 +72,13 @@ sd_device_sources = files(
         'sd-device/device-private.c',
         'sd-device/device-util.c',
         'sd-device/sd-device.c',
+)
+
+############################################################
+
+sd_future_sources = files(
+        'sd-future/fiber.c',
+        'sd-future/sd-future.c',
 )
 
 ############################################################
@@ -135,8 +143,9 @@ libsystemd_sources = files(
         'sd-resolve/sd-resolve.c',
 ) + sd_journal_sources + sd_id128_sources + sd_daemon_sources \
   + sd_event_sources + sd_bus_sources + sd_device_sources \
-  + sd_login_sources + sd_json_sources + sd_varlink_sources \
-  + sd_path_sources + sd_netlink_sources + sd_network_sources
+  + sd_future_sources + sd_login_sources + sd_json_sources \
+  + sd_varlink_sources + sd_path_sources + sd_netlink_sources \
+  + sd_network_sources
 
 sources += libsystemd_sources
 
@@ -153,6 +162,7 @@ libsystemd_static = static_library(
         dependencies : [threads,
                         libm,
                         librt,
+                        libucontext,
                         userspace],
         build_by_default : false)
 
@@ -181,6 +191,7 @@ simple_tests += files(
         'sd-bus/test-bus-vtable.c',
         'sd-device/test-device-util.c',
         'sd-device/test-sd-device-monitor.c',
+        'sd-future/test-fiber.c',
         'sd-hwdb/test-sd-hwdb.c',
         'sd-id128/test-id128.c',
         'sd-journal/test-audit-type.c',
