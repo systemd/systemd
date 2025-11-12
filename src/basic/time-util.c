@@ -634,8 +634,6 @@ const char* get_tzname(bool dst) {
 }
 
 int parse_gmtoff(const char *t, long *ret) {
-        int r;
-
         assert(t);
 
         struct tm tm;
@@ -646,6 +644,11 @@ int parse_gmtoff(const char *t, long *ret) {
                         *ret = tm.tm_gmtoff;
                 return 0;
         }
+
+#ifdef __GLIBC__
+        return -EINVAL;
+#else
+        int r;
 
         /* musl v1.2.5 does not support %z specifier in strptime(). Since
          * https://github.com/kraj/musl/commit/fced99e93daeefb0192fd16304f978d4401d1d77
@@ -714,6 +717,7 @@ finalize:
         }
 
         return 0;
+#endif
 }
 
 static int parse_timestamp_impl(
