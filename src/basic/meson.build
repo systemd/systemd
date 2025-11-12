@@ -36,6 +36,7 @@ basic_sources = files(
         'ether-addr-util.c',
         'extract-word.c',
         'fd-util.c',
+        'fiber-def.c',
         'fileio.c',
         'filesystems.c',
         'format-ifname.c',
