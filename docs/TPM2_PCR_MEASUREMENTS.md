@@ -199,6 +199,30 @@ initrd" in UTF-16.
 → **Measured hash** covers the per-UKI sysext cpio archive (which is generated
 on-the-fly by `systemd-stub`).
 
+## PCR Measurements Made by `systemd-tpm2-setup` (Userspace)
+
+### PCR 9, NvPCR initializatons
+
+The `systemd-tpm2-setup.service` service initializes any NvPCRs defined via
+`*.nvpcr` files. For each initialized NvPCR it will measure an event into PCR
+9.
+
+→ **Measured hash** covers the string `nvpcr-initialization:`, suffixed by the
+NvPCR name, suffixed by `:0x`, suffixed by the NV Index handle (formatted in
+hexadecimal), suffixed by a colon, suffixed by the hash function used, in
+lowercase (i.e. `sha256` or so), suffixed by a colon, and finally suffixed by
+the state of the NvPCR after its initialization with the anchor measurement, in
+hexadecimal. Example:
+`vpcr-initialization:hardware:0x1d10200:sha256:de3857f637c61e82f02e3722e1b207585fe9711045d863238904be8db10683f2`
+
+### PCR 9, NvPCR initialization separator
+
+After initializing all NvPCRs (and measuring their initial state) at arly boot
+the `systemd-tpm2-setup.service` service will measure a separator event into
+PCR 9, isolating the early boot initializations from any later additions.
+
+→ **Measured hash** covers the string `nvpcr-separator`.
+
 ## PCR/NvPCR Measurements Made by `systemd-pcrextend` (Userspace)
 
 ### PCR 11, boot phases
