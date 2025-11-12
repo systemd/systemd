@@ -72,7 +72,10 @@ conf.set10('SD_BOOT', false)
 
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
-summary({'build mode' : get_option('mode')})
+summary({
+        'libc'       : get_option('libc'),
+        'build mode' : get_option('mode'),
+})
 
 #####################################################################
 
@@ -557,6 +560,10 @@ conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
 conf.set('_GNU_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 
+# glibc always defines _LARGEFILE64_SOURCE when _GNU_SOURCE is set, but musl does not do that,
+# and it is necessary for making getdents64() and struct dirent64 exist.
+conf.set('_LARGEFILE64_SOURCE', 1)
+
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_INO_T', cc.sizeof('ino_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h>'))
@@ -572,6 +579,7 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', f'@long_max@')
 
 foreach ident : [
+        ['renameat2',         '''#include <stdio.h>'''],        # since musl-1.2.6
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
@@ -700,6 +708,8 @@ foreach header : [
 endforeach
 
 foreach header : [
+        'gshadow.h',
+        'nss.h',
         'sys/sdt.h',
         'threads.h',
         'valgrind/memcheck.h',
@@ -708,6 +718,20 @@ foreach header : [
 
         conf.set10('HAVE_' + header.underscorify().to_upper(),
                    cc.has_header(header))
+endforeach
+
+foreach ident : [
+                ['NI_IDN', 'netdb.h']
+        ]
+
+        if meson.version().version_compare('>=1.3.0')
+                have = cc.has_define(ident[0],
+                                     prefix : '''#include <@0@>'''.format(ident[1]),
+                                     args : '-D_GNU_SOURCE')
+        else
+                have = cc.has_header_symbol(ident[1], ident[0])
+        endif
+        conf.set10('HAVE_' + ident[0], have)
 endforeach
 
 #####################################################################
@@ -1001,6 +1025,22 @@ threads = dependency('threads')
 librt = cc.find_library('rt')
 libm = cc.find_library('m')
 libdl = cc.find_library('dl')
+
+# On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
+# In that case, we need to explicitly link with libintl.so.
+if cc.has_function('dgettext',
+                   prefix : '''#include <libintl.h>''',
+                   args : '-D_GNU_SOURCE')
+        libintl = []
+else
+        libintl = cc.find_library('intl')
+        if not cc.has_function('dgettext',
+                               prefix : '''#include <libintl.h>''',
+                               args : '-D_GNU_SOURCE',
+                               dependencies : libintl)
+                error('dgettext() not found')
+        endif
+endif
 
 # On some architectures, libatomic is required. But on some installations,
 # it is found, but actual linking fails. So let's try to use it opportunistically.
@@ -1603,52 +1643,60 @@ conf.set10('ENABLE_NSPAWN', feature.allowed())
 
 conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-trusted-directories'))
 
-foreach term : ['analyze',
-                'backlight',
-                'binfmt',
-                'compat-mutable-uid-boundaries',
-                'coredump',
-                'efi',
-                'environment-d',
-                'firstboot',
-                'gshadow',
-                'hibernate',
-                'hostnamed',
-                'hwdb',
-                'idn',
-                'ima',
-                'ipe',
-                'initrd',
-                'kernel-install',
-                'ldconfig',
-                'localed',
-                'logind',
-                'machined',
-                'mountfsd',
-                'networkd',
-                'nsresourced',
-                'nss-myhostname',
-                'nss-systemd',
-                'oomd',
-                'portabled',
-                'pstore',
-                'quotacheck',
-                'randomseed',
-                'resolve',
-                'rfkill',
-                'smack',
-                'sysext',
-                'sysusers',
-                'timedated',
-                'timesyncd',
-                'tmpfiles',
-                'tpm',
-                'userdb',
-                'utmp',
-                'vconsole',
-                'xdg-autostart']
-        have = get_option(term)
-        name = 'ENABLE_' + term.underscorify().to_upper()
+foreach tuple : [
+                ['analyze'],
+                ['backlight'],
+                ['binfmt'],
+                ['compat-mutable-uid-boundaries'],
+                ['coredump'],
+                ['efi'],
+                ['environment-d'],
+                ['firstboot'],
+                ['gshadow',         conf.get('HAVE_GSHADOW_H') == 1,  'gshadow.h not found'],
+                ['hibernate'],
+                ['hostnamed'],
+                ['hwdb'],
+                ['idn',             conf.get('HAVE_NI_IDN') == 1,     'NI_IDN is not defined'],
+                ['ima'],
+                ['ipe'],
+                ['initrd'],
+                ['kernel-install'],
+                ['ldconfig'],
+                ['localed'],
+                ['logind'],
+                ['machined'],
+                ['mountfsd'],
+                ['networkd'],
+                ['nsresourced'],
+                ['nss-myhostname',  conf.get('HAVE_NSS_H') == 1,      'nss.h not found'],
+                ['nss-systemd',     conf.get('HAVE_NSS_H') == 1,      'nss.h not found'],
+                ['oomd'],
+                ['portabled'],
+                ['pstore'],
+                ['quotacheck'],
+                ['randomseed'],
+                ['resolve'],
+                ['rfkill'],
+                ['smack'],
+                ['sysext'],
+                ['sysusers'],
+                ['timedated'],
+                ['timesyncd'],
+                ['tmpfiles'],
+                ['tpm'],
+                ['utmp'],
+                ['userdb'],
+                ['vconsole'],
+                ['xdg-autostart'],
+        ]
+
+        have = get_option(tuple[0])
+        if have and tuple.length() >= 3 and not tuple[1]
+                warning('@0@ support is requested but @1@, disabling it'.format(tuple[0], tuple[2]))
+                have = false
+        endif
+
+        name = 'ENABLE_' + tuple[0].underscorify().to_upper()
         conf.set10(name, have)
 endforeach
 
@@ -1657,11 +1705,16 @@ enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
-        if want.allowed()
-                have = get_option(tuple[1])
-                if want.enabled() and not have
+        if want.enabled()
+                if conf.get('HAVE_NSS_H') != 1
+                        error('@0@ is requested but nss.h not found'.format(tuple[0]))
+                endif
+                if not get_option(tuple[1])
                         error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
                 endif
+                have = true
+        elif want.allowed()
+                have = get_option(tuple[1]) and conf.get('HAVE_NSS_H') == 1
         else
                 have = false
         endif
@@ -2068,6 +2121,15 @@ system_includes = [
                 is_system : true,
         ),
 ]
+
+if get_option('libc') == 'musl'
+        system_include_args = [
+                '-isystem', meson.project_build_root()  / 'src/include/musl',
+                '-isystem', meson.project_source_root() / 'src/include/musl',
+        ] + system_include_args
+
+        system_includes += include_directories('src/include/musl', is_system : true)
+endif
 
 basic_includes = [
         include_directories(
