@@ -117,7 +117,12 @@ typedef struct SocketAddress SocketAddress;
 /* We duplicate various commonly used constants here so we can keep most static inline functions without
  * having to include the full header that provides these constants. */
 
+/* glibc defines AT_FDCWD as -100, but musl defines it as (-100). */
+#ifdef __GLIBC__
 #define AT_FDCWD                -100
+#else
+#define AT_FDCWD                (-100)
+#endif
 #define AT_EMPTY_PATH           0x1000
 #define AT_SYMLINK_FOLLOW       0x400
 #define AT_SYMLINK_NOFOLLOW     0x100
