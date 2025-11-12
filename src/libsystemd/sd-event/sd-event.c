@@ -157,6 +157,7 @@ struct sd_event {
         bool need_process_child:1;
         bool watchdog:1;
         bool profile_delays:1;
+        bool exit_on_idle:1;
 
         int exit_code;
 
@@ -4429,6 +4430,20 @@ static int event_memory_pressure_write_list(sd_event *e) {
         return 0;
 }
 
+static bool event_loop_idle(sd_event *e) {
+        LIST_FOREACH(sources, s, e->sources) {
+                /* Exit sources only trigger on exit, and post sources only trigger once another source
+                 * triggers, so neither will do anything unless there are other online event sources. */
+                if (IN_SET(s->type, SOURCE_EXIT, SOURCE_POST))
+                        continue;
+
+                if (s->enabled != SD_EVENT_OFF)
+                        return false;
+        }
+
+        return true;
+}
+
 _public_ int sd_event_prepare(sd_event *e) {
         int r;
 
@@ -4445,6 +4460,9 @@ _public_ int sd_event_prepare(sd_event *e) {
 
         /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
         PROTECT_EVENT(e);
+
+        if (!e->exit_requested && e->exit_on_idle && event_loop_idle(e))
+                (void) sd_event_exit(e, 0);
 
         if (e->exit_requested)
                 goto pending;
@@ -5248,6 +5266,22 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
         }
 
         return change;
+}
+
+_public_ int sd_event_set_exit_on_idle(sd_event *e, int b) {
+        assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(!event_origin_changed(e), -ECHILD);
+
+        return e->exit_on_idle = b;
+}
+
+_public_ int sd_event_get_exit_on_idle(sd_event *e) {
+        assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(!event_origin_changed(e), -ECHILD);
+
+        return e->exit_on_idle;
 }
 
 _public_ int sd_event_source_set_memory_pressure_type(sd_event_source *s, const char *ty) {
