@@ -574,16 +574,12 @@ static int acquire_sig_for_roothash(
                 int fd,
                 uint64_t partition_offset,
                 uint64_t partition_size,
-                void **ret_root_hash,
-                size_t *ret_root_hash_size,
-                void **ret_root_hash_sig,
-                size_t *ret_root_hash_sig_size) {
+                struct iovec *ret_root_hash,
+                struct iovec *ret_root_hash_sig) {
 
         int r;
 
         assert(fd >= 0);
-        assert(!!ret_root_hash == !!ret_root_hash_size);
-        assert(!!ret_root_hash_sig == !!ret_root_hash_sig_size);
 
         if (partition_offset == UINT64_MAX || partition_size == UINT64_MAX)
                 return -EINVAL;
@@ -634,20 +630,71 @@ static int acquire_sig_for_roothash(
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse signature field: %m");
 
-        if (ret_root_hash) {
-                *ret_root_hash = TAKE_PTR(root_hash);
-                *ret_root_hash_size = root_hash_size;
-        }
+        if (ret_root_hash)
+                *ret_root_hash = IOVEC_MAKE(TAKE_PTR(root_hash), root_hash_size);
 
-        if (ret_root_hash_sig) {
-                *ret_root_hash_sig = TAKE_PTR(root_hash_sig);
-                *ret_root_hash_sig_size = root_hash_sig_size;
-        }
+        if (ret_root_hash_sig)
+                *ret_root_hash_sig = IOVEC_MAKE(TAKE_PTR(root_hash_sig), root_hash_sig_size);
 
         return 0;
 }
 
 #if HAVE_BLKID
+static int verity_sig_match(
+                const VeritySettings *verity,
+                const sd_id128_t *partition_type_uuid,
+                const sd_id128_t *partition_uuid,
+                int fd,
+                uint64_t start,
+                uint64_t size) {
+
+        sd_id128_t expected_uuid;
+        int r;
+
+        assert(verity);
+        assert(verity->root_hash);
+        assert(partition_type_uuid);
+        assert(partition_uuid);
+        assert (fd >= 0);
+
+        r = verity_sig_derive_uuid(
+                        &IOVEC_MAKE(verity->root_hash, verity->root_hash_size),
+                        partition_type_uuid,
+                        &expected_uuid);
+        if (r < 0)
+                return r;
+        if (!sd_id128_equal(*partition_uuid, expected_uuid)) {
+                _cleanup_(iovec_done) struct iovec root_hash = {};
+
+                log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from root verity hash, checking embedded roothash instead...",
+                          SD_ID128_TO_UUID_STRING(*partition_uuid),
+                          SD_ID128_TO_UUID_STRING(expected_uuid));
+
+                r = acquire_sig_for_roothash(
+                                fd,
+                                start * 512,
+                                size * 512,
+                                &root_hash,
+                                /* ret_root_hash_sig= */ NULL);
+                if (r < 0)
+                        return r;
+                if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash.iov_base, root_hash.iov_len) != 0) {
+                        if (DEBUG_LOGGING) {
+                                _cleanup_free_ char *found = NULL, *expected = NULL;
+
+                                found = hexmem(root_hash.iov_base, root_hash.iov_len);
+                                expected = hexmem(verity->root_hash, verity->root_hash_size);
+
+                                log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
+                        }
+
+                        return 0; /* No match, needs to be skipped */
+                }
+        }
+
+        return 1; /* Matches, can be used */
+}
+
 static int diskseq_should_be_used(
                 const char *whole_devname,
                 uint64_t diskseq,
@@ -1239,30 +1286,11 @@ static int dissect_image(
 
                         } else if (type.designator == PARTITION_ROOT_VERITY_SIG) {
                                 if (verity && verity->root_hash) {
-                                        _cleanup_free_ void *root_hash = NULL;
-                                        size_t root_hash_size;
-
-                                        r = acquire_sig_for_roothash(
-                                                        fd,
-                                                        start * 512,
-                                                        size * 512,
-                                                        &root_hash,
-                                                        &root_hash_size,
-                                                        /* ret_root_hash_sig= */ NULL,
-                                                        /* ret_root_hash_sig_size= */ NULL);
+                                        r = verity_sig_match(verity, &type.uuid, &id, fd, start, size);
                                         if (r < 0)
                                                 return r;
-                                        if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
-                                                if (DEBUG_LOGGING) {
-                                                        _cleanup_free_ char *found = NULL, *expected = NULL;
-
-                                                        found = hexmem(root_hash, root_hash_size);
-                                                        expected = hexmem(verity->root_hash, verity->root_hash_size);
-
-                                                        log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
-                                                }
+                                        if (r == 0)
                                                 continue;
-                                        }
                                 }
 
                                 check_partition_flags(node, pflags,
@@ -1308,30 +1336,11 @@ static int dissect_image(
 
                         } else if (type.designator == PARTITION_USR_VERITY_SIG) {
                                 if (verity && verity->root_hash) {
-                                        _cleanup_free_ void *root_hash = NULL;
-                                        size_t root_hash_size;
-
-                                        r = acquire_sig_for_roothash(
-                                                        fd,
-                                                        start * 512,
-                                                        size * 512,
-                                                        &root_hash,
-                                                        &root_hash_size,
-                                                        /* ret_root_hash_sig= */ NULL,
-                                                        /* ret_root_hash_sig_size= */ NULL);
+                                        r = verity_sig_match(verity, &type.uuid, &id, fd, start, size);
                                         if (r < 0)
                                                 return r;
-                                        if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
-                                                if (DEBUG_LOGGING) {
-                                                        _cleanup_free_ char *found = NULL, *expected = NULL;
-
-                                                        found = hexmem(root_hash, root_hash_size);
-                                                        expected = hexmem(verity->root_hash, verity->root_hash_size);
-
-                                                        log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
-                                                }
+                                        if (r == 0)
                                                 continue;
-                                        }
                                 }
 
                                 check_partition_flags(node, pflags,
@@ -3793,30 +3802,28 @@ int dissected_image_load_verity_sig_partition(
         if (!p->found)
                 return 0;
 
-        _cleanup_free_ void *root_hash = NULL, *root_hash_sig = NULL;
-        size_t root_hash_size, root_hash_sig_size;
+        _cleanup_(iovec_done) struct iovec root_hash = {}, root_hash_sig = {};
 
-        r = acquire_sig_for_roothash(fd, p->offset, p->size, &root_hash, &root_hash_size, &root_hash_sig, &root_hash_sig_size);
+        r = acquire_sig_for_roothash(fd, p->offset, p->size, &root_hash, &root_hash_sig);
         if (r < 0)
                 return r;
 
         /* Check if specified root hash matches if it is specified */
         if (verity->root_hash &&
-            memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
+            memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash.iov_base, root_hash.iov_len) != 0) {
                 _cleanup_free_ char *a = NULL, *b = NULL;
 
-                a = hexmem(root_hash, root_hash_size);
+                a = hexmem(root_hash.iov_base, root_hash.iov_len);
                 b = hexmem(verity->root_hash, verity->root_hash_size);
 
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(a), strna(b));
         }
 
-        free_and_replace(verity->root_hash, root_hash);
-        verity->root_hash_size = root_hash_size;
+        free_and_replace(verity->root_hash, root_hash.iov_base);
+        verity->root_hash_size = root_hash.iov_len;
 
-        free_and_replace(verity->root_hash_sig, root_hash_sig);
-        verity->root_hash_sig_size = root_hash_sig_size;
-
+        free_and_replace(verity->root_hash_sig, root_hash_sig.iov_base);
+        verity->root_hash_sig_size = root_hash_sig.iov_len;
         verity->designator = dd;
 
         m->verity_ready = true;
