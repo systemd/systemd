@@ -1065,4 +1065,70 @@ TEST(child_pidfd_wnowait) {
         ASSERT_EQ(si.si_status, 42);
 }
 
+static int exit_on_idle_defer_handler(sd_event_source *s, void *userdata) {
+        unsigned *c = ASSERT_PTR(userdata);
+
+        /* Should not be reached on third call because the event loop should exit before */
+        ASSERT_LT(*c, 2u);
+
+        (*c)++;
+
+        /* Disable ourselves, which should trigger exit-on-idle after the second iteration */
+        if (*c == 2)
+                sd_event_source_set_enabled(s, SD_EVENT_OFF);
+
+        return 0;
+}
+
+static int exit_on_idle_post_handler(sd_event_source *s, void *userdata) {
+        unsigned *c = ASSERT_PTR(userdata);
+
+        /* Should not be reached on third call because the event loop should exit before */
+        ASSERT_LT(*c, 2u);
+
+        (*c)++;
+        return 0;
+}
+
+static int exit_on_idle_exit_handler(sd_event_source *s, void *userdata) {
+        return 0;
+}
+
+TEST(exit_on_idle) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK_POSITIVE(sd_event_get_exit_on_idle(e));
+
+        /* Create a recurring defer event source. */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *d = NULL;
+        unsigned dc = 0;
+        ASSERT_OK(sd_event_add_defer(e, &d, exit_on_idle_defer_handler, &dc));
+        ASSERT_OK(sd_event_source_set_enabled(d, SD_EVENT_ON));
+
+        /* This post event source should not keep the event loop running after the defer source is disabled. */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *p = NULL;
+        unsigned pc = 0;
+        ASSERT_OK(sd_event_add_post(e, &p, exit_on_idle_post_handler, &pc));
+        ASSERT_OK(sd_event_source_set_enabled(p, SD_EVENT_ON));
+        ASSERT_OK(sd_event_source_set_priority(p, SD_EVENT_PRIORITY_IMPORTANT));
+
+        /* And neither should this exit event source. */
+        ASSERT_OK(sd_event_add_exit(e, NULL, exit_on_idle_exit_handler, NULL));
+
+        /* Run the event loop - it should exit after we disable the event source */
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(dc, 2u);
+        ASSERT_EQ(pc, 2u);
+}
+
+TEST(exit_on_idle_no_sources) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        /* Running loop with no sources should return immediately with success */
+        ASSERT_OK(sd_event_loop(e));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
