@@ -60,6 +60,7 @@ void journal_config_set_defaults(JournalConfig *c) {
                 .max_level_wall = -1,
                 .max_level_socket = -1,
                 .split_mode = _SPLIT_INVALID,
+                .syslog_hostname = _SYSLOG_HOSTNAME_INVALID,
         };
 
         journal_reset_metrics(&c->system_storage_metrics);
@@ -154,6 +155,7 @@ void manager_merge_configs(Manager *m) {
         MERGE_NON_NEGATIVE(max_level_socket, LOG_DEBUG);
         MERGE_NON_NEGATIVE(split_mode, SPLIT_UID);
         MERGE_NON_ZERO(line_max, DEFAULT_LINE_MAX);
+        MERGE_NON_NEGATIVE(syslog_hostname, SYSLOG_HOSTNAME_NONE);
 }
 
 static void manager_adjust_configs(Manager *m) {
