@@ -4,6 +4,7 @@
 #include <poll.h>
 #include <pthread.h>
 #include <stdlib.h>
+#include <sys/eventfd.h>
 #include <sys/stat.h>
 #include <threads.h>
 #include <unistd.h>
@@ -218,6 +219,7 @@ static sd_bus* bus_free(sd_bus *b) {
         close_many(b->fds, b->n_fds);
         free(b->fds);
 
+        b->rqueue_eventfd = safe_close(b->rqueue_eventfd);
         bus_reset_queues(b);
 
         ordered_hashmap_free(b->reply_callbacks);
@@ -257,6 +259,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .input_fd = -EBADF,
                 .output_fd = -EBADF,
                 .inotify_fd = -EBADF,
+                .rqueue_eventfd = -EBADF,
                 .message_version = 1,
                 .creds_mask = SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME,
                 .accept_fd = true,
@@ -273,6 +276,11 @@ _public_ int sd_bus_new(sd_bus **ret) {
         /* We guarantee that wqueue always has space for at least one entry */
         if (!GREEDY_REALLOC(b->wqueue, 1))
                 return -ENOMEM;
+
+        if ((b->rqueue_eventfd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC | EFD_SEMAPHORE)) < 0) {
+                b->wqueue = mfree(b->wqueue);
+                return -errno;
+        }
 
         assert_se(pthread_mutex_init(&b->memfd_cache_mutex, NULL) == 0);
 
@@ -513,6 +521,10 @@ static int synthesize_connected_signal(sd_bus *bus) {
         r = bus_rqueue_make_room(bus);
         if (r < 0)
                 return r;
+
+        uint64_t inc = 1;
+        if (write(bus->rqueue_eventfd, &inc, sizeof(inc)) < 0)
+                return -errno;
 
         /* Insert at the very front */
         memmove(bus->rqueue + 1, bus->rqueue, sizeof(sd_bus_message*) * bus->rqueue_size);
@@ -2102,6 +2114,8 @@ static void rqueue_drop_one(sd_bus *bus, size_t i) {
         assert(bus);
         assert(i < bus->rqueue_size);
 
+        uint64_t dec;
+        read(bus->rqueue_eventfd, &dec, sizeof(dec));
         bus_message_unref_queued(bus->rqueue[i], bus);
         memmove(bus->rqueue + i, bus->rqueue + i + 1, sizeof(sd_bus_message*) * (bus->rqueue_size - i - 1));
         bus->rqueue_size--;
@@ -2543,6 +2557,11 @@ _public_ int sd_bus_get_fd(sd_bus *bus) {
                 return bus->input_fd;
 
         return -ENOTCONN;
+}
+
+_public_ int sd_bus_get_rqueue_eventfd(sd_bus *bus) {
+        assert_return(bus, -EINVAL);
+        return bus->rqueue_eventfd;
 }
 
 _public_ int sd_bus_get_events(sd_bus *bus) {
@@ -3777,6 +3796,21 @@ int bus_attach_io_events(sd_bus *bus) {
                         return r;
         }
 
+        if (!bus->queue_io_event_source) {
+                r = sd_event_add_io(bus->event, &bus->queue_io_event_source, bus->rqueue_eventfd, EPOLLIN, io_callback, bus);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_priority(bus->queue_io_event_source, bus->event_priority);
+                if (r < 0)
+                        return r;
+
+                r = sd_event_source_set_description(bus->input_io_event_source, "bus-queue");
+        } else
+                r = sd_event_source_set_io_fd(bus->queue_io_event_source, bus->rqueue_eventfd);
+
+        if (r < 0)
+                return r;
         return 0;
 }
 
@@ -3785,6 +3819,7 @@ static void bus_detach_io_events(sd_bus *bus) {
 
         bus->input_io_event_source = sd_event_source_disable_unref(bus->input_io_event_source);
         bus->output_io_event_source = sd_event_source_disable_unref(bus->output_io_event_source);
+        bus->queue_io_event_source = sd_event_source_disable_unref(bus->queue_io_event_source);
 }
 
 int bus_attach_inotify_event(sd_bus *bus) {
@@ -3825,6 +3860,7 @@ _public_ int sd_bus_attach_event(sd_bus *bus, sd_event *event, int priority) {
 
         assert(!bus->input_io_event_source);
         assert(!bus->output_io_event_source);
+        assert(!bus->queue_io_event_source);
         assert(!bus->time_event_source);
 
         if (event)
@@ -4432,6 +4468,10 @@ _public_ int sd_bus_enqueue_for_read(sd_bus *bus, sd_bus_message *m) {
         r = bus_rqueue_make_room(bus);
         if (r < 0)
                 return r;
+
+        uint64_t inc = 1;
+        if (write(bus->rqueue_eventfd, &inc, sizeof(inc)) < 0)
+                return -errno;
 
         bus->rqueue[bus->rqueue_size++] = bus_message_ref_queued(m, bus);
         return 0;

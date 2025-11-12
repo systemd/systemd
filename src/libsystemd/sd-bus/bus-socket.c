@@ -1332,6 +1332,7 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
         sd_bus_message *t = NULL;
         void *b;
         int r;
+        uint64_t inc = 1;
 
         assert(bus);
         assert(bus->rbuffer_size >= size);
@@ -1370,6 +1371,8 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
         bus->n_fds = 0;
 
         if (t) {
+                if (write(bus->rqueue_eventfd, &inc, sizeof(inc)) < 0)
+                        return -errno;
                 t->read_counter = ++bus->read_counter;
                 bus->rqueue[bus->rqueue_size++] = bus_message_ref_queued(t, bus);
                 sd_bus_message_unref(t);
