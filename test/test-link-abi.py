@@ -28,6 +28,7 @@ LIBC_LIB_PREFIXES: tuple[str, ...] = (
     'libm.so.',
     'libresolv.so.',
     'libc.musl-',
+    'libucontext.',
 )
 
 # GCC runtime support libraries (stack unwinding, soft-float helpers, C++ standard library). The
