@@ -15,6 +15,7 @@
 #include "parse-argument.h"
 #include "pcrextend-util.h"
 #include "pretty-print.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tpm2-pcr.h"
@@ -32,6 +33,7 @@ static unsigned arg_pcr_index = UINT_MAX;
 static char *arg_nvpcr_name = NULL;
 static bool arg_varlink = false;
 static bool arg_early = false;
+static Tpm2UserspaceEventType arg_event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
@@ -65,6 +67,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --machine-id        Measure machine ID into PCR 15\n"
                "     --product-id        Measure SMBIOS product ID into NvPCR 'hardware'\n"
                "     --early             Run in early boot mode, without access to /var/\n"
+               "     --event-type=TYPE   Event type to include in the event log\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -88,6 +91,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MACHINE_ID,
                 ARG_PRODUCT_ID,
                 ARG_EARLY,
+                ARG_EVENT_TYPE,
         };
 
         static const struct option options[] = {
@@ -102,6 +106,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "machine-id",  no_argument,       NULL, ARG_MACHINE_ID  },
                 { "product-id",  no_argument,       NULL, ARG_PRODUCT_ID  },
                 { "early",       no_argument,       NULL, ARG_EARLY       },
+                { "event-type",  required_argument, NULL, ARG_EVENT_TYPE  },
                 {}
         };
 
@@ -187,6 +192,15 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EARLY:
                         arg_early = true;
+                        break;
+
+                case ARG_EVENT_TYPE:
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(tpm2_userspace_event_type, Tpm2UserspaceEventType, _TPM2_USERSPACE_EVENT_TYPE_MAX);
+
+                        arg_event_type = tpm2_userspace_event_type_from_string(optarg);
+                        if (arg_event_type < 0)
+                                return log_error_errno(arg_event_type, "Failed to parse --event-type= argument: %s", optarg);
                         break;
 
                 case '?':
@@ -446,7 +460,7 @@ static int vl_server(void) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *word = NULL;
-        Tpm2UserspaceEventType event;
+        Tpm2UserspaceEventType event = _TPM2_USERSPACE_EVENT_TYPE_INVALID;
         int r;
 
         log_setup();
@@ -505,6 +519,10 @@ static int run(int argc, char *argv[]) {
 
                 event = TPM2_EVENT_PHASE;
         }
+
+        /* Override with explicitly configured event type */
+        if (arg_event_type >= 0)
+                event = arg_event_type;
 
         if (arg_graceful && !tpm2_is_fully_supported()) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");
