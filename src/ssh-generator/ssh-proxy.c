@@ -91,7 +91,7 @@ static int process_unix(const char *path) {
         return 0;
 }
 
-static int process_vsock_mux(const char *path, const char *port) {
+static int process_vsock_mux(const char *path, const char *port, int expect_ok) {
         int r;
 
         assert(path);
@@ -126,6 +126,50 @@ static int process_vsock_mux(const char *path, const char *port) {
         r = loop_write(fd, connect_cmd, SIZE_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to send CONNECT to %s:%s: %m", path, port);
+        if (expect_ok) {
+                /* 10 is the size of "OK 65535\n" */
+                char buf[10];
+                size_t pos = 0;
+                ssize_t len;
+                for (;;) {
+                        int eol = 0;
+                        /* Here we use MSG_PEEK to peek into the receive buffer without removing data */
+                        len = recv(fd, buf + pos, sizeof(buf) - pos, MSG_PEEK);
+                        if (len < 0)
+                                return log_error_errno(errno, "Failed to receive OK from %s: %m", path);
+                        else if (len == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ECONNREFUSED), "Failed to receive OK from %s: %m", path);
+                        if (pos < 2 && pos + len >= 2) {
+                                if (!(buf[0] == 'O' && buf[1] == 'K')) {
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Received %c%c from %s, not OK", buf[0], buf[1], path);
+                                }
+                        }
+                        for (ssize_t i = 0; i < len; i++) {
+                                if (pos + i >= 2 && buf[pos + i] == '\n') {
+                                        len = i + 1;
+                                        eol = 1;
+                                        break;
+                                }
+                        }
+                        /* And we only consume the bytes we need */
+                        recv(fd, buf + pos, len, 0);
+                        pos += len;
+                        if (eol) {
+                                log_debug("Successfully received %.*s from %s", (int) pos, buf, path);
+                                break;
+                        }
+                        if (pos >= sizeof(buf)) {
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Received too many bytes from %s before seeing newline", path);
+                        }
+                }
+                if (DEBUG_LOGGING) {
+                        char buf2[100];
+                        ssize_t _r = recv(fd, buf2, sizeof(buf2), MSG_PEEK);
+                        if (_r > 0) {
+                                log_debug("String %ld bytes left in the recv buf: %.*s", _r, (int) _r, buf2);
+                        }
+                }
+        }
 
         r = send_one_fd_iov(STDOUT_FILENO, fd, &iovec_nul_byte, /* iovlen= */ 1, /* flags= */ 0);
         if (r < 0)
@@ -234,7 +278,11 @@ static int run(int argc, char* argv[]) {
 
         p = startswith_sep(host, "vsock-mux");
         if (p)
-                return process_vsock_mux(p, port);
+                return process_vsock_mux(p, port, 0);
+
+        p = startswith_sep(host, "vsock-mux-ok");
+        if (p)
+                return process_vsock_mux(p, port, 1);
 
         p = startswith_sep(host, "machine");
         if (p)
