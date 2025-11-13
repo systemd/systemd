@@ -3044,16 +3044,8 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
 
         if (m == SD_EVENT_OFF)
                 r = event_source_offline(s, m, s->ratelimited);
-        else {
-                if (s->enabled != SD_EVENT_OFF) {
-                        /* Switching from "on" to "oneshot" or back? If that's the case, we can take a shortcut, the
-                         * event source is already enabled after all. */
-                        s->enabled = m;
-                        return 0;
-                }
-
+        else
                 r = event_source_online(s, m, s->ratelimited);
-        }
         if (r < 0)
                 return r;
 
