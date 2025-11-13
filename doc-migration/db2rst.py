@@ -85,6 +85,27 @@ _indent_next_listItem_by = 0
 
 _footnotes = []
 
+WHITESPACE_SENSITIVE_TAGS = {
+    'programlisting', 'screen', 'literallayout'
+}
+
+def normalize_whitespace(elem):
+    """Strip insignificant whitespace recursively."""
+    # If this element preserves whitespace, stop descending
+    if elem.tag in WHITESPACE_SENSITIVE_TAGS:
+        return
+
+    # Normalize .text
+    if elem.text:
+        elem.text = ' '.join(elem.text.split())
+
+    # Normalize children and their .tail
+    for child in elem:
+        normalize_whitespace(child)
+        if child.tail:
+            # But only normalize tail if parent isn't whitespace-sensitive
+            child.tail = ' '.join(child.tail.split())
+
 
 def _run(input_file, output_dir):
     sys.stderr.write("Parsing XML file `%s'...\n" % input_file)
@@ -113,6 +134,9 @@ def _run(input_file, output_dir):
     tree = ET.fromstring(xml_content, parser=parser)
     # Convert back to ElementTree for compatibility with existing code
     tree = ET.ElementTree(tree)
+
+    root = tree.getroot()
+    normalize_whitespace(root)
 
     for elem in tree.iter():
         if elem.tag in ("xref", "link"):
@@ -186,9 +210,12 @@ def _includes(el):
                     """
 
     elif file_extension == '.c':
-        return f""".. literalinclude:: /code-examples/c/{el.get('href')}
-                    :language: c
-                """
+        return f"""
+
+.. literalinclude:: /code-examples/c/{el.get('href')}
+    :language: c
+
+"""
     elif file_extension == '.py':
         return f""".. literalinclude:: /code-examples/py/{el.get('href')}
                     :language: python
@@ -227,8 +254,11 @@ def _no_special_markup(el):
 
 
 def _remove_indent_and_escape(s, tag):
+    # return s
     if tag == "programlisting":
         return s
+    # if tag != "para":
+    #     return s
     "remove indentation from the string s, escape some of the special chars"
     s = "\n".join(i.lstrip().replace("\\", "\\\\") for i in s.splitlines())
     # escape inline mark-up start-string characters (even if there is no
@@ -242,9 +272,9 @@ def _remove_indent_and_escape(s, tag):
     return s
 
 
-def _concat(el):
+def _concat(el, prefix=""):
     "concatate .text with children (_conv'ed to text) and their tails"
-    s = ""
+    s = prefix
     id = el.get("id")
     if id is not None and (WRITE_UNUSED_LABELS or id in _linked_ids):
         s += "\n\n.. _%s:\n\n" % id
@@ -256,7 +286,8 @@ def _concat(el):
             if len(s) > 0 and not s[-1].isspace() and i.tail[0] in " \t":
                 s += i.tail[0]
             s += _remove_indent_and_escape(i.tail, el.tag)
-    return s.strip()
+    # return s.strip()
+    return s
 
 
 def _original_xml(el):
@@ -312,6 +343,7 @@ def _block_separated_with_blank_line(el, stripInnerLinebreaks = False):
 
 
 def _indent(el, indent, first_line=None, suppress_blank_line=False):
+    _warn(f"indent {el.tag}, {indent}, {suppress_blank_line}")
     "returns indented block with exactly one blank line at the beginning"
     start = "\n\n"
     if suppress_blank_line:
@@ -332,7 +364,17 @@ def _normalize_whitespace(s):
     return " ".join(s.split())
 
 def _remove_line_breaks(s):
+    _warn(f'_remove_line_breaks {s}')
     return s.replace('\n', ' ').replace('\r', '').strip()
+
+def _get_listitem_depth(el):
+    """Calculate the nesting depth of listitem ancestors for an element.
+    Returns 0 if not inside any listitem, 1 for first-level list, 2 for nested, etc."""
+    depth = 0
+    for ancestor in el.iterancestors():
+        if ancestor.tag == 'listitem':
+            depth += 1
+    return depth
 
 ###################           DocBook elements        #####################
 
@@ -633,7 +675,7 @@ def link(el):
 # lists
 
 def itemizedlist(el):
-    return _indent(el, 2, "* ", True)
+    return _concat(el)
 
 
 def orderedlist(el):
@@ -688,9 +730,23 @@ def varlistentry(el):
 
 
 def listitem(el):
-    _supports_only(
-        el, ["para", "simpara", "{http://www.w3.org/2001/XInclude}include"])
-    return _block_separated_with_blank_line(el)
+    parent = el.getparent()
+    listItemPrefix = ''
+    if parent.tag == 'orderedlist':
+        listItemPrefix = '1.'
+    if parent.tag == 'itemizedlist':
+        listItemPrefix = '* '
+
+    # Use depth-aware indentation system
+    depth = _get_listitem_depth(el)
+
+    if depth >= 1:
+        # For nested list items (depth >= 1), add indentation
+        # Use depth directly since we want 2 spaces per nesting level
+        indent_spaces = " " * (2 * depth)
+        listItemPrefix = indent_spaces + listItemPrefix
+
+    return _concat(el, listItemPrefix)
 
 # sections
 
@@ -815,16 +871,27 @@ def videodata(el):
 
 
 def programlisting(el):
-    # TODO: newlines at the end aren’t applied properly
+    # TODO: newlines at the end aren't applied properly
     xi_include = el.find('.//{http://www.w3.org/2001/XInclude}include')
     if len(el.getchildren()) == 0:
         if xi_include is not None:
             return _includes(xi_include)
         else:
-            return f"\n\n.. code-block:: sh\n\n   \n\n{_indent(el, 3)}\n\n"
+            # Use depth-aware indentation system
+            depth = _get_listitem_depth(el)
+
+            if depth > 0:
+                # Inside list context: calculate indentation based on depth
+                directive_indent = " " * (2 * depth)  # 2 spaces per nesting level
+                code_indent = 3 + (2 * depth)  # 3 base + 2 per nesting level
+            else:
+                # Not in list context: no extra indentation
+                directive_indent = ""
+                code_indent = 3
+
+            return f"\n\n{directive_indent}.. code-block:: sh\n \n{_indent(el, code_indent)}\n \n"
     else:
         return _concat(el)
-
 
 
 def screen(el):
@@ -924,7 +991,12 @@ def warning(el):
 
 
 def para(el):
-    return _block_separated_with_blank_line(el, True) + '\n\n \n\n'
+    isInsideList = False
+    for item in el.iterancestors(tag='listitem'):
+        isInsideList = True
+    if isInsideList:
+        return _concat(el) + "\n \n"
+    return _block_separated_with_blank_line(el, False) + '\n\n \n\n'
 
 
 def simpara(el):
@@ -933,15 +1005,6 @@ def simpara(el):
 
 def important(el):
     return _indent(el, 3, ".. note:: ", True)
-
-
-def itemizedlist(el):
-    return _indent(el, 2, "* ", True)
-
-
-def orderedlist(el):
-    return _indent(el, 2, "1. ", True)
-
 
 def refsect1(el):
     return _block_separated_with_blank_line(el)
