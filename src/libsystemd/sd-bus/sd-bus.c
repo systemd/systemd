@@ -1623,14 +1623,20 @@ int bus_set_address_machine(sd_bus *b, RuntimeScope runtime_scope, const char *m
                 if (!a)
                         return -ENOMEM;
 
+                bool local = !eh || streq(eh, ".host");
+
+                /* Ideally we'd always use the "--user" and "--quiet" switches to systemd-stdio-bridge here,
+                 * but they're only available in recent systemd versions, meaning we can only use them if
+                 * we're not connecting to a container. Using the "-p" switch with an explicit path is a
+                 * working alternative for "--user", and is compatible with older versions, hence that's what
+                 * we use when connecting to a container. */
+
                 if (runtime_scope == RUNTIME_SCOPE_USER) {
-                        /* Ideally we'd use the "--user" switch to systemd-stdio-bridge here, but it's only
-                         * available in recent systemd versions. Using the "-p" switch with the explicit path
-                         * is a working alternative, and is compatible with older versions, hence that's what
-                         * we use here. */
-                        if (!strextend(&a, ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus"))
+                        if (!strextend(&a, local ? ",argv7=--user,argv8=--quiet" : ",argv7=-punix:path%3d%24%7bXDG_RUNTIME_DIR%7d/bus"))
                                 return -ENOMEM;
-                }
+                } else if (local)
+                        if (!strextend(&a, ",argv7=--quiet"))
+                                return -ENOMEM;
         } else {
                 _cleanup_free_ char *e = NULL;
 
