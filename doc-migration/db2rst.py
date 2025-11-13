@@ -35,6 +35,8 @@ import re
 import sys
 import os
 from pathlib import Path
+import traceback
+
 REMOVE_COMMENTS = False
 
 # id attributes of DocBook elements are translated to ReST labels.
@@ -76,15 +78,16 @@ SKIP_LITERAL_INCLUDES = [
     '../man/vtable-example.xml'
 ]
 
+ALLOWED_EMPTY_TAGS = [
+    'refname',
+    'refpurpose'
+]
+
 # to avoid dupliate error reports
 _not_handled_tags = set()
 
 # to remember which id/labels are really needed
 _linked_ids = set()
-
-# buffer that is flushed after the end of paragraph,
-# used for ReST substitutions
-_buffer = ""
 
 _indent_next_listItem_by = 0
 
@@ -314,13 +317,14 @@ def _conv(el):
     "element to string conversion; usually calls element_name() to do the job"
     if el.tag in globals():
         s = globals()[el.tag](el)
-        assert s, "Error: %s -> None\n" % _get_path(el)
+        if el.tag not in ALLOWED_EMPTY_TAGS:
+            assert s, "Error: %s -> None\n" % _get_path(el)
         return s
     elif isinstance(el, ET._Comment):
         return Comment(el) if (el.text and not el.text.isspace()) else ""
     else:
         if el.tag not in _not_handled_tags:
-            # Convert version references to `versionAdded` directives
+            # TODO: this seems to happen more often than plausible
             if el.tag == "{http://www.w3.org/2001/XInclude}include":
                 return _includes(el)
             else:
@@ -1117,4 +1121,6 @@ def convert_xml_to_rst(xml_file_path, output_dir):
     except Exception as e:
         _warn('Failed to convert file %s' % xml_file_path)
         _warn(e)
+        # Uncomment for detailed traceback
+        # print(traceback.format_exc())
         return [], str(e)
