@@ -175,6 +175,8 @@ def normalize_whitespace(elem):
 
 
 def _run(input_file, output_dir):
+    if input_file in SKIP_LITERAL_INCLUDES:
+        return
     sys.stderr.write("Parsing XML file `%s'...\n" % input_file)
 
     # Read the XML file content as string for preprocessing
