@@ -743,6 +743,12 @@ def link(el):
     _has_no_text(el)
     return "`%s`_" % el.get("linkend")
 
+def note(el):
+    return f""".. note::
+
+   {_concat(el)}
+
+"""
 
 # lists
 
