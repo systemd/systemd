@@ -617,24 +617,10 @@ static int pull_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
-typedef enum PullMode {
-        PULL_RAW,
-        PULL_TAR,
-        _PULL_MODE_MAX,
-        _PULL_MODE_INVALID = -EINVAL,
-} PullMode;
-
-static const char* pull_mode_table[_PULL_MODE_MAX] = {
-        [PULL_RAW]    = "raw",
-        [PULL_TAR]    = "tar",
-};
-
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(pull_mode, PullMode, PULL_RAW);
-
-static JSON_DISPATCH_ENUM_DEFINE(dispatch_pull_mode, PullMode, pull_mode_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_type, ImportType, import_type_from_string);
 
 typedef struct MethodPullParameters {
-        PullMode mode;
+        ImportType mode;
         bool fsync;
         const char *checksum;
         const char *source;
@@ -646,20 +632,20 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
         // parse only the parameters used by systemd-pull
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "version",     SD_JSON_VARIANT_STRING,  0, 0, 0 },
-                { "mode",        SD_JSON_VARIANT_STRING,  dispatch_pull_mode,            offsetof(MethodPullParameters, mode),        0 },
+                { "version",     SD_JSON_VARIANT_STRING,  NULL,                          0,                                           0 },
+                { "mode",        SD_JSON_VARIANT_STRING,  json_dispatch_import_type,     offsetof(MethodPullParameters, mode),        SD_JSON_MANDATORY },
                 { "fsync",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodPullParameters, fsync),       0 },
-                { "checksum",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, checksum),    0 },
-                { "source",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, source),      0 },
-                { "destination", SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, destination), 0 },
-                { "cachedir",    SD_JSON_VARIANT_STRING,  0, 0, 0 },
-                { "instances",   SD_JSON_VARIANT_ARRAY,   0, 0, 0 },
+                { "checksum",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, checksum),    SD_JSON_MANDATORY },
+                { "source",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, source),      SD_JSON_MANDATORY },
+                { "destination", SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, destination), SD_JSON_MANDATORY },
+                { "cachedir",    SD_JSON_VARIANT_STRING,  NULL,                          0,                                           0 },
+                { "instances",   SD_JSON_VARIANT_ARRAY,   NULL,                          0,                                           0 },
                 {}
         };
 
         MethodPullParameters p = {
                 .fsync = true,
-                .mode = _PULL_MODE_INVALID,
+                .mode = _IMPORT_TYPE_INVALID,
         };
         int r;
 
@@ -691,9 +677,9 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 strdup(p.source),
                 strdup(p.destination),
         };
-        if (p.mode == PULL_RAW) {
+        if (p.mode == IMPORT_RAW) {
                 r = pull_raw (3, argv, NULL);
-        } else if (p.mode == PULL_TAR) {
+        } else if (p.mode == IMPORT_TAR) {
                 r = pull_tar (3, argv, NULL);
         } else {
                 assert_not_reached ();
