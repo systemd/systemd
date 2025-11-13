@@ -607,6 +607,8 @@ def command(el):
 
 token = command
 interfacename = command
+classname = command
+uri = command
 # structfield is italic inline code in the old docs, but we can’t do that in rst
 structfield = command
 
@@ -658,6 +660,8 @@ filename = command
 
 def optional(el):
     return "[%s]" % _concat(el).strip()
+
+group = optional
 
 # This might also run into the rst limitation that inline syntax end delimiters
 # must be followed by whitespace, so
