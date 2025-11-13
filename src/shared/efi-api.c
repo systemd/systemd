@@ -15,7 +15,13 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "tpm2-util.h"
 #include "utf8.h"
+
+#define EFI_TCG2_BOOT_HASH_ALG_SHA1   0x01
+#define EFI_TCG2_BOOT_HASH_ALG_SHA256 0x02
+#define EFI_TCG2_BOOT_HASH_ALG_SHA384 0x04
+#define EFI_TCG2_BOOT_HASH_ALG_SHA512 0x08
 
 #define LOAD_OPTION_ACTIVE            0x00000001
 #define MEDIA_DEVICE_PATH                   0x04
@@ -517,24 +523,71 @@ int efi_get_boot_options(uint16_t **ret_options) {
 #endif
 }
 
+int efi_get_active_pcr_banks(uint32_t *ret) {
 #if ENABLE_EFI
-static int loader_has_tpm2(void) {
-        _cleanup_free_ char *active_pcr_banks = NULL;
-        uint32_t active_pcr_banks_value;
+        static uint32_t cache = 0;
+        static bool cache_valid = false;
         int r;
 
-        r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderTpm2ActivePcrBanks"), &active_pcr_banks);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        log_debug_errno(r, "Failed to read LoaderTpm2ActivePcrBanks variable: %m");
-                return r;
+        /* Returns the enabled PCR banks as bitmask, as reported by firmware. If the bitmask is returned as
+         * UINT32_MAX, the firmware supports the TCG protocol, but in a version too old to report this
+         * information. */
+
+        if (!cache_valid) {
+                _cleanup_free_ char *active_pcr_banks = NULL;
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderTpm2ActivePcrBanks"), &active_pcr_banks);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read LoaderTpm2ActivePcrBanks variable: %m");
+
+                uint32_t efi_bits;
+                r = safe_atou32_full(active_pcr_banks, 16, &efi_bits);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse LoaderTpm2ActivePcrBanks variable: %m");
+
+                if (efi_bits == UINT32_MAX)
+                        /* UINT32_MAX means that the firmware API doesn't implement GetActivePcrBanks() and caller must guess */
+                        cache = UINT32_MAX;
+                else {
+                        /* EFI TPM protocol uses different bit values for the hash algorithms, let's convert */
+                        static const struct {
+                                uint32_t efi;
+                                uint32_t tcg;
+                        } table[] = {
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA1,   1U << TPM2_ALG_SHA1   },
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA256, 1U << TPM2_ALG_SHA256 },
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA384, 1U << TPM2_ALG_SHA384 },
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA512, 1U << TPM2_ALG_SHA512 },
+                        };
+
+                        uint32_t tcg_bits = 0;
+                        FOREACH_ELEMENT(t, table)
+                                SET_FLAG(tcg_bits, t->tcg, efi_bits & t->efi);
+
+                        cache = tcg_bits;
+                }
+
+                cache_valid = true;
         }
 
-        r = safe_atou32_full(active_pcr_banks, 16, &active_pcr_banks_value);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse LoaderTpm2ActivePcrBanks variable: %m");
+        if (ret)
+                *ret = cache;
 
-        return active_pcr_banks_value != 0;
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+#if ENABLE_EFI
+static int loader_has_tpm2(void) {
+        uint32_t active_pcr_banks;
+        int r;
+
+        r = efi_get_active_pcr_banks(&active_pcr_banks);
+        if (r < 0)
+                return r;
+
+        return active_pcr_banks != 0;
 }
 #endif
 

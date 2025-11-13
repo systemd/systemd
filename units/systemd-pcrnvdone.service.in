@@ -8,16 +8,17 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=TPM NvPCR Product ID Measurement
-Documentation=man:systemd-pcrproduct.service(8)
+Description=TPM PCR NvPCR Initialization Separator
+Documentation=man:systemd-nvpcr-done.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
-After=tpm2.target
+After=systemd-tpm2-setup-early.service systemd-tpm2-setup.service
 Before=sysinit.target shutdown.target
-ConditionPathExists=!/etc/initrd-release
 ConditionSecurity=measured-uki
+ConditionPathExists=!/etc/initrd-release
+FailureAction=reboot-force
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart={{LIBEXECDIR}}/systemd-pcrextend --graceful --product-id
+ExecStart={{LIBEXECDIR}}/systemd-pcrextend --graceful --pcr=kernel-initrd --event-type=nvpcr-separator nvpcr-separator
