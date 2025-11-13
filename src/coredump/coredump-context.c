@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <poll.h>
+
 #include "sd-login.h"
 #include "sd-messages.h"
 
@@ -7,16 +9,22 @@
 #include "coredump-context.h"
 #include "coredump-util.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
+#include "hostname-setup.h"
 #include "hostname-util.h"
+#include "io-util.h"
 #include "iovec-wrapper.h"
 #include "log.h"
 #include "memstream-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "process-util.h"
+#include "rlimit-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "special.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -572,4 +580,138 @@ int coredump_context_parse_from_argv(CoredumpContext *context, int argc, char **
 
         coredump_context_check_pidns(context);
         return coredump_context_parse_from_procfs(context);
+}
+
+int coredump_context_parse_from_peer(CoredumpContext *context) {
+        int r;
+
+        assert(context);
+        assert(context->input_fd >= 0);
+
+        r = getpeerpidref(context->input_fd, &context->pidref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get peer pidref: %m");
+
+        if (context->pidref.fd < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "We do not have pidfd of the crashed process.");
+
+        context->got_pidfd = true;
+
+        struct pidfd_info info = {
+                .mask = PIDFD_INFO_EXIT | PIDFD_INFO_COREDUMP,
+        };
+
+        r = pidfd_get_info(context->pidref.fd, &info);
+        if (r < 0)
+                return log_error_errno(r, "ioctl(PIDFD_GET_INFO) failed: %m");
+
+        /* Basic verifications. Note, here PIDFD_INFO_EXIT may not be set (at least as of v6.16.10), as the
+         * crashed process has not exited yet. See also the comment about the signal number below. */
+        if (!FLAGS_SET(info.mask, PIDFD_INFO_PID | PIDFD_INFO_CREDS | PIDFD_INFO_COREDUMP))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "ioctl(PIDFD_GET_INFO) does not provide necessary information.");
+
+        if (!FLAGS_SET(info.coredump_mask, PIDFD_COREDUMPED))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "The process ["PID_FMT"] has not crashed.", context->pidref.pid);
+
+        if (FLAGS_SET(info.coredump_mask, PIDFD_COREDUMP_SKIP))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                       "Coredump generation for process ["PID_FMT"] is skipped.", context->pidref.pid);
+
+        context->uid = info.ruid;
+        context->gid = info.rgid;
+
+        /* info.exit_code consists of signal at the lowest byte (7 bits) and exit state at the second byte.
+         * Note that PIDFD_INFO_EXIT flag may not be set, as the crashed process may not have exited yet. It
+         * will exit after the input file descriptor is closed. See coredump_context_update_signal(). */
+        context->signo = FLAGS_SET(info.mask, PIDFD_INFO_EXIT) ? info.exit_code & 0x7f : 0;
+
+        struct rlimit rl;
+        r = pid_getrlimit(info.pid, RLIMIT_CORE, &rl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get coredump size limit: %m");
+        context->rlimit = rl.rlim_cur;
+
+        r = pidref_gethostname_full(&context->pidref, GET_HOSTNAME_ALLOW_LOCALHOST | GET_HOSTNAME_FALLBACK_DEFAULT, &context->hostname);
+        if (r < 0)
+                log_warning_errno(r, "Failed to get hostname, ignoring: %m");
+
+        context->dumpable = FLAGS_SET(info.coredump_mask, PIDFD_COREDUMP_USER) ? SUID_DUMP_USER : SUID_DUMP_SAFE;
+
+        coredump_context_check_pidns(context);
+        return coredump_context_parse_from_procfs(context);
+}
+
+int coredump_context_update_signal(CoredumpContext *context) {
+        int r;
+
+        assert(context);
+        assert(pidref_is_set(&context->pidref));
+
+        /* This requires kernel v6.16+, more specifically, the kernel needs to support ioctl(PIDFD_GET_INFO)
+         * with PIDFD_INFO_EXIT flag. However, at this stage, PIDFD_INFO_EXIT flag is not returned as the
+         * crashed process is not reaped yet. Hence, first let's check if the PIDFD_INFO_COREDUMP flag is
+         * supported, which is also added at the same time, and always set when it is supported. */
+
+        if (context->pidref.fd < 0)
+                return 0; /* Too old kernel... */
+
+        struct pidfd_info info = {
+                .mask = PIDFD_INFO_EXIT | PIDFD_INFO_COREDUMP,
+        };
+
+        r = pidfd_get_info(context->pidref.fd, &info);
+        if (r < 0)
+                return log_debug_errno(r, "ioctl(PIDFD_GET_INFO) failed: %m");
+
+        if (!FLAGS_SET(info.mask, PIDFD_INFO_COREDUMP))
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "ioctl(PIDFD_GET_INFO) does not provide PIDFD_INFO_COREDUMP flag, maybe the kernel is old.");
+
+        /* Close input_fd to make the crashed process being reaped now. Otherwise, ioctl(PIDFD_GET_INFO) does
+         * not provide PIDFD_INFO_EXIT flag and we cannot get signal number. */
+        context->input_fd = safe_close(context->input_fd);
+
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), 10 * USEC_PER_SEC);
+        for (;;) {
+                usec_t timeout = usec_sub_unsigned(end, now(CLOCK_MONOTONIC));
+
+                /* Wait for the process being terminated. */
+                r = fd_wait_for_event(context->pidref.fd, POLLIN, timeout);
+                if (ERRNO_IS_NEG_TRANSIENT(r))
+                        continue;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to wait for POLLIN event for pidfd of the crashed process: %m");
+                if (r == 0)
+                        return log_debug_errno(SYNTHETIC_ERRNO(ETIMEDOUT),
+                                               "Crashed process is not reaped even after the coredump is closed.");
+
+                info = (struct pidfd_info) {
+                        .mask = PIDFD_INFO_EXIT,
+                };
+
+                /* Here, anyway we need to first call ioctl(PIDFD_GET_INFO), otherwise when we are running on
+                 * an old kernel, polling on pidfd may freeze the process. if the ioctl is supported, polling
+                 * on the pidfd is also supported. */
+                r = pidfd_get_info(context->pidref.fd, &info);
+                if (r == -ESRCH)
+                        /* When the process is under being reaped, ioctl(PIDFD_GET_INFO) may fail with ESRCH
+                         * and that's fine. Let's try again later in that case. */
+                        continue;
+                if (r < 0)
+                        return log_debug_errno(r, "ioctl(PIDFD_GET_INFO) failed: %m");
+
+                if (FLAGS_SET(info.mask, PIDFD_INFO_EXIT)) {
+                        context->signo = info.exit_code & 0x7f;
+                        break;
+                }
+        }
+
+        r = iovw_replace_string_fieldf(&context->iovw, "COREDUMP_SIGNAL=", "%i", context->signo);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add COREDUMP_SIGNAL= field: %m");
+
+        (void) iovw_replace_string_field(&context->iovw, "COREDUMP_SIGNAL_NAME=SIG", signal_to_string(context->signo));
+        return 0;
 }

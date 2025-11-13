@@ -707,6 +707,8 @@ int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
         if (r < 0)
                 return r;
 
+        (void) coredump_context_update_signal(context);
+
         _cleanup_free_ char *core_message = NULL;
         if (asprintf(&core_message, "Process "PID_FMT" (%s) of user "UID_FMT" %s",
                      context->pidref.pid, context->comm, context->uid,
