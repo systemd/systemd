@@ -1131,4 +1131,40 @@ TEST(exit_on_idle_no_sources) {
         ASSERT_OK(sd_event_loop(e));
 }
 
+static int defer_fair_handler(sd_event_source *s, void *userdata) {
+        unsigned *counter = ASSERT_PTR(userdata);
+
+        /* If we're about to increment above 5, exit the event loop */
+        if (*counter >= 5)
+                return sd_event_exit(sd_event_source_get_event(s), 0);
+
+        (*counter)++;
+
+        return 0;
+}
+
+TEST(defer_fair_scheduling) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        sd_event_source *sources[5] = {};
+        unsigned counters[5] = {};
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        /* Create 5 defer sources with equal priority */
+        for (unsigned i = 0; i < 5; i++) {
+                ASSERT_OK(sd_event_add_defer(e, &sources[i], defer_fair_handler, &counters[i]));
+                ASSERT_OK(sd_event_source_set_enabled(sources[i], SD_EVENT_ON));
+        }
+
+        /* Run the event loop until one of the handlers exits */
+        ASSERT_OK(sd_event_loop(e));
+
+        /* All counters should be equal to 5, demonstrating fair scheduling */
+        for (unsigned i = 0; i < 5; i++) {
+                ASSERT_EQ(counters[i], 5u);
+                sd_event_source_unref(sources[i]);
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
