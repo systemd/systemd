@@ -4102,7 +4102,13 @@ static int source_dispatch(sd_event_source *s) {
                 return 1;
         }
 
-        if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+        if (IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+                /* Make sure this event source is moved to the end of the priority list now. We do this here
+                 * because defer and exit event sources are always pending from the moment they're added so
+                 * the same logic in source_set_pending() is never triggered. */
+                s->pending_iteration = s->event->iteration;
+                event_source_pp_prioq_reshuffle(s);
+        } else {
                 r = source_set_pending(s, false);
                 if (r < 0)
                         return r;
