@@ -4304,7 +4304,7 @@ int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret
  * "name", because it would break unsealing of previously-sealed objects that used (for example)
  * tpm2_calculate_policy_authorize(). See bug #30546. */
 int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret) {
-        int key_id, r;
+        int r;
 
         assert(pkey);
         assert(ret);
@@ -4318,12 +4318,7 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                 },
         };
 
-#if OPENSSL_VERSION_MAJOR >= 3
-        key_id = EVP_PKEY_get_id(pkey);
-#else
-        key_id = EVP_PKEY_id(pkey);
-#endif
-
+        int key_id = EVP_PKEY_get_id(pkey);
         switch (key_id) {
         case EVP_PKEY_EC: {
                 public.type = TPM2_ALG_ECC;
