@@ -1251,6 +1251,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        r = serialize_bool_elide(f, "exec-parameters-debug-wait", p->debug_wait);
+        if (r < 0)
+                return r;
+
         fputc('\n', f); /* End marker */
 
         return 0;
@@ -1527,6 +1531,12 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 return r;
 
                         p->debug_invocation = r;
+                } else if ((val = startswith(l, "exec-parameters-debug-wait="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+
+                        p->debug_wait = r;
                 } else
                         log_warning("Failed to parse serialized line, ignoring: %s", l);
         }

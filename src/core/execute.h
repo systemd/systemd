@@ -447,6 +447,7 @@ typedef struct ExecParameters {
 
         bool debug_invocation;
         bool selinux_context_net;
+        bool debug_wait;
 } ExecParameters;
 
 #define EXEC_PARAMETERS_INIT(_flags)              \

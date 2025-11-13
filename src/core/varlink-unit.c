@@ -186,6 +186,7 @@ static int unit_context_build_json(sd_json_variant **ret, const char *name, void
                         SD_JSON_BUILD_PAIR_BOOLEAN("Transient", u->transient),
                         SD_JSON_BUILD_PAIR_BOOLEAN("Perpetual", u->perpetual),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DebugInvocation", u->debug_invocation),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("DebugWait", u->debug_wait),
 
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_context_build_json, u),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("Exec", unit_exec_context_build_json, u));

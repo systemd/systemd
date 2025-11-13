@@ -872,6 +872,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(DebugInvocation, SD_VARLINK_BOOL, 0),
 
                 /* Other contexts */
+                SD_VARLINK_DEFINE_FIELD(DebugWait, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("The cgroup context of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupContext, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The exec context of the unit"),
