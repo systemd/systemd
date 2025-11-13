@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <pthread.h>
 #include <sys/resource.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-future.h"
 
 #include "alloc-util.h"
 #include "bus-error.h"
@@ -102,7 +102,8 @@ static int server_init(sd_bus **ret) {
         return 0;
 }
 
-static int server(sd_bus *bus) {
+static int server(void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
         bool client1_gone = false, client2_gone = false;
         int r;
 
@@ -178,7 +179,7 @@ static int server(sd_bus *bus) {
                         client2_gone = true;
                 } else if (sd_bus_message_is_method_call(m, "org.freedesktop.systemd.test", "Slow")) {
 
-                        sleep(1);
+                        sd_fiber_sleep(1 * USEC_PER_SEC);
 
                         r = sd_bus_reply_method_return(m, NULL);
                         if (r < 0)
@@ -194,10 +195,10 @@ static int server(sd_bus *bus) {
 
                         log_info("Received fd=%d", fd);
 
-                        if (write(fd, &x, 1) < 0) {
-                                r = log_error_errno(errno, "Failed to write to fd: %m");
+                        ssize_t n = sd_fiber_write(fd, &x, 1);
+                        if (n < 0) {
                                 safe_close(fd);
-                                return r;
+                                return log_error_errno(n, "Failed to write to fd: %m");
                         }
 
                         r = sd_bus_reply_method_return(m, NULL);
@@ -217,7 +218,7 @@ static int server(sd_bus *bus) {
         return 0;
 }
 
-static void* client1(void *p) {
+static int client1(void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -277,9 +278,9 @@ static void* client1(void *p) {
                 goto finish;
         }
 
-        errno = 0;
-        if (read(pp[0], &x, 1) <= 0) {
-                log_error("Failed to read from pipe: %s", STRERROR_OR_EOF(errno));
+        ssize_t n = sd_fiber_read(pp[0], &x, 1);
+        if (n <= 0) {
+                log_error("Failed to read from pipe: %s", STRERROR_OR_EOF(n));
                 goto finish;
         }
 
@@ -303,7 +304,7 @@ finish:
 
         }
 
-        return INT_TO_PTR(r);
+        return r;
 }
 
 static int quit_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -315,7 +316,7 @@ static int quit_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_er
         return 1;
 }
 
-static void* client2(void *p) {
+static int client2(void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -494,7 +495,7 @@ finish:
                 (void) sd_bus_send(bus, q, NULL);
         }
 
-        return INT_TO_PTR(r);
+        return r;
 }
 
 static ino_t get_inode(int fd) {
@@ -626,9 +627,9 @@ TEST(ctrunc) {
 }
 
 TEST(chat) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f_server = NULL, *f_client1 = NULL, *f_client2 = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        pthread_t c1, c2;
-        void *p;
         int r;
 
         test_setup_logging(LOG_INFO);
@@ -639,16 +640,18 @@ TEST(chat) {
 
         log_info("Initialized...");
 
-        ASSERT_OK(-pthread_create(&c1, NULL, client1, NULL));
-        ASSERT_OK(-pthread_create(&c2, NULL, client2, NULL));
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
 
-        r = server(bus);
+        ASSERT_OK(sd_fiber_new(e, "client-1", client1, NULL, /* destroy= */ NULL, &f_client1));
+        ASSERT_OK(sd_fiber_new(e, "client-2", client2, NULL, /* destroy= */ NULL, &f_client2));
+        ASSERT_OK(sd_fiber_new(e, "server", server, bus, /* destroy= */ NULL, &f_server));
 
-        ASSERT_OK(-pthread_join(c1, &p));
-        ASSERT_OK(PTR_TO_INT(p));
-        ASSERT_OK(-pthread_join(c2, &p));
-        ASSERT_OK(PTR_TO_INT(p));
-        ASSERT_OK(r);
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_OK(sd_future_result(f_client1));
+        ASSERT_OK(sd_future_result(f_client2));
+        ASSERT_OK(sd_future_result(f_server));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
