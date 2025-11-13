@@ -188,6 +188,7 @@ simple_tests += files(
         'test-specifier.c',
         'test-stat-util.c',
         'test-static-destruct.c',
+        'test-stdio.c',
         'test-strbuf.c',
         'test-string-util.c',
         'test-strip-tab-ansi.c',
