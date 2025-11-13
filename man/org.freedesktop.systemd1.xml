@@ -413,6 +413,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly u NFailedJobs = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly at TransactionsWithOrderingCycle = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly d Progress = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly as Environment = ['...', ...];
@@ -1102,6 +1104,8 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="NInstalledJobs"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NFailedJobs"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="TransactionsWithOrderingCycle"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Progress"/>
 
@@ -1808,6 +1812,9 @@ node /org/freedesktop/systemd1 {
       <para><varname>NInstalledJobs</varname> encodes how many jobs have ever been queued in total.</para>
 
       <para><varname>NFailedJobs</varname> encodes how many jobs have ever failed in total.</para>
+
+      <para><varname>TransactionsWithOrderingCycle</varname> encodes IDs of transactions that encountered
+      ordering cycle.</para>
 
       <para><varname>Progress</varname> encodes boot progress as a floating point value between 0.0 and
       1.0. This value begins at 0.0 at early-boot and ends at 1.0 when boot is finished and is based on the
@@ -12465,6 +12472,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <para><varname>DefaultRestrictSUIDSGID</varname>,
       <function>RemoveSubgroupFromUnit()</function>, and
       <function>KillUnitSubgroup()</function> were added in version 258.</para>
+      <para><varname>TransactionsWithOrderingCycle</varname> was added in version 259.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>
