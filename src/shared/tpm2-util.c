@@ -6420,13 +6420,14 @@ static int json_dispatch_tpm2_algorithm(const char *name, sd_json_variant *varia
 }
 
 static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MAX] = {
-        [TPM2_EVENT_PHASE]      = "phase",
-        [TPM2_EVENT_FILESYSTEM] = "filesystem",
-        [TPM2_EVENT_VOLUME_KEY] = "volume-key",
-        [TPM2_EVENT_MACHINE_ID] = "machine-id",
-        [TPM2_EVENT_PRODUCT_ID] = "product-id",
-        [TPM2_EVENT_KEYSLOT]    = "keyslot",
-        [TPM2_EVENT_NVPCR_INIT] = "nvpcr-init",
+        [TPM2_EVENT_PHASE]           = "phase",
+        [TPM2_EVENT_FILESYSTEM]      = "filesystem",
+        [TPM2_EVENT_VOLUME_KEY]      = "volume-key",
+        [TPM2_EVENT_MACHINE_ID]      = "machine-id",
+        [TPM2_EVENT_PRODUCT_ID]      = "product-id",
+        [TPM2_EVENT_KEYSLOT]         = "keyslot",
+        [TPM2_EVENT_NVPCR_INIT]      = "nvpcr-init",
+        [TPM2_EVENT_NVPCR_SEPARATOR] = "nvpcr-separator",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
