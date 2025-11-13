@@ -89,22 +89,84 @@ WHITESPACE_SENSITIVE_TAGS = {
     'programlisting', 'screen', 'literallayout'
 }
 
+def local_name(elem):
+    """Return the local name of an lxml element or tag (namespace-safe)."""
+    if elem is None:
+        return None
+    tag = elem if isinstance(elem, str) else elem.tag
+    try:
+        return etree.QName(tag).localname
+    except Exception:
+        return tag
+
+def collapse_preserve_boundaries(s):
+    """
+    Collapse runs of whitespace to a single space, preserving leading/trailing
+    boundaries if they existed. Return None for None input.
+    """
+    if s is None:
+        return None
+
+    stripped = s.strip()
+    if stripped == '':
+        # whitespace-only text node → candidate for removal
+        return None
+
+    leading = s[0].isspace()
+    trailing = s[-1].isspace()
+    core = ' '.join(stripped.split())
+
+    if leading and not core.startswith(' '):
+        core = ' ' + core
+    if trailing and not core.endswith(' '):
+        core = core + ' '
+    return core
+
+
 def normalize_whitespace(elem):
-    """Strip insignificant whitespace recursively."""
-    # If this element preserves whitespace, stop descending
-    if elem.tag in WHITESPACE_SENSITIVE_TAGS:
+    """
+    Recursively normalize whitespace:
+      - Collapse internal runs to single spaces.
+      - Preserve word boundaries around inline tags.
+      - Remove indentation-only text nodes, except keep a single space when
+        needed between adjacent inline elements.
+    """
+    if elem is None:
         return
 
-    # Normalize .text
-    if elem.text:
-        elem.text = ' '.join(elem.text.split())
+    tagname = local_name(elem)
+    if tagname in WHITESPACE_SENSITIVE_TAGS:
+        return
 
-    # Normalize children and their .tail
-    for child in elem:
+    # Normalize element text
+    if elem.text is not None:
+        elem.text = collapse_preserve_boundaries(elem.text)
+
+    # Walk children
+    for i, child in enumerate(list(elem)):
         normalize_whitespace(child)
-        if child.tail:
-            # But only normalize tail if parent isn't whitespace-sensitive
-            child.tail = ' '.join(child.tail.split())
+
+        # Normalize tail
+        if child.tail is not None:
+            new_tail = collapse_preserve_boundaries(child.tail)
+            if new_tail is None:
+                # Check if removing this whitespace-only tail would glue inline elements together
+                next_sibling = elem[i + 1] if i + 1 < len(elem) else None
+                if next_sibling is not None:
+                    # Add a single space to separate adjacent inline elements
+                    child.tail = ' '
+                else:
+                    child.tail = None
+            else:
+                child.tail = new_tail
+
+    # If the element’s text was only indentation, remove it
+    if elem.text is not None and elem.text.strip() == '':
+        # If first child is inline, keep a separating space
+        if len(elem) > 0:
+            elem.text = ' '
+        else:
+            elem.text = None
 
 
 def _run(input_file, output_dir):
@@ -343,7 +405,6 @@ def _block_separated_with_blank_line(el, stripInnerLinebreaks = False):
 
 
 def _indent(el, indent, first_line=None, suppress_blank_line=False):
-    _warn(f"indent {el.tag}, {indent}, {suppress_blank_line}")
     "returns indented block with exactly one blank line at the beginning"
     start = "\n\n"
     if suppress_blank_line:
