@@ -143,8 +143,6 @@ static int bus_set_address(
         default:
                 assert_not_reached();
         }
-
-        return r;
 }
 
 static int run(int argc, char *argv[]) {
