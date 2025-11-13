@@ -525,10 +525,15 @@ int efi_get_boot_options(uint16_t **ret_options) {
 
 int efi_get_active_pcr_banks(uint32_t *ret) {
 #if ENABLE_EFI
-        static uint32_t cache = UINT32_MAX;
+        static uint32_t cache = 0;
+        static bool cache_valid = false;
         int r;
 
-        if (cache == UINT32_MAX) {
+        /* Returns the enabled PCR banks as bitmask, as reported by firmware. If the bitmask is returned as
+         * UINT32_MAX, the firmware supports the TCG protocol, but in a version too old to report this
+         * information. */
+
+        if (!cache_valid) {
                 _cleanup_free_ char *active_pcr_banks = NULL;
                 r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderTpm2ActivePcrBanks"), &active_pcr_banks);
                 if (r < 0)
@@ -539,22 +544,29 @@ int efi_get_active_pcr_banks(uint32_t *ret) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to parse LoaderTpm2ActivePcrBanks variable: %m");
 
-                /* EFI TPM protocol uses different bit values for the hash algorithms, let's convert */
-                static const struct {
-                        uint32_t efi;
-                        uint32_t tcg;
-                } table[] = {
-                        { EFI_TCG2_BOOT_HASH_ALG_SHA1,   1U << TPM2_ALG_SHA1   },
-                        { EFI_TCG2_BOOT_HASH_ALG_SHA256, 1U << TPM2_ALG_SHA256 },
-                        { EFI_TCG2_BOOT_HASH_ALG_SHA384, 1U << TPM2_ALG_SHA384 },
-                        { EFI_TCG2_BOOT_HASH_ALG_SHA512, 1U << TPM2_ALG_SHA512 },
-                };
+                if (efi_bits == UINT32_MAX)
+                        /* UINT32_MAX means that the firmware API doesn't implement GetActivePcrBanks() and caller must guess */
+                        cache = UINT32_MAX;
+                else {
+                        /* EFI TPM protocol uses different bit values for the hash algorithms, let's convert */
+                        static const struct {
+                                uint32_t efi;
+                                uint32_t tcg;
+                        } table[] = {
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA1,   1U << TPM2_ALG_SHA1   },
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA256, 1U << TPM2_ALG_SHA256 },
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA384, 1U << TPM2_ALG_SHA384 },
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA512, 1U << TPM2_ALG_SHA512 },
+                        };
 
-                uint32_t tcg_bits = 0;
-                FOREACH_ELEMENT(t, table)
-                        SET_FLAG(tcg_bits, t->tcg, efi_bits & t->efi);
+                        uint32_t tcg_bits = 0;
+                        FOREACH_ELEMENT(t, table)
+                                SET_FLAG(tcg_bits, t->tcg, efi_bits & t->efi);
 
-                cache = tcg_bits;
+                        cache = tcg_bits;
+                }
+
+                cache_valid = true;
         }
 
         if (ret)
