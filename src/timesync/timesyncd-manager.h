@@ -68,6 +68,17 @@ typedef struct Manager {
         } nts_keys;
         struct NTS_AEADParam nts_aead;
         unsigned nts_missing_cookies;
+
+        /* data needed for the handshake part only */
+        NTS_TLS *nts_handshake;
+        unsigned nts_tls_patience;
+        enum {
+                NTS_HANDSHAKE_TLS_SETUP,
+                NTS_HANDSHAKE_TX,
+                NTS_HANDSHAKE_RX,
+                _NTS_HANDSHAKE_STATE_MAX,
+                _NTS_HANDSHAKE_STATE_INVALID = -EINVAL,
+        } nts_handshake_state;
 #endif
         usec_t nts_keyexchange_timeout_usec;
 
