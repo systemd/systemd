@@ -433,14 +433,22 @@ def _indent(el, indent, first_line=None, suppress_blank_line=False):
 def _normalize_whitespace(s):
     return " ".join(s.split())
 
+def _is_inside_of(el, tagname):
+    isInsideTag = False
+    for ancestor in el.iterancestors(tag=tagname):
+        isInsideTag = True
+    return isInsideTag
+
 def _remove_line_breaks(s):
-    _warn(f'_remove_line_breaks {s}')
     return s.replace('\n', ' ').replace('\r', '').strip()
 
 def _get_listitem_depth(el):
     """Calculate the nesting depth of listitem ancestors for an element.
     Returns 0 if not inside any listitem, 1 for first-level list, 2 for nested, etc."""
     depth = 0
+    # If the parent is a varlistentry, always indent
+    if _is_inside_of(el, 'varlistentry'):
+        depth = 1
     for ancestor in el.iterancestors():
         if ancestor.tag == 'listitem':
             depth += 1
@@ -452,7 +460,7 @@ def _get_listitem_depth(el):
 
 
 def TreeRoot(el):
-    output = _conv(el)
+    output = _conv(el).lstrip()
     # add .. SPDX-License-Identifier: LGPL-2.1-or-later
     output = f'.. SPDX-License-Identifier: LGPL-2.1-or-later\n\n{output}'
     # remove trailing whitespace
@@ -583,11 +591,7 @@ type = _no_special_markup
 def command(el):
     # Only enclose in backticks if it’s not part of a term
     # (which is already enclosed in backticks)
-    isInsideTerm = False
-    for term in el.iterancestors(tag='term'):
-        isInsideTerm = True
-
-    if isInsideTerm:
+    if _is_inside_of(el, 'term'):
         return _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
@@ -601,11 +605,7 @@ def literal(el):
 
 
 def varname(el):
-    isInsideTerm = False
-    for term in el.iterancestors(tag='term'):
-        isInsideTerm = True
-
-    if isInsideTerm:
+    if _is_inside_of(el, 'term'):
         return _concat(el).strip()
 
     classname = ''
@@ -618,11 +618,7 @@ def varname(el):
 
 
 def option(el):
-    isInsideTerm = False
-    for term in el.iterancestors(tag='term'):
-        isInsideTerm = True
-
-    if isInsideTerm:
+    if _is_inside_of(el, 'term'):
         return _concat(el).strip()
 
     classname = ''
@@ -635,11 +631,7 @@ def option(el):
 
 
 def constant(el):
-    isInsideTerm = False
-    for term in el.iterancestors(tag='term'):
-        isInsideTerm = True
-
-    if isInsideTerm:
+    if _is_inside_of(el, 'term'):
         return _concat(el).strip()
 
     classname = ''
