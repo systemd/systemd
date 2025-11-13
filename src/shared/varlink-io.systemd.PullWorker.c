@@ -4,7 +4,7 @@
 
 
 #include "varlink-io.systemd.Import.h"
-#include "varlink-io.systemd.PullBackend.h"
+#include "varlink-io.systemd.PullWorker.h"
 
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
@@ -39,8 +39,8 @@ static SD_VARLINK_DEFINE_ERROR(InvalidChecksum);
 static SD_VARLINK_DEFINE_ERROR(PullError);
 
 SD_VARLINK_DEFINE_INTERFACE(
-                io_systemd_PullBackend,
-                "io.systemd.PullBackend",
+                io_systemd_PullWorker,
+                "io.systemd.PullWorker",
                 SD_VARLINK_INTERFACE_COMMENT("An interface for downloading disk images"),
                 SD_VARLINK_SYMBOL_COMMENT("Download mode"),
                 &vl_type_RemoteType,
