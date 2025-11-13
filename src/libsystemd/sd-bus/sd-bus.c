@@ -257,6 +257,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .input_fd = -EBADF,
                 .output_fd = -EBADF,
                 .inotify_fd = -EBADF,
+                .exit_code = EXIT_FAILURE,
                 .message_version = 1,
                 .creds_mask = SD_BUS_CREDS_WELL_KNOWN_NAMES|SD_BUS_CREDS_UNIQUE_NAME,
                 .accept_fd = true,
@@ -1813,13 +1814,14 @@ _public_ sd_bus* sd_bus_flush_close_unref(sd_bus *bus) {
         return sd_bus_close_unref(bus);
 }
 
-void bus_enter_closing(sd_bus *bus) {
+int bus_enter_closing(sd_bus *bus, int exit_code) {
         assert(bus);
 
         if (!IN_SET(bus->state, BUS_WATCH_BIND, BUS_OPENING, BUS_AUTHENTICATING, BUS_HELLO, BUS_RUNNING))
-                return;
+                return 0;
 
         bus_set_state(bus, BUS_CLOSING);
+        return (bus->exit_code = exit_code);
 }
 
 /* Define manually so we can add the PID check */
@@ -2188,10 +2190,9 @@ _public_ int sd_bus_send(sd_bus *bus, sd_bus_message *_m, uint64_t *ret_cookie) 
                 size_t idx = 0;
 
                 r = bus_write_message(bus, m, &idx);
-                if (ERRNO_IS_NEG_DISCONNECT(r)) {
-                        bus_enter_closing(bus);
-                        return -ECONNRESET;
-                } else if (r < 0)
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        return bus_enter_closing(bus, -ECONNRESET);
+                if (r < 0)
                         return r;
 
                 if (idx < BUS_MESSAGE_SIZE(m))  {
@@ -2485,10 +2486,8 @@ _public_ int sd_bus_call(
 
                 r = bus_read_message(bus);
                 if (r < 0) {
-                        if (ERRNO_IS_DISCONNECT(r)) {
-                                bus_enter_closing(bus);
-                                r = -ECONNRESET;
-                        }
+                        if (ERRNO_IS_DISCONNECT(r))
+                                r = bus_enter_closing(bus, -ECONNRESET);
 
                         goto fail;
                 }
@@ -2520,10 +2519,8 @@ _public_ int sd_bus_call(
 
                 r = dispatch_wqueue(bus);
                 if (r < 0) {
-                        if (ERRNO_IS_DISCONNECT(r)) {
-                                bus_enter_closing(bus);
-                                r = -ECONNRESET;
-                        }
+                        if (ERRNO_IS_DISCONNECT(r))
+                                r = bus_enter_closing(bus, -ECONNRESET);
 
                         goto fail;
                 }
@@ -3110,14 +3107,14 @@ static int bus_exit_now(sd_bus *bus, sd_event *event) {
                 event = bus->event;
 
         if (event)
-                return sd_event_exit(event, EXIT_FAILURE);
+                return sd_event_exit(event, bus->exit_code);
 
         exit(EXIT_FAILURE);
         assert_not_reached();
 }
 
 static int process_closing_reply_callback(sd_bus *bus, BusReplyCallback *c) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL, error_buffer = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus_slot *slot;
         int r;
@@ -3125,11 +3122,12 @@ static int process_closing_reply_callback(sd_bus *bus, BusReplyCallback *c) {
         assert(bus);
         assert(c);
 
-        r = bus_message_new_synthetic_error(
-                        bus,
-                        c->cookie,
-                        &SD_BUS_ERROR_MAKE_CONST(SD_BUS_ERROR_NO_REPLY, "Connection terminated"),
-                        &m);
+        (void) sd_bus_error_set_errnof(
+                        &error,
+                        bus->exit_code < 0 ? bus->exit_code : -ETIMEDOUT,
+                        "Connection terminated");
+
+        r = bus_message_new_synthetic_error(bus, c->cookie, &error, &m);
         if (r < 0)
                 return r;
 
@@ -3293,7 +3291,7 @@ static int bus_process_internal(sd_bus *bus, sd_bus_message **ret) {
         }
 
         if (ERRNO_IS_NEG_DISCONNECT(r)) {
-                bus_enter_closing(bus);
+                bus_enter_closing(bus, r);
                 r = 1;
         } else if (r < 0)
                 return r;
@@ -3426,10 +3424,9 @@ _public_ int sd_bus_flush(sd_bus *bus) {
 
         for (;;) {
                 r = dispatch_wqueue(bus);
-                if (ERRNO_IS_NEG_DISCONNECT(r)) {
-                        bus_enter_closing(bus);
-                        return -ECONNRESET;
-                } else if (r < 0)
+                if (ERRNO_IS_NEG_DISCONNECT(r))
+                        return bus_enter_closing(bus, -ECONNRESET);
+                else if (r < 0)
                         return r;
 
                 if (bus->wqueue_size <= 0)
@@ -3478,17 +3475,17 @@ static int add_match_callback(
 
         sd_bus_slot *match_slot = ASSERT_PTR(userdata);
         bool failed = false;
-        int r;
+        int r = 0;
 
         assert(m);
 
         sd_bus_slot_ref(match_slot);
 
         if (sd_bus_message_is_method_error(m, NULL)) {
-                log_debug_errno(sd_bus_message_get_errno(m),
-                                "Unable to add match %s, failing connection: %s",
-                                match_slot->match_callback.match_string,
-                                sd_bus_message_get_error(m)->message);
+                r = log_debug_errno(sd_bus_message_get_errno(m),
+                                    "Unable to add match %s, failing connection: %s",
+                                    match_slot->match_callback.match_string,
+                                    sd_bus_message_get_error(m)->message);
 
                 failed = true;
         } else
@@ -3518,7 +3515,7 @@ static int add_match_callback(
                 bus->current_userdata = userdata;
         } else {
                 if (failed) /* Generic failure handling: destroy the connection */
-                        bus_enter_closing(sd_bus_message_get_bus(m));
+                        bus_enter_closing(sd_bus_message_get_bus(m), r);
 
                 r = 1;
         }
@@ -3649,7 +3646,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
         r = sd_bus_process(bus, NULL);
         if (r < 0) {
                 log_debug_errno(r, "Processing of bus failed, closing down: %m");
-                bus_enter_closing(bus);
+                bus_enter_closing(bus, r);
         }
 
         return 1;
@@ -3662,7 +3659,7 @@ static int time_callback(sd_event_source *s, uint64_t usec, void *userdata) {
         r = sd_bus_process(bus, NULL);
         if (r < 0) {
                 log_debug_errno(r, "Processing of bus failed, closing down: %m");
-                bus_enter_closing(bus);
+                bus_enter_closing(bus, r);
         }
 
         return 1;
@@ -3714,7 +3711,7 @@ static int prepare_callback(sd_event_source *s, void *userdata) {
 
 fail:
         log_debug_errno(r, "Preparing of bus events failed, closing down: %m");
-        bus_enter_closing(bus);
+        bus_enter_closing(bus, r);
 
         return 1;
 }
