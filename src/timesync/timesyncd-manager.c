@@ -74,7 +74,8 @@ static void manager_listen_stop(Manager *m);
 static int manager_save_time_and_rearm(Manager *m, usec_t t);
 static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, Manager *m);
 #if ENABLE_TIMESYNC_NTS
-static int manager_nts_obtain_agreement(Manager *m);
+static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+static int manager_nts_handshake_setup(Manager *m);
 #endif
 
 static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
@@ -139,8 +140,10 @@ static int manager_send_request(Manager *m) {
         /* If we are using NTS and out of cookies, we must first make an TLS
          * connection to perform key extractions and obtain cookies
          */
-        if (m->nts_missing_cookies >= ELEMENTSOF(m->nts_cookies))
-                return manager_nts_obtain_agreement(m);
+        if (m->nts_missing_cookies >= ELEMENTSOF(m->nts_cookies)) {
+                /* Set a patience timer to thwart slowloris attacks */
+                return manager_nts_handshake_setup(m);
+        }
 #endif
 
         r = manager_listen_setup(m);
@@ -1452,73 +1455,116 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
 
 #if ENABLE_TIMESYNC_NTS
 
-/* FIXME: https://github.com/pendulum-project/nts-timesyncd/issues/2 */
+static int manager_nts_handshake_setup(Manager *m) {
+        union sockaddr_union addr = {};
+        int r;
 
-static int manager_nts_obtain_agreement(Manager *m) {
         assert(m);
 
-        unsigned tls_patience_msec = m->nts_keyexchange_timeout_usec / USEC_PER_MSEC;
+        if (m->server_socket >= 0)
+                return 0;
 
-        int r;
+        assert(!m->event_receive);
+        assert(m->current_server_address);
+
+        addr.sa.sa_family = m->current_server_address->sockaddr.sa.sa_family;
+
+        m->server_socket = socket(addr.sa.sa_family, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        if (m->server_socket < 0)
+                return -errno;
+
+        r = bind(m->server_socket, &addr.sa, m->current_server_address->socklen);
+        if (r < 0)
+                return -errno;
+
+        r = setsockopt_int(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, true);
+        if (r < 0)
+                return r;
+
+        (void) socket_set_option(m->server_socket, addr.sa.sa_family, IP_TOS, IPV6_TCLASS, IPTOS_DSCP_EF);
+
+        /* TODO: this parameter has nothing to do with msec anymore -- replace with alarm */
+        m->nts_tls_patience = m->nts_keyexchange_timeout_usec / USEC_PER_MSEC;
         int socket = NTS_attach_socket(m->current_server_name->string, 4460, SOCK_STREAM);
 
         log_debug("Performing key exchange with %s\n", m->current_server_name->string);
 
-        NTS_TLS *nts_handshake = NTS_TLS_setup(m->current_server_name->string, socket);
-        if (!nts_handshake)
+        m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, socket);
+        if (!m->nts_handshake)
                 return -ENOMEM;
 
-        while ((r = NTS_TLS_handshake(nts_handshake)) > 0 && tls_patience_msec-- > 0)
-                usleep_safe(USEC_PER_MSEC);
+        return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_nts_obtain_agreement, m);
+}
 
-        if (r != 0) {
-                log_error("Could not set up TLS session with server");
-                NTS_TLS_close(nts_handshake);
-                return manager_connect(m);
-        }
+static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
 
-        NTS_AEADAlgorithmType prefs[6] = {
-                NTS_AEAD_AES_128_GCM_SIV,
-                NTS_AEAD_AES_256_GCM_SIV,
-                NTS_AEAD_AES_SIV_CMAC_256,
-                NTS_AEAD_AES_SIV_CMAC_384,
-                NTS_AEAD_AES_SIV_CMAC_512,
-                0
-        };
+        int r;
 
-        int prefs_len = 0;
-        FOREACH_ELEMENT(algo_type, prefs)
-                if (NTS_get_param(*algo_type))
-                        prefs[prefs_len++] = *algo_type;
+        static uint8_t buffer[1024];
+        static uint8_t *bufp;
+        static int size;
+        static NTS_Agreement NTS;
 
-        uint8_t buffer[1024], *bufp = buffer;
-        int size = NTS_encode_request(buffer, sizeof(buffer), prefs);
-        assert(size <= (int)sizeof(buffer));
+        switch (m->nts_handshake_state) {
+        case NTS_HANDSHAKE_TLS_SETUP:
+                r = NTS_TLS_handshake(m->nts_handshake);
+                if (r > 0 && m->nts_tls_patience-- > 0)
+                        return 1;
 
-        for (;;) {
-                r = NTS_TLS_write(nts_handshake, bufp, size);
+                if (r != 0) {
+                        log_error("Could not set up TLS session with server");
+                        NTS_TLS_close(m->nts_handshake);
+                        return manager_connect(m);
+                }
+
+                /* tls handshake is established, prepare the request */
+                NTS_AEADAlgorithmType prefs[6] = {
+                        NTS_AEAD_AES_128_GCM_SIV,
+                        NTS_AEAD_AES_256_GCM_SIV,
+                        NTS_AEAD_AES_SIV_CMAC_256,
+                        NTS_AEAD_AES_SIV_CMAC_384,
+                        NTS_AEAD_AES_SIV_CMAC_512,
+                        0
+                };
+
+                int prefs_len = 0;
+                FOREACH_ELEMENT(algo_type, prefs)
+                        if (NTS_get_param(*algo_type))
+                                prefs[prefs_len++] = *algo_type;
+
+
+                bufp = buffer;
+                size = NTS_encode_request(buffer, sizeof(buffer), prefs);
+                assert(size <= (int)sizeof(buffer));
+
+                m->nts_handshake_state = NTS_HANDSHAKE_TX;
+
+        case NTS_HANDSHAKE_TX:
+                r = NTS_TLS_write(m->nts_handshake, bufp, size);
                 assert(r <= size);
 
-                if (r <= 0 || (r < size && tls_patience_msec-- <= 0)) {
+                if (r <= 0 || (r < size && m->nts_tls_patience-- <= 0)) {
                         log_error("Error sending NTS key request");
-                        NTS_TLS_close(nts_handshake);
+                        NTS_TLS_close(m->nts_handshake);
                         return manager_connect(m);
                 } else if (r < size) {
-                        usleep_safe(USEC_PER_MSEC);
                         bufp += r, size -= r;
-                } else
-                        break;
-        }
+                        return 1;
+                }
 
-        NTS_Agreement NTS;
-        bufp = buffer;
-        for (;;) {
-                r = NTS_TLS_read(nts_handshake, bufp, sizeof(buffer) - (bufp - buffer));
+                /* NTS request sent, read the reply */
+                bufp = buffer;
+
+                m->nts_handshake_state = NTS_HANDSHAKE_RX;
+
+        case NTS_HANDSHAKE_RX:
+                r = NTS_TLS_read(m->nts_handshake, bufp, sizeof(buffer) - (bufp - buffer));
                 assert(r <= (int)sizeof(buffer) - (bufp - buffer));
 
                 if (r < 0) {
                         log_error("Error receiving NTS key response");
-                        NTS_TLS_close(nts_handshake);
+                        NTS_TLS_close(m->nts_handshake);
                         return manager_connect(m);
                 }
 
@@ -1526,26 +1572,32 @@ static int manager_nts_obtain_agreement(Manager *m) {
 
                 r = NTS_decode_response(buffer, bufp - buffer, &NTS);
                 if (r < 0) {
-                        if (NTS.error == NTS_INSUFFICIENT_DATA && tls_patience_msec-- > 0) {
-                                usleep_safe(USEC_PER_MSEC);
-                                continue;
-                        }
+                        if (NTS.error == NTS_INSUFFICIENT_DATA && m->nts_tls_patience-- > 0)
+                                return 1;
+
                         log_error("NTS Error: %s", NTS_error_string(NTS.error));
-                        NTS_TLS_close(nts_handshake);
+                        NTS_TLS_close(m->nts_handshake);
                         return manager_connect(m);
-                } else
-                        break;
+                }
+
+                /* end of interactive part of the NTS handshake */
+                break;
+
+        default:
+                __builtin_unreachable();
         }
 
+        /* extract keys from TLS session and process the NTS response */
+
         r = NTS_TLS_extract_keys(
-                    nts_handshake,
+                    m->nts_handshake,
                     NTS.aead_id,
                     m->nts_keys.c2s,
                     m->nts_keys.s2c,
                     MAX_NTS_AEAD_KEY_LEN);
 
-        NTS_TLS_close(nts_handshake);
-        nts_handshake = NULL;
+        NTS_TLS_close(m->nts_handshake);
+        m->nts_handshake = NULL;
 
         if (r != 0) {
                 log_error("Key extraction failed");
@@ -1603,5 +1655,4 @@ static int manager_nts_obtain_agreement(Manager *m) {
 
         return 1;
 }
-
 #endif
