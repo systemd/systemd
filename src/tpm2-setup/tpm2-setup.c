@@ -27,6 +27,7 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "tpm2-pcr.h"
 #include "tpm2-util.h"
 
 static char *arg_tpm2_device = NULL;
@@ -412,12 +413,6 @@ static int setup_nvpcr_one(
         if (set_contains(c->done, name))
                 return 0;
 
-        if (!c->tpm2_context) {
-                r = tpm2_context_new_or_warn(arg_tpm2_device, &c->tpm2_context);
-                if (r < 0)
-                        return r;
-        }
-
         r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
         if (r == -EUNATCH) {
                 assert(!iovec_is_set(&c->anchor_secret));
@@ -448,6 +443,10 @@ static int setup_nvpcr_one(
 static int setup_nvpcr(void) {
         _cleanup_(setup_nvpcr_context_done) SetupNvPCRContext c = {};
         int r = 0;
+
+        r = tpm2_context_new_or_warn(arg_tpm2_device, &c.tpm2_context);
+        if (r < 0)
+                return r;
 
         _cleanup_strv_free_ char **l = NULL;
         r = conf_files_list_nulstr(
@@ -484,6 +483,26 @@ static int setup_nvpcr(void) {
                 log_info("%zu NvPCRs already initialized.", c.n_already);
         else
                 log_debug("No NvPCRs defined, nothing initialized.");
+
+        /* The above initializations resulted in PCR 9 measurements of the NvPCR initialization state, let's
+         * now put a barrier measurement after it, so that initialization after boot are clearly
+         * distinguishable from it. */
+        _cleanup_strv_free_ char **banks = NULL;
+        r = tpm2_get_good_pcr_banks_strv(c.tpm2_context, UINT32_C(1) << TPM2_PCR_KERNEL_INITRD, &banks);
+        if (r < 0)
+                return log_error_errno(r, "Could not verify pcr banks: %m");
+
+        const char *word = "nvpcr-separator";
+        r = tpm2_pcr_extend_bytes(
+                        c.tpm2_context,
+                        banks,
+                        TPM2_PCR_KERNEL_INITRD,
+                        &IOVEC_MAKE_STRING(word),
+                        /* secret= */ NULL,
+                        TPM2_EVENT_NVPCR_SEPARATOR,
+                        word);
+        if (r < 0)
+                return log_error_errno(r, "Could not extend PCR %i: %m", TPM2_PCR_KERNEL_INITRD);
 
         return r;
 }
