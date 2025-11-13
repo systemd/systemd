@@ -559,7 +559,11 @@ TEST(memory_deny_write_execute_mmap) {
                 p = mmap(NULL, page_size(), PROT_WRITE|PROT_EXEC, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 #if defined(__x86_64__) || defined(__i386__) || defined(__powerpc64__) || defined(__arm__) || defined(__aarch64__) || defined(__loongarch_lp64)
                 assert_se(p == MAP_FAILED);
-                assert_se(errno == EPERM);
+#  ifdef __GLIBC__
+                ASSERT_EQ(errno, EPERM);
+#  else
+                ASSERT_EQ(errno, ENOMEM); /* musl maps EPERM to ENOMEM. See src/mman/mmap.c in musl. */
+#  endif
 #endif
                 /* Depending on kernel, libseccomp, and glibc versions, other architectures
                  * might fail or not. Let's not assert success. */
