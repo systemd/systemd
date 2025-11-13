@@ -49,6 +49,7 @@ sd_bus_sources = files(
         'sd-bus/bus-dump.c',
         'sd-bus/bus-dump-json.c',
         'sd-bus/bus-error.c',
+        'sd-bus/bus-future.c',
         'sd-bus/bus-internal.c',
         'sd-bus/bus-introspect.c',
         'sd-bus/bus-kernel.c',
@@ -187,6 +188,7 @@ libsystemd_pc = custom_target(
 
 simple_tests += files(
         'sd-bus/test-bus-creds.c',
+        'sd-bus/test-bus-fiber.c',
         'sd-bus/test-bus-introspect.c',
         'sd-bus/test-bus-match.c',
         'sd-bus/test-bus-vtable.c',

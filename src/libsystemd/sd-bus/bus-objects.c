@@ -3,6 +3,7 @@
 #include <linux/capability.h>
 
 #include "sd-bus.h"
+#include "sd-future.h"
 
 #include "alloc-util.h"
 #include "bus-internal.h"
@@ -337,6 +338,69 @@ static int check_access(sd_bus *bus, sd_bus_message *m, BusVTableMember *c, sd_b
         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "Access to %s.%s() not permitted.", c->interface, c->member);
 }
 
+typedef struct BusFiberData {
+        sd_bus *bus;
+        sd_bus_message *message;
+        sd_bus_slot *slot;
+        sd_bus_message_handler_t handler;
+        void *userdata;
+} BusFiberData;
+
+static BusFiberData* bus_fiber_data_free(BusFiberData *d) {
+        if (!d)
+                return NULL;
+
+        sd_bus_slot_unref(d->slot);
+        sd_bus_message_unref(d->message);
+        sd_bus_unref(d->bus);
+        return mfree(d);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(BusFiberData*, bus_fiber_data_free);
+
+static void bus_fiber_data_destroy(void *userdata) {
+        bus_fiber_data_free(userdata);
+}
+
+static void bus_fiber_future_unref(void *p) {
+        sd_future_unref(p);
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                bus_fiber_future_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                bus_fiber_future_unref);
+
+static int bus_fiber_resolved(sd_future *f) {
+        sd_bus *bus = ASSERT_PTR(sd_future_get_userdata(f));
+
+        /* Remove the future from the bus' tracking set. set_remove() calls sd_future_unref() via the
+         * hash_ops destructor; fiber_run() holds an extra ref across the resolve path so the future
+         * itself isn't freed mid-resolution even if our ref was the last one. */
+        assert_se(set_remove(bus->fiber_futures, f) == f);
+        return 0;
+}
+
+static int bus_fiber_entry(void *userdata) {
+        BusFiberData *d = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        /* Note: unlike the synchronous dispatch path, we deliberately do NOT set
+         * bus->current_slot/handler/userdata around the callback. Those fields track the slot of the
+         * message currently being dispatched inline and must be NULL at each entry into
+         * bus_process_internal(). Because a fiber handler can yield and let the event loop dispatch
+         * other messages before it resumes, leaving current_slot non-NULL across yields would trip
+         * that invariant. Fiber handlers receive their slot's userdata via the handler argument, so
+         * sd_bus_get_current_slot()/handler()/userdata() simply aren't meaningful inside them — the
+         * handler should use the message/userdata parameters directly instead. */
+        r = d->handler(d->message, d->userdata, &error);
+
+        return bus_maybe_reply_error(d->message, r, &error);
+}
+
 static int method_callbacks_run(
                 sd_bus *bus,
                 sd_bus_message *m,
@@ -406,6 +470,50 @@ static int method_callbacks_run(
                 sd_bus_slot *slot;
 
                 slot = container_of(c->parent, sd_bus_slot, node_vtable);
+
+                if (FLAGS_SET(c->vtable->flags, SD_BUS_VTABLE_METHOD_FIBER)) {
+                        /* A fiber-dispatched method requires an event loop to spawn the fiber on.
+                         * By the time a method call actually arrives the bus is running, so the
+                         * event loop should already be attached — if not, the caller set up the bus
+                         * wrong and there's no meaningful recovery. */
+                        assert(bus->event);
+
+                        _cleanup_(bus_fiber_data_freep) BusFiberData *d = new(BusFiberData, 1);
+                        if (!d)
+                                return -ENOMEM;
+
+                        *d = (BusFiberData) {
+                                .bus = sd_bus_ref(bus),
+                                .message = sd_bus_message_ref(m),
+                                .slot = sd_bus_slot_ref(slot),
+                                .handler = c->vtable->x.method.handler,
+                                .userdata = u,
+                        };
+
+                        _cleanup_(sd_future_unrefp) sd_future *f = NULL;
+                        r = sd_fiber_new(bus->event, c->member, bus_fiber_entry, d, bus_fiber_data_destroy, &f);
+                        if (r < 0)
+                                return bus_maybe_reply_error(m, r, NULL);
+
+                        /* The fiber now owns d via bus_fiber_data_destroy. Drop our cleanup before any
+                         * further fallible calls, so a later failure unwinding f doesn't double-free d. */
+                        TAKE_PTR(d);
+
+                        r = set_ensure_put(&bus->fiber_futures, &bus_fiber_future_hash_ops, f);
+                        if (r < 0)
+                                return bus_maybe_reply_error(m, r, NULL);
+                        assert(r > 0);
+
+                        /* Track the future on the bus so shutdown can cancel it and wait for it. */
+                        r = sd_future_set_callback(f, bus_fiber_resolved, bus);
+                        if (r < 0) {
+                                assert_se(set_remove(bus->fiber_futures, f) == f);
+                                return bus_maybe_reply_error(m, r, NULL);
+                        }
+
+                        TAKE_PTR(f);
+                        return 1;
+                }
 
                 bus->current_slot = sd_bus_slot_ref(slot);
                 bus->current_handler = c->vtable->x.method.handler;
