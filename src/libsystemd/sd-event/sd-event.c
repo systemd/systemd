@@ -212,7 +212,7 @@ static int pending_prioq_compare(const void *a, const void *b) {
                 return r;
 
         /* Older entries first */
-        return CMP(x->pending_iteration, y->pending_iteration);
+        return CMP(x->dispatch_iteration, y->dispatch_iteration);
 }
 
 static int prepare_prioq_compare(const void *a, const void *b) {
@@ -1136,8 +1136,6 @@ static int source_set_pending(sd_event_source *s, bool b) {
         s->pending = b;
 
         if (b) {
-                s->pending_iteration = s->event->iteration;
-
                 r = prioq_put(s->event->pending, s, &s->pending_index);
                 if (r < 0) {
                         s->pending = false;
@@ -4147,6 +4145,9 @@ static int source_dispatch(sd_event_source *s) {
                 if (r < 0)
                         return r;
         }
+
+        s->dispatch_iteration = saved_event->iteration;
+        event_source_pp_prioq_reshuffle(s);
 
         s->dispatching = true;
 
