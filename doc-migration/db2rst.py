@@ -196,6 +196,9 @@ def _includes(el):
         return f""".. literalinclude:: /code-examples/sh/{el.get('href')}
                     :language: shell
                 """
+    else:
+        return f""".. literalinclude:: /code-examples/{el.get('href')}
+                """
 
 
 def _conv(el):
@@ -813,10 +816,14 @@ def videodata(el):
 def programlisting(el):
     # TODO: newlines at the end aren’t applied properly
     xi_include = el.find('.//{http://www.w3.org/2001/XInclude}include')
-    if xi_include is not None:
-        return _includes(xi_include)
+    if len(el.getchildren()) == 0:
+        if xi_include is not None:
+            return _includes(xi_include)
+        else:
+            return f"\n\n.. code-block:: sh\n\n   \n\n{_indent(el, 3)}\n\n"
     else:
-        return f"\n\n.. code-block:: sh\n\n   \n\n{_indent(el, 3)}\n\n"
+        return _concat(el)
+
 
 
 def screen(el):
