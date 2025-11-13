@@ -14,6 +14,7 @@
 #include "io-util.h"
 #include "log.h"
 #include "memory-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "time-util.h"
 #include "utf8.h"
@@ -32,6 +33,7 @@ int efi_get_variable(
                 void **ret_value,
                 size_t *ret_size) {
 
+        int r;
         usec_t begin = 0; /* Unnecessary initialization to appease gcc */
 
         assert(variable);
@@ -75,6 +77,10 @@ int efi_get_variable(
 
                 if (fstat(fd, &st) < 0)
                         return log_debug_errno(errno, "fstat(\"%s\") failed: %m", p);
+                r = stat_verify_regular(&st);
+                if (r < 0)
+                        return log_debug_errno(r, "EFI variable '%s' is not a regular file, refusing: %m", p);
+
                 if (st.st_size == 0) /* for uncommited variables, see below */
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "EFI variable '%s' is uncommitted", p);
                 if ((uint64_t) st.st_size < sizeof(attr))
