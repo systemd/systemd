@@ -139,6 +139,8 @@ option('timedated', type : 'boolean',
        description : 'install the systemd-timedated daemon')
 option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
+option('journal-storage-default', type : 'combo', choices : ['persistent', 'auto', 'volatile', 'none'],
+       description : 'default storage mode for journald (main namespace)')
 option('remote', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'support for "journal over the network"')
 option('create-log-dirs', type : 'boolean',

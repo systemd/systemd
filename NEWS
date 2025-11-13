@@ -19,6 +19,12 @@ CHANGES WITH 259 in spe:
           command to add recovery keys to existing user accounts. Previously,
           recovery keys could only be configured during initial user creation.
 
+        * The default storage mode for the journal is now 'persistent'.
+          Previously, the default was 'auto', so the presence or lack of
+          /var/log/journal determined the default storage mode, if no
+          overriding configuration was provided. The default can be changed
+          with -Djournal-storage-default=.
+
 CHANGES WITH 258:
 
         Incompatible changes:
