@@ -525,7 +525,7 @@ TEST(pid_get_cmdline_harder) {
 #define EXPECT1p "foo $'\\'bar\\'' $'\"bar$\"' $'x y z' $'!``'"
 #define EXPECT1v STRV_MAKE("foo", "'bar'", "\"bar$\"", "x y z", "!``")
 
-        ASSERT_OK_ZERO_ERRNO(lseek(fd, SEEK_SET, 0));
+        ASSERT_OK_ZERO_ERRNO(lseek(fd, 0, SEEK_SET));
         ASSERT_OK_EQ_ERRNO(write(fd, CMDLINE1, sizeof(CMDLINE1)), (ssize_t) sizeof(CMDLINE1));
         ASSERT_OK_ZERO_ERRNO(ftruncate(fd, sizeof(CMDLINE1)));
 
@@ -550,7 +550,7 @@ TEST(pid_get_cmdline_harder) {
 #define EXPECT2p "foo $'\\001\\002\\003'"
 #define EXPECT2v STRV_MAKE("foo", "\1\2\3")
 
-        ASSERT_OK_ZERO_ERRNO(lseek(fd, SEEK_SET, 0));
+        ASSERT_OK_ZERO_ERRNO(lseek(fd, 0, SEEK_SET));
         ASSERT_OK_EQ_ERRNO(write(fd, CMDLINE2, sizeof(CMDLINE2)), (ssize_t) sizeof(CMDLINE2));
         ASSERT_OK_ZERO_ERRNO(ftruncate(fd, sizeof CMDLINE2));
 
