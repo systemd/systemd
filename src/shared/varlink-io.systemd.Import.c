@@ -14,7 +14,7 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("A configuration extension image"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(confext));
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 RemoteType,
                 SD_VARLINK_FIELD_COMMENT("Raw binary disk images, typically in a GPT envelope"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(raw),
