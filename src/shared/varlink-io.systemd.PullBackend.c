@@ -12,7 +12,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Version of the instance"),
                 SD_VARLINK_DEFINE_FIELD(version, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Directory containing the cache of the instance when it was downloaded"),
-                SD_VARLINK_DEFINE_FIELD(cachedir, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(cacheDirectory, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Location of the instance"),
                 SD_VARLINK_DEFINE_FIELD(location, SD_VARLINK_STRING, 0));
 
@@ -31,7 +31,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Destination for download"),
                 SD_VARLINK_DEFINE_INPUT(destination, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Cache directory"),
-                SD_VARLINK_DEFINE_INPUT(cachedir, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_INPUT(cacheDirectory, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Instances to use for delta updating"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(instances, PullInstance, SD_VARLINK_ARRAY));
 

@@ -632,14 +632,14 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
         // parse only the parameters used by systemd-pull
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "version",     SD_JSON_VARIANT_STRING,  NULL,                          0,                                           0 },
-                { "mode",        SD_JSON_VARIANT_STRING,  json_dispatch_import_type,     offsetof(MethodPullParameters, mode),        SD_JSON_MANDATORY },
-                { "fsync",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodPullParameters, fsync),       0 },
-                { "checksum",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, checksum),    SD_JSON_MANDATORY },
-                { "source",      SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, source),      SD_JSON_MANDATORY },
-                { "destination", SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, destination), SD_JSON_MANDATORY },
-                { "cachedir",    SD_JSON_VARIANT_STRING,  NULL,                          0,                                           0 },
-                { "instances",   SD_JSON_VARIANT_ARRAY,   NULL,                          0,                                           0 },
+                { "version",        SD_JSON_VARIANT_STRING,  NULL,                          0,                                           0 },
+                { "mode",           SD_JSON_VARIANT_STRING,  json_dispatch_import_type,     offsetof(MethodPullParameters, mode),        SD_JSON_MANDATORY },
+                { "fsync",          SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodPullParameters, fsync),       0 },
+                { "checksum",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, checksum),    SD_JSON_MANDATORY },
+                { "source",         SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, source),      SD_JSON_MANDATORY },
+                { "destination",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, destination), SD_JSON_MANDATORY },
+                { "cacheDirectory", SD_JSON_VARIANT_STRING,  NULL,                          0,                                           0 },
+                { "instances",      SD_JSON_VARIANT_ARRAY,   NULL,                          0,                                           0 },
                 {}
         };
 
