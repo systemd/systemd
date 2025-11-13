@@ -240,6 +240,17 @@
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--event-type=</option></term>
+
+        <listitem><para>Set the event log event type for this measurement. Pass <literal>help</literal> for a
+        list of currently defined identifiers. Defaults to an appropriate value for
+        <option>--machine-id</option>, <option>--product-id</option>, <option>--file-system=</option>, and
+        otherwise to <literal>phase</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
 
