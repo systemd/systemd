@@ -13,6 +13,7 @@
 #include "efivar-erase.h"
 #include "efivars.h"
 #include "export-vars.h"
+#include "fwupdate.h"
 #include "graphics.h"
 #include "initrd.h"
 #include "iovec-util.h"
@@ -3263,9 +3264,10 @@ static EFI_STATUS secure_boot_discover_keys(Config *config, EFI_FILE *root_dir) 
 
 static void export_loader_variables(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
-                uint64_t init_usec) {
+                uint64_t init_usec,
+                bool fwupdate_available) {
 
-        static const uint64_t loader_features =
+        uint64_t loader_features =
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT |
                 EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT |
                 EFI_LOADER_FEATURE_ENTRY_DEFAULT |
@@ -3289,6 +3291,7 @@ static void export_loader_variables(
                 EFI_LOADER_FEATURE_KEYBOARD_LAYOUT |
                 EFI_LOADER_FEATURE_SMBIOS_MEASURED |
                 EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES |
+                (fwupdate_available ? EFI_LOADER_FEATURE_FIRMWARE_UPDATE : 0) |
                 0;
 
         assert(loaded_image);
@@ -3296,6 +3299,13 @@ static void export_loader_variables(
         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
         (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, /* flags= */ 0);
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, /* flags= */ 0);
+
+        /* Defined by fwupd https://github.com/fwupd/fwupd/tree/main/plugins/uefi-capsule#3rd-party-bootloader */
+        if (FLAGS_SET(loader_features, EFI_LOADER_FEATURE_FIRMWARE_UPDATE)) {
+                uint8_t value = 1;
+                (void) efivar_set_raw(MAKE_GUID_PTR(FWUPDATE), u"BootloaderSupportsFwupd", &value, sizeof(value), /* flags= */ 0);
+        } else
+                (void) efivar_unset(MAKE_GUID_PTR(FWUPDATE), u"BootloaderSupportsFwupd", /* flags= */ 0);
 }
 
 static void config_add_system_entries(Config *config) {
@@ -3418,6 +3428,7 @@ static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI
 static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_file_close_ EFI_FILE *root_dir = NULL;
+        _cleanup_free_ EFI_DEVICE_PATH *fwupdate_disk_path = NULL;
         _cleanup_(config_free) Config config = {};
         EFI_STATUS err;
         uint64_t init_usec;
@@ -3431,6 +3442,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
+
+        /* First, apply any pending fwupd capsules from the boot disk. */
+        err = fwupdate_get_boot_disk_path(loaded_image->DeviceHandle, &fwupdate_disk_path);
+        if (err == EFI_SUCCESS)
+                fwupdate_install(fwupdate_disk_path);
 
         err = discover_root_dir(loaded_image, &root_dir);
         if (err != EFI_SUCCESS) {
@@ -3454,7 +3470,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         shim_retain_protocol();
 
         export_common_variables(loaded_image);
-        export_loader_variables(loaded_image, init_usec);
+        export_loader_variables(loaded_image, init_usec, fwupdate_disk_path != NULL);
 
         /* Measure SMBIOS data into PCR 1. This is done early, and suppressed if sd-stub later runs in
          * the same boot (and vice versa), via the LoaderPcrSMBIOS EFI variable. */

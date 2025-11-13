@@ -98,6 +98,14 @@
 
       <listitem><para>The boot manager allows for Secure Boot variables to be enrolled if the UEFI firmware is
       in setup mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
+
+      <listitem><para>The boot manager can apply UEFI firmware update capsules prepared by
+      <command>fwupd</command> at boot, without a separate EFI updater. Capsule updates require UEFI 2.0 or
+      newer firmware. The boot manager sets the
+      <varname>BootloaderSupportsFwupd</varname> EFI variable to advertise support for the
+      <ulink url="https://github.com/fwupd/fwupd/tree/main/plugins/uefi-capsule#3rd-party-bootloader">fwupd
+      bootloader protocol</ulink>. Only capsules on the disk containing the boot manager are processed,
+      update variables and capsules on other disks are left untouched.</para></listitem>
     </itemizedlist>
 
     <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>

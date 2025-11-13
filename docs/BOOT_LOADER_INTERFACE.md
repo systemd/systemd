@@ -148,6 +148,7 @@ Variables will be listed below using the Linux efivarfs naming,
   * `1 << 21` → The boot loader measures SMBIOS information into a TPM2 PCR and reports the PCR index in the
                 EFI variable `LoaderPcrSMBIOS-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
   * `1 << 22` → The boot loader honours `LoaderFactoryResetVariables` when set.
+  * `1 << 23` → The boot loader supports installing firmware update capsules prepared by fwupd.
 
 * The EFI variable `LoaderFactoryResetVariables-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains a boolean, formatted as a NUL-terminated UTF-16 string

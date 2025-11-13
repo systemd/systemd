@@ -412,6 +412,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         { EFI_LOADER_FEATURE_KEYBOARD_LAYOUT,         "Loader reports firmware keyboard layout" },
                         { EFI_LOADER_FEATURE_SMBIOS_MEASURED,         "Loader measures SMBIOS information"      },
                         { EFI_LOADER_FEATURE_FACTORY_RESET_VARIABLES, "Loader erases EFI variables on request"  },
+                        { EFI_LOADER_FEATURE_FIRMWARE_UPDATE,         "Support for installing fwupd updates"    },
                 };
                 static const struct {
                         uint64_t flag;

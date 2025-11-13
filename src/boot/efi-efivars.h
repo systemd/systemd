@@ -36,5 +36,6 @@ EFI_STATUS efivar_get_boolean_str16(const EFI_GUID *vendor, const char16_t *name
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret);
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret);
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret);
+EFI_STATUS efivar_get_names(const EFI_GUID *vendor, char16_t ***ret);
 
 uint64_t get_os_indications_supported(void);
