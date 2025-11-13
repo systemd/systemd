@@ -114,8 +114,6 @@ static int bus_set_address(
                 const char *bus_path,
                 RuntimeScope runtime_scope) {
 
-        int r;
-
         assert(bus);
 
         switch (transport) {
@@ -143,8 +141,6 @@ static int bus_set_address(
         default:
                 assert_not_reached();
         }
-
-        return r;
 }
 
 static int run(int argc, char *argv[]) {
