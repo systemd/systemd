@@ -2704,8 +2704,10 @@ int tpm2_get_best_pcr_bank(
                         return r;
 
                 /* If variable is not set use guesswork below */
-                log_debug("Boot loader didn't set LoaderTpm2ActivePcrBanks EFI variable, we have to guess used PCR banks.");
-        } else {
+                log_debug("Boot loader didn't set the LoaderTpm2ActivePcrBanks EFI variable, we have to guess the used PCR banks.");
+        } else if (efi_banks == UINT32_MAX)
+                log_debug("Boot loader set the LoaderTpm2ActivePcrBanks EFI variable to indicate that the GetActivePcrBanks() API is not available in the firmware. We have to guess the used PCR banks.");
+        else {
                 if (BIT_SET(efi_banks, TPM2_ALG_SHA256))
                         *ret = TPM2_ALG_SHA256;
                 else if (BIT_SET(efi_banks, TPM2_ALG_SHA1))
@@ -2811,8 +2813,10 @@ int tpm2_get_good_pcr_banks(
                         return r;
 
                 /* If the variable is not set we have to guess via the code below */
-                log_debug("Boot loader didn't set LoaderTpm2ActivePcrBanks EFI variable, we have to guess used PCR banks.");
-        } else {
+                log_debug("Boot loader didn't set the LoaderTpm2ActivePcrBanks EFI variable, we have to guess the used PCR banks.");
+        } else if (efi_banks == UINT32_MAX)
+                log_debug("Boot loader set the LoaderTpm2ActivePcrBanks EFI variable to indicate that the GetActivePcrBanks() API is not available in the firmware. We have to guess the used PCR banks.");
+        else {
                 FOREACH_ARRAY(hash, tpm2_hash_algorithms, TPM2_N_HASH_ALGORITHMS) {
                         if (!BIT_SET(efi_banks, *hash))
                                 continue;
