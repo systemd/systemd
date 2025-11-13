@@ -365,7 +365,7 @@ static int raw_pull_make_local_copy(RawPull *i) {
                 assert(i->raw_job->disk_fd >= 0);
                 assert(i->offset == UINT64_MAX);
 
-                if (lseek(i->raw_job->disk_fd, SEEK_SET, 0) < 0)
+                if (lseek(i->raw_job->disk_fd, 0, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to beginning of vendor image: %m");
         }
 
