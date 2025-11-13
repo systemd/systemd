@@ -570,8 +570,8 @@ int seat_read_active_vt(Seat *s) {
         if (!seat_has_vts(s))
                 return 0;
 
-        if (lseek(s->manager->console_active_fd, SEEK_SET, 0) < 0)
-                return log_error_errno(errno, "lseek on console_active_fd failed: %m");
+        if (lseek(s->manager->console_active_fd, 0, SEEK_SET) < 0)
+                return log_error_errno(errno, "lseek() on console_active_fd failed: %m");
 
         errno = 0;
         k = read(s->manager->console_active_fd, t, sizeof(t)-1);
