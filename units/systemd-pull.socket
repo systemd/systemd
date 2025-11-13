@@ -11,7 +11,7 @@
 Description=Download disk images.
 
 [Socket]
-ListenStream=/run/systemd/io.systemd.PullBackend
+ListenStream=/run/systemd/io.systemd.PullWorker
 FileDescriptorName=varlink
 SocketMode=0666
 Accept=yes

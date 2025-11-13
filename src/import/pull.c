@@ -29,7 +29,7 @@
 #include "string-table.h"
 #include "signal-util.h"
 #include "string-util.h"
-#include "varlink-io.systemd.PullBackend.h"
+#include "varlink-io.systemd.PullWorker.h"
 #include "varlink-util.h"
 #include "verbs.h"
 #include "web-util.h"
@@ -662,7 +662,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         r = set_checksum(p.checksum);
         if (r < 0) {
-                sd_varlink_error(link, "io.systemd.PullBackend.InvalidChecksum", NULL);
+                sd_varlink_error(link, "io.systemd.PullWorker.InvalidChecksum", NULL);
                 return r;
         }
 
@@ -685,7 +685,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 assert_not_reached ();
         }
         if (r < 0)
-               sd_varlink_error(link, "io.systemd.PullBackend.PullError", NULL);
+               sd_varlink_error(link, "io.systemd.PullWorker.PullError", NULL);
 
         return sd_varlink_reply(link, NULL);
 }
@@ -698,11 +698,11 @@ static int vl_server(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PullBackend);
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PullWorker);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-        r = sd_varlink_server_bind_method(varlink_server, "io.systemd.PullBackend.Pull", vl_method_pull);
+        r = sd_varlink_server_bind_method(varlink_server, "io.systemd.PullWorker.Pull", vl_method_pull);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method: %m");
 
