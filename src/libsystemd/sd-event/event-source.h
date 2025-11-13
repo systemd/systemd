@@ -67,7 +67,7 @@ struct sd_event_source {
         int64_t priority;
         unsigned pending_index;
         unsigned prepare_index;
-        uint64_t pending_iteration;
+        uint64_t dispatch_iteration;
         uint64_t prepare_iteration;
 
         sd_event_destroy_t destroy_callback;
