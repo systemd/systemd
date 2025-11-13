@@ -250,6 +250,67 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
+static int pull_direct(const char *url, const char *local, ImportType type) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(tar_pull_unrefp) TarPull *tar_pull = NULL;
+        _cleanup_(raw_pull_unrefp) RawPull *raw_pull = NULL;
+        int r;
+
+        assert(FLAGS_SET(arg_import_flags, IMPORT_DIRECT));
+
+        if (!http_url_is_valid(url) && !file_url_is_valid(url))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "URL '%s' is not valid.", url);
+
+        if (!path_is_absolute(local) || !path_is_valid(local))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Local path name '%s' is not valid.", local);
+
+        if (!FLAGS_SET(arg_import_flags, IMPORT_SYNC))
+                log_info("File system synchronization on completion is off.");
+
+        r = import_allocate_event_with_signals(&event);
+        if (r < 0)
+                return r;
+
+        if (type == IMPORT_TAR) {
+                r = tar_pull_new(&tar_pull, event, arg_image_root, on_tar_finished, event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate puller: %m");
+
+                r = tar_pull_start(
+                                tar_pull,
+                                url,
+                                local,
+                                arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
+                                arg_verify,
+                                arg_checksum);
+        } else if (type == IMPORT_RAW) {
+                r = raw_pull_new(&raw_pull, event, arg_image_root, on_raw_finished, event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate puller: %m");
+
+                r = raw_pull_start(
+                                raw_pull,
+                                url,
+                                local,
+                                arg_offset,
+                                arg_size_max,
+                                arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
+                                arg_verify,
+                                arg_checksum);
+        } else {
+                assert_not_reached ();
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to pull image: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
+
+        log_info("Exiting.");
+        return -r;
+}
+
 static int help(int argc, char *argv[], void *userdata) {
 
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
@@ -672,18 +733,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                         return log_error_errno(r, "Failed to pick image root: %m");
         }
 
-        char *argv[] = {
-                NULL,
-                strdup(p.source),
-                strdup(p.destination),
-        };
-        if (p.mode == IMPORT_RAW) {
-                r = pull_raw (3, argv, NULL);
-        } else if (p.mode == IMPORT_TAR) {
-                r = pull_tar (3, argv, NULL);
-        } else {
-                assert_not_reached ();
-        }
+        r = pull_direct(p.source, p.destination, p.mode);
         if (r < 0)
                sd_varlink_error(link, "io.systemd.PullWorker.PullError", NULL);
 
