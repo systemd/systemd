@@ -68,6 +68,7 @@ int efi_get_variable(
 
                 if (fstat(fd, &st) < 0)
                         return log_debug_errno(errno, "fstat(\"%s\") failed: %m", p);
+
                 r = stat_verify_regular(&st);
                 if (r < 0)
                         return log_debug_errno(r, "EFI variable '%s' is not a regular file, refusing: %m", p);
