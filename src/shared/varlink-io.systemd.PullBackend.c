@@ -1,14 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-polkit.h"
+
+
+#include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.PullBackend.h"
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
-                PullMode,
-                SD_VARLINK_FIELD_COMMENT("A raw image"),
-                SD_VARLINK_DEFINE_ENUM_VALUE(raw),
-                SD_VARLINK_FIELD_COMMENT("A tar archive"),
-                SD_VARLINK_DEFINE_ENUM_VALUE(tar));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 PullInstance,
@@ -24,7 +21,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Version to download"),
                 SD_VARLINK_DEFINE_INPUT(version, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Download mode"),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, PullMode, 0),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(mode, RemoteType, 0),
                 SD_VARLINK_FIELD_COMMENT("Sync files after download"),
                 SD_VARLINK_DEFINE_INPUT(fsync, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_FIELD_COMMENT("Checksum of downloaded image"),
@@ -46,7 +43,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 "io.systemd.PullBackend",
                 SD_VARLINK_INTERFACE_COMMENT("An interface for downloading disk images"),
                 SD_VARLINK_SYMBOL_COMMENT("Download mode"),
-                &vl_type_PullMode,
+                &vl_type_RemoteType,
                 SD_VARLINK_SYMBOL_COMMENT("Instance to use for delta updates"),
                 &vl_type_PullInstance,
                 SD_VARLINK_SYMBOL_COMMENT("Downloads a disk image"),
