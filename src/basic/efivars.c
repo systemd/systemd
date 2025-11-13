@@ -123,6 +123,9 @@ int efi_get_variable(
                         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Reading EFI variable '%s' failed even after %u tries, giving up.", p, try);
                 if (try >= EFI_N_RETRIES_NO_DELAY)
                         (void) usleep_safe(EFI_RETRY_DELAY);
+
+                /* Start from the beginning */
+                (void) lseek(fd, 0, SEEK_SET);
         }
 
         /* Unfortunately kernel reports EOF if there's an inconsistency between efivarfs var list and
