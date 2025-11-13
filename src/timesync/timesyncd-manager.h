@@ -71,6 +71,10 @@ typedef struct Manager {
 
         /* data needed for the handshake part only */
         NTS_TLS *nts_handshake;
+        uint8_t nts_packet_buffer[1024];
+        int nts_request_size;
+        int nts_bytes_processed;
+
         unsigned nts_tls_patience;
         enum {
                 NTS_HANDSHAKE_TLS_SETUP,
