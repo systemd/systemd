@@ -260,16 +260,15 @@ def _includes(el):
         if el.get('href') == 'version-info.xml':
             versionString = conf.global_substitutions.get(
                 el.get("xpointer"))
-            # `\n\n   \n\n   ` forces a newline and subsequent indent.
-            # The empty spaces are stripped later
-            return f".. only:: html\n\n   \n\n   .. versionadded:: {versionString}\n\n   "
+            return f"\n\n.. only:: html\n\n   \n\n   .. versionadded:: {versionString}\n \n \n"
         elif not el.get("xpointer"):
             return f".. include:: ../includes/{el.get('href').replace('xml', 'rst')}"
         elif el.get('href') in include_files:
             return f""".. include:: ../includes/{el.get('href').replace('xml', 'rst')}
-                    :start-after: .. inclusion-marker-do-not-remove {el.get("xpointer")}
-                    :end-before: .. inclusion-end-marker-do-not-remove {el.get("xpointer")}
-                    """
+    :start-after: .. inclusion-marker-do-not-remove {el.get("xpointer")}
+    :end-before: .. inclusion-end-marker-do-not-remove {el.get("xpointer")}
+
+"""
 
     elif file_extension == '.c':
         return f"""
@@ -279,16 +278,26 @@ def _includes(el):
 
 """
     elif file_extension == '.py':
-        return f""".. literalinclude:: /code-examples/py/{el.get('href')}
-                    :language: python
-                """
+        return f"""
+
+.. literalinclude:: /code-examples/py/{el.get('href')}
+    :language: python
+
+"""
     elif file_extension == '.sh':
-        return f""".. literalinclude:: /code-examples/sh/{el.get('href')}
-                    :language: shell
-                """
+        return f"""
+
+.. literalinclude:: /code-examples/sh/{el.get('href')}
+    :language: shell
+
+"""
     else:
-        return f""".. literalinclude:: /code-examples/{el.get('href')}
-                """
+        return f"""
+
+.. literalinclude:: /code-examples/{el.get('href')}
+
+"""
+        return
 
 
 def _conv(el):
@@ -377,7 +386,7 @@ def _make_title(t, level, indentLevel=0):
     t = t.replace('\n', ' ').strip()
 
     if level == 1:
-        return "\n\n" + "=" * len(t) + "\n" + t + "\n" + "=" * len(t)
+        return "\n\n" + "=" * len(t) + "\n" + t + "\n" + "=" * len(t) + "\n\n"
 
     char = ["#", "=", "-", "~", "^", "."]
     underline = char[level-2] * len(t)
@@ -777,14 +786,16 @@ def varlistentry(el):
         if i.tag == 'term':
             s += _conv(i) + '\n\n'
         else:
+            # TODO: this no longer seems necessary
             # Handle nested list items, this is mainly for
             # options that have options
-            if i.tag == 'listitem':
-                global _indent_next_listItem_by
-                s += _indent(i, _indent_next_listItem_by, None, True)
-                _indent_next_listItem_by = 0
-            else:
-                s += _indent(i, 0, None, True)
+            # if i.tag == 'listitem':
+            #     global _indent_next_listItem_by
+            #     s += _indent(i, _indent_next_listItem_by, None, True) + "!"
+            #     _indent_next_listItem_by = 0
+            # else:
+                # s += _indent(i, 0, None, True)
+                s += _conv(i)
     if id is not None:
         s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
     return s
