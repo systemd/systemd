@@ -71,6 +71,11 @@ FILES_USED_FOR_INCLUDES = [
     'vpick.xml',
 ]
 
+# These files are xml, but should not be parsed as they # are included as literal xml
+SKIP_LITERAL_INCLUDES = [
+    '../man/vtable-example.xml'
+]
+
 # to avoid dupliate error reports
 _not_handled_tags = set()
 
