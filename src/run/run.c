@@ -866,6 +866,10 @@ static int parse_argv(int argc, char *argv[]) {
                                                "--wait may not be combined with --scope.");
         }
 
+        if (arg_scope && arg_root_directory)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--root-directory= is not supported in --scope mode.");
+
         if (same_dir && arg_root_directory && !path_equal(arg_root_directory, "/"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--same-dir cannot be used with a root directory other than '/'");
