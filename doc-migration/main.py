@@ -26,6 +26,7 @@ FILES_USED_FOR_INCLUDES = [
     'systemd.link.xml',
     'systemd.mount.xml',
     'systemd.netdev.xml',
+    'systemd-resolved.service.xml',
     'tc.xml',
     'threads-aware.xml',
     'timedatectl.xml',
