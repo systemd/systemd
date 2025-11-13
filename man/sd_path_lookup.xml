@@ -41,6 +41,7 @@
         <constant>SD_PATH_SYSTEM_STATE_FACTORY</constant>,
 
         <constant>SD_PATH_SYSTEM_CONFIGURATION</constant>,
+        <constant>SD_PATH_SYSTEM_SEARCH_CONFIGURATION</constant>,
         <constant>SD_PATH_SYSTEM_RUNTIME</constant>,
         <constant>SD_PATH_SYSTEM_RUNTIME_LOGS</constant>,
         <constant>SD_PATH_SYSTEM_STATE_PRIVATE</constant>,
@@ -76,7 +77,6 @@
         <constant>SD_PATH_SEARCH_CONFIGURATION_FACTORY</constant>,
         <constant>SD_PATH_SEARCH_STATE_FACTORY</constant>,
         <constant>SD_PATH_SEARCH_CONFIGURATION</constant>,
-        <constant>SD_PATH_SEARCH_SYSCTL</constant>,
 
         <constant>SD_PATH_SYSTEMD_UTIL</constant>,
         <constant>SD_PATH_SYSTEMD_SYSTEM_UNIT</constant>,
