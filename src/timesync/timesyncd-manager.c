@@ -1499,11 +1499,11 @@ static int manager_nts_handshake_setup(Manager *m) {
 static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        int r;
+        int size, r;
 
         static uint8_t buffer[1024];
-        static uint8_t *bufp;
-        static int size;
+        static int request_size;
+        static int processed;
         static NTS_Agreement NTS;
 
         switch (m->nts_handshake_state) {
@@ -1534,14 +1534,15 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                                 prefs[prefs_len++] = *algo_type;
 
 
-                bufp = buffer;
-                size = NTS_encode_request(buffer, sizeof(buffer), prefs);
-                assert(size <= (int)sizeof(buffer));
+                request_size = NTS_encode_request(buffer, sizeof(buffer), prefs);
+                assert(request_size <= (int)sizeof(buffer));
+                processed = 0;
 
                 m->nts_handshake_state = NTS_HANDSHAKE_TX;
 
         case NTS_HANDSHAKE_TX:
-                r = NTS_TLS_write(m->nts_handshake, bufp, size);
+                size = request_size - processed;
+                r = NTS_TLS_write(m->nts_handshake, buffer + processed, size);
                 assert(r <= size);
 
                 if (r <= 0 || (r < size && m->nts_tls_patience-- <= 0)) {
@@ -1549,18 +1550,17 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                         NTS_TLS_close(m->nts_handshake);
                         return manager_connect(m);
                 } else if (r < size) {
-                        bufp += r, size -= r;
+                        processed += r;
                         return 1;
                 }
 
                 /* NTS request sent, read the reply */
-                bufp = buffer;
-
+                processed = 0;
                 m->nts_handshake_state = NTS_HANDSHAKE_RX;
 
         case NTS_HANDSHAKE_RX:
-                r = NTS_TLS_read(m->nts_handshake, bufp, sizeof(buffer) - (bufp - buffer));
-                assert(r <= (int)sizeof(buffer) - (bufp - buffer));
+                r = NTS_TLS_read(m->nts_handshake, buffer + processed, sizeof(buffer) - processed);
+                assert(r <= (int)sizeof(buffer) - processed);
 
                 if (r < 0) {
                         log_error("Error receiving NTS key response");
@@ -1568,9 +1568,9 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                         return manager_connect(m);
                 }
 
-                bufp += r;
+                processed += r;
 
-                r = NTS_decode_response(buffer, bufp - buffer, &NTS);
+                r = NTS_decode_response(buffer, processed, &NTS);
                 if (r < 0) {
                         if (NTS.error == NTS_INSUFFICIENT_DATA && m->nts_tls_patience-- > 0)
                                 return 1;
