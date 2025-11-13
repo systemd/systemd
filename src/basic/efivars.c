@@ -90,10 +90,10 @@ int efi_get_variable(
                 }
 
                 /* We want +1 for the read call, and +3 for the additional terminating bytes added below. */
-                char *t = realloc(buf, (size_t) st.st_size + MAX(1, 3));
-                if (!t)
+                free(buf);
+                buf = malloc((size_t) st.st_size + MAX(1, 3));
+                if (!buf)
                         return -ENOMEM;
-                buf = t;
 
                 const struct iovec iov[] = {
                         { &attr, sizeof(attr) },
