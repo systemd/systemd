@@ -260,6 +260,15 @@ colon-separated strings, identifying the file system type, UUID, label as well
 as the GPT partition entry UUID, entry type UUID and entry label (in UTF-8,
 without trailing NUL bytes).
 
+### PCR 9, NvPCR initialization separator
+
+After completion of `systemd-tpm2-setup.service` (which initializes all NvPCRs
+and measures their initial state) at arly boot the `systemd-pcrnvdone.service`
+service will measure a separator event into PCR 9, isolating the early-boot
+NvPCR initializations from any later additions.
+
+→ **Measured hash** covers the string `nvpcr-separator`.
+
 ## PCR/NvPCR Measurements Made by `systemd-cryptsetup` (Userspace)
 
 ### PCR 15, volume key

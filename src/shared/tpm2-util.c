@@ -6427,6 +6427,7 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
         [TPM2_EVENT_PRODUCT_ID]           = "product-id",
         [TPM2_EVENT_KEYSLOT]              = "keyslot",
         [TPM2_EVENT_NVPCR_INITIALIZATION] = "nvpcr-initialization",
+        [TPM2_EVENT_NVPCR_SEPARATOR]      = "nvpcr-separator",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);

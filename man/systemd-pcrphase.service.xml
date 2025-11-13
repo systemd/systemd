@@ -24,6 +24,7 @@
     <refname>systemd-pcrproduct.service</refname>
     <refname>systemd-pcrfs-root.service</refname>
     <refname>systemd-pcrfs@.service</refname>
+    <refname>systemd-pcrnvdone.service</refname>
     <refname>systemd-pcrextend</refname>
     <refpurpose>Measure boot phases, machine ID, product UUID and file system identity into TPM PCRs and NvPCRs</refpurpose>
   </refnamediv>
@@ -53,6 +54,9 @@
     <para><filename>systemd-pcrproduct.service</filename> is a system service that measures the firmware
     product UUID (as provided by one of SMBIOS, Devicetree, …) into a NvPCR named
     <literal>hardware</literal>.</para>
+
+    <para><filename>systemd-pcrnvdone.service</filename> is a system service that measures a separator event
+    into PCR 9 once all NvPCRs have completed initialization.</para>
 
     <para><filename>systemd-pcrfs-root.service</filename> and <filename>systemd-pcrfs@.service</filename> are
     services that measure file system identity information (i.e. mount point, file system type, label and
