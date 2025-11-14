@@ -77,7 +77,8 @@ typedef struct Manager {
 
         unsigned nts_tls_patience;
         enum {
-                NTS_HANDSHAKE_TLS_SETUP,
+                NTS_HANDSHAKE_SETUP,
+                NTS_HANDSHAKE_TLS,
                 NTS_HANDSHAKE_TX,
                 NTS_HANDSHAKE_RX,
                 _NTS_HANDSHAKE_STATE_MAX,
