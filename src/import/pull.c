@@ -379,6 +379,41 @@ static int set_checksum(const char *checksum) {
         return 1;
 }
 
+static int check_argv(bool auto_settings, bool auto_keep_download) {
+        int r;
+        /* Make sure offset+size is still in the valid range if both set */
+        if (arg_offset != UINT64_MAX && arg_size_max != UINT64_MAX &&
+            ((arg_size_max > (UINT64_MAX - arg_offset)) ||
+             !FILE_SIZE_VALID(arg_offset + arg_size_max)))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset und maximum size out of range.");
+
+        if (arg_offset != UINT64_MAX && !FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset only supported in --direct mode.");
+
+        if (iovec_is_set(&arg_checksum) && (arg_import_flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Literal checksum verification only supported if no associated files are downloaded.");
+
+        if (!arg_image_root) {
+                r = image_root_pick(arg_runtime_scope < 0 ? RUNTIME_SCOPE_SYSTEM : arg_runtime_scope, arg_class, /* runtime= */ false, &arg_image_root);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pick image root: %m");
+        }
+
+        /* .nspawn settings files only really make sense for machine images, not for sysext/confext/portable */
+        if (auto_settings && arg_class != IMAGE_MACHINE)
+                arg_import_flags &= ~IMPORT_PULL_SETTINGS;
+
+        /* Keep the original pristine downloaded file as a copy only when dealing with machine images,
+         * because unlike sysext/confext/portable they are typically modified during runtime. */
+        if (auto_keep_download)
+                SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, arg_class == IMAGE_MACHINE);
+
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER)
+                arg_import_flags |= IMPORT_FOREIGN_UID;
+
+        return 1;
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -608,38 +643,7 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
-
-        /* Make sure offset+size is still in the valid range if both set */
-        if (arg_offset != UINT64_MAX && arg_size_max != UINT64_MAX &&
-            ((arg_size_max > (UINT64_MAX - arg_offset)) ||
-             !FILE_SIZE_VALID(arg_offset + arg_size_max)))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset und maximum size out of range.");
-
-        if (arg_offset != UINT64_MAX && !FLAGS_SET(arg_import_flags, IMPORT_DIRECT))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File offset only supported in --direct mode.");
-
-        if (iovec_is_set(&arg_checksum) && (arg_import_flags & (IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY)) != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Literal checksum verification only supported if no associated files are downloaded.");
-
-        if (!arg_image_root) {
-                r = image_root_pick(arg_runtime_scope < 0 ? RUNTIME_SCOPE_SYSTEM : arg_runtime_scope, arg_class, /* runtime= */ false, &arg_image_root);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to pick image root: %m");
-        }
-
-        /* .nspawn settings files only really make sense for machine images, not for sysext/confext/portable */
-        if (auto_settings && arg_class != IMAGE_MACHINE)
-                arg_import_flags &= ~IMPORT_PULL_SETTINGS;
-
-        /* Keep the original pristine downloaded file as a copy only when dealing with machine images,
-         * because unlike sysext/confext/portable they are typically modified during runtime. */
-        if (auto_keep_download)
-                SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, arg_class == IMAGE_MACHINE);
-
-        if (arg_runtime_scope == RUNTIME_SCOPE_USER)
-                arg_import_flags |= IMPORT_FOREIGN_UID;
-
-        return 1;
+        return check_argv (auto_settings, auto_keep_download);
 }
 
 static void parse_env(void) {
@@ -686,6 +690,8 @@ typedef struct MethodPullParameters {
         const char *checksum;
         const char *source;
         const char *destination;
+        uint64_t offset;
+        uint64_t size_max;
 } MethodPullParameters;
 
 static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -701,12 +707,16 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 { "destination",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, destination), SD_JSON_MANDATORY },
                 { "cacheDirectory", SD_JSON_VARIANT_STRING,  NULL,                          0,                                           0 },
                 { "instances",      SD_JSON_VARIANT_ARRAY,   NULL,                          0,                                           0 },
+                { "offset",         SD_JSON_VARIANT_NUMBER,  sd_json_dispatch_uint64,       offsetof(MethodPullParameters, offset),      0 },
+                { "maxSize",        SD_JSON_VARIANT_NUMBER,  sd_json_dispatch_uint64,       offsetof(MethodPullParameters, size_max),    0 },
                 {}
         };
 
         MethodPullParameters p = {
                 .fsync = true,
                 .mode = _IMPORT_TYPE_INVALID,
+                .offset = 0,
+                .size_max = UINT_MAX
         };
         int r;
 
@@ -718,24 +728,28 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         SET_FLAG(arg_import_flags, IMPORT_SYNC, p.fsync);
 
-        arg_import_flags |= IMPORT_DIRECT;
-        arg_import_flags &= ~(IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY);
+        if (!FILE_SIZE_VALID(p.offset))
+                return sd_varlink_error(link, "io.systemd.PullWorker.InvalidParameters", NULL);
+        arg_offset = p.offset;
+
+        if (!FILE_SIZE_VALID(p.size_max) || (p.size_max % 1024) == 0)
+                return sd_varlink_error(link, "io.systemd.PullWorker.InvalidParameters", NULL);
+        arg_size_max = p.size_max;
+
+        SET_FLAG(arg_import_flags, IMPORT_DIRECT, true);
+        SET_FLAG(arg_import_flags, IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY, false);
 
         r = set_checksum(p.checksum);
-        if (r < 0) {
-                sd_varlink_error(link, "io.systemd.PullWorker.InvalidChecksum", NULL);
-                return r;
-        }
+        if (r < 0)
+                return sd_varlink_error(link, "io.systemd.PullWorker.InvalidParameters", NULL);
 
-        if (!arg_image_root) {
-                r = image_root_pick(arg_runtime_scope < 0 ? RUNTIME_SCOPE_SYSTEM : arg_runtime_scope, arg_class, /* runtime= */ false, &arg_image_root);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to pick image root: %m");
-        }
+        r = check_argv (true, true);
+        if (r < 0)
+                return sd_varlink_error(link, "io.systemd.PullWorker.InvalidParameters", NULL);
 
         r = pull_direct(p.source, p.destination, p.mode);
         if (r < 0)
-               sd_varlink_error(link, "io.systemd.PullWorker.PullError", NULL);
+                return sd_varlink_error(link, "io.systemd.PullWorker.PullError", NULL);
 
         return sd_varlink_reply(link, NULL);
 }

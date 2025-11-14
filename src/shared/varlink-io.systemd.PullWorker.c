@@ -33,9 +33,13 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Cache directory"),
                 SD_VARLINK_DEFINE_INPUT(cacheDirectory, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Instances to use for delta updating"),
-                SD_VARLINK_DEFINE_INPUT_BY_TYPE(instances, PullInstance, SD_VARLINK_ARRAY));
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(instances, PullInstance, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("start offset for data in destination"),
+                SD_VARLINK_DEFINE_INPUT(offset, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Maximum size of written data"),
+                SD_VARLINK_DEFINE_INPUT(maxSize, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_ERROR(InvalidChecksum);
+static SD_VARLINK_DEFINE_ERROR(InvalidParameter);
 static SD_VARLINK_DEFINE_ERROR(PullError);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -48,7 +52,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_PullInstance,
                 SD_VARLINK_SYMBOL_COMMENT("Downloads a disk image"),
                 &vl_method_Pull,
-                SD_VARLINK_SYMBOL_COMMENT("The specified checksum is invalid"),
-                &vl_error_InvalidChecksum,
+                SD_VARLINK_SYMBOL_COMMENT("A parameter is invalid"),
+                &vl_error_InvalidParameter,
                 SD_VARLINK_SYMBOL_COMMENT("An error occured while pulling the download"),
                 &vl_error_PullError);
