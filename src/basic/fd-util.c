@@ -978,7 +978,10 @@ int fd_vet_accmode(int fd, int mode) {
         if (flags < 0)
                 return -errno;
 
-        if (FLAGS_SET(flags, O_DIRECTORY))
+        /* O_TMPFILE in userspace is defined with O_DIRECTORY OR'ed in, so explicitly permit it.
+         *
+         * C.f. https://elixir.bootlin.com/linux/v6.17.7/source/include/uapi/asm-generic/fcntl.h#L92 */
+        if (FLAGS_SET(flags, O_DIRECTORY) && !FLAGS_SET(flags, O_TMPFILE))
                 return -EISDIR;
 
         if (FLAGS_SET(flags, O_PATH))
