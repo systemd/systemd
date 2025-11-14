@@ -1454,6 +1454,23 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
 
 #if ENABLE_TIMESYNC_NTS
 
+static int manager_nts_handshake_timeout(sd_event_source *source, usec_t usec, void *userdata) {
+        _cleanup_free_ char *pretty = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(m->current_server_name);
+        assert(m->current_server_address);
+
+        if (m->nts_handshake)
+                NTS_TLS_close(m->nts_handshake);
+        m->nts_handshake = NULL;
+
+        server_address_pretty(m->current_server_address, &pretty);
+        log_info("Timed out during key exchange with %s (%s).", strna(pretty), m->current_server_name->string);
+
+        return manager_connect(m);
+}
+
 static int manager_nts_handshake_setup(Manager *m) {
         int r;
 
@@ -1481,12 +1498,20 @@ static int manager_nts_handshake_setup(Manager *m) {
 
         (void) socket_set_option(m->server_socket, addr->sa_family, IP_TOS, IPV6_TCLASS, IPTOS_DSCP_EF);
 
-        /* TODO: this parameter has nothing to do with msec anymore -- replace with alarm */
-        m->nts_tls_patience = m->nts_keyexchange_timeout_usec / USEC_PER_MSEC;
-
         m->nts_handshake_state = NTS_HANDSHAKE_SETUP;
 
         log_debug("Performing key exchange with %s\n", m->current_server_name->string);
+
+        m->nts_timeout = sd_event_source_unref(m->nts_timeout);
+
+        r = sd_event_add_time_relative(
+                        m->event,
+                        &m->nts_timeout,
+                        CLOCK_BOOTTIME,
+                        m->nts_keyexchange_timeout_usec, 0,
+                        manager_nts_handshake_timeout, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to arm NTS key exchange timeout timer: %m");
 
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN|EPOLLOUT, manager_nts_obtain_agreement, m);
 }
@@ -1513,7 +1538,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
         case NTS_HANDSHAKE_TLS:
                 r = NTS_TLS_handshake(m->nts_handshake);
-                if (r > 0 && m->nts_tls_patience-- > 0)
+                if (r > 0)
                         return 1;
 
                 if (r != 0) {
@@ -1551,7 +1576,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 r = NTS_TLS_write(m->nts_handshake, bufp, size);
                 assert(r <= size);
 
-                if (r <= 0 || (r < size && m->nts_tls_patience-- <= 0)) {
+                if (r <= 0) {
                         log_error("Error sending NTS key request");
                         NTS_TLS_close(m->nts_handshake);
                         return manager_connect(m);
@@ -1580,7 +1605,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                 r = NTS_decode_response(m->nts_packet_buffer, m->nts_bytes_processed, &NTS);
                 if (r < 0) {
-                        if (NTS.error == NTS_INSUFFICIENT_DATA && m->nts_tls_patience-- > 0)
+                        if (NTS.error == NTS_INSUFFICIENT_DATA)
                                 return 1;
 
                         log_error("NTS Error: %s", NTS_error_string(NTS.error));
@@ -1588,8 +1613,8 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                         return manager_connect(m);
                 }
 
-                m->server_socket = safe_close(m->server_socket);
                 /* end of interactive part of the NTS handshake */
+                m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                 break;
 
         default:
@@ -1607,6 +1632,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
         NTS_TLS_close(m->nts_handshake);
         m->nts_handshake = NULL;
+        m->server_socket = safe_close(m->server_socket);
 
         if (r != 0) {
                 log_error("Key extraction failed");
