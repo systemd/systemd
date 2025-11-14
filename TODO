@@ -155,6 +155,10 @@ Features:
   maintained root fs in a regular dir to maintain local state. (idea: call it
   --mutable= and take dir or DDI and merge in)
 
+* measure all log-in attempts into a new nvpcr
+
+* measure all DDI activations into a new nvpcr
+
 * maybe rework systemd-modules-load to be a generator that just instantiates
   modprobe@.service a bunch of times
 
