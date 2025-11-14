@@ -692,6 +692,7 @@ typedef struct MethodPullParameters {
         const char *destination;
         uint64_t offset;
         uint64_t size_max;
+        bool subvolume;
 } MethodPullParameters;
 
 static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -709,6 +710,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 { "instances",      SD_JSON_VARIANT_ARRAY,   NULL,                          0,                                           0 },
                 { "offset",         SD_JSON_VARIANT_NUMBER,  sd_json_dispatch_uint64,       offsetof(MethodPullParameters, offset),      0 },
                 { "maxSize",        SD_JSON_VARIANT_NUMBER,  sd_json_dispatch_uint64,       offsetof(MethodPullParameters, size_max),    0 },
+                { "subvolume",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodPullParameters, subvolume),   0 },
                 {}
         };
 
@@ -716,7 +718,8 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 .fsync = true,
                 .mode = _IMPORT_TYPE_INVALID,
                 .offset = 0,
-                .size_max = UINT_MAX
+                .size_max = UINT_MAX,
+                .subvolume = false,
         };
         int r;
 
@@ -738,6 +741,8 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         SET_FLAG(arg_import_flags, IMPORT_DIRECT, true);
         SET_FLAG(arg_import_flags, IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY, false);
+
+        SET_FLAG(arg_import_flags, IMPORT_BTRFS_SUBVOL, p.subvolume);
 
         r = set_checksum(p.checksum);
         if (r < 0)
