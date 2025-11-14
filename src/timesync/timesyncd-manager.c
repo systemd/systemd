@@ -141,7 +141,6 @@ static int manager_send_request(Manager *m) {
          * connection to perform key extractions and obtain cookies
          */
         if (m->nts_missing_cookies >= ELEMENTSOF(m->nts_cookies)) {
-                /* Set a patience timer to thwart slowloris attacks */
                 return manager_nts_handshake_setup(m);
         }
 #endif
@@ -1456,7 +1455,6 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
 #if ENABLE_TIMESYNC_NTS
 
 static int manager_nts_handshake_setup(Manager *m) {
-        union sockaddr_union addr = {};
         int r;
 
         assert(m);
@@ -1467,13 +1465,13 @@ static int manager_nts_handshake_setup(Manager *m) {
         assert(!m->event_receive);
         assert(m->current_server_address);
 
-        addr.sa.sa_family = m->current_server_address->sockaddr.sa.sa_family;
+        struct sockaddr *addr = &m->current_server_address->sockaddr.sa;
 
-        m->server_socket = socket(addr.sa.sa_family, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        m->server_socket = socket(addr->sa_family, SOCK_STREAM | SOCK_CLOEXEC, 0);
         if (m->server_socket < 0)
                 return -errno;
 
-        r = bind(m->server_socket, &addr.sa, m->current_server_address->socklen);
+        r = connect(m->server_socket, addr, m->current_server_address->socklen);
         if (r < 0)
                 return -errno;
 
@@ -1481,19 +1479,16 @@ static int manager_nts_handshake_setup(Manager *m) {
         if (r < 0)
                 return r;
 
-        (void) socket_set_option(m->server_socket, addr.sa.sa_family, IP_TOS, IPV6_TCLASS, IPTOS_DSCP_EF);
+        (void) socket_set_option(m->server_socket, addr->sa_family, IP_TOS, IPV6_TCLASS, IPTOS_DSCP_EF);
 
         /* TODO: this parameter has nothing to do with msec anymore -- replace with alarm */
         m->nts_tls_patience = m->nts_keyexchange_timeout_usec / USEC_PER_MSEC;
-        int socket = NTS_attach_socket(m->current_server_name->string, 4460, SOCK_STREAM);
+
+        m->nts_handshake_state = NTS_HANDSHAKE_SETUP;
 
         log_debug("Performing key exchange with %s\n", m->current_server_name->string);
 
-        m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, socket);
-        if (!m->nts_handshake)
-                return -ENOMEM;
-
-        return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_nts_obtain_agreement, m);
+        return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN|EPOLLOUT, manager_nts_obtain_agreement, m);
 }
 
 static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
@@ -1503,8 +1498,20 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         uint8_t *bufp;
         int size, r;
 
+        if (revents & (EPOLLHUP|EPOLLERR)) {
+                log_warning("Server connection returned error.");
+                return manager_connect(m);
+        }
+
         switch (m->nts_handshake_state) {
-        case NTS_HANDSHAKE_TLS_SETUP:
+        case NTS_HANDSHAKE_SETUP:
+                m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, m->server_socket);
+                if (!m->nts_handshake)
+                        return -ENOMEM;
+
+                m->nts_handshake_state = NTS_HANDSHAKE_TLS;
+
+        case NTS_HANDSHAKE_TLS:
                 r = NTS_TLS_handshake(m->nts_handshake);
                 if (r > 0 && m->nts_tls_patience-- > 0)
                         return 1;
@@ -1581,6 +1588,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                         return manager_connect(m);
                 }
 
+                m->server_socket = safe_close(m->server_socket);
                 /* end of interactive part of the NTS handshake */
                 break;
 
