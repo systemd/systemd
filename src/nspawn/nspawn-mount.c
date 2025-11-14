@@ -814,9 +814,20 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                         return r;
         }
 
+        /* ID remapping cannot be done if user namespaces are not in use (uid_shift is UID_INVALID).
+         * Fail if idmapping was explicitly requested in this state. Otherwise, treat UID_INVALID
+         * as 0 for ownership operations. */
+        if (idmapping != REMOUNT_IDMAPPING_NONE && !uid_is_valid(uid_shift))
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "ID remapping requested for %s, but user namespacing is not enabled.",
+                                m->source);
+
+        uid_t chown_uid = uid_is_valid(uid_shift) ? uid_shift : 0;
+
         /* If this is a bind mount from a temporary sources change ownership of the source to the container's
          * root UID. Otherwise it would always show up as "nobody" if user namespacing is used. */
-        if (m->rm_rf_tmpdir && chown(m->source, uid_shift, uid_shift) < 0)
+        if (m->rm_rf_tmpdir && chown(m->source, chown_uid, chown_uid) < 0)
                 return log_error_errno(errno, "Failed to chown %s: %m", m->source);
 
         /* UID/GIDs of idmapped mounts are always resolved in the caller's user namespace. In other
@@ -850,7 +861,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                 if (stat(where, &dest_st) < 0)
                         return log_error_errno(errno, "Failed to stat %s: %m", where);
 
-                dest_uid = uid_is_valid(m->destination_uid) ? uid_shift + m->destination_uid : dest_st.st_uid;
+                dest_uid = uid_is_valid(m->destination_uid) ? chown_uid + m->destination_uid : dest_st.st_uid;
 
                 if (S_ISDIR(source_st.st_mode) && !S_ISDIR(dest_st.st_mode))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -863,7 +874,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                                                m->source, where);
 
         } else { /* Path doesn't exist yet? */
-                r = mkdir_parents_safe_label(dest, where, 0755, uid_shift, uid_shift, MKDIR_IGNORE_EXISTING);
+                r = mkdir_parents_safe_label(dest, where, 0755, chown_uid, chown_uid, MKDIR_IGNORE_EXISTING);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make parents of %s: %m", where);
 
@@ -878,10 +889,10 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
                 if (r < 0)
                         return log_error_errno(r, "Failed to create mount point %s: %m", where);
 
-                if (chown(where, uid_shift, uid_shift) < 0)
+                if (chown(where, chown_uid, chown_uid) < 0)
                         return log_error_errno(errno, "Failed to chown %s: %m", where);
 
-                dest_uid = uid_shift + (uid_is_valid(m->destination_uid) ? m->destination_uid : 0);
+                dest_uid = chown_uid + (uid_is_valid(m->destination_uid) ? m->destination_uid : 0);
         }
 
         if (move_mount(fd_clone, "", AT_FDCWD, where, MOVE_MOUNT_F_EMPTY_PATH) < 0)
