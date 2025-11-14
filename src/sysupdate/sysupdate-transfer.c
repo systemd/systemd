@@ -1114,8 +1114,11 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
                         return log_error_errno(r, "Failed to append instance info to pull request: %m");
         }
 
-
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *pull_link = NULL;
+        r = sd_varlink_connect_exec(&pull_link, "/usr/lib/systemd/systemd-pull", /* argv= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect systemd-pull: %m");
+
         const char *error_id = NULL;
         r = varlink_callbo_and_log(
                 pull_link,
