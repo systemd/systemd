@@ -381,6 +381,7 @@ static int set_checksum(const char *checksum) {
 }
 
 static int check_argv(bool auto_settings, bool auto_keep_download) {
+        int r;
         /* Make sure offset+size is still in the valid range if both set */
         if (arg_offset != UINT64_MAX && arg_size_max != UINT64_MAX &&
             ((arg_size_max > (UINT64_MAX - arg_offset)) ||
