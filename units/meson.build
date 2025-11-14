@@ -498,6 +498,10 @@ units = [
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
+          'file' : 'systemd-networkd-resolve-hook.socket',
+          'conditions' : ['ENABLE_NETWORKD'],
+        },
+        {
           'file' : 'systemd-networkd-wait-online.service.in',
           'conditions' : ['ENABLE_NETWORKD'],
         },
