@@ -29,6 +29,7 @@
 #include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "sd-json.h"
 #include "signal-util.h"
 #include "specifier.h"
 #include "stdio-util.h"
@@ -42,6 +43,7 @@
 #include "sysupdate-transfer.h"
 #include "time-util.h"
 #include "tmpfile-util.h"
+#include "varlink-util.h"
 #include "web-util.h"
 
 /* Default value for InstancesMax= for fs object targets */
@@ -1099,6 +1101,38 @@ static int run_callout(
         return sd_event_loop(event);
 }
 
+static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const char *digest, bool fsync) {
+        int r;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *instances_array = NULL;
+        FOREACH_ARRAY (instance, t->target.instances, t->target.n_instances) {
+                r = sd_json_variant_append_arraybo(
+                        &instances_array,
+                        SD_JSON_BUILD_PAIR_STRING("version", (*instance)->metadata.version),
+                        SD_JSON_BUILD_PAIR_STRING("cacheDirectory", ""),
+                        SD_JSON_BUILD_PAIR_STRING("location", (*instance)->path));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append instance info to pull request: %m");
+        }
+
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *pull_link = NULL;
+        const char *error_id = NULL;
+        r = varlink_callbo_and_log(
+                pull_link,
+                "io.systemd.PullWorker.Pull",
+                NULL,
+                &error_id,
+                SD_JSON_BUILD_PAIR_STRING("version", i->metadata.version),
+                SD_JSON_BUILD_PAIR_STRING("mode", i->resource->type == RESOURCE_TAR ? "tar" : "raw"),
+                SD_JSON_BUILD_PAIR_BOOLEAN("fsync", fsync),
+                SD_JSON_BUILD_PAIR_STRING("checksum", digest),
+                SD_JSON_BUILD_PAIR_STRING("source", i->path),
+                SD_JSON_BUILD_PAIR_STRING("destination", t->temporary_path),
+                SD_JSON_BUILD_PAIR_STRING("cacheDirectory", ""),
+                SD_JSON_BUILD_PAIR_ARRAY("instances", instances_array));
+        return r;
+}
+
 int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, void *userdata) {
         _cleanup_free_ char *formatted_pattern = NULL, *digest = NULL;
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
@@ -1276,16 +1310,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
 
                         /* url file → regular file */
 
-                        r = run_callout("(sd-pull-raw)",
-                                       STRV_MAKE(
-                                               SYSTEMD_PULL_PATH,
-                                               "raw",
-                                               "--direct",          /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,  /* validate by explicit SHA256 sum */
-                                               arg_sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->temporary_path),
-                                        t, i, cb, userdata);
+                        transfer_acquire_instance_varlink(t, i, digest, arg_sync);
                         break;
 
                 case RESOURCE_PARTITION:
