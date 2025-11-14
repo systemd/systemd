@@ -1134,8 +1134,8 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
                 SD_JSON_BUILD_PAIR_STRING("cacheDirectory", ""),
                 SD_JSON_BUILD_PAIR_ARRAY("instances", instances_array),
                 SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "offset", SD_JSON_BUILD_UNSIGNED(t->partition_info.start)),
-                SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "maxSize", SD_JSON_BUILD_UNSIGNED(t->partition_info.size))
-                /* TODO: subvolumes*/);
+                SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "maxSize", SD_JSON_BUILD_UNSIGNED(t->partition_info.size)),
+                SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_SUBVOLUME, "subvolume", true));
         return r;
 }
 
@@ -1309,38 +1309,18 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                 break;
 
         case RESOURCE_URL_FILE:
+                assert(IN_SET(t->target.type, RESOURCE_REGULAR_FILE, RESOURCE_PARTITION));
 
-                switch (t->target.type) {
+                /* url file → regular file */
+                /* url file → partition */
 
-                case RESOURCE_REGULAR_FILE:
-                case RESOURCE_PARTITION:
-
-                        /* url file → regular file */
-                        /* url file → partition */
-
-                        transfer_acquire_instance_varlink(t, i, digest, arg_sync);
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
-
+                transfer_acquire_instance_varlink(t, i, digest, arg_sync);
                 break;
 
         case RESOURCE_URL_TAR:
                 assert(IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
 
-                r = run_callout("(sd-pull-tar)",
-                                STRV_MAKE(
-                                       SYSTEMD_PULL_PATH,
-                                       "tar",
-                                       "--direct",          /* just download the specified URL, don't download anything else */
-                                       "--verify", digest,  /* validate by explicit SHA256 sum */
-                                       t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
-                                       arg_sync ? "--sync=yes" : "--sync=no",
-                                       i->path,
-                                       t->temporary_path),
-                                t, i, cb, userdata);
+                transfer_acquire_instance_varlink(t, i, digest, arg_sync);
                 break;
 
         default:
