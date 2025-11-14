@@ -895,6 +895,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_AREA,
                 ARG_VIA_SHELL,
                 ARG_EMPOWER,
+                ARG_SAME_ROOT_DIR,
         };
 
         /* If invoked as "run0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -925,6 +926,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "lightweight",         required_argument, NULL, ARG_LIGHTWEIGHT         },
                 { "area",                required_argument, NULL, ARG_AREA                },
                 { "empower",             no_argument,       NULL, ARG_EMPOWER             },
+                { "same-root-dir",       no_argument,       NULL, ARG_SAME_ROOT_DIR       },
                 {},
         };
 
@@ -1066,6 +1068,13 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
                 case ARG_EMPOWER:
                         arg_empower = true;
+                        break;
+
+                case ARG_SAME_ROOT_DIR:
+                        r = free_and_strdup_warn(&arg_root_directory, "/");
+                        if (r < 0)
+                                return r;
+
                         break;
 
                 case '?':
