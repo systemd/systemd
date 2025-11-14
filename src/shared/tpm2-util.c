@@ -2697,6 +2697,28 @@ int tpm2_get_best_pcr_bank(
         assert(c);
         assert(ret);
 
+        uint32_t efi_banks;
+        r = efi_get_active_pcr_banks(&efi_banks);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+
+                /* If variable is not set use guesswork below */
+                log_debug("Boot loader didn't set the LoaderTpm2ActivePcrBanks EFI variable, we have to guess the used PCR banks.");
+        } else if (efi_banks == UINT32_MAX)
+                log_debug("Boot loader set the LoaderTpm2ActivePcrBanks EFI variable to indicate that the GetActivePcrBanks() API is not available in the firmware. We have to guess the used PCR banks.");
+        else {
+                if (BIT_SET(efi_banks, TPM2_ALG_SHA256))
+                        *ret = TPM2_ALG_SHA256;
+                else if (BIT_SET(efi_banks, TPM2_ALG_SHA1))
+                        *ret = TPM2_ALG_SHA1;
+                else
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Firmware reports neither SHA1 nor SHA256 PCR banks, cannot operate.");
+
+                log_debug("Picked best PCR bank %s based on firmware reported banks.", tpm2_hash_alg_to_string(*ret));
+                return 0;
+        }
+
         if (pcr_mask == 0) {
                 log_debug("Asked to pick best PCR bank but no PCRs selected we could derive this from. Defaulting to SHA256.");
                 *ret = TPM2_ALG_SHA256; /* if no PCRs are selected this doesn't matter anyway... */
@@ -2783,6 +2805,32 @@ int tpm2_get_good_pcr_banks(
 
         assert(c);
         assert(ret);
+
+        uint32_t efi_banks;
+        r = efi_get_active_pcr_banks(&efi_banks);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+
+                /* If the variable is not set we have to guess via the code below */
+                log_debug("Boot loader didn't set the LoaderTpm2ActivePcrBanks EFI variable, we have to guess the used PCR banks.");
+        } else if (efi_banks == UINT32_MAX)
+                log_debug("Boot loader set the LoaderTpm2ActivePcrBanks EFI variable to indicate that the GetActivePcrBanks() API is not available in the firmware. We have to guess the used PCR banks.");
+        else {
+                FOREACH_ARRAY(hash, tpm2_hash_algorithms, TPM2_N_HASH_ALGORITHMS) {
+                        if (!BIT_SET(efi_banks, *hash))
+                                continue;
+
+                        if (!GREEDY_REALLOC(good_banks, n_good_banks+1))
+                                return log_oom_debug();
+
+                        good_banks[n_good_banks++] = *hash;
+                }
+
+                log_debug("Found %zu initialized TPM2 banks reported by firmware.", n_good_banks);
+                *ret = TAKE_PTR(good_banks);
+                return (int) n_good_banks;
+        }
 
         FOREACH_TPMS_PCR_SELECTION_IN_TPML_PCR_SELECTION(selection, &c->capability_pcrs) {
                 TPMI_ALG_HASH hash = selection->hash;
@@ -6420,11 +6468,14 @@ static int json_dispatch_tpm2_algorithm(const char *name, sd_json_variant *varia
 }
 
 static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MAX] = {
-        [TPM2_EVENT_PHASE]      = "phase",
-        [TPM2_EVENT_FILESYSTEM] = "filesystem",
-        [TPM2_EVENT_VOLUME_KEY] = "volume-key",
-        [TPM2_EVENT_MACHINE_ID] = "machine-id",
-        [TPM2_EVENT_PRODUCT_ID] = "product-id",
+        [TPM2_EVENT_PHASE]           = "phase",
+        [TPM2_EVENT_FILESYSTEM]      = "filesystem",
+        [TPM2_EVENT_VOLUME_KEY]      = "volume-key",
+        [TPM2_EVENT_MACHINE_ID]      = "machine-id",
+        [TPM2_EVENT_PRODUCT_ID]      = "product-id",
+        [TPM2_EVENT_KEYSLOT]         = "keyslot",
+        [TPM2_EVENT_NVPCR_INIT]      = "nvpcr-init",
+        [TPM2_EVENT_NVPCR_SEPARATOR] = "nvpcr-separator",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
@@ -7367,6 +7418,37 @@ int tpm2_nvpcr_initialize(
                 return log_debug_errno(r, "Failed to write anchor file: %m");
 
         tpm2_userspace_log_clean(log_fd);
+        log_fd = safe_close(log_fd);
+
+        /* Now also measure the initialization into PCR 9, so that there's a trace of it in regular PCRs. You
+         * might wonder why PCR 9? Well, we have very few PCRs available, and PCR 9 appears to be the least
+         * bad for this. It typically contains stuff that in our world is hard to predict anyway
+         * (i.e. possibly some overly verbose Grub stuff, as well as all initrds – those generated on-the-fly
+         * and those prepared beforehand – mangled into one), quite differently from all other PCRs we could
+         * use. Moreover PCR 11 already contains most stuff from PCR 9, as it contains the same data
+         * (i.e. initrds) in a more sensible fashion, clearly separated from on-the-fly generated ones. Note
+         * that we only do all this measurement stuff if we are booted as UKI, and hence when PCR 11 is
+         * available, but PCR 9 is not predictable. */
+        _cleanup_strv_free_ char **banks = NULL;
+        r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << TPM2_PCR_KERNEL_INITRD, &banks);
+        if (r < 0)
+                return log_error_errno(r, "Could not verify PCR banks: %m");
+
+        _cleanup_free_ char *word = NULL;
+        if (asprintf(&word, "nvpcr-init:%s:0x%x:%s:%s", name, p.nv_index, tpm2_hash_alg_to_string(p.algorithm), h) < 0)
+                return log_oom();
+
+        r = tpm2_pcr_extend_bytes(
+                        c,
+                        banks,
+                        TPM2_PCR_KERNEL_INITRD,
+                        &IOVEC_MAKE_STRING(word),
+                        /* secret= */ NULL,
+                        TPM2_EVENT_NVPCR_INIT,
+                        word);
+        if (r < 0)
+                return log_error_errno(r, "Could not extend PCR %i: %m", TPM2_PCR_KERNEL_INITRD);
+
         return 1;
 #else /* HAVE_OPENSSL */
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
