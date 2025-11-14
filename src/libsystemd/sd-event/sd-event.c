@@ -2988,6 +2988,8 @@ static int event_source_online(
                 break;
 
         case SOURCE_MEMORY_PRESSURE:
+                /* As documented in sd_event_add_memory_pressure(), we can only register the PSI fd with
+                 * epoll after writing the watch string. */
                 if (s->memory_pressure.write_buffer_size == 0) {
                         r = source_memory_pressure_register(s, enabled);
                         if (r < 0)
@@ -4077,9 +4079,12 @@ static int source_memory_pressure_initiate_dispatch(sd_event_source *s) {
         return 0; /* go on, dispatch to user callback */
 }
 
-static int mark_post_sources_pending(sd_event *e) {
+static int maybe_mark_post_sources_pending(EventSourceType t, sd_event *e) {
         sd_event_source *z;
         int r;
+
+        if (t == SOURCE_POST)
+                return 0;
 
         SET_FOREACH(z, e->post_sources) {
                 if (event_source_is_offline(z))
@@ -4132,12 +4137,10 @@ static int source_dispatch(sd_event_source *s) {
                         return r;
         }
 
-        if (s->type != SOURCE_POST) {
-                /* If we execute a non-post source, let's mark all post sources as pending. */
-                r = mark_post_sources_pending(s->event);
-                if (r < 0)
-                        return r;
-        }
+        /* If we execute a non-post source, let's mark all post sources as pending. */
+        r = maybe_mark_post_sources_pending(s->type, s->event);
+        if (r < 0)
+                return r;
 
         if (s->type == SOURCE_MEMORY_PRESSURE) {
                 r = source_memory_pressure_initiate_dispatch(s);
@@ -4246,13 +4249,11 @@ static int source_dispatch(sd_event_source *s) {
 
         s->dispatching = false;
 
-        if (saved_type != SOURCE_POST) {
-                /* More post sources might have been added while executing the callback, let's make sure
-                 * those are marked pending as well. */
-                r = mark_post_sources_pending(saved_event);
-                if (r < 0)
-                        return r;
-        }
+        /* More post sources might have been added while executing the callback, let's make sure
+         * those are marked pending as well. */
+        r = maybe_mark_post_sources_pending(saved_type, saved_event);
+        if (r < 0)
+                return r;
 
 finish:
         if (r < 0) {
