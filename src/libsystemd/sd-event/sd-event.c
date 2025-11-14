@@ -2988,6 +2988,8 @@ static int event_source_online(
                 break;
 
         case SOURCE_MEMORY_PRESSURE:
+                /* As documented in sd_event_add_memory_pressure(), we can only register the PSI fd with
+                 * epoll after writing the watch string. */
                 if (s->memory_pressure.write_buffer_size == 0) {
                         r = source_memory_pressure_register(s, enabled);
                         if (r < 0)
