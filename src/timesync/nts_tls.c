@@ -141,7 +141,7 @@ NTS_TLS* NTS_TLS_setup(
 
         BIO *bio = BIO_new(BIO_s_socket());
         CHECK(bio);
-        BIO_set_fd(bio, socket, BIO_CLOSE);
+        BIO_set_fd(bio, socket, BIO_NOCLOSE);
         SSL_set_bio(tls, bio, bio);
 
         SSL_CTX_free(ctx);
