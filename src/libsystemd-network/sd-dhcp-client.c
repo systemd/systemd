@@ -105,6 +105,7 @@ struct sd_dhcp_client {
         bool ipv6_acquired;
         bool bootp;
         int lease_dir_fd;
+        char* lease_file;
         int keep_expired_lease;
 };
 
@@ -725,7 +726,6 @@ static int client_initialize(sd_dhcp_client *client) {
 
         client_set_state(client, DHCP_STATE_STOPPED);
         client->xid = 0;
-
 
         client->lease = sd_dhcp_lease_unref(client->lease);
 
@@ -1513,10 +1513,8 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
 
         /* if there is a need to keep using an expired lease, we can exit out of here
          * without rebooting the client */
-        if (client->keep_expired_lease && client->state != DHCP_STATE_STOPPED) {
-                log_dhcp_client(client, "Not stopping even if expired");
+        if (client->keep_expired_lease && client->state != DHCP_STATE_STOPPED)
                 return 0;
-        }
 
         /* lease was lost, start over if not freed or stopped in callback */
         if (client->state != DHCP_STATE_STOPPED) {
@@ -2551,6 +2549,10 @@ static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
         client->user_class = strv_free(client->user_class);
         ordered_hashmap_free(client->extra_options);
         ordered_hashmap_free(client->vendor_options);
+
+        safe_close(client->lease_dir_fd);
+        free(client->lease_file);
+
         free(client->ifname);
         return mfree(client);
 }
@@ -2616,10 +2618,15 @@ static const char* const dhcp_state_table[_DHCP_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dhcp_state, DHCPState);
 
 int sd_dhcp_client_set_lease_file(sd_dhcp_client *client, int dir_fd, const char *path) {
+        int r;
+
         assert_return(client, -EINVAL);
         assert_return(!path || (dir_fd >= 0 || dir_fd == AT_FDCWD), -EBADF);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
         if (!path) {
+                /* When NULL, clear the previous assignment. */
+                client->lease_file = mfree(client->lease_file);
                 client->lease_dir_fd = safe_close(client->lease_dir_fd);
                 return 0;
         }
@@ -2627,13 +2634,17 @@ int sd_dhcp_client_set_lease_file(sd_dhcp_client *client, int dir_fd, const char
         if (!path_is_safe(path))
                 return -EINVAL;
 
-        _cleanup_close_ int fd = AT_FDCWD;
-
+        _cleanup_close_ int fd = AT_FDCWD; /* Unlike our usual coding style, AT_FDCWD needs to be set,
+                                            * to pass a 'valid' fd. */
         if (dir_fd >= 0) {
-                fd = fd_reopen (dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                fd = fd_reopen(dir_fd, O_CLOEXEC | O_DIRECTORY | O_PATH);
                 if (fd < 0)
                         return fd;
         }
+
+        r = free_and_strdup(&client->lease_file, path);
+        if (r < 0)
+                return r;
 
         close_and_replace(client->lease_dir_fd, fd);
 
@@ -2641,11 +2652,14 @@ int sd_dhcp_client_set_lease_file(sd_dhcp_client *client, int dir_fd, const char
 }
 
 int sd_dhcp_client_update_lease_lifetime(sd_dhcp_client *client, sd_dhcp_lease *lease, uint64_t lifetime) {
+        /* This function does the job of updating a lease lifetime and resetting the timeout values.
+           In the case of loading a saved lease, the new lease time is how much left was available since
+           reboot, t1 & t2 will be allocated based off that. */
+        triple_timestamp ts;
+        int r;
+
         assert(client);
         assert(lease);
-
-        int r;
-        triple_timestamp ts;
 
         triple_timestamp_now(&ts);
         dhcp_lease_set_timestamp(lease, &ts);

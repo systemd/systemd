@@ -947,7 +947,7 @@ static int link_save(Link *link) {
         print_link_hashmap(f, "CARRIER_BOUND_BY=", link->bound_by_links);
 
         if (link->dhcp_lease) {
-                r = dhcp_lease_save(link->dhcp_lease, link->lease_file, AT_FDCWD);
+                r = dhcp_lease_save(link->dhcp_lease, AT_FDCWD, link->lease_file);
                 if (r < 0)
                         return r;
 
@@ -963,7 +963,7 @@ static int link_save(Link *link) {
                 } else if (r < 0) {
                         log_link_debug_errno(link, r, "Failed to get persistent lease path: %m");
                 } else if (r > 0) {
-                        r = dhcp_lease_save(link->dhcp_lease, persistent_path, dir_fd);
+                        r = dhcp_lease_save(link->dhcp_lease, dir_fd, persistent_path);
                         if (r < 0)
                                 log_link_warning_errno(link, r, "Failed to save persistent DHCP lease: %m");
                 }
