@@ -4148,8 +4148,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (dual_timestamp_is_set(ts)) {
                                         r = sd_json_buildo(
                                                         &add,
-                                                        SD_JSON_BUILD_PAIR("realtime", SD_JSON_BUILD_UNSIGNED(ts->realtime)),
-                                                        SD_JSON_BUILD_PAIR("monotonic", SD_JSON_BUILD_UNSIGNED(ts->monotonic)));
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("realtime", ts->realtime),
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("monotonic", ts->monotonic));
                                         if (r < 0)
                                                 goto finish;
                                 } else

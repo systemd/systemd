@@ -918,8 +918,8 @@ static int show_membership(const char *user, const char *group, Table *table) {
 
                 r = sd_json_buildo(
                                 &v,
-                                SD_JSON_BUILD_PAIR("user", SD_JSON_BUILD_STRING(user)),
-                                SD_JSON_BUILD_PAIR("group", SD_JSON_BUILD_STRING(group)));
+                                SD_JSON_BUILD_PAIR_STRING("user", user),
+                                SD_JSON_BUILD_PAIR_STRING("group", group));
                 if (r < 0)
                         return log_error_errno(r, "Failed to build JSON object: %m");
 
