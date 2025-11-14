@@ -24,6 +24,7 @@
     <refname>systemd-pcrproduct.service</refname>
     <refname>systemd-pcrfs-root.service</refname>
     <refname>systemd-pcrfs@.service</refname>
+    <refname>systemd-pcrnvdone.service</refname>
     <refname>systemd-pcrextend</refname>
     <refpurpose>Measure boot phases, machine ID, product UUID and file system identity into TPM PCRs and NvPCRs</refpurpose>
   </refnamediv>
@@ -33,8 +34,10 @@
     <para><filename>systemd-pcrphase-sysinit.service</filename></para>
     <para><filename>systemd-pcrphase-initrd.service</filename></para>
     <para><filename>systemd-pcrmachine.service</filename></para>
+    <para><filename>systemd-pcrproduct.service</filename></para>
     <para><filename>systemd-pcrfs-root.service</filename></para>
     <para><filename>systemd-pcrfs@.service</filename></para>
+    <para><filename>systemd-pcrnvdone.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-pcrextend</filename> <optional><replaceable>STRING</replaceable></optional></para>
   </refsynopsisdiv>
 
@@ -53,6 +56,9 @@
     <para><filename>systemd-pcrproduct.service</filename> is a system service that measures the firmware
     product UUID (as provided by one of SMBIOS, Devicetree, …) into a NvPCR named
     <literal>hardware</literal>.</para>
+
+    <para><filename>systemd-pcrnvdone.service</filename> is a system service that measures a separator event
+    into PCR 9 once all NvPCRs have completed initialization.</para>
 
     <para><filename>systemd-pcrfs-root.service</filename> and <filename>systemd-pcrfs@.service</filename> are
     services that measure file system identity information (i.e. mount point, file system type, label and
@@ -238,6 +244,17 @@
         established mount point of the file system to measure.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--event-type=</option></term>
+
+        <listitem><para>Set the event log event type for this measurement. Pass <literal>help</literal> for a
+        list of currently defined identifiers. Defaults to an appropriate value for
+        <option>--machine-id</option>, <option>--product-id</option>, <option>--file-system=</option>, and
+        otherwise to <literal>phase</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="help" />
