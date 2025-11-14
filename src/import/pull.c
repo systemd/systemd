@@ -343,7 +343,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --size-max=BYTES         Maximum number of bytes to write to destination\n"
                "     --class=CLASS            Select image class (machine, sysext, confext,\n"
                "                              portable)\n"
-               "     --keep-download=BOOL     Keep a copy pristine copy of the downloaded file\n"
+               "     --keep-download=BOOL     Keep a pristine copy of the downloaded file\n"
                "                              around\n"
                "     --system                 Operate in per-system mode\n"
                "     --user                   Operate in per-user mode\n",
@@ -446,7 +446,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_FORCE:
-                        arg_import_flags |= IMPORT_FORCE;
+                        SET_FLAG(arg_import_flags, IMPORT_FORCE, true);
                         break;
 
                 case ARG_IMAGE_ROOT:
@@ -512,12 +512,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_READ_ONLY:
-                        arg_import_flags |= IMPORT_READ_ONLY;
+                        SET_FLAG(arg_import_flags, IMPORT_READ_ONLY, true);
                         break;
 
                 case ARG_DIRECT:
-                        arg_import_flags |= IMPORT_DIRECT;
-                        arg_import_flags &= ~(IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY);
+                        SET_FLAG(arg_import_flags, IMPORT_DIRECT, true);
+                        SET_FLAG(arg_import_flags, IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY, false);
                         break;
 
                 case ARG_BTRFS_SUBVOL:
