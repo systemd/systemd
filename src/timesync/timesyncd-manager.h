@@ -68,6 +68,7 @@ typedef struct Manager {
         } nts_keys;
         struct NTS_AEADParam nts_aead;
         unsigned nts_missing_cookies;
+        sd_event_source *nts_timeout;
 
         /* data needed for the handshake part only */
         NTS_TLS *nts_handshake;
@@ -75,7 +76,6 @@ typedef struct Manager {
         int nts_request_size;
         int nts_bytes_processed;
 
-        unsigned nts_tls_patience;
         enum {
                 NTS_HANDSHAKE_SETUP,
                 NTS_HANDSHAKE_TLS,
