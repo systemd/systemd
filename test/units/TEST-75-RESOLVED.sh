@@ -828,6 +828,7 @@ testcase_09_resolvectl_showcache() {
     } > /run/systemd/network/10-dns2.network
     networkctl reload
     networkctl reconfigure dns2
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=60 --dns --interface=dns2
 
     mkdir -p /run/systemd/resolved.conf.d/
     {
