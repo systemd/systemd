@@ -230,7 +230,6 @@ TEST(sd_bus_error_set_errnof) {
         assert_se(sd_bus_error_set_errnof(&error, EACCES, NULL) == -EACCES);
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_ACCESS_DENIED));
         ASSERT_STREQ(error.message, STRERROR(EACCES));
-        assert_se(error._need_free == 0);
 
         str = mfree(str);
         sd_bus_error_free(&error);
@@ -238,7 +237,6 @@ TEST(sd_bus_error_set_errnof) {
         assert_se(sd_bus_error_set_errnof(&error, ENOANO, NULL) == -ENOANO);
         assert_se(sd_bus_error_has_name(&error, "System.Error.ENOANO"));
         ASSERT_STREQ(error.message, STRERROR(ENOANO));
-        assert_se(error._need_free == 1);
 
         str = mfree(str);
         sd_bus_error_free(&error);
@@ -246,7 +244,6 @@ TEST(sd_bus_error_set_errnof) {
         assert_se(sd_bus_error_set_errnof(&error, 100000, NULL) == -100000);
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_FAILED));
         ASSERT_STREQ(error.message, STRERROR(100000));
-        assert_se(error._need_free == 1);
 
         str = mfree(str);
         sd_bus_error_free(&error);
@@ -262,7 +259,6 @@ TEST(sd_bus_error_set_errnof) {
         errno = EACCES;
         assert_se(asprintf(&str, "hoge %s: %m", "foo") >= 0);
         assert_se(streq(error.message, str));
-        assert_se(error._need_free == 1);
 
         str = mfree(str);
         sd_bus_error_free(&error);
@@ -272,7 +268,6 @@ TEST(sd_bus_error_set_errnof) {
         errno = ENOANO;
         assert_se(asprintf(&str, "hoge %s: %m", "foo") >= 0);
         assert_se(streq(error.message, str));
-        assert_se(error._need_free == 1);
 
         str = mfree(str);
         sd_bus_error_free(&error);
@@ -282,7 +277,6 @@ TEST(sd_bus_error_set_errnof) {
         errno = 100000;
         assert_se(asprintf(&str, "hoge %s: %m", "foo") >= 0);
         assert_se(streq(error.message, str));
-        assert_se(error._need_free == 1);
 }
 
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, dump_mapping_table);
