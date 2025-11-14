@@ -257,3 +257,5 @@ const char* kernel_operstate_to_string(int t) _const_;
 
 void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *ret);
 AddressFamily link_required_family_for_online(Link *link);
+
+bool link_has_local_lease_domain(Link *link);
