@@ -34,6 +34,7 @@
     <para><filename>systemd-pcrphase-sysinit.service</filename></para>
     <para><filename>systemd-pcrphase-initrd.service</filename></para>
     <para><filename>systemd-pcrmachine.service</filename></para>
+    <para><filename>systemd-pcrproduct.service</filename></para>
     <para><filename>systemd-pcrfs-root.service</filename></para>
     <para><filename>systemd-pcrfs@.service</filename></para>
     <para><filename>systemd-pcrnvdone.service</filename></para>
