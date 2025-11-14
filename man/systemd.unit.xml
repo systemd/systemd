@@ -277,6 +277,10 @@
     effective way to fully disable a unit, making it impossible to
     start it even manually.</para>
 
+    <para>Files (including directories) with names that match certain patterns are
+    generally ignored. This includes names that start with a <literal>.</literal> or
+    end with a <literal>.ignore</literal>.</para>
+
     <para>The unit file format is covered by the
     <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface
     Portability and Stability Promise</ulink>.</para>
