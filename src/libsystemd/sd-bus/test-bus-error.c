@@ -230,7 +230,12 @@ TEST(sd_bus_error_set_errnof) {
         assert_se(sd_bus_error_set_errnof(&error, EACCES, NULL) == -EACCES);
         assert_se(sd_bus_error_has_name(&error, SD_BUS_ERROR_ACCESS_DENIED));
         ASSERT_STREQ(error.message, STRERROR(EACCES));
+#ifdef __GLIBC__
         assert_se(error._need_free == 0);
+#else
+        /* strerror_r() under musl always writes error messages to buffer. */
+        assert_se(error._need_free == 1);
+#endif
 
         str = mfree(str);
         sd_bus_error_free(&error);
