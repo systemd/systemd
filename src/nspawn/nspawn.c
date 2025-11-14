@@ -3863,6 +3863,7 @@ static DissectImageFlags determine_dissect_image_flags(void) {
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
+                const char *persistent_path,
                 int mount_fd,
                 DissectedImage *dissected_image,
                 int fd_outer_socket,
@@ -4269,7 +4270,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_journal(directory, chown_uid, chown_range);
+        r = setup_journal(persistent_path, chown_uid, chown_range);
         if (r < 0)
                 return r;
 
@@ -5067,6 +5068,7 @@ static int load_oci_bundle(void) {
 
 static int run_container(
                 const char *directory,
+                const char *persistent_path,
                 int mount_fd,
                 DissectedImage *dissected_image,
                 int userns_fd,
@@ -5217,6 +5219,7 @@ static int run_container(
 
                 r = outer_child(&barrier,
                                 directory,
+                                persistent_path,
                                 mount_fd,
                                 dissected_image,
                                 fd_outer_socket_pair[1],
@@ -6390,6 +6393,10 @@ static int run(int argc, char *argv[]) {
                         arg_architecture = dissected_image_architecture(dissected_image);
         }
 
+        /* Store the original, persistent path before we create the temporary directory.
+         * This is needed for journal linking to create symlinks at the correct location. */
+        const char *persistent_path = arg_image ?: arg_directory;
+
         /* Create a temporary place to mount stuff. */
         r = mkdtemp_malloc("/tmp/nspawn-root-XXXXXX", &rootdir);
         if (r < 0) {
@@ -6436,6 +6443,7 @@ static int run(int argc, char *argv[]) {
         for (;;) {
                 r = run_container(
                                 rootdir,
+                                persistent_path,
                                 mount_fd,
                                 dissected_image,
                                 userns_fd,
