@@ -185,7 +185,7 @@ EOF
     fi
     systemctl start knot
     # Wait for signed.test's zone DS records to get pushed to the parent zone
-    timeout 30s bash -xec 'until knotc zone-read test. signed.test. ds | grep -E "signed\.test\. [0-9]+ DS"; do sleep 2; done'
+    timeout 60s bash -xec 'until knotc zone-read test. signed.test. ds | grep -E "signed\.test\. [0-9]+ DS"; do sleep 2; done'
 
     systemctl status resolved-dummy-server
     networkctl status
