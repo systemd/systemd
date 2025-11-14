@@ -56,17 +56,17 @@ void bus_send_pending_reload_message(Manager *m) {
 
         assert(m);
 
-        if (!m->pending_reload_message)
+        if (!m->pending_reload_message_dbus)
                 return;
 
         /* If we cannot get rid of this message we won't dispatch any D-Bus messages, so that we won't end up wanting
          * to queue another message. */
 
-        r = sd_bus_message_send(m->pending_reload_message);
+        r = sd_bus_message_send(m->pending_reload_message_dbus);
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
 
-        m->pending_reload_message = sd_bus_message_unref(m->pending_reload_message);
+        m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
 
         return;
 }
@@ -1004,8 +1004,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         }
 
         /* Get rid of queued message on this bus */
-        if (m->pending_reload_message && sd_bus_message_get_bus(m->pending_reload_message) == *bus)
-                m->pending_reload_message = sd_bus_message_unref(m->pending_reload_message);
+        if (m->pending_reload_message_dbus && sd_bus_message_get_bus(m->pending_reload_message_dbus) == *bus)
+                m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
 
         /* Possibly flush unwritten data, but only if we are
          * unprivileged, since we don't want to sync here */
