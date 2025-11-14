@@ -11,7 +11,7 @@
 #include "time-util.h"
 
 static int supported_integrity_algorithm(char *user_supplied) {
-        if (!STR_IN_SET(user_supplied, "crc32", "crc32c", "xxhash64", "sha1", "sha256", "hmac-sha256"))
+        if (!STR_IN_SET(user_supplied, "crc32", "crc32c", "xxhash64", "sha1", "sha256", "hmac-sha256", "hmac-sha512", "phmac-sha256", "phmac-sha512"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported integrity algorithm (%s)", user_supplied);
         return 0;
 }
