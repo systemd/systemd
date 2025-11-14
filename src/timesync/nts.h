@@ -143,11 +143,3 @@ void NTS_TLS_close(NTS_TLS *session);
  */
 ssize_t NTS_TLS_write(NTS_TLS *session, const void *buffer, size_t size);
 ssize_t NTS_TLS_read(NTS_TLS *session, void *buffer, size_t size);
-
-/* Convenience function for creating a TCP connection
- *
- * RETURNS
- *      >= 0 an opened socket
- *      < 0  error
- */
-int NTS_attach_socket(const char *host, int port, int type);
