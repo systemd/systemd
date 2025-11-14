@@ -16,6 +16,7 @@
 
 typedef struct BusWaitForJobs {
         sd_bus *bus;
+        bool bus_close;
 
         /* The set of jobs to wait for, as bus object paths */
         Set *jobs;
@@ -37,12 +38,22 @@ BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
         sd_bus_slot_unref(d->slot_disconnected);
         sd_bus_slot_unref(d->slot_job_removed);
 
-        sd_bus_unref(d->bus);
+        if (d->bus_close)
+                sd_bus_flush_close_unref(d->bus);
+        else
+                sd_bus_unref(d->bus);
 
         free(d->name);
         free(d->result);
 
         return mfree(d);
+}
+
+void bus_wait_for_jobs_free_many(BusWaitForJobs **array, size_t n) {
+        FOREACH_ARRAY(i, array, n)
+                bus_wait_for_jobs_free(*i);
+
+        free(array);
 }
 
 static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *reterr_error) {
@@ -303,7 +314,7 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                                d->result, d->name);
 }
 
-int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
+int bus_wait_for_jobs_full(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
         int r = 0;
 
         assert(d);
@@ -337,12 +348,18 @@ int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path) {
         return set_put_strdup(&d->jobs, path);
 }
 
-int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, WaitJobsFlags flags, const char* const* extra_args) {
+int bus_wait_for_jobs_one_full(BusWaitForJobs *d, const char *path, WaitJobsFlags flags, const char* const* extra_args) {
         int r;
 
         r = bus_wait_for_jobs_add(d, path);
         if (r < 0)
                 return log_oom();
 
-        return bus_wait_for_jobs(d, flags, extra_args);
+        return bus_wait_for_jobs_full(d, flags, extra_args);
+}
+
+void bus_wait_for_jobs_set_bus_close(BusWaitForJobs *d, bool own) {
+        assert(d);
+
+        d->bus_close = own;
 }
