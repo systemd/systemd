@@ -4201,6 +4201,23 @@ ServerAddress=192.168.0.1/24</programlisting>
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>LocalLeaseDomain=</varname></term>
+        <listitem>
+          <para>Takes a DNS domain name as argument. If specified,
+          <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          will integrate with
+          <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and ensure that the hostnames associated with each handed out DHCP lease may be resolved to the IP
+          addresses of the lease. The hostnames are suffixed with the specified domain name.</para>
+
+          <para>Note that this purely about hostname resolution on the local system, i.e. from programs with
+          access to the same <filename>systemd-resolved</filename> instances via D-Bus IPC, Varlink IPC, or
+          the local DNS stub.</para>
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
