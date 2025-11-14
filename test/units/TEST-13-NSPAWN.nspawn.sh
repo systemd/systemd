@@ -1477,6 +1477,44 @@ testcase_link_journal_host() {
     rm -fr "$root" "$hoge"
 }
 
+testcase_volatile_link_journal_no_userns() {
+    local root machine_id journal_dir acl_output
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.volatile-journal.XXX)"
+    create_dummy_container "$root"
+
+    machine_id="$(systemd-id128 new)"
+    echo "$machine_id" >"$root/etc/machine-id"
+
+    journal_dir="/var/log/journal/$machine_id"
+    mkdir -p "$journal_dir"
+    chown root:root "$journal_dir"
+
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --boot \
+                   --volatile=yes \
+                   --link-journal=host \
+                   systemd.unit=systemd-tmpfiles-setup.service
+
+    local gid
+    gid="$(stat -c '%g' "$journal_dir")"
+
+    # Ensure GID is not 4294967295 (GID_INVALID)
+    [[ "$gid" != "4294967295" ]]
+
+    # Ensure the directory is owned by a valid user (root or systemd-journal
+    # group). The GID should be either 0 (root) or the systemd-journal GID, not
+    # some bombastically large number
+    [[ "$gid" -lt 65535 ]]
+
+    # Ensure the invalid GID doesn't appear in ACLs
+    acl_output="$(getfacl "$journal_dir" || true)"
+    grep -q "4294967295" <<< "$acl_output" && exit 1
+
+    rm -fr "$root" "$journal_dir"
+}
+
 testcase_cap_net_bind_service() {
     local root
 
