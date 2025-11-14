@@ -2987,9 +2987,11 @@ static int event_source_online(
                 break;
 
         case SOURCE_MEMORY_PRESSURE:
-                r = source_memory_pressure_register(s, enabled);
-                if (r < 0)
-                        return r;
+                if (s->memory_pressure.write_buffer_size == 0) {
+                        r = source_memory_pressure_register(s, enabled);
+                        if (r < 0)
+                                return r;
+                }
 
                 break;
 
