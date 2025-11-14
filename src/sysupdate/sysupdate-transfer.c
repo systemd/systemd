@@ -1127,9 +1127,12 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
                 SD_JSON_BUILD_PAIR_BOOLEAN("fsync", fsync),
                 SD_JSON_BUILD_PAIR_STRING("checksum", digest),
                 SD_JSON_BUILD_PAIR_STRING("source", i->path),
-                SD_JSON_BUILD_PAIR_STRING("destination", t->temporary_path),
+                SD_JSON_BUILD_PAIR_STRING("destination", t->target.type == RESOURCE_PARTITION ? t->target.path : t->temporary_path),
                 SD_JSON_BUILD_PAIR_STRING("cacheDirectory", ""),
-                SD_JSON_BUILD_PAIR_ARRAY("instances", instances_array));
+                SD_JSON_BUILD_PAIR_ARRAY("instances", instances_array),
+                SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "offset", SD_JSON_BUILD_UNSIGNED(t->partition_info.start)),
+                SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "maxSize", SD_JSON_BUILD_UNSIGNED(t->partition_info.size))
+                /* TODO: subvolumes*/);
         return r;
 }
 
@@ -1307,28 +1310,12 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                 switch (t->target.type) {
 
                 case RESOURCE_REGULAR_FILE:
-
-                        /* url file → regular file */
-
-                        transfer_acquire_instance_varlink(t, i, digest, arg_sync);
-                        break;
-
                 case RESOURCE_PARTITION:
 
+                        /* url file → regular file */
                         /* url file → partition */
 
-                        r = run_callout("(sd-pull-raw)",
-                                        STRV_MAKE(
-                                               SYSTEMD_PULL_PATH,
-                                               "raw",
-                                               "--direct",              /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,      /* validate by explicit SHA256 sum */
-                                               "--offset", offset,
-                                               "--size-max", max_size,
-                                               arg_sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->target.path),
-                                        t, i, cb, userdata);
+                        transfer_acquire_instance_varlink(t, i, digest, arg_sync);
                         break;
 
                 default:
