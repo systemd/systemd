@@ -15,7 +15,6 @@ timesyncd_extract_sources = files(
 )
 
 nts_sources = files(
-        'tcp_connect.c',
         'nts_crypto_openssl.c',
         'nts_packet.c',
         'nts_error.c',
