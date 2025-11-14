@@ -946,4 +946,225 @@ TEST(leave_ratelimit) {
         ASSERT_TRUE(manually_left_ratelimit);
 }
 
+static int defer_post_handler(sd_event_source *s, void *userdata) {
+        bool *dispatched_post = ASSERT_PTR(userdata);
+
+        *dispatched_post = true;
+
+        return 0;
+}
+
+static int defer_adds_post_handler(sd_event_source *s, void *userdata) {
+        sd_event *e = sd_event_source_get_event(s);
+
+        /* Add a post event source from within the defer handler */
+        ASSERT_OK(sd_event_add_post(e, NULL, defer_post_handler, userdata));
+
+        return 0;
+}
+
+TEST(defer_add_post) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        bool dispatched_post = false;
+
+        ASSERT_OK(sd_event_default(&e));
+
+        /* Add a oneshot defer event source that will add a post event source */
+        ASSERT_OK(sd_event_add_defer(e, NULL, defer_adds_post_handler, &dispatched_post));
+
+        /* Run one iteration - this should dispatch the defer handler */
+        ASSERT_OK_POSITIVE(sd_event_run(e, UINT64_MAX));
+
+        /* The post handler should have been added but not yet dispatched */
+        ASSERT_FALSE(dispatched_post);
+
+        /* Run another iteration - this should dispatch the post handler */
+        ASSERT_OK_POSITIVE(sd_event_run(e, 0));
+
+        /* Now the post handler should have been dispatched */
+        ASSERT_TRUE(dispatched_post);
+}
+
+static int child_handler_wnowait(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        int *counter = ASSERT_PTR(userdata);
+
+        (*counter)++;
+
+        if (*counter == 5)
+                ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
+
+        return 0;
+}
+
+TEST(child_wnowait) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
+
+        ASSERT_OK(sd_event_default(&e));
+
+        /* Fork a subprocess */
+        pid_t pid;
+        ASSERT_OK_ERRNO(pid = fork());
+
+        if (pid == 0)
+                /* Child process - exit with a specific code */
+                _exit(42);
+
+        /* Add a child source with WNOWAIT flag */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        int counter = 0;
+        ASSERT_OK(sd_event_add_child(e, &s, pid, WEXITED|WNOWAIT, child_handler_wnowait, &counter));
+        ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_ON));
+
+        /* Run the event loop - this should call the handler */
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(counter, 5);
+
+        /* Since we used WNOWAIT, the child should still be waitable */
+        siginfo_t si = {};
+        ASSERT_OK_ERRNO(waitid(P_PID, pid, &si, WEXITED|WNOHANG));
+        ASSERT_EQ(si.si_pid, pid);
+        ASSERT_EQ(si.si_code, CLD_EXITED);
+        ASSERT_EQ(si.si_status, 42);
+}
+
+TEST(child_pidfd_wnowait) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+
+        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
+
+        ASSERT_OK(sd_event_default(&e));
+
+        /* Fork a subprocess */
+        pid_t pid;
+        ASSERT_OK_ERRNO(pid = fork());
+
+        if (pid == 0)
+                /* Child process - exit with a specific code */
+                _exit(42);
+
+        _cleanup_close_ int pidfd = -EBADF;
+        ASSERT_OK_ERRNO(pidfd = pidfd_open(pid, 0));
+
+        /* Add a child source with WNOWAIT flag */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        int counter = 0;
+        ASSERT_OK(sd_event_add_child_pidfd(e, &s, pidfd, WEXITED|WNOWAIT, child_handler_wnowait, &counter));
+        ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_ON));
+
+        /* Run the event loop - this should call the handler */
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(counter, 5);
+
+        /* Since we used WNOWAIT, the child should still be waitable */
+        siginfo_t si = {};
+        ASSERT_OK_ERRNO(waitid(P_PIDFD, pidfd, &si, WEXITED|WNOHANG));
+        ASSERT_EQ(si.si_pid, pid);
+        ASSERT_EQ(si.si_code, CLD_EXITED);
+        ASSERT_EQ(si.si_status, 42);
+}
+
+static int exit_on_idle_defer_handler(sd_event_source *s, void *userdata) {
+        unsigned *c = ASSERT_PTR(userdata);
+
+        /* Should not be reached on third call because the event loop should exit before */
+        ASSERT_LT(*c, 2u);
+
+        (*c)++;
+
+        /* Disable ourselves, which should trigger exit-on-idle after the second iteration */
+        if (*c == 2)
+                sd_event_source_set_enabled(s, SD_EVENT_OFF);
+
+        return 0;
+}
+
+static int exit_on_idle_post_handler(sd_event_source *s, void *userdata) {
+        unsigned *c = ASSERT_PTR(userdata);
+
+        /* Should not be reached on third call because the event loop should exit before */
+        ASSERT_LT(*c, 2u);
+
+        (*c)++;
+        return 0;
+}
+
+static int exit_on_idle_exit_handler(sd_event_source *s, void *userdata) {
+        return 0;
+}
+
+TEST(exit_on_idle) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+        ASSERT_OK_POSITIVE(sd_event_get_exit_on_idle(e));
+
+        /* Create a recurring defer event source. */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *d = NULL;
+        unsigned dc = 0;
+        ASSERT_OK(sd_event_add_defer(e, &d, exit_on_idle_defer_handler, &dc));
+        ASSERT_OK(sd_event_source_set_enabled(d, SD_EVENT_ON));
+
+        /* This post event source should not keep the event loop running after the defer source is disabled. */
+        _cleanup_(sd_event_source_unrefp) sd_event_source *p = NULL;
+        unsigned pc = 0;
+        ASSERT_OK(sd_event_add_post(e, &p, exit_on_idle_post_handler, &pc));
+        ASSERT_OK(sd_event_source_set_enabled(p, SD_EVENT_ON));
+        ASSERT_OK(sd_event_source_set_priority(p, SD_EVENT_PRIORITY_IMPORTANT));
+
+        /* And neither should this exit event source. */
+        ASSERT_OK(sd_event_add_exit(e, NULL, exit_on_idle_exit_handler, NULL));
+
+        /* Run the event loop - it should exit after we disable the event source */
+        ASSERT_OK(sd_event_loop(e));
+        ASSERT_EQ(dc, 2u);
+        ASSERT_EQ(pc, 2u);
+}
+
+TEST(exit_on_idle_no_sources) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        /* Running loop with no sources should return immediately with success */
+        ASSERT_OK(sd_event_loop(e));
+}
+
+static int defer_fair_handler(sd_event_source *s, void *userdata) {
+        unsigned *counter = ASSERT_PTR(userdata);
+
+        /* If we're about to increment above 5, exit the event loop */
+        if (*counter >= 5)
+                return sd_event_exit(sd_event_source_get_event(s), 0);
+
+        (*counter)++;
+
+        return 0;
+}
+
+TEST(defer_fair_scheduling) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        sd_event_source *sources[5] = {};
+        unsigned counters[5] = {};
+
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        /* Create 5 defer sources with equal priority */
+        for (unsigned i = 0; i < 5; i++) {
+                ASSERT_OK(sd_event_add_defer(e, &sources[i], defer_fair_handler, &counters[i]));
+                ASSERT_OK(sd_event_source_set_enabled(sources[i], SD_EVENT_ON));
+        }
+
+        /* Run the event loop until one of the handlers exits */
+        ASSERT_OK(sd_event_loop(e));
+
+        /* All counters should be equal to 5, demonstrating fair scheduling */
+        for (unsigned i = 0; i < 5; i++) {
+                ASSERT_EQ(counters[i], 5u);
+                sd_event_source_unref(sources[i]);
+        }
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

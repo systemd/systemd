@@ -48,7 +48,7 @@ static bool EVENT_SOURCE_WATCH_PIDFD(const sd_event_source *s) {
         /* Returns true if this is a PID event source and can be implemented by watching EPOLLIN */
         return s &&
                 s->type == SOURCE_CHILD &&
-                s->child.options == WEXITED;
+                (s->child.options & ~WNOWAIT) == WEXITED;
 }
 
 static bool event_source_is_online(sd_event_source *s) {
@@ -157,6 +157,7 @@ struct sd_event {
         bool need_process_child:1;
         bool watchdog:1;
         bool profile_delays:1;
+        bool exit_on_idle:1;
 
         int exit_code;
 
@@ -1583,7 +1584,7 @@ _public_ int sd_event_add_child(
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(pid > 1, -EINVAL);
-        assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED)), -EINVAL);
+        assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED|WNOWAIT)), -EINVAL);
         assert_return(options != 0, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_origin_changed(e), -ECHILD);
@@ -1675,7 +1676,7 @@ _public_ int sd_event_add_child_pidfd(
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
         assert_return(pidfd >= 0, -EBADF);
-        assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED)), -EINVAL);
+        assert_return(!(options & ~(WEXITED|WSTOPPED|WCONTINUED|WNOWAIT)), -EINVAL);
         assert_return(options != 0, -EINVAL);
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_origin_changed(e), -ECHILD);
@@ -2987,9 +2988,11 @@ static int event_source_online(
                 break;
 
         case SOURCE_MEMORY_PRESSURE:
-                r = source_memory_pressure_register(s, enabled);
-                if (r < 0)
-                        return r;
+                if (s->memory_pressure.write_buffer_size == 0) {
+                        r = source_memory_pressure_register(s, enabled);
+                        if (r < 0)
+                                return r;
+                }
 
                 break;
 
@@ -3042,16 +3045,8 @@ _public_ int sd_event_source_set_enabled(sd_event_source *s, int m) {
 
         if (m == SD_EVENT_OFF)
                 r = event_source_offline(s, m, s->ratelimited);
-        else {
-                if (s->enabled != SD_EVENT_OFF) {
-                        /* Switching from "on" to "oneshot" or back? If that's the case, we can take a shortcut, the
-                         * event source is already enabled after all. */
-                        s->enabled = m;
-                        return 0;
-                }
-
+        else
                 r = event_source_online(s, m, s->ratelimited);
-        }
         if (r < 0)
                 return r;
 
@@ -3695,7 +3690,7 @@ static int process_child(sd_event *e, int64_t threshold, int64_t *ret_min_priori
 
                 zero(s->child.siginfo);
                 if (waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo,
-                           WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | s->child.options) < 0)
+                           WNOHANG | (s->child.options & WEXITED ? WNOWAIT : 0) | (s->child.options & ~WNOWAIT)) < 0)
                         return negative_errno();
 
                 if (s->child.siginfo.si_pid != 0) {
@@ -3743,7 +3738,6 @@ static int process_pidfd(sd_event *e, sd_event_source *s, uint32_t revents) {
         /* Note that pidfd would also generate EPOLLHUP when the process gets reaped. But at this point we
          * only permit EPOLLIN, under the assumption that upon EPOLLHUP the child source should already
          * be set to pending, and we would have returned early above. */
-        assert(!s->child.exited);
 
         zero(s->child.siginfo);
         if (waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo, WNOHANG | WNOWAIT | s->child.options) < 0)
@@ -4083,6 +4077,22 @@ static int source_memory_pressure_initiate_dispatch(sd_event_source *s) {
         return 0; /* go on, dispatch to user callback */
 }
 
+static int mark_post_sources_pending(sd_event *e) {
+        sd_event_source *z;
+        int r;
+
+        SET_FOREACH(z, e->post_sources) {
+                if (event_source_is_offline(z))
+                        continue;
+
+                r = source_set_pending(z, true);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int source_dispatch(sd_event_source *s) {
         EventSourceType saved_type;
         sd_event *saved_event;
@@ -4110,25 +4120,23 @@ static int source_dispatch(sd_event_source *s) {
                 return 1;
         }
 
-        if (!IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+        if (IN_SET(s->type, SOURCE_DEFER, SOURCE_EXIT)) {
+                /* Make sure this event source is moved to the end of the priority list now. We do this here
+                 * because defer and exit event sources are always pending from the moment they're added so
+                 * the same logic in source_set_pending() is never triggered. */
+                s->pending_iteration = s->event->iteration;
+                event_source_pp_prioq_reshuffle(s);
+        } else {
                 r = source_set_pending(s, false);
                 if (r < 0)
                         return r;
         }
 
         if (s->type != SOURCE_POST) {
-                sd_event_source *z;
-
                 /* If we execute a non-post source, let's mark all post sources as pending. */
-
-                SET_FOREACH(z, s->event->post_sources) {
-                        if (event_source_is_offline(z))
-                                continue;
-
-                        r = source_set_pending(z, true);
-                        if (r < 0)
-                                return r;
-                }
+                r = mark_post_sources_pending(s->event);
+                if (r < 0)
+                        return r;
         }
 
         if (s->type == SOURCE_MEMORY_PRESSURE) {
@@ -4172,10 +4180,11 @@ static int source_dispatch(sd_event_source *s) {
 
                 r = s->child.callback(s, &s->child.siginfo, s->userdata);
 
-                /* Now, reap the PID for good. */
+                /* Now, reap the PID for good (unless WNOWAIT was specified by the caller). */
                 if (zombie) {
-                        (void) waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo, WNOHANG|WEXITED);
-                        s->child.waited = true;
+                        (void) waitid(P_PIDFD, s->child.pidfd, &s->child.siginfo, WNOHANG|WEXITED|(s->child.options & WNOWAIT));
+                        if (!FLAGS_SET(s->child.options, WNOWAIT))
+                                s->child.waited = true;
                 }
 
                 break;
@@ -4236,6 +4245,14 @@ static int source_dispatch(sd_event_source *s) {
         }
 
         s->dispatching = false;
+
+        if (saved_type != SOURCE_POST) {
+                /* More post sources might have been added while executing the callback, let's make sure
+                 * those are marked pending as well. */
+                r = mark_post_sources_pending(saved_event);
+                if (r < 0)
+                        return r;
+        }
 
 finish:
         if (r < 0) {
@@ -4412,6 +4429,28 @@ static int event_memory_pressure_write_list(sd_event *e) {
         return 0;
 }
 
+static bool event_loop_idle(sd_event *e) {
+        assert(e);
+
+        LIST_FOREACH(sources, s, e->sources) {
+                /* Exit sources only trigger on exit, so whether they're enabled or not doesn't matter when
+                 * we're deciding if the event loop is idle or not. */
+                if (s->type == SOURCE_EXIT)
+                        continue;
+
+                if (s->enabled == SD_EVENT_OFF)
+                        continue;
+
+                /* Post event sources always need another active event source to become pending. */
+                if (s->type == SOURCE_POST && !s->pending)
+                        continue;
+
+                return false;
+        }
+
+        return true;
+}
+
 _public_ int sd_event_prepare(sd_event *e) {
         int r;
 
@@ -4428,6 +4467,9 @@ _public_ int sd_event_prepare(sd_event *e) {
 
         /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
         PROTECT_EVENT(e);
+
+        if (!e->exit_requested && e->exit_on_idle && event_loop_idle(e))
+                (void) sd_event_exit(e, 0);
 
         if (e->exit_requested)
                 goto pending;
@@ -5231,6 +5273,22 @@ _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
         }
 
         return change;
+}
+
+_public_ int sd_event_set_exit_on_idle(sd_event *e, int b) {
+        assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(!event_origin_changed(e), -ECHILD);
+
+        return e->exit_on_idle = b;
+}
+
+_public_ int sd_event_get_exit_on_idle(sd_event *e) {
+        assert_return(e, -EINVAL);
+        assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(!event_origin_changed(e), -ECHILD);
+
+        return e->exit_on_idle;
 }
 
 _public_ int sd_event_source_set_memory_pressure_type(sd_event_source *s, const char *ty) {
