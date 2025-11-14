@@ -303,6 +303,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--same-root-dir</option></term>
+
+        <listitem><para>Execute the <command>run0</command> session in the same root directory that the
+        <command>run0</command> command is executed in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--machine=</option></term>
 
         <listitem>
