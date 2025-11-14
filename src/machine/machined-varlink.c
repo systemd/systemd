@@ -752,7 +752,7 @@ static int manager_varlink_init_userdb(Manager *m) {
 
         r = sd_varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.Machine", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to varlink socket '/run/systemd/userdb/io.systemd.Machine': %m");
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)

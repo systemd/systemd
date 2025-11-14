@@ -1481,7 +1481,7 @@ static int varlink_monitor_server_init(Manager *m) {
         if (r == 0) {
                 r = sd_varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0666);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                        return log_error_errno(r, "Failed to bind to varlink socket '/run/systemd/resolve/io.systemd.Resolve.Monitor': %m");
         }
 
         r = sd_varlink_server_attach_event(server, m->event, SD_EVENT_PRIORITY_NORMAL);
@@ -1536,7 +1536,7 @@ static int varlink_main_server_init(Manager *m) {
         if (r == 0) {
                 r = sd_varlink_server_listen_address(s, "/run/systemd/resolve/io.systemd.Resolve", 0666);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                        return log_error_errno(r, "Failed to bind to varlink socket '/run/systemd/resolve/io.systemd.Resolve': %m");
         }
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
