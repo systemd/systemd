@@ -2322,15 +2322,24 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>MultiPathRoute=<replaceable>address</replaceable>[@<replaceable>name</replaceable>] [<replaceable>weight</replaceable>]</varname></term>
+        <term><varname>MultiPathRoute=[<replaceable>address</replaceable>]@<replaceable>name</replaceable> [<replaceable>weight</replaceable>]</varname></term>
         <listitem>
           <para>Configures multipath route. Multipath routing is the technique of using multiple
-          alternative paths through a network. Takes gateway address. Optionally, takes a network
-          interface name or index separated with <literal>@</literal>, and a weight in 1..256 for this
-          multipath route separated with whitespace. This setting can be specified multiple times. If
-          an empty string is assigned, then the all previous assignments are cleared.</para>
+          alternative paths through a network. Takes an optional gateway address, followed by
+          <literal>@</literal> and a network interface name or index.
+          Optionally, a weight in 1..256 can be specified, separated with whitespace. This setting
+          can be specified multiple times. If an empty string is assigned, then all previous
+          assignments are cleared.
+          <xi:include href="version-info.xml" xpointer="v245"/></para>
 
-          <xi:include href="version-info.xml" xpointer="v245"/>
+          <para>For device-only routes (without a gateway), the address can be omitted, e.g.
+          <literal>@wg0</literal>. This syntax was added in version 259.
+          <xi:include href="version-info.xml" xpointer="v259"/></para>
+
+          <para>Note: Device-only multipath routes are only supported for IPv4 routes.</para>
+
+          <para>Examples: <literal>10.0.0.1@eth0 20</literal> (gateway with device),
+          <literal>@wg0 15</literal> (device-only).</para>
         </listitem>
       </varlistentry>
 
