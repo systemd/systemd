@@ -5332,6 +5332,7 @@ int config_parse_mount_images(
                 r = mount_image_add(&c->mount_images, &c->n_mount_images,
                                     &(MountImage) {
                                             .source = sresolved,
+                                            .fsmount_fds = { [0 ... _PARTITION_DESIGNATOR_MAX - 1] = -EBADF },
                                             .destination = dresolved,
                                             .mount_options = options,
                                             .ignore_enoent = permissive,
@@ -5473,6 +5474,7 @@ int config_parse_extension_images(
                 r = mount_image_add(&c->extension_images, &c->n_extension_images,
                                     &(MountImage) {
                                             .source = sresolved,
+                                            .fsmount_fds = { [0 ... _PARTITION_DESIGNATOR_MAX - 1] = -EBADF },
                                             .mount_options = options,
                                             .ignore_enoent = permissive,
                                             .type = MOUNT_IMAGE_EXTENSION,

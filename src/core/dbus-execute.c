@@ -4116,6 +4116,7 @@ int bus_exec_context_set_transient_property(
                         r = mount_image_add(&mount_images, &n_mount_images,
                                             &(MountImage) {
                                                     .source = source,
+                                                    .fsmount_fds = { [0 ... _PARTITION_DESIGNATOR_MAX - 1] = -EBADF },
                                                     .destination = destination,
                                                     .mount_options = options,
                                                     .ignore_enoent = permissive,
@@ -4206,6 +4207,7 @@ int bus_exec_context_set_transient_property(
                         r = mount_image_add(&extension_images, &n_extension_images,
                                             &(MountImage) {
                                                     .source = source,
+                                                    .fsmount_fds = { [0 ... _PARTITION_DESIGNATOR_MAX - 1] = -EBADF },
                                                     .mount_options = options,
                                                     .ignore_enoent = permissive,
                                                     .type = MOUNT_IMAGE_EXTENSION,

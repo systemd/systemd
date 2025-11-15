@@ -244,6 +244,8 @@ typedef struct Service {
 
         /* The D-Bus request, we will reply once the operation is finished, so that callers can block */
         sd_bus_message *mount_request;
+
+        int image_preload_socket;
 } Service;
 
 static inline usec_t service_timeout_abort_usec(Service *s) {

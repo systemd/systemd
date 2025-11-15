@@ -137,6 +137,7 @@ typedef enum ServiceState {
         SERVICE_RELOAD_NOTIFY,          /* Waiting for READY=1 after RELOADING=1 notify */
         SERVICE_RELOAD_POST,
         SERVICE_MOUNTING,               /* Performing a live mount into the namespace of the service */
+        SERVICE_IMAGE_PRELOAD,          /* Preloading images before a service restart */
         SERVICE_STOP,                   /* No STOP_PRE state, instead just register multiple STOP executables */
         SERVICE_STOP_WATCHDOG,
         SERVICE_STOP_SIGTERM,

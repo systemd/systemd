@@ -5,7 +5,7 @@
 
 int exec_invoke(
                 const ExecCommand *command,
-                const ExecContext *context,
+                ExecContext *context,
                 ExecParameters *params,
                 ExecRuntime *runtime,
                 const CGroupContext *cgroup_context,
