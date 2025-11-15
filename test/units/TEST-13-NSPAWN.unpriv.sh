@@ -164,7 +164,7 @@ assert_not_in 'nurps' "$(run0 --pipe -u testuser machinectl --user list-images)"
 assert_not_in 'kurps' "$(run0 --pipe -u testuser machinectl --user list-images)"
 
 mkdir /home/testuser/.local/state/machines/inodetest
-echo hallo > /home/testuser/.local/state/machines/inodetest/testfile
+echo hallo >/home/testuser/.local/state/machines/inodetest/testfile
 
 # Make the file sparse, set an xattr, set an ACL, set a chattr flag, and make it hardlink
 ln /home/testuser/.local/state/machines/inodetest/testfile /home/testuser/.local/state/machines/inodetest/testfile.hard
@@ -176,7 +176,7 @@ chown foreign-0:foreign-0 /home/testuser/.local/state/machines/inodetest/testfil
 ls -al /home/testuser/.local/state/machines/inodetest
 
 # Verify UID squashing
-echo gaga > /home/testuser/.local/state/machines/inodetest/squashtest
+echo gaga >/home/testuser/.local/state/machines/inodetest/squashtest
 chown 1000:1000 /home/testuser/.local/state/machines/inodetest/squashtest
 
 # Ensure hardlinked symlinks work
@@ -217,7 +217,7 @@ run0 -u testuser machinectl --user remove inodetest2
 
 # Test tree mangling (i.e. moving the root dir one level up on extract)
 mkdir -p /var/tmp/mangletest/mangletest-0.1/usr/lib
-echo "ID=brumm" > /var/tmp/mangletest/mangletest-0.1/usr/lib/os-release
+echo "ID=brumm" >/var/tmp/mangletest/mangletest-0.1/usr/lib/os-release
 tar -C /var/tmp/mangletest/ -cvzf /var/tmp/mangletest.tar.gz mangletest-0.1
 run0 --pipe -u testuser importctl -m --user import-tar /var/tmp/mangletest.tar.gz
 cmp /var/tmp/mangletest/mangletest-0.1/usr/lib/os-release /home/testuser/.local/state/machines/mangletest/usr/lib/os-release

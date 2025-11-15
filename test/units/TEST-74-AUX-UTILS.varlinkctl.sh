@@ -175,8 +175,8 @@ varlinkctl introspect /run/systemd/io.systemd.Hostname io.systemd.Hostname
 varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'
 
 # Validate that --exec results in the very same values
-varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq > /tmp/describe1.json
-varlinkctl --exec call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' -- jq > /tmp/describe2.json
+varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' | jq >/tmp/describe1.json
+varlinkctl --exec call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' -- jq >/tmp/describe2.json
 cmp /tmp/describe1.json /tmp/describe2.json
 rm /tmp/describe1.json /tmp/describe2.json
 
