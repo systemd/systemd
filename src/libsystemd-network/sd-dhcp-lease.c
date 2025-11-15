@@ -1284,7 +1284,7 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         return 0;
 }
 
-int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
+int dhcp_lease_save(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct in_addr address;
@@ -1300,8 +1300,9 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
 
         assert(lease);
         assert(lease_file);
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        r = fopen_temporary(lease_file, &f, &temp_path);
+        r = fopen_temporary_at(dir_fd, lease_file, &f, &temp_path);
         if (r < 0)
                 return r;
 
@@ -1423,6 +1424,10 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 fprintf(f, "CLIENTID=%s\n", client_id_hex);
         }
 
+        r = sd_dhcp_lease_get_timestamp(lease, CLOCK_REALTIME, &t);
+        if (r >= 0)
+                fprintf(f, "TIMESTAMP_REALTIME=%s\n", FORMAT_TIMESTAMP_STYLE(t, TIMESTAMP_US));
+
         r = sd_dhcp_lease_get_vendor_specific(lease, &data, &data_len);
         if (r >= 0) {
                 _cleanup_free_ char *option_hex = NULL;
@@ -1446,7 +1451,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r < 0)
                 return r;
 
-        r = conservative_rename(temp_path, lease_file);
+        r = conservative_renameat(dir_fd, temp_path, dir_fd, lease_file);
         if (r < 0)
                 return r;
 
@@ -1490,7 +1495,8 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *vendor_specific_hex = NULL,
                 *lifetime = NULL,
                 *t1 = NULL,
-                *t2 = NULL;
+                *t2 = NULL,
+                *saved_realtime = NULL;
         _cleanup_(private_options_freep) char **options = NULL;
 
         int r, i;
@@ -1533,6 +1539,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "LIFETIME", &lifetime,
                            "T1", &t1,
                            "T2", &t2,
+                           "TIMESTAMP_REALTIME", &saved_realtime,
                            "OPTION_224", &options[0],
                            "OPTION_225", &options[1],
                            "OPTION_226", &options[2],
@@ -1715,6 +1722,17 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 r = parse_sec(t2, &lease->t2);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T2 %s, ignoring: %m", t2);
+        }
+
+        if (saved_realtime) {
+                usec_t timestamp_usec;
+                triple_timestamp ts = {};
+
+                r = parse_timestamp(saved_realtime, &timestamp_usec);
+                if (r >= 0) {
+                        triple_timestamp_from_realtime(&ts, timestamp_usec); /* set timestamp from realtime value */
+                        dhcp_lease_set_timestamp(lease, &ts); /* set timestamp onto lease */
+                }
         }
 
         if (client_id_hex) {
