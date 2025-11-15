@@ -1191,4 +1191,4 @@ static const char* const dhcp_client_persist_leases_table[_DHCP_CLIENT_PERSIST_L
         [DHCP_CLIENT_PERSIST_LEASES_EXPIRED]         = "yes-with-expired",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(dhcp_client_persist_leases, DHCPClientPersistLeases, DHCP_CLIENT_PERSIST_LEASES_YES);
+DEFINE_STRING_TABLE_LOOKUP(dhcp_client_persist_leases, DHCPClientPersistLeases);

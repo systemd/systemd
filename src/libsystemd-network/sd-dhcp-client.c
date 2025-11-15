@@ -700,25 +700,14 @@ static int client_notify(sd_dhcp_client *client, int event) {
 static int client_initialize(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
 
-        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *saved_lease = NULL;
-
         client->receive_message = sd_event_source_disable_unref(client->receive_message);
 
         client->fd = safe_close(client->fd);
 
-        if (client->lease)
-                saved_lease = sd_dhcp_lease_ref(client->lease);
-
         (void) event_source_disable(client->timeout_resend);
-
-        /* If we have a saved persistent lease, preserve the timeout events since we need to stop and
-         * re-initialise the client to load the lease */
-        if(!saved_lease) {
-                (void) event_source_disable(client->timeout_t1);
-                (void) event_source_disable(client->timeout_t2);
-                (void) event_source_disable(client->timeout_expire);
-        }
-
+        (void) event_source_disable(client->timeout_t1);
+        (void) event_source_disable(client->timeout_t2);
+        (void) event_source_disable(client->timeout_expire);
         (void) event_source_disable(client->timeout_ipv6_only_mode);
 
         client->discover_attempt = 0;
@@ -728,9 +717,6 @@ static int client_initialize(sd_dhcp_client *client) {
         client->xid = 0;
 
         client->lease = sd_dhcp_lease_unref(client->lease);
-
-        if (saved_lease)
-                client->lease = TAKE_PTR(saved_lease);
 
         return 0;
 }
@@ -2684,4 +2670,12 @@ int sd_dhcp_client_set_keep_expired_lease(sd_dhcp_client *client, int keep) {
         assert_return(client, -EINVAL);
         client->keep_expired_lease = keep;
         return 0;
+}
+
+int sd_dhcp_client_enter_bound_with_lease(sd_dhcp_client *client) {
+        assert_return(client, -EINVAL);
+        assert_return(client->lease, -EINVAL);
+        assert_return(client->state == DHCP_STATE_STOPPED, -EBUSY);
+
+        return client_enter_bound_now(client, SD_DHCP_CLIENT_EVENT_IP_ACQUIRE);
 }

@@ -1299,28 +1299,32 @@ static int dhcp_configure_with_saved_lease(Link* link) {
                 return log_link_debug_errno(link, r, "Failed to get saved lease path, ignoring: %m");
 
         r = mkdirat_parents(dir_fd, lease_file, 0755);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to create parent directory for saved lease: %m");
 
-        if (r < 0) {
-                log_link_warning_errno(link, r, "Failed to create parent directory for saved lease: %m");
-        } else {
-                r = sd_dhcp_client_set_lease_file(link->dhcp_client, dir_fd, lease_file);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to set lease file: %m");
+        r = sd_dhcp_client_set_lease_file(link->dhcp_client, dir_fd, lease_file);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to set lease file: %m");
 
-                /*load saved lease, before restarting client */
-                r = dhcp4_load_saved_lease(link);
+        /*load saved lease, before transitioning client */
+        r = dhcp4_load_saved_lease(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to load saved lease: %m");
+        if (r == 0)
+                return 0;
 
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to load saved lease: %m");
-                if (r > 0) {
-                        link->dhcp4_configured = false; /* Mark link for configuration */
+        /* Go straight to BOUND state, instead of re-initialising */
+        r = sd_dhcp_client_enter_bound_with_lease(link->dhcp_client);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to enter bound state: %m");
 
-                        r = dhcp4_request_address_and_routes(link, true);
-                        if (r < 0)
-                                return log_link_warning_errno(link, r, "Failed to configure loaded lease: %m");
-                }
-        }
-        return 0;
+        link->dhcp4_configured = false; /* Mark link for configuration */
+
+        r = dhcp4_request_address_and_routes(link, true);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to configure loaded lease: %m");
+
+        return 1;
 }
 
 void manager_enable_dhcp4_client_persistent_storage(Manager *manager, bool start) {
@@ -2018,12 +2022,15 @@ int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
                 r = dhcp_configure_with_saved_lease(link);
                 if (r < 0)
                         log_link_debug_errno(link, r, "Failed to configure client with saved lease: %m");
+                else if (r > 0)
+                        goto update_ipv6; /* loaded leases and went to BOUND state, no need to run start */
         }
 
         r = sd_dhcp_client_start(link->dhcp_client);
         if (r < 0)
                 return r;
 
+update_ipv6:
         if (set_ipv6_connectivity) {
                 r = dhcp4_update_ipv6_connectivity(link);
                 if (r < 0)
