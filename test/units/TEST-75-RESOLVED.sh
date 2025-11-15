@@ -817,7 +817,7 @@ testcase_09_resolvectl_showcache() {
         echo "[NetDev]"
         echo "Name=dns2"
         echo "Kind=dummy"
-    } > /run/systemd/network/10-dns2.netdev
+    } >/run/systemd/network/10-dns2.netdev
     {
         echo "[Match]"
         echo "Name=dns2"
@@ -825,7 +825,7 @@ testcase_09_resolvectl_showcache() {
         echo "IPv6AcceptRA=no"
         echo "Address=10.123.0.1/24"
         echo "DNS=10.0.0.1"
-    } > /run/systemd/network/10-dns2.network
+    } >/run/systemd/network/10-dns2.network
     networkctl reload
     networkctl reconfigure dns2
     /usr/lib/systemd/systemd-networkd-wait-online --timeout=60 --dns --interface=dns2
@@ -835,7 +835,7 @@ testcase_09_resolvectl_showcache() {
         echo "[Resolve]"
         echo "DNSSEC=no"
         echo "DNSOverTLS=no"
-    } > /run/systemd/resolved.conf.d/90-resolved.conf
+    } >/run/systemd/resolved.conf.d/90-resolved.conf
     systemctl reload systemd-resolved.service
 
     test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns2" and .protocol == "dns") | .dnssec')" == 'no'
@@ -845,7 +845,7 @@ testcase_09_resolvectl_showcache() {
         echo "[Resolve]"
         echo "DNSSEC=allow-downgrade"
         echo "DNSOverTLS=opportunistic"
-    } > /run/systemd/resolved.conf.d/90-resolved.conf
+    } >/run/systemd/resolved.conf.d/90-resolved.conf
     systemctl reload systemd-resolved.service
 
     test "$(resolvectl show-cache --json=short | jq -rc '.[] | select(.ifname == "dns2" and .protocol == "dns") | .dnssec')" == 'allow-downgrade'
