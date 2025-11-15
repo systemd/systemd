@@ -960,6 +960,44 @@ int fd_is_opath(int fd) {
         return FLAGS_SET(r, O_PATH);
 }
 
+int fd_vet_accmode(int fd, int mode) {
+        int flags;
+
+        /* Check if fd is opened with desired access mode.
+         *
+         * Returns > 0 on strict match, == 0 if opened for both reading and writing (partial match),
+         * -EPROTOTYPE otherwise. O_PATH fds are always refused with -EBADFD.
+         *
+         * Note that while on O_DIRECTORY -EISDIR will be returned, this should not be relied upon as
+         * the flag might not have been specified when open() was called originally. */
+
+        assert(fd >= 0);
+        assert(IN_SET(mode, O_RDONLY, O_WRONLY, O_RDWR));
+
+        flags = fcntl(fd, F_GETFL);
+        if (flags < 0)
+                return -errno;
+
+        /* O_TMPFILE in userspace is defined with O_DIRECTORY OR'ed in, so explicitly permit it.
+         *
+         * C.f. https://elixir.bootlin.com/linux/v6.17.7/source/include/uapi/asm-generic/fcntl.h#L92 */
+        if (FLAGS_SET(flags, O_DIRECTORY) && !FLAGS_SET(flags, O_TMPFILE))
+                return -EISDIR;
+
+        if (FLAGS_SET(flags, O_PATH))
+                return -EBADFD;
+
+        flags &= O_ACCMODE_STRICT;
+
+        if (flags == mode)
+                return 1;
+
+        if (flags == O_RDWR)
+                return 0;
+
+        return -EPROTOTYPE;
+}
+
 int fd_verify_safe_flags_full(int fd, int extra_flags) {
         int flags, unexpected_flags;
 

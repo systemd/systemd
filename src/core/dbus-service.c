@@ -28,6 +28,7 @@
 #include "selinux-access.h"
 #include "service.h"
 #include "signal-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "unit.h"
 
@@ -383,6 +384,8 @@ const sd_bus_vtable bus_service_vtable[] = {
         BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStartPostEx", offsetof(Service, exec_command[SERVICE_EXEC_START_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecReload", offsetof(Service, exec_command[SERVICE_EXEC_RELOAD]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecReloadEx", offsetof(Service, exec_command[SERVICE_EXEC_RELOAD]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_COMMAND_LIST_VTABLE("ExecReloadPost", offsetof(Service, exec_command[SERVICE_EXEC_RELOAD_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecReloadPostEx", offsetof(Service, exec_command[SERVICE_EXEC_RELOAD_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStop", offsetof(Service, exec_command[SERVICE_EXEC_STOP]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_EX_COMMAND_LIST_VTABLE("ExecStopEx", offsetof(Service, exec_command[SERVICE_EXEC_STOP]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_LIST_VTABLE("ExecStopPost", offsetof(Service, exec_command[SERVICE_EXEC_STOP_POST]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
@@ -484,23 +487,33 @@ static int bus_set_transient_exit_status(
         return 1;
 }
 
-static int bus_set_transient_std_fd(
+static int bus_set_transient_exec_context_fd(
                 Unit *u,
                 const char *name,
                 int *p,
                 bool *b,
+                int verify_mode,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
 
         int fd, r;
 
+        assert(name);
         assert(p);
         assert(b);
+        assert(verify_mode == O_DIRECTORY || (verify_mode & ~O_ACCMODE_STRICT) == 0);
 
         r = sd_bus_message_read(message, "h", &fd);
         if (r < 0)
                 return r;
+
+        if (verify_mode == O_DIRECTORY)
+                r = fd_verify_directory(fd);
+        else
+                r = fd_vet_accmode(fd, verify_mode);
+        if (r < 0)
+                return sd_bus_error_set_errnof(error, r, "%s passed is of incompatible type: %m", name);
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                 int copy;
@@ -688,13 +701,13 @@ static int bus_service_set_transient_property(
                 return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
 
         if (streq(name, "StandardInputFileDescriptor"))
-                return bus_set_transient_std_fd(u, name, &s->stdin_fd, &s->exec_context.stdio_as_fds, message, flags, error);
+                return bus_set_transient_exec_context_fd(u, name, &s->stdin_fd, &s->exec_context.stdio_as_fds, O_RDONLY, message, flags, error);
 
         if (streq(name, "StandardOutputFileDescriptor"))
-                return bus_set_transient_std_fd(u, name, &s->stdout_fd, &s->exec_context.stdio_as_fds, message, flags, error);
+                return bus_set_transient_exec_context_fd(u, name, &s->stdout_fd, &s->exec_context.stdio_as_fds, O_WRONLY, message, flags, error);
 
         if (streq(name, "StandardErrorFileDescriptor"))
-                return bus_set_transient_std_fd(u, name, &s->stderr_fd, &s->exec_context.stdio_as_fds, message, flags, error);
+                return bus_set_transient_exec_context_fd(u, name, &s->stderr_fd, &s->exec_context.stdio_as_fds, O_WRONLY, message, flags, error);
 
         if (streq(name, "OpenFile")) {
                 const char *path, *fdname;
@@ -799,6 +812,9 @@ static int bus_service_set_transient_property(
 
                 return 1;
         }
+
+        if (streq(name, "RootDirectoryFileDescriptor"))
+                return bus_set_transient_exec_context_fd(u, name, &s->root_directory_fd, &s->exec_context.root_directory_as_fd, O_DIRECTORY, message, flags, error);
 
         return 0;
 }

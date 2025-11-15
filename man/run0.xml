@@ -295,8 +295,18 @@
 
         <listitem><para>If specified, run0 will elevate the privileges of the selected user (using
         <option>--user=</option>) or the current user if no user is explicitly selected. Currently this means
-        we give the user all available capabilities, but other privileges may be granted in the future as
-        well when using this option.</para>
+        we give the invoked process all available capabilities and add the the <literal>empower</literal>
+        group as a supplemental group (for which all polkit actions are allowed by default), but other
+        privileges may be granted in the future as well when using this option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--same-root-dir</option></term>
+
+        <listitem><para>Execute the <command>run0</command> session in the same root directory that the
+        <command>run0</command> command is executed in.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>

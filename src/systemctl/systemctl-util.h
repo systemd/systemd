@@ -69,7 +69,16 @@ int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret);
 const char* unit_type_suffix(const char *unit);
 bool output_show_unit(const UnitInfo *u, char **patterns);
 
-bool install_client_side(void);
+typedef enum InstallClientSide {
+        INSTALL_CLIENT_SIDE_NO = 0,
+        INSTALL_CLIENT_SIDE_OVERRIDE,
+        INSTALL_CLIENT_SIDE_ARG_ROOT,
+        INSTALL_CLIENT_SIDE_OFFLINE,
+        INSTALL_CLIENT_SIDE_NOT_BOOTED,
+        INSTALL_CLIENT_SIDE_GLOBAL_SCOPE,
+} InstallClientSide;
+
+InstallClientSide install_client_side(void);
 
 int output_table(Table *table);
 

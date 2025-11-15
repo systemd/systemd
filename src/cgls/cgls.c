@@ -114,12 +114,20 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'u':
+                        if (arg_show_unit == SHOW_UNIT_USER)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "Cannot combine --unit with --user-unit.");
+
                         arg_show_unit = SHOW_UNIT_SYSTEM;
                         if (strv_push(&arg_names, optarg) < 0) /* push optarg if not empty */
                                 return log_oom();
                         break;
 
                 case ARG_USER_UNIT:
+                        if (arg_show_unit == SHOW_UNIT_SYSTEM)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                "Cannot combine --user-unit with --unit.");
+
                         arg_show_unit = SHOW_UNIT_USER;
                         if (strv_push(&arg_names, optarg) < 0) /* push optarg if not empty */
                                 return log_oom();

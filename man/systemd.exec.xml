@@ -2027,6 +2027,20 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UserNamespacePath=</varname></term>
+
+        <listitem><para>Takes an absolute file system path referring to a Linux user namespace
+        pseudo-file (i.e. a file like <filename>/proc/$PID/ns/user</filename> or a bind mount or symlink to
+        one). When set the invoked processes are added to the user namespace referenced by that path. The
+        path has to point to a valid namespace file at the moment the processes are forked off. If this
+        option is used <varname>PrivateUsers=</varname> has no effect.</para>
+
+        <para>This option is only available for system services.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>NetworkNamespacePath=</varname></term>
 
         <listitem><para>Takes an absolute file system path referring to a Linux network namespace
@@ -4352,7 +4366,7 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
                 </row>
                 <row>
                   <entry><literal>exec-condition</literal></entry>
-                  <entry>Service did not run because <varname>ExecCondition=</varname> failed.</entry>
+                  <entry>Service did not run because <varname>ExecCondition=</varname> failed (that is its command exited with an exit status of 1 through 254 (inclusive)).</entry>
                 </row>
                 <row>
                   <entry><literal>oom-kill</literal></entry>

@@ -118,6 +118,7 @@ int dissect_fstype_ok(const char *fstype) {
         return false;
 }
 
+#if HAVE_BLKID
 static const char *getenv_fstype(PartitionDesignator d) {
 
         if (d < 0 ||
@@ -128,6 +129,7 @@ static const char *getenv_fstype(PartitionDesignator d) {
         char *v = strjoina("SYSTEMD_DISSECT_FSTYPE_", partition_designator_to_string(d));
         return secure_getenv(ascii_strupper(v));
 }
+#endif
 
 int probe_sector_size(int fd, uint32_t *ret) {
 
@@ -564,6 +566,83 @@ static void dissected_partition_done(DissectedPartition *p) {
         safe_close(p->fsmount_fd);
 
         *p = DISSECTED_PARTITION_NULL;
+}
+
+static int acquire_sig_for_roothash(
+                int fd,
+                uint64_t partition_offset,
+                uint64_t partition_size,
+                void **ret_root_hash,
+                size_t *ret_root_hash_size,
+                void **ret_root_hash_sig,
+                size_t *ret_root_hash_sig_size) {
+
+        int r;
+
+        assert(fd >= 0);
+        assert(!!ret_root_hash == !!ret_root_hash_size);
+        assert(!!ret_root_hash_sig == !!ret_root_hash_sig_size);
+
+        if (partition_offset == UINT64_MAX || partition_size == UINT64_MAX)
+                return -EINVAL;
+
+        if (partition_size > 4*1024*1024) /* Signature data cannot possible be larger than 4M, refuse that */
+                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "Verity signature partition is larger than 4M, refusing.");
+
+        _cleanup_free_ char *buf = new(char, partition_size+1);
+        if (!buf)
+                return -ENOMEM;
+
+        ssize_t n = pread(fd, buf, partition_size, partition_offset);
+        if (n < 0)
+                return -ENOMEM;
+        if ((uint64_t) n != partition_size)
+                return -EIO;
+
+        const char *e = memchr(buf, 0, partition_size);
+        if (e) {
+                /* If we found a NUL byte then the rest of the data must be NUL too */
+                if (!memeqzero(e, partition_size - (e - buf)))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature data contains embedded NUL byte.");
+        } else
+                buf[partition_size] = 0;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = sd_json_parse(buf, 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse signature JSON data: %m");
+
+        sd_json_variant *rh = sd_json_variant_by_key(v, "rootHash");
+        if (!rh)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
+
+        _cleanup_free_ void *root_hash = NULL;
+        size_t root_hash_size;
+        r = sd_json_variant_unhex(rh, &root_hash, &root_hash_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse root hash field: %m");
+
+        sd_json_variant *sig = sd_json_variant_by_key(v, "signature");
+        if (!sig)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
+
+        _cleanup_free_ void *root_hash_sig = NULL;
+        size_t root_hash_sig_size;
+        r = sd_json_variant_unbase64(sig, &root_hash_sig, &root_hash_sig_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse signature field: %m");
+
+        if (ret_root_hash) {
+                *ret_root_hash = TAKE_PTR(root_hash);
+                *ret_root_hash_size = root_hash_size;
+        }
+
+        if (ret_root_hash_sig) {
+                *ret_root_hash_sig = TAKE_PTR(root_hash_sig);
+                *ret_root_hash_sig_size = root_hash_sig_size;
+        }
+
+        return 0;
 }
 
 #if HAVE_BLKID
@@ -1157,6 +1236,32 @@ static int dissect_image(
                                 rw = false;
 
                         } else if (type.designator == PARTITION_ROOT_VERITY_SIG) {
+                                if (verity && verity->root_hash) {
+                                        _cleanup_free_ void *root_hash = NULL;
+                                        size_t root_hash_size;
+
+                                        r = acquire_sig_for_roothash(
+                                                        fd,
+                                                        start * 512,
+                                                        size * 512,
+                                                        &root_hash,
+                                                        &root_hash_size,
+                                                        /* ret_root_hash_sig= */ NULL,
+                                                        /* ret_root_hash_sig_size= */ NULL);
+                                        if (r < 0)
+                                                return r;
+                                        if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
+                                                if (DEBUG_LOGGING) {
+                                                        _cleanup_free_ char *found = NULL, *expected = NULL;
+
+                                                        found = hexmem(root_hash, root_hash_size);
+                                                        expected = hexmem(verity->root_hash, verity->root_hash_size);
+
+                                                        log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
+                                                }
+                                                continue;
+                                        }
+                                }
 
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
@@ -1200,6 +1305,32 @@ static int dissect_image(
                                 rw = false;
 
                         } else if (type.designator == PARTITION_USR_VERITY_SIG) {
+                                if (verity && verity->root_hash) {
+                                        _cleanup_free_ void *root_hash = NULL;
+                                        size_t root_hash_size;
+
+                                        r = acquire_sig_for_roothash(
+                                                        fd,
+                                                        start * 512,
+                                                        size * 512,
+                                                        &root_hash,
+                                                        &root_hash_size,
+                                                        /* ret_root_hash_sig= */ NULL,
+                                                        /* ret_root_hash_sig_size= */ NULL);
+                                        if (r < 0)
+                                                return r;
+                                        if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
+                                                if (DEBUG_LOGGING) {
+                                                        _cleanup_free_ char *found = NULL, *expected = NULL;
+
+                                                        found = hexmem(root_hash, root_hash_size);
+                                                        expected = hexmem(verity->root_hash, verity->root_hash_size);
+
+                                                        log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
+                                                }
+                                                continue;
+                                        }
+                                }
 
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
@@ -2668,13 +2799,11 @@ static int verity_can_reuse(
             memcmp(root_hash_existing, verity->root_hash, verity->root_hash_size) != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but root hashes are different.");
 
-#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
         /* Ensure that, if signatures are supported, we only reuse the device if the previous mount used the
          * same settings, so that a previous unsigned mount will not be reused if the user asks to use
          * signing for the new one, and vice versa. */
         if (!!verity->root_hash_sig != !!(crypt_params.flags & CRYPT_VERITY_ROOT_HASH_SIGNATURE))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but signature settings are not the same.");
-#endif
 
         *ret_cd = TAKE_PTR(cd);
         return 0;
@@ -2820,7 +2949,6 @@ static int do_crypt_activate_verity(
                 check_signature = false;
 
         if (check_signature) {
-#if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
                 /* First, if we have support for signed keys in the kernel, then try that first. */
                 r = sym_crypt_activate_by_signed_key(
                                 cd,
@@ -2842,11 +2970,6 @@ static int do_crypt_activate_verity(
                  * -ENOKEY, which means "password required, but I have none". */
                 if (r == -ENOKEY)
                         r = -EDESTADDRREQ;
-#else
-                log_debug("Activation of verity device with signature requested, but not supported via the kernel by %s due to missing crypt_activate_by_signed_key(), trying userspace validation instead.",
-                          program_invocation_short_name);
-                r = 0; /* Set for the propagation below */
-#endif
 
                 /* So this didn't work via the kernel, then let's try userspace validation instead. If that
                  * works we'll try to activate without telling the kernel the signature. */
@@ -3667,44 +3790,13 @@ int dissected_image_load_verity_sig_partition(
         DissectedPartition *p = m->partitions + ds;
         if (!p->found)
                 return 0;
-        if (p->offset == UINT64_MAX || p->size == UINT64_MAX)
-                return -EINVAL;
 
-        if (p->size > 4*1024*1024) /* Signature data cannot possible be larger than 4M, refuse that */
-                return log_debug_errno(SYNTHETIC_ERRNO(EFBIG), "Verity signature partition is larger than 4M, refusing.");
+        _cleanup_free_ void *root_hash = NULL, *root_hash_sig = NULL;
+        size_t root_hash_size, root_hash_sig_size;
 
-        _cleanup_free_ char *buf = new(char, p->size+1);
-        if (!buf)
-                return -ENOMEM;
-
-        ssize_t n = pread(fd, buf, p->size, p->offset);
-        if (n < 0)
-                return -ENOMEM;
-        if ((uint64_t) n != p->size)
-                return -EIO;
-
-        const char *e = memchr(buf, 0, p->size);
-        if (e) {
-                /* If we found a NUL byte then the rest of the data must be NUL too */
-                if (!memeqzero(e, p->size - (e - buf)))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature data contains embedded NUL byte.");
-        } else
-                buf[p->size] = 0;
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        r = sd_json_parse(buf, 0, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        r = acquire_sig_for_roothash(fd, p->offset, p->size, &root_hash, &root_hash_size, &root_hash_sig, &root_hash_sig_size);
         if (r < 0)
-                return log_debug_errno(r, "Failed to parse signature JSON data: %m");
-
-        sd_json_variant *rh = sd_json_variant_by_key(v, "rootHash");
-        if (!rh)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
-
-        _cleanup_free_ void *root_hash = NULL;
-        size_t root_hash_size;
-        r = sd_json_variant_unhex(rh, &root_hash, &root_hash_size);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse root hash field: %m");
+                return r;
 
         /* Check if specified root hash matches if it is specified */
         if (verity->root_hash &&
@@ -3716,16 +3808,6 @@ int dissected_image_load_verity_sig_partition(
 
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(a), strna(b));
         }
-
-        sd_json_variant *sig = sd_json_variant_by_key(v, "signature");
-        if (!sig)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
-
-        _cleanup_free_ void *root_hash_sig = NULL;
-        size_t root_hash_sig_size;
-        r = sd_json_variant_unbase64(sig, &root_hash_sig, &root_hash_sig_size);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse signature field: %m");
 
         free_and_replace(verity->root_hash, root_hash);
         verity->root_hash_size = root_hash_size;

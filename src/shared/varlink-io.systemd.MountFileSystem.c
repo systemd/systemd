@@ -3,7 +3,7 @@
 #include "bus-polkit.h"
 #include "varlink-io.systemd.MountFileSystem.h"
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 PartitionDesignator,
                 SD_VARLINK_DEFINE_ENUM_VALUE(root),
                 SD_VARLINK_DEFINE_ENUM_VALUE(usr),

@@ -557,6 +557,11 @@ units = [
           'symlinks' : ['factory-reset.target.wants/'],
         },
         {
+          'file' : 'systemd-pcrproduct.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
           'file' : 'systemd-pcrphase-initrd.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2', 'ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
@@ -573,6 +578,11 @@ units = [
         },
         {
           'file' : 'systemd-pcrphase.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+          'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
+          'file' : 'systemd-pcrnvdone.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
         },

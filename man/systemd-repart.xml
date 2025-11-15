@@ -26,7 +26,7 @@
     <cmdsynopsis>
       <command>systemd-repart</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="opt" rep="repeat"><replaceable><optional>BLOCKDEVICE</optional></replaceable></arg>
+      <arg choice="opt">BLOCKDEVICE</arg>
     </cmdsynopsis>
 
     <para><filename>systemd-repart.service</filename></para>
@@ -35,10 +35,10 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-repart</command> creates partition tables, and adds or grows partitions,
-    based on the configuration files described in
-    <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    </para>
+    <para><command>systemd-repart</command> creates partition tables, and adds or grows partitions, based on
+    the configuration files described in
+    <citerefentry><refentrytitle>repart.d</refentrytitle><manvolnum>5</manvolnum></citerefentry>. It operates
+    on the block device or file image specified on the command line.</para>
 
     <para><command>systemd-repart</command> is used when <emphasis>building</emphasis> OS images, and also
     when <emphasis>deploying</emphasis> images to automatically adjust them, during boot, to the system they
@@ -52,6 +52,11 @@
     <varname>--image=</varname> is used, it will operate on the specified device or image file. The
     <filename>systemd-repart.service</filename> service is generally run at boot in the initrd, in order to
     augment the partition table of the OS before its partitions are mounted.</para>
+
+    <para>If the block device is specified as <literal>-</literal> (or as an empty string),
+    <command>systemd-repart</command> will not operate on any block device or image file, and instead
+    determine and output the minimum disk/image size for the specified partition configuration, taking all
+    configured size constraints into account.</para>
 
     <para><command>systemd-repart</command> operations are mostly incremental: it grows existing partitions
     or adds new ones, but does not shrink, delete, or move existing partitions. The service is intended to be
@@ -493,6 +498,30 @@
         <command>systemd-repart</command> was executed.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--defer-partitions-empty=yes</option></term>
+
+        <listitem><para>This is very similar to <option>--defer-partitions=</option> but automatically
+        selects all partitions for deferral that have <option>Format=empty</option> set. It may be used in
+        conjunction with <option>--defer-partitions=</option> or
+        <option>--defer-partitions-factory-reset=yes</option>, in which case all matching partitions are
+        deferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--defer-partitions-factory-reset=yes</option></term>
+
+        <listitem><para>This is very similar to <option>--defer-partitions=</option> but automatically
+        selects all partitions for deferral that have <option>FactoryReset=yes</option> set. It may be used
+        in conjunction with <option>--defer-partitions=</option> or
+        <option>--defer-partitions-empty=yes</option>, in which case all matching partitions are
+        deferred.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>

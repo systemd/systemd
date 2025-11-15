@@ -277,6 +277,10 @@
     effective way to fully disable a unit, making it impossible to
     start it even manually.</para>
 
+    <para>Files (including directories) with names that match certain patterns are
+    generally ignored. This includes names that start with a <literal>.</literal> or
+    end with a <literal>.ignore</literal>.</para>
+
     <para>The unit file format is covered by the
     <ulink url="https://systemd.io/PORTABILITY_AND_STABILITY/">Interface
     Portability and Stability Promise</ulink>.</para>
@@ -1586,7 +1590,8 @@
                 </row>
                 <row>
                   <entry>tpm2</entry>
-                  <entry>Trusted Platform Module 2.0 (TPM2)</entry>
+                  <entry>Trusted Platform Module 2.0 (TPM2) (with full UEFI support, including the TCG PC Client
+                  Platform Firmware Profile)</entry>
                 </row>
                 <row>
                   <entry>cvm</entry>

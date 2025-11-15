@@ -91,7 +91,7 @@ static inline bool image_is_hidden(const Image *i) {
         return i->name && i->name[0] == '.';
 }
 
-static inline int image_is_read_only(const Image *i) {
+static inline bool image_is_read_only(const Image *i) {
         assert(i);
 
         /* We enforce the rule that hidden images are always read-only too. If people want to change hidden
@@ -102,6 +102,7 @@ static inline int image_is_read_only(const Image *i) {
 
         return i->read_only;
 }
+int bus_property_get_image_is_read_only(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
 
 bool image_is_vendor(const Image *i);
 bool image_is_host(const Image *i);

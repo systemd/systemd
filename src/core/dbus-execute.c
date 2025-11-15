@@ -1407,6 +1407,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("BPFDelegatePrograms", "s", property_get_bpf_delegate_programs, offsetof(ExecContext, bpf_delegate_programs), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BPFDelegateAttachments", "s", property_get_bpf_delegate_attachments, offsetof(ExecContext, bpf_delegate_attachments), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MemoryKSM", "b", bus_property_get_tristate, offsetof(ExecContext, memory_ksm), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("UserNamespacePath", "s", NULL, offsetof(ExecContext, user_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NetworkNamespacePath", "s", NULL, offsetof(ExecContext, network_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("IPCNamespacePath", "s", NULL, offsetof(ExecContext, ipc_namespace_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootImagePolicy", "s", property_get_image_policy, offsetof(ExecContext, root_image_policy), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2499,6 +2500,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "NetworkNamespacePath"))
                 return bus_set_transient_path(u, name, &c->network_namespace_path, message, flags, error);
+
+        if (streq(name, "UserNamespacePath"))
+                return bus_set_transient_path(u, name, &c->user_namespace_path, message, flags, error);
 
         if (streq(name, "IPCNamespacePath"))
                 return bus_set_transient_path(u, name, &c->ipc_namespace_path, message, flags, error);

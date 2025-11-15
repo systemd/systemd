@@ -25,12 +25,10 @@
 #include "virt.h"
 
 typedef enum MountMode {
-        MNT_NONE              = 0,
         MNT_FATAL             = 1 << 0,
         MNT_IN_CONTAINER      = 1 << 1,
         MNT_CHECK_WRITABLE    = 1 << 2,
         MNT_FOLLOW_SYMLINK    = 1 << 3,
-        MNT_USRQUOTA_GRACEFUL = 1 << 4,
 } MountMode;
 
 typedef struct MountPoint {
@@ -38,79 +36,198 @@ typedef struct MountPoint {
         const char *where;
         const char *type;
         const char *options;
+        int (*options_fn)(int priority, const char *type, char **ret);
         unsigned long flags;
         MountMode mode;
         bool (*condition_fn)(void);
 } MountPoint;
 
-static bool cgroupfs_recursiveprot_supported(void) {
+static int cgroupfs_mount_options(int priority, const char *type, char **ret) {
         int r;
 
-        /* Added in kernel 5.7 */
+        assert(type);
+        assert(streq(type, "cgroup2"));
+        assert(ret);
 
-        r = mount_option_supported("cgroup2", "memory_recursiveprot", /* value = */ NULL);
-        if (r < 0)
-                log_debug_errno(r, "Failed to determine whether cgroupfs supports 'memory_recursiveprot' mount option, assuming not: %m");
-        else if (r == 0)
-                log_debug("'memory_recursiveprot' not supported by cgroupfs, not using mount option.");
+        _cleanup_free_ char *opts = NULL;
+        FOREACH_STRING(o, "memory_recursiveprot", "memory_hugetlb_accounting") {
+                r = mount_option_supported("cgroup2", o, /* value = */ NULL);
+                if (r < 0)
+                        log_full_errno(priority, r, "Failed to determine whether cgroupfs supports '%s' mount option, assuming not: %m", o);
+                else if (r == 0)
+                        log_debug("'%s' not supported by cgroupfs, not using mount option.", o);
+                else if (!strextend_with_separator(&opts, ",", o))
+                        return log_oom_full(priority);
+        }
 
-        return r > 0;
+        *ret = TAKE_PTR(opts);
+        return 0;
 }
 
 int mount_cgroupfs(const char *path) {
+        int r;
+
         assert(path);
 
         /* Mount a separate cgroupfs instance, taking all options we initial set into account. This is
          * especially useful when cgroup namespace is *not* employed, since the kernel overrides all
          * previous options if a new mount is established in initial cgns (c.f.
          * https://github.com/torvalds/linux/blob/b69bb476dee99d564d65d418e9a20acca6f32c3f/kernel/cgroup/cgroup.c#L1984)
-         *
-         * The options shall be kept in sync with those in mount_table below. */
+         */
 
-        return mount_nofollow_verbose(LOG_ERR, "cgroup2", path, "cgroup2",
-                                      MS_NOSUID|MS_NOEXEC|MS_NODEV,
-                                      cgroupfs_recursiveprot_supported() ? "nsdelegate,memory_recursiveprot" : "nsdelegate");
+        _cleanup_free_ char *opts = NULL;
+        r = cgroupfs_mount_options(LOG_WARNING, "cgroup2", &opts);
+        if (r < 0)
+                return r;
+
+        /* These options shall be kept in sync with those in mount_table below. */
+        if (!strprepend_with_separator(&opts, ",", "nsdelegate"))
+                return log_oom();
+
+        return mount_nofollow_verbose(LOG_ERR, "cgroup2", path, "cgroup2", MS_NOSUID|MS_NOEXEC|MS_NODEV, opts);
+}
+
+static int usrquota_mount_option(int priority, const char *type, char **ret) {
+        _cleanup_free_ char *o = NULL;
+        int r;
+
+        assert(type);
+        assert(ret);
+
+        r = mount_option_supported(type, "usrquota", /* value= */ NULL);
+        if (r < 0)
+                log_full_errno(priority, r, "Unable to determine whether %s supports 'usrquota' mount option, assuming not: %m", type);
+        else if (r == 0)
+                log_debug("Not enabling 'usrquota' for '%s' as kernel lacks support for it.", type);
+        else {
+                o = strdup("usrquota");
+                if (!o)
+                        return log_oom_full(priority);
+        }
+
+        *ret = TAKE_PTR(o);
+        return 0;
 }
 
 static const MountPoint mount_table[] = {
-        { "proc",        "/proc",                     "proc",       NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK },
-        { "sysfs",       "/sys",                      "sysfs",      NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER },
-        { "devtmpfs",    "/dev",                      "devtmpfs",   "mode=0755" TMPFS_LIMITS_DEV,               MS_NOSUID|MS_STRICTATIME,
-          MNT_FATAL|MNT_IN_CONTAINER },
-        { "securityfs",  "/sys/kernel/security",      "securityfs", NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE                   },
+        {
+                .what = "proc",
+                .where = "/proc",
+                .type = "proc",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_FOLLOW_SYMLINK,
+        },
+        {
+                .what = "sysfs",
+                .where = "/sys",
+                .type = "sysfs",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "devtmpfs",
+                .where = "/dev",
+                .type = "devtmpfs",
+                .options = "mode=0755" TMPFS_LIMITS_DEV,
+                .flags = MS_NOSUID|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "securityfs",
+                .where = "/sys/kernel/security",
+                .type = "securityfs",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        },
 #if ENABLE_SMACK
-        { "smackfs",     "/sys/fs/smackfs",           "smackfs",    "smackfsdef=*",                             MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL, mac_smack_use   },
-        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777,smackfsroot=*",                 MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL|MNT_USRQUOTA_GRACEFUL, mac_smack_use },
+        {
+                .what = "smackfs",
+                .where = "/sys/fs/smackfs",
+                .type = "smackfs",
+                .options = "smackfsdef=*",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL,
+                .condition_fn = mac_smack_use,
+        },
+        {
+                .what = "tmpfs",
+                .where = "/dev/shm",
+                .type = "tmpfs",
+                .options = "mode=01777,smackfsroot=*",
+                .options_fn = usrquota_mount_option,
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL,
+                .condition_fn = mac_smack_use,
+        },
 #endif
-        { "tmpfs",       "/dev/shm",                  "tmpfs",      "mode=01777",                               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_USRQUOTA_GRACEFUL },
-        { "devpts",      "/dev/pts",                  "devpts",     "mode=" STRINGIFY(TTY_MODE) ",gid=" STRINGIFY(TTY_GID), MS_NOSUID|MS_NOEXEC,
-          MNT_IN_CONTAINER           },
+        {
+                .what = "tmpfs",
+                .where = "/dev/shm",
+                .type = "tmpfs",
+                .options = "mode=01777",
+                .options_fn = usrquota_mount_option,
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "devpts",
+                .where = "/dev/pts",
+                .type = "devpts",
+                .options = "mode=" STRINGIFY(TTY_MODE) ",gid=" STRINGIFY(TTY_GID),
+                .flags = MS_NOSUID|MS_NOEXEC,
+                .mode = MNT_IN_CONTAINER,
+        },
 #if ENABLE_SMACK
-        { "tmpfs",       "/run",                      "tmpfs",      "mode=0755,smackfsroot=*" TMPFS_LIMITS_RUN, MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL, mac_smack_use   },
+        {
+                .what = "tmpfs",
+                .where = "/run",
+                .type = "tmpfs",
+                .options = "mode=0755,smackfsroot=*" TMPFS_LIMITS_RUN,
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL,
+                .condition_fn = mac_smack_use,
+        },
 #endif
-        { "tmpfs",       "/run",                      "tmpfs",      "mode=0755" TMPFS_LIMITS_RUN,               MS_NOSUID|MS_NODEV|MS_STRICTATIME,
-          MNT_FATAL|MNT_IN_CONTAINER },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate,memory_recursiveprot",          MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE, cgroupfs_recursiveprot_supported },
-        { "cgroup2",     "/sys/fs/cgroup",            "cgroup2",    "nsdelegate",                               MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE },
+        {
+                .what = "tmpfs",
+                .where = "/run",
+                .type = "tmpfs",
+                .options = "mode=0755" TMPFS_LIMITS_RUN,
+                .flags = MS_NOSUID|MS_NODEV|MS_STRICTATIME,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER,
+        },
+        {
+                .what = "cgroup2",
+                .where = "/sys/fs/cgroup",
+                .type = "cgroup2",
+                .options = "nsdelegate",
+                .options_fn = cgroupfs_mount_options,
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .mode = MNT_FATAL|MNT_IN_CONTAINER|MNT_CHECK_WRITABLE,
+        },
 #if ENABLE_PSTORE
-        { "pstore",      "/sys/fs/pstore",            "pstore",     NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE                   },
+        {
+                .what = "pstore",
+                .where = "/sys/fs/pstore",
+                .type = "pstore",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        },
 #endif
 #if ENABLE_EFI
-        { "efivarfs",    "/sys/firmware/efi/efivars", "efivarfs",   NULL,                                       MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE, is_efi_boot      },
+        {
+                .what = "efivarfs",
+                .where = "/sys/firmware/efi/efivars",
+                .type = "efivarfs",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+                .condition_fn = is_efi_boot,
+        },
 #endif
-        { "bpf",         "/sys/fs/bpf",               "bpf",        "mode=0700",                                MS_NOSUID|MS_NOEXEC|MS_NODEV,
-          MNT_NONE                   },
+        {
+                .what = "bpf",
+                .where = "/sys/fs/bpf",
+                .type = "bpf",
+                .options = "mode=0700",
+                .flags = MS_NOSUID|MS_NOEXEC|MS_NODEV,
+        },
 };
 
 /* The first three entries we might need before SELinux is up. The
@@ -193,20 +310,18 @@ static int mount_one(const MountPoint *p, bool relabel) {
                 (void) mkdir_p(p->where, 0755);
 
         _cleanup_free_ char *extend_options = NULL;
-        const char *o = p->options;
-        if (FLAGS_SET(p->mode, MNT_USRQUOTA_GRACEFUL)) {
-                r = mount_option_supported(p->type, "usrquota", /* value= */ NULL);
+        const char *o;
+        if (p->options_fn) {
+                r = p->options_fn(priority, p->type, &extend_options);
                 if (r < 0)
-                        log_full_errno(priority, r, "Unable to determine whether %s supports 'usrquota' mount option, assuming not: %m", p->type);
-                else if (r == 0)
-                        log_debug("Not enabling 'usrquota' on '%s' as kernel lacks support for it.", p->where);
-                else {
-                        if (!strextend_with_separator(&extend_options, ",", p->options ?: POINTER_MAX, "usrquota"))
-                                return log_oom();
+                        return r;
 
-                        o = extend_options;
-                }
-        }
+                if (!strprepend_with_separator(&extend_options, ",", p->options))
+                        return log_oom();
+
+                o = extend_options;
+        } else
+                o = p->options;
 
         r = mount_verbose_full(priority, p->what, p->where, p->type, p->flags, o, FLAGS_SET(p->mode, MNT_FOLLOW_SYMLINK));
         if (r < 0)

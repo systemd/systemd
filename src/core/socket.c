@@ -1580,22 +1580,27 @@ static int socket_address_listen_in_cgroup(
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to acquire runtime: %m");
 
-        if (s->exec_context.network_namespace_path &&
-            s->exec_runtime &&
-            s->exec_runtime->shared &&
-            s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->shared->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Failed to open network namespace path %s: %m", s->exec_context.network_namespace_path);
-        }
+        if (s->exec_runtime && s->exec_runtime->shared) {
+                if (s->exec_context.user_namespace_path &&
+                    s->exec_runtime->shared->userns_storage_socket[0] >= 0) {
+                        r = open_shareable_ns_path(s->exec_runtime->shared->userns_storage_socket, s->exec_context.user_namespace_path, CLONE_NEWUSER);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open user namespace path %s: %m", s->exec_context.user_namespace_path);
+                }
 
-        if (s->exec_context.ipc_namespace_path &&
-            s->exec_runtime &&
-            s->exec_runtime->shared &&
-            s->exec_runtime->shared->ipcns_storage_socket[0] >= 0) {
-                r = open_shareable_ns_path(s->exec_runtime->shared->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
-                if (r < 0)
-                        return log_unit_error_errno(UNIT(s), r, "Failed to open IPC namespace path %s: %m", s->exec_context.ipc_namespace_path);
+                if (s->exec_context.network_namespace_path &&
+                    s->exec_runtime->shared->netns_storage_socket[0] >= 0) {
+                        r = open_shareable_ns_path(s->exec_runtime->shared->netns_storage_socket, s->exec_context.network_namespace_path, CLONE_NEWNET);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open network namespace path %s: %m", s->exec_context.network_namespace_path);
+                }
+
+                if (s->exec_context.ipc_namespace_path &&
+                    s->exec_runtime->shared->ipcns_storage_socket[0] >= 0) {
+                        r = open_shareable_ns_path(s->exec_runtime->shared->ipcns_storage_socket, s->exec_context.ipc_namespace_path, CLONE_NEWIPC);
+                        if (r < 0)
+                                return log_unit_error_errno(UNIT(s), r, "Failed to open IPC namespace path %s: %m", s->exec_context.ipc_namespace_path);
+                }
         }
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
@@ -2139,8 +2144,6 @@ static void socket_enter_stop_post(Socket *s, SocketResult f) {
         s->control_command = s->exec_command[SOCKET_EXEC_STOP_POST];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'stop-post' task: %m");
@@ -2217,8 +2220,6 @@ static void socket_enter_stop_pre(Socket *s, SocketResult f) {
         s->control_command = s->exec_command[SOCKET_EXEC_STOP_PRE];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'stop-pre' task: %m");
@@ -2280,8 +2281,6 @@ static void socket_enter_start_post(Socket *s) {
         s->control_command = s->exec_command[SOCKET_EXEC_START_POST];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-post' task: %m");
@@ -2354,8 +2353,6 @@ static void socket_enter_start_pre(Socket *s) {
         s->control_command = s->exec_command[SOCKET_EXEC_START_PRE];
 
         if (s->control_command) {
-                pidref_done(&s->control_pid);
-
                 r = socket_spawn(s, s->control_command, &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-pre' task: %m");
@@ -2602,8 +2599,6 @@ static void socket_run_next(Socket *s) {
         socket_unwatch_control_pid(s);
 
         s->control_command = s->control_command->command_next;
-
-        pidref_done(&s->control_pid);
 
         r = socket_spawn(s, s->control_command, &s->control_pid);
         if (r < 0) {

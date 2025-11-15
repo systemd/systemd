@@ -141,6 +141,12 @@ SizeMaxBytes=64M
 PaddingMinBytes=92M
 EOF
 
+    systemd-repart --definitions="$defs" \
+                   --dry-run=yes \
+                   --seed="$seed" \
+                   --include-partitions=home,swap \
+                   "-"
+
     systemd-repart --offline="$OFFLINE" \
                    --definitions="$defs" \
                    --dry-run=no \
@@ -1679,6 +1685,76 @@ EOF
     grep -q 'UUID=[0-9a-f-]* /home btrfs discard,rw,nodev,suid,exec,subvol=@home,zstd:1,noatime,lazytime 0 1' "$root"/etc/fstab
 }
 
+testcase_btrfs_compression() {
+    local defs imgs loop output
+
+    if ! systemd-analyze compare-versions "$(btrfs --version | head -n 1 | awk '{ print $2 }')" ge v6.13; then
+        echo "btrfs-progs is not installed or older than v6.13, skipping test."
+        return 0
+    fi
+
+    defs="$(mktemp -d)"
+    imgs="$(mktemp -d)"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for btrfs compression with CopyFiles (OFFLINE=$OFFLINE) ***"
+
+    # Must not be in tmpfs due to exclusions. It also must be large and
+    # compressible so that the compression check succeeds later.
+    src=/etc/test-source-file
+    dd if=/dev/zero of="$src" bs=1M count=1 2>/dev/null
+
+    tee "$defs/btrfs-compressed.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=btrfs
+Compression=zstd
+CopyFiles=$src:/test-file
+SizeMinBytes=100M
+SizeMaxBytes=100M
+EOF
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=create \
+                   --size=auto \
+                   --dry-run=no \
+                   --seed="$seed" \
+                   "$imgs/btrfs-compressed.img" 2>&1 | tee "$imgs/repart-output.txt"
+    rm "$src"
+
+    output=$(cat "$imgs/repart-output.txt")
+
+    assert_in "Rootdir from:" "$output"
+    assert_in "Compress:" "$output"
+
+    if [[ "$OFFLINE" == "yes" ]] || systemd-detect-virt --quiet --container; then
+        echo "Skipping mount verification (requires loop devices)"
+        return 0
+    fi
+    loop="$(losetup -P --show --find "$imgs/btrfs-compressed.img")"
+    # shellcheck disable=SC2064
+    trap "umount '$imgs/mount' 2>/dev/null || true; losetup -d '$loop' 2>/dev/null || true; rm -rf '$defs' '$imgs'" RETURN
+    echo "Loop device: $loop"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    mkdir -p "$imgs/mount"
+    mount -t btrfs "${loop:?}p1" "$imgs/mount"
+
+    [[ -f "$imgs/mount/test-file" ]]
+    [[ "$(stat -c%s "$imgs/mount/test-file")" == "1048576" ]]
+
+    if command -v compsize &>/dev/null; then
+        output=$(compsize "$imgs/mount/test-file" 2>&1)
+        assert_in "zstd" "$output"
+    fi
+
+    umount "$imgs/mount"
+    losetup -d "$loop"
+}
+
 testcase_varlink_list_devices() {
     REPART="$(which systemd-repart)"
     varlinkctl introspect "$REPART"
@@ -1688,6 +1764,70 @@ testcase_varlink_list_devices() {
     varlinkctl call "$REPART" --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
 
     varlinkctl call /run/systemd/io.systemd.Repart --graceful=io.systemd.Repart.NoCandidateDevices --collect io.systemd.Repart.ListCandidateDevices '{"ignoreEmpty":true,"ignoreRoot":true}'
+}
+
+testcase_get_size() {
+    local defs
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs'" RETURN
+
+    tee "$defs/a.conf" <<EOF
+[Partition]
+Type=root
+SizeMinBytes=15M
+EOF
+    tee "$defs/b.conf" <<EOF
+[Partition]
+Type=linux-generic
+SizeMinBytes=23M
+EOF
+
+    output="$(systemd-repart --definitions="$defs" - 2>&1)"
+    assert_in "Automatically determined minimal disk image size as 39M." "$output"
+}
+
+testcase_varlink_run() {
+    local defs
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    tee "$defs/a.conf" <<EOF
+[Partition]
+Type=root
+Format=empty
+EOF
+    tee "$defs/b.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=empty
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=50M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=yes \
+                   "$imgs/disk1.img"
+
+    REPART="$(which systemd-repart)"
+    truncate -s 50M "$imgs/disk2.img"
+    varlinkctl call "$REPART" io.systemd.Repart.Run '{"definitions":["'"$defs"'"],"empty":"force","seed":"'"$seed"'","dryRun":false,"node":"'"$imgs/disk2.img"'"}'
+
+    # Compare that the version from the command line and via Varlink result in the bit exact same output
+    cmp "$imgs/disk1.img" "$imgs/disk2.img"
+
+    # Try once more, this time with progress info
+    truncate -s 50M "$imgs/disk3.img"
+    varlinkctl --more --collect call "$REPART" io.systemd.Repart.Run '{"definitions":["'"$defs"'"],"empty":"force","seed":"'"$seed"'","dryRun":false,"node":"'"$imgs/disk3.img"'"}'
+
+    cmp "$imgs/disk1.img" "$imgs/disk3.img"
 }
 
 OFFLINE="yes"

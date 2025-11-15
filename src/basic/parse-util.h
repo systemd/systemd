@@ -22,6 +22,8 @@ int parse_errno(const char *t);
 int parse_fd(const char *t);
 int parse_user_shell(const char *s, char **ret_sh, bool *ret_copy);
 
+int parse_capability_set(const char *s, uint64_t initial, uint64_t *capability_set);
+
 #define SAFE_ATO_REFUSE_PLUS_MINUS (1U << 30)
 #define SAFE_ATO_REFUSE_LEADING_ZERO (1U << 29)
 #define SAFE_ATO_REFUSE_LEADING_WHITESPACE (1U << 28)

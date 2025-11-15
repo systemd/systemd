@@ -455,6 +455,35 @@ static int property_get_oom_score_adjust(
         return sd_bus_message_append(reply, "i", n);
 }
 
+static int property_get_transactions_with_cycle(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "t");
+        if (r < 0)
+                return r;
+
+        uint64_t *id;
+        SET_FOREACH(id, m->transactions_with_cycle) {
+                r = sd_bus_message_append_basic(reply, 't', id);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
         Unit *u;
         int r;
@@ -1513,23 +1542,14 @@ static void log_caller(sd_bus_message *message, Manager *manager, const char *me
         assert(manager);
         assert(method);
 
-        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM, &creds) < 0)
+        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT, &creds) < 0)
                 return;
 
         /* We need at least the PID, otherwise there's nothing to log, the rest is optional. */
         if (bus_creds_get_pidref(creds, &pidref) < 0)
                 return;
 
-        const char *comm = NULL;
-        Unit *caller;
-
-        (void) sd_bus_creds_get_comm(creds, &comm);
-        caller = manager_get_unit_by_pidref(manager, &pidref);
-
-        log_notice("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
-                   method, pidref.pid,
-                   comm ? " ('" : "", strempty(comm), comm ? "')" : "",
-                   caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
+        manager_log_caller(manager, &pidref, method);
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1564,8 +1584,9 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
          * is finished. That way the caller knows when the reload
          * finished. */
 
-        assert(!m->pending_reload_message);
-        r = sd_bus_message_new_method_return(message, &m->pending_reload_message);
+        assert(!m->pending_reload_message_dbus);
+        assert(!m->pending_reload_message_vl);
+        r = sd_bus_message_new_method_return(message, &m->pending_reload_message_dbus);
         if (r < 0)
                 return r;
 
@@ -2870,6 +2891,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("NJobs", "u", property_get_hashmap_size, offsetof(Manager, jobs), 0),
         SD_BUS_PROPERTY("NInstalledJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_installed_jobs), 0),
         SD_BUS_PROPERTY("NFailedJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_failed_jobs), 0),
+        SD_BUS_PROPERTY("TransactionsWithOrderingCycle", "at", property_get_transactions_with_cycle, 0, 0),
         SD_BUS_PROPERTY("Progress", "d", property_get_progress, 0, 0),
         SD_BUS_PROPERTY("Environment", "as", property_get_environment, 0, 0),
         SD_BUS_PROPERTY("ConfirmSpawn", "b", bus_property_get_bool, offsetof(Manager, confirm_spawn), SD_BUS_VTABLE_PROPERTY_CONST),

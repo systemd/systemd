@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
 #include <poll.h>
@@ -187,6 +186,18 @@ static int connect_journal_socket(
         return r;
 }
 
+static bool exec_output_forward_to_console(ExecOutput o) {
+        return IN_SET(o,
+                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE,
+                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
+}
+
+static bool exec_output_forward_to_kmsg(ExecOutput o) {
+        return IN_SET(o,
+                      EXEC_OUTPUT_KMSG,
+                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
+}
+
 static int connect_logger_as(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -219,20 +230,20 @@ static int connect_logger_as(
         (void) fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
         if (dprintf(fd,
-                "%s\n"
-                "%s\n"
-                "%i\n"
-                "%i\n"
-                "%i\n"
-                "%i\n"
-                "%i\n",
-                context->syslog_identifier ?: ident,
-                params->flags & EXEC_PASS_LOG_UNIT ? params->unit_id : "",
-                context->syslog_priority,
-                !!context->syslog_level_prefix,
-                false,
-                exec_output_is_kmsg(output),
-                exec_output_is_terminal(output)) < 0)
+                    "%s\n"
+                    "%s\n"
+                    "%i\n"
+                    "%i\n"
+                    "%i\n"
+                    "%i\n"
+                    "%i\n",
+                    context->syslog_identifier ?: ident,
+                    params->flags & EXEC_PASS_LOG_UNIT ? params->unit_id : "",
+                    context->syslog_priority,
+                    !!context->syslog_level_prefix,
+                    false,
+                    exec_output_forward_to_kmsg(output),
+                    exec_output_forward_to_console(output)) < 0)
                 return -errno;
 
         return move_fd(TAKE_FD(fd), nfd, false);
@@ -904,8 +915,16 @@ static int get_supplementary_groups(
         bool keep_groups = false;
         if (user && gid_is_valid(gid) && gid != 0) {
                 /* First step, initialize groups from /etc/groups */
-                if (initgroups(user, gid) < 0)
-                        return -errno;
+                if (initgroups(user, gid) < 0) {
+                        /* If our primary gid is already the one specified in Group= (i.e. we're running in
+                         * user mode), gracefully handle the case where we have no privilege to re-initgroups().
+                         *
+                         * Note that group memberships of the current user might have been modified, but
+                         * the change will only take effect after re-login. It's better to continue on with
+                         * existing credentials rather than erroring out. */
+                        if (!ERRNO_IS_PRIVILEGE(errno) || gid != getgid())
+                                return -errno;
+                }
 
                 keep_groups = true;
         }
@@ -1229,7 +1248,10 @@ static int exec_context_get_tty_for_pam(const ExecContext *context, char **ret) 
                 return 1;
         }
 
-        if (!IN_SET(context->std_input, EXEC_INPUT_TTY, EXEC_INPUT_TTY_FAIL, EXEC_INPUT_TTY_FORCE)) {
+        /* Do not implicitly configure TTY unless TTYPath= or StandardInput=tty is specified. See issue
+         * #39334. Note, exec_context_tty_path() returns "/dev/console" when TTYPath= is unspecified, hence
+         * explicitly check context->tty_path here. */
+        if (!context->tty_path && !exec_input_is_terminal(context->std_input)) {
                 *ret = NULL;
                 return 0;
         }
@@ -1999,9 +2021,9 @@ static int build_environment(
                 bool needs_sandboxing,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **our_env = NULL;
-        size_t n_env = 0;
-        char *x;
+        _cleanup_strv_free_ char **e = NULL;
+        size_t n = 0;
+        pid_t exec_pid;
         int r;
 
         assert(c);
@@ -2009,57 +2031,52 @@ static int build_environment(
         assert(cgroup_context);
         assert(ret);
 
-#define N_ENV_VARS 20
-        our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX + 1);
-        if (!our_env)
-                return -ENOMEM;
+        exec_pid = needs_sandboxing && exec_needs_pid_namespace(c, p) ? 1 : getpid_cached();
 
         if (p->n_socket_fds + p->n_stashed_fds > 0) {
                 _cleanup_free_ char *joined = NULL;
 
-                if (asprintf(&x, "LISTEN_PID="PID_FMT, getpid_cached()) < 0)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extendf_with_size(&e, &n, "LISTEN_PID="PID_FMT, exec_pid);
+                if (r < 0)
+                        return r;
 
                 uint64_t pidfdid;
                 if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
-                        if (asprintf(&x, "LISTEN_PIDFDID=%"PRIu64, pidfdid) < 0)
-                                return -ENOMEM;
-                        our_env[n_env++] = x;
+                        r = strv_extendf_with_size(&e, &n, "LISTEN_PIDFDID=%"PRIu64, pidfdid);
+                        if (r < 0)
+                                return r;
                 }
 
-                if (asprintf(&x, "LISTEN_FDS=%zu", p->n_socket_fds + p->n_stashed_fds) < 0)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extendf_with_size(&e, &n, "LISTEN_FDS=%zu", p->n_socket_fds + p->n_stashed_fds);
+                if (r < 0)
+                        return r;
 
                 joined = strv_join(p->fd_names, ":");
                 if (!joined)
                         return -ENOMEM;
 
-                x = strjoin("LISTEN_FDNAMES=", joined);
-                if (!x)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "LISTEN_FDNAMES=", joined);
+                if (r < 0)
+                        return r;
         }
 
         if ((p->flags & EXEC_SET_WATCHDOG) && p->watchdog_usec > 0) {
-                if (asprintf(&x, "WATCHDOG_PID="PID_FMT, getpid_cached()) < 0)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extendf_with_size(&e, &n, "WATCHDOG_PID="PID_FMT, exec_pid);
+                if (r < 0)
+                        return r;
 
-                if (asprintf(&x, "WATCHDOG_USEC="USEC_FMT, p->watchdog_usec) < 0)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extendf_with_size(&e, &n, "WATCHDOG_USEC="USEC_FMT, p->watchdog_usec);
+                if (r < 0)
+                        return r;
         }
 
         /* If this is D-Bus, tell the nss-systemd module, since it relies on being able to use blocking
          * Varlink calls back to us for look up dynamic users in PID 1. Break the deadlock between D-Bus and
          * PID 1 by disabling use of PID1' NSS interface for looking up dynamic users. */
         if (p->flags & EXEC_NSS_DYNAMIC_BYPASS) {
-                x = strdup("SYSTEMD_NSS_DYNAMIC_BYPASS=1");
-                if (!x)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extend_with_size(&e, &n, "SYSTEMD_NSS_DYNAMIC_BYPASS=1");
+                if (r < 0)
+                        return r;
         }
 
         /* We query "root" if this is a system unit and User= is not specified. $USER is always set. $HOME
@@ -2077,16 +2094,14 @@ static int build_environment(
         bool set_user_login_env = exec_context_get_set_login_environment(c);
 
         if (username) {
-                x = strjoin("USER=", username);
-                if (!x)
-                        return -ENOMEM;
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "USER=", username);
+                if (r < 0)
+                        return r;
 
                 if (set_user_login_env) {
-                        x = strjoin("LOGNAME=", username);
-                        if (!x)
-                                return -ENOMEM;
-                        our_env[n_env++] = x;
+                        r = strv_extend_joined_with_size(&e, &n, "LOGNAME=", username);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -2094,51 +2109,51 @@ static int build_environment(
          * (i.e. are "/" or "/bin/nologin"). */
 
         if (home && set_user_login_env && !empty_or_root(home)) {
-                x = strjoin("HOME=", home);
-                if (!x)
-                        return -ENOMEM;
+                _cleanup_free_ char *x = NULL;
 
-                path_simplify(x + 5);
-                our_env[n_env++] = x;
+                r = path_simplify_alloc(home, &x);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_joined_with_size(&e, &n, "HOME=", x);
+                if (r < 0)
+                        return r;
         }
 
         if (shell && set_user_login_env && !shell_is_placeholder(shell)) {
-                x = strjoin("SHELL=", shell);
-                if (!x)
-                        return -ENOMEM;
+                _cleanup_free_ char *x = NULL;
 
-                path_simplify(x + 6);
-                our_env[n_env++] = x;
+                r = path_simplify_alloc(shell, &x);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend_joined_with_size(&e, &n, "SHELL=", x);
+                if (r < 0)
+                        return r;
         }
 
         if (!sd_id128_is_null(p->invocation_id)) {
-                assert(p->invocation_id_string);
+                assert(!isempty(p->invocation_id_string));
 
-                x = strjoin("INVOCATION_ID=", p->invocation_id_string);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "INVOCATION_ID=", p->invocation_id_string);
+                if (r < 0)
+                        return r;
         }
 
         if (journal_stream_dev != 0 && journal_stream_ino != 0) {
-                if (asprintf(&x, "JOURNAL_STREAM=" DEV_FMT ":" INO_FMT, journal_stream_dev, journal_stream_ino) < 0)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extendf_with_size(&e, &n, "JOURNAL_STREAM=" DEV_FMT ":" INO_FMT, journal_stream_dev, journal_stream_ino);
+                if (r < 0)
+                        return r;
         }
 
         if (c->log_namespace) {
-                x = strjoin("LOG_NAMESPACE=", c->log_namespace);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "LOG_NAMESPACE=", c->log_namespace);
+                if (r < 0)
+                        return r;
         }
 
         for (ExecDirectoryType t = 0; t < _EXEC_DIRECTORY_TYPE_MAX; t++) {
                 _cleanup_free_ char *joined = NULL;
-                const char *n;
 
                 if (!p->prefix[t])
                         continue;
@@ -2146,8 +2161,8 @@ static int build_environment(
                 if (c->directories[t].n_items == 0)
                         continue;
 
-                n = exec_directory_env_name_to_string(t);
-                if (!n)
+                const char *name = exec_directory_env_name_to_string(t);
+                if (!name)
                         continue;
 
                 for (size_t i = 0; i < c->directories[t].n_items; i++) {
@@ -2161,11 +2176,9 @@ static int build_environment(
                                 return -ENOMEM;
                 }
 
-                x = strjoin(n, "=", joined);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, name, "=", joined);
+                if (r < 0)
+                        return r;
         }
 
         _cleanup_free_ char *creds_dir = NULL;
@@ -2173,27 +2186,22 @@ static int build_environment(
         if (r < 0)
                 return r;
         if (r > 0) {
-                x = strjoin("CREDENTIALS_DIRECTORY=", creds_dir);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "CREDENTIALS_DIRECTORY=", creds_dir);
+                if (r < 0)
+                        return r;
         }
 
-        if (asprintf(&x, "SYSTEMD_EXEC_PID=" PID_FMT, getpid_cached()) < 0)
-                return -ENOMEM;
-
-        our_env[n_env++] = x;
+        r = strv_extendf_with_size(&e, &n, "SYSTEMD_EXEC_PID=" PID_FMT, exec_pid);
+        if (r < 0)
+                return r;
 
         if (memory_pressure_path) {
-                x = strjoin("MEMORY_PRESSURE_WATCH=", memory_pressure_path);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(&e, &n, "MEMORY_PRESSURE_WATCH=", memory_pressure_path);
+                if (r < 0)
+                        return r;
 
                 if (!path_equal(memory_pressure_path, "/dev/null")) {
-                        _cleanup_free_ char *b = NULL, *e = NULL;
+                        _cleanup_free_ char *b = NULL, *x = NULL;
 
                         if (asprintf(&b, "%s " USEC_FMT " " USEC_FMT,
                                      MEMORY_PRESSURE_DEFAULT_TYPE,
@@ -2202,23 +2210,21 @@ static int build_environment(
                                      MEMORY_PRESSURE_DEFAULT_WINDOW_USEC) < 0)
                                 return -ENOMEM;
 
-                        if (base64mem(b, strlen(b) + 1, &e) < 0)
+                        if (base64mem(b, strlen(b) + 1, &x) < 0)
                                 return -ENOMEM;
 
-                        x = strjoin("MEMORY_PRESSURE_WRITE=", e);
-                        if (!x)
-                                return -ENOMEM;
-
-                        our_env[n_env++] = x;
+                        r = strv_extend_joined_with_size(&e, &n, "MEMORY_PRESSURE_WRITE=", x);
+                        if (r < 0)
+                                return r;
                 }
         }
 
         if (p->notify_socket) {
-                x = strjoin("NOTIFY_SOCKET=", exec_get_private_notify_socket_path(c, p, needs_sandboxing) ?: p->notify_socket);
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_joined_with_size(
+                                &e, &n, "NOTIFY_SOCKET=",
+                                exec_get_private_notify_socket_path(c, p, needs_sandboxing) ?: p->notify_socket);
+                if (r < 0)
+                        return r;
         }
 
         assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
@@ -2229,18 +2235,12 @@ static int build_environment(
                 /* When private tmpfs is enabled only on /tmp/, then explicitly set $TMPDIR to suggest the
                  * service to use /tmp/. */
 
-                x = strdup("TMPDIR=/tmp");
-                if (!x)
-                        return -ENOMEM;
-
-                our_env[n_env++] = x;
+                r = strv_extend_with_size(&e, &n, "TMPDIR=/tmp");
+                if (r < 0)
+                        return r;
         }
 
-        assert(n_env <= N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
-#undef N_ENV_VARS
-
-        *ret = TAKE_PTR(our_env);
-
+        *ret = TAKE_PTR(e);
         return 0;
 }
 
@@ -3470,7 +3470,7 @@ static bool insist_on_sandboxing(
         if (context->n_temporary_filesystems > 0)
                 return true;
 
-        if (root_dir || root_image)
+        if (root_dir || root_image || context->root_directory_as_fd)
                 return true;
 
         if (context->n_mount_images > 0)
@@ -3506,6 +3506,7 @@ static int setup_ephemeral(
         int r;
 
         assert(context);
+        assert(!context->root_directory_as_fd);
         assert(runtime);
         assert(root_image);
         assert(root_directory);
@@ -3645,6 +3646,7 @@ static int pick_versions(
         int r;
 
         assert(context);
+        assert(!context->root_directory_as_fd);
         assert(params);
         assert(ret_root_image);
         assert(ret_root_directory);
@@ -3733,7 +3735,7 @@ static int apply_mount_namespace(
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
 
-        if (params->flags & EXEC_APPLY_CHROOT) {
+        if (params->flags & EXEC_APPLY_CHROOT && !context->root_directory_as_fd) {
                 r = pick_versions(
                                 context,
                                 params,
@@ -3855,6 +3857,7 @@ static int apply_mount_namespace(
 
                 .root_directory = root_dir,
                 .root_image = root_image,
+                .root_directory_fd = params->flags & EXEC_APPLY_CHROOT ? params->root_directory_fd : -EBADF,
                 .root_image_options = context->root_image_options,
                 .root_image_policy = context->root_image_policy ?: &image_policy_service,
 
@@ -4181,6 +4184,7 @@ static int close_remaining_fds(
         append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
 
         if (runtime->shared) {
+                append_socket_pair(dont_close, &n_dont_close, runtime->shared->userns_storage_socket);
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
                 append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
         }
@@ -4444,13 +4448,13 @@ static int collect_open_file_fds(ExecParameters *p) {
                         return log_error_errno(fd, "Failed to get OpenFile= file descriptor for '%s': %m", of->path);
                 }
 
-                if (!GREEDY_REALLOC(p->fds, p->n_stashed_fds + 1))
+                if (!GREEDY_REALLOC(p->fds, p->n_socket_fds + p->n_stashed_fds + 1))
                         return log_oom();
 
                 if (strv_extend(&p->fd_names, of->fdname) < 0)
                         return log_oom();
 
-                p->fds[p->n_stashed_fds++] = TAKE_FD(fd);
+                p->fds[p->n_socket_fds + p->n_stashed_fds++] = TAKE_FD(fd);
         }
 
         return 0;
@@ -4481,11 +4485,18 @@ static void log_command_line(
 
 static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParameters *params) {
         assert(context);
+        assert(params);
+
+        /* We only want to ever imply PrivateUsers= for user managers, as they're not expected to setuid() to
+         * other users, unlike the system manager which needs all users to be around. */
+        if (params->runtime_scope != RUNTIME_SCOPE_USER)
+                return false;
 
         return context->private_users != PRIVATE_USERS_NO ||
                context->private_tmp != PRIVATE_TMP_NO ||
                context->private_devices ||
                context->private_network ||
+               context->user_namespace_path ||
                context->network_namespace_path ||
                context->private_ipc ||
                context->ipc_namespace_path ||
@@ -4495,6 +4506,7 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
                context->root_directory ||
+               context->root_directory_as_fd ||
                !strv_isempty(context->extension_directories) ||
                context->root_image ||
                context->n_mount_images > 0 ||
@@ -4789,6 +4801,7 @@ static void exec_shared_runtime_close(ExecSharedRuntime *shared) {
         if (!shared)
                 return;
 
+        safe_close_pair(shared->userns_storage_socket);
         safe_close_pair(shared->netns_storage_socket);
         safe_close_pair(shared->ipcns_storage_socket);
 }
@@ -5136,6 +5149,12 @@ int exec_invoke(
         }
 #endif
 
+        r = add_shifted_fd(&keep_fds, &n_keep_fds, &params->root_directory_fd);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return log_error_errno(r, "Failed to collect shifted fd: %m");
+        }
+
         r = close_remaining_fds(params, runtime, socket_fd, keep_fds, n_keep_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
@@ -5334,6 +5353,14 @@ int exec_invoke(
                 if (r < 0) {
                         *exit_status = EXIT_CGROUP;
                         return log_error_errno(r, "Failed to attach to cgroup %s: %m", cgtarget);
+                }
+        }
+
+        if (context->user_namespace_path && runtime->shared && runtime->shared->userns_storage_socket[0] >= 0) {
+                r = open_shareable_ns_path(runtime->shared->userns_storage_socket, context->user_namespace_path, CLONE_NEWUSER);
+                if (r < 0) {
+                        *exit_status = EXIT_NAMESPACE;
+                        return log_error_errno(r, "Failed to open user namespace path %s: %m", context->user_namespace_path);
                 }
         }
 
@@ -5773,6 +5800,10 @@ int exec_invoke(
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to
                  * set up all of the other namespaces (i.e. network, mount, UTS) without a user namespace. */
+
+                if (context->user_namespace_path && runtime->shared->userns_storage_socket[0] >= 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "UserNamespacePath= is configured, but user namespace setup not permitted");
+
                 PrivateUsers pu = exec_context_get_effective_private_users(context, params);
                 if (pu == PRIVATE_USERS_NO)
                         pu = PRIVATE_USERS_SELF;
@@ -5843,8 +5874,20 @@ int exec_invoke(
          * restricted by rules pertaining to combining user namespaces with other namespaces (e.g. in the
          * case of mount namespaces being less privileged when the mount point list is copied from a
          * different user namespace). */
+        if (needs_sandboxing && context->user_namespace_path && runtime->shared && runtime->shared->userns_storage_socket[0] >= 0) {
+                if (!namespace_type_supported(NAMESPACE_USER))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "UserNamespacePath= is not supported, refusing.");
 
-        if (needs_sandboxing && !userns_set_up) {
+                r = setup_shareable_ns(runtime->shared->userns_storage_socket, CLONE_NEWUSER);
+                if (ERRNO_IS_NEG_PRIVILEGE(r))
+                        return log_notice_errno(r, "PrivateUsers= is configured, but user namespace setup not permitted, refusing.");
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return log_error_errno(r, "Failed to set up user namespacing: %m");
+                }
+
+                log_debug("Set up existing user namespace");
+        } else if (needs_sandboxing && !userns_set_up) {
                 PrivateUsers pu = exec_context_get_effective_private_users(context, params);
 
                 r = setup_private_users(pu, saved_uid, saved_gid, uid, gid,

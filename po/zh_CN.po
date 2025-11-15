@@ -1181,8 +1181,8 @@ msgstr "重新启动 '$(unit)' 需要认证。"
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "发送 UNIX 信号给 '$(unit)' 的进程需要认证。"
 
 #: src/core/dbus-unit.c:620
@@ -1201,8 +1201,8 @@ msgstr "设置 '$(unit)' 的属性需要认证。"
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr "删除与 '$(unit)' 关联的文件和目录需要认证。"
 
 #: src/core/dbus-unit.c:812

@@ -80,11 +80,11 @@ static inline int copy_file_atomic(const char *from, const char *to, mode_t mode
         return copy_file_atomic_full(from, to, mode, 0, 0, copy_flags, NULL, NULL);
 }
 
-int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
-static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes) {
+int copy_tree_at_full(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes, copy_progress_path_t progress_path, copy_progress_bytes_t progress_bytes, void *userdata);
+static inline int copy_tree_at(int fdf, const char *from, int fdt, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes) {
         return copy_tree_at_full(fdf, from, fdt, to, override_uid, override_gid, copy_flags, denylist, subvolumes, NULL, NULL, NULL);
 }
-static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Set *subvolumes) {
+static inline int copy_tree(const char *from, const char *to, uid_t override_uid, gid_t override_gid, CopyFlags copy_flags, Hashmap *denylist, Hashmap *subvolumes) {
         return copy_tree_at_full(AT_FDCWD, from, AT_FDCWD, to, override_uid, override_gid, copy_flags, denylist, subvolumes, NULL, NULL, NULL);
 }
 

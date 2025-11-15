@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "shared-forward.h"
+#include "import-common.h"
 #include "import-compress.h"
+#include "shared-forward.h"
 
 typedef struct TarExport TarExport;
 
@@ -13,4 +14,4 @@ TarExport* tar_export_unref(TarExport *export);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(TarExport*, tar_export_unref);
 
-int tar_export_start(TarExport *export, const char *path, int fd, ImportCompressType compress);
+int tar_export_start(TarExport *export, const char *path, int fd, ImportCompressType compress, ImportFlags flags);

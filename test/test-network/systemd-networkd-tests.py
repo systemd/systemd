@@ -81,10 +81,10 @@ valgrind_cmd = ''
 enable_debug = True
 env = {}
 wait_online_env = {}
-asan_options = None
-lsan_options = None
-ubsan_options = None
-with_coverage = False
+asan_options = os.getenv('ASAN_OPTIONS')
+lsan_options = os.getenv('LSAN_OPTIONS')
+ubsan_options = os.getenv('UBSAN_OPTIONS')
+with_coverage = os.getenv('COVERAGE_BUILD_DIR') != None
 show_journal = True # When true, show journal on stopping networkd.
 
 active_units = []
@@ -487,7 +487,19 @@ def create_service_dropin(service, command, additional_settings=None):
     if ubsan_options:
         drop_in += [f'Environment=UBSAN_OPTIONS="{ubsan_options}"']
     if asan_options or lsan_options or ubsan_options:
-        drop_in += ['SystemCallFilter=']
+        # Disable system call filter when running with sanitizers, as they seem to call filtered syscall at
+        # the very end of the execution and stuck the process. See issue #39567.
+        drop_in += [
+            'LockPersonality=no',
+            'ProtectClock=no',
+            'ProtectKernelLogs=no',
+            'RestrictAddressFamilies=',
+            'RestrictNamespaces=no',
+            'RestrictRealtime=no',
+            'RestrictSUIDSGID=no',
+            'SystemCallArchitectures=',
+            'SystemCallFilter=',
+        ]
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
     if use_valgrind:
@@ -7327,6 +7339,32 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('Address: 10.1.1.200 (DHCPv4 via 10.1.1.1)', output)
         self.assertRegex(output, 'DHCPv4 Client ID: IAID:[0-9a-z]*/DUID')
+
+    def test_dhcp_server_static_lease_hostname_simple(self):
+        copy_network_unit('25-veth.netdev',
+                          '25-dhcp-client-simple-hostname.network',
+                          '25-dhcp-server-static-hostname.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_json('veth99')
+        check_json(output)
+        print(output)
+        data = json.loads(output)
+        self.assertEqual(data['DHCPv4Client']['Lease']['Hostname'], 'simple-host')
+
+    def test_dhcp_server_static_lease_hostname_fqdn(self):
+        copy_network_unit('25-veth.netdev',
+                          '25-dhcp-client-fqdn-hostname.network',
+                          '25-dhcp-server-static-hostname.network')
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable')
+
+        output = networkctl_json('veth99')
+        check_json(output)
+        print(output)
+        data = json.loads(output)
+        self.assertEqual(data['DHCPv4Client']['Lease']['Hostname'], 'fqdn.example.com')
 
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 

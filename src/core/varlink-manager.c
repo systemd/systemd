@@ -7,9 +7,13 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
+#include "bus-polkit.h"
 #include "confidential-virt.h"
 #include "json-util.h"
 #include "manager.h"
+#include "pidref.h"
+#include "process-util.h"
+#include "selinux-access.h"
 #include "set.h"
 #include "strv.h"
 #include "syslog-util.h"
@@ -17,6 +21,7 @@
 #include "version.h"
 #include "varlink-common.h"
 #include "varlink-manager.h"
+#include "varlink-util.h"
 #include "virt.h"
 #include "watchdog.h"
 
@@ -112,6 +117,24 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ControlGroup", m->cgroup_root));
 }
 
+static int transactions_with_cycle_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        const Set *ids = userdata;
+        int r;
+
+        assert(ret);
+
+        uint64_t *id;
+        SET_FOREACH(id, ids) {
+                r = sd_json_variant_append_arrayb(&v, SD_JSON_BUILD_UNSIGNED(*id));
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
 static int manager_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         dual_timestamp watchdog_last_ping;
@@ -154,6 +177,7 @@ static int manager_runtime_build_json(sd_json_variant **ret, const char *name, v
                 SD_JSON_BUILD_PAIR_UNSIGNED("NJobs", hashmap_size(m->jobs)),
                 SD_JSON_BUILD_PAIR_UNSIGNED("NInstalledJobs", m->n_installed_jobs),
                 SD_JSON_BUILD_PAIR_UNSIGNED("NFailedJobs", m->n_failed_jobs),
+                JSON_BUILD_PAIR_CALLBACK_NON_NULL("TransactionsWithOrderingCycle", transactions_with_cycle_build_json, m->transactions_with_cycle),
                 SD_JSON_BUILD_PAIR_REAL("Progress", manager_get_progress(m)),
                 JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("WatchdogLastPingTimestamp", watchdog_get_last_ping_as_dual_timestamp(&watchdog_last_ping)),
                 SD_JSON_BUILD_PAIR_STRING("SystemState", manager_state_to_string(manager_state(m))),
@@ -180,4 +204,99 @@ int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd
                 return log_error_errno(r, "Failed to build manager JSON data: %m");
 
         return sd_varlink_reply(link, v);
+}
+
+int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = mac_selinux_access_check_varlink(link, "reload");
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->system_bus,
+                        "org.freedesktop.systemd1.reload-daemon",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* We need at least the pidref, otherwise there's nothing to log about. */
+        r = varlink_get_peer_pidref(link, &pidref);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
+        else
+                manager_log_caller(manager, &pidref, "Reload");
+
+        /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
+        if (!ratelimit_below(&manager->reload_reexec_ratelimit)) {
+                log_warning("Reloading request rejected due to rate limit.");
+                return sd_varlink_error(link, VARLINK_ERROR_MANAGER_RATE_LIMIT_REACHED, NULL);
+        }
+
+        /* Instead of sending the reply back right away, we just remember that we need to and then send it
+         * after the reload is finished. That way the caller knows when the reload finished. */
+
+        assert(!manager->pending_reload_message_vl);
+        assert(!manager->pending_reload_message_dbus);
+        manager->pending_reload_message_vl = sd_varlink_ref(link);
+
+        manager->objective = MANAGER_RELOAD;
+
+        return 1;
+}
+
+int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = mac_selinux_access_check_varlink(link, "reload");
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->system_bus,
+                        "org.freedesktop.systemd1.reload-daemon",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        /* We need at least the pidref, otherwise there's nothing to log about. */
+        r = varlink_get_peer_pidref(link, &pidref);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
+        else
+                manager_log_caller(manager, &pidref, "Reexecute");
+
+        /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
+        if (!ratelimit_below(&manager->reload_reexec_ratelimit)) {
+                log_warning("Reexecution request rejected due to rate limit.");
+                return sd_varlink_error(link, VARLINK_ERROR_MANAGER_RATE_LIMIT_REACHED, NULL);
+        }
+
+        /* We don't send a reply back here, the client should just wait for us disconnecting. */
+
+        manager->objective = MANAGER_REEXECUTE;
+
+        return 1;
 }

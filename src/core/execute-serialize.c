@@ -938,6 +938,12 @@ static int exec_runtime_serialize(const ExecRuntime *rt, FILE *f, FDSet *fds) {
                 if (r < 0)
                         return r;
 
+                if (rt->shared->userns_storage_socket[0] >= 0 && rt->shared->userns_storage_socket[1] >= 0) {
+                        r = serialize_fd_many(f, fds, "exec-runtime-userns-storage-socket", rt->shared->userns_storage_socket, 2);
+                        if (r < 0)
+                                return r;
+                }
+
                 if (rt->shared->netns_storage_socket[0] >= 0 && rt->shared->netns_storage_socket[1] >= 0) {
                         r = serialize_fd_many(f, fds, "exec-runtime-netns-storage-socket", rt->shared->netns_storage_socket, 2);
                         if (r < 0)
@@ -1013,6 +1019,12 @@ static int exec_runtime_deserialize(ExecRuntime *rt, FILE *f, FDSet *fds) {
                         r = free_and_strdup(&rt->shared->var_tmp_dir, val);
                         if (r < 0)
                                 return r;
+                } else if ((val = startswith(l, "exec-runtime-userns-storage-socket="))) {
+
+                        r = deserialize_fd_many(fds, val, 2, rt->shared->userns_storage_socket);
+                        if (r < 0)
+                                continue;
+
                 } else if ((val = startswith(l, "exec-runtime-netns-storage-socket="))) {
 
                         r = deserialize_fd_many(fds, val, 2, rt->shared->netns_storage_socket);
@@ -1174,6 +1186,10 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
                 return r;
 
         r = serialize_fd(f, fds, "exec-parameters-stderr-fd", p->stderr_fd);
+        if (r < 0)
+                return r;
+
+        r = serialize_fd(f, fds, "exec-parameters-root-directory-fd", p->root_directory_fd);
         if (r < 0)
                 return r;
 
@@ -1422,6 +1438,16 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 continue;
 
                         close_and_replace(p->stderr_fd, fd);
+
+                } else if ((val = startswith(l, "exec-parameters-root-directory-fd="))) {
+                        int fd;
+
+                        fd = deserialize_fd(fds, val);
+                        if (fd < 0)
+                                continue;
+
+                        close_and_replace(p->root_directory_fd, fd);
+
                 } else if ((val = startswith(l, "exec-parameters-exec-fd="))) {
                         int fd;
 
@@ -1994,6 +2020,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_bool_elide(f, "exec-context-root-directory-as-fd", c->root_directory_as_fd);
+        if (r < 0)
+                return r;
+
         switch (c->std_input) {
         case EXEC_INPUT_NAMED_FD:
                 r = serialize_item(f, "exec-context-std-input-fd-name", c->stdio_fdname[STDIN_FILENO]);
@@ -2341,6 +2371,10 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         }
 
         r = serialize_bool_elide(f, "exec-context-address-families-allow-list", c->address_families_allow_list);
+        if (r < 0)
+                return r;
+
+        r = serialize_item(f, "exec-context-user-namespace-path", c->user_namespace_path);
         if (r < 0)
                 return r;
 
@@ -3000,6 +3034,11 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->stdio_as_fds = r;
+                } else if ((val = startswith(l, "exec-context-root-directory-as-fd="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->root_directory_as_fd = r;
                 } else if ((val = startswith(l, "exec-context-std-input-fd-name="))) {
                         r = free_and_strdup(&c->stdio_fdname[STDIN_FILENO], val);
                         if (r < 0)
@@ -3468,6 +3507,10 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         c->address_families_allow_list = r;
                 } else if ((val = startswith(l, "exec-context-network-namespace-path="))) {
                         r = free_and_strdup(&c->network_namespace_path, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-context-user-namespace-path="))) {
+                        r = free_and_strdup(&c->user_namespace_path, val);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-ipc-namespace-path="))) {

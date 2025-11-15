@@ -1215,7 +1215,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                 break;
 
         case SD_BUS_TYPE_UINT64:
-                if (endswith(name, "Timestamp")) {
+                if (bus_property_is_timestamp(name)) {
                         uint64_t timestamp;
 
                         r = sd_bus_message_read_basic(m, bus_type, &timestamp);
@@ -2284,6 +2284,8 @@ static int show_one(
                 { "ExecStartPostEx",                "a(sasasttttuii)", map_exec,       0                                                           },
                 { "ExecReload",                     "a(sasbttttuii)",  map_exec,       0                                                           },
                 { "ExecReloadEx",                   "a(sasasttttuii)", map_exec,       0                                                           },
+                { "ExecReloadPost",                 "a(sasbttttuii)",  map_exec,       0                                                           },
+                { "ExecReloadPostEx",               "a(sasasttttuii)", map_exec,       0                                                           },
                 { "ExecStopPre",                    "a(sasbttttuii)",  map_exec,       0                                                           },
                 { "ExecStop",                       "a(sasbttttuii)",  map_exec,       0                                                           },
                 { "ExecStopEx",                     "a(sasasttttuii)", map_exec,       0                                                           },

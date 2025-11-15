@@ -810,7 +810,6 @@ static int context_ensure_layout(Context *c) {
 }
 
 static int context_set_up_staging_area(Context *c) {
-        static const char *template = "/tmp/kernel-install.staging.XXXXXX";
         int r;
 
         assert(c);
@@ -818,12 +817,19 @@ static int context_set_up_staging_area(Context *c) {
         if (c->staging_area)
                 return 0;
 
-        if (c->action == ACTION_INSPECT) {
+        const char *d;
+        r = var_tmp_dir(&d);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine temporary directory location: %m");
+
+        _cleanup_free_ char *template = path_join(d, "kernel-install.staging.XXXXXX");
+        if (!template)
+                return log_oom();
+
+        if (c->action == ACTION_INSPECT)
                 /* This is only used for display. The directory will not be created. */
-                c->staging_area = strdup(template);
-                if (!c->staging_area)
-                        return log_oom();
-        } else {
+                c->staging_area = TAKE_PTR(template);
+        else {
                 r = mkdtemp_malloc(template, &c->staging_area);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create staging area: %m");

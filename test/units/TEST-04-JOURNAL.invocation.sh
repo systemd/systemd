@@ -18,6 +18,7 @@ TMP_DIR=$(mktemp -d)
 # service stdout will not contain _SYSTEMD_INVOCATION_ID field.
 SAVED_LOG_LEVEL=$(systemctl log-level)
 systemctl log-level info
+journalctl --rotate
 
 # Note, if the service exits extremely fast, journald cannot find the source of the
 # stream. Hence, we need to call 'journalctl --sync' before service exits.

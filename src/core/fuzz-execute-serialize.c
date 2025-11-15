@@ -35,6 +35,7 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         DynamicCreds dynamic_creds = {};
         ExecCommand command = {};
         ExecSharedRuntime shared = {
+                .userns_storage_socket = EBADF_PAIR,
                 .netns_storage_socket = EBADF_PAIR,
                 .ipcns_storage_socket = EBADF_PAIR,
         };
@@ -58,6 +59,7 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
         params.stdin_fd = -EBADF;
         params.stdout_fd = -EBADF;
         params.stderr_fd = -EBADF;
+        params.root_directory_fd = -EBADF;
         params.exec_fd = -EBADF;
         params.user_lookup_fd = -EBADF;
         params.bpf_restrict_fs_map_fd = -EBADF;

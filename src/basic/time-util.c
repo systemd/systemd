@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"
 #include "parse-util.h"
@@ -624,17 +625,99 @@ char* format_timespan(char *buf, size_t l, usec_t t, usec_t accuracy) {
         return buf;
 }
 
+const char* get_tzname(bool dst) {
+        /* musl leaves the DST timezone name unset if there is no DST, map this back to no DST */
+        if (dst && isempty(tzname[1]))
+                dst = false;
+
+        return empty_to_null(tzname[dst]);
+}
+
 int parse_gmtoff(const char *t, long *ret) {
         assert(t);
 
         struct tm tm;
         const char *k = strptime(t, "%z", &tm);
-        if (!k || *k != '\0')
+        if (k && *k == '\0') {
+                /* Success! */
+                if (ret)
+                        *ret = tm.tm_gmtoff;
+                return 0;
+        }
+
+#ifdef __GLIBC__
+        return -EINVAL;
+#else
+        int r;
+
+        /* musl v1.2.5 does not support %z specifier in strptime(). Since
+         * https://github.com/kraj/musl/commit/fced99e93daeefb0192fd16304f978d4401d1d77
+         * %z is supported, but it only supports strict RFC-822/ISO 8601 format, that is, 4 digits with sign
+         * (e.g. +0900 or -1400), but does not support extended format: 2 digits or colon separated 4 digits
+         * (e.g. +09 or -14:00). Let's add fallback logic to make it support the extended timezone spec. */
+
+        bool positive;
+        switch (*t) {
+        case '+':
+                positive = true;
+                break;
+        case '-':
+                positive = false;
+                break;
+        default:
+                return -EINVAL;
+        }
+
+        t++;
+        r = undecchar(*t);
+        if (r < 0)
+                return r;
+
+        usec_t u = r * 10 * USEC_PER_HOUR;
+
+        t++;
+        r = undecchar(*t);
+        if (r < 0)
+                return r;
+        u += r * USEC_PER_HOUR;
+
+        t++;
+        if (*t == '\0') /* 2 digits case */
+                goto finalize;
+
+        if (*t == ':') /* skip colon */
+                t++;
+
+        r = undecchar(*t);
+        if (r < 0)
+                return r;
+        if (r >= 6) /* refuse minutes equal to or larger than 60 */
                 return -EINVAL;
 
-        if (ret)
-                *ret = tm.tm_gmtoff;
+        u += r * 10 * USEC_PER_MINUTE;
+
+        t++;
+        r = undecchar(*t);
+        if (r < 0)
+                return r;
+
+        u += r * USEC_PER_MINUTE;
+
+        t++;
+        if (*t != '\0')
+                return -EINVAL;
+
+finalize:
+        if (u > USEC_PER_DAY) /* refuse larger than one day */
+                return -EINVAL;
+
+        if (ret) {
+                long gmtoff = u / USEC_PER_SEC;
+                *ret = positive ? gmtoff : -gmtoff;
+        }
+
         return 0;
+#endif
 }
 
 static int parse_timestamp_impl(
@@ -810,7 +893,11 @@ static int parse_timestamp_impl(
                 if (!k || *k != ' ')
                         continue;
 
+#ifdef __GLIBC__
+                /* musl does not set tm_wday field and set 0 unless it is explicitly requested by %w or so.
+                 * In the below, let's only check tm_wday field only when built with glibc. */
                 weekday = day->nr;
+#endif
                 t = k + 1;
                 break;
         }
@@ -1007,10 +1094,7 @@ int parse_timestamp(const char *t, usec_t *ret) {
          * not follow the timezone change in the current area. */
         tzset();
         for (int j = 0; j <= 1; j++) {
-                if (isempty(tzname[j]))
-                        continue;
-
-                if (!streq(tz, tzname[j]))
+                if (!streq_ptr(tz, get_tzname(j)))
                         continue;
 
                 /* The specified timezone matches tzname[] of the local timezone. */

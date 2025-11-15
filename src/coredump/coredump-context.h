@@ -2,9 +2,10 @@
 #pragma once
 
 #include "coredump-forward.h"
+#include "iovec-wrapper.h"
 #include "pidref.h"
 
-typedef enum {
+typedef enum MetadataField {
         /* We use these as array indexes for our process metadata cache.
          *
          * The first indices of the cache stores the same metadata as the ones passed by the kernel via
@@ -39,37 +40,44 @@ typedef enum {
         META_EXE,
         META_UNIT,
         META_PROC_AUXV,
-        _META_MAX
-} meta_argv_t;
+        _META_MAX,
+        _META_INVALID = -EINVAL,
+} MetadataField;
 
-extern const char * const meta_field_names[_META_MAX];
-
-struct Context {
-        PidRef pidref;
-        uid_t uid;
-        gid_t gid;
-        unsigned dumpable;
-        int signo;
-        uint64_t rlimit;
-        bool is_pid1;
-        bool is_journald;
-        bool got_pidfd;
+struct CoredumpContext {
+        PidRef pidref;     /* META_ARGV_PID and META_ARGV_PIDFD */
+        uid_t uid;         /* META_ARGV_UID */
+        gid_t gid;         /* META_ARGV_GID */
+        int signo;         /* META_ARGV_SIGNAL */
+        usec_t timestamp;  /* META_ARGV_TIMESTAMP */
+        uint64_t rlimit;   /* META_ARGV_RLIMIT */
+        char *hostname;    /* META_ARGV_HOSTNAME */
+        unsigned dumpable; /* META_ARGV_DUMPABLE */
+        char *comm;        /* META_COMM */
+        char *exe;         /* META_EXE */
+        char *unit;        /* META_UNIT */
+        char *auxv;        /* META_PROC_AUXV */
+        size_t auxv_size;  /* META_PROC_AUXV */
+        bool got_pidfd;    /* META_ARGV_PIDFD */
+        bool same_pidns;
+        bool forwarded;
+        int input_fd;
         int mount_tree_fd;
-
-        /* These point into external memory, are not owned by this object */
-        const char *meta[_META_MAX];
-        size_t meta_size[_META_MAX];
+        struct iovec_wrapper iovw;
 };
 
-#define CONTEXT_NULL                            \
-        (Context) {                             \
+#define COREDUMP_CONTEXT_NULL                   \
+        (CoredumpContext) {                     \
                 .pidref = PIDREF_NULL,          \
                 .uid = UID_INVALID,             \
                 .gid = GID_INVALID,             \
                 .mount_tree_fd = -EBADF,        \
+                .input_fd = -EBADF,             \
         }
 
-void context_done(Context *c);
-int context_parse_iovw(Context *context, struct iovec_wrapper *iovw);
-int gather_pid_metadata_from_argv(struct iovec_wrapper *iovw, Context *context, int argc, char **argv);
-int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *context);
+void coredump_context_done(CoredumpContext *context);
+bool coredump_context_is_pid1(CoredumpContext *context);
+bool coredump_context_is_journald(CoredumpContext *context);
+int coredump_context_build_iovw(CoredumpContext *context);
+int coredump_context_parse_iovw(CoredumpContext *context);
+int coredump_context_parse_from_argv(CoredumpContext *context, int argc, char **argv);

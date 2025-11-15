@@ -819,21 +819,12 @@ static char *format_types(Bitmap *types) {
         int r;
 
         BITMAP_FOREACH(type, types) {
-                if (dns_type_to_string(type)) {
+                if (dns_type_to_string(type))
                         r = strv_extend(&strv, dns_type_to_string(type));
-                        if (r < 0)
-                                return NULL;
-                } else {
-                        char *t;
-
-                        r = asprintf(&t, "TYPE%u", type);
-                        if (r < 0)
-                                return NULL;
-
-                        r = strv_consume(&strv, t);
-                        if (r < 0)
-                                return NULL;
-                }
+                else
+                        r = strv_extendf(&strv, "TYPE%u", type);
+                if (r < 0)
+                        return NULL;
         }
 
         str = strv_join(strv, " ");

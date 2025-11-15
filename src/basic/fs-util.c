@@ -868,10 +868,8 @@ int open_parent_at(int dir_fd, const char *path, int flags, mode_t mode) {
         /* Let's insist on O_DIRECTORY since the parent of a file or directory is a directory. Except if we open an
          * O_TMPFILE file, because in that case we are actually create a regular file below the parent directory. */
 
-        if (FLAGS_SET(flags, O_PATH))
+        if (!FLAGS_SET(flags, O_TMPFILE))
                 flags |= O_DIRECTORY;
-        else if (!FLAGS_SET(flags, O_TMPFILE))
-                flags |= O_DIRECTORY|O_RDONLY;
 
         return RET_NERRNO(openat(dir_fd, parent, flags, mode));
 }

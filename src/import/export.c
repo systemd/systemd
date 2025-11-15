@@ -21,6 +21,7 @@
 #include "terminal-util.h"
 #include "verbs.h"
 
+static ImportFlags arg_import_flags = 0;
 static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
@@ -111,7 +112,12 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate exporter: %m");
 
-        r = tar_export_start(export, local, fd, arg_compress);
+        r = tar_export_start(
+                        export,
+                        local,
+                        fd,
+                        arg_compress,
+                        arg_import_flags & IMPORT_FLAGS_MASK_TAR);
         if (r < 0)
                 return log_error_errno(r, "Failed to export image: %m");
 
@@ -282,6 +288,9 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_runtime_scope == RUNTIME_SCOPE_USER)
+                arg_import_flags |= IMPORT_FOREIGN_UID;
 
         return 1;
 }

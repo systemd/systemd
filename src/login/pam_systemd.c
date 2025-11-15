@@ -96,7 +96,7 @@ static int parse_caps(
                 if (!caps)
                         continue;
 
-                if (*caps == UINT64_MAX)
+                if (*caps == CAP_MASK_UNSET)
                         b = subtract ? all_capabilities() : 0;
                 else
                         b = *caps;
@@ -764,14 +764,14 @@ static int apply_user_record_settings(
 
         uint64_t a, b;
         a = user_record_capability_ambient_set(ur);
-        if (a == UINT64_MAX)
+        if (a == CAP_MASK_UNSET)
                 a = default_capability_ambient_set;
 
         b = user_record_capability_bounding_set(ur);
-        if (b == UINT64_MAX)
+        if (b == CAP_MASK_UNSET)
                 b = default_capability_bounding_set;
 
-        if (a != UINT64_MAX && a != 0) {
+        if (a != CAP_MASK_UNSET && a != 0) {
                 a &= b;
 
                 r = capability_ambient_set_apply(a, /* also_inherit= */ true);
@@ -780,7 +780,7 @@ static int apply_user_record_settings(
                                          "Failed to set ambient capabilities, ignoring: %m");
         }
 
-        if (b != UINT64_MAX && !cap_test_all(b)) {
+        if (b != CAP_MASK_UNSET && !cap_test_all(b)) {
                 r = capability_bounding_set_drop(b, /* right_now= */ false);
                 if (r < 0)
                         pam_syslog_errno(handle, LOG_ERR, r,
@@ -802,7 +802,7 @@ static uint64_t pick_default_capability_ambient_set(
 
         return ur &&
                 user_record_disposition(ur) == USER_REGULAR &&
-                (streq_ptr(service, "systemd-user") || !isempty(seat)) ? (UINT64_C(1) << CAP_WAKE_ALARM) : UINT64_MAX;
+                (streq_ptr(service, "systemd-user") || !isempty(seat)) ? (UINT64_C(1) << CAP_WAKE_ALARM) : CAP_MASK_UNSET;
 }
 
 typedef struct SessionContext {
@@ -1735,7 +1735,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
         pam_log_setup();
 
-        uint64_t default_capability_bounding_set = UINT64_MAX, default_capability_ambient_set = UINT64_MAX;
+        uint64_t default_capability_bounding_set = CAP_MASK_UNSET, default_capability_ambient_set = CAP_MASK_UNSET;
         const char *class_pam = NULL, *type_pam = NULL, *desktop_pam = NULL, *area_pam = NULL;
         bool debug = false;
         if (parse_argv(handle,
@@ -1800,7 +1800,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        if (default_capability_ambient_set == UINT64_MAX)
+        if (default_capability_ambient_set == CAP_MASK_UNSET)
                 default_capability_ambient_set = pick_default_capability_ambient_set(ur, c.service, c.seat);
 
         r = apply_user_record_settings(handle, ur, debug, default_capability_bounding_set, default_capability_ambient_set);

@@ -1202,15 +1202,16 @@ msgstr "인증은 '$(unit)'을 다시 시작하는데 필요합니다."
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr "'$(unit)'의 처리에 유닉스 신호를 전송하려면 인증이 필요합니다."
 
 #: src/core/dbus-unit.c:620
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
-msgstr "'$(unit)'의 하위그룹 처리로 유닉스 신호를 전송하려면 인증이 필요합니다."
+msgstr ""
+"'$(unit)'의 하위그룹 처리로 유닉스 신호를 전송하려면 인증이 필요합니다."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
@@ -1222,8 +1223,8 @@ msgstr "인증은 '$(unit)'의 속성을 설정하는데 필요합니다."
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr "인증은 '$(unit)'과 관련된 파일과 디렉토리를 삭제하는데 필요합니다."
 
 #: src/core/dbus-unit.c:812

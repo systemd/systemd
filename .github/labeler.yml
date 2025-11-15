@@ -108,7 +108,7 @@ hwdb:
     - any-glob-to-any-file: '**/*hwdb*'
 import:
   - changed-files:
-    - any-glob-to-any-file: '**/*import*'
+    - any-glob-to-any-file: ['src/import/*', 'src/shared/*import*', 'units/**/*import*']
 integritysetup:
   - changed-files:
     - any-glob-to-any-file: '**/*integrity*'
@@ -132,7 +132,7 @@ login:
     - any-glob-to-any-file: ['src/login/*', '**/sd-login*/**']
 machine:
   - changed-files:
-    - any-glob-to-any-file: ['src/machine/*', 'units/*machine*']
+    - any-glob-to-any-file: ['src/machine/*', 'units/**/*machine*']
 meson:
   - changed-files:
     - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
@@ -229,6 +229,9 @@ selinux:
 shell-completion:
   - changed-files:
     - any-glob-to-any-file: 'shell-completion/*'
+shell profile:
+  - changed-files:
+    - any-glob-to-any-file: 'profile.d/*'
 shutdown:
   - changed-files:
     - any-glob-to-any-file: ['src/shutdown/*', 'units/**/*shutdown*']

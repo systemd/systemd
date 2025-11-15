@@ -2225,7 +2225,7 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
         if (!had_carrier && link_has_carrier(link))
                 r = link_carrier_gained(link);
         else if (had_carrier && !link_has_carrier(link))
-                link_carrier_lost(link);
+                r = link_carrier_lost(link);
         if (r < 0)
                 return r;
 

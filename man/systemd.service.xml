@@ -206,7 +206,7 @@
             identify the main process of the service. The manager will proceed with starting follow-up units
             after the parent process exits.</para></listitem>
 
-            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>simple</option>;
+            <listitem><para>Behavior of <option>oneshot</option> is similar to <option>exec</option>;
             however, the service manager will consider the unit up after the main process exits. It will then
             start follow-up units. <varname>RemainAfterExit=</varname> is particularly useful for this type
             of service. <varname>Type=</varname><option>oneshot</option> is the implied default if neither
@@ -475,8 +475,8 @@
       <varlistentry>
         <term><varname>ExecReload=</varname></term>
 
-        <listitem><para>Commands to execute to trigger a configuration reload in the service. This argument
-        takes multiple command lines, following the same scheme as described for
+        <listitem><para>Commands to execute to trigger a configuration reload in the service. This setting
+        may take multiple command lines, following the same scheme as described for
         <varname>ExecStart=</varname> above. Use of this setting is optional. Specifier and environment
         variable substitution is supported here following the same scheme as for
         <varname>ExecStart=</varname>.</para>
@@ -486,13 +486,12 @@
 
         <programlisting>ExecReload=kill -HUP $MAINPID</programlisting>
 
-        <para>Note however that reloading a daemon by enqueuing a signal (as with the example line above) is
-        usually not a good choice, because this is an asynchronous operation and hence not suitable when
-        ordering reloads of multiple services against each other. It is thus strongly recommended to either
-        use <varname>Type=</varname><option>notify-reload</option> in place of
-        <varname>ExecReload=</varname>, or to set <varname>ExecReload=</varname> to a command that not only
-        triggers a configuration reload of the daemon, but also synchronously waits for it to complete. For
-        example, <citerefentry
+        <para>Note however that reloading a daemon by enqueuing a signal without completion notification
+        (as is the case with the example line above) is usually not a good choice, because this is an
+        asynchronous operation and hence not suitable when ordering reloads of multiple services against
+        each other. It is thus strongly recommended to either use <varname>Type=notify-reload</varname>,
+        or to set <varname>ExecReload=</varname> to a command that not only triggers a configuration reload
+        of the daemon, but also synchronously waits for it to complete. For example, <citerefentry
         project='mankier'><refentrytitle>dbus-broker</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         uses the following:</para>
 
@@ -500,6 +499,22 @@
         /org/freedesktop/DBus org.freedesktop.DBus \
         ReloadConfig
 </programlisting>
+
+        <para>This setting can be combined with <varname>Type=notify-reload</varname>, in which case
+        the service main process is signaled after all specified command lines finish execution. Specially,
+        if <literal>RELOADING=1</literal> notification is received before <varname>ExecReload=</varname>
+        completes, the signaling is skipped and the service manager immediately starts listening for
+        <literal>READY=1</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ExecReloadPost=</varname></term>
+
+        <listitem><para>Commands to execute after a successful reload operation. Syntax for this setting
+        is exactly the same as <varname>ExecReload=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/>
         </listitem>
       </varlistentry>
 
@@ -1072,18 +1087,14 @@
 
       <varlistentry>
         <term><varname>RootDirectoryStartOnly=</varname></term>
-        <listitem><para>Takes a boolean argument. If true, the root
-        directory, as configured with the
+        <listitem><para>Takes a boolean argument. If true, the root directory, as configured with the
         <varname>RootDirectory=</varname> option (see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        for more information), is only applied to the process started
-        with <varname>ExecStart=</varname>, and not to the various
-        other <varname>ExecStartPre=</varname>,
-        <varname>ExecStartPost=</varname>,
-        <varname>ExecReload=</varname>, <varname>ExecStop=</varname>,
-        and <varname>ExecStopPost=</varname> commands. If false, the
-        setting is applied to all configured commands the same way.
-        Defaults to false.</para></listitem>
+        for more information), is only applied to the process started with <varname>ExecStart=</varname>,
+        and not to the various other <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>,
+        <varname>ExecReload=</varname>, <varname>ExecReloadPost=</varname>, <varname>ExecStop=</varname>,
+        and <varname>ExecStopPost=</varname> commands. If false, the setting is applied to all
+        configured commands the same way. Defaults to false.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1485,7 +1496,8 @@ ExecStart=/bin/echo $ONE $TWO $THREE</programlisting>
     <literal>too</literal>.
     </para>
 
-    <para>To pass a literal dollar sign, use <literal>$$</literal>.
+    <para>Unless for commands with the special executable prefix <literal>:</literal>,
+    to pass a literal dollar sign, use <literal>$$</literal>.
     Variables whose value is not known at expansion time are treated
     as empty strings. Note that the first argument (i.e. the program
     to execute) may not be a variable.</para>

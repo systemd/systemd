@@ -2419,6 +2419,7 @@ static const BusProperty execute_properties[] = {
         { "ProtectProc",                           bus_append_string                             },
         { "ProcSubset",                            bus_append_string                             },
         { "NetworkNamespacePath",                  bus_append_string                             },
+        { "UserNamespacePath",                     bus_append_string                             },
         { "IPCNamespacePath",                      bus_append_string                             },
         { "LogNamespace",                          bus_append_string                             },
         { "RootImagePolicy",                       bus_append_string                             },
@@ -2648,6 +2649,8 @@ static const BusProperty service_properties[] = {
         { "ExecStartPostEx",                       bus_append_exec_command                       }, /* compat */
         { "ExecReload",                            bus_append_exec_command                       },
         { "ExecReloadEx",                          bus_append_exec_command                       }, /* compat */
+        { "ExecReloadPost",                        bus_append_exec_command                       },
+        { "ExecReloadPostEx",                      bus_append_exec_command                       }, /* compat */
         { "ExecStop",                              bus_append_exec_command                       },
         { "ExecStopEx",                            bus_append_exec_command                       }, /* compat */
         { "ExecStopPost",                          bus_append_exec_command                       },

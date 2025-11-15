@@ -62,6 +62,33 @@ assert_eq "$(systemctl show notify.service -p NotifyAccess --value)" "none"
 systemctl stop notify.service
 assert_eq "$(systemctl show notify.service -p NotifyAccess --value)" "all"
 
+# Timeout of READY=1 for Type=notify-reload services (issue #37515)
+
+systemctl start reload-timeout.service
+
+systemctl reload --no-block reload-timeout.service
+timeout 10 bash -c 'until [[ $(systemctl show reload-timeout.service -P SubState) == "reload-signal" ]]; do sleep .5; done'
+sync_in hup1
+timeout 10 bash -c 'until [[ $(systemctl show reload-timeout.service -P SubState) == "reload-notify" ]]; do sleep .5; done'
+timeout 80 bash -c 'until [[ $(systemctl show reload-timeout.service -P SubState) == "running" ]]; do sleep 5; done'
+assert_eq "$(systemctl show reload-timeout.service -P ReloadResult)" "timeout"
+
+systemctl reload --no-block reload-timeout.service
+timeout 10 bash -c 'until [[ $(systemctl show reload-timeout.service -P SubState) == "reload-signal" ]]; do sleep .5; done'
+assert_eq "$(systemctl show reload-timeout.service -P ReloadResult)" "success"
+sync_in hup2
+timeout 10 bash -c 'until [[ $(systemctl show reload-timeout.service -P SubState) == "reload-notify" ]]; do sleep .5; done'
+sync_out ready
+timeout 40 bash -c 'until [[ $(systemctl show reload-timeout.service -P SubState) == "running" ]]; do sleep 1; done'
+assert_eq "$(systemctl show reload-timeout.service -P ReloadResult)" "success"
+
+systemctl reload --no-block reload-timeout.service
+sync_in hup3
+timeout 40 bash -c 'until [[ $(systemctl show reload-timeout.service -P SubState) == "running" ]]; do sleep 1; done'
+assert_eq "$(systemctl show reload-timeout.service -P ReloadResult)" "success"
+
+systemctl stop reload-timeout.service
+
 rm /tmp/syncfifo1 /tmp/syncfifo2
 
 # Explicitly test busctl's BUSERROR= reporting and systemctl status should show it

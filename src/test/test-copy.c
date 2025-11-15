@@ -124,7 +124,7 @@ TEST(copy_file_fd) {
         assert_se(write_string_file(in_fn, text, WRITE_STRING_FILE_CREATE) == 0);
         assert_se(copy_file_fd("/a/file/which/does/not/exist/i/guess", out_fd, COPY_REFLINK) < 0);
         assert_se(copy_file_fd(in_fn, out_fd, COPY_REFLINK) >= 0);
-        assert_se(lseek(out_fd, SEEK_SET, 0) == 0);
+        assert_se(lseek(out_fd, 0, SEEK_SET) == 0);
 
         assert_se(read(out_fd, buf, sizeof buf) == (ssize_t) strlen(text));
         ASSERT_STREQ(buf, text);

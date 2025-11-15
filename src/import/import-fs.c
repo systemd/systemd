@@ -238,7 +238,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to copy directory: %m");
         }
 
-        r = import_mangle_os_tree(dest);
+        r = import_mangle_os_tree(dest, /* userns_fd= */ -EBADF, /* flags= */ 0);
         if (r < 0)
                 return r;
 

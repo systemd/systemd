@@ -2639,12 +2639,10 @@ static int do_queue_default_job(
                 return log_struct_errno(LOG_EMERG, r,
                                         LOG_MESSAGE("Failed to isolate default target: %s", bus_error_message(&error, r)),
                                         LOG_MESSAGE_ID(SD_MESSAGE_CORE_ISOLATE_TARGET_FAILED_STR));
-        } else
-                log_info("Queued %s job for default target %s.",
-                         job_type_to_string(job->type),
-                         unit_status_string(job->unit, NULL));
+        }
 
-        m->default_unit_job_id = job->id;
+        log_info("Queued %s job for default target %s.",
+                 job_type_to_string(job->type), unit_status_string(job->unit, NULL));
 
         return 0;
 }
@@ -2768,7 +2766,7 @@ static void reset_arguments(void) {
         arg_default_environment = strv_free(arg_default_environment);
         arg_manager_environment = strv_free(arg_manager_environment);
 
-        arg_capability_bounding_set = CAP_MASK_UNSET;
+        arg_capability_bounding_set = CAP_MASK_ALL;
         arg_no_new_privs = false;
         arg_protect_system = -1;
         arg_timer_slack_nsec = NSEC_INFINITY;

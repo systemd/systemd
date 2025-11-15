@@ -96,6 +96,16 @@
   </refsect1>
 
   <refsect1>
+    <title>Signal</title>
+    <variablelist>
+      <varlistentry>
+         <term><constant>SIGHUP</constant></term>
+         <listitem><para>Reloads the service configuration file.</para></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

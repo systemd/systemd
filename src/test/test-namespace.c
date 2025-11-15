@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <linux/prctl.h>
 #include <sched.h>
 #include <stdlib.h>
 #include <sys/prctl.h>
@@ -201,6 +200,7 @@ TEST(protect_kernel_logs) {
         static const NamespaceParameters p = {
                 .runtime_scope = RUNTIME_SCOPE_SYSTEM,
                 .protect_kernel_logs = true,
+                .root_directory_fd = -EBADF,
         };
         pid_t pid;
 

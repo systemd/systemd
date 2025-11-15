@@ -64,11 +64,11 @@ struct json_variant_foreach_state {
                 type cc = func(sd_json_variant_string(variant));        \
                 if (cc < 0) {                                           \
                         /* Maybe this enum is recognizable if we replace "_" (i.e. Varlink syntax) with "-" (how we usually prefer it). */ \
-                        _cleanup_free_ char *z = strreplace(sd_json_variant_string(variant), "_", "-"); \
+                        _cleanup_free_ char *z = strdup(sd_json_variant_string(variant)); \
                         if (!z)                                         \
                                 return json_log_oom(variant, flags);    \
                                                                         \
-                        cc = func(z);                                   \
+                        cc = func(json_dashify(z));                     \
                         if (cc < 0)                                     \
                                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Value of JSON field '%s' not recognized: %s", strna(n), sd_json_variant_string(variant)); \
                 }                                                       \
@@ -261,3 +261,6 @@ enum {
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref);
 int json_variant_new_devnum(sd_json_variant **ret, dev_t devnum);
 int json_variant_new_fd_info(sd_json_variant **ret, int fd);
+
+char *json_underscorify(char *p);
+char *json_dashify(char *p);

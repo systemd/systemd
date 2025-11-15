@@ -169,6 +169,7 @@ char* strreplace(const char *text, const char *old_string, const char *new_strin
 
 char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]);
 
+char* strextendv_with_separator(char **x, const char *separator, va_list ap);
 char* strextend_with_separator_internal(char **x, const char *separator, ...) _sentinel_;
 #define strextend_with_separator(x, separator, ...) strextend_with_separator_internal(x, separator, __VA_ARGS__, NULL)
 #define strextend(x, ...) strextend_with_separator_internal(x, NULL, __VA_ARGS__, NULL)

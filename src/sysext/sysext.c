@@ -1707,9 +1707,11 @@ static const ImagePolicy *pick_image_policy(const Image *img) {
 
         /* If located in /.extra/ in the initrd, then it was placed there by systemd-stub, and was
          * picked up from an untrusted ESP. Thus, require a stricter policy by default for them. (For the
-         * other directories we assume the appropriate level of trust was already established already.  */
+         * other directories we assume the appropriate level of trust was already established.)
+         * With --root= we default to the regular policy, though. (To change that, the check would need
+         * to prepend (or cut away) arg_root.) */
 
-        if (in_initrd()) {
+        if (in_initrd() && !arg_root) {
                 if (path_startswith(img->path, "/.extra/sysext/"))
                         return &image_policy_sysext_strict;
                 if (path_startswith(img->path, "/.extra/global_sysext/"))
@@ -1905,13 +1907,19 @@ static int merge_subprocess(
                 if (force)
                         log_debug("Force mode enabled, skipping version validation.");
                 else {
+                        bool is_initrd;
+                        r = chase_and_access("/etc/initrd-release", arg_root, CHASE_PREFIX_ROOT, F_OK, /* ret_path= */ NULL);
+                        if (r < 0 && r != -ENOENT)
+                                return log_error_errno(r, "Failed to check for /etc/initrd-release: %m");
+                        is_initrd = r >= 0;
+
                         r = extension_release_validate(
                                         img->name,
                                         host_os_release_id,
                                         host_os_release_id_like,
                                         host_os_release_version_id,
                                         host_os_release_api_level,
-                                        in_initrd() ? "initrd" : "system",
+                                        is_initrd ? "initrd" : "system",
                                         image_extension_release(img, image_class),
                                         image_class);
                         if (r < 0)

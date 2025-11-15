@@ -1257,11 +1257,11 @@ msgstr "Otentikasi diperlukan untuk memulai ulang '$(unit)'."
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
-"Otentikasi diperlukan untuk megirim suatu sinyal UNIX ke proses dari "
-"'$(unit)'."
+"Otentikasi diperlukan untuk megirim suatu sinyal UNIX ke proses dari '$"
+"(unit)'."
 
 #: src/core/dbus-unit.c:620
 msgid ""
@@ -1282,8 +1282,8 @@ msgstr "Otentikasi diperlukan untuk menata properti pada '$(unit)'."
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 "Otentikasi diperlukan untuk menghapus berkas dan direktori yang terkait "
 "dengan '$(unit)'."
@@ -1292,8 +1292,8 @@ msgstr ""
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
-"Otentikasi diperlukan untuk membekukan atau melanjutkan proses dari unit "
-"'$(unit)'."
+"Otentikasi diperlukan untuk membekukan atau melanjutkan proses dari unit '$"
+"(unit)'."
 
 #~ msgid ""
 #~ "Authentication is required to halt the system while an application asked "

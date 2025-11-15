@@ -94,6 +94,7 @@ static int convert_user(
                 const char *shell,
                 bool shell_copy,
                 const char *home_mount_directory,
+                char **groups,
                 UserRecord **ret_converted_user,
                 GroupRecord **ret_converted_group) {
 
@@ -145,6 +146,7 @@ static int convert_user(
                                         SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(h)),
                                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("shell", shell),
+                                        SD_JSON_BUILD_PAIR_STRV("memberOf", groups),
                                         SD_JSON_BUILD_PAIR("privileged", SD_JSON_BUILD_OBJECT(
                                                                            SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(u->hashed_password), "hashedPassword", SD_JSON_BUILD_VARIANT(hp)),
                                                                            SD_JSON_BUILD_PAIR_CONDITION(!!ssh, "sshAuthorizedKeys", SD_JSON_BUILD_VARIANT(ssh))))));
@@ -212,6 +214,7 @@ int machine_bind_user_prepare(
                 const char *bind_user_shell,
                 bool bind_user_shell_copy,
                 const char *bind_user_home_mount_directory,
+                char **bind_user_groups,
                 MachineBindUserContext **ret) {
 
         _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *c = NULL;
@@ -288,6 +291,7 @@ int machine_bind_user_prepare(
                                 bind_user_shell,
                                 bind_user_shell_copy,
                                 bind_user_home_mount_directory,
+                                bind_user_groups,
                                 &cu, &cg);
                 if (r < 0)
                         return r;

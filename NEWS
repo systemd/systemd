@@ -2,9 +2,28 @@ systemd System and Service Manager
 
 CHANGES WITH 259 in spe:
 
+        Announcements of Future Feature Removals and Incompatible Changes:
+
+        * The parsing of RootImageOptions= and the mount image parameters of
+          ExtensionImages= and MountImages= will be changed so that the last
+          duplicated definition for a given partition wins and is applied,
+          rather than the first, to keep these options coherent with other
+          unit settings.
+
+        * The cgroup2 file system is now mounted with the
+          "memory_hugetlb_accounting" mount option, supported since kernel 6.6.
+          This means that HugeTLB memory usage is now counted towards the
+          cgroup’s overall memory usage for the memory controller.
+
         * homectl's --recovery-key= option may now be used with the "update"
           command to add recovery keys to existing user accounts. Previously,
           recovery keys could only be configured during initial user creation.
+
+        * The default storage mode for the journal is now 'persistent'.
+          Previously, the default was 'auto', so the presence or lack of
+          /var/log/journal determined the default storage mode, if no
+          overriding configuration was provided. The default can be changed
+          with -Djournal-storage-default=.
 
 CHANGES WITH 258:
 

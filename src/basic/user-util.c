@@ -831,7 +831,7 @@ char* mangle_gecos(const char *d) {
         char *mangled;
 
         /* Makes sure the provided string becomes valid as a GEGOS field, by dropping bad chars. glibc's
-         * putwent() only changes \n and : to spaces. We do more: replace all CC too, and remove invalid
+         * putpwent() only changes \n and : to spaces. We do more: replace all CC too, and remove invalid
          * UTF-8 */
 
         mangled = strdup(d);

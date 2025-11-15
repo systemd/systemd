@@ -885,6 +885,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_TRISTATE_NON_NULL("MemoryKSM", c->memory_ksm),
                         SD_JSON_BUILD_PAIR_STRING("PrivatePIDs", private_pids_to_string(c->private_pids)),
                         SD_JSON_BUILD_PAIR_STRING("PrivateUsers", private_users_to_string(c->private_users)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("UserNamespacePath", c->user_namespace_path),
                         SD_JSON_BUILD_PAIR_STRING("ProtectHostname", protect_hostname_to_string(c->protect_hostname)),
                         JSON_BUILD_PAIR_YES_NO("ProtectClock", c->protect_clock),
                         JSON_BUILD_PAIR_YES_NO("ProtectKernelTunables", c->protect_kernel_tunables),

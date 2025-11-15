@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
 
 /* The SPDX header above is actually correct in claiming this was
  * LGPL-2.1-or-later, because it is. Since the kernel doesn't consider that

@@ -72,7 +72,10 @@ conf.set10('SD_BOOT', false)
 
 # Create a title-less summary section early, so it ends up first in the output.
 # More items are added later after they have been detected.
-summary({'build mode' : get_option('mode')})
+summary({
+        'libc'       : get_option('libc'),
+        'build mode' : get_option('mode'),
+})
 
 #####################################################################
 
@@ -113,6 +116,9 @@ endif
 conf.set10('BUMP_PROC_SYS_FS_FILE_MAX', get_option('bump-proc-sys-fs-file-max'))
 conf.set10('BUMP_PROC_SYS_FS_NR_OPEN',  get_option('bump-proc-sys-fs-nr-open'))
 conf.set('HIGH_RLIMIT_NOFILE',          512*1024)
+
+conf.set('JOURNAL_STORAGE_DEFAULT',     get_option('journal-storage-default'))
+conf.set('JOURNAL_STORAGE_DEFAULT_VAL', 'STORAGE_' + get_option('journal-storage-default').to_upper())
 
 # Meson ignores the preceding arguments when joining paths if an absolute
 # component is encountered, so this should canonicalize various paths when they
@@ -557,6 +563,10 @@ conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
 conf.set('_GNU_SOURCE', 1)
 conf.set('__SANE_USERSPACE_TYPES__', true)
 
+# glibc always defines _LARGEFILE64_SOURCE when _GNU_SOURCE is set, but musl does not do that,
+# and it is necessary for making getdents64() and struct dirent64 exist.
+conf.set('_LARGEFILE64_SOURCE', 1)
+
 conf.set('SIZEOF_DEV_T', cc.sizeof('dev_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_INO_T', cc.sizeof('ino_t', prefix : '#include <sys/types.h>'))
 conf.set('SIZEOF_RLIM_T', cc.sizeof('rlim_t', prefix : '#include <sys/resource.h>'))
@@ -572,6 +582,7 @@ assert(long_max > 100000)
 conf.set_quoted('LONG_MAX_STR', f'@long_max@')
 
 foreach ident : [
+        ['renameat2',         '''#include <stdio.h>'''],        # since musl-1.2.6
         ['set_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['get_mempolicy',     '''#include <sys/syscall.h>'''],  # declared at numaif.h provided by libnuma, which we do not use
         ['strerrorname_np',   '''#include <string.h>'''],       # since glibc-2.32
@@ -700,6 +711,8 @@ foreach header : [
 endforeach
 
 foreach header : [
+        'gshadow.h',
+        'nss.h',
         'sys/sdt.h',
         'threads.h',
         'valgrind/memcheck.h',
@@ -708,6 +721,20 @@ foreach header : [
 
         conf.set10('HAVE_' + header.underscorify().to_upper(),
                    cc.has_header(header))
+endforeach
+
+foreach ident : [
+                ['NI_IDN', 'netdb.h']
+        ]
+
+        if meson.version().version_compare('>=1.3.0')
+                have = cc.has_define(ident[0],
+                                     prefix : '''#include <@0@>'''.format(ident[1]),
+                                     args : '-D_GNU_SOURCE')
+        else
+                have = cc.has_header_symbol(ident[1], ident[0])
+        endif
+        conf.set10('HAVE_' + ident[0], have)
 endforeach
 
 #####################################################################
@@ -886,6 +913,7 @@ foreach option : ['adm-gid',
                   'clock-gid',
                   'dialout-gid',
                   'disk-gid',
+                  'empower-gid',
                   'input-gid',
                   'kmem-gid',
                   'kvm-gid',
@@ -1000,6 +1028,22 @@ threads = dependency('threads')
 librt = cc.find_library('rt')
 libm = cc.find_library('m')
 libdl = cc.find_library('dl')
+
+# On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
+# In that case, we need to explicitly link with libintl.so.
+if cc.has_function('dgettext',
+                   prefix : '''#include <libintl.h>''',
+                   args : '-D_GNU_SOURCE')
+        libintl = []
+else
+        libintl = cc.find_library('intl')
+        if not cc.has_function('dgettext',
+                               prefix : '''#include <libintl.h>''',
+                               args : '-D_GNU_SOURCE',
+                               dependencies : libintl)
+                error('dgettext() not found')
+        endif
+endif
 
 # On some architectures, libatomic is required. But on some installations,
 # it is found, but actual linking fails. So let's try to use it opportunistically.
@@ -1247,53 +1291,30 @@ libcryptsetup = dependency('libcryptsetup',
 libcryptsetup_cflags = libcryptsetup.partial_dependency(includes: true, compile_args: true)
 
 have = libcryptsetup.found()
-foreach ident : ['crypt_set_metadata_size',
-                 'crypt_activate_by_signed_key',
-                 'crypt_token_max',
-                 'crypt_reencrypt_init_by_passphrase',
-                 'crypt_reencrypt',
-                 'crypt_reencrypt_run',
-                 'crypt_set_data_offset',
-                 'crypt_set_keyring_to_link',
-                 'crypt_resume_by_volume_key',
-                 'crypt_token_set_external_path']
+conf.set10('HAVE_LIBCRYPTSETUP', have)
+
+foreach ident : [
+                'crypt_activate_by_token_pin',   # 2.4
+                'crypt_logf',                    # 2.4
+                'crypt_reencrypt_run',           # 2.4
+                'crypt_token_external_path',     # 2.4
+                'crypt_token_max',               # 2.4
+                'crypt_set_keyring_to_link',     # 2.7
+                'crypt_token_set_external_path', # 2.7
+        ]
+
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
-                # crypt_reencrypt() raises a deprecation warning so make sure -Wno-deprecated-declarations is
-                # specified otherwise we fail to detect crypt_reencrypt() if -Werror is used.
-                args : '-Wno-deprecated-declarations',
                 dependencies : libcryptsetup)
         conf.set10('HAVE_' + ident.to_upper(), have_ident)
 endforeach
-conf.set10('HAVE_LIBCRYPTSETUP', have)
 
-if meson.version().version_compare('>=1.3.0')
-        have = (cc.has_function(
-                        'crypt_activate_by_token_pin',
-                        prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup,
-                        required : libcryptsetup_plugins) and
-                cc.has_function(
-                        'crypt_token_external_path',
-                        prefix : '#include <libcryptsetup.h>',
-                        dependencies : libcryptsetup,
-                        required : libcryptsetup_plugins))
-else
-        if libcryptsetup_plugins.allowed()
-                have = (cc.has_function(
-                                'crypt_activate_by_token_pin',
-                                prefix : '#include <libcryptsetup.h>',
-                                dependencies : libcryptsetup) and
-                        cc.has_function(
-                                'crypt_token_external_path',
-                                prefix : '#include <libcryptsetup.h>',
-                                dependencies : libcryptsetup))
-        else
-                have = false
-        endif
-endif
-conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS', have)
+conf.set10('HAVE_LIBCRYPTSETUP_PLUGINS',
+           libcryptsetup_plugins.allowed() and
+           conf.get('HAVE_CRYPT_ACTIVATE_BY_TOKEN_PIN') == 1 and
+           conf.get('HAVE_CRYPT_LOGF') == 1 and
+           conf.get('HAVE_CRYPT_TOKEN_EXTERNAL_PATH') == 1)
 
 libcurl = dependency('libcurl',
                      version : '>= 7.32.0',
@@ -1324,7 +1345,7 @@ feature = get_option('gcrypt')
 libgcrypt = dependency('libgcrypt',
                        required : feature)
 libgpg_error = dependency('gpg-error',
-                          required : feature.disabled() ? feature : false)
+                          required : feature)
 
 have = libgcrypt.found() and libgpg_error.found()
 if not have
@@ -1366,6 +1387,7 @@ tpm2 = dependency('tss2-esys tss2-rc tss2-mu tss2-tcti-device',
 tpm2_cflags = tpm2.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_TPM2', tpm2.found())
 conf.set10('HAVE_TSS2_ESYS3', tpm2.found() and tpm2.version().version_compare('>= 3.0.0'))
+conf.set('TPM2_NVPCR_BASE', get_option('tpm2-nvpcr-base'))
 
 libdw = dependency('libdw',
                    required : get_option('elfutils'))
@@ -1449,10 +1471,16 @@ libarchive = dependency('libarchive',
                         required : get_option('libarchive'))
 libarchive_cflags = libarchive.partial_dependency(includes: true, compile_args: true)
 conf.set10('HAVE_LIBARCHIVE', libarchive.found())
-conf.set10('HAVE_LIBARCHIVE_UID_IS_SET',
-           libarchive.found() and cc.has_function('archive_entry_uid_is_set', dependencies : libarchive))
-conf.set10('HAVE_LIBARCHIVE_HARDLINK_IS_SET',
-           libarchive.found() and cc.has_function('archive_entry_hardlink_is_set', dependencies : libarchive))
+
+foreach ident : [
+                'archive_entry_gid_is_set',      # since 3.7.3
+                'archive_entry_uid_is_set',      # since 3.7.3
+                'archive_entry_hardlink_is_set', # since 3.7.5
+        ]
+
+        have = libarchive.found() and cc.has_function(ident, dependencies : libarchive)
+        conf.set10('HAVE_' + ident.to_upper(), have)
+endforeach
 
 libxkbcommon = dependency('xkbcommon',
                           version : '>= 0.3.0',
@@ -1556,10 +1584,19 @@ conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
 conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
 
+have = get_option('importd').require(
+        conf.get('HAVE_LIBCURL') == 1 and
+        conf.get('HAVE_OPENSSL') == 1 and
+        conf.get('HAVE_ZLIB') == 1 and
+        conf.get('HAVE_XZ') == 1,
+        error_message : 'curl, openssl, zlib and xz required').allowed()
+conf.set10('ENABLE_IMPORTD', have)
+
 have = get_option('sysupdate').require(
+        conf.get('ENABLE_IMPORTD') == 1 and
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_LIBFDISK') == 1,
-        error_message : 'fdisk and openssl required').allowed()
+        error_message : 'systemd-importd, fdisk, and openssl required').allowed()
 conf.set10('ENABLE_SYSUPDATE', have)
 
 have2 = get_option('sysupdated')
@@ -1578,19 +1615,10 @@ conf.set10('ENABLE_SYSUPDATED', have2)
 
 conf.set10('ENABLE_STORAGETM', get_option('storagetm'))
 
-have = get_option('importd').require(
-        conf.get('HAVE_LIBCURL') == 1 and
-        conf.get('HAVE_OPENSSL') == 1 and
-        conf.get('HAVE_ZLIB') == 1 and
-        conf.get('HAVE_XZ') == 1,
-        error_message : 'curl, openssl/grypt, zlib and xz required').allowed()
-conf.set10('ENABLE_IMPORTD', have)
-
 have = get_option('homed').require(
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_LIBFDISK') == 1 and
-        conf.get('HAVE_LIBCRYPTSETUP') == 1 and
-        conf.get('HAVE_CRYPT_RESUME_BY_VOLUME_KEY') == 1,
+        conf.get('HAVE_LIBCRYPTSETUP') == 1,
         error_message : 'openssl, fdisk and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
@@ -1618,52 +1646,60 @@ conf.set10('ENABLE_NSPAWN', feature.allowed())
 
 conf.set10('DEFAULT_MOUNTFSD_TRUSTED_DIRECTORIES', get_option('default-mountfsd-trusted-directories'))
 
-foreach term : ['analyze',
-                'backlight',
-                'binfmt',
-                'compat-mutable-uid-boundaries',
-                'coredump',
-                'efi',
-                'environment-d',
-                'firstboot',
-                'gshadow',
-                'hibernate',
-                'hostnamed',
-                'hwdb',
-                'idn',
-                'ima',
-                'ipe',
-                'initrd',
-                'kernel-install',
-                'ldconfig',
-                'localed',
-                'logind',
-                'machined',
-                'mountfsd',
-                'networkd',
-                'nsresourced',
-                'nss-myhostname',
-                'nss-systemd',
-                'oomd',
-                'portabled',
-                'pstore',
-                'quotacheck',
-                'randomseed',
-                'resolve',
-                'rfkill',
-                'smack',
-                'sysext',
-                'sysusers',
-                'timedated',
-                'timesyncd',
-                'tmpfiles',
-                'tpm',
-                'userdb',
-                'utmp',
-                'vconsole',
-                'xdg-autostart']
-        have = get_option(term)
-        name = 'ENABLE_' + term.underscorify().to_upper()
+foreach tuple : [
+                ['analyze'],
+                ['backlight'],
+                ['binfmt'],
+                ['compat-mutable-uid-boundaries'],
+                ['coredump'],
+                ['efi'],
+                ['environment-d'],
+                ['firstboot'],
+                ['gshadow',         conf.get('HAVE_GSHADOW_H') == 1,  'gshadow.h not found'],
+                ['hibernate'],
+                ['hostnamed'],
+                ['hwdb'],
+                ['idn',             conf.get('HAVE_NI_IDN') == 1,     'NI_IDN is not defined'],
+                ['ima'],
+                ['ipe'],
+                ['initrd'],
+                ['kernel-install'],
+                ['ldconfig'],
+                ['localed'],
+                ['logind'],
+                ['machined'],
+                ['mountfsd'],
+                ['networkd'],
+                ['nsresourced'],
+                ['nss-myhostname',  conf.get('HAVE_NSS_H') == 1,      'nss.h not found'],
+                ['nss-systemd',     conf.get('HAVE_NSS_H') == 1,      'nss.h not found'],
+                ['oomd'],
+                ['portabled'],
+                ['pstore'],
+                ['quotacheck'],
+                ['randomseed'],
+                ['resolve'],
+                ['rfkill'],
+                ['smack'],
+                ['sysext'],
+                ['sysusers'],
+                ['timedated'],
+                ['timesyncd'],
+                ['tmpfiles'],
+                ['tpm'],
+                ['utmp'],
+                ['userdb'],
+                ['vconsole'],
+                ['xdg-autostart'],
+        ]
+
+        have = get_option(tuple[0])
+        if have and tuple.length() >= 3 and not tuple[1]
+                warning('@0@ support is requested but @1@, disabling it'.format(tuple[0], tuple[2]))
+                have = false
+        endif
+
+        name = 'ENABLE_' + tuple[0].underscorify().to_upper()
         conf.set10(name, have)
 endforeach
 
@@ -1672,11 +1708,16 @@ enable_sysusers = conf.get('ENABLE_SYSUSERS') == 1
 foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
-        if want.allowed()
-                have = get_option(tuple[1])
-                if want.enabled() and not have
+        if want.enabled()
+                if conf.get('HAVE_NSS_H') != 1
+                        error('@0@ is requested but nss.h not found'.format(tuple[0]))
+                endif
+                if not get_option(tuple[1])
                         error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
                 endif
+                have = true
+        elif want.allowed()
+                have = get_option(tuple[1]) and conf.get('HAVE_NSS_H') == 1
         else
                 have = false
         endif
@@ -2083,6 +2124,15 @@ system_includes = [
                 is_system : true,
         ),
 ]
+
+if get_option('libc') == 'musl'
+        system_include_args = [
+                '-isystem', meson.project_build_root()  / 'src/include/musl',
+                '-isystem', meson.project_source_root() / 'src/include/musl',
+        ] + system_include_args
+
+        system_includes += include_directories('src/include/musl', is_system : true)
+endif
 
 basic_includes = [
         include_directories(
@@ -3049,9 +3099,11 @@ summary({
         'default locale'                            : default_locale,
         'default nspawn locale'                     : nspawn_locale,
         'default status unit format'                : status_unit_format_default,
+        'default journal storage mode'              : conf.get('JOURNAL_STORAGE_DEFAULT'),
         'default user $PATH'                        : default_user_path != '' ? default_user_path : '(same as system services)',
         'systemd service watchdog'                  : service_watchdog == '' ? 'disabled' : service_watchdog,
         'time epoch'                                : f'@time_epoch@ (@alt_time_epoch@)',
+        'TPM2 nvpcr base'                           : run_command(sh, '-c', 'printf 0x%x @0@'.format(get_option('tpm2-nvpcr-base')), check : true).stdout()
 })
 
 # TODO:

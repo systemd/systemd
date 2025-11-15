@@ -111,6 +111,9 @@ typedef struct ExecSharedRuntime {
 
         /* Like netns_storage_socket, but the file descriptor is referring to the IPC namespace. */
         int ipcns_storage_socket[2];
+
+        /* Like netns_storage_socket, but the file descriptor is referring to the user namespace. */
+        int userns_storage_socket[2];
 } ExecSharedRuntime;
 
 typedef struct ExecRuntime {
@@ -218,6 +221,7 @@ typedef struct ExecContext {
         /* At least one of stdin/stdout/stderr was initialized from an fd passed in. This boolean survives
          * the fds being closed. This only makes sense for transient units. */
         bool stdio_as_fds;
+        bool root_directory_as_fd;
 
         char *stdio_fdname[3];
         char *stdio_file[3];
@@ -352,6 +356,7 @@ typedef struct ExecContext {
         bool address_families_allow_list:1;
         Set *address_families;
 
+        char *user_namespace_path;
         char *network_namespace_path;
         char *ipc_namespace_path;
 
@@ -418,6 +423,7 @@ typedef struct ExecParameters {
         int stdin_fd;
         int stdout_fd;
         int stderr_fd;
+        int root_directory_fd;
 
         /* An fd that is closed by the execve(), and thus will result in EOF when the execve() is done. */
         int exec_fd;
@@ -449,6 +455,7 @@ typedef struct ExecParameters {
                 .stdin_fd               = -EBADF, \
                 .stdout_fd              = -EBADF, \
                 .stderr_fd              = -EBADF, \
+                .root_directory_fd      = -EBADF, \
                 .exec_fd                = -EBADF, \
                 .bpf_restrict_fs_map_fd = -EBADF, \
                 .user_lookup_fd         = -EBADF, \
@@ -461,19 +468,6 @@ static inline bool exec_input_is_terminal(ExecInput i) {
                       EXEC_INPUT_TTY,
                       EXEC_INPUT_TTY_FORCE,
                       EXEC_INPUT_TTY_FAIL);
-}
-
-static inline bool exec_output_is_terminal(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_TTY,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE,
-                      EXEC_OUTPUT_JOURNAL_AND_CONSOLE);
-}
-
-static inline bool exec_output_is_kmsg(ExecOutput o) {
-        return IN_SET(o,
-                      EXEC_OUTPUT_KMSG,
-                      EXEC_OUTPUT_KMSG_AND_CONSOLE);
 }
 
 static inline bool exec_context_has_tty(const ExecContext *context) {

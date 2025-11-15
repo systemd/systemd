@@ -107,8 +107,8 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static bool arg_and_resize = false;
 static bool arg_and_change_password = false;
 static ExportFormat arg_export_format = EXPORT_FORMAT_FULL;
-static uint64_t arg_capability_bounding_set = UINT64_MAX;
-static uint64_t arg_capability_ambient_set = UINT64_MAX;
+static uint64_t arg_capability_bounding_set = CAP_MASK_UNSET;
+static uint64_t arg_capability_ambient_set = CAP_MASK_UNSET;
 static char *arg_blob_dir = NULL;
 static bool arg_blob_clear = false;
 static Hashmap *arg_blob_files = NULL;
@@ -3887,7 +3887,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SETENV: {
-                        _cleanup_free_ char **l = NULL;
+                        _cleanup_strv_free_ char **l = NULL;
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
                         sd_json_variant *e;
 
@@ -4784,9 +4784,8 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CAPABILITY_AMBIENT_SET:
                 case ARG_CAPABILITY_BOUNDING_SET: {
                         _cleanup_strv_free_ char **l = NULL;
-                        bool subtract = false;
-                        uint64_t parsed, *which, updated;
-                        const char *p, *field;
+                        uint64_t *which;
+                        const char *field;
 
                         if (c == ARG_CAPABILITY_AMBIENT_SET) {
                                 which = &arg_capability_ambient_set;
@@ -4797,42 +4796,27 @@ static int parse_argv(int argc, char *argv[]) {
                                 field = "capabilityBoundingSet";
                         }
 
-                        if (isempty(optarg)) {
+                        r = parse_capability_set(optarg, CAP_MASK_UNSET, which);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capabilities in capability string '%s'.", optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse capability string '%s': %m", optarg);
+
+                        if (*which == CAP_MASK_UNSET) {
                                 r = drop_from_identity(field);
                                 if (r < 0)
                                         return r;
 
-                                *which = UINT64_MAX;
                                 break;
                         }
 
-                        p = optarg;
-                        if (*p == '~') {
-                                subtract = true;
-                                p++;
-                        }
-
-                        r = capability_set_from_string(p, &parsed);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capabilities in capability string '%s'.", p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse capability string '%s': %m", p);
-
-                        if (*which == UINT64_MAX)
-                                updated = subtract ? all_capabilities() & ~parsed : parsed;
-                        else if (subtract)
-                                updated = *which & ~parsed;
-                        else
-                                updated = *which | parsed;
-
-                        if (capability_set_to_strv(updated, &l) < 0)
+                        if (capability_set_to_strv(*which, &l) < 0)
                                 return log_oom();
 
                         r = sd_json_variant_set_field_strv(match_identity ?: &arg_identity_extra, field, l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", field);
 
-                        *which = updated;
                         break;
                 }
 

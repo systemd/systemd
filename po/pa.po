@@ -1186,8 +1186,8 @@ msgstr "'$(unit)' ਨੂੰ ਮੁੜ-ਸ਼ੁਰੂ (restart) ਕਰਨ ਲਈ �
 
 #: src/core/dbus-unit.c:567
 msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
 msgstr ""
 
 #: src/core/dbus-unit.c:620
@@ -1208,8 +1208,8 @@ msgstr ""
 
 #: src/core/dbus-unit.c:775
 msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
 msgstr ""
 
 #: src/core/dbus-unit.c:812

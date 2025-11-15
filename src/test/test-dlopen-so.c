@@ -26,8 +26,13 @@
 #include "tests.h"
 #include "tpm2-util.h"
 
-#define ASSERT_DLOPEN(func, cond) \
-        cond ? ASSERT_OK(func()) : ASSERT_ERROR(func(), EOPNOTSUPP)
+#define ASSERT_DLOPEN(func, cond)                               \
+        do {                                                    \
+                if (cond)                                       \
+                        ASSERT_OK(func());                      \
+                else                                            \
+                        ASSERT_ERROR(func(), EOPNOTSUPP);       \
+        } while (false)
 
 static int run(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);

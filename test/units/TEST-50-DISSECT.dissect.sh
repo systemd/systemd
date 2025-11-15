@@ -78,6 +78,23 @@ fi
 systemd-dissect --umount "$IMAGE_DIR/mount"
 systemd-dissect --umount "$IMAGE_DIR/mount2"
 
+# Ensure the deferred close flag is set up correctly and we don't leak verity devices
+# when sharing is disabled
+# The devices are named 'loopXYZ-verity' when sharing is disabled
+SYSTEMD_VERITY_SHARING=0 systemd-dissect --mount "$MINIMAL_IMAGE.raw" "$IMAGE_DIR/mount"
+d=""
+for f in /dev/mapper/*; do
+    if [[ "$(basename "$f")" =~ ^loop.*-verity ]] && veritysetup status "$(basename "$f")" | grep -q "$MINIMAL_IMAGE.raw"; then
+        d="$f"
+        break
+    fi
+done
+test -n "$d"
+dmsetup ls | grep -q "$(basename "$d")"
+umount -R "$IMAGE_DIR/mount"
+timeout 60 bash -c "while test -e $d; do sleep 0.1; done"
+( ! dmsetup ls | grep -q "$(basename "$d")")
+
 # Test BindLogSockets=
 systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" mountpoint /run/systemd/journal/socket
 (! systemd-run --wait -p RootImage="$MINIMAL_IMAGE.raw" -p BindLogSockets=no ls /run/systemd/journal/socket)
@@ -889,6 +906,9 @@ systemctl stop test-root-ephemeral
 # shellcheck disable=SC2016
 timeout 10 bash -c 'until test -z "$(ls -A /var/lib/systemd/ephemeral-trees)"; do sleep .5; done'
 test ! -f /tmp/img/abc
+
+# Test RootDirectoryFileDescriptor=
+systemd-run --wait --pipe --root-directory=/tmp/img -- grep -q 'MARKER=1' /usr/lib/os-release
 
 systemd-dissect --mtree /tmp/img >/dev/null
 systemd-dissect --list /tmp/img >/dev/null

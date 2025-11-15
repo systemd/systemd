@@ -7,6 +7,8 @@
 #include <sys/socket.h>
 
 #include "alloc-util.h"
+#include "capability-list.h"
+#include "capability-util.h"
 #include "errno-list.h"
 #include "extract-word.h"
 #include "locale-util.h"
@@ -808,4 +810,40 @@ bool nft_identifier_valid(const char *id) {
                 return false;
 
         return in_charset(id + 1, ALPHANUMERICAL "/\\_.");
+}
+
+int parse_capability_set(const char *s, uint64_t initial, uint64_t *current) {
+        int r;
+
+        assert(s);
+        assert(current);
+
+        if (isempty(s)) {
+                *current = CAP_MASK_UNSET;
+                return 1;
+        }
+
+        bool invert = false;
+        if (s[0] == '~') {
+                invert = true;
+                s++;
+        }
+
+        uint64_t parsed;
+        r = capability_set_from_string(s, &parsed);
+        if (r < 0)
+                return r;
+
+        if (parsed == 0 || *current == initial)
+                /* "~" or uninitialized data -> replace */
+                *current = invert ? all_capabilities() & ~parsed : parsed;
+        else {
+                /* previous data -> merge */
+                if (invert)
+                        *current &= ~parsed;
+                else
+                        *current |= parsed;
+        }
+
+        return r;
 }

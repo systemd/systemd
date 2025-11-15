@@ -48,6 +48,7 @@ trap 'touch /terminate; kill 0' RTMIN+3
 trap 'touch /poweroff' RTMIN+4
 trap 'touch /reboot' INT
 trap 'touch /trap' TRAP
+trap 'exit 0' TERM
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
@@ -325,6 +326,7 @@ ip address add 192.0.2.1/24 dev hoge
 PID=0
 
 trap 'kill 0' RTMIN+3
+trap 'exit 0' TERM
 trap 'kill $PID' EXIT
 
 # We need to wait for the sleep process asynchronously in order to allow
@@ -439,9 +441,14 @@ varlinkctl call /run/systemd/machine/io.systemd.Machine io.systemd.Machine.OpenR
 
 # Terminating machine, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
 machinectl terminate long-running
-# wait for the container being stopped, otherwise acquiring image metadata by io.systemd.MachineImage.List may fail in the below.
-timeout 30 bash -c "while machinectl status long-running &>/dev/null; do sleep .5; done"
-systemctl kill --signal=KILL systemd-nspawn@long-running.service || :
+# Wait for the container to stop, otherwise acquiring image metadata by io.systemd.MachineImage.List below
+# may fail.
+#
+# We need to wait until the systemd-nspawn process is completely stopped, as the lock is held for almost the
+# entire life of the process (see the run() function in nspawn.c). This means that the machine gets
+# unregistered _before_ this lock is lifted which makes `machinectl status` return non-zero EC earlier than
+# we need.
+timeout 30 bash -xec 'until [[ "$(systemctl show -P ActiveState systemd-nspawn@long-running.service)" == inactive ]]; do sleep .5; done'
 
 # test io.systemd.MachineImage.List
 varlinkctl --more call /run/systemd/machine/io.systemd.MachineImage io.systemd.MachineImage.List '{}' | grep 'long-running'

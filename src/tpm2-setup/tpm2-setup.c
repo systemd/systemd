@@ -7,6 +7,10 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "conf-files.h"
+#include "constants.h"
+#include "creds-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -16,7 +20,12 @@
 #include "mkdir.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "recurse-dir.h"
+#include "set.h"
 #include "string-util.h"
+#include "strv.h"
+#include "terminal-util.h"
+#include "time-util.h"
 #include "tmpfile-util.h"
 #include "tpm2-util.h"
 
@@ -41,7 +50,7 @@ static int help(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...]\n"
-               "\n%5$sSet up the TPM2 Storage Root Key (SRK).%6$s\n"
+               "\n%5$sSet up the TPM2 Storage Root Key (SRK), and initialize NvPCRs.%6$s\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -252,21 +261,8 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
+static int setup_srk(void) {
         int r;
-
-        log_setup();
-
-        r = parse_argv(argc, argv);
-        if (r <= 0)
-                return r;
-
-        if (arg_graceful && !tpm2_is_fully_supported()) {
-                log_notice("No complete TPM2 support detected, exiting gracefully.");
-                return EXIT_SUCCESS;
-        }
-
-        umask(0022);
 
         _cleanup_(public_key_data_done) struct public_key_data runtime_key = {}, persistent_key = {}, tpm2_key = {};
 
@@ -388,6 +384,130 @@ static int run(int argc, char *argv[]) {
 
         log_info("SRK public key saved to '%s' in TPM2B_PUBLIC format.", tpm2b_public_path);
         return 0;
+}
+
+typedef struct SetupNvPCRContext {
+        Tpm2Context *tpm2_context;
+        struct iovec anchor_secret;
+        size_t n_already, n_anchored;
+        Set *done;
+} SetupNvPCRContext;
+
+static void setup_nvpcr_context_done(SetupNvPCRContext *c) {
+        assert(c);
+
+        iovec_done_erase(&c->anchor_secret);
+        c->tpm2_context = tpm2_context_unref(c->tpm2_context);
+        c->done = set_free(c->done);
+}
+
+static int setup_nvpcr_one(
+                SetupNvPCRContext *c,
+                const char *name) {
+        int r;
+
+        assert(c);
+        assert(name);
+
+        if (set_contains(c->done, name))
+                return 0;
+
+        if (!c->tpm2_context) {
+                r = tpm2_context_new_or_warn(arg_tpm2_device, &c->tpm2_context);
+                if (r < 0)
+                        return r;
+        }
+
+        r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
+        if (r == -EUNATCH) {
+                assert(!iovec_is_set(&c->anchor_secret));
+
+                /* If we get EUNATCH this means we actually need to initialize this NvPCR
+                 * now, and haven't provided the anchor secret yet. Hence acquire it now. */
+
+                r = tpm2_nvpcr_acquire_anchor_secret(&c->anchor_secret, /* sync_secondary= */ !arg_early);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire anchor secret: %m");
+
+                r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to extend NvPCR index with anchor secret: %m");
+
+        if (r > 0)
+                c->n_anchored++;
+        else
+                c->n_already++;
+
+        if (set_put_strdup(&c->done, name) < 0)
+                return log_oom();
+
+        return 0;
+}
+
+static int setup_nvpcr(void) {
+        _cleanup_(setup_nvpcr_context_done) SetupNvPCRContext c = {};
+        int r = 0;
+
+        _cleanup_strv_free_ char **l = NULL;
+        r = conf_files_list_nulstr(
+                        &l,
+                        ".nvpcr",
+                        /* root= */ NULL,
+                        CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED|CONF_FILES_TRUNCATE_SUFFIX,
+                        CONF_PATHS_NULSTR("nvpcr"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to find .nvpcr files: %m");
+
+        STRV_FOREACH(i, l) {
+                r = setup_nvpcr_one(&c, *i);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c.n_already > 0 && c.n_anchored == 0 && !arg_early) {
+                /* If we didn't anchor anything right now, but we anchored something earlier, then it might
+                 * have happened in the initrd, and thus the anchor ID was not committed to /var/ or the ESP
+                 * yet. Hence, let's explicitly do so now, to catch up. */
+
+                r = tpm2_nvpcr_acquire_anchor_secret(/* ret= */ NULL, /* sync_secondary= */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c.n_anchored > 0) {
+                if (c.n_already == 0)
+                        log_info("%zu NvPCRs initialized.", c.n_anchored);
+                else
+                        log_info("%zu NvPCRs initialized. (%zu NvPCRs were already initialized.)", c.n_anchored, c.n_already);
+        } else if (c.n_already > 0)
+                log_info("%zu NvPCRs already initialized.", c.n_already);
+        else
+                log_debug("No NvPCRs defined, nothing initialized.");
+
+        return r;
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        log_setup();
+
+        r = parse_argv(argc, argv);
+        if (r <= 0)
+                return r;
+
+        if (arg_graceful && !tpm2_is_fully_supported()) {
+                log_notice("No complete TPM2 support detected, exiting gracefully.");
+                return EXIT_SUCCESS;
+        }
+
+        umask(0022);
+
+        r = setup_srk();
+        RET_GATHER(r, setup_nvpcr());
+
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

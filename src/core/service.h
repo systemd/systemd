@@ -46,6 +46,7 @@ typedef enum ServiceExecCommand {
         SERVICE_EXEC_START,
         SERVICE_EXEC_START_POST,
         SERVICE_EXEC_RELOAD,
+        SERVICE_EXEC_RELOAD_POST,
         SERVICE_EXEC_STOP,
         SERVICE_EXEC_STOP_POST,
         _SERVICE_EXEC_COMMAND_MAX,
@@ -53,9 +54,9 @@ typedef enum ServiceExecCommand {
 } ServiceExecCommand;
 
 typedef enum NotifyState {
-        NOTIFY_UNKNOWN,
         NOTIFY_READY,
         NOTIFY_RELOADING,
+        NOTIFY_RELOAD_READY,
         NOTIFY_STOPPING,
         _NOTIFY_STATE_MAX,
         _NOTIFY_STATE_INVALID = -EINVAL,
@@ -224,6 +225,9 @@ typedef struct Service {
         int stdout_fd;
         int stderr_fd;
 
+        /* File descriptor received from RootDirectoryFileDescriptor= */
+        int root_directory_fd;
+
         /* If service spawned from transient unit, extra file descriptors can be passed via dbus API */
         ServiceExtraFD *extra_fds;
         size_t n_extra_fds;
@@ -294,8 +298,6 @@ const char* service_timeout_failure_mode_to_string(ServiceTimeoutFailureMode i) 
 ServiceTimeoutFailureMode service_timeout_failure_mode_from_string(const char *s) _pure_;
 
 DEFINE_CAST(SERVICE, Service);
-
-#define STATUS_TEXT_MAX (16U*1024U)
 
 /* Only exported for unit tests */
 int service_deserialize_exec_command(Unit *u, const char *key, const char *value);

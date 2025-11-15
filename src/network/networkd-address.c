@@ -1453,7 +1453,7 @@ int link_drop_unmanaged_addresses(Link *link) {
                                 continue;
 
                 } else if (address->source != NETWORK_CONFIG_SOURCE_STATIC)
-                        continue; /* Ignore dynamically configurad addresses. */
+                        continue; /* Ignore dynamically configured addresses. */
 
                 address_mark(address);
         }

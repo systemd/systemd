@@ -906,7 +906,7 @@ void strv_print_full(char * const *l, const char *prefix) {
                 printf("%s%s\n", strempty(prefix), *s);
 }
 
-int strv_extendf(char ***l, const char *format, ...) {
+int strv_extendf_with_size(char ***l, size_t *n, const char *format, ...) {
         va_list ap;
         char *x;
         int r;
@@ -918,7 +918,19 @@ int strv_extendf(char ***l, const char *format, ...) {
         if (r < 0)
                 return -ENOMEM;
 
-        return strv_consume(l, x);
+        return strv_consume_with_size(l, n, x);
+}
+
+int strv_extend_joined_with_size_sentinel(char ***l, size_t *n, ...) {
+        va_list ap;
+
+        va_start(ap, n);
+        char *x = strextendv_with_separator(/* x= */ NULL, /* separator=*/ NULL, ap);
+        va_end(ap);
+        if (!x)
+                return -ENOMEM;
+
+        return strv_consume_with_size(l, n, x);
 }
 
 char* startswith_strv(const char *s, char * const *l) {

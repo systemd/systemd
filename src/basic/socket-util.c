@@ -1928,9 +1928,19 @@ int vsock_get_local_cid(unsigned *ret) {
                 return log_debug_errno(errno, "Failed to open %s: %m", "/dev/vsock");
 
         unsigned tmp;
-        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, ret ?: &tmp) < 0)
+        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, &tmp) < 0)
                 return log_debug_errno(errno, "Failed to query local AF_VSOCK CID: %m");
+        log_debug("Local AF_VSOCK CID: %u", tmp);
 
+        /* If ret == NULL, we're just want to check if AF_VSOCK is available, so accept
+         * any address. Otherwise, filter out special addresses that are cannot be used
+         * to identify _this_ machine from the outside. */
+        if (ret && IN_SET(tmp, VMADDR_CID_LOCAL, VMADDR_CID_HOST))
+                return log_debug_errno(SYNTHETIC_ERRNO(EADDRNOTAVAIL),
+                                       "IOCTL_VM_SOCKETS_GET_LOCAL_CID returned special value (%u), ignoring.", tmp);
+
+        if (ret)
+                *ret = tmp;
         return 0;
 }
 
