@@ -16,6 +16,8 @@ enable systemd-networkd-wait-online.service
 enable systemd-pstore.service
 enable systemd-resolved.service
 enable systemd-tpm2-clear.service
+enable systemd-sysext-sysroot.service
+enable systemd-confext-sysroot.service
 
 disable console-getty.service
 disable debug-shell.service
