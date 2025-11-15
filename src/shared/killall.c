@@ -53,7 +53,7 @@ static bool is_in_survivor_cgroup(const PidRef *pid) {
 
         assert(pidref_is_set(pid));
 
-        r = cg_pidref_get_path(/* controller= */ NULL, pid, &cgroup_path);
+        r = cg_pidref_get_path(pid, &cgroup_path);
         if (r == -EUNATCH) {
                 log_warning_errno(r, "Process " PID_FMT " appears to originate in foreign namespace, ignoring.", pid->pid);
                 return true;
