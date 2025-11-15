@@ -28,8 +28,7 @@ case "$service" in
             '(- *)--version[Show package version]' \
             '--no-pager[Do not pipe output into a pager]' \
             '(-a --all)'{-a,--all}'[Show all groups, including empty]' \
-            '-k[Include kernel threads in output]' \
-            ':cgroups:(cpuset cpu cpuacct memory devices freezer blkio)'
+            '-k[Include kernel threads in output]'
         ;;
     systemd-cgtop)
         _arguments \
