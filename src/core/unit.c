@@ -2651,7 +2651,7 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
                                 unexpected = true;
 
                                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                        job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
+                                        job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_CANCELED, true, false);
                         }
                 }
 
