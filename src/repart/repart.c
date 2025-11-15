@@ -5548,8 +5548,7 @@ static const VeritySettings *lookup_verity_settings_by_uuid_pair(sd_id128_t data
         memcpy(root_hash_key + sizeof(sd_id128_t), hash_uuid.bytes, sizeof(sd_id128_t));
 
         VeritySettings key = {
-                .root_hash = &root_hash_key,
-                .root_hash_size = sizeof(root_hash_key),
+                .root_hash = IOVEC_MAKE(root_hash_key, sizeof(root_hash_key)),
         };
 
         return set_get(arg_verity_settings, &key);
@@ -5557,10 +5556,8 @@ static const VeritySettings *lookup_verity_settings_by_uuid_pair(sd_id128_t data
 
 static int partition_format_verity_sig(Context *context, Partition *p) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(iovec_done) struct iovec sig_free = {};
         _cleanup_free_ char *text = NULL, *hint = NULL;
         const VeritySettings *verity_settings;
-        struct iovec roothash, sig;
         Partition *hp, *rp;
         uint8_t fp[X509_FINGERPRINT_SIZE];
         int whole_fd, r;
@@ -5600,22 +5597,18 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         assert_se((whole_fd = fdisk_get_devfd(context->fdisk_context)) >= 0);
 
+        _cleanup_(iovec_done) struct iovec sig_free = {};
+        const struct iovec *roothash, *sig;
         if (verity_settings) {
-                sig = (struct iovec) {
-                        .iov_base = verity_settings->root_hash_sig,
-                        .iov_len = verity_settings->root_hash_sig_size,
-                };
-                roothash = (struct iovec) {
-                        .iov_base = verity_settings->root_hash,
-                        .iov_len = verity_settings->root_hash_size,
-                };
+                sig = &verity_settings->root_hash_sig;
+                roothash = &verity_settings->root_hash;
         } else {
                 r = sign_verity_roothash(context, &hp->roothash, &sig_free);
                 if (r < 0)
                         return r;
 
-                sig = sig_free;
-                roothash = hp->roothash;
+                sig = &sig_free;
+                roothash = &hp->roothash;
         }
 
 #if HAVE_OPENSSL
@@ -5627,9 +5620,9 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
 
         r = sd_json_buildo(
                         &v,
-                        SD_JSON_BUILD_PAIR("rootHash", SD_JSON_BUILD_HEX(roothash.iov_base, roothash.iov_len)),
+                        SD_JSON_BUILD_PAIR("rootHash", SD_JSON_BUILD_HEX(roothash->iov_base, roothash->iov_len)),
                         SD_JSON_BUILD_PAIR_CONDITION(has_fp, "certificateFingerprint", SD_JSON_BUILD_HEX(fp, sizeof(fp))),
-                        SD_JSON_BUILD_PAIR("signature", JSON_BUILD_IOVEC_BASE64(&sig)));
+                        SD_JSON_BUILD_PAIR("signature", JSON_BUILD_IOVEC_BASE64(sig)));
         if (r < 0)
                 return log_error_errno(r, "Failed to build verity signature JSON object: %m");
 
@@ -8824,9 +8817,8 @@ static int parse_partition_types(const char *p, GptPartitionType **partitions, s
 static int parse_join_signature(const char *p, Set **verity_settings_map) {
         _cleanup_(verity_settings_freep) VeritySettings *verity_settings = NULL;
         _cleanup_free_ char *root_hash = NULL;
-        _cleanup_free_ void *content = NULL;
         const char *signature;
-        size_t len;
+        _cleanup_(iovec_done) struct iovec content = {};
         int r;
 
         assert(p);
@@ -8838,17 +8830,17 @@ static int parse_join_signature(const char *p, Set **verity_settings_map) {
         if (!p)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected hash:sig");
         if ((signature = startswith(p, "base64:"))) {
-                r = unbase64mem(signature, &content, &len);
+                r = unbase64mem(signature, &content.iov_base, &content.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", signature);
         } else {
-                r = read_full_file(p, (char**) &content, &len);
+                r = read_full_file(p, (char**) &content.iov_base, &content.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read root hash signature file '%s': %m", p);
         }
-        if (len == 0)
+        if (!iovec_is_set(&content))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty verity signature specified.");
-        if (len > VERITY_SIG_SIZE)
+        if (content.iov_len > VERITY_SIG_SIZE)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Verity signatures larger than %llu are not allowed.",
                                        VERITY_SIG_SIZE);
@@ -8858,20 +8850,16 @@ static int parse_join_signature(const char *p, Set **verity_settings_map) {
                 return log_oom();
 
         *verity_settings = (VeritySettings) {
-                .root_hash_sig = TAKE_PTR(content),
-                .root_hash_sig_size = len,
+                .root_hash_sig = TAKE_STRUCT(content),
         };
 
-        r = unhexmem(root_hash, &content, &len);
+        r = unhexmem(root_hash, &verity_settings->root_hash.iov_base, &verity_settings->root_hash.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse root hash '%s': %m", root_hash);
-        if (len < sizeof(sd_id128_t))
+        if (verity_settings->root_hash.iov_len < sizeof(sd_id128_t))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Root hash must be at least 128-bit long: %s",
                                        root_hash);
-
-        verity_settings->root_hash = TAKE_PTR(content);
-        verity_settings->root_hash_size = len;
 
         r = set_ensure_put(verity_settings_map, &verity_settings_hash_ops, verity_settings);
         if (r < 0)

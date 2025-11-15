@@ -474,23 +474,22 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ROOT_HASH:
                 case ARG_USR_HASH: {
-                        _cleanup_free_ void *p = NULL;
-                        size_t l;
+                        _cleanup_(iovec_done) struct iovec roothash = {};
 
                         PartitionDesignator d = c == ARG_USR_HASH ? PARTITION_USR : PARTITION_ROOT;
                         if (arg_verity_settings.designator >= 0 &&
                             arg_verity_settings.designator != d)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
 
-                        r = unhexmem(optarg, &p, &l);
+                        r = unhexmem(optarg, &roothash.iov_base, &roothash.iov_len);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse root hash '%s': %m", optarg);
-                        if (l < sizeof(sd_id128_t))
+                        if (roothash.iov_len < sizeof(sd_id128_t))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Root hash must be at least 128-bit long: %s", optarg);
 
-                        free_and_replace(arg_verity_settings.root_hash, p);
-                        arg_verity_settings.root_hash_size = l;
+                        iovec_done(&arg_verity_settings.root_hash);
+                        arg_verity_settings.root_hash = TAKE_STRUCT(roothash);
                         arg_verity_settings.designator = d;
                         break;
                 }
@@ -498,8 +497,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_ROOT_HASH_SIG:
                 case ARG_USR_HASH_SIG: {
                         char *value;
-                        size_t l;
-                        void *p;
+                        _cleanup_(iovec_done) struct iovec sig = {};
 
                         PartitionDesignator d = c == ARG_USR_HASH_SIG ? PARTITION_USR : PARTITION_ROOT;
                         if (arg_verity_settings.designator >= 0 &&
@@ -507,17 +505,17 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
 
                         if ((value = startswith(optarg, "base64:"))) {
-                                r = unbase64mem(value, &p, &l);
+                                r = unbase64mem(value, &sig.iov_base, &sig.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
                         } else {
-                                r = read_full_file(optarg, (char**) &p, &l);
+                                r = read_full_file(optarg, (char**) &sig.iov_base, &sig.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to read root hash signature file '%s': %m", optarg);
                         }
 
-                        free_and_replace(arg_verity_settings.root_hash_sig, p);
-                        arg_verity_settings.root_hash_sig_size = l;
+                        iovec_done(&arg_verity_settings.root_hash_sig);
+                        arg_verity_settings.root_hash_sig = TAKE_STRUCT(sig);
                         arg_verity_settings.designator = d;
                         break;
                 }
