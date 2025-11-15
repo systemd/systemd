@@ -249,18 +249,8 @@ int config_parse_dhcp_static_lease_hostname(
         }
 
         r = dns_name_is_valid_ldh(rvalue);
-        if (r < 0)
+        if (r <= 0)
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
-        if (r == 0) {
-                log_syntax(unit,
-                           LOG_WARNING,
-                           filename,
-                           line,
-                           0,
-                           "Invalid hostname for DHCPv4 static lease, ignoring assignment: %s",
-                           rvalue);
-                return 0;
-        }
 
         r = free_and_strdup(&lease->hostname, rvalue);
         if (r < 0)
