@@ -4249,12 +4249,6 @@ static int source_dispatch(sd_event_source *s) {
 
         s->dispatching = false;
 
-        /* More post sources might have been added while executing the callback, let's make sure
-         * those are marked pending as well. */
-        r = maybe_mark_post_sources_pending(saved_type, saved_event);
-        if (r < 0)
-                return r;
-
 finish:
         if (r < 0) {
                 log_debug_errno(r, "Event source %s (type %s) returned error, %s: %m",
@@ -4270,6 +4264,12 @@ finish:
                 source_free(s);
         else if (r < 0)
                 assert_se(sd_event_source_set_enabled(s, SD_EVENT_OFF) >= 0);
+
+        /* More post sources might have been added while executing the callback, let's make sure
+         * those are marked pending as well. */
+        r = maybe_mark_post_sources_pending(saved_type, saved_event);
+        if (r < 0)
+                return r;
 
         return 1;
 }
