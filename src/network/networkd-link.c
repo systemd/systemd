@@ -23,6 +23,7 @@
 #include "arphrd-util.h"
 #include "bitfield.h"
 #include "device-util.h"
+#include "dns-domain.h"
 #include "errno-util.h"
 #include "ethtool-util.h"
 #include "event-util.h"
@@ -53,6 +54,7 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-resolve-hook.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
@@ -1070,6 +1072,8 @@ static Link *link_drop(Link *link) {
 
         assert(link->manager);
 
+        bool notify = link_has_local_lease_domain(link);
+
         link_set_state(link, LINK_STATE_LINGER);
 
         /* Drop all references from other links and manager. Note that async netlink calls may have
@@ -1098,6 +1102,10 @@ static Link *link_drop(Link *link) {
 
         /* The following must be called at last. */
         assert_se(hashmap_remove(link->manager->links_by_index, INT_TO_PTR(link->ifindex)) == link);
+
+        if (notify)
+                manager_notify_hook_filters(link->manager);
+
         return link_unref(link);
 }
 
@@ -1351,6 +1359,8 @@ static void link_enter_unmanaged(Link *link) {
         if (link->state == LINK_STATE_UNMANAGED)
                 return;
 
+        bool notify = link_has_local_lease_domain(link);
+
         log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
                       "Unmanaging interface.");
 
@@ -1367,6 +1377,9 @@ static void link_enter_unmanaged(Link *link) {
 
         link->network = network_unref(link->network);
         link_set_state(link, LINK_STATE_UNMANAGED);
+
+        if (notify)
+                manager_notify_hook_filters(link->manager);
 }
 
 static int link_managed_by_us(Link *link) {
@@ -3061,3 +3074,12 @@ static const char * const kernel_operstate_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_operstate, int);
+
+bool link_has_local_lease_domain(Link *link) {
+        assert(link);
+
+        return link->dhcp_server &&
+                link->network &&
+                link->network->dhcp_server_local_lease_domain &&
+                !dns_name_is_root(link->network->dhcp_server_local_lease_domain);
+}
