@@ -596,7 +596,7 @@ static int machine_dispatch_cgroup_empty(sd_event_source *s, const struct inotif
 
         assert(m->cgroup);
 
-        r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, m->cgroup);
+        r = cg_is_empty(m->cgroup);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if cgroup '%s' is empty: %m", m->cgroup);
 
@@ -616,7 +616,7 @@ static int machine_watch_cgroup(Machine *m) {
                 return 0;
 
         _cleanup_free_ char *p = NULL;
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, m->cgroup, "cgroup.events", &p);
+        r = cg_get_path(m->cgroup, "cgroup.events", &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to get cgroup path for cgroup '%s': %m", m->cgroup);
 
@@ -782,7 +782,7 @@ bool machine_may_gc(Machine *m, bool drop_not_started) {
         }
 
         if (m->cgroup) {
-                r = cg_is_empty(SYSTEMD_CGROUP_CONTROLLER, m->cgroup);
+                r = cg_is_empty(m->cgroup);
                 if (IN_SET(r, 0, -ENOENT))
                         return true;
                 if (r < 0)

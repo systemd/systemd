@@ -327,7 +327,7 @@ TEST(monitor) {
 }
 
 static int intro(void) {
-        if (IN_SET(cg_unified(), -ENOENT, -ENOMEDIUM))
+        if (cg_is_available() <= 0)
                 return log_tests_skipped("cgroupfs is not mounted");
 
         log_info("/* Information printed is from the live system */");
