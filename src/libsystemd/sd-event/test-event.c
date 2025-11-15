@@ -1075,7 +1075,7 @@ static int exit_on_idle_defer_handler(sd_event_source *s, void *userdata) {
 
         /* Disable ourselves, which should trigger exit-on-idle after the second iteration */
         if (*c == 2)
-                sd_event_source_set_enabled(s, SD_EVENT_OFF);
+                ASSERT_OK(sd_event_source_set_enabled(s, SD_EVENT_OFF));
 
         return 0;
 }
