@@ -28,14 +28,14 @@ at_exit() {
 trap at_exit EXIT
 
 mkdir /tmp/validatefs-test
-cat > /tmp/validatefs-test/validatefs-root.conf <<EOF
+cat >/tmp/validatefs-test/validatefs-root.conf <<EOF
 [Partition]
 Type=root
 Label=kromm
 Format=ext4
 EOF
 
-cat > /tmp/validatefs-test/validatefs-usr.conf <<EOF
+cat >/tmp/validatefs-test/validatefs-usr.conf <<EOF
 [Partition]
 Type=usr
 Label=plisch
@@ -44,7 +44,7 @@ Verity=data
 VerityMatchKey=mupf
 EOF
 
-cat > /tmp/validatefs-test/validatefs-usr-verity.conf <<EOF
+cat >/tmp/validatefs-test/validatefs-usr-verity.conf <<EOF
 [Partition]
 Type=usr-verity
 Label=plisch-verity
@@ -52,21 +52,21 @@ Verity=hash
 VerityMatchKey=mupf
 EOF
 
-cat > /tmp/validatefs-test/validatefs-home.conf <<EOF
+cat >/tmp/validatefs-test/validatefs-home.conf <<EOF
 [Partition]
 Type=home
 Label=rupft
 Format=ext4
 EOF
 
-cat > /tmp/validatefs-test/validatefs-esp.conf <<EOF
+cat >/tmp/validatefs-test/validatefs-esp.conf <<EOF
 [Partition]
 Type=esp
 Label=fumm
 Format=vfat
 EOF
 
-cat > /tmp/validatefs-test/validatefs-generic.conf <<EOF
+cat >/tmp/validatefs-test/validatefs-generic.conf <<EOF
 [Partition]
 Label=qnurx
 Type=linux-generic

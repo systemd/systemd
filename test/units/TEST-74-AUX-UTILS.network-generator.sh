@@ -15,12 +15,12 @@ at_exit() {
 trap at_exit EXIT
 
 mkdir -p /run/credstore
-cat > /run/credstore/network.conf.50-testme <<EOF
+cat >/run/credstore/network.conf.50-testme <<EOF
 [Network]
 SpeedMeter=yes
 EOF
 
-cat > /run/credstore/network.network.50-testme <<EOF
+cat >/run/credstore/network.network.50-testme <<EOF
 [Match]
 Property=IDONTEXIST
 EOF
