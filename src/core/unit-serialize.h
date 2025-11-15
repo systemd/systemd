@@ -9,5 +9,6 @@
 int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool serialize_jobs);
 int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds);
 int unit_deserialize_state_skip(FILE *f);
+int unit_deserialize_state_discard(FILE *f, FDSet *fds);
 
 void unit_dump(Unit *u, FILE *f, const char *prefix);
