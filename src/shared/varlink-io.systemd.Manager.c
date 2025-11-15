@@ -175,11 +175,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the manager"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, ManagerRuntime, 0));
 
-static SD_VARLINK_DEFINE_METHOD(
-                Reexecute);
-
-static SD_VARLINK_DEFINE_METHOD(
-                Reload);
+static SD_VARLINK_DEFINE_METHOD(Reexecute);
+static SD_VARLINK_DEFINE_METHOD(Reload);
 
 static SD_VARLINK_DEFINE_ERROR(RateLimitReached);
 
