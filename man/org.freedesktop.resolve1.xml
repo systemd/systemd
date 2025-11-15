@@ -497,6 +497,7 @@ node /org/freedesktop/resolve1 {
 #define SD_RESOLVED_FROM_ZONE          (UINT64_C(1) &lt;&lt; 21)
 #define SD_RESOLVED_FROM_TRUST_ANCHOR  (UINT64_C(1) &lt;&lt; 22)
 #define SD_RESOLVED_FROM_NETWORK       (UINT64_C(1) &lt;&lt; 23)
+#define SD_RESOLVED_FROM_HOOK          (UINT64_C(1) &lt;&lt; 27)
 </programlisting>
 
         <para>On input, the first five flags control the protocols to use for the look-up. They refer to

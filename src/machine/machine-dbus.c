@@ -870,12 +870,11 @@ const BusObjectImplementation machine_object = {
         .node_enumerator = machine_node_enumerator,
 };
 
-int machine_send_signal(Machine *m, bool new_machine) {
-        _cleanup_free_ char *p = NULL;
-
+int machine_send_signal(Machine *m, const char *signal_name) {
         assert(m);
+        assert(signal_name);
 
-        p = machine_bus_path(m);
+        _cleanup_free_ char *p = machine_bus_path(m);
         if (!p)
                 return -ENOMEM;
 
@@ -883,7 +882,7 @@ int machine_send_signal(Machine *m, bool new_machine) {
                         m->manager->api_bus,
                         "/org/freedesktop/machine1",
                         "org.freedesktop.machine1.Manager",
-                        new_machine ? "MachineNew" : "MachineRemoved",
+                        signal_name,
                         "so", m->name, p);
 }
 

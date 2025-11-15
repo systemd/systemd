@@ -65,6 +65,7 @@ def setUpModule():
     for u in [
         'systemd-networkd.socket',
         'systemd-networkd-varlink.socket',
+        'systemd-networkd-resolve-hook.socket',
         'systemd-networkd.service',
         'systemd-resolved-varlink.socket',
         'systemd-resolved-monitor.socket',
@@ -90,13 +91,15 @@ def setUpModule():
         subprocess.call(['useradd', '--system', '--no-create-home', 'systemd-network'])
 
     for d in ['/etc/systemd/network', '/run/systemd/network',
-              '/run/systemd/netif', '/run/systemd/resolve']:
-        if os.path.isdir(d):
-            subprocess.check_call(["mount", "-t", "tmpfs", "none", d])
-            tmpmounts.append(d)
+              '/run/systemd/netif', '/run/systemd/resolve', '/run/systemd/resolve.hook']:
+        subprocess.check_call(["mount", "-m", "-t", "tmpfs", "none", d])
+        tmpmounts.append(d)
     if os.path.isdir('/run/systemd/resolve'):
         os.chmod('/run/systemd/resolve', 0o755)
         shutil.chown('/run/systemd/resolve', 'systemd-resolve', 'systemd-resolve')
+    if os.path.isdir('/run/systemd/resolve.hook'):
+        os.chmod('/run/systemd/resolve.hook', 0o755)
+        shutil.chown('/run/systemd/resolve.hook', 'systemd-network', 'systemd-network')
     if os.path.isdir('/run/systemd/netif'):
         os.chmod('/run/systemd/netif', 0o755)
         shutil.chown('/run/systemd/netif', 'systemd-network', 'systemd-network')
@@ -279,6 +282,8 @@ Gateway=192.168.250.1
 
     def tearDown(self):
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.socket'])
+        subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-varlink.socket'])
+        subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-resolve-hook.socket'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.service'])
         subprocess.check_call(['ip', 'link', 'del', 'mybridge'])
         subprocess.check_call(['ip', 'link', 'del', 'port1'])
@@ -374,6 +379,8 @@ class ClientTestBase(NetworkdTestingUtilities):
     def tearDown(self):
         self.shutdown_iface()
         subprocess.call(['systemctl', 'stop', 'systemd-networkd.socket'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd-varlink.socket'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd-resolve-hook.socket'])
         subprocess.call(['systemctl', 'stop', 'systemd-networkd.service'])
         subprocess.call(['ip', 'link', 'del', 'dummy0'],
                         stderr=subprocess.DEVNULL)
@@ -931,9 +938,11 @@ class NetworkdClientTest(ClientTestBase, unittest.TestCase):
 set -eu
 mkdir -p /run/systemd/network
 mkdir -p /run/systemd/netif
+mkdir -p /run/systemd/resolve.hook
 mkdir -p /var/lib/systemd/network
 mount -t tmpfs none /run/systemd/network
 mount -t tmpfs none /run/systemd/netif
+mount -t tmpfs none /run/systemd/resolve.hook
 mount -t tmpfs none /var/lib/systemd/network
 [ ! -e /run/dbus ] || mount -t tmpfs none /run/dbus
 # create router/client veth pair
@@ -967,6 +976,9 @@ EOF
 # Hence, 'networkctl persistent-storage yes' cannot be used.
 export SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY=1
 
+# Don't try to register resolved hook for our testcase
+export SYSTEMD_NETWORK_RESOLVE_HOOK=0
+
 # Generate debugging logs.
 export SYSTEMD_LOG_LEVEL=debug
 
@@ -983,6 +995,7 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=/
                                '-p', 'InaccessibleDirectories=-/etc/systemd/network',
                                '-p', 'InaccessibleDirectories=-/run/systemd/network',
                                '-p', 'InaccessibleDirectories=-/run/systemd/netif',
+                               '-p', 'InaccessibleDirectories=-/run/systemd/resolve.hook',
                                '-p', 'InaccessibleDirectories=-/var/lib/systemd/network',
                                '--service-type=notify', script])
 
