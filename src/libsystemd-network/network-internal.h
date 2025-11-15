@@ -27,5 +27,5 @@ int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, const 
 /* It is not necessary to add deserialize_dhcp_option(). Use unhexmem() instead. */
 int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t size);
 
-int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file);
+int dhcp_lease_save(sd_dhcp_lease *lease, int dir_fd, const char *lease_file);
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file);
