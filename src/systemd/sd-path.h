@@ -44,6 +44,9 @@ __extension__ enum {
         SD_PATH_SYSTEM_STATE_CACHE,
         SD_PATH_SYSTEM_STATE_SPOOL,
 
+        /* generic system configuration */
+        SD_PATH_SYSTEM_SEARCH_CONFIGURATION,
+
         /* Vendor supplied data */
         SD_PATH_USER_BINARIES,
         SD_PATH_USER_LIBRARY_PRIVATE,
@@ -128,8 +131,6 @@ __extension__ enum {
         SD_PATH_USER_SEARCH_CREDENTIAL_STORE,
         SD_PATH_USER_CREDENTIAL_STORE_ENCRYPTED,
         SD_PATH_USER_SEARCH_CREDENTIAL_STORE_ENCRYPTED,
-
-        SD_PATH_SEARCH_SYSCTL,
 
         _SD_PATH_MAX,
         _SD_PATH_INVALID = UINT64_MAX

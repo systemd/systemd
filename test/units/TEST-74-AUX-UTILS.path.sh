@@ -51,6 +51,8 @@ assert_eq "$(systemd-path --suffix='' system-runtime)" "/run"
 assert_eq "$(systemd-path --suffix='🤔' system-runtime)" "/run/🤔"
 assert_eq "$(systemd-path --suffix=hello system-runtime)" "/run/hello"
 
+assert_eq "$(systemd-path system-search-configuration --suffix=sysctl.d)" "/etc/sysctl.d:/run/sysctl.d:/usr/local/lib/sysctl.d:/usr/lib/sysctl.d"
+
 # Note for the stuff below: everything defaults to $HOME, only the desktop
 # directory defaults to $HOME/Desktop.
 #
