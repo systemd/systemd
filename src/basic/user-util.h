@@ -153,3 +153,6 @@ int getpwnam_malloc(const char *name, struct passwd **ret);
 
 int getgrnam_malloc(const char *name, struct group **ret);
 int getgrgid_malloc(gid_t gid, struct group **ret);
+
+int name_to_uid(const char *root, const char *user, uid_t *ret_uid, Hashmap **cache);
+int name_to_gid(const char *root, const char *group, gid_t *ret_gid, Hashmap **cache);
