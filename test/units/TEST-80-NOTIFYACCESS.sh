@@ -172,4 +172,52 @@ assert_eq "$(systemctl show fdstore-nopin.service -P NFileDescriptorStore)" 0
 assert_eq "$(systemctl show fdstore-pin.service -P SubState)" dead
 assert_eq "$(systemctl show fdstore-nopin.service -P SubState)" dead
 
+# Test notify-reload signal handler validation
+
+# Test 1: Service without signal handler should start successfully but log a warning
+mkfifo /tmp/reload-nohandler-in /tmp/reload-nohandler-out
+systemctl start notify-reload-no-handler.service
+assert_eq "$(systemctl show notify-reload-no-handler.service -P SubState)" "running"
+# Verify warning was logged about missing signal handler
+journalctl -u notify-reload-no-handler.service --since=-10s | grep -q "lacks handler for reload signal"
+echo "exit" > /tmp/reload-nohandler-in
+systemctl stop notify-reload-no-handler.service
+rm -f /tmp/reload-nohandler-in /tmp/reload-nohandler-out
+
+# Test 2: Service that removes handler should fail at reload
+mkfifo /tmp/reload-toggle-in /tmp/reload-toggle-out
+systemctl start notify-reload-toggle-handler.service
+assert_eq "$(systemctl show notify-reload-toggle-handler.service -P SubState)" "running"
+
+# Command service to remove its signal handler
+echo "remove-handler" > /tmp/reload-toggle-in
+read -r response < /tmp/reload-toggle-out
+assert_eq "$response" "handler-removed"
+
+# Attempt reload, should fail but service should stay running
+(! systemctl reload notify-reload-toggle-handler.service)
+assert_eq "$(systemctl show notify-reload-toggle-handler.service -P SubState)" "running"
+assert_eq "$(systemctl show notify-reload-toggle-handler.service -P ReloadResult)" "resources"
+
+echo "exit" > /tmp/reload-toggle-in
+systemctl stop notify-reload-toggle-handler.service
+rm -f /tmp/reload-toggle-in /tmp/reload-toggle-out
+
+# Test 3: Well-behaved service with handler should work correctly
+mkfifo /tmp/reload-wellbehaved-in /tmp/reload-wellbehaved-out
+systemctl start notify-reload-well-behaved.service
+assert_eq "$(systemctl show notify-reload-well-behaved.service -P SubState)" "running"
+
+# Reload should succeed
+systemctl reload --no-block notify-reload-well-behaved.service
+timeout 10 bash -c 'until [[ $(systemctl show notify-reload-well-behaved.service -P SubState) == "reload-signal" ]]; do sleep .5; done'
+read -r response < /tmp/reload-wellbehaved-out
+assert_eq "$response" "reload"
+timeout 10 bash -c 'until [[ $(systemctl show notify-reload-well-behaved.service -P SubState) == "running" ]]; do sleep .5; done'
+assert_eq "$(systemctl show notify-reload-well-behaved.service -P ReloadResult)" "success"
+
+echo "exit" > /tmp/reload-wellbehaved-in
+systemctl stop notify-reload-well-behaved.service
+rm -f /tmp/reload-wellbehaved-in /tmp/reload-wellbehaved-out
+
 touch /testok
