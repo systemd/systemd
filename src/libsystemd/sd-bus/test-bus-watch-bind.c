@@ -33,7 +33,7 @@ static int method_exit(sd_bus_message *m, void *userdata, sd_bus_error *ret_erro
 
         ASSERT_OK(sd_bus_reply_method_return(m, NULL));
         /* Simulate D-Bus going away to test the bus_exit_now() path with exit_on_disconnect set */
-        bus_enter_closing(sd_bus_message_get_bus(m));
+        bus_enter_closing(sd_bus_message_get_bus(m), EXIT_FAILURE);
         return 0;
 }
 
