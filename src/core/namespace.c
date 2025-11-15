@@ -24,6 +24,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "iovec-util.h"
 #include "label-util.h"
 #include "list.h"
 #include "lock-util.h"
@@ -1019,7 +1020,7 @@ static bool verity_has_later_duplicates(MountList *ml, const MountEntry *needle)
         assert(needle >= ml->mounts && needle < ml->mounts + ml->n_mounts);
         assert(needle->mode == MOUNT_EXTENSION_IMAGE);
 
-        if (needle->verity.root_hash_size == 0)
+        if (!iovec_is_set(&needle->verity.root_hash))
                 return false;
 
         /* Overlayfs rejects supplying the same directory inode twice as determined by filesystem UUID and
@@ -1032,10 +1033,7 @@ static bool verity_has_later_duplicates(MountList *ml, const MountEntry *needle)
         for (const MountEntry *m = needle + 1; m < ml->mounts + ml->n_mounts; m++) {
                 if (m->mode != MOUNT_EXTENSION_IMAGE)
                         continue;
-                if (memcmp_nn(m->verity.root_hash,
-                              m->verity.root_hash_size,
-                              needle->verity.root_hash,
-                              needle->verity.root_hash_size) == 0)
+                if (iovec_memcmp(&m->verity.root_hash, &needle->verity.root_hash) == 0)
                         return true;
         }
 
