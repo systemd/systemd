@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <sys/uio.h>
+
 #include "sd-id128.h"
 
 #include "bus-unit-util.h"
@@ -181,8 +183,7 @@ typedef struct ExecContext {
 
         struct rlimit *rlimit[_RLIMIT_MAX];
         char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
-        void *root_hash, *root_hash_sig;
-        size_t root_hash_size, root_hash_sig_size;
+        struct iovec root_hash, root_hash_sig;
         LIST_HEAD(MountOptions, root_image_options);
         bool root_ephemeral;
         bool working_directory_missing_ok:1;

@@ -679,11 +679,9 @@ void exec_context_done(ExecContext *c) {
         c->root_directory = mfree(c->root_directory);
         c->root_image = mfree(c->root_image);
         c->root_image_options = mount_options_free_all(c->root_image_options);
-        c->root_hash = mfree(c->root_hash);
-        c->root_hash_size = 0;
+        iovec_done(&c->root_hash);
         c->root_hash_path = mfree(c->root_hash_path);
-        c->root_hash_sig = mfree(c->root_hash_sig);
-        c->root_hash_sig_size = 0;
+        iovec_done(&c->root_hash_sig);
         c->root_hash_sig_path = mfree(c->root_hash_sig_path);
         c->root_verity = mfree(c->root_verity);
         c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
@@ -1178,9 +1176,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "\n");
         }
 
-        if (c->root_hash) {
+        if (iovec_is_set(&c->root_hash)) {
                 _cleanup_free_ char *encoded = NULL;
-                encoded = hexmem(c->root_hash, c->root_hash_size);
+                encoded = hexmem(c->root_hash.iov_base, c->root_hash.iov_len);
                 if (encoded)
                         fprintf(f, "%sRootHash: %s\n", prefix, encoded);
         }
@@ -1188,10 +1186,10 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
         if (c->root_hash_path)
                 fprintf(f, "%sRootHash: %s\n", prefix, c->root_hash_path);
 
-        if (c->root_hash_sig) {
+        if (iovec_is_set(&c->root_hash_sig)) {
                 _cleanup_free_ char *encoded = NULL;
                 ssize_t len;
-                len = base64mem(c->root_hash_sig, c->root_hash_sig_size, &encoded);
+                len = base64mem(c->root_hash_sig.iov_base, c->root_hash_sig.iov_len, &encoded);
                 if (len)
                         fprintf(f, "%sRootHashSignature: base64:%s\n", prefix, encoded);
         }

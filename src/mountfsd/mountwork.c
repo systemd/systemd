@@ -379,14 +379,8 @@ static int vl_method_mount_image(
                         return -ENOMEM;
 
                 verity.designator = PARTITION_ROOT;
-
-                verity.root_hash = TAKE_PTR(p.verity_root_hash.iov_base);
-                verity.root_hash_size = p.verity_root_hash.iov_len;
-                p.verity_root_hash.iov_len = 0;
-
-                verity.root_hash_sig = TAKE_PTR(p.verity_root_hash_sig.iov_base);
-                verity.root_hash_sig_size = p.verity_root_hash_sig.iov_len;
-                p.verity_root_hash_sig.iov_len = 0;
+                verity.root_hash = TAKE_STRUCT(p.verity_root_hash);
+                verity.root_hash_sig = TAKE_STRUCT(p.verity_root_hash_sig);
         }
 
         const char *polkit_details[] = {
