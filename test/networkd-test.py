@@ -91,9 +91,8 @@ def setUpModule():
 
     for d in ['/etc/systemd/network', '/run/systemd/network',
               '/run/systemd/netif', '/run/systemd/resolve']:
-        if os.path.isdir(d):
-            subprocess.check_call(["mount", "-t", "tmpfs", "none", d])
-            tmpmounts.append(d)
+        subprocess.check_call(["mount", "-m", "-t", "tmpfs", "none", d])
+        tmpmounts.append(d)
     if os.path.isdir('/run/systemd/resolve'):
         os.chmod('/run/systemd/resolve', 0o755)
         shutil.chown('/run/systemd/resolve', 'systemd-resolve', 'systemd-resolve')
