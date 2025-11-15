@@ -25,6 +25,15 @@ CHANGES WITH 259 in spe:
           overriding configuration was provided. The default can be changed
           with -Djournal-storage-default=.
 
+        * The LUKS volume label string set by systemd-repart no longer defaults
+          to the literal same as the partition and file system label, but is
+          prefixed with "luks-". This is done so that on LUKS enabled images a
+          conflict between /dev/disk/by-label/ symlinks is removed, as this
+          symlink is generated both for file system and LUKS superblock
+          labels. There's a new VolumeLabel= setting for partitions that can be
+          used to expicitly choose a LUKS superblock label, which can be used
+          to explicitly revert to the old naming, if required.
+
 CHANGES WITH 258:
 
         Incompatible changes:

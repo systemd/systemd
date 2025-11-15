@@ -398,7 +398,8 @@ typedef struct Partition {
         GptPartitionType type;
         sd_id128_t current_uuid, new_uuid;
         bool new_uuid_is_set;
-        char *current_label, *new_label;
+        char *current_label, *new_label;      /* Used for the GPT partition label + fs superblock label */
+        char *new_volume_label;               /* used for LUKS superblock */
         sd_id128_t fs_uuid, luks_uuid, verity_uuid;
         uint8_t verity_salt[SHA256_DIGEST_SIZE];
 
@@ -714,6 +715,7 @@ static Partition* partition_free(Partition *p) {
 
         free(p->current_label);
         free(p->new_label);
+        free(p->new_volume_label);
         free(p->definition_path);
         strv_free(p->drop_in_files);
 
@@ -2750,6 +2752,7 @@ static int partition_read_definition(
         ConfigTableItem table[] = {
                 { "Partition", "Type",                     config_parse_type,              0,                                  &p->type                    },
                 { "Partition", "Label",                    config_parse_label,             0,                                  &p->new_label               },
+                { "Partition", "VolumeLabel",              config_parse_label,             0,                                  &p->new_volume_label        },
                 { "Partition", "UUID",                     config_parse_uuid,              0,                                  p                           },
                 { "Partition", "Priority",                 config_parse_int32,             0,                                  &p->priority                },
                 { "Partition", "Weight",                   config_parse_weight,            0,                                  &p->weight                  },
@@ -3976,6 +3979,27 @@ static const char *partition_label(const Partition *p) {
         return gpt_partition_type_uuid_to_string(p->type.uuid);
 }
 
+static int volume_label(const Partition *p, char **ret) {
+        assert(p);
+        assert(ret);
+
+        if (p->new_volume_label)
+                return strdup_to(ret, p->new_volume_label);
+
+        const char *e = partition_label(p);
+        if (!e)
+                return -ENODATA;
+
+        /* Let's prefix "luks-" for the label string used for LUKS superblocks. We do this so that the
+         * /dev/disk/by-label/ symlink to the LUKS volume and the file system inside it do not clash */
+        char *j = strjoin("luks-", e);
+        if (!j)
+                return -ENOMEM;
+
+        *ret = j;
+        return 0;
+}
+
 static int context_dump_partitions(Context *context) {
         _cleanup_(table_unrefp) Table *t = NULL;
         uint64_t sum_padding = 0, sum_size = 0;
@@ -4963,21 +4987,6 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
 
 static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline) {
 #if HAVE_LIBCRYPTSETUP
-        const char *node = partition_target_path(target);
-        struct crypt_params_luks2 luks_params = {
-                .label = strempty(ASSERT_PTR(p)->new_label),
-                .sector_size = partition_fs_sector_size(context, p),
-                .data_device = offline ? node : NULL,
-        };
-        struct crypt_params_reencrypt reencrypt_params = {
-                .mode = CRYPT_REENCRYPT_ENCRYPT,
-                .direction = CRYPT_REENCRYPT_BACKWARD,
-                .resilience = "datashift",
-                .data_shift = LUKS2_METADATA_SIZE / 512,
-                .luks2 = &luks_params,
-                .flags = CRYPT_REENCRYPT_INITIALIZE_ONLY|CRYPT_REENCRYPT_MOVE_FIRST_SEGMENT,
-        };
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
 #if HAVE_TPM2
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
 #endif
@@ -4997,6 +5006,26 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 return log_error_errno(r, "libcryptsetup not found, cannot encrypt: %m");
 
         log_info("Encrypting future partition %" PRIu64 "...", p->partno);
+
+        _cleanup_free_ char *vl = NULL;
+        r = volume_label(p, &vl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate volume label: %m");
+
+        const char *node = partition_target_path(target);
+        struct crypt_params_luks2 luks_params = {
+                .label = vl,
+                .sector_size = partition_fs_sector_size(context, p),
+                .data_device = offline ? node : NULL,
+        };
+        struct crypt_params_reencrypt reencrypt_params = {
+                .mode = CRYPT_REENCRYPT_ENCRYPT,
+                .direction = CRYPT_REENCRYPT_BACKWARD,
+                .resilience = "datashift",
+                .data_shift = LUKS2_METADATA_SIZE / 512,
+                .luks2 = &luks_params,
+                .flags = CRYPT_REENCRYPT_INITIALIZE_ONLY|CRYPT_REENCRYPT_MOVE_FIRST_SEGMENT,
+        };
 
         if (offline) {
                 r = var_tmp_dir(&vt);
@@ -5020,6 +5049,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         return log_oom();
         }
 
+        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         r = sym_crypt_init(&cd, offline ? hp : node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context for %s: %m", hp);

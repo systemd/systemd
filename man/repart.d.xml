@@ -257,6 +257,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>VolumeLabel=</varname></term>
+
+        <listitem><para>The textual label to assign to the LUKS superblock if applicable. If not specified
+        defaults to the same string as the partition label (see <varname>Label=</varname> above), however
+        prefixed with <literal>luks-</literal>. This setting has no effect if encryption is not enabled for
+        this partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UUID=</varname></term>
 
         <listitem><para>The UUID to assign to the partition if none is assigned yet. Note that this
