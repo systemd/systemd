@@ -199,10 +199,15 @@ int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname) {
         assert_return(lease, -EINVAL);
         assert_return(hostname, -EINVAL);
 
-        if (!lease->hostname)
+        /* FQDN option (81) always takes precedence. */
+
+        if (lease->fqdn)
+                *hostname = lease->fqdn;
+        else if (lease->hostname)
+                *hostname = lease->hostname;
+        else
                 return -ENODATA;
 
-        *hostname = lease->hostname;
         return 0;
 }
 
@@ -422,6 +427,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         free(lease->router);
         free(lease->timezone);
         free(lease->hostname);
+        free(lease->fqdn);
         free(lease->domainname);
         free(lease->captive_portal);
 
@@ -1013,12 +1019,6 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_HOST_NAME:
-                /* FQDN option (81) always takes precedence. If it was already set, do not overwrite it. */
-                if (lease->hostname) {
-                        log_debug("Hostname already set via FQDN, ignoring hostname option.");
-                        break;
-                }
-
                 r = lease_parse_domain(option, len, &lease->hostname);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to parse hostname, ignoring: %m");
@@ -1028,7 +1028,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_FQDN:
-                r = lease_parse_fqdn(option, len, &lease->hostname);
+                r = lease_parse_fqdn(option, len, &lease->fqdn);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to parse FQDN, ignoring: %m");
                         return 0;
