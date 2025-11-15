@@ -1345,7 +1345,7 @@ static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set
                 return r;
 
         if (!p) {
-                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &buf);
+                r = cg_pidref_get_path(pid, &buf);
                 if (r == -ESRCH)
                         return 0;
                 if (r < 0)
@@ -1375,7 +1375,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
         assert(reply);
         assert(p);
 
-        r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, p, &f);
+        r = cg_enumerate_processes(p, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1411,7 +1411,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                         return r;
         }
 
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, p, &d);
+        r = cg_enumerate_subgroups(p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)

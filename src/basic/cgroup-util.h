@@ -3,8 +3,6 @@
 
 #include "basic-forward.h"
 
-#define SYSTEMD_CGROUP_CONTROLLER_LEGACY "name=systemd"
-#define SYSTEMD_CGROUP_CONTROLLER_HYBRID "name=unified"
 #define SYSTEMD_CGROUP_CONTROLLER "_systemd"
 
 /* An enum of well known cgroup controllers */
@@ -113,29 +111,16 @@ static inline uint64_t BFQ_WEIGHT(uint64_t io_weight) {
             CGROUP_BFQ_WEIGHT_DEFAULT + (io_weight - CGROUP_WEIGHT_DEFAULT) * (CGROUP_BFQ_WEIGHT_MAX - CGROUP_BFQ_WEIGHT_DEFAULT) / (CGROUP_WEIGHT_MAX - CGROUP_WEIGHT_DEFAULT);
 }
 
-typedef enum CGroupUnified {
-        CGROUP_UNIFIED_UNKNOWN = -1,
-        CGROUP_UNIFIED_NONE = 0,        /* Both systemd and controllers on legacy */
-        CGROUP_UNIFIED_SYSTEMD = 1,     /* Only systemd on unified */
-        CGROUP_UNIFIED_ALL = 2,         /* Both systemd and controllers on unified */
-} CGroupUnified;
-
 /*
  * General rules:
- *
- * We accept named hierarchies in the syntax "foo" and "name=foo".
- *
- * We expect that named hierarchies do not conflict in name with a
- * kernel hierarchy, modulo the "name=" prefix.
- *
- * We always generate "normalized" controller names, i.e. without the
- * "name=" prefix.
  *
  * We require absolute cgroup paths. When returning, we will always
  * generate paths with multiple adjacent / removed.
  */
 
-int cg_path_open(const char *controller, const char *path);
+int cg_is_available(void);
+
+int cg_path_open(const char *path);
 int cg_cgroupid_open(int cgroupfs_fd, uint64_t id);
 
 int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret);
@@ -153,11 +138,11 @@ typedef enum CGroupFlags {
         CGROUP_DONT_SKIP_UNMAPPED = 1 << 2,
 } CGroupFlags;
 
-int cg_enumerate_processes(const char *controller, const char *path, FILE **ret);
+int cg_enumerate_processes(const char *path, FILE **ret);
 int cg_read_pid(FILE *f, pid_t *ret, CGroupFlags flags);
 int cg_read_pidref(FILE *f, PidRef *ret, CGroupFlags flags);
 
-int cg_enumerate_subgroups(const char *controller, const char *path, DIR **ret);
+int cg_enumerate_subgroups(const char *path, DIR **ret);
 int cg_read_subgroup(DIR *d, char **ret);
 
 typedef int (*cg_kill_log_func_t)(const PidRef *pid, int sig, void *userdata);
@@ -167,13 +152,11 @@ int cg_kill_kernel_sigkill(const char *path);
 int cg_kill_recursive(const char *path, int sig, CGroupFlags flags, Set *killed_pids, cg_kill_log_func_t log_kill, void *userdata);
 
 int cg_split_spec(const char *spec, char **ret_controller, char **ret_path);
-int cg_mangle_path(const char *path, char **ret);
 
-int cg_get_path(const char *controller, const char *path, const char *suffix, char **ret);
-int cg_get_path_and_check(const char *controller, const char *path, const char *suffix, char **ret);
+int cg_get_path(const char *path, const char *suffix, char **ret);
 
-int cg_pid_get_path(const char *controller, pid_t pid, char **ret);
-int cg_pidref_get_path(const char *controller, const PidRef *pidref, char **ret);
+int cg_pid_get_path(pid_t pid, char **ret);
+int cg_pidref_get_path(const PidRef *pidref, char **ret);
 
 int cg_is_threaded(const char *path);
 
@@ -182,12 +165,12 @@ int cg_is_delegated_fd(int fd);
 
 int cg_has_coredump_receive(const char *path);
 
-int cg_set_attribute(const char *controller, const char *path, const char *attribute, const char *value);
-int cg_get_attribute(const char *controller, const char *path, const char *attribute, char **ret);
-int cg_get_keyed_attribute(const char *controller, const char *path, const char *attribute, char * const *keys, char **values);
+int cg_set_attribute(const char *path, const char *attribute, const char *value);
+int cg_get_attribute(const char *path, const char *attribute, char **ret);
+int cg_get_attribute_as_uint64(const char *path, const char *attribute, uint64_t *ret);
+int cg_get_attribute_as_bool(const char *path, const char *attribute);
 
-int cg_get_attribute_as_uint64(const char *controller, const char *path, const char *attribute, uint64_t *ret);
-int cg_get_attribute_as_bool(const char *controller, const char *path, const char *attribute);
+int cg_get_keyed_attribute(const char *path, const char *attribute, char * const *keys, char **values);
 
 int cg_get_owner(const char *path, uid_t *ret_uid);
 
@@ -197,7 +180,7 @@ int cg_get_xattr(const char *path, const char *name, char **ret, size_t *ret_siz
 int cg_get_xattr_bool(const char *path, const char *name);
 int cg_remove_xattr(const char *path, const char *name);
 
-int cg_is_empty(const char *controller, const char *path);
+int cg_is_empty(const char *path);
 
 int cg_get_root_path(char **path);
 
@@ -249,8 +232,6 @@ bool cg_needs_escape(const char *p) _pure_;
 int cg_escape(const char *p, char **ret);
 char* cg_unescape(const char *p) _pure_;
 
-bool cg_controller_is_valid(const char *p);
-
 int cg_slice_to_path(const char *unit, char **ret);
 
 int cg_mask_supported(CGroupMask *ret);
@@ -259,14 +240,6 @@ int cg_mask_from_string(const char *s, CGroupMask *ret);
 int cg_mask_to_string(CGroupMask mask, char **ret);
 
 bool cg_kill_supported(void);
-
-int cg_all_unified(void);
-int cg_hybrid_unified(void);
-int cg_unified_controller(const char *controller);
-int cg_unified_cached(bool flush);
-static inline int cg_unified(void) {
-        return cg_unified_cached(true);
-}
 
 const char* cgroup_controller_to_string(CGroupController c) _const_;
 CGroupController cgroup_controller_from_string(const char *s) _pure_;
