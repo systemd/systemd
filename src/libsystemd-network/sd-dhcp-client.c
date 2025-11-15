@@ -2568,6 +2568,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .max_discover_attempts = UINT64_MAX,
                 .max_request_attempts = 5,
                 .ip_service_type = -1,
+                .lease_dir_fd = -EBADF,
         };
         /* NOTE: this could be moved to a function. */
         if (anonymize) {
