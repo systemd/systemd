@@ -1363,11 +1363,11 @@ static int get_gid_by_name(
 
         /* Also check NSS */
         if (!arg_root) {
-                _cleanup_free_ struct group *g = NULL;
+                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                r = getgrnam_malloc(name, &g);
+                r = groupdb_by_name(name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &gr);
                 if (r >= 0) {
-                        *ret_gid = g->gr_gid;
+                        *ret_gid = gr->gid;
                         return 0;
                 }
                 if (r != -ESRCH)
