@@ -713,6 +713,7 @@ endforeach
 foreach header : [
         'gshadow.h',
         'nss.h',
+        'printf.h',
         'sys/sdt.h',
         'threads.h',
         'valgrind/memcheck.h',

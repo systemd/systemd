@@ -9,6 +9,78 @@
 #include "string-util.h"
 #include "strv.h"
 
+#ifndef __GLIBC__
+static bool safe_glob_verify(const char *p, const char *prefix) {
+        if (isempty(p))
+                return false; /* should not happen, but for safey. */
+
+        if (prefix) {
+                /* Skip the prefix, as we allow dots in prefix.
+                 * Note, glob() does not normalize paths, hence do not use path_startswith(). */
+                p = startswith(p, prefix);
+                if (!p)
+                        return false; /* should not happen, but for safety. */
+        }
+
+        for (;;) {
+                p += strspn(p, "/");
+                if (*p == '\0')
+                        return true;
+                if (*p == '.') {
+                        p++;
+                        if (IN_SET(*p, '/', '\0'))
+                                return false; /* refuse dot */
+                        if (*p == '.') {
+                                p++;
+                                if (IN_SET(*p, '/', '\0'))
+                                        return false; /* refuse dot dot */
+                        }
+                }
+
+                p += strcspn(p, "/");
+                if (*p == '\0')
+                        return true;
+        }
+}
+
+static int filter_glob_result(char * const *result, const char *path, char ***ret) {
+        int r;
+
+        assert(path);
+
+        if (strv_isempty(result))
+                return -ENOENT;
+
+        _cleanup_free_ char *prefix = NULL;
+        r = glob_non_glob_prefix(path, &prefix);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        _cleanup_strv_free_ char **filtered = NULL;
+        size_t n_filtered = 0;
+        STRV_FOREACH(p, result) {
+                if (!safe_glob_verify(*p, prefix))
+                        continue;
+
+                if (!ret)
+                        return 0; /* Found at least one entry, let's return earlier. */
+
+                /* When musl is used, each entry is not a head of allocated memory. Hence, it is
+                 * necessary to copy the string. */
+                r = strv_extend_with_size(&filtered, &n_filtered, *p);
+                if (r < 0)
+                        return r;
+        }
+
+        if (n_filtered == 0)
+                return -ENOENT;
+
+        assert(ret);
+        *ret = TAKE_PTR(filtered);
+        return 0;
+}
+#endif
+
 DEFINE_TRIVIAL_DESTRUCTOR(closedir_wrapper, void, closedir);
 
 int safe_glob_full(const char *path, int flags, opendir_t opendir_func, char ***ret) {
@@ -31,6 +103,10 @@ int safe_glob_full(const char *path, int flags, opendir_t opendir_func, char ***
                 return -ENOMEM;
         if (r != 0)
                 return errno_or_else(EIO);
+
+#ifndef __GLIBC__
+        return filter_glob_result(g.gl_pathv, path, ret);
+#endif
 
         if (strv_isempty(g.gl_pathv))
                 return -ENOENT;
