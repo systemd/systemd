@@ -47,7 +47,7 @@ static SD_VARLINK_DEFINE_METHOD(
                                          "as one. Partial success/failure combinations are not supported."),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(question, Question, SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("A DNS response code. If a hook sets this return parameter further processing of the lookup via "
-                                         "regular proocols such as DNS, LLMNR, mDNS is skipped, and the return code returned immediately. "
+                                         "regular protocols such as DNS, LLMNR, mDNS is skipped, and the return code returned immediately. "
                                          "In other words, if a hook intends to let the request pass to normal resolution, it should not "
                                          "set this return parameter."),
                 SD_VARLINK_DEFINE_OUTPUT(rcode, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
@@ -76,6 +76,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                                           "services can send updates to the filter at any time. Whenever a further reply is sent the "
                                           "filter configured therein fully replaces any previously communicated filter."),
                 &vl_method_QueryFilter,
-                SD_VARLINK_SYMBOL_COMMENT("Sent whenever a resolution request is made. This typically takes the filter paramaters returned "
+                SD_VARLINK_SYMBOL_COMMENT("Sent whenever a resolution request is made. This typically takes the filter parameters returned "
                                           "by QueryFilter() into account, but this is not guaranteed."),
                 &vl_method_ResolveRecord);

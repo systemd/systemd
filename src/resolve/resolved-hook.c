@@ -127,7 +127,7 @@ static int on_filter_reply(
                         /* When we are are disconnected, that's fine, maybe the other side wants to clean up
                          * open connections every now and then, or is being restarted and thus a moment
                          * offline. Try to reconnect immediately to recover. However, a service that
-                         * continously fails should not be able to get us into a busy loop, hence we apply a
+                         * continuously fails should not be able to get us into a busy loop, hence we apply a
                          * ratelimit, and when it is hit we stop reconnecting. */
                         if (ratelimit_below(&h->reconnect_ratelimit)) {
                                 log_debug("Connection terminated while querying filter of hook '%s', trying to reconnect.", h->socket_path);
@@ -227,7 +227,7 @@ static int hook_acquire_filter(Hook *h) {
         if (r <= 0)
                 return r;
 
-        /* Turn off timeout, after all we want to continously monitor filter changes */
+        /* Turn off timeout, after all we want to continuously monitor filter changes */
         r = sd_varlink_set_relative_timeout(v, UINT64_MAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to disable timeout on Varlink connection %m");
