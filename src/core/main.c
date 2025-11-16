@@ -36,6 +36,7 @@
 #include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "crash-handler.h"
+#include "daemon-util.h"
 #include "dbus.h"
 #include "dbus-manager.h"
 #include "dev-setup.h"
@@ -2216,9 +2217,11 @@ static int invoke_main_loop(
                         if (saved_log_target >= 0)
                                 manager_override_log_target(m, saved_log_target);
 
-                        if (manager_reload(m) < 0)
+                        r = manager_reload(m);
+                        if (r < 0)
                                 /* Reloading failed before the point of no return.
                                  * Let's continue running as if nothing happened. */
+                                (void) notify_reload_result(r, "READY=1\nSTATUS=Reload preparation failed, continuing.");
                                 m->objective = MANAGER_OK;
                         else
                                 log_info("Reloading finished in " USEC_FMT " ms.",
@@ -2235,6 +2238,7 @@ static int invoke_main_loop(
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, false);
                         if (r < 0) {
                                 *ret_error_message = "Failed to prepare for reexecution";
+                                (void) notify_reload_result(r, "STATUS=%s", *ret_error_message);
                                 return r;
                         }
 
@@ -2256,6 +2260,7 @@ static int invoke_main_loop(
                                 r = prepare_reexecute(m, &arg_serialization, ret_fds, true);
                                 if (r < 0) {
                                         *ret_error_message = "Failed to prepare for reexecution";
+                                        (void) notify_reload_result(r, "STATUS=%s", *ret_error_message);
                                         return r;
                                 }
                         } else
@@ -2278,6 +2283,7 @@ static int invoke_main_loop(
                         r = prepare_reexecute(m, &arg_serialization, ret_fds, /* switching_root= */ true);
                         if (r < 0) {
                                 *ret_error_message = "Failed to prepare for reexecution";
+                                (void) notify_reload_result(r, "STATUS=%s", *ret_error_message);
                                 return r;
                         }
 
