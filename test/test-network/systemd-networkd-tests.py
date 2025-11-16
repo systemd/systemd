@@ -487,19 +487,7 @@ def create_service_dropin(service, command, additional_settings=None):
     if ubsan_options:
         drop_in += [f'Environment=UBSAN_OPTIONS="{ubsan_options}"']
     if asan_options or lsan_options or ubsan_options:
-        # Disable system call filter when running with sanitizers, as they seem to call filtered syscall at
-        # the very end of the execution and stuck the process. See issue #39567.
-        drop_in += [
-            'LockPersonality=no',
-            'ProtectClock=no',
-            'ProtectKernelLogs=no',
-            'RestrictAddressFamilies=',
-            'RestrictNamespaces=no',
-            'RestrictRealtime=no',
-            'RestrictSUIDSGID=no',
-            'SystemCallArchitectures=',
-            'SystemCallFilter=',
-        ]
+        drop_in += ['SystemCallFilter=']
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
     if use_valgrind:
