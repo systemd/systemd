@@ -38,5 +38,5 @@ static inline bool iovec_is_set(const struct iovec *iovec) {
 
 static inline bool iovec_is_valid(const struct iovec *iovec) {
         /* Checks if the iovec is either NULL, empty or points to a valid bit of memory */
-        return !iovec || (iovec->iov_base || iovec->iov_len == 0);
+        return !iovec || iovec->iov_base || iovec->iov_len == 0;
 }
