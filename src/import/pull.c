@@ -717,8 +717,8 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
         MethodPullParameters p = {
                 .fsync = true,
                 .mode = _IMPORT_TYPE_INVALID,
-                .offset = 0,
-                .size_max = UINT_MAX,
+                .offset = UINT64_MAX,
+                .size_max = UINT64_MAX,
                 .subvolume = false,
         };
         int r;
@@ -731,11 +731,11 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         SET_FLAG(arg_import_flags, IMPORT_SYNC, p.fsync);
 
-        if (!FILE_SIZE_VALID(p.offset))
+        if (p.offset != UINT64_MAX && !FILE_SIZE_VALID(p.offset))
                 return sd_varlink_error(link, "io.systemd.PullWorker.InvalidParameters", NULL);
         arg_offset = p.offset;
 
-        if (!FILE_SIZE_VALID(p.size_max) || (p.size_max % 1024) == 0)
+        if (p.size_max != UINT64_MAX && (!FILE_SIZE_VALID(p.size_max) || (p.size_max % 1024) != 0))
                 return sd_varlink_error(link, "io.systemd.PullWorker.InvalidParameters", NULL);
         arg_size_max = p.size_max;
 

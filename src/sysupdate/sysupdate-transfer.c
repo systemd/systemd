@@ -1115,7 +1115,7 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
         }
 
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *pull_link = NULL;
-        r = sd_varlink_connect_exec(&pull_link, "/usr/lib/systemd/systemd-pull", /* argv= */ NULL);
+        r = sd_varlink_connect_exec(&pull_link, SYSTEMD_PULL_PATH, /* argv= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect systemd-pull: %m");
 
@@ -1135,7 +1135,7 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
                 SD_JSON_BUILD_PAIR_ARRAY("instances", instances_array),
                 SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "offset", SD_JSON_BUILD_UNSIGNED(t->partition_info.start)),
                 SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "maxSize", SD_JSON_BUILD_UNSIGNED(t->partition_info.size)),
-                SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_SUBVOLUME, "subvolume", true));
+                SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_SUBVOLUME, "subvolume", SD_JSON_BUILD_BOOLEAN(true)));
         return r;
 }
 
