@@ -4418,7 +4418,7 @@ int config_parse_io_limit(
         if (r < 0)
                 return 0;
 
-        if (streq("infinity", p))
+        if (streq(p, "infinity"))
                 num = CGROUP_LIMIT_MAX;
         else {
                 r = parse_size(p, 1000, &num);
