@@ -96,3 +96,29 @@ int notify_reloading_full(const char *status) {
 
         return 0;
 }
+
+int notify_reload_resultf(int error, const char *format, ...) {
+        _cleanup_free_ char *s = NULL;
+        va_list ap;
+        int r;
+
+        assert(format);
+
+        va_start(ap, format);
+        r = vasprintf(&s, format, ap);
+        va_end(ap);
+        if (r < 0)
+                return log_oom_debug();
+
+        if (error != 0) {
+                r = strextendf_with_separator(&s, "\n", "RELOADING=-1\nERRNO=%d", abs(error));
+                if (r < 0)
+                        return log_oom_debug();
+        }
+
+        r = sd_notify(/* unset_environment = */ false, s);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to notify service manager for reload result: %m");
+
+        return 0;
+}
