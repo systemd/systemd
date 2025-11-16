@@ -2218,12 +2218,22 @@ static int invoke_main_loop(
                                 manager_override_log_target(m, saved_log_target);
 
                         r = manager_reload(m);
-                        if (r < 0)
+                        if (r < 0) {
                                 /* Reloading failed before the point of no return.
                                  * Let's continue running as if nothing happened. */
                                 (void) notify_reload_result(r, "READY=1\nSTATUS=Reload preparation failed, continuing.");
+
+                                if (m->pending_reload_message_dbus) {
+                                        (void) sd_bus_reply_method_errno(m->pending_reload_message_dbus, r, NULL);
+                                        m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
+                                }
+                                if (m->pending_reload_message_vl) {
+                                        (void) sd_varlink_error_errno(m->m->pending_reload_message_vl, r);
+                                        m->pending_reload_message_vl = sd_varlink_close_unref(m->pending_reload_message_vl);
+                                }
+
                                 m->objective = MANAGER_OK;
-                        else
+                        } else
                                 log_info("Reloading finished in " USEC_FMT " ms.",
                                          usec_sub_unsigned(now(CLOCK_MONOTONIC), m->timestamps[MANAGER_TIMESTAMP_UNITS_LOAD].monotonic) / USEC_PER_MSEC);
 
