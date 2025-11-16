@@ -73,7 +73,7 @@ int efi_get_variable(
                 if (r < 0)
                         return log_debug_errno(r, "EFI variable '%s' is not a regular file, refusing: %m", p);
 
-                if (st.st_size == 0) /* for uncommited variables, see below */
+                if (st.st_size == 0) /* for uncommitted variables, see below */
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "EFI variable '%s' is uncommitted", p);
                 if ((uint64_t) st.st_size < sizeof(attr))
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODATA), "EFI variable '%s' is shorter than %zu bytes, refusing.", p, sizeof(attr));
