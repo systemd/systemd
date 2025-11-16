@@ -177,47 +177,31 @@ static int test_load_config(Manager *manager) {
 }
 
 static void test_dhcp_hostname_shorten_overlong(void) {
-        int r;
+        _cleanup_free_ char *s = NULL;
 
-        {
-                /* simple hostname, no actions, no errors */
-                _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong("name1", &shortened);
-                assert_se(r == 0);
-                assert_se(streq("name1", shortened));
-        }
+        /* simple hostname, no actions, no errors */
+        ASSERT_OK_ZERO(shorten_overlong("name1", &s));
+        ASSERT_STREQ(s, "name1");
+        s = mfree(s);
 
-        {
-                /* simple fqdn, no actions, no errors */
-                _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong("name1.example.com", &shortened);
-                assert_se(r == 0);
-                assert_se(streq("name1.example.com", shortened));
-        }
+        /* simple fqdn, no actions, no errors */
+        ASSERT_OK_ZERO(shorten_overlong("name1.example.com", &s));
+        ASSERT_STREQ(s, "name1.example.com");
+        s = mfree(s);
 
-        {
-                /* overlong fqdn, cut to first dot, no errors */
-                _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong("name1.test-dhcp-this-one-here-is-a-very-very-long-domain.example.com", &shortened);
-                assert_se(r == 1);
-                assert_se(streq("name1", shortened));
-        }
+        /* overlong fqdn, cut to first dot, no errors */
+        ASSERT_OK_POSITIVE(shorten_overlong("name1.test-dhcp-this-one-here-is-a-very-very-long-domain.example.com", &s));
+        ASSERT_STREQ(s, "name1");
+        s = mfree(s);
 
-        {
-                /* overlong hostname, cut to HOST_MAX_LEN, no errors */
-                _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-domainname", &shortened);
-                assert_se(r == 1);
-                assert_se(streq("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-dom", shortened));
-        }
+        /* overlong hostname, cut to HOST_MAX_LEN, no errors */
+        ASSERT_OK_POSITIVE(shorten_overlong("test-dhcp-this-one-here-is-a-very-very-long-hostname-without-domainname", &s));
+        ASSERT_STREQ(s, "test-dhcp-this-one-here-is-a-very-very-long-hostname-without-dom");
+        s = mfree(s);
 
-        {
-                /* overlong fqdn, cut to first dot, empty result error */
-                _cleanup_free_ char *shortened = NULL;
-                r = shorten_overlong(".test-dhcp-this-one-here-is-a-very-very-long-hostname.example.com", &shortened);
-                assert_se(r == -EDOM);
-                assert_se(shortened == NULL);
-        }
+        /* overlong fqdn, cut to first dot, empty result error */
+        ASSERT_ERROR(shorten_overlong(".test-dhcp-this-one-here-is-a-very-very-long-hostname.example.com", &s), EDOM);
+        ASSERT_NULL(s);
 }
 
 int main(void) {
