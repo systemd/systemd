@@ -7356,7 +7356,6 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = networkctl_json('veth99')
         check_json(output)
-        print(output)
         data = json.loads(output)
         self.assertEqual(data['DHCPv4Client']['Lease']['Hostname'], 'simple-host')
 
@@ -7369,7 +7368,6 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = networkctl_json('veth99')
         check_json(output)
-        print(output)
         data = json.loads(output)
         self.assertEqual(data['DHCPv4Client']['Lease']['Hostname'], 'fqdn.example.com')
 
