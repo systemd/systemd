@@ -17,6 +17,7 @@
 #include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "apparmor-setup.h"
@@ -2223,6 +2224,16 @@ static int invoke_main_loop(
                                 /* Reloading failed before the point of no return.
                                  * Let's continue running as if nothing happened. */
                                 (void) notify_reload_resultf(r, "READY=1\nSTATUS=Reload preparation failed, continuing.");
+
+                                if (m->pending_reload_message_dbus) {
+                                        (void) sd_bus_reply_method_errno(m->pending_reload_message_dbus, r, NULL);
+                                        m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
+                                }
+                                if (m->pending_reload_message_vl) {
+                                        (void) sd_varlink_error_errno(m->pending_reload_message_vl, r);
+                                        m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
+                                }
+
                                 m->objective = MANAGER_OK;
                         } else
                                 log_info("Reloading finished in " USEC_FMT " ms.",
