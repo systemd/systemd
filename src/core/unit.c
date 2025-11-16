@@ -2610,6 +2610,7 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
         JobResult result;
 
         assert(j);
+        assert(j->installed);
 
         if (j->state == JOB_WAITING)
                 /* So we reached a different state for this job. Let's see if we can run it now if it failed previously
@@ -2642,8 +2643,6 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
                 break;
 
         case JOB_RELOAD:
-        case JOB_RELOAD_OR_START:
-        case JOB_TRY_RELOAD:
 
                 if (j->state == JOB_RUNNING) {
                         if (ns == UNIT_ACTIVE)
@@ -2660,7 +2659,6 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
 
         case JOB_STOP:
         case JOB_RESTART:
-        case JOB_TRY_RESTART:
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
                         job_finish_and_invalidate(j, JOB_DONE, true, false);
