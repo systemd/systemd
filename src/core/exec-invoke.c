@@ -3583,11 +3583,9 @@ static int setup_ephemeral(
 static int verity_settings_prepare(
                 VeritySettings *verity,
                 const char *root_image,
-                const void *root_hash,
-                size_t root_hash_size,
+                const struct iovec *root_hash,
                 const char *root_hash_path,
-                const void *root_hash_sig,
-                size_t root_hash_sig_size,
+                const struct iovec *root_hash_sig,
                 const char *root_hash_sig_path,
                 const char *verity_data_path) {
 
@@ -3596,26 +3594,20 @@ static int verity_settings_prepare(
         assert(verity);
 
         if (root_hash) {
-                void *d;
+                iovec_done(&verity->root_hash);
 
-                d = memdup(root_hash, root_hash_size);
-                if (!d)
+                if (!iovec_memdup(root_hash, &verity->root_hash))
                         return -ENOMEM;
 
-                free_and_replace(verity->root_hash, d);
-                verity->root_hash_size = root_hash_size;
                 verity->designator = PARTITION_ROOT;
         }
 
         if (root_hash_sig) {
-                void *d;
+                iovec_done(&verity->root_hash_sig);
 
-                d = memdup(root_hash_sig, root_hash_sig_size);
-                if (!d)
+                if (!iovec_memdup(root_hash_sig, &verity->root_hash_sig))
                         return -ENOMEM;
 
-                free_and_replace(verity->root_hash_sig, d);
-                verity->root_hash_sig_size = root_hash_sig_size;
                 verity->designator = PARTITION_ROOT;
         }
 
@@ -3845,8 +3837,8 @@ static int apply_mount_namespace(
                 r = verity_settings_prepare(
                         &verity,
                         root_image,
-                        context->root_hash, context->root_hash_size, context->root_hash_path,
-                        context->root_hash_sig, context->root_hash_sig_size, context->root_hash_sig_path,
+                        &context->root_hash, context->root_hash_path,
+                        &context->root_hash_sig, context->root_hash_sig_path,
                         context->root_verity);
                 if (r < 0)
                         return r;

@@ -1662,11 +1662,11 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
-        r = serialize_item_hexmem(f, "exec-context-root-hash", c->root_hash, c->root_hash_size);
+        r = serialize_item_hexmem(f, "exec-context-root-hash", c->root_hash.iov_base, c->root_hash.iov_len);
         if (r < 0)
                 return r;
 
-        r = serialize_item_base64mem(f, "exec-context-root-hash-sig", c->root_hash_sig, c->root_hash_sig_size);
+        r = serialize_item_base64mem(f, "exec-context-root-hash-sig", c->root_hash_sig.iov_base, c->root_hash_sig.iov_len);
         if (r < 0)
                 return r;
 
@@ -2616,13 +2616,13 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-hash="))) {
-                        c->root_hash = mfree(c->root_hash);
-                        r = unhexmem(val, &c->root_hash, &c->root_hash_size);
+                        iovec_done(&c->root_hash);
+                        r = unhexmem(val, &c->root_hash.iov_base, &c->root_hash.iov_len);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-hash-sig="))) {
-                        c->root_hash_sig = mfree(c->root_hash_sig);
-                        r= unbase64mem(val, &c->root_hash_sig, &c->root_hash_sig_size);
+                        iovec_done(&c->root_hash_sig);
+                        r= unbase64mem(val, &c->root_hash_sig.iov_base, &c->root_hash_sig.iov_len);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-ephemeral="))) {

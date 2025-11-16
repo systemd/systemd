@@ -47,6 +47,7 @@
 #include "image-policy.h"
 #include "import-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "json-util.h"
 #include "loop-util.h"
 #include "mkdir-label.h"
@@ -572,16 +573,12 @@ static int acquire_sig_for_roothash(
                 int fd,
                 uint64_t partition_offset,
                 uint64_t partition_size,
-                void **ret_root_hash,
-                size_t *ret_root_hash_size,
-                void **ret_root_hash_sig,
-                size_t *ret_root_hash_sig_size) {
+                struct iovec *ret_root_hash,
+                struct iovec *ret_root_hash_sig) {
 
         int r;
 
         assert(fd >= 0);
-        assert(!!ret_root_hash == !!ret_root_hash_size);
-        assert(!!ret_root_hash_sig == !!ret_root_hash_sig_size);
 
         if (partition_offset == UINT64_MAX || partition_size == UINT64_MAX)
                 return -EINVAL;
@@ -616,9 +613,8 @@ static int acquire_sig_for_roothash(
         if (!rh)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'rootHash' field.");
 
-        _cleanup_free_ void *root_hash = NULL;
-        size_t root_hash_size;
-        r = sd_json_variant_unhex(rh, &root_hash, &root_hash_size);
+        _cleanup_(iovec_done) struct iovec root_hash = {};
+        r = sd_json_variant_unhex(rh, &root_hash.iov_base, &root_hash.iov_len);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse root hash field: %m");
 
@@ -626,21 +622,16 @@ static int acquire_sig_for_roothash(
         if (!sig)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Signature JSON object lacks 'signature' field.");
 
-        _cleanup_free_ void *root_hash_sig = NULL;
-        size_t root_hash_sig_size;
-        r = sd_json_variant_unbase64(sig, &root_hash_sig, &root_hash_sig_size);
+        _cleanup_(iovec_done) struct iovec root_hash_sig = {};
+        r = sd_json_variant_unbase64(sig, &root_hash_sig.iov_base, &root_hash_sig.iov_len);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse signature field: %m");
 
-        if (ret_root_hash) {
-                *ret_root_hash = TAKE_PTR(root_hash);
-                *ret_root_hash_size = root_hash_size;
-        }
+        if (ret_root_hash)
+                *ret_root_hash = TAKE_STRUCT(root_hash);
 
-        if (ret_root_hash_sig) {
-                *ret_root_hash_sig = TAKE_PTR(root_hash_sig);
-                *ret_root_hash_sig_size = root_hash_sig_size;
-        }
+        if (ret_root_hash_sig)
+                *ret_root_hash_sig = TAKE_STRUCT(root_hash_sig);
 
         return 0;
 }
@@ -828,9 +819,9 @@ static int dissect_image(
         assert(fd >= 0);
         assert(devname);
         assert(!verity || verity->designator < 0 || IN_SET(verity->designator, PARTITION_ROOT, PARTITION_USR));
-        assert(!verity || verity->root_hash || verity->root_hash_size == 0);
-        assert(!verity || verity->root_hash_sig || verity->root_hash_sig_size == 0);
-        assert(!verity || (verity->root_hash || !verity->root_hash_sig));
+        assert(!verity || iovec_is_valid(&verity->root_hash));
+        assert(!verity || iovec_is_valid(&verity->root_hash_sig));
+        assert(!verity || iovec_is_set(&verity->root_hash) || !iovec_is_set(&verity->root_hash_sig));
         assert(!((flags & DISSECT_IMAGE_GPT_ONLY) && (flags & DISSECT_IMAGE_NO_PARTITION_TABLE)));
         assert(m->sector_size > 0);
 
@@ -849,18 +840,18 @@ static int dissect_image(
 
         uint64_t diskseq = m->loop ? m->loop->diskseq : 0;
 
-        if (verity && verity->root_hash) {
+        if (verity && iovec_is_set(&verity->root_hash)) {
                 sd_id128_t fsuuid, vuuid;
 
                 /* If a root hash is supplied, then we use the root partition that has a UUID that match the
                  * first 128-bit of the root hash. And we use the verity partition that has a UUID that match
                  * the final 128-bit. */
 
-                if (verity->root_hash_size < sizeof(sd_id128_t))
+                if (verity->root_hash.iov_len < sizeof(sd_id128_t))
                         return -EINVAL;
 
-                memcpy(&fsuuid, verity->root_hash, sizeof(sd_id128_t));
-                memcpy(&vuuid, (const uint8_t*) verity->root_hash + verity->root_hash_size - sizeof(sd_id128_t), sizeof(sd_id128_t));
+                memcpy(&fsuuid, verity->root_hash.iov_base, sizeof(sd_id128_t));
+                memcpy(&vuuid, (const uint8_t*) verity->root_hash.iov_base + verity->root_hash.iov_len - sizeof(sd_id128_t), sizeof(sd_id128_t));
 
                 if (sd_id128_is_null(fsuuid))
                         return -EINVAL;
@@ -955,7 +946,7 @@ static int dissect_image(
                         encrypted = streq_ptr(fstype, "crypto_LUKS");
 
                         if (verity_settings_data_covers(verity, PARTITION_ROOT))
-                                found_flags = verity->root_hash_sig_size > 0 ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
+                                found_flags = iovec_is_set(&verity->root_hash_sig) ? PARTITION_POLICY_SIGNED : PARTITION_POLICY_VERITY;
                         else
                                 found_flags = encrypted ? PARTITION_POLICY_ENCRYPTED : PARTITION_POLICY_UNPROTECTED;
 
@@ -990,7 +981,7 @@ static int dissect_image(
                         m->verity_ready = verity_settings_data_covers(verity, PARTITION_ROOT);
 
                         m->has_verity_sig = false; /* signature not embedded, must be specified */
-                        m->verity_sig_ready = m->verity_ready && verity->root_hash_sig;
+                        m->verity_sig_ready = m->verity_ready && iovec_is_set(&verity->root_hash);
 
                         m->image_uuid = uuid;
 
@@ -1236,26 +1227,23 @@ static int dissect_image(
                                 rw = false;
 
                         } else if (type.designator == PARTITION_ROOT_VERITY_SIG) {
-                                if (verity && verity->root_hash) {
-                                        _cleanup_free_ void *root_hash = NULL;
-                                        size_t root_hash_size;
+                                if (verity && iovec_is_set(&verity->root_hash)) {
+                                        _cleanup_(iovec_done) struct iovec root_hash = {};
 
                                         r = acquire_sig_for_roothash(
                                                         fd,
                                                         start * 512,
                                                         size * 512,
                                                         &root_hash,
-                                                        &root_hash_size,
-                                                        /* ret_root_hash_sig= */ NULL,
-                                                        /* ret_root_hash_sig_size= */ NULL);
+                                                        /* ret_root_hash_sig= */ NULL);
                                         if (r < 0)
                                                 return r;
-                                        if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
+                                        if (iovec_memcmp(&verity->root_hash, &root_hash) != 0) {
                                                 if (DEBUG_LOGGING) {
                                                         _cleanup_free_ char *found = NULL, *expected = NULL;
 
-                                                        found = hexmem(root_hash, root_hash_size);
-                                                        expected = hexmem(verity->root_hash, verity->root_hash_size);
+                                                        found = hexmem(root_hash.iov_base, root_hash.iov_len);
+                                                        expected = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
 
                                                         log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
                                                 }
@@ -1305,26 +1293,23 @@ static int dissect_image(
                                 rw = false;
 
                         } else if (type.designator == PARTITION_USR_VERITY_SIG) {
-                                if (verity && verity->root_hash) {
-                                        _cleanup_free_ void *root_hash = NULL;
-                                        size_t root_hash_size;
+                                if (verity && iovec_is_set(&verity->root_hash)) {
+                                        _cleanup_(iovec_done) struct iovec root_hash = {};
 
                                         r = acquire_sig_for_roothash(
                                                         fd,
                                                         start * 512,
                                                         size * 512,
                                                         &root_hash,
-                                                        &root_hash_size,
-                                                        /* ret_root_hash_sig= */ NULL,
-                                                        /* ret_root_hash_sig_size= */ NULL);
+                                                        /* ret_root_hash_sig= */ NULL);
                                         if (r < 0)
                                                 return r;
-                                        if (memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
+                                        if (iovec_memcmp(&verity->root_hash, &root_hash) != 0) {
                                                 if (DEBUG_LOGGING) {
                                                         _cleanup_free_ char *found = NULL, *expected = NULL;
 
-                                                        found = hexmem(root_hash, root_hash_size);
-                                                        expected = hexmem(verity->root_hash, verity->root_hash_size);
+                                                        found = hexmem(root_hash.iov_base, root_hash.iov_len);
+                                                        expected = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
 
                                                         log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
                                                 }
@@ -1609,7 +1594,7 @@ static int dissect_image(
         if (!m->partitions[PARTITION_ROOT].found &&
             !m->partitions[PARTITION_USR].found &&
             (flags & DISSECT_IMAGE_GENERIC_ROOT) &&
-            (!verity || !verity->root_hash || verity->designator != PARTITION_USR)) {
+            (!verity || !iovec_is_set(&verity->root_hash) || verity->designator != PARTITION_USR)) {
 
                 /* OK, we found nothing usable, then check if there's a single generic partition, and use
                  * that. If the root hash was set however, then we won't fall back to a generic node, because
@@ -1694,7 +1679,7 @@ static int dissect_image(
                                 partition_designator_to_string(verity->designator),
                                 partition_designator_to_string(verity->designator));
 
-                if (verity->root_hash) {
+                if (iovec_is_set(&verity->root_hash)) {
                         /* If we have an explicit root hash and found the partitions for it, then we are ready to use
                          * Verity, set things up for it */
 
@@ -1730,7 +1715,7 @@ static int dissect_image(
 
                         m->verity_ready = true;
 
-                        if (verity->root_hash_sig)
+                        if (iovec_is_set(&verity->root_hash_sig))
                                 m->verity_sig_ready = true;
                 }
         }
@@ -2767,10 +2752,8 @@ static int verity_can_reuse(
                 struct crypt_device **ret_cd) {
 
         /* If the same volume was already open, check that the root hashes match, and reuse it if they do */
-        _cleanup_free_ char *root_hash_existing = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         struct crypt_params_verity crypt_params = {};
-        size_t root_hash_existing_size;
         int r;
 
         assert(verity);
@@ -2787,22 +2770,23 @@ static int verity_can_reuse(
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_get_verity_info failed: %m");
 
-        root_hash_existing_size = verity->root_hash_size;
-        root_hash_existing = malloc0(root_hash_existing_size);
-        if (!root_hash_existing)
+        _cleanup_(iovec_done) struct iovec root_hash_existing = {
+                .iov_base = malloc0(verity->root_hash.iov_len),
+                .iov_len = verity->root_hash.iov_len,
+        };
+        if (!root_hash_existing.iov_base)
                 return -ENOMEM;
 
-        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing, &root_hash_existing_size, NULL, 0);
+        r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing.iov_base, &root_hash_existing.iov_len, NULL, 0);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_volume_key_get failed: %m");
-        if (verity->root_hash_size != root_hash_existing_size ||
-            memcmp(root_hash_existing, verity->root_hash, verity->root_hash_size) != 0)
+        if (iovec_memcmp(&verity->root_hash, &root_hash_existing) != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but root hashes are different.");
 
         /* Ensure that, if signatures are supported, we only reuse the device if the previous mount used the
          * same settings, so that a previous unsigned mount will not be reused if the user asks to use
          * signing for the new one, and vice versa. */
-        if (!!verity->root_hash_sig != !!(crypt_params.flags & CRYPT_VERITY_ROOT_HASH_SIGNATURE))
+        if (iovec_is_set(&verity->root_hash_sig) != !!(crypt_params.flags & CRYPT_VERITY_ROOT_HASH_SIGNATURE))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but signature settings are not the same.");
 
         *ret_cd = TAKE_PTR(cd);
@@ -2856,11 +2840,9 @@ static int validate_signature_userspace(const VeritySettings *verity, DissectIma
         _cleanup_free_ char *s = NULL;
         _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
                                                * of declaration in place, please */
-        const unsigned char *d;
-
         assert(verity);
-        assert(verity->root_hash);
-        assert(verity->root_hash_sig);
+        assert(iovec_is_set(&verity->root_hash));
+        assert(iovec_is_set(&verity->root_hash_sig));
 
         /* Because installing a signature certificate into the kernel chain is so messy, let's optionally do
          * userspace validation. */
@@ -2873,12 +2855,12 @@ static int validate_signature_userspace(const VeritySettings *verity, DissectIma
                 return 0;
         }
 
-        d = verity->root_hash_sig;
-        p7 = d2i_PKCS7(NULL, &d, (long) verity->root_hash_sig_size);
+        const unsigned char *d = verity->root_hash_sig.iov_base;
+        p7 = d2i_PKCS7(NULL, &d, (long) verity->root_hash_sig.iov_len);
         if (!p7)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse PKCS7 DER signature data.");
 
-        s = hexmem(verity->root_hash, verity->root_hash_size);
+        s = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
         if (!s)
                 return log_oom_debug();
 
@@ -2939,7 +2921,7 @@ static int do_crypt_activate_verity(
         assert(name);
         assert(verity);
 
-        if (verity->root_hash_sig && FLAGS_SET(policy_flags, PARTITION_POLICY_SIGNED)) {
+        if (iovec_is_set(&verity->root_hash_sig) && FLAGS_SET(policy_flags, PARTITION_POLICY_SIGNED)) {
                 r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_SIGNATURE");
                 if (r < 0 && r != -ENXIO)
                         log_debug_errno(r, "Failed to parse $SYSTEMD_DISSECT_VERITY_SIGNATURE");
@@ -2953,10 +2935,10 @@ static int do_crypt_activate_verity(
                 r = sym_crypt_activate_by_signed_key(
                                 cd,
                                 name,
-                                verity->root_hash,
-                                verity->root_hash_size,
-                                verity->root_hash_sig,
-                                verity->root_hash_sig_size,
+                                verity->root_hash.iov_base,
+                                verity->root_hash.iov_len,
+                                verity->root_hash_sig.iov_base,
+                                verity->root_hash_sig.iov_len,
                                 CRYPT_ACTIVATE_READONLY);
                 if (r >= 0) {
                         log_debug("Verity activation via kernel signature logic worked.");
@@ -3000,8 +2982,8 @@ static int do_crypt_activate_verity(
         r = sym_crypt_activate_by_volume_key(
                         cd,
                         name,
-                        verity->root_hash,
-                        verity->root_hash_size,
+                        verity->root_hash.iov_base,
+                        verity->root_hash.iov_len,
                         CRYPT_ACTIVATE_READONLY);
         if (r < 0)
                 return log_debug_errno(r, "Activation of Verity via root hash failed: %m");
@@ -3049,7 +3031,7 @@ static int verity_partition(
         assert(m);
         assert(v || (verity && verity->data_path));
 
-        if (!verity || !verity->root_hash)
+        if (!verity || !iovec_is_set(&verity->root_hash))
                 return 0;
         if (!((verity->designator < 0 && designator == PARTITION_ROOT) ||
               (verity->designator == designator)))
@@ -3078,7 +3060,7 @@ static int verity_partition(
                 /* Use the roothash, which is unique per volume, as the device node name, so that it can be reused */
                 _cleanup_free_ char *root_hash_encoded = NULL;
 
-                root_hash_encoded = hexmem(verity->root_hash, verity->root_hash_size);
+                root_hash_encoded = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
                 if (!root_hash_encoded)
                         return -ENOMEM;
 
@@ -3246,7 +3228,8 @@ int dissected_image_decrypt(
         int r;
 
         assert(m);
-        assert(!verity || verity->root_hash || verity->root_hash_size == 0);
+        assert(!verity || iovec_is_valid(&verity->root_hash));
+        assert(!verity || iovec_is_valid(&verity->root_hash_sig));
 
         /* Returns:
          *
@@ -3260,7 +3243,7 @@ int dissected_image_decrypt(
          *      -EEXIST       → DM device already exists under the specified name
          */
 
-        if (verity && verity->root_hash && verity->root_hash_size < sizeof(sd_id128_t))
+        if (verity && iovec_is_set(&verity->root_hash) && verity->root_hash.iov_len < sizeof(sd_id128_t))
                 return -EINVAL;
 
         if (!m->encrypted && !m->verity_ready)
@@ -3487,12 +3470,8 @@ static char *build_auxiliary_path(const char *image, const char *suffix) {
 void verity_settings_done(VeritySettings *v) {
         assert(v);
 
-        v->root_hash = mfree(v->root_hash);
-        v->root_hash_size = 0;
-
-        v->root_hash_sig = mfree(v->root_hash_sig);
-        v->root_hash_sig_size = 0;
-
+        iovec_done(&v->root_hash);
+        iovec_done(&v->root_hash_sig);
         v->data_path = mfree(v->data_path);
 }
 
@@ -3507,18 +3486,15 @@ VeritySettings* verity_settings_free(VeritySettings *v) {
 void verity_settings_hash_func(const VeritySettings *s, struct siphash *state) {
         assert(s);
 
-        siphash24_compress_typesafe(s->root_hash_size, state);
-        siphash24_compress(s->root_hash, s->root_hash_size, state);
+        siphash24_compress_typesafe(s->root_hash.iov_base, state);
+        siphash24_compress(s->root_hash.iov_base, s->root_hash.iov_len, state);
 }
 
 int verity_settings_compare_func(const VeritySettings *x, const VeritySettings *y) {
-        int r;
+        assert(x);
+        assert(y);
 
-        r = CMP(x->root_hash_size, y->root_hash_size);
-        if (r != 0)
-                return r;
-
-        return memcmp(x->root_hash, y->root_hash, x->root_hash_size);
+        return iovec_memcmp(&x->root_hash, &y->root_hash);
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(verity_settings_hash_ops, VeritySettings, verity_settings_hash_func, verity_settings_compare_func, VeritySettings, verity_settings_free);
@@ -3529,9 +3505,6 @@ int verity_settings_load(
                 const char *root_hash_path,
                 const char *root_hash_sig_path) {
 
-        _cleanup_free_ void *root_hash = NULL, *root_hash_sig = NULL;
-        size_t root_hash_size = 0, root_hash_sig_size = 0;
-        _cleanup_free_ char *verity_data_path = NULL;
         PartitionDesignator designator;
         int r;
 
@@ -3553,7 +3526,8 @@ int verity_settings_load(
 
         /* We only fill in what isn't already filled in */
 
-        if (!verity->root_hash) {
+        _cleanup_(iovec_done) struct iovec root_hash = {};
+        if (!iovec_is_set(&verity->root_hash)) {
                 _cleanup_free_ char *text = NULL;
 
                 if (root_hash_path) {
@@ -3620,19 +3594,23 @@ int verity_settings_load(
                 }
 
                 if (text) {
-                        r = unhexmem(text, &root_hash, &root_hash_size);
+                        r = unhexmem(text, &root_hash.iov_base, &root_hash.iov_len);
                         if (r < 0)
                                 return r;
-                        if (root_hash_size < sizeof(sd_id128_t))
+                        if (root_hash.iov_len < sizeof(sd_id128_t))
                                 return -EINVAL;
                 }
         }
 
-        if ((root_hash || verity->root_hash) && !verity->root_hash_sig) {
+        _cleanup_(iovec_done) struct iovec root_hash_sig = {};
+        if ((iovec_is_set(&root_hash) || iovec_is_set(&verity->root_hash)) && !iovec_is_set(&verity->root_hash_sig)) {
                 if (root_hash_sig_path) {
-                        r = read_full_file(root_hash_sig_path, (char**) &root_hash_sig, &root_hash_sig_size);
+                        r = read_full_file(root_hash_sig_path, (char**) &root_hash_sig.iov_base, &root_hash_sig.iov_len);
                         if (r < 0 && r != -ENOENT)
                                 return r;
+
+                        if (r >= 0 && root_hash_sig.iov_len == 0) /* refuse empty size signatures */
+                                return -EINVAL;
 
                         if (designator < 0)
                                 designator = PARTITION_ROOT;
@@ -3646,32 +3624,36 @@ int verity_settings_load(
                                 if (!p)
                                         return -ENOMEM;
 
-                                r = read_full_file(p, (char**) &root_hash_sig, &root_hash_sig_size);
+                                r = read_full_file(p, (char**) &root_hash_sig.iov_base, &root_hash_sig.iov_len);
                                 if (r < 0 && r != -ENOENT)
                                         return r;
-                                if (r >= 0)
+                                if (r >= 0) {
                                         designator = PARTITION_ROOT;
+                                        if (root_hash_sig.iov_len == 0) /* refuse empty size signatures */
+                                                return -EINVAL;
+                                }
                         }
 
-                        if (!root_hash_sig && (designator < 0 || designator == PARTITION_USR)) {
+                        if (!iovec_is_set(&root_hash_sig) && (designator < 0 || designator == PARTITION_USR)) {
                                 _cleanup_free_ char *p = NULL;
 
                                 p = build_auxiliary_path(image, ".usrhash.p7s");
                                 if (!p)
                                         return -ENOMEM;
 
-                                r = read_full_file(p, (char**) &root_hash_sig, &root_hash_sig_size);
+                                r = read_full_file(p, (char**) &root_hash_sig.iov_base, &root_hash_sig.iov_len);
                                 if (r < 0 && r != -ENOENT)
                                         return r;
-                                if (r >= 0)
+                                if (r >= 0) {
                                         designator = PARTITION_USR;
+                                        if (root_hash_sig.iov_len == 0) /* refuse empty size signatures */
+                                                return -EINVAL;
+                                }
                         }
                 }
-
-                if (root_hash_sig && root_hash_sig_size == 0) /* refuse empty size signatures */
-                        return -EINVAL;
         }
 
+        _cleanup_free_ char *verity_data_path = NULL;
         if (!verity->data_path) {
                 _cleanup_free_ char *p = NULL;
 
@@ -3686,15 +3668,11 @@ int verity_settings_load(
                         verity_data_path = TAKE_PTR(p);
         }
 
-        if (root_hash) {
-                verity->root_hash = TAKE_PTR(root_hash);
-                verity->root_hash_size = root_hash_size;
-        }
+        if (iovec_is_set(&root_hash))
+                verity->root_hash = TAKE_STRUCT(root_hash);
 
-        if (root_hash_sig) {
-                verity->root_hash_sig = TAKE_PTR(root_hash_sig);
-                verity->root_hash_sig_size = root_hash_sig_size;
-        }
+        if (iovec_is_set(&root_hash_sig))
+                verity->root_hash_sig = TAKE_STRUCT(root_hash_sig);
 
         if (verity_data_path)
                 verity->data_path = TAKE_PTR(verity_data_path);
@@ -3713,17 +3691,15 @@ int verity_settings_copy(VeritySettings *dest, const VeritySettings *source) {
                 return 0;
         }
 
-        _cleanup_free_ void *rh = NULL;
-        if (source->root_hash_size > 0) {
-                rh = memdup(source->root_hash, source->root_hash_size);
-                if (!rh)
+        _cleanup_(iovec_done) struct iovec rh = {};
+        if (iovec_is_set(&source->root_hash)) {
+                if (!iovec_memdup(&source->root_hash, &rh))
                         return log_oom_debug();
         }
 
-        _cleanup_free_ void *sig = NULL;
-        if (source->root_hash_sig_size > 0) {
-                sig = memdup(source->root_hash_sig, source->root_hash_sig_size);
-                if (!sig)
+        _cleanup_(iovec_done) struct iovec sig = {};
+        if (iovec_is_set(&source->root_hash_sig)) {
+                if (!iovec_memdup(&source->root_hash_sig, &sig))
                         return log_oom_debug();
         }
 
@@ -3735,10 +3711,8 @@ int verity_settings_copy(VeritySettings *dest, const VeritySettings *source) {
         }
 
         *dest = (VeritySettings) {
-                .root_hash = TAKE_PTR(rh),
-                .root_hash_size = source->root_hash_size,
-                .root_hash_sig = TAKE_PTR(sig),
-                .root_hash_sig_size = source->root_hash_sig_size,
+                .root_hash = TAKE_STRUCT(rh),
+                .root_hash_sig = TAKE_STRUCT(sig),
                 .data_path = TAKE_PTR(p),
                 .designator = source->designator,
         };
@@ -3757,7 +3731,7 @@ int dissected_image_load_verity_sig_partition(
         assert(fd >= 0);
         assert(verity);
 
-        if (verity->root_hash && verity->root_hash_sig) /* Already loaded? */
+        if (iovec_is_set(&verity->root_hash) && iovec_is_set(&verity->root_hash_sig)) /* Already loaded? */
                 return 0;
 
         r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_EMBEDDED");
@@ -3791,29 +3765,32 @@ int dissected_image_load_verity_sig_partition(
         if (!p->found)
                 return 0;
 
-        _cleanup_free_ void *root_hash = NULL, *root_hash_sig = NULL;
-        size_t root_hash_size, root_hash_sig_size;
-
-        r = acquire_sig_for_roothash(fd, p->offset, p->size, &root_hash, &root_hash_size, &root_hash_sig, &root_hash_sig_size);
+        _cleanup_(iovec_done) struct iovec root_hash = {}, root_hash_sig = {};
+        r = acquire_sig_for_roothash(
+                        fd,
+                        p->offset,
+                        p->size,
+                        &root_hash,
+                        &root_hash_sig);
         if (r < 0)
                 return r;
 
         /* Check if specified root hash matches if it is specified */
-        if (verity->root_hash &&
-            memcmp_nn(verity->root_hash, verity->root_hash_size, root_hash, root_hash_size) != 0) {
+        if (iovec_is_set(&verity->root_hash) &&
+            iovec_memcmp(&verity->root_hash, &root_hash) != 0) {
                 _cleanup_free_ char *a = NULL, *b = NULL;
 
-                a = hexmem(root_hash, root_hash_size);
-                b = hexmem(verity->root_hash, verity->root_hash_size);
+                a = hexmem(root_hash.iov_base, root_hash.iov_len);
+                b = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
 
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(a), strna(b));
         }
 
-        free_and_replace(verity->root_hash, root_hash);
-        verity->root_hash_size = root_hash_size;
+        iovec_done(&verity->root_hash);
+        verity->root_hash = TAKE_STRUCT(root_hash);
 
-        free_and_replace(verity->root_hash_sig, root_hash_sig);
-        verity->root_hash_sig_size = root_hash_sig_size;
+        iovec_done(&verity->root_hash_sig);
+        verity->root_hash_sig = TAKE_STRUCT(root_hash_sig);
 
         verity->designator = dd;
 
@@ -3841,7 +3818,7 @@ int dissected_image_guess_verity_roothash(
          * Note of course that relying on this guesswork is mostly useful for later attestation, not so much
          * for a-priori security. */
 
-        if (verity->root_hash) /* Already loaded? */
+        if (iovec_is_set(&verity->root_hash)) /* Already loaded? */
                 return 0;
 
         r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_GUESS");
@@ -3871,13 +3848,12 @@ int dissected_image_guess_verity_roothash(
         if (!p->found)
                 return 0;
 
-        _cleanup_free_ uint8_t *rh = malloc(sizeof(sd_id128_t) * 2);
+        _cleanup_free_ void *rh = malloc(sizeof(sd_id128_t) * 2);
         if (!rh)
                 return log_oom_debug();
 
         memcpy(mempcpy(rh, &d->uuid, sizeof(sd_id128_t)), &p->uuid, sizeof(sd_id128_t));
-        verity->root_hash = TAKE_PTR(rh);
-        verity->root_hash_size = sizeof(sd_id128_t) * 2;
+        verity->root_hash = IOVEC_MAKE(TAKE_PTR(rh), sizeof(sd_id128_t) * 2);
 
         verity->designator = dd;
 
@@ -4838,8 +4814,8 @@ int mountfsd_mount_image(
                         SD_JSON_BUILD_PAIR_CONDITION(!!ps, "imagePolicy", SD_JSON_BUILD_STRING(ps)),
                         SD_JSON_BUILD_PAIR("veritySharing", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))),
                         SD_JSON_BUILD_PAIR_CONDITION(verity_data_fd >= 0, "verityDataFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd >= 0 ? 2 : 1)),
-                        JSON_BUILD_PAIR_IOVEC_HEX("verityRootHash", &((struct iovec) { .iov_base = verity->root_hash, .iov_len = verity->root_hash_size })),
-                        JSON_BUILD_PAIR_IOVEC_BASE64("verityRootHashSignature", &((struct iovec) { .iov_base = verity->root_hash_sig, .iov_len = verity->root_hash_sig_size })),
+                        JSON_BUILD_PAIR_IOVEC_HEX("verityRootHash", &verity->root_hash),
+                        JSON_BUILD_PAIR_IOVEC_BASE64("verityRootHashSignature", &verity->root_hash_sig),
                         SD_JSON_BUILD_PAIR("allowInteractiveAuthentication", SD_JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH))));
         if (r < 0)
                 return r;
