@@ -196,6 +196,8 @@ DecryptedImage* decrypted_image_unref(DecryptedImage *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
 
 int dissected_image_relinquish(DissectedImage *m);
+int dissected_image_new(const char *path, DissectedImage **ret);
+int dissected_image_new_from_fsmount_fds(const char *path, const int *fsmount_fds, DissectedImage **ret);
 
 void image_filter_done(ImageFilter *f);
 ImageFilter *image_filter_free(ImageFilter *f);
@@ -238,7 +240,9 @@ bool dissected_image_verity_sig_ready(const DissectedImage *image, PartitionDesi
 
 int mount_image_privately_interactively(const char *path, const ImagePolicy *image_policy, DissectImageFlags flags, char **ret_directory, int *ret_dir_fd, LoopDevice **ret_loop_device);
 
-int verity_dissect_and_mount(int src_fd, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, const ExtensionReleaseData *required_release_data, ImageClass required_class, VeritySettings *verity, RuntimeScope runtime_scope, DissectedImage **ret_image);
+int verity_settings_prepare(VeritySettings *verity, const char *root_image, const void *root_hash, size_t root_hash_size, const char *root_hash_path, const void *root_hash_sig, size_t root_hash_sig_size, const char *root_hash_sig_path, const char *verity_data_path);
+int verity_dissect_and_mount(int src_fd, const int *mount_fds, const char *src, const char *dest, const MountOptions *options, const ImagePolicy *image_policy, const ImageFilter *image_filter, const ExtensionReleaseData *required_release_data, ImageClass required_class, VeritySettings *verity, RuntimeScope runtime_scope, DissectedImage **ret_image);
+int verity_dissect_and_send(int socket, const char *source, const void *root_hash, size_t root_hash_size, const char *root_hash_path, const void *root_hash_sig, size_t root_hash_sig_size, const char *root_hash_sig_path, const char *verity_data_path, bool ignore_enoent, const MountOptions *mount_options, const ImagePolicy *image_policy);
 
 int dissect_fstype_ok(const char *fstype);
 

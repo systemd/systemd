@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<!DOCTYPE refsect1 PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+-->
+
+<refsect1>
+  <title/>
+    <para id="image">Since loading images is usually the slowest part of starting a service, especially when dm-verity
+    is involved, when a service using this option is restarted the image(s) will be preloaded asynchronously
+    before the service is stopped, in order to remove this major bottleneck from the time window during
+    which the service is not running. Available since systemd v259, and requires Linux v6.15 or newer.</para>
+</refsect1>
