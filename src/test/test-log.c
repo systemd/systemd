@@ -71,6 +71,78 @@ TEST(log_once) {
                 test_log_once_impl();
 }
 
+_sentinel_
+static void test_log_format_iovec_sentinel(
+                bool newline_separator,
+                char * const *expected,
+                const char *format,
+                ...) {
+
+        size_t iovec_len = 20, n = 0, m;
+        struct iovec *iovec = newa(struct iovec, iovec_len);
+        va_list ap;
+
+        log_debug("/* %s(%s) */", __func__, strnull(format));
+
+        _cleanup_strv_free_ char **v = NULL;
+        ASSERT_NOT_NULL(v = strv_new("SYSLOG_FACILITY=3",
+                                     "SYSLOG_IDENTIFIER=systemd-journald",
+                                     "_TRANSPORT=driver",
+                                     "PRIORITY=6"));
+
+        STRV_FOREACH(s, v)
+                iovec[n++] = IOVEC_MAKE_STRING(*s);
+
+        ASSERT_EQ(m = n, strv_length(v));
+
+        ASSERT_OK(strv_extend_strv(&v, expected, /* filter_duplicates= */ false));
+
+        va_start(ap, format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        ASSERT_OK(log_format_iovec(iovec, iovec_len, &n, newline_separator, ENOANO, format, ap));
+        REENABLE_WARNING;
+        va_end(ap);
+
+        ASSERT_EQ(n, strv_length(v));
+
+        for (size_t i = 0; i < n; i++) {
+                ASSERT_EQ(iovec[i].iov_len, strlen(v[i]));
+                ASSERT_STREQ(iovec[i].iov_base, v[i]);
+                if (i >= m && (!newline_separator || (i - m) % 2 == 0))
+                        free(iovec[i].iov_base);
+        }
+}
+
+#define test_log_format_iovec_one(...)                 \
+        test_log_format_iovec_sentinel(__VA_ARGS__, NULL)
+
+TEST(log_format_iovec) {
+        test_log_format_iovec_one(false, NULL, NULL);
+        test_log_format_iovec_one(true,  NULL, NULL);
+        test_log_format_iovec_one(false,
+                                  STRV_MAKE("MESSAGE=hoge"),
+                                  LOG_MESSAGE("hoge"));
+        test_log_format_iovec_one(true,
+                                  STRV_MAKE("MESSAGE=hoge", "\n"),
+                                  LOG_MESSAGE("hoge"));
+        test_log_format_iovec_one(false,
+                                  STRV_MAKE("MESSAGE=hoge: 10"),
+                                  LOG_MESSAGE("hoge: %i", 10));
+        test_log_format_iovec_one(true,
+                                  STRV_MAKE("MESSAGE=hoge: 10", "\n"),
+                                  LOG_MESSAGE("hoge: %i", 10));
+        test_log_format_iovec_one(false,
+                                  STRV_MAKE("MESSAGE=hoge: 10-a", "HOGEHOGE=100-string", "FOOFOO=4-3"),
+                                  LOG_MESSAGE("hoge: %i-%c", 10, 'a'),
+                                  LOG_ITEM("HOGEHOGE=%zu-%s", (size_t) 100, "string"),
+                                  LOG_ITEM("FOOFOO=%hu-%llu", (unsigned short) 4, (long long unsigned) 3));
+        test_log_format_iovec_one(true,
+                                  STRV_MAKE("MESSAGE=hoge: 10-a", "\n", "HOGEHOGE=100-string", "\n", "FOOFOO=4-3", "\n"),
+                                  LOG_MESSAGE("hoge: %i-%c", 10, 'a'),
+                                  LOG_ITEM("HOGEHOGE=%zu-%s", (size_t) 100, "string"),
+                                  LOG_ITEM("FOOFOO=%hu-%llu", (unsigned short) 4, (long long unsigned) 3));
+}
+
 static void test_log_struct(void) {
         log_struct(LOG_INFO,
                    "MESSAGE=Waldo PID="PID_FMT" (no errno)", getpid_cached(),
