@@ -31,3 +31,8 @@ int notify_reloading_full(const char *status);
 static inline int notify_reloading(void) {
         return notify_reloading_full("Reloading configuration...");
 }
+
+int notify_reload_result(int error, const char *format, ...) _printf_(2,3);
+static int notify_reload_ready(int error) {
+        return notify_reload_result_full(error, NOTIFY_READY_MESSAGE);
+}
