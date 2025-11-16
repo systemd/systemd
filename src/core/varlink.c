@@ -510,5 +510,5 @@ void manager_varlink_send_pending_reload_message(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
 
-        m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
+        m->pending_reload_message_vl = sd_varlink_close_unref(m->pending_reload_message_vl);
 }
