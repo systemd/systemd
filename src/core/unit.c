@@ -2651,8 +2651,11 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
                         else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING, UNIT_REFRESHING)) {
                                 unexpected = true;
 
+                                if (ns == UNIT_DEACTIVATING)
+                                        job_finish_and_invalidate(j, reload_success ? JOB_CANCELED : JOB_FAILED, true, false);
+
                                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                        job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
+                                        job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_CANCELED, true, false);
                         }
                 }
 
