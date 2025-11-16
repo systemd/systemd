@@ -80,6 +80,7 @@
 #include "strxcpyx.h"
 #include "terminal-util.h"
 #include "user-util.h"
+#include "userdb.h"
 #include "utmp-wtmp.h"
 #include "vpick.h"
 
@@ -852,45 +853,44 @@ restore_stdio:
 
 static int get_fixed_user(
                 const char *user_or_uid,
-                bool prefer_nss,
-                const char **ret_username,
+                bool prefer_synthesized,
+                char **ret_username,
                 uid_t *ret_uid,
                 gid_t *ret_gid,
-                const char **ret_home,
-                const char **ret_shell) {
+                char **ret_home,
+                char **ret_shell) {
 
         int r;
 
         assert(user_or_uid);
         assert(ret_username);
 
-        r = get_user_creds(&user_or_uid, ret_uid, ret_gid, ret_home, ret_shell,
-                           USER_CREDS_CLEAN|(prefer_nss ? USER_CREDS_PREFER_NSS : 0));
+        if (!ret_home && !ret_shell)
+                prefer_synthesized = true;
+
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        r = userdb_by_name(
+                        user_or_uid,
+                        /* match= */ NULL,
+                        (prefer_synthesized ? USERDB_PREFER_SYNTHESIZED : 0)|USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW,
+                        &ur);
         if (r < 0)
                 return r;
 
-        /* user_or_uid is normalized by get_user_creds to username */
-        *ret_username = user_or_uid;
-
-        return 0;
-}
-
-static int get_fixed_group(
-                const char *group_or_gid,
-                const char **ret_groupname,
-                gid_t *ret_gid) {
-
-        int r;
-
-        assert(group_or_gid);
-        assert(ret_groupname);
-
-        r = get_group_creds(&group_or_gid, ret_gid, /* flags = */ 0);
-        if (r < 0)
-                return r;
-
-        /* group_or_gid is normalized by get_group_creds to groupname */
-        *ret_groupname = group_or_gid;
+        if (ret_uid)
+                *ret_uid = ur->uid;
+        if (ret_gid)
+                *ret_gid = user_record_gid(ur);
+        if (ret_home) {
+                r = strdup_to(ret_home, user_record_home_directory(ur));
+                if (r < 0)
+                        return r;
+        }
+        if (ret_shell) {
+                r = strdup_to(ret_shell, user_record_shell(ur));
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -962,12 +962,12 @@ static int get_supplementary_groups(
                 if (k >= ngroups_max)
                         return -E2BIG;
 
-                const char *g = *i;
-                r = get_group_creds(&g, l_gids + k, /* flags = */ 0);
+                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                r = groupdb_by_name(*i, /* match= */ NULL, USERDB_PREFER_SYNTHESIZED|USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &gr);
                 if (r < 0)
                         return r;
 
-                k++;
+                l_gids[k++] = gr->gid;
         }
 
         if (k == 0) {
@@ -2077,18 +2077,6 @@ static int build_environment(
                 r = strv_extend_with_size(&e, &n, "SYSTEMD_NSS_DYNAMIC_BYPASS=1");
                 if (r < 0)
                         return r;
-        }
-
-        /* We query "root" if this is a system unit and User= is not specified. $USER is always set. $HOME
-         * could cause problem for e.g. getty, since login doesn't override $HOME, and $LOGNAME and $SHELL don't
-         * really make much sense since we're not logged in. Hence we conditionalize the three based on
-         * SetLoginEnvironment= switch. */
-        if (!username && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
-                assert(!c->user);
-
-                r = get_fixed_user("root", /* prefer_nss = */ false, &username, NULL, NULL, &home, &shell);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine user credentials for root: %m");
         }
 
         bool set_user_login_env = exec_context_get_set_login_environment(c);
@@ -4238,12 +4226,11 @@ static int send_user_lookup(
         return 0;
 }
 
-static int acquire_home(const ExecContext *c, const char **home, char **ret_buf) {
+static int acquire_home(const ExecContext *c, char **home) {
         int r;
 
         assert(c);
         assert(home);
-        assert(ret_buf);
 
         /* If WorkingDirectory=~ is set, try to acquire a usable home directory. */
 
@@ -4256,11 +4243,10 @@ static int acquire_home(const ExecContext *c, const char **home, char **ret_buf)
         if (c->dynamic_user || (c->user && is_this_me(c->user) <= 0))
                 return -EADDRNOTAVAIL;
 
-        r = get_home_dir(ret_buf);
+        r = get_home_dir(home);
         if (r < 0)
                 return r;
 
-        *home = *ret_buf;
         return 1;
 }
 
@@ -5010,10 +4996,7 @@ int exec_invoke(
                 int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL;
-        int r;
-        const char *username = NULL, *groupname = NULL;
-        _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *own_user = NULL;
-        const char *pwent_home = NULL, *shell = NULL;
+        _cleanup_free_ char *username = NULL, *memory_pressure_path = NULL, *own_user = NULL, *pwent_home = NULL, *shell = NULL;
         dev_t journal_stream_dev = 0;
         ino_t journal_stream_ino = 0;
         bool needs_sandboxing,          /* Do we need to set up full sandboxing? (i.e. all namespacing, all MAC stuff, caps, yadda yadda */
@@ -5045,6 +5028,7 @@ int exec_invoke(
         int named_iofds[3] = EBADF_TRIPLET;
         _cleanup_close_ int socket_fd = -EBADF, bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pidref = PIDREF_NULL;
+        int r;
 
         assert(command);
         assert(context);
@@ -5269,7 +5253,7 @@ int exec_invoke(
                          * or PAM shall be invoked, let's consult NSS even for root, so that the user
                          * gets accurate $SHELL in session(-like) contexts. */
                         r = get_fixed_user(u,
-                                           /* prefer_nss = */ context->set_login_environment > 0 || context->pam_name,
+                                           /* prefer_synthesized = */ context->set_login_environment <= 0 && !context->pam_name,
                                            &username, &uid, &gid, &pwent_home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
@@ -5278,11 +5262,12 @@ int exec_invoke(
                 }
 
                 if (context->group) {
-                        r = get_fixed_group(context->group, &groupname, &gid);
-                        if (r < 0) {
-                                *exit_status = EXIT_GROUP;
-                                return log_error_errno(r, "Failed to determine group credentials: %m");
-                        }
+                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                        r = groupdb_by_name(context->group, /* match= */ NULL, USERDB_PREFER_SYNTHESIZED|USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &gr);
+                        if (r < 0)
+                                return r;
+
+                        gid = gr->gid;
                 }
         }
 
@@ -5301,7 +5286,7 @@ int exec_invoke(
 
         params->user_lookup_fd = safe_close(params->user_lookup_fd);
 
-        r = acquire_home(context, &pwent_home, &home_buffer);
+        r = acquire_home(context, &pwent_home);
         if (r < 0) {
                 *exit_status = EXIT_CHDIR;
                 return log_error_errno(r, "Failed to determine $HOME for the invoking user: %m");
@@ -5633,6 +5618,18 @@ int exec_invoke(
         if (r < 0) {
                 *exit_status = EXIT_CREDENTIALS;
                 return log_error_errno(r, "Failed to set up credentials: %m");
+        }
+
+        /* We query "root" if this is a system unit and User= is not specified. $USER is always set. $HOME
+         * could cause problem for e.g. getty, since login doesn't override $HOME, and $LOGNAME and $SHELL don't
+         * really make much sense since we're not logged in. Hence we conditionalize the three based on
+         * SetLoginEnvironment= switch. */
+        if (!username && !context->dynamic_user && params->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                assert(!context->user);
+
+                r = get_fixed_user("root", /* prefer_synthesized = */ true, &username, NULL, NULL, &pwent_home, &shell);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to determine user credentials for root: %m");
         }
 
         r = build_environment(

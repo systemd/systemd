@@ -46,6 +46,7 @@ int calc_acl_mask_if_needed(acl_t *acl_p);
 int add_base_acls_if_needed(acl_t *acl_p, const char *path);
 int acl_search_groups(const char* path, char ***ret_groups);
 int parse_acl(
+                const char *root,
                 const char *text,
                 acl_t *ret_acl_access,
                 acl_t *ret_acl_access_exec,

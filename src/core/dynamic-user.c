@@ -25,6 +25,7 @@
 #include "string-util.h"
 #include "uid-classification.h"
 #include "user-util.h"
+#include "userdb.h"
 
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
 #define UID_CLAMP_INTO_RANGE(rnd) (((uid_t) (rnd) % (DYNAMIC_UID_MAX - DYNAMIC_UID_MIN + 1)) + DYNAMIC_UID_MIN)
@@ -295,8 +296,8 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 }
 
                 /* Some superficial check whether this UID/GID might already be taken by some static user */
-                if (getpwuid_malloc(candidate, /* ret= */ NULL) >= 0 ||
-                    getgrgid_malloc((gid_t) candidate, /* ret= */ NULL) >= 0 ||
+                if (userdb_by_uid(candidate, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL) >= 0 ||
+                    groupdb_by_gid((gid_t) candidate, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL) >= 0 ||
                     search_ipc(candidate, (gid_t) candidate) != 0) {
                         (void) unlink(lock_path);
                         continue;
@@ -420,26 +421,27 @@ static int dynamic_user_realize(
                 /* First, let's parse this as numeric UID */
                 r = parse_uid(d->name, &num);
                 if (r < 0) {
-                        _cleanup_free_ struct passwd *p = NULL;
-                        _cleanup_free_ struct group *g = NULL;
-
                         if (is_user) {
+                                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+
                                 /* OK, this is not a numeric UID. Let's see if there's a user by this name */
-                                if (getpwnam_malloc(d->name, &p) >= 0) {
-                                        num = p->pw_uid;
-                                        gid = p->pw_gid;
+                                if (userdb_by_name(d->name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &ur) >= 0) {
+                                        num = ur->uid;
+                                        gid = ur->gid;
                                 } else {
                                         /* if the user does not exist but the group with the same name exists, refuse operation */
-                                        if (getgrnam_malloc(d->name, /* ret= */ NULL) >= 0)
+                                        if (groupdb_by_name(d->name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL) >= 0)
                                                 return -EILSEQ;
                                 }
                         } else {
+                                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+
                                 /* Let's see if there's a group by this name */
-                                if (getgrnam_malloc(d->name, &g) >= 0)
-                                        num = (uid_t) g->gr_gid;
+                                if (groupdb_by_name(d->name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &gr) >= 0)
+                                        num = (uid_t) gr->gid;
                                 else {
                                         /* if the group does not exist but the user with the same name exists, refuse operation */
-                                        if (getpwnam_malloc(d->name, /* ret= */ NULL) >= 0)
+                                        if (userdb_by_name(d->name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL) >= 0)
                                                 return -EILSEQ;
                                 }
                         }
@@ -478,14 +480,14 @@ static int dynamic_user_realize(
                         uid_lock_fd = new_uid_lock_fd;
                 }
         } else if (is_user && !uid_is_dynamic(num)) {
-                _cleanup_free_ struct passwd *p = NULL;
+                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
 
                 /* Statically allocated user may have different uid and gid. So, let's obtain the gid. */
-                r = getpwuid_malloc(num, &p);
+                r = userdb_by_uid(num, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &ur);
                 if (r < 0)
                         return r;
 
-                gid = p->pw_gid;
+                gid = ur->gid;
         }
 
         /* If the UID/GID was already allocated dynamically, push the data we popped out back in. If it was already

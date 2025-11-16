@@ -913,6 +913,16 @@ int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags
                         return userdb_by_uid(uid, match, flags, ret);
         }
 
+        if (FLAGS_SET(flags, USERDB_PREFER_SYNTHESIZED)) {
+                UPDATE_FLAG(flags, USERDB_PREFER_SYNTHESIZED, false);
+
+                r = userdb_by_name(name, match, flags|USERDB_SYNTHESIZED_ONLY, ret);
+                if (r >= 0)
+                        return r;
+                if (r != -ESRCH)
+                        return r;
+        }
+
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
@@ -1002,6 +1012,16 @@ int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRe
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r;
+
+        if (FLAGS_SET(flags, USERDB_PREFER_SYNTHESIZED)) {
+                UPDATE_FLAG(flags, USERDB_PREFER_SYNTHESIZED, false);
+
+                r = userdb_by_uid(uid, match, flags|USERDB_SYNTHESIZED_ONLY, ret);
+                if (r >= 0)
+                        return r;
+                if (r != -ESRCH)
+                        return r;
+        }
 
         if (!uid_is_valid(uid))
                 return -EINVAL;
@@ -1369,6 +1389,16 @@ int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flag
                         return groupdb_by_gid(gid, match, flags, ret);
         }
 
+        if (FLAGS_SET(flags, USERDB_PREFER_SYNTHESIZED)) {
+                UPDATE_FLAG(flags, USERDB_PREFER_SYNTHESIZED, false);
+
+                r = groupdb_by_name(name, match, flags|USERDB_SYNTHESIZED_ONLY, ret);
+                if (r >= 0)
+                        return r;
+                if (r != -ESRCH)
+                        return r;
+        }
+
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return -EINVAL;
 
@@ -1454,6 +1484,16 @@ int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, Group
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
         int r;
+
+        if (FLAGS_SET(flags, USERDB_PREFER_SYNTHESIZED)) {
+                UPDATE_FLAG(flags, USERDB_PREFER_SYNTHESIZED, false);
+
+                r = groupdb_by_gid(gid, match, flags|USERDB_SYNTHESIZED_ONLY, ret);
+                if (r >= 0)
+                        return r;
+                if (r != -ESRCH)
+                        return r;
+        }
 
         if (!gid_is_valid(gid))
                 return -EINVAL;

@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include "efivars.h"
 #include "time-util.h"
+#include "userdb.h"
 
 #if HAVE_OPENSSL
 #include <openssl/err.h>
@@ -768,18 +769,16 @@ static int mangle_uid_into_key(
          * (specifically, UID, user name, machine ID) with the key we'd otherwise use for system credentials,
          * and use the resulting hash as actual encryption key. */
 
-        errno = 0;
-        struct passwd *pw = getpwuid(uid);
-        if (!pw)
-                return log_error_errno(
-                                IN_SET(errno, 0, ENOENT) ? SYNTHETIC_ERRNO(ESRCH) : errno,
-                                "Failed to resolve UID " UID_FMT ": %m", uid);
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        r = userdb_by_uid(uid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &ur);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve UID " UID_FMT ": %m", uid);
 
         r = sd_id128_get_machine(&mid);
         if (r < 0)
                 return log_error_errno(r, "Failed to read machine ID: %m");
 
-        size_t sz = offsetof(struct scoped_hash_data, username) + strlen(pw->pw_name) + 1;
+        size_t sz = offsetof(struct scoped_hash_data, username) + strlen(ur->user_name) + 1;
         _cleanup_free_ struct scoped_hash_data *d = malloc0(sz);
         if (!d)
                 return log_oom();
@@ -788,7 +787,7 @@ static int mangle_uid_into_key(
         d->uid = htole32(uid);
         d->machine_id = mid;
 
-        strcpy(d->username, pw->pw_name);
+        strcpy(d->username, ur->user_name);
 
         _cleanup_(erase_and_freep) void *buf = NULL;
         size_t buf_size = 0;

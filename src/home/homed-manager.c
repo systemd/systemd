@@ -63,6 +63,7 @@
 #include "user-record-sign.h"
 #include "user-record-util.h"
 #include "user-util.h"
+#include "userdb.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
@@ -617,8 +618,6 @@ static int manager_acquire_uid(
         assert(ret);
 
         for (;;) {
-                _cleanup_free_ struct passwd *pw = NULL;
-                _cleanup_free_ struct group *gr = NULL;
                 uid_t candidate;
                 Home *other;
 
@@ -661,10 +660,11 @@ static int manager_acquire_uid(
                         continue;
                 }
 
-                r = getpwuid_malloc(candidate, &pw);
+                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                r = userdb_by_uid(candidate, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &ur);
                 if (r >= 0) {
                         log_debug("Candidate UID " UID_FMT " already registered by another user in NSS (%s), let's try another.",
-                                  candidate, pw->pw_name);
+                                  candidate, ur->user_name);
                         continue;
                 }
                 if (r != -ESRCH) {
@@ -672,10 +672,11 @@ static int manager_acquire_uid(
                         continue;
                 }
 
-                r = getgrgid_malloc((gid_t) candidate, &gr);
+                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                r = groupdb_by_gid((gid_t) candidate, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &gr);
                 if (r >= 0) {
                         log_debug("Candidate UID " UID_FMT " already registered by another group in NSS (%s), let's try another.",
-                                  candidate, gr->gr_name);
+                                  candidate, gr->group_name);
                         continue;
                 }
                 if (r != -ESRCH) {
@@ -757,7 +758,8 @@ static int manager_add_home_by_image(
                 }
         } else {
                 /* Check NSS, in case there's another user or group by this name */
-                if (getpwnam_malloc(user_name, /* ret= */ NULL) >= 0 || getgrnam_malloc(user_name, /* ret= */ NULL) >= 0) {
+                if (userdb_by_name(user_name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL) >= 0 ||
+                        groupdb_by_name(user_name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL) >= 0) {
                         log_debug("Found an existing user or group by name '%s', ignoring image '%s'.", user_name, image_path);
                         return 0;
                 }

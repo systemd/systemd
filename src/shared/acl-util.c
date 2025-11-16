@@ -7,6 +7,8 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "format-util.h"
+#include "hashmap.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
@@ -377,6 +379,7 @@ int acl_search_groups(const char *path, char ***ret_groups) {
 }
 
 int parse_acl(
+                const char *root,
                 const char *text,
                 acl_t *ret_acl_access,
                 acl_t *ret_acl_access_exec, /* extra rules to apply to inodes subject to uppercase X handling */
@@ -399,6 +402,8 @@ int parse_acl(
         r = dlopen_libacl();
         if (r < 0)
                 return r;
+
+        _cleanup_(hashmap_freep) Hashmap *uid_cache = NULL, *gid_cache = NULL;
 
         STRV_FOREACH(entry, split) {
                 _cleanup_strv_free_ char **entry_split = NULL;
@@ -424,6 +429,32 @@ int parse_acl(
 
                         r = strv_consume(&d, TAKE_PTR(entry_join));
                 } else { /* n == 3 */
+                        _cleanup_free_ char *uid_gid_s = NULL;
+
+                        if (STR_IN_SET(entry_split[0], "u", "user") && valid_user_group_name(entry_split[1], 0)) {
+                                uid_t uid;
+
+                                r = name_to_uid(root, entry_split[1], &uid, &uid_cache);
+                                if (r < 0)
+                                        return r;
+
+                                if (asprintf(&uid_gid_s, UID_FMT, uid) < 0)
+                                        return -ENOMEM;
+
+                        } else if (STR_IN_SET(entry_split[0], "g", "group") && valid_user_group_name(entry_split[1], 0)) {
+                                gid_t gid;
+
+                                r = name_to_gid(root, entry_split[1], &gid, &gid_cache);
+                                if (r < 0)
+                                        return r;
+
+                                if (asprintf(&uid_gid_s, GID_FMT, gid) < 0)
+                                        return -ENOMEM;
+                        }
+
+                        if (uid_gid_s)
+                                free_and_replace(entry_split[1], uid_gid_s);
+
                         entry_join = strv_join(entry_split, ":");
                         if (!entry_join)
                                 return -ENOMEM;

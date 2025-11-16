@@ -64,6 +64,7 @@
 #include "unit-def.h"
 #include "user-record.h"
 #include "user-util.h"
+#include "userdb.h"
 #include "virt.h"
 #include "wall.h"
 
@@ -1627,9 +1628,8 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        _cleanup_free_ struct passwd *pw = NULL;
-
-        r = getpwuid_malloc(uid, &pw);
+        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        r = userdb_by_uid(uid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &ur);
         if (r < 0)
                 return r;
 
@@ -1656,7 +1656,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         const char *path;
         User *u;
 
-        escaped = cescape(pw->pw_name);
+        escaped = cescape(ur->user_name);
         if (!escaped)
                 return -ENOMEM;
 

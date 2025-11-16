@@ -65,6 +65,7 @@
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "userdb.h"
 
 static bool arg_ask_password = true;
 static bool arg_scope = false;
@@ -1434,7 +1435,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = getgrnam_malloc("empower", /* ret= */ NULL);
+                r = groupdb_by_name("empower", /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
                 if (r < 0 && r != -ESRCH)
                         return log_error_errno(r, "Failed to look up group 'empower' via NSS: %m");
                 if (r >= 0) {
@@ -2744,53 +2745,48 @@ static int start_transient_scope(sd_bus *bus) {
         }
 
         if (arg_exec_group) {
-                gid_t gid;
-
-                r = get_group_creds(&arg_exec_group, &gid, 0);
+                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                r = groupdb_by_name(arg_exec_group, /* match= */ NULL, USERDB_SUPPRESS_SHADOW|USERDB_PARSE_NUMERIC, &gr);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve group %s: %m", arg_exec_group);
 
-                if (setresgid(gid, gid, gid) < 0)
-                        return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
+                if (setresgid(gr->gid, gr->gid, gr->gid) < 0)
+                        return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gr->gid);
         }
 
         if (arg_exec_user) {
-                const char *home, *shell;
-                uid_t uid;
-                gid_t gid;
-
-                r = get_user_creds(&arg_exec_user, &uid, &gid, &home, &shell,
-                                   USER_CREDS_CLEAN|USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_PREFER_NSS);
+                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                r = userdb_by_name(arg_exec_user, /* match= */ NULL, USERDB_SUPPRESS_SHADOW|USERDB_PARSE_NUMERIC, &ur);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user %s: %m", arg_exec_user);
 
-                if (home) {
-                        r = strv_extendf(&user_env, "HOME=%s", home);
+                if (!empty_or_root(user_record_home_directory(ur))) {
+                        r = strv_extendf(&user_env, "HOME=%s", user_record_home_directory(ur));
                         if (r < 0)
                                 return log_oom();
                 }
 
-                if (shell) {
-                        r = strv_extendf(&user_env, "SHELL=%s", shell);
+                if (!shell_is_placeholder(user_record_shell(ur))) {
+                        r = strv_extendf(&user_env, "SHELL=%s", user_record_shell(ur));
                         if (r < 0)
                                 return log_oom();
                 }
 
-                r = strv_extendf(&user_env, "USER=%s", arg_exec_user);
+                r = strv_extendf(&user_env, "USER=%s", ur->user_name);
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&user_env, "LOGNAME=%s", arg_exec_user);
+                r = strv_extendf(&user_env, "LOGNAME=%s", ur->user_name);
                 if (r < 0)
                         return log_oom();
 
                 if (!arg_exec_group) {
-                        if (setresgid(gid, gid, gid) < 0)
-                                return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
+                        if (setresgid(user_record_gid(ur), user_record_gid(ur), user_record_gid(ur)) < 0)
+                                return log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", user_record_gid(ur));
                 }
 
-                if (setresuid(uid, uid, uid) < 0)
-                        return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", uid);
+                if (setresuid(ur->uid, ur->uid, ur->uid) < 0)
+                        return log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", ur->uid);
         }
 
         if (arg_working_directory && chdir(arg_working_directory) < 0)

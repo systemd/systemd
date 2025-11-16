@@ -43,6 +43,7 @@
 #include "uid-classification.h"
 #include "uid-range.h"
 #include "user-util.h"
+#include "userdb.h"
 #include "verbs.h"
 
 typedef enum ItemType {
@@ -1092,21 +1093,21 @@ static int uid_is_ok(
 
         /* Let's also check via NSS, to avoid UID clashes over LDAP and such, just in case */
         if (!arg_root) {
-                _cleanup_free_ struct group *g = NULL;
-
-                r = getpwuid_malloc(uid, /* ret= */ NULL);
+                r = userdb_by_uid(uid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
                 if (r >= 0)
                         return 0;
                 if (r != -ESRCH)
-                        log_warning_errno(r, "Unexpected failure while looking up UID '" UID_FMT "' via NSS, assuming it doesn't exist: %m", uid);
+                        log_warning_errno(r, "Unexpected failure while looking up UID '" UID_FMT "' via userdb, assuming it doesn't exist: %m", uid);
 
                 if (check_with_gid) {
-                        r = getgrgid_malloc((gid_t) uid, &g);
+                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+
+                        r = groupdb_by_gid((gid_t) uid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &gr);
                         if (r >= 0) {
-                                if (!streq(g->gr_name, name))
+                                if (!streq(gr->group_name, name))
                                         return 0;
                         } else if (r != -ESRCH)
-                                log_warning_errno(r, "Unexpected failure while looking up GID '" GID_FMT "' via NSS, assuming it doesn't exist: %m", uid);
+                                log_warning_errno(r, "Unexpected failure while looking up GID '" GID_FMT "' via userdb, assuming it doesn't exist: %m", uid);
                 }
         }
 
@@ -1324,14 +1325,14 @@ static int gid_is_ok(
         }
 
         if (!arg_root) {
-                r = getgrgid_malloc(gid, /* ret= */ NULL);
+                r = groupdb_by_gid(gid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
                 if (r >= 0)
                         return 0;
                 if (r != -ESRCH)
                         log_warning_errno(r, "Unexpected failure while looking up GID '" GID_FMT "' via NSS, assuming it doesn't exist: %m", gid);
 
                 if (check_with_uid) {
-                        r = getpwuid_malloc(gid, /* ret= */ NULL);
+                        r = userdb_by_uid((uid_t) gid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
                         if (r >= 0)
                                 return 0;
                         if (r != -ESRCH)
@@ -1362,11 +1363,11 @@ static int get_gid_by_name(
 
         /* Also check NSS */
         if (!arg_root) {
-                _cleanup_free_ struct group *g = NULL;
+                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
 
-                r = getgrnam_malloc(name, &g);
+                r = groupdb_by_name(name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &gr);
                 if (r >= 0) {
-                        *ret_gid = g->gr_gid;
+                        *ret_gid = gr->gid;
                         return 0;
                 }
                 if (r != -ESRCH)

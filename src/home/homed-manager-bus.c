@@ -30,6 +30,7 @@
 #include "user-record-sign.h"
 #include "user-record-util.h"
 #include "user-util.h"
+#include "userdb.h"
 
 static int property_get_auto_login(
                 sd_bus *bus,
@@ -364,13 +365,13 @@ static int check_for_conflicts(Manager *m, const char *name, sd_bus_error *error
         if (other)
                 return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s exists already, refusing.", name);
 
-        r = getpwnam_malloc(name, /* ret= */ NULL);
+        r = userdb_by_name(name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
         if (r >= 0)
                 return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s exists in the NSS user database, refusing.", name);
         if (r != -ESRCH)
                 return r;
 
-        r = getgrnam_malloc(name, /* ret= */ NULL);
+        r = groupdb_by_name(name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL);
         if (r >= 0)
                 return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s conflicts with an NSS group by the same name, refusing.", name);
         if (r != -ESRCH)
@@ -458,22 +459,21 @@ static int validate_and_allocate_home(Manager *m, UserRecord *hr, Hashmap *blobs
         }
 
         if (uid_is_valid(hr->uid)) {
-                _cleanup_free_ struct passwd *pw = NULL;
-                _cleanup_free_ struct group *gr = NULL;
-
                 other = hashmap_get(m->homes_by_uid, UID_TO_PTR(hr->uid));
                 if (other)
                         return sd_bus_error_setf(error, BUS_ERROR_UID_IN_USE, "Specified UID " UID_FMT " already in use by home %s, refusing.", hr->uid, other->user_name);
 
-                r = getpwuid_malloc(hr->uid, &pw);
+                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                r = userdb_by_uid(hr->uid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &ur);
                 if (r >= 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_UID_IN_USE, "Specified UID " UID_FMT " already in use by NSS user %s, refusing.", hr->uid, pw->pw_name);
+                        return sd_bus_error_setf(error, BUS_ERROR_UID_IN_USE, "Specified UID " UID_FMT " already in use by NSS user %s, refusing.", hr->uid, ur->user_name);
                 if (r != -ESRCH)
                         return r;
 
-                r = getgrgid_malloc(hr->uid, &gr);
+                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                r = groupdb_by_gid((gid_t) hr->uid, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &gr);
                 if (r >= 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_UID_IN_USE, "Specified UID " UID_FMT " already in use as GID by NSS group %s, refusing.", hr->uid, gr->gr_name);
+                        return sd_bus_error_setf(error, BUS_ERROR_UID_IN_USE, "Specified UID " UID_FMT " already in use as GID by NSS group %s, refusing.", hr->uid, gr->group_name);
                 if (r != -ESRCH)
                         return r;
         } else {

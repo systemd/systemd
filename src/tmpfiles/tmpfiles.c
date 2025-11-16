@@ -44,7 +44,6 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "offline-passwd.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -1240,7 +1239,7 @@ static int parse_acls_from_arg(Item *item) {
         /* If append_or_force (= modify) is set, we will not modify the acl
          * afterwards, so the mask can be added now if necessary. */
 
-        r = parse_acl(item->argument, &item->acl_access, &item->acl_access_exec,
+        r = parse_acl(arg_root, item->argument, &item->acl_access, &item->acl_access_exec,
                       &item->acl_default, !item->append_or_force);
         if (r < 0)
                 log_full_errno(arg_graceful && IN_SET(r, -EINVAL, -ENOENT, -ESRCH) ? LOG_DEBUG : LOG_WARNING,
@@ -3481,56 +3480,6 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         return 0;
 }
 
-static int find_uid(const char *user, uid_t *ret_uid, Hashmap **cache) {
-        int r;
-
-        assert(user);
-        assert(ret_uid);
-
-        /* First: parse as numeric UID string */
-        r = parse_uid(user, ret_uid);
-        if (r >= 0)
-                return r;
-
-        /* Second: pass to NSS if we are running "online" */
-        if (!arg_root)
-                return get_user_creds(&user, ret_uid, NULL, NULL, NULL, 0);
-
-        /* Third, synthesize "root" unconditionally */
-        if (streq(user, "root")) {
-                *ret_uid = 0;
-                return 0;
-        }
-
-        /* Fourth: use fgetpwent() to read /etc/passwd directly, if we are "offline" */
-        return name_to_uid_offline(arg_root, user, ret_uid, cache);
-}
-
-static int find_gid(const char *group, gid_t *ret_gid, Hashmap **cache) {
-        int r;
-
-        assert(group);
-        assert(ret_gid);
-
-        /* First: parse as numeric GID string */
-        r = parse_gid(group, ret_gid);
-        if (r >= 0)
-                return r;
-
-        /* Second: pass to NSS if we are running "online" */
-        if (!arg_root)
-                return get_group_creds(&group, ret_gid, 0);
-
-        /* Third, synthesize "root" unconditionally */
-        if (streq(group, "root")) {
-                *ret_gid = 0;
-                return 0;
-        }
-
-        /* Fourth: use fgetgrent() to read /etc/group directly, if we are "offline" */
-        return name_to_gid_offline(arg_root, group, ret_gid, cache);
-}
-
 static int parse_age_by_from_arg(const char *age_by_str, Item *item) {
         AgeBy ab_f = 0, ab_d = 0;
 
@@ -3985,7 +3934,7 @@ static int parse_line(
                 else
                         u = user;
 
-                r = find_uid(u, &i.uid, &c->uid_cache);
+                r = name_to_uid(arg_root, u, &i.uid, &c->uid_cache);
                 if (r == -ESRCH && arg_graceful) {
                         log_syntax(NULL, LOG_DEBUG, fname, line, r,
                                    "%s: user '%s' not found, not adjusting ownership.", i.path, u);
@@ -4006,7 +3955,7 @@ static int parse_line(
                 else
                         g = group;
 
-                r = find_gid(g, &i.gid, &c->gid_cache);
+                r = name_to_gid(arg_root, g, &i.gid, &c->gid_cache);
                 if (r == -ESRCH && arg_graceful) {
                         log_syntax(NULL, LOG_DEBUG, fname, line, r,
                                    "%s: group '%s' not found, not adjusting ownership.", i.path, g);

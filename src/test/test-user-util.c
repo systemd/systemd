@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
+#include "hashmap.h"
 #include "libcrypt-util.h"
 #include "log.h"
 #include "memory-util.h"
@@ -497,6 +498,17 @@ TEST(mangle_gecos) {
         test_mangle_gecos_one("\n--wüff-wäff-wöff::", " --wüff-wäff-wöff  ");
         test_mangle_gecos_one("\xc3\x28", " (");
         test_mangle_gecos_one("\xe2\x28\xa1", " ( ");
+}
+
+TEST(name_to_offline) {
+        _cleanup_hashmap_free_ Hashmap *uid_cache = NULL, *gid_cache = NULL;
+        uid_t uid = UID_INVALID;
+        gid_t gid = GID_INVALID;
+
+        ASSERT_OK(name_to_uid("/", "root", &uid, &uid_cache));
+        ASSERT_OK(name_to_uid("/", "root", &uid, &uid_cache));
+        ASSERT_OK(name_to_gid("/", "root", &gid, &gid_cache));
+        ASSERT_OK(name_to_gid("/", "root", &gid, &gid_cache));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

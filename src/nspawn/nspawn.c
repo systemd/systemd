@@ -119,6 +119,7 @@
 #include "unit-name.h"
 #include "user-record.h"
 #include "user-util.h"
+#include "userdb.h"
 #include "vpick.h"
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
@@ -4455,13 +4456,13 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
                         return r;
 
                 /* Make some superficial checks whether the range is currently known in the user database */
-                if (getpwuid_malloc(candidate, /* ret= */ NULL) >= 0)
+                if (userdb_by_uid(candidate, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL) >= 0)
                         goto next;
-                if (getpwuid_malloc(candidate + UINT32_C(0xFFFE), /* ret= */ NULL) >= 0)
+                if (userdb_by_uid(candidate + UINT32_C(0xFFFE), /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL) >= 0)
                         goto next;
-                if (getgrgid_malloc(candidate, /* ret= */ NULL) >= 0)
+                if (groupdb_by_gid(candidate, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL) >= 0)
                         goto next;
-                if (getgrgid_malloc(candidate + UINT32_C(0xFFFE), /* ret= */ NULL) >= 0)
+                if (groupdb_by_gid(candidate + UINT32_C(0xFFFE), /* match= */ NULL, USERDB_SUPPRESS_SHADOW, /* ret= */ NULL) >= 0)
                         goto next;
 
                 *ret_lock_file = lf;
@@ -5079,7 +5080,6 @@ static int run_container(
                 int *ret) {
 
         _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
-        _cleanup_close_ int etc_passwd_lock = -EBADF;
         _cleanup_close_pair_ int
                 fd_inner_socket_pair[2] = EBADF_PAIR,
                 fd_outer_socket_pair[2] = EBADF_PAIR;
@@ -5106,19 +5106,6 @@ static int run_container(
         r = setup_unix_export_dir_outside(&unix_export_host_dir);
         if (r < 0)
                 return r;
-
-        if (arg_userns_mode == USER_NAMESPACE_PICK) {
-                /* When we shall pick the UID/GID range, let's first lock /etc/passwd, so that we can safely
-                 * check with getpwuid() if the specific user already exists. Note that /etc might be
-                 * read-only, in which case this will fail with EROFS. But that's really OK, as in that case we
-                 * can be reasonably sure that no users are going to be added. Note that getpwuid() checks are
-                 * really just an extra safety net. We kinda assume that the UID range we allocate from is
-                 * really ours. */
-
-                etc_passwd_lock = take_etc_passwd_lock(NULL);
-                if (etc_passwd_lock < 0 && etc_passwd_lock != -EROFS)
-                        return log_error_errno(etc_passwd_lock, "Failed to take /etc/passwd lock: %m");
-        }
 
         r = barrier_create(&barrier);
         if (r < 0)
@@ -5580,10 +5567,6 @@ static int run_container(
          * payload. */
         if (!barrier_place(&barrier)) /* #5.2 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
-
-        /* At this point we have made use of the UID we picked, and thus nss-systemd/systemd-machined.service
-         * will make them appear in getpwuid(), thus we can release the /etc/passwd lock. */
-        etc_passwd_lock = safe_close(etc_passwd_lock);
 
         (void) sd_notifyf(/* unset_environment= */ false,
                           "STATUS=Container started.\n"

@@ -22,6 +22,7 @@
 #include "strv.h"
 #include "unit.h"
 #include "user-util.h"
+#include "userdb.h"
 
 static const UnitActiveState state_translation_table[_SCOPE_STATE_MAX] = {
         [SCOPE_DEAD]         = UNIT_INACTIVE,
@@ -354,13 +355,14 @@ static int scope_enter_start_chown(Scope *s) {
                 }
 
                 if (!isempty(s->group)) {
-                        const char *group = s->group;
-
-                        r = get_group_creds(&group, &gid, 0);
+                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                        r = groupdb_by_name(s->group, /* match= */ NULL, USERDB_PREFER_SYNTHESIZED|USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &gr);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve group \"%s\": %m", group);
+                                log_unit_error_errno(UNIT(s), r, "Failed to resolve group \"%s\": %m", s->group);
                                 _exit(EXIT_GROUP);
                         }
+
+                        gid = gr->gid;
                 }
 
                 r = cg_set_access(s->cgroup_runtime->cgroup_path, uid, gid);
