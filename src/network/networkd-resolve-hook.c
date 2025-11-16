@@ -214,11 +214,8 @@ int manager_varlink_init_resolve_hook(Manager *m, int fd) {
         if (m->varlink_resolve_hook_server)
                 return 0;
 
-        r = getenv_bool("SYSTEMD_NETWORK_RESOLVE_HOOK");
-        if (r < 0 && r != -ENXIO)
-                log_warning_errno(r, "Failed to parse $SYSTEMD_NETWORK_RESOLVE_HOOK, ignoring: %m");
-        if (r == 0) {
-                log_notice("Resolve hook disabled via $SYSTEMD_NETWORK_RESOLVE_HOOK.");
+        if (fd < 0) {
+                log_notice("systemd-networkd-resolve-hook.socket seems to be disabled. Resolve hook is disabled.");
                 return 0;
         }
 
@@ -243,10 +240,7 @@ int manager_varlink_init_resolve_hook(Manager *m, int fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind on resolve hook disconnection events: %m");
 
-        if (fd < 0)
-                r = sd_varlink_server_listen_address(s, "/run/systemd/resolve.hook/io.systemd.Network", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
-        else
-                r = sd_varlink_server_listen_fd(s, fd);
+        r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to systemd-resolved hook Varlink socket: %m");
 
