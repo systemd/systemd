@@ -2607,7 +2607,6 @@ static void unit_emit_audit_stop(Unit *u, UnitActiveState state) {
 
 static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
         bool unexpected = false;
-        JobResult result;
 
         assert(j);
         assert(j->installed);
@@ -2630,14 +2629,8 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
                 else if (j->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                         unexpected = true;
 
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
-                                if (ns == UNIT_FAILED)
-                                        result = JOB_FAILED;
-                                else
-                                        result = JOB_DONE;
-
-                                job_finish_and_invalidate(j, result, true, false);
-                        }
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                                job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
                 }
 
                 break;
