@@ -772,7 +772,7 @@ static int property_get_root_hash(
         assert(property);
         assert(reply);
 
-        return sd_bus_message_append_array(reply, 'y', c->root_hash, c->root_hash_size);
+        return sd_bus_message_append_array(reply, 'y', c->root_hash.iov_base, c->root_hash.iov_len);
 }
 
 static int property_get_root_hash_sig(
@@ -790,7 +790,7 @@ static int property_get_root_hash_sig(
         assert(property);
         assert(reply);
 
-        return sd_bus_message_append_array(reply, 'y', c->root_hash_sig, c->root_hash_sig_size);
+        return sd_bus_message_append_array(reply, 'y', c->root_hash_sig.iov_base, c->root_hash_sig.iov_len);
 }
 
 static int property_get_root_image_options(
@@ -1915,35 +1915,30 @@ int bus_exec_context_set_transient_property(
         }
 
         if (streq(name, "RootHash")) {
-                const void *roothash_decoded;
-                size_t roothash_decoded_size;
+                struct iovec roothash_decoded;
 
-                r = sd_bus_message_read_array(message, 'y', &roothash_decoded, &roothash_decoded_size);
+                r = sd_bus_message_read_array(message, 'y', (const void**) &roothash_decoded.iov_base, &roothash_decoded.iov_len);
                 if (r < 0)
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_free_ char *encoded = NULL;
 
-                        if (roothash_decoded_size == 0) {
+                        if (!iovec_is_set(&roothash_decoded)) {
                                 c->root_hash_path = mfree(c->root_hash_path);
-                                c->root_hash = mfree(c->root_hash);
-                                c->root_hash_size = 0;
+                                iovec_done(&c->root_hash);
 
                                 unit_write_settingf(u, flags, name, "RootHash=");
                         } else {
-                                _cleanup_free_ void *p = NULL;
-
-                                encoded = hexmem(roothash_decoded, roothash_decoded_size);
+                                _cleanup_free_ char *encoded = hexmem(roothash_decoded.iov_base, roothash_decoded.iov_len);
                                 if (!encoded)
                                         return -ENOMEM;
 
-                                p = memdup(roothash_decoded, roothash_decoded_size);
-                                if (!p)
+                                _cleanup_(iovec_done) struct iovec p = {};
+                                if (!iovec_memdup(&roothash_decoded, &p))
                                         return -ENOMEM;
 
-                                free_and_replace(c->root_hash, p);
-                                c->root_hash_size = roothash_decoded_size;
+                                iovec_done(&c->root_hash);
+                                c->root_hash = TAKE_STRUCT(p);
                                 c->root_hash_path = mfree(c->root_hash_path);
 
                                 unit_write_settingf(u, flags, name, "RootHash=%s", encoded);
@@ -1954,43 +1949,35 @@ int bus_exec_context_set_transient_property(
         }
 
         if (streq(name, "RootHashPath")) {
-                c->root_hash_size = 0;
-                c->root_hash = mfree(c->root_hash);
-
+                iovec_done(&c->root_hash);
                 return bus_set_transient_path(u, "RootHash", &c->root_hash_path, message, flags, error);
         }
 
         if (streq(name, "RootHashSignature")) {
-                const void *roothash_sig_decoded;
-                size_t roothash_sig_decoded_size;
+                struct iovec roothash_sig_decoded;
 
-                r = sd_bus_message_read_array(message, 'y', &roothash_sig_decoded, &roothash_sig_decoded_size);
+                r = sd_bus_message_read_array(message, 'y', (const void**) &roothash_sig_decoded.iov_base, &roothash_sig_decoded.iov_len);
                 if (r < 0)
                         return r;
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        _cleanup_free_ char *encoded = NULL;
-
-                        if (roothash_sig_decoded_size == 0) {
+                        if (!iovec_is_set(&roothash_sig_decoded)) {
                                 c->root_hash_sig_path = mfree(c->root_hash_sig_path);
-                                c->root_hash_sig = mfree(c->root_hash_sig);
-                                c->root_hash_sig_size = 0;
+                                iovec_done(&c->root_hash_sig);
 
                                 unit_write_settingf(u, flags, name, "RootHashSignature=");
                         } else {
-                                _cleanup_free_ void *p = NULL;
-                                ssize_t len;
-
-                                len = base64mem(roothash_sig_decoded, roothash_sig_decoded_size, &encoded);
+                                _cleanup_free_ char *encoded = NULL;
+                                ssize_t len = base64mem(roothash_sig_decoded.iov_base, roothash_sig_decoded.iov_len, &encoded);
                                 if (len < 0)
                                         return -ENOMEM;
 
-                                p = memdup(roothash_sig_decoded, roothash_sig_decoded_size);
-                                if (!p)
+                                _cleanup_(iovec_done) struct iovec p = {};
+                                if (!iovec_memdup(&roothash_sig_decoded, &p))
                                         return -ENOMEM;
 
-                                free_and_replace(c->root_hash_sig, p);
-                                c->root_hash_sig_size = roothash_sig_decoded_size;
+                                iovec_done(&c->root_hash_sig);
+                                c->root_hash_sig = TAKE_STRUCT(p);
                                 c->root_hash_sig_path = mfree(c->root_hash_sig_path);
 
                                 unit_write_settingf(u, flags, name, "RootHashSignature=base64:%s", encoded);
@@ -2001,9 +1988,7 @@ int bus_exec_context_set_transient_property(
         }
 
         if (streq(name, "RootHashSignaturePath")) {
-                c->root_hash_sig_size = 0;
-                c->root_hash_sig = mfree(c->root_hash_sig);
-
+                iovec_done(&c->root_hash_sig);
                 return bus_set_transient_path(u, "RootHashSignature", &c->root_hash_sig_path, message, flags, error);
         }
 

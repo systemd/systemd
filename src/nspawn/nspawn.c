@@ -1305,38 +1305,36 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT_HASH: {
-                        _cleanup_free_ void *k = NULL;
-                        size_t l;
+                        _cleanup_(iovec_done) struct iovec k = {};
 
-                        r = unhexmem(optarg, &k, &l);
+                        r = unhexmem(optarg, &k.iov_base, &k.iov_len);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse root hash: %s", optarg);
-                        if (l < sizeof(sd_id128_t))
+                        if (k.iov_len < sizeof(sd_id128_t))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash must be at least 128-bit long: %s", optarg);
 
-                        free_and_replace(arg_verity_settings.root_hash, k);
-                        arg_verity_settings.root_hash_size = l;
+                        iovec_done(&arg_verity_settings.root_hash);
+                        arg_verity_settings.root_hash = TAKE_STRUCT(k);
                         break;
                 }
 
                 case ARG_ROOT_HASH_SIG: {
+                        _cleanup_(iovec_done) struct iovec p = {};
                         char *value;
-                        size_t l;
-                        void *p;
 
                         if ((value = startswith(optarg, "base64:"))) {
-                                r = unbase64mem(value, &p, &l);
+                                r = unbase64mem(value, &p.iov_base, &p.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
 
                         } else {
-                                r = read_full_file(optarg, (char**) &p, &l);
+                                r = read_full_file(optarg, (char**) &p.iov_base, &p.iov_len);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature file '%s': %m", optarg);
                         }
 
-                        free_and_replace(arg_verity_settings.root_hash_sig, p);
-                        arg_verity_settings.root_hash_sig_size = l;
+                        iovec_done(&arg_verity_settings.root_hash_sig);
+                        arg_verity_settings.root_hash_sig = TAKE_STRUCT(p);
                         break;
                 }
 
@@ -6358,7 +6356,7 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                         }
 
-                        if (dissected_image->has_verity && !arg_verity_settings.root_hash)
+                        if (dissected_image->has_verity && !iovec_is_set(&arg_verity_settings.root_hash))
                                 log_notice("Note: image %s contains verity information, but no root hash specified and no embedded "
                                            "root hash signature found! Proceeding without integrity checking.", arg_image);
 

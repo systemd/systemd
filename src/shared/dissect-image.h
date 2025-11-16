@@ -4,9 +4,10 @@
 #include "sd-id128.h"
 
 #include "architecture.h"
-#include "shared-forward.h"
 #include "gpt.h"
+#include "iovec-util.h"
 #include "list.h"
+#include "shared-forward.h"
 
 typedef struct DecryptedImage DecryptedImage;
 
@@ -120,12 +121,10 @@ typedef struct MountOptions {
 
 typedef struct VeritySettings {
         /* Binary root hash for the Verity Merkle tree */
-        void *root_hash;
-        size_t root_hash_size;
+        struct iovec root_hash;
 
         /* PKCS#7 signature of the above */
-        void *root_hash_sig;
-        size_t root_hash_sig_size;
+        struct iovec root_hash_sig;
 
         /* Path to the verity data file, if stored externally */
         char *data_path;
@@ -206,9 +205,9 @@ int verity_settings_load(VeritySettings *verity, const char *image, const char *
 
 static inline bool verity_settings_set(const VeritySettings *settings) {
         return settings &&
-                (settings->root_hash_size > 0 ||
-                 (settings->root_hash_sig_size > 0 ||
-                  settings->data_path));
+                (iovec_is_set(&settings->root_hash) ||
+                 iovec_is_set(&settings->root_hash_sig) ||
+                 settings->data_path);
 }
 
 void verity_settings_done(VeritySettings *verity);
@@ -223,7 +222,7 @@ static inline bool verity_settings_data_covers(const VeritySettings *verity, Par
         /* Returns true if the verity settings contain sufficient information to cover the specified partition */
         return verity &&
                 ((d >= 0 && verity->designator == d) || (d == PARTITION_ROOT && verity->designator < 0)) &&
-                verity->root_hash &&
+                iovec_is_set(&verity->root_hash) &&
                 verity->data_path;
 }
 
