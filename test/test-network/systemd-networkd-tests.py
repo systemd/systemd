@@ -487,7 +487,10 @@ def create_service_dropin(service, command, additional_settings=None):
     if ubsan_options:
         drop_in += [f'Environment=UBSAN_OPTIONS="{ubsan_options}"']
     if asan_options or lsan_options or ubsan_options:
-        drop_in += ['SystemCallFilter=']
+        drop_in += [
+            'SystemCallFilter=',
+            'TimeoutStopFailureMode=abort',
+        ]
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
     if use_valgrind:
