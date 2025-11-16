@@ -492,18 +492,9 @@ def create_service_dropin(service, command, additional_settings=None):
     if ubsan_options:
         drop_in += [f'Environment=UBSAN_OPTIONS="{ubsan_options}"']
     if asan_options or lsan_options or ubsan_options:
-        # Disable system call filter when running with sanitizers, as they seem to call filtered syscall at
-        # the very end of the execution and stuck the process. See issue #39567.
         drop_in += [
-            'LockPersonality=no',
-            'ProtectClock=no',
-            'ProtectKernelLogs=no',
-            'RestrictAddressFamilies=',
-            'RestrictNamespaces=no',
-            'RestrictRealtime=no',
-            'RestrictSUIDSGID=no',
-            'SystemCallArchitectures=',
             'SystemCallFilter=',
+            'TimeoutStopFailureMode=abort',
         ]
     if use_valgrind or asan_options or lsan_options or ubsan_options:
         drop_in += ['MemoryDenyWriteExecute=no']
@@ -7365,7 +7356,6 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = networkctl_json('veth99')
         check_json(output)
-        print(output)
         data = json.loads(output)
         self.assertEqual(data['DHCPv4Client']['Lease']['Hostname'], 'simple-host')
 
@@ -7378,7 +7368,6 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
 
         output = networkctl_json('veth99')
         check_json(output)
-        print(output)
         data = json.loads(output)
         self.assertEqual(data['DHCPv4Client']['Lease']['Hostname'], 'fqdn.example.com')
 
