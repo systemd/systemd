@@ -383,14 +383,14 @@ TEST(message_container) {
 
         ASSERT_OK(sd_netlink_message_enter_container(m, IFLA_LINKINFO));
         ASSERT_OK(sd_netlink_message_read_string(m, IFLA_INFO_KIND, &string_data));
-        ASSERT_STREQ("vlan", string_data);
+        ASSERT_STREQ(string_data, "vlan");
 
         ASSERT_OK(sd_netlink_message_enter_container(m, IFLA_INFO_DATA));
         ASSERT_OK(sd_netlink_message_read_u16(m, IFLA_VLAN_ID, &u16_data));
         ASSERT_OK(sd_netlink_message_exit_container(m));
 
         ASSERT_OK(sd_netlink_message_read_string(m, IFLA_INFO_KIND, &string_data));
-        ASSERT_STREQ("vlan", string_data);
+        ASSERT_STREQ(string_data, "vlan");
         ASSERT_OK(sd_netlink_message_exit_container(m));
 
         ASSERT_FAIL(sd_netlink_message_read_u32(m, IFLA_LINKINFO, &u32_data));
