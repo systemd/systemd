@@ -71,6 +71,80 @@ TEST(log_once) {
                 test_log_once_impl();
 }
 
+_sentinel_
+static void test_log_format_iovec_sentinel(
+                char * const *expected,
+                const char *format,
+                ...) {
+
+        size_t iovec_len = 20, n = 0;
+        struct iovec *iovec = newa(struct iovec, iovec_len);
+        va_list ap;
+
+        log_debug("/* %s(%s) */", __func__, strnull(format));
+
+        char **v = STRV_MAKE("SYSLOG_FACILITY=3",
+                             "SYSLOG_IDENTIFIER=systemd-journald",
+                             "_TRANSPORT=driver",
+                             "PRIORITY=6");
+        size_t m = strv_length(v);
+
+        STRV_FOREACH(s, v)
+                iovec[n++] = IOVEC_MAKE_STRING(*s);
+
+        ASSERT_EQ(n, m);
+
+        va_start(ap, format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        ASSERT_OK(log_format_iovec(iovec, iovec_len, &n, /* newline_separator = */ false, ENOANO, format, ap));
+        REENABLE_WARNING;
+        va_end(ap);
+
+        ASSERT_EQ(n, m + strv_length(expected));
+
+        for (size_t i = 0; i < n; i++)
+                if (i < m)
+                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(v[i])), 0);
+                else {
+                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(expected[i - m])), 0);
+                        free(iovec[i].iov_base);
+                }
+
+        n = m;
+
+        va_start(ap, format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        ASSERT_OK(log_format_iovec(iovec, iovec_len, &n, /* newline_separator = */ true, ENOANO, format, ap));
+        REENABLE_WARNING;
+        va_end(ap);
+
+        ASSERT_EQ(n, m + strv_length(expected) * 2);
+
+        for (size_t i = 0; i < n; i++)
+                if (i < m)
+                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(v[i])), 0);
+                else if ((i - m) % 2 == 0) {
+                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING(expected[(i - m) / 2])), 0);
+                        free(iovec[i].iov_base);
+                } else
+                        ASSERT_EQ(iovec_memcmp(&iovec[i], &IOVEC_MAKE_STRING("\n")), 0);
+}
+
+#define test_log_format_iovec_one(...)                 \
+        test_log_format_iovec_sentinel(__VA_ARGS__, NULL)
+
+TEST(log_format_iovec) {
+        test_log_format_iovec_one(NULL, NULL);
+        test_log_format_iovec_one(STRV_MAKE("MESSAGE=hoge"),
+                                  LOG_MESSAGE("hoge"));
+        test_log_format_iovec_one(STRV_MAKE("MESSAGE=hoge: 10"),
+                                  LOG_MESSAGE("hoge: %i", 10));
+        test_log_format_iovec_one(STRV_MAKE("MESSAGE=hoge: 10-a", "HOGEHOGE=100-string", "FOOFOO=4-3"),
+                                  LOG_MESSAGE("hoge: %i-%c", 10, 'a'),
+                                  LOG_ITEM("HOGEHOGE=%zu-%s", (size_t) 100, "string"),
+                                  LOG_ITEM("FOOFOO=%hu-%llu", (unsigned short) 4, (long long unsigned) 3));
+}
+
 static void test_log_struct(void) {
         log_struct(LOG_INFO,
                    "MESSAGE=Waldo PID="PID_FMT" (no errno)", getpid_cached(),
