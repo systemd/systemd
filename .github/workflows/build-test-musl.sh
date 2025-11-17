@@ -22,10 +22,8 @@ trap cleanup EXIT ERR INT TERM
 
 mkdir -p "${TMPDIR}/build"
 mkdir -p "${TMPDIR}/usr/include"
-mkdir -p "${TMPDIR}/usr/lib64/pkgconfig"
 
 CFLAGS="-idirafter ${TMPDIR}/usr/include"
-export PKG_CONFIG_PATH="${TMPDIR}"/usr/lib64/pkgconfig
 
 LINKS=(
     acl
