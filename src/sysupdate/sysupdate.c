@@ -980,10 +980,9 @@ static int context_on_acquire_progress(const Transfer *t, const Instance *inst, 
                                               overall, n - i, i, inst->metadata.version, overall);
 }
 
-static int context_apply(
+static int context_acquire(
                 Context *c,
-                const char *version,
-                UpdateSet **ret_applied) {
+                const char *version) {
 
         UpdateSet *us = NULL;
         int r;
@@ -998,9 +997,6 @@ static int context_apply(
                 if (!c->candidate) {
                         log_info("No update needed.");
 
-                        if (ret_applied)
-                                *ret_applied = NULL;
-
                         return 0;
                 }
 
@@ -1011,9 +1007,6 @@ static int context_apply(
                 log_info("Selected update '%s' is already installed, but incomplete. Repairing.", us->version);
         else if (FLAGS_SET(us->flags, UPDATE_INSTALLED)) {
                 log_info("Selected update '%s' is already installed. Skipping update.", us->version);
-
-                if (ret_applied)
-                        *ret_applied = NULL;
 
                 return 0;
         }
@@ -1073,7 +1066,34 @@ static int context_apply(
         if (arg_sync)
                 sync();
 
-        (void) sd_notifyf(/* unset_environment= */ false,
+        return 1;
+}
+
+static int context_install(
+                Context *c,
+                const char *version,
+                UpdateSet **ret_applied) {
+
+        UpdateSet *us = NULL;
+        int r;
+
+        assert(c);
+
+        if (version) {
+                us = context_update_set_by_version(c, version);
+                if (!us)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Update '%s' not found.", version);
+        } else {
+                if (!c->candidate) {
+                        log_info("No update needed.");
+
+                        return 0;
+                }
+
+                us = c->candidate;
+        }
+
+        (void) sd_notifyf(/* unset_environment=*/ false,
                           "STATUS=Installing '%s'.", us->version);
 
         for (size_t i = 0; i < c->n_transfers; i++) {
@@ -1097,6 +1117,22 @@ static int context_apply(
                 *ret_applied = us;
 
         return 1;
+}
+
+static int context_apply(
+                Context *c,
+                const char *version,
+                UpdateSet **ret_applied) {
+
+        int r;
+
+        r = context_acquire(c, version);
+        if (r < 0)
+                return r;  /* error */
+        else if (r == 0)
+                return 0;  /* no update needed */
+
+        return context_install(c, version, ret_applied);
 }
 
 static int process_image(
