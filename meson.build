@@ -2149,6 +2149,7 @@ libsystemd_includes = [basic_includes, include_directories(
         'src/libsystemd/sd-common',
         'src/libsystemd/sd-device',
         'src/libsystemd/sd-event',
+        'src/libsystemd/sd-future',
         'src/libsystemd/sd-hwdb',
         'src/libsystemd/sd-id128',
         'src/libsystemd/sd-journal',
@@ -2499,6 +2500,7 @@ subdir('src/tmpfiles')
 subdir('src/tpm2-setup')
 subdir('src/tty-ask-password-agent')
 subdir('src/update-done')
+subdir('src/update-helper')
 subdir('src/update-utmp')
 subdir('src/user-sessions')
 subdir('src/userdb')
