@@ -12,6 +12,31 @@ CHANGES WITH 259 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * Support for System V service scripts is deprecated and will be
+          removed in v260. Please make sure to update your software *now* to
+          include a native systemd unit file instead of a legacy System V
+          script to retain compatibility with future systemd releases.
+          Following components will be removed:
+
+          * systemd-rc-local-generator,
+          * systemd-sysv-generator,
+          * systemd-sysv-install (hook for systemctl enable/disable/is-enabled).
+
+        * Required minimum versions of following components are planned to be
+          raised in v260:
+
+          * Linux kernel >= 5.10 (recommended >= 5.14),
+          * glibc >= 2.34,
+          * libxcrypt >= 4.4.0 (libcrypt in glibc will be no longer supported),
+          * util-linux >= 2.37,
+          * elfutils >= 0.177,
+          * openssl >= 3.0.0,
+          * cryptsetup >= 2.4.0,
+          * libseccomp >= 2.4.0,
+          * python >= 3.9.0.
+
+          Please provide feedback on systemd-devel if this would cause problems.
+
         * The cgroup2 file system is now mounted with the
           "memory_hugetlb_accounting" mount option, supported since kernel 6.6.
           This means that HugeTLB memory usage is now counted towards the
@@ -709,10 +734,10 @@ CHANGES WITH 258:
 
         Announcements of Future Feature Removals:
 
-        * Support for System V service scripts is deprecated and will be
-          removed in v259. Please make sure to update your software *now* to
-          include a native systemd unit file instead of a legacy System V
-          script to retain compatibility with future systemd releases.
+        * (postponed to v260) Support for System V service scripts is deprecated
+          and will be removed in v259. Please make sure to update your software
+          *now* to include a native systemd unit file instead of a legacy System
+          V script to retain compatibility with future systemd releases.
 
         * Support for the legacy /run/lock/ directory is deprecated and will be
           removed in v259. Any software that still needs access to this legacy
@@ -736,8 +761,8 @@ CHANGES WITH 258:
           Only nftables backend will be supported by systemd-networkd and
           systemd-nspawn since v259.
 
-        * Required minimum versions of following components are planned to be
-          raised in the next release:
+        * (postponed to v260) Required minimum versions of following components
+          are planned to be raised in the next release:
 
           * Linux kernel >= 5.10 (recommended >= 5.14),
           * glibc >= 2.34,
