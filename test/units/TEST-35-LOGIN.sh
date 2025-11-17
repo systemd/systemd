@@ -674,7 +674,7 @@ testcase_ambient_caps() {
     TRANSIENTUNIT="capwakealarm$RANDOM.service"
     SCRIPT="/tmp/capwakealarm$RANDOM.sh"
 
-    cat > /etc/pam.d/"$PAMSERVICE" <<EOF
+    cat >/etc/pam.d/"$PAMSERVICE" <<EOF
 auth sufficient    pam_unix.so
 auth required      pam_deny.so
 account sufficient pam_unix.so
@@ -725,7 +725,7 @@ testcase_background() {
 
     trap background_at_return RETURN
 
-    cat > /etc/pam.d/"$PAMSERVICE" <<EOF
+    cat >/etc/pam.d/"$PAMSERVICE" <<EOF
 auth sufficient    pam_unix.so
 auth required      pam_deny.so
 account sufficient pam_unix.so

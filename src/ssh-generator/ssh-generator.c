@@ -85,7 +85,7 @@ static int make_sshd_template_unit(
         assert(sshd_binary);
         assert(generated_sshd_template_unit);
 
-        /* If the system has a suitable template already, symlink it to the name we want to reuse it */
+        /* If the system has a suitable template already, symlink it under the name we want to use */
         if (found_sshd_template_service)
                 return generator_add_symlink(
                                 dest,
@@ -96,10 +96,11 @@ static int make_sshd_template_unit(
         if (!*generated_sshd_template_unit) {
                 _cleanup_fclose_ FILE *f = NULL;
 
+                /* We use a generic name for the unit, since we'll use it for both AF_UNIX and AF_VSOCK  */
                 r = generator_open_unit_file_full(
                                 dest,
                                 /* source= */ NULL,
-                                "sshd-generated@.service", /* Give this generated unit a generic name, since we want to use it for both AF_UNIX and AF_VSOCK */
+                                "sshd-generated@.service",
                                 &f,
                                 generated_sshd_template_unit,
                                 /* ret_temp_path= */ NULL);

@@ -19,10 +19,10 @@ at_exit() {
 trap at_exit EXIT
 
 mkdir -p /run/credstore
-cat > /run/credstore/udev.conf.50-testme <<EOF
+cat >/run/credstore/udev.conf.50-testme <<EOF
 udev_log=debug
 EOF
-cat > /run/credstore/udev.rules.50-testme <<EOF
+cat >/run/credstore/udev.rules.50-testme <<EOF
 SUBSYSTEM=="net", OPTIONS="log_level=debug"
 EOF
 

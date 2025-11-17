@@ -916,7 +916,7 @@ systemd-dissect --list /tmp/img >/dev/null
 read -r SHA256SUM1 _ < <(systemd-dissect --copy-from /tmp/img etc/os-release | sha256sum)
 test "$SHA256SUM1" != ""
 
-echo abc > abc
+echo abc >abc
 systemd-dissect --copy-to /tmp/img abc /abc
 test -f /tmp/img/abc
 
