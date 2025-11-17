@@ -1028,7 +1028,6 @@ threads = dependency('threads')
 librt = cc.find_library('rt')
 libm = cc.find_library('m')
 libdl = cc.find_library('dl')
-libutmps = dependency('libutmps', required : false)
 
 # On some distributions that use musl (e.g. Alpine), libintl.h may be provided by gettext rather than musl.
 # In that case, we need to explicitly link with libintl.so.
@@ -1688,7 +1687,7 @@ foreach tuple : [
                 ['timesyncd'],
                 ['tmpfiles'],
                 ['tpm'],
-                ['utmp'],
+                ['utmp',            get_option('libc') != 'musl',     'musl does not support it'],
                 ['userdb'],
                 ['vconsole'],
                 ['xdg-autostart'],
