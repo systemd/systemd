@@ -1687,7 +1687,7 @@ foreach tuple : [
                 ['timesyncd'],
                 ['tmpfiles'],
                 ['tpm'],
-                ['utmp'],
+                ['utmp',            get_option('libc') != 'musl',     'musl does not support it'],
                 ['userdb'],
                 ['vconsole'],
                 ['xdg-autostart'],
