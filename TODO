@@ -221,6 +221,24 @@ Features:
 
 * nspawn: map foreign UID range through 1:1
 
+* a small tool that can do basic btrfs raid policy mgmt. i.e. gets started as
+  part of the initial transaction for some btrfs raid fs, waits for some time,
+  then puts message on screen (plymouth, console) that some devices apparently
+  are not showing up, then counts down, eventually set a flag somewhere, and
+  retriggers the fs is was invoked for, which causes the udev rules to rerun
+  that assemble the btrfs raid, but this time force degraded assembly.
+
+* systemd-repart: make useful to duplicate current OS onto a second disk, so
+  that we can sanely copy ESP contents, /usr/ images, and then set up btrfs
+  raid for the root fs to extend/mirror the existing install. This would be
+  very similar to the concept of live-install-through-btrfs-migration.
+
+* introduce /etc/boottab or so which lists block devices that bootctl +
+  kernel-install shall update the ESPs on (and register in EFI BootXYZ
+  variables), in addition to whatever is currently the booted /usr/.
+  systemd-sysupdate should also take it into consideration and update the
+  /usr/ images on all listed devices.
+
 * replace all uses of fopen_temporary() by fopen_tmpfile_linkable() +
   flink_tmpfile() and then get rid of fopen_temporary(). Benefit: use O_TMPFILE
   pervasively, and avoid rename() wherever we can.
