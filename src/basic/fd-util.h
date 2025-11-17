@@ -152,6 +152,7 @@ int fd_reopen_condition(int fd, int flags, int mask, int *ret_new_fd);
 
 int fd_is_opath(int fd);
 int fd_vet_accmode(int fd, int mode);
+int fd_is_writable(int fd);
 
 int fd_verify_safe_flags_full(int fd, int extra_flags);
 static inline int fd_verify_safe_flags(int fd) {
