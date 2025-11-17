@@ -5,12 +5,14 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "argv-util.h"
 #include "dns-answer.h"
 #include "dns-domain.h"
 #include "dns-packet.h"
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -214,17 +216,14 @@ int manager_varlink_init_resolve_hook(Manager *m, int fd) {
         if (m->varlink_resolve_hook_server)
                 return 0;
 
-        r = getenv_bool("SYSTEMD_NETWORK_RESOLVE_HOOK");
-        if (r < 0 && r != -ENXIO)
-                log_warning_errno(r, "Failed to parse $SYSTEMD_NETWORK_RESOLVE_HOOK, ignoring: %m");
-        if (r == 0) {
-                log_notice("Resolve hook disabled via $SYSTEMD_NETWORK_RESOLVE_HOOK.");
+        if (fd < 0 && invoked_by_systemd()) {
+                log_debug("systemd-networkd-resolve-hook.socket seems to be disabled, not installing varlink server.");
                 return 0;
         }
 
         r = varlink_server_new(&s, SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to allocate varlink server object: %m");
+                return log_error_errno(r, "Failed to allocate varlink server: %m");
 
         (void) sd_varlink_server_set_description(s, "varlink-resolve-hook");
 
@@ -243,12 +242,17 @@ int manager_varlink_init_resolve_hook(Manager *m, int fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind on resolve hook disconnection events: %m");
 
-        if (fd < 0)
-                r = sd_varlink_server_listen_address(s, "/run/systemd/resolve.hook/io.systemd.Network", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
-        else
+        if (fd < 0) {
+                r = sd_varlink_server_listen_address(s, "/run/systemd/resolve.hook/io.systemd.Network",
+                                                     0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                        log_info_errno(r, "Failed to bind to systemd-resolved hook varlink socket, ignoring: %m");
+                        return 0;
+                }
+        } else
                 r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to systemd-resolved hook Varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to systemd-resolved hook varlink socket: %m");
 
         TAKE_FD(fd_close);
 
