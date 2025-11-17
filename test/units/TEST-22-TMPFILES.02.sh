@@ -139,7 +139,7 @@ test "$(stat -c %U:%G:%a /tmp/C/3/f1)" = "root:root:644"
 test ! -e /tmp/C/4
 
 touch /tmp/C/3-origin/f{2,3,4}
-echo -n ABC > /tmp/C/3/f1
+echo -n ABC >/tmp/C/3/f1
 
 systemd-tmpfiles --create - <<EOF
 C+     /tmp/C/3    0755 daemon daemon - /tmp/C/3-origin

@@ -136,8 +136,9 @@ static const BindMount bind_log_sockets_table[] = {
         { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .nosuid = true, .noexec = true, .nodev = true, .ignore_enoent = true },
 };
 
-/* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
- * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
+/* If MountAPIVFS= is used, let's mount /proc/, /dev/, /sys/, and /run/, but only as a fallback if the user
+ * hasn't mounted something already. These mounts are hence overridden by any other explicitly configured
+ * mounts. */
 static const MountEntry apivfs_table[] = {
         { "/proc",               MOUNT_PROCFS,       false },
         { "/dev",                MOUNT_BIND_DEV,     false },
@@ -191,8 +192,8 @@ static const MountEntry protect_kernel_logs_dev_table[] = {
 };
 
 /*
- * ProtectHome=read-only table, protect $HOME and $XDG_RUNTIME_DIR and rest of
- * system should be protected by ProtectSystem=
+ * ProtectHome=read-only. Protect $HOME and $XDG_RUNTIME_DIR and rest of
+ * system should be protected by ProtectSystem=.
  */
 static const MountEntry protect_home_read_only_table[] = {
         { "/home",               MOUNT_READ_ONLY,     true  },
@@ -200,37 +201,37 @@ static const MountEntry protect_home_read_only_table[] = {
         { "/root",               MOUNT_READ_ONLY,     true  },
 };
 
-/* ProtectHome=tmpfs table */
+/* ProtectHome=tmpfs */
 static const MountEntry protect_home_tmpfs_table[] = {
         { "/home",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
         { "/run/user",           MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
         { "/root",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0700" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
 };
 
-/* ProtectHome=yes table */
+/* ProtectHome=yes */
 static const MountEntry protect_home_yes_table[] = {
         { "/home",               MOUNT_INACCESSIBLE, true  },
         { "/run/user",           MOUNT_INACCESSIBLE, true  },
         { "/root",               MOUNT_INACCESSIBLE, true  },
 };
 
-/* ProtectControlGroups=yes table */
+/* ProtectControlGroups=yes */
 static const MountEntry protect_control_groups_yes_table[] = {
         { "/sys/fs/cgroup",      MOUNT_READ_ONLY,         false  },
 };
 
-/* ProtectControlGroups=private table. Note mount_private_apivfs() always use MS_NOSUID|MS_NOEXEC|MS_NODEV so
- * flags is not set here. */
+/* ProtectControlGroups=private. Note mount_private_apivfs() always use MS_NOSUID|MS_NOEXEC|MS_NODEV so
+ * flags are not set here. */
 static const MountEntry protect_control_groups_private_table[] = {
         { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = false },
 };
 
-/* ProtectControlGroups=strict table */
+/* ProtectControlGroups=strict */
 static const MountEntry protect_control_groups_strict_table[] = {
         { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = true },
 };
 
-/* ProtectSystem=yes table */
+/* ProtectSystem=yes */
 static const MountEntry protect_system_yes_table[] = {
         { "/usr",                MOUNT_READ_ONLY,     false },
         { "/boot",               MOUNT_READ_ONLY,     true  },
@@ -245,9 +246,9 @@ static const MountEntry protect_system_full_table[] = {
         { "/etc",                MOUNT_READ_ONLY,     false },
 };
 
-/* ProtectSystem=strict table. In this strict mode, we mount everything read-only, except for /proc, /dev,
- * /sys which are the kernel API VFS, which are left writable, but PrivateDevices= + ProtectKernelTunables=
- * protect those, and these options should be fully orthogonal.  (And of course /home and friends are also
+/* ProtectSystem=strict. In this strict mode, we mount everything read-only, except for /proc, /dev, and
+ * /sys which are the kernel API VFS and left writable. PrivateDevices= + ProtectKernelTunables=
+ * protect those, and these options should be fully orthogonal. (And of course /home and friends are also
  * left writable, as ProtectHome= shall manage those, orthogonally).
  */
 static const MountEntry protect_system_strict_table[] = {
@@ -260,7 +261,7 @@ static const MountEntry protect_system_strict_table[] = {
         { "/root",               MOUNT_READ_WRITE_IMPLICIT, true  },      /* ProtectHome= */
 };
 
-/* ProtectHostname=yes able */
+/* ProtectHostname=yes */
 static const MountEntry protect_hostname_yes_table[] = {
         { "/proc/sys/kernel/hostname",   MOUNT_READ_ONLY, false },
         { "/proc/sys/kernel/domainname", MOUNT_READ_ONLY, false },
@@ -1839,7 +1840,7 @@ static int apply_one_mount(
                         return 0;
                 }
 
-                log_debug_errno(r, "Failed to mount new bpffs instance, fallback to making %s read-only, ignoring: %m", mount_entry_path(m));
+                log_debug_errno(r, "Failed to mount new bpffs instance at %s, will make read-only, ignoring: %m", mount_entry_path(m));
                 m->mode = MOUNT_READ_ONLY;
                 m->ignore = true;
         }

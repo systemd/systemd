@@ -22,7 +22,10 @@ External:
 
 * fedora: update policy to declare access mode and ownership of unit files to root:root 0644, and add an rpmlint check for it
 
-* zsh shell completion:
+* missing shell completions:
+  - systemd-hwdb
+
+* zsh shell completions:
   - <command> <verb> -<TAB> should complete options, but currently does not
   - systemctl add-wants,add-requires
   - systemctl reboot --boot-loader-entry=
@@ -777,6 +780,11 @@ Features:
 
 * credentials: add a flag to the scoped credentials that if set require PK
   reauthentication when unlocking a secret.
+
+* credentials: rework docs. The list in
+  https://systemd.io/CREDENTIALS/#well-known-credentials is very stale.
+  Document credentials in individual man pages, generate list as in
+  systemd.directives.
 
 * extend the smbios11 logic for passing credentials so that instead of passing
   the credential data literally it can also just reference an AF_VSOCK CID/port

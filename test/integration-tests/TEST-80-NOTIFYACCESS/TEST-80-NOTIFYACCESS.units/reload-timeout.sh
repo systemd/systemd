@@ -17,7 +17,7 @@ wait_for_signal() {
 }
 
 sighup_handler() {
-    echo "hup$(( ++COUNTER ))" > /tmp/syncfifo1
+    echo "hup$(( ++COUNTER ))" >/tmp/syncfifo1
 }
 
 trap sighup_handler SIGHUP

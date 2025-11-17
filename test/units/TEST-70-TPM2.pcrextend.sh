@@ -92,7 +92,7 @@ RECORD_COUNT=$((RECORD_COUNT + 1))
 tpm2_pcrread sha256:11 -Q -o /tmp/oldpcr11
 # Do the equivalent of 'SYSTEMD_FORCE_MEASURE=1 "$SD_PCREXTEND" foobar' via Varlink, just to test the Varlink logic (but first we need to patch out the conditionalization...)
 mkdir -p /run/systemd/system/systemd-pcrextend.socket.d
-cat > /run/systemd/system/systemd-pcrextend.socket.d/50-no-condition.conf <<EOF
+cat >/run/systemd/system/systemd-pcrextend.socket.d/50-no-condition.conf <<EOF
 [Unit]
 # Turn off all conditions */
 ConditionSecurity=
