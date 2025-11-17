@@ -223,3 +223,5 @@ const char* job_type_to_access_method(JobType t);
 int job_compare(Job *a, Job *b, UnitDependencyAtom assume_dep);
 
 void job_set_activation_details(Job *j, ActivationDetails *info);
+
+int unit_queue_job_check_and_fix_type(Unit *u, JobType *type, JobMode mode, bool reload_if_possible);
