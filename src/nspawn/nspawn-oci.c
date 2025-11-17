@@ -139,32 +139,6 @@ static int oci_console_size(const char *name, sd_json_variant *v, sd_json_dispat
         return oci_dispatch(v, table, flags, s);
 }
 
-static int oci_env(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
-        char ***l = ASSERT_PTR(userdata);
-        sd_json_variant *e;
-        int r;
-
-        JSON_VARIANT_ARRAY_FOREACH(e, v) {
-                const char *n;
-
-                if (!sd_json_variant_is_string(e))
-                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Environment array contains non-string.");
-
-                assert_se(n = sd_json_variant_string(e));
-
-                if (!env_assignment_is_valid(n))
-                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Environment assignment not valid: %s", n);
-
-                r = strv_extend(l, n);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        return 0;
-}
-
 static int oci_args(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
         char ***value = ASSERT_PTR(userdata);
@@ -387,18 +361,18 @@ static int oci_user(const char *name, sd_json_variant *v, sd_json_dispatch_flags
 static int oci_process(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field table[] = {
-                { "terminal",        SD_JSON_VARIANT_BOOLEAN, oci_terminal,              0,                                     0                  },
-                { "consoleSize",     SD_JSON_VARIANT_OBJECT,  oci_console_size,          0,                                     0                  },
-                { "cwd",             SD_JSON_VARIANT_STRING,  json_dispatch_path,        offsetof(Settings, working_directory), 0                  },
-                { "env",             SD_JSON_VARIANT_ARRAY,   oci_env,                   offsetof(Settings, environment),       0                  },
-                { "args",            SD_JSON_VARIANT_ARRAY,   oci_args,                  offsetof(Settings, parameters),        0                  },
-                { "rlimits",         SD_JSON_VARIANT_ARRAY,   oci_rlimits,               0,                                     0                  },
-                { "apparmorProfile", SD_JSON_VARIANT_STRING,  oci_unsupported,           0,                                     SD_JSON_PERMISSIVE },
-                { "capabilities",    SD_JSON_VARIANT_OBJECT,  oci_capabilities,          0,                                     0                  },
-                { "noNewPrivileges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Settings, no_new_privileges), 0                  },
-                { "oomScoreAdj",     SD_JSON_VARIANT_INTEGER, oci_oom_score_adj,         0,                                     0                  },
-                { "selinuxLabel",    SD_JSON_VARIANT_STRING,  oci_unsupported,           0,                                     SD_JSON_PERMISSIVE },
-                { "user",            SD_JSON_VARIANT_OBJECT,  oci_user,                  0,                                     0                  },
+                { "terminal",        SD_JSON_VARIANT_BOOLEAN, oci_terminal,                   0,                                     0                  },
+                { "consoleSize",     SD_JSON_VARIANT_OBJECT,  oci_console_size,               0,                                     0                  },
+                { "cwd",             SD_JSON_VARIANT_STRING,  json_dispatch_path,             offsetof(Settings, working_directory), 0                  },
+                { "env",             SD_JSON_VARIANT_ARRAY,   json_dispatch_strv_environment, offsetof(Settings, environment),       0                  },
+                { "args",            SD_JSON_VARIANT_ARRAY,   oci_args,                       offsetof(Settings, parameters),        0                  },
+                { "rlimits",         SD_JSON_VARIANT_ARRAY,   oci_rlimits,                    0,                                     0                  },
+                { "apparmorProfile", SD_JSON_VARIANT_STRING,  oci_unsupported,                0,                                     SD_JSON_PERMISSIVE },
+                { "capabilities",    SD_JSON_VARIANT_OBJECT,  oci_capabilities,               0,                                     0                  },
+                { "noNewPrivileges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,      offsetof(Settings, no_new_privileges), 0                  },
+                { "oomScoreAdj",     SD_JSON_VARIANT_INTEGER, oci_oom_score_adj,              0,                                     0                  },
+                { "selinuxLabel",    SD_JSON_VARIANT_STRING,  oci_unsupported,                0,                                     SD_JSON_PERMISSIVE },
+                { "user",            SD_JSON_VARIANT_OBJECT,  oci_user,                       0,                                     0                  },
                 {}
         };
 
@@ -2010,10 +1984,10 @@ static int oci_hooks_array(const char *name, sd_json_variant *v, sd_json_dispatc
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
 
                 static const sd_json_dispatch_field table[] = {
-                        { "path",    SD_JSON_VARIANT_STRING,   json_dispatch_path, offsetof(OciHook, path),    SD_JSON_MANDATORY },
-                        { "args",    SD_JSON_VARIANT_ARRAY,    oci_args,           offsetof(OciHook, args),    0,                },
-                        { "env",     SD_JSON_VARIANT_ARRAY,    oci_env,            offsetof(OciHook, env),     0                 },
-                        { "timeout", SD_JSON_VARIANT_UNSIGNED, oci_hook_timeout,   offsetof(OciHook, timeout), 0                 },
+                        { "path",    SD_JSON_VARIANT_STRING,   json_dispatch_path,             offsetof(OciHook, path),    SD_JSON_MANDATORY },
+                        { "args",    SD_JSON_VARIANT_ARRAY,    oci_args,                       offsetof(OciHook, args),    0,                },
+                        { "env",     SD_JSON_VARIANT_ARRAY,    json_dispatch_strv_environment, offsetof(OciHook, env),     0                 },
+                        { "timeout", SD_JSON_VARIANT_UNSIGNED, oci_hook_timeout,               offsetof(OciHook, timeout), 0                 },
                         {}
                 };
 
