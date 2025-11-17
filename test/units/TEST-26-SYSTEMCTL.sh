@@ -376,6 +376,14 @@ systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
 systemctl reload-or-restart --marked
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
 
+# again, but with varlinkctl instead
+systemctl restart "$UNIT_NAME"
+systemctl set-property "$UNIT_NAME" Markers=needs-restart
+systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.EnqueueMarkedJobs '{}'
+timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/dev/null; do sleep 1; done"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
+
 # --dry-run with destructive verbs
 # kexec is skipped intentionally, as it requires a bit more involved setup
 VERBS=(
