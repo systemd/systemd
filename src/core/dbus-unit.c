@@ -993,6 +993,7 @@ const sd_bus_vtable bus_unit_vtable[] = {
         SD_BUS_PROPERTY("Refs", "as", property_get_refs, 0, 0),
         SD_BUS_PROPERTY("ActivationDetails", "a(ss)", bus_property_get_activation_details, offsetof(Unit, activation_details), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("DebugInvocation", "b", bus_property_get_bool, offsetof(Unit, debug_invocation), 0),
+        SD_BUS_PROPERTY("DebugWait", "b", bus_property_get_bool, offsetof(Unit, debug_wait), 0),
 
         SD_BUS_METHOD_WITH_ARGS("Start",
                                 SD_BUS_ARGS("s", mode),
@@ -2117,6 +2118,24 @@ static int bus_unit_set_live_property(
 
         /* Handles setting properties both "live" (i.e. at any time during runtime), and during creation (for
          * transient units that are being created). */
+
+        if (streq(name, "DebugWait")) {
+                int d;
+
+                r = sd_bus_message_read(message, "b", &d);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        r = unit_set_debug_wait(u, d);
+                        if (r < 0)
+                                return r;
+
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "DebugWait=%s", yes_no(d));
+                }
+
+                return 1;
+        }
 
         if (streq(name, "Description")) {
                 const char *d;

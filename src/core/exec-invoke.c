@@ -5055,6 +5055,14 @@ int exec_invoke(
 
         rename_process_from_path(command->path);
 
+        if (params->debug_wait) {
+                log_struct(LOG_NOTICE,
+                           LOG_MESSAGE("Process will now stop and wait until a debugger is attached."),
+                           LOG_MESSAGE_ID(SD_MESSAGE_UNIT_WAIT_TO_ATTACH_DEBUGGER_STR));
+
+                raise(SIGSTOP);
+        }
+
         if (context->std_input == EXEC_INPUT_SOCKET ||
             context->std_output == EXEC_OUTPUT_SOCKET ||
             context->std_error == EXEC_OUTPUT_SOCKET) {
