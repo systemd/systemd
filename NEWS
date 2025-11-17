@@ -90,15 +90,15 @@ CHANGES WITH 259 in spe:
 
         * Service manager job activation transactions now get a per-system
           unique 64bit numeric ID assigned. This ID is logged as additional log
-          fields for any log messages related to the transaction. Moreover, PID
-          1 will now keep track of transactions with ordering cycles and expose
+          fields for any log messages related to the transaction. Moreover, PID 1
+          will now keep track of transactions with ordering cycles and expose
           them in the TransactionsWithOrderingCycle D-Bus property, listed by
           their IDs.
 
         systemd-sysext/systemd-confext:
 
         * systemd-sysext and systemd-confext now support configuration files
-          /etc/systemd/systemd-sysext.conf /etc/systemd/systemd-confext.conf,
+          /etc/systemd/systemd-sysext.conf and /etc/systemd/systemd-confext.conf,
           which can be used to configure mutability or the image policy to
           apply to DDI images.
 
@@ -121,7 +121,7 @@ CHANGES WITH 259 in spe:
         * systemd-nspawn's .nspawn file gained support for a new NamespacePath=
           setting in the [Network] section which takes a path to a network
           namespace inode, and which ensures the container is run inside that
-          when booted. (This was previosuly only available via a command line
+          when booted. (This was previously only available via a command line
           switch.)
 
         * systemd-vmspawn gained two new switches
@@ -435,7 +435,7 @@ CHANGES WITH 259 in spe:
           capabilities or polkit policies having any effect on them.)
 
         * systemd-run gained support for --root-directory= to invoke the service
-          in the specified root directory. It also gained --same-root-dir (whith
+          in the specified root directory. It also gained --same-root-dir (with
           a short switch -R) for invoking the new service in the same root
           directory as the caller's. --same-root-dir has also been added to run0.
 
