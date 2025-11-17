@@ -64,11 +64,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NTS=</varname></term>
+        <listitem><para>A space-separated list of NTS (secure NTP) server host names or IP addresses.
+        <command>systemd-timesyncd</command> will contact all configured servers in turn, until one responds.
+        When the empty string is assigned, the list of NTS servers is reset, and
+        all prior assignments will have no effect. This setting defaults to an empty list.
+        If NTS servers have been configured, any other configured NTP servers (including per-interface NTP servers acquired
+        from <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+        will be ignored, with the exception of <varname>FallbackNTP=</varname> servers (see below).</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>FallbackNTP=</varname></term>
         <listitem><para>A space-separated list of NTP server host names or IP addresses to be used as the
         fallback NTP servers. Any per-interface NTP servers obtained from
         <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        take precedence over this setting, as do any servers set via <varname>NTP=</varname> above. This
+        take precedence over this setting, as do any servers set via <varname>NTP=</varname> and <varname>NTS=</varname> above. This
         setting is hence only relevant if no other NTP server information is known. When the empty string is
         assigned, the list of NTP servers is reset, and all prior assignments will have no effect. If this
         option is not given, a compiled-in list of NTP servers is used.</para>
@@ -131,6 +144,18 @@
         Defaults to 60 seconds.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>KeyExchangeTimeoutSec=</varname></term>
+        <listitem><para>The maximum amount of time to wait for establishing an initial secure connection with
+        an NTS server, which establishes the keys used to secure subsequent requests.</para>
+
+        <para>Takes a time interval value. The default unit is seconds, but other units may be specified, see
+        <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
+        Defaults to 32 seconds.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
     </variablelist>

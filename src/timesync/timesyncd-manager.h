@@ -7,6 +7,12 @@
 #include "timesyncd-forward.h"
 #include "timesyncd-ntp-message.h"
 
+#include "timesyncd-server.h"
+
+#if ENABLE_TIMESYNC_NTS
+#include "nts.h"
+#endif
+
 /*
  * "A client MUST NOT under any conditions use a poll interval less
  * than 15 seconds."
@@ -21,6 +27,8 @@
 
 #define DEFAULT_SAVE_TIME_INTERVAL_USEC (60 * USEC_PER_SEC)
 
+#define MAX_NTS_AEAD_KEY_LEN            64
+
 typedef struct Manager {
         sd_bus *bus;
         sd_event *event;
@@ -30,6 +38,7 @@ typedef struct Manager {
         LIST_HEAD(ServerName, link_servers);
         LIST_HEAD(ServerName, runtime_servers);
         LIST_HEAD(ServerName, fallback_servers);
+        LIST_HEAD(ServerName, nts_ke_servers);
 
         RateLimit ratelimit;
         bool exhausted_servers;
@@ -50,13 +59,46 @@ typedef struct Manager {
         sd_event_source *event_timeout;
         bool talking;
 
+#if ENABLE_TIMESYNC_NTS
+        /* nts ke */
+        struct NTS_Cookie nts_cookies[8];
+        struct {
+                uint8_t s2c[MAX_NTS_AEAD_KEY_LEN];
+                uint8_t c2s[MAX_NTS_AEAD_KEY_LEN];
+        } nts_keys;
+        struct NTS_AEADParam nts_aead;
+        unsigned nts_missing_cookies;
+        sd_event_source *nts_timeout;
+
+        /* data needed for the handshake part only */
+        NTS_TLS *nts_handshake;
+        uint8_t nts_packet_buffer[1024];
+        int nts_request_size;
+        int nts_bytes_processed;
+
+        enum {
+                NTS_HANDSHAKE_SETUP,
+                NTS_HANDSHAKE_TLS,
+                NTS_HANDSHAKE_TX,
+                NTS_HANDSHAKE_RX,
+                _NTS_HANDSHAKE_STATE_MAX,
+                _NTS_HANDSHAKE_STATE_INVALID = -EINVAL,
+        } nts_handshake_state;
+#endif
+        usec_t nts_keyexchange_timeout_usec;
+
         /* PolicyKit */
         Hashmap *polkit_registry;
 
         /* last sent packet */
         struct timespec trans_time_mon;
         struct timespec trans_time;
-        struct ntp_ts request_nonce;
+        union {
+                /* we use either the transit time (NTP) a unique identifier (NTS)
+                 * as a nonce, but not both */
+                struct ntp_ts request_nonce;
+                uint8_t nts_identifier[32];
+        };
         usec_t retry_interval;
         usec_t connection_retry_usec;
         bool pending;
