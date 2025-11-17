@@ -41,10 +41,10 @@ option('static-libudev', type : 'combo',
 option('standalone-binaries', type : 'boolean', value : false,
        description : 'also build standalone versions of supported binaries')
 
-option('sysvinit-path', type : 'string', value : '/etc/init.d',
-       description : 'the directory where the SysV init scripts are located')
-option('sysvrcnd-path', type : 'string', value : '/etc/rc.d',
-       description : 'the base directory for SysV rcN.d directories')
+option('sysvinit-path', type : 'string', value : '/etc/init.d', deprecated : true,
+       description : 'This option is deprecated and will be removed in a future release')
+option('sysvrcnd-path', type : 'string', value : '/etc/rc.d', deprecated : true,
+       description : 'This option is deprecated and will be removed in a future release')
 option('rc-local', type : 'string', value : '/etc/rc.local',
        description : 'path to SysV rc.local script')
 option('initrd', type : 'boolean',
