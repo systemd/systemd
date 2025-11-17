@@ -3988,17 +3988,17 @@ static int context_dump_partitions(Context *context) {
                 return 0;
         }
 
-        t = table_new("type",
+        t = table_new("type",         /* 0 */
                       "label",
                       "uuid",
-                      "partno",
+                      "part",
                       "file",
                       "node",
                       "offset",
                       "old size",
                       "raw size",
                       "size",
-                      "old padding",
+                      "old padding",  /* 10 */
                       "raw padding",
                       "padding",
                       "activity",
@@ -4007,6 +4007,9 @@ static int context_dump_partitions(Context *context) {
                       "split path");
         if (!t)
                 return log_oom();
+
+        /* For compatiblity, use the original longer name for JSON output. */
+        table_set_json_field_name(t, 3, "partno");
 
         /* Starting in v257, these fields would be automatically formatted with underscores. This would have
          * been a breaking change, so to avoid that let's hard-code their original names. */
@@ -4024,13 +4027,13 @@ static int context_dump_partitions(Context *context) {
                                                     split_path_col);
         }
 
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 5), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 3), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 6), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 7), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 8), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 9), 100);
-        (void) table_set_align_percent(t, table_get_cell(t, 0, 10), 100);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 11), 100);
+        (void) table_set_align_percent(t, table_get_cell(t, 0, 12), 100);
 
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_free_ char *size_change = NULL, *padding_change = NULL, *partname = NULL, *rh = NULL;
