@@ -2607,9 +2607,9 @@ static void unit_emit_audit_stop(Unit *u, UnitActiveState state) {
 
 static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
         bool unexpected = false;
-        JobResult result;
 
         assert(j);
+        assert(j->installed);
 
         if (j->state == JOB_WAITING)
                 /* So we reached a different state for this job. Let's see if we can run it now if it failed previously
@@ -2625,34 +2625,24 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
         case JOB_VERIFY_ACTIVE:
 
                 if (UNIT_IS_ACTIVE_OR_RELOADING(ns))
-                        job_finish_and_invalidate(j, JOB_DONE, true, false);
+                        job_finish_and_invalidate(j, JOB_DONE, /* recursive = */ true, /* already = */ false);
                 else if (j->state == JOB_RUNNING && ns != UNIT_ACTIVATING) {
                         unexpected = true;
 
-                        if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
-                                if (ns == UNIT_FAILED)
-                                        result = JOB_FAILED;
-                                else
-                                        result = JOB_DONE;
-
-                                job_finish_and_invalidate(j, result, true, false);
-                        }
+                        if (UNIT_IS_INACTIVE_OR_FAILED(ns))
+                                job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, /* recursive = */ true, /* already = */ false);
                 }
 
                 break;
 
         case JOB_RELOAD:
-        case JOB_RELOAD_OR_START:
-        case JOB_TRY_RELOAD:
 
                 if (j->state == JOB_RUNNING) {
                         if (ns == UNIT_ACTIVE)
-                                job_finish_and_invalidate(j, reload_success ? JOB_DONE : JOB_FAILED, true, false);
+                                job_finish_and_invalidate(j, reload_success ? JOB_DONE : JOB_FAILED, /* recursive = */ true, /* already = */ false);
                         else if (!IN_SET(ns, UNIT_ACTIVATING, UNIT_RELOADING, UNIT_REFRESHING)) {
                                 unexpected = true;
-
-                                if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                                        job_finish_and_invalidate(j, ns == UNIT_FAILED ? JOB_FAILED : JOB_DONE, true, false);
+                                job_finish_and_invalidate(j, reload_success ? JOB_CANCELED : JOB_FAILED, /* recursive = */ true, /* already = */ false);
                         }
                 }
 
@@ -2660,13 +2650,12 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
 
         case JOB_STOP:
         case JOB_RESTART:
-        case JOB_TRY_RESTART:
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
-                        job_finish_and_invalidate(j, JOB_DONE, true, false);
+                        job_finish_and_invalidate(j, JOB_DONE, /* recursive = */ true, /* already = */ false);
                 else if (j->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                         unexpected = true;
-                        job_finish_and_invalidate(j, JOB_FAILED, true, false);
+                        job_finish_and_invalidate(j, JOB_FAILED, /* recursive = */ true, /* already = */ false);
                 }
 
                 break;
