@@ -181,7 +181,7 @@ CHANGES WITH 259 in spe:
           in-memory partition objects loaded into the kernel and then recreates
           them as new objects. Instead they will use the BLKPG ioctl() to make
           minimal changes, and individually add, remove, or grow modified
-          partitions, avoiding removal/readding where the partitions were left
+          partitions, avoiding removal/re-adding where the partitions were left
           unmodified on disk. This should greatly improve behaviour on systems
           that make modifications to partition tables on disk while using them.
 
