@@ -69,7 +69,7 @@
         <command>systemd-timesyncd</command> will contact all configured servers in turn, until one responds.
         When the empty string is assigned, the list of NTS servers is reset, and
         all prior assignments will have no effect. This setting defaults to an empty list.
-        If NTS severs have been configured, any other configured NTP servers (including per-interface NTP servers acquired
+        If NTS servers have been configured, any other configured NTP servers (including per-interface NTP servers acquired
         from <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
         will be ignored, with the exception of <varname>FallbackNTP=</varname> servers (see below).</para>
 
