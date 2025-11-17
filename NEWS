@@ -4,14 +4,6 @@ CHANGES WITH 259 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
-        * The parsing of RootImageOptions= and the mount image parameters of
-          ExtensionImages= and MountImages= will be changed in the next version
-          so that the last duplicated definition for a given partition wins and
-          is applied, rather than the first, to keep these options coherent with
-          other unit settings.
-
-        Feature Removals and Incompatible Changes:
-
         * Support for System V service scripts is deprecated and will be
           removed in v260. Please make sure to update your software *now* to
           include a native systemd unit file instead of a legacy System V
@@ -36,6 +28,14 @@ CHANGES WITH 259 in spe:
           * python >= 3.9.0.
 
           Please provide feedback on systemd-devel if this would cause problems.
+
+        * The parsing of RootImageOptions= and the mount image parameters of
+          ExtensionImages= and MountImages= will be changed in the next version
+          so that the last duplicated definition for a given partition wins and
+          is applied, rather than the first, to keep these options coherent with
+          other unit settings.
+
+        Feature Removals and Incompatible Changes:
 
         * The cgroup2 file system is now mounted with the
           "memory_hugetlb_accounting" mount option, supported since kernel 6.6.
