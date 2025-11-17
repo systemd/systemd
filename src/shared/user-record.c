@@ -2041,7 +2041,7 @@ uint64_t user_record_luks_sector_size(UserRecord *h) {
                 return 512;
 
         /* Allow up to 4K due to dm-crypt support and 4K alignment by the homed LUKS backend */
-        return CLAMP(UINT64_C(1) << (63 - __builtin_clzl(h->luks_sector_size)), 512U, 4096U);
+        return CLAMP(UINT64_C(1) << (63 - __builtin_clzll(h->luks_sector_size)), 512U, 4096U);
 }
 
 const char* user_record_luks_pbkdf_hash_algorithm(UserRecord *h) {
