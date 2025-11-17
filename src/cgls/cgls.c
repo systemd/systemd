@@ -187,11 +187,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static void show_cg_info(const char *controller, const char *path) {
-
-        if (cg_all_unified() == 0 && controller && !streq(controller, SYSTEMD_CGROUP_CONTROLLER))
-                printf("Controller %s; ", controller);
-
+static void show_cg_info(const char *path) {
         printf("CGroup %s:\n", empty_to_root(path));
         fflush(stdout);
 }
@@ -248,7 +244,7 @@ static int run(int argc, char *argv[]) {
                                 printf("Unit %s (%s):\n", unit_name, cgroup);
                                 fflush(stdout);
 
-                                q = show_cgroup_by_path(cgroup, NULL, 0, arg_output_flags);
+                                q = show_cgroup(cgroup, NULL, 0, arg_output_flags);
 
                         } else if (path_startswith(*name, "/sys/fs/cgroup")) {
 
@@ -258,7 +254,7 @@ static int run(int argc, char *argv[]) {
                                 q = show_cgroup_by_path(*name, NULL, 0, arg_output_flags);
                         } else {
                                 _cleanup_free_ char *c = NULL, *p = NULL, *j = NULL;
-                                const char *controller, *path;
+                                const char *path;
 
                                 if (!root) {
                                         /* Query root only if needed, treat error as fatal */
@@ -273,7 +269,9 @@ static int run(int argc, char *argv[]) {
                                         goto failed;
                                 }
 
-                                controller = c ?: SYSTEMD_CGROUP_CONTROLLER;
+                                if (c && !streq(c, SYSTEMD_CGROUP_CONTROLLER))
+                                        log_warning("Legacy cgroup v1 controller '%s' was specified, ignoring.", c);
+
                                 if (p) {
                                         j = path_join(root, p);
                                         if (!j)
@@ -284,9 +282,9 @@ static int run(int argc, char *argv[]) {
                                 } else
                                         path = root;
 
-                                show_cg_info(controller, path);
+                                show_cg_info(path);
 
-                                q = show_cgroup(controller, path, NULL, 0, arg_output_flags);
+                                q = show_cgroup(path, NULL, 0, arg_output_flags);
                         }
 
                 failed:
@@ -320,10 +318,10 @@ static int run(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to list cgroup tree: %m");
 
-                        show_cg_info(SYSTEMD_CGROUP_CONTROLLER, root);
+                        show_cg_info(root);
 
                         printf("-.slice\n");
-                        r = show_cgroup(SYSTEMD_CGROUP_CONTROLLER, root, NULL, 0, arg_output_flags);
+                        r = show_cgroup(root, NULL, 0, arg_output_flags);
                 }
         }
         if (r < 0)
