@@ -123,6 +123,7 @@ last-lba: 2097118"
     tee "$defs/root.conf" <<EOF
 [Partition]
 Type=root
+Format=vfat
 EOF
 
     ln -s root.conf "$defs/root2.conf"
@@ -132,6 +133,7 @@ EOF
 Type=home
 Label=home-first
 Label=home-always-too-long-xxxxxxxxxxxxxx-%v
+Format=vfat
 EOF
 
     tee "$defs/swap.conf" <<EOF
@@ -341,13 +343,14 @@ $imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79
 
     tee "$defs/extra3.conf" <<EOF
 [Partition]
-Type=linux-generic
+Type=srv
 Label=luks-format-copy
 UUID=7b93d1f2-595d-4ce3-b0b9-837fbd9e63b0
 Format=ext4
 Encrypt=yes
 CopyFiles=$defs:/def
 SizeMinBytes=48M
+VolumeLabel=schrupfel
 EOF
 
     systemd-repart --offline="$OFFLINE" \
@@ -371,7 +374,7 @@ $imgs/zzz3 : start=     1185760, size=      591864, type=${root_guid}, uuid=${ro
 $imgs/zzz4 : start=     1777624, size=      131072, type=0657FD6D-A4AB-43C4-84E5-0933C84B4F4F, uuid=78C92DB8-3D2B-4823-B0DC-792B78F66F1E, name=\"swap\"
 $imgs/zzz5 : start=     1908696, size=     2285568, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=A0A1A2A3-A4A5-A6A7-A8A9-AAABACADAEAF, name=\"custom_label\"
 $imgs/zzz6 : start=     4194264, size=     2097152, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=2A1D97E1-D0A3-46CC-A26E-ADC643926617, name=\"block-copy\"
-$imgs/zzz7 : start=     6291416, size=      131072, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=7B93D1F2-595D-4CE3-B0B9-837FBD9E63B0, name=\"luks-format-copy\""
+$imgs/zzz7 : start=     6291416, size=      131072, type=3B8F8425-20E0-4F3B-907F-1A25A76F98E8, uuid=7B93D1F2-595D-4CE3-B0B9-837FBD9E63B0, name=\"luks-format-copy\", attrs=\"GUID:59\""
 
     if systemd-detect-virt --quiet --container; then
         echo "Skipping encrypt mount tests in container."
@@ -392,6 +395,11 @@ $imgs/zzz7 : start=     6291416, size=      131072, type=0FC63DAF-8483-4772-8E79
     losetup -d "$loop"
     diff -r "$imgs/mount/def" "$defs" >/dev/null
     umount "$imgs/mount"
+
+    # Validate that the VolumeLabel= had the desired effect
+    PASSWORD="" systemd-dissect "$imgs/zzz" -M "$imgs/mount"
+    udevadm info /dev/disk/by-label/schrupfel | grep -q ID_FS_TYPE=crypto_LUKS
+    systemd-dissect -U "$imgs/mount"
 }
 
 testcase_dropin() {
