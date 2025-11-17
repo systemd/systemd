@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-23 15:38+0100\n"
+"POT-Creation-Date: 2025-11-17 08:58+0000\n"
 "PO-Revision-Date: 2025-07-28 17:25+0000\n"
 "Last-Translator: Andika Triwidada <andika@gmail.com>\n"
 "Language-Team: Indonesian <https://translate.fedoraproject.org/projects/"
@@ -156,7 +156,7 @@ msgstr ""
 "Otentikasi diperlukan untuk mengelola kunci penandatanganan bagi direktori "
 "home."
 
-#: src/home/pam_systemd_home.c:336
+#: src/home/pam_systemd_home.c:334
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -165,29 +165,29 @@ msgstr ""
 "Home dari pengguna %s saat ini tidak ada, harap tancapkan perangkat "
 "penyimpanan yang diperlukan atau sistem berkas pendukung."
 
-#: src/home/pam_systemd_home.c:341
+#: src/home/pam_systemd_home.c:339
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "Percobaan log masuk terlalu sering bagi pengguna %s, coba lagi nanti."
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:351
 msgid "Password: "
 msgstr "Kata Sandi: "
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:353
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "Kata sandi salah atau tidak memadai bagi otentikasi dari pengguna %s."
 
-#: src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:354
 msgid "Sorry, try again: "
 msgstr "Maaf, coba lagi: "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:376
 msgid "Recovery key: "
 msgstr "Kunci pemulihan: "
 
-#: src/home/pam_systemd_home.c:380
+#: src/home/pam_systemd_home.c:378
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -196,20 +196,20 @@ msgstr ""
 "Kata sandi/kunci pemulihan salah atau tidak memadai untuk otentikasi "
 "pengguna %s."
 
-#: src/home/pam_systemd_home.c:381
+#: src/home/pam_systemd_home.c:379
 msgid "Sorry, reenter recovery key: "
 msgstr "Maaf, masukkan lagi kunci pemulihan: "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:399
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Token keamanan pengguna %s tidak ditancapkan."
 
-#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
+#: src/home/pam_systemd_home.c:400 src/home/pam_systemd_home.c:403
 msgid "Try again with password: "
 msgstr "Coba lagi dengan kata sandi: "
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:402
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -218,26 +218,26 @@ msgstr ""
 "Kata sandi salah atau tidak memadai, dan token keamanan yang terkonfigurasi "
 "dari pengguna %s tidak ditancapkan."
 
-#: src/home/pam_systemd_home.c:424
+#: src/home/pam_systemd_home.c:422
 msgid "Security token PIN: "
 msgstr "PIN token keamanan: "
 
-#: src/home/pam_systemd_home.c:441
+#: src/home/pam_systemd_home.c:439
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Harap otentikasikan secara fisik pada token keamanan dari pengguna %s."
 
-#: src/home/pam_systemd_home.c:452
+#: src/home/pam_systemd_home.c:450
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Harap konfirmasikan kehadiran pada token keamanan pengguna %s."
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:461
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Harap verifikasikan pengguna pada token keamanan dari pengguna %s."
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:470
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -245,81 +245,81 @@ msgstr ""
 "PIN token keamanan terkunci, harap buka dulu kuncinya. (Petunjuk: Mencabut "
 "dan menancapkan ulang mungkin sudah cukup)"
 
-#: src/home/pam_systemd_home.c:480
+#: src/home/pam_systemd_home.c:478
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "PIN token keamanan salah bagi pengguna %s."
 
-#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
-#: src/home/pam_systemd_home.c:519
+#: src/home/pam_systemd_home.c:479 src/home/pam_systemd_home.c:498
+#: src/home/pam_systemd_home.c:517
 msgid "Sorry, retry security token PIN: "
 msgstr "Maaf, coba lagi PIN token keamanan: "
 
-#: src/home/pam_systemd_home.c:499
+#: src/home/pam_systemd_home.c:497
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "PIN token keamanan dari pengguna %s salah (hanya beberapa percobaan tersisa!)"
 
-#: src/home/pam_systemd_home.c:518
+#: src/home/pam_systemd_home.c:516
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "PIN token keamanan dari pengguna %s salah (hanya satu percobaan tersisa!)"
 
-#: src/home/pam_systemd_home.c:685
+#: src/home/pam_systemd_home.c:683
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Home dari pengguna %s saat ini tidak aktif, harap log masuk secara lokal "
 "terlebih dahulu."
 
-#: src/home/pam_systemd_home.c:687
+#: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Home dari pengguna %s saat ini terkunci, harap buka kunci secara lokal "
 "terlebih dahulu."
 
-#: src/home/pam_systemd_home.c:719
+#: src/home/pam_systemd_home.c:717
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Terlalu banyak upaya log masuk yang gagal bagi pengguna %s, menolak."
 
-#: src/home/pam_systemd_home.c:1005
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is blocked, prohibiting access."
 msgstr "Rekaman pengguna terblokir, menolak akses."
 
-#: src/home/pam_systemd_home.c:1009
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Rekaman pengguna belum valid, menolak akses."
 
-#: src/home/pam_systemd_home.c:1013
+#: src/home/pam_systemd_home.c:1024
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Rekaman pengguna tidak valid lagi, menolak akses."
 
-#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
+#: src/home/pam_systemd_home.c:1029 src/home/pam_systemd_home.c:1078
 msgid "User record not valid, prohibiting access."
 msgstr "Rekaman pengguna tidak valid, menolak akses."
 
-#: src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:1039
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Terlalu banyak log masuk, coba lagi dalam %s."
 
-#: src/home/pam_systemd_home.c:1039
+#: src/home/pam_systemd_home.c:1050
 msgid "Password change required."
 msgstr "Perubahan kata sandi diperlukan."
 
-#: src/home/pam_systemd_home.c:1043
+#: src/home/pam_systemd_home.c:1054
 msgid "Password expired, change required."
 msgstr "Kata sandi kedaluwarsa, perubahan diperlukan."
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1060
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Kata sandi kedaluwarsa, tapi tidak bisa mengubah, menolak log masuk."
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1064
 msgid "Password will expire soon, please change."
 msgstr "Kata sandi akan segera kedaluwarsan, harap diubah."
 

@@ -11,7 +11,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-23 15:38+0100\n"
+"POT-Creation-Date: 2025-11-17 08:58+0000\n"
 "PO-Revision-Date: 2025-07-24 14:54+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
@@ -177,7 +177,7 @@ msgstr ""
 "Une authentification est requise pour gérer les clés de signature des "
 "répertoires personnels."
 
-#: src/home/pam_systemd_home.c:336
+#: src/home/pam_systemd_home.c:334
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -186,32 +186,32 @@ msgstr ""
 "L'espace personnel de %s est actuellement absent, veuillez connecter le "
 "périphérique ou le système de fichiers qui le contient."
 
-#: src/home/pam_systemd_home.c:341
+#: src/home/pam_systemd_home.c:339
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Trop de tentatives de connexion à l'utilisateur %s, réessayez plus tard."
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:351
 msgid "Password: "
 msgstr "Mot de passe : "
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:353
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Mot de passe incorrect ou insuffisant pour l'authentification de "
 "l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:354
 msgid "Sorry, try again: "
 msgstr "Désolé, réessayez : "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:376
 msgid "Recovery key: "
 msgstr "Clé de récupération : "
 
-#: src/home/pam_systemd_home.c:380
+#: src/home/pam_systemd_home.c:378
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -220,20 +220,20 @@ msgstr ""
 "Mot de passe ou clé de récupération incorrecte ou insuffisante pour "
 "l'authentification de l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:381
+#: src/home/pam_systemd_home.c:379
 msgid "Sorry, reenter recovery key: "
 msgstr "Désolé, saisissez à nouveau la clé de récupération : "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:399
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Clé de sécurité de l'utilisateur %s non insérée."
 
-#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
+#: src/home/pam_systemd_home.c:400 src/home/pam_systemd_home.c:403
 msgid "Try again with password: "
 msgstr "Réessayez avec un mot de passe : "
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:402
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -242,30 +242,30 @@ msgstr ""
 "Mot de passe incorrect ou insuffisant, et la clé de sécurité de "
 "l'utilisateur %s n'est pas insérée."
 
-#: src/home/pam_systemd_home.c:424
+#: src/home/pam_systemd_home.c:422
 msgid "Security token PIN: "
 msgstr "PIN de la clé de sécurité : "
 
-#: src/home/pam_systemd_home.c:441
+#: src/home/pam_systemd_home.c:439
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Veuillez vous authentifier physiquement à l'aide de la clé de sécurité de "
 "l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:452
+#: src/home/pam_systemd_home.c:450
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 "Veuillez confirmer votre présence sur la clé de sécurité de l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:461
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 "Veuillez confirmer l'utilisateur sur la clé de sécurité de l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:470
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -273,83 +273,83 @@ msgstr ""
 "Le PIN de la clé de sécurité est verrouillé, veuillez commencer par le "
 "déverrouiller. (Astuce : débrancher et rebrancher peut suffire.)"
 
-#: src/home/pam_systemd_home.c:480
+#: src/home/pam_systemd_home.c:478
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "PIN de la clé de sécurité incorrect pour l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
-#: src/home/pam_systemd_home.c:519
+#: src/home/pam_systemd_home.c:479 src/home/pam_systemd_home.c:498
+#: src/home/pam_systemd_home.c:517
 msgid "Sorry, retry security token PIN: "
 msgstr "Désolé, saisissez à nouveau le PIN de la clé de sécurité : "
 
-#: src/home/pam_systemd_home.c:499
+#: src/home/pam_systemd_home.c:497
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "PIN de la clé de sécurité de l'utilisateur %s incorrect (plus que quelques "
 "essais restants !)"
 
-#: src/home/pam_systemd_home.c:518
+#: src/home/pam_systemd_home.c:516
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "PIN de la clé de sécurité de l'utilisateur %s incorrect (plus qu'un essai "
 "restant !)"
 
-#: src/home/pam_systemd_home.c:685
+#: src/home/pam_systemd_home.c:683
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "L'espace personnel de l'utilisateur %s est actuellement inactif, veuillez "
 "vous connecter localement dans un premier temps."
 
-#: src/home/pam_systemd_home.c:687
+#: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "L'espace personnel de l'utilisateur %s est actuellement verrouillé, veuillez "
 "commencer par un déverrouillage local."
 
-#: src/home/pam_systemd_home.c:719
+#: src/home/pam_systemd_home.c:717
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Trop d'échecs de connexion pour l'utilisateur %s, refus."
 
-#: src/home/pam_systemd_home.c:1005
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is blocked, prohibiting access."
 msgstr "L'utilisateur est bloqué, accès refusé."
 
-#: src/home/pam_systemd_home.c:1009
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid yet, prohibiting access."
 msgstr "L'utilisateur n'est pas encore valide, accès refusé."
 
-#: src/home/pam_systemd_home.c:1013
+#: src/home/pam_systemd_home.c:1024
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "L'utilisateur n'est plus valide, accès refusé."
 
-#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
+#: src/home/pam_systemd_home.c:1029 src/home/pam_systemd_home.c:1078
 msgid "User record not valid, prohibiting access."
 msgstr "Utilisateur invalide, accès refusé."
 
-#: src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:1039
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Trop de tentatives de connexion, réessayez dans %s."
 
-#: src/home/pam_systemd_home.c:1039
+#: src/home/pam_systemd_home.c:1050
 msgid "Password change required."
 msgstr "Modification du mot de passe obligatoire."
 
-#: src/home/pam_systemd_home.c:1043
+#: src/home/pam_systemd_home.c:1054
 msgid "Password expired, change required."
 msgstr "Mot de passe expiré, modification obligatoire."
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1060
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Mot de passe expiré et impossible à modifier, connexion refusée."
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1064
 msgid "Password will expire soon, please change."
 msgstr "Le mot de passe va bientôt expirer, veuillez le modifier."
 

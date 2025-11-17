@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-23 15:38+0100\n"
+"POT-Creation-Date: 2025-11-17 08:58+0000\n"
 "PO-Revision-Date: 2025-07-25 00:08+0000\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
@@ -174,7 +174,7 @@ msgstr ""
 "Preverjanje pristnosti je potrebno za upravljanje podpisnih ključev za "
 "domače mape."
 
-#: src/home/pam_systemd_home.c:336
+#: src/home/pam_systemd_home.c:334
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -183,30 +183,30 @@ msgstr ""
 "Dom uporabnika %s je trenutno odsoten, priključite potrebno napravo za "
 "shranjevanje ali rezervni datotečni sistem."
 
-#: src/home/pam_systemd_home.c:341
+#: src/home/pam_systemd_home.c:339
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "Prepogosti poskusi prijave uporabnika/ce %s, poskusite znova pozneje."
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:351
 msgid "Password: "
 msgstr "Geslo: "
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:353
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Geslo ni pravilno ali ne zadostuje za preverjanje pristnosti uporabnika %s."
 
-#: src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:354
 msgid "Sorry, try again: "
 msgstr "Žal poskusite znova: "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:376
 msgid "Recovery key: "
 msgstr "Obnovitveni ključ: "
 
-#: src/home/pam_systemd_home.c:380
+#: src/home/pam_systemd_home.c:378
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -215,20 +215,20 @@ msgstr ""
 "Geslo/obnovitveni ključ je nepravilen ali ne zadostuje za preverjanje "
 "pristnosti uporabnika/ce %s."
 
-#: src/home/pam_systemd_home.c:381
+#: src/home/pam_systemd_home.c:379
 msgid "Sorry, reenter recovery key: "
 msgstr "Žal morate znova vnesti obnovitveni ključ: "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:399
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Varnostni žeton uporabnika %s ni vstavljen."
 
-#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
+#: src/home/pam_systemd_home.c:400 src/home/pam_systemd_home.c:403
 msgid "Try again with password: "
 msgstr "Poskusite znova z geslom: "
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:402
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -237,26 +237,26 @@ msgstr ""
 "Geslo ni pravilno ali zadostno in prilagojeni varnostni žeton uporabnika %s "
 "ni vstavljen."
 
-#: src/home/pam_systemd_home.c:424
+#: src/home/pam_systemd_home.c:422
 msgid "Security token PIN: "
 msgstr "PIN varnostnega žetona: "
 
-#: src/home/pam_systemd_home.c:441
+#: src/home/pam_systemd_home.c:439
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Fizično preverite pristnost na varnostnem žetonu uporabnika %s."
 
-#: src/home/pam_systemd_home.c:452
+#: src/home/pam_systemd_home.c:450
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Potrdite prisotnost na varnostnem žetonu uporabnika %s."
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:461
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Preverite uporabnika na varnostnem žetonu uporabnika %s."
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:470
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -264,78 +264,78 @@ msgstr ""
 "PIN varnostnega žetona je zaklenjen, najprej ga odklenite. (Namig: "
 "Odstranitev in vnovična vstavitev lahko zadostujeta.)"
 
-#: src/home/pam_systemd_home.c:480
+#: src/home/pam_systemd_home.c:478
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "PIN varnostnega žetona ni pravilen za uporabnika %s."
 
-#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
-#: src/home/pam_systemd_home.c:519
+#: src/home/pam_systemd_home.c:479 src/home/pam_systemd_home.c:498
+#: src/home/pam_systemd_home.c:517
 msgid "Sorry, retry security token PIN: "
 msgstr "Žal znova poskusite poskusiti s kodo PIN varnostnega žetona: "
 
-#: src/home/pam_systemd_home.c:499
+#: src/home/pam_systemd_home.c:497
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "PIN varnostnega žetona uporabnika %s je napačen (ostalo je le še nekaj "
 "poskusov!)"
 
-#: src/home/pam_systemd_home.c:518
+#: src/home/pam_systemd_home.c:516
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "PIN varnostnega žetona uporabnika %s napačen (le en poskus je ostal!)"
 
-#: src/home/pam_systemd_home.c:685
+#: src/home/pam_systemd_home.c:683
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "Dom uporabnika %s trenutno ni aktiven, najprej se prijavite krajevno."
 
-#: src/home/pam_systemd_home.c:687
+#: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "Dom uporabnika %s je trenutno zaklenjen, najprej odklenite krajevno."
 
-#: src/home/pam_systemd_home.c:719
+#: src/home/pam_systemd_home.c:717
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Preveč neuspešnih poskusov prijave za uporabnika %s, sledi zavrnitev."
 
-#: src/home/pam_systemd_home.c:1005
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is blocked, prohibiting access."
 msgstr "Zapis uporabnika je blokiran, kar prepoveduje dostop."
 
-#: src/home/pam_systemd_home.c:1009
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Zapis uporabnika še ni veljaven, kar prepoveduje dostop."
 
-#: src/home/pam_systemd_home.c:1013
+#: src/home/pam_systemd_home.c:1024
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Zapis uporabnika ni več veljaven, kar prepoveduje dostop."
 
-#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
+#: src/home/pam_systemd_home.c:1029 src/home/pam_systemd_home.c:1078
 msgid "User record not valid, prohibiting access."
 msgstr "Zapis uporabnika ni veljaven, kar prepoveduje dostop."
 
-#: src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:1039
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Preveč prijav, poskusite znova čez %s."
 
-#: src/home/pam_systemd_home.c:1039
+#: src/home/pam_systemd_home.c:1050
 msgid "Password change required."
 msgstr "Zahtevana je sprememba gesla."
 
-#: src/home/pam_systemd_home.c:1043
+#: src/home/pam_systemd_home.c:1054
 msgid "Password expired, change required."
 msgstr "Geslo je poteklo, potrebna je sprememba."
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1060
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Geslo je poteklo, vendar ga ni mogoče spremeniti; prijava bo zavrnjena."
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1064
 msgid "Password will expire soon, please change."
 msgstr "Geslo bo kmalu poteklo, spremenite ga."
 

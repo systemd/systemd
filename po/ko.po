@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-23 15:38+0100\n"
+"POT-Creation-Date: 2025-11-17 08:58+0000\n"
 "PO-Revision-Date: 2025-07-26 09:04+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
 "Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
@@ -149,7 +149,7 @@ msgstr "홈 디렉토리의 서명 키를 관리합니다"
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "홈 디렉토리를 위해 서명 키를 관리하려면 인증이 필요합니다."
 
-#: src/home/pam_systemd_home.c:336
+#: src/home/pam_systemd_home.c:334
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -158,30 +158,30 @@ msgstr ""
 "사용자 %s의 홈은 현재 비어 있으며, 필요한 저장 장치 또는 파일 시스템 백업에 "
 "연결하세요."
 
-#: src/home/pam_systemd_home.c:341
+#: src/home/pam_systemd_home.c:339
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "사용자 %s를 위해 너무나 많은 로그인 시도가 있었으며, 다음에 다시 시도하세요."
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:351
 msgid "Password: "
 msgstr "비밀번호: "
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:353
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "비밀번호가 올바르지 않거나 사용자 %s의 인증에 충분하지 않습니다."
 
-#: src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:354
 msgid "Sorry, try again: "
 msgstr "미안하지만, 다시 시도해 주세요: "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:376
 msgid "Recovery key: "
 msgstr "복원 키: "
 
-#: src/home/pam_systemd_home.c:380
+#: src/home/pam_systemd_home.c:378
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -189,20 +189,20 @@ msgid ""
 msgstr ""
 "비밀번호/복구 키가 올바르지 않거나 사용자 %s의 인증에 충분하지 않습니다."
 
-#: src/home/pam_systemd_home.c:381
+#: src/home/pam_systemd_home.c:379
 msgid "Sorry, reenter recovery key: "
 msgstr "미안하지만, 복구 키를 재입력하세요: "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:399
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "사용자 %s의 보안 토큰이 삽입되어 있지 않습니다."
 
-#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
+#: src/home/pam_systemd_home.c:400 src/home/pam_systemd_home.c:403
 msgid "Try again with password: "
 msgstr "비밀번호로 다시 시도하세요: "
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:402
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -211,26 +211,26 @@ msgstr ""
 "비밀번호가 올바르지 않거나 인증에 충분하지 않으며, 그리고 사용자 %s의 구성된 "
 "보안 토큰이 삽입되어 있지 않습니다."
 
-#: src/home/pam_systemd_home.c:424
+#: src/home/pam_systemd_home.c:422
 msgid "Security token PIN: "
 msgstr "보안 토큰 PIN: "
 
-#: src/home/pam_systemd_home.c:441
+#: src/home/pam_systemd_home.c:439
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "사용자 %s의 보안 토큰에서 물리적으로 인증해주세요."
 
-#: src/home/pam_systemd_home.c:452
+#: src/home/pam_systemd_home.c:450
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "사용자 %s의 보안 토큰에서 존재를 확인해 주세요."
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:461
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "사용자 %s의 보안 토큰에서 사용자를 확인해 주세요."
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:470
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -238,76 +238,76 @@ msgstr ""
 "보안 토큰 핀이 잠겨 있으며, 이를 우선 잠금 해제를 해주세요. (암시: 제거하고 "
 "다시-삽입으로 충분 할 수 있습니다.)"
 
-#: src/home/pam_systemd_home.c:480
+#: src/home/pam_systemd_home.c:478
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "사용자 %s를 위해 잘못된 보안 토큰 핀."
 
-#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
-#: src/home/pam_systemd_home.c:519
+#: src/home/pam_systemd_home.c:479 src/home/pam_systemd_home.c:498
+#: src/home/pam_systemd_home.c:517
 msgid "Sorry, retry security token PIN: "
 msgstr "미안하지만, 보안 토큰 PIN을 다시 시도하세요: "
 
-#: src/home/pam_systemd_home.c:499
+#: src/home/pam_systemd_home.c:497
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "사용자 %s의 보안 토큰 PIN이 잘못됨 (몇 번의 시도만 남았습니다!)"
 
-#: src/home/pam_systemd_home.c:518
+#: src/home/pam_systemd_home.c:516
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "사용자 %s의 보안 토큰 PIN이 잘못됨 (한 번만 남았습니다!)"
 
-#: src/home/pam_systemd_home.c:685
+#: src/home/pam_systemd_home.c:683
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "사용자 %s의 홈은 현재 활성화되어 있지 않으며, 우선 로컬에서 로그인 해주세요."
 
-#: src/home/pam_systemd_home.c:687
+#: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "사용자 %s의 홈은 현재 잠겨 있으며, 우선 로컬에서 잠금 해제를 해주세요."
 
-#: src/home/pam_systemd_home.c:719
+#: src/home/pam_systemd_home.c:717
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "사용자 %s에 대한 너무 많이 실패한 로그인이 있었으며, 거부합니다."
 
-#: src/home/pam_systemd_home.c:1005
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is blocked, prohibiting access."
 msgstr "사용자 레코드가 차단되었으며, 접근을 금지합니다."
 
-#: src/home/pam_systemd_home.c:1009
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid yet, prohibiting access."
 msgstr "사용자 레크드가 아직 유효하지 않아, 접근을 금지합니다."
 
-#: src/home/pam_systemd_home.c:1013
+#: src/home/pam_systemd_home.c:1024
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "사용자 레코드가 더 이상 유효하지 않아, 접근을 금지합니다."
 
-#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
+#: src/home/pam_systemd_home.c:1029 src/home/pam_systemd_home.c:1078
 msgid "User record not valid, prohibiting access."
 msgstr "사용자 레코드가 유효하지 않아, 접근을 금지합니다."
 
-#: src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:1039
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "너무 많은 로그인, %s에서 다시 시도하세요."
 
-#: src/home/pam_systemd_home.c:1039
+#: src/home/pam_systemd_home.c:1050
 msgid "Password change required."
 msgstr "비밀번호 변경이 필요합니다."
 
-#: src/home/pam_systemd_home.c:1043
+#: src/home/pam_systemd_home.c:1054
 msgid "Password expired, change required."
 msgstr "비밀번호가 만료되었으며, 변경이 필요합니다."
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1060
 msgid "Password is expired, but can't change, refusing login."
 msgstr "비밀번호가 만료되었으나, 변경 할 수 없고, 로그인이 거부됩니다."
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1064
 msgid "Password will expire soon, please change."
 msgstr "비밀번호가 곧 만료됩니다, 변경해 주세요."
 
