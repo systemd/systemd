@@ -2152,8 +2152,15 @@ static int run(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to guess verity root hash: %m");
 
                                 if (arg_action != ACTION_DISSECT) {
+                                        _cleanup_(erase_and_freep) char *envpw = NULL;
+
+                                        r = getenv_steal_erase("PASSWORD", &envpw);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to acquire password from environment: %m");
+
                                         r = dissected_image_decrypt_interactively(
-                                                        m, NULL,
+                                                        m,
+                                                        envpw,
                                                         &arg_verity_settings,
                                                         arg_image_policy,
                                                         arg_flags);
