@@ -2177,7 +2177,6 @@ org.freedesktop.timesync1.Manager.LinkNTPServers
 org.freedesktop.timesync1.Manager.SystemNTPServers
 org.freedesktop.timesync1.Manager.RuntimeNTPServers
 org.freedesktop.timesync1.Manager.FallbackNTPServers
-org.freedesktop.timesync1.Manager.NTSKeyExchangeServers
 org.freedesktop.timesync1.Manager.ServerName
 org.freedesktop.timesync1.Manager.ServerAddress
 org.freedesktop.timesync1.Manager.RootDistanceMaxUSec
