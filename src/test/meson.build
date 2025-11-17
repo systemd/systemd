@@ -473,7 +473,6 @@ executables += [
         test_template + {
                 'sources' : files('test-utmp.c'),
                 'conditions' : ['ENABLE_UTMP'],
-                'dependencies' : libutmps,
         },
         test_template + {
                 'sources' : files('test-varlink.c'),
