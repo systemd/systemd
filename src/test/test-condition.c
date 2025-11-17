@@ -131,12 +131,9 @@ TEST(condition_test_control_group_controller) {
         Condition *condition;
         CGroupMask system_mask;
         _cleanup_free_ char *controller_name = NULL;
-        int r;
 
-        r = cg_unified();
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return (void) log_tests_skipped("cgroupfs is not mounted");
-        ASSERT_OK(r);
+        if (cg_is_available() <= 0)
+                return (void) log_tests_skipped("cgroupfs v2 is not mounted");
 
         /* Invalid controllers are ignored */
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CONTROL_GROUP_CONTROLLER, "thisisnotarealcontroller", false, false)));
@@ -1341,7 +1338,6 @@ TEST(condition_test_os_release) {
 TEST(condition_test_psi) {
         Condition *condition;
         CGroupMask mask;
-        int r;
 
         if (!is_pressure_supported())
                 return (void) log_notice("Pressure Stall Information (PSI) is not supported, skipping %s", __func__);
@@ -1426,11 +1422,8 @@ TEST(condition_test_psi) {
         ASSERT_OK(condition_test(condition, environ));
         condition_free(condition);
 
-        r = cg_all_unified();
-        if (r < 0)
-                return (void) log_notice("Failed to determine whether the unified cgroups hierarchy is used, skipping %s", __func__);
-        if (r == 0)
-                return (void) log_notice("Requires the unified cgroups hierarchy, skipping %s", __func__);
+        if (cg_is_available() <= 0)
+                return (void) log_tests_skipped("cgroupfs v2 is not mounted");
 
         if (cg_mask_supported(&mask) < 0)
                 return (void) log_notice("Failed to get supported cgroup controllers, skipping %s", __func__);

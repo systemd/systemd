@@ -252,7 +252,7 @@ TEST(proc, .sd_booted = true) {
                 if (pidref_is_kernel_thread(&pid) != 0)
                         continue;
 
-                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, &pid, &path);
+                r = cg_pidref_get_path(&pid, &path);
                 if (r == -ESRCH)
                         continue;
                 ASSERT_OK(r);
@@ -322,47 +322,52 @@ TEST(escape, .sd_booted = true) {
         test_escape_one(".", "_.");
 }
 
-TEST(controller_is_valid) {
-        assert_se(cg_controller_is_valid("foobar"));
-        assert_se(cg_controller_is_valid("foo_bar"));
-        assert_se(cg_controller_is_valid("name=foo"));
-        assert_se(!cg_controller_is_valid(""));
-        assert_se(!cg_controller_is_valid("name="));
-        assert_se(!cg_controller_is_valid("="));
-        assert_se(!cg_controller_is_valid("cpu,cpuacct"));
-        assert_se(!cg_controller_is_valid("_"));
-        assert_se(!cg_controller_is_valid("_foobar"));
-        assert_se(!cg_controller_is_valid("tatü"));
-}
-
 TEST(cg_split_spec) {
         char *c, *p;
 
-        ASSERT_OK_ZERO(cg_split_spec("foobar:/", &c, &p));
+        ASSERT_OK(cg_split_spec("foobar:/", &c, &p));
         ASSERT_STREQ(c, "foobar");
         ASSERT_STREQ(p, "/");
         c = mfree(c);
         p = mfree(p);
 
-        ASSERT_OK_ZERO(cg_split_spec("foobar:", &c, &p));
+        ASSERT_OK(cg_split_spec("foobar:", &c, &p));
+        ASSERT_STREQ(c, "foobar");
+        ASSERT_NULL(p);
+        c = mfree(c);
+
+        ASSERT_OK(cg_split_spec("foobar", &c, &p));
+        ASSERT_STREQ(c, "foobar");
+        ASSERT_NULL(p);
+        c = mfree(c);
+
+        ASSERT_OK(cg_split_spec(":///", &c, &p));
+        ASSERT_STREQ(c, "");
+        ASSERT_STREQ(p, "/");
         c = mfree(c);
         p = mfree(p);
 
-        ASSERT_FAIL(cg_split_spec("foobar:asdfd", &c, &p));
-        ASSERT_FAIL(cg_split_spec(":///", &c, &p));
-        ASSERT_FAIL(cg_split_spec(":", &c, &p));
-        ASSERT_FAIL(cg_split_spec("", &c, &p));
-        ASSERT_FAIL(cg_split_spec("fo/obar:/", &c, &p));
+        ASSERT_OK(cg_split_spec(":", &c, &p));
+        ASSERT_STREQ(c, "");
+        ASSERT_NULL(p);
+        c = mfree(c);
+
+        ASSERT_OK(cg_split_spec("", &c, &p));
+        ASSERT_NULL(c);
+        ASSERT_NULL(p);
+
+        ASSERT_OK(cg_split_spec("fo/obar:/", &c, &p));
+        ASSERT_STREQ(c, "fo/obar");
+        ASSERT_STREQ(p, "/");
+        c = mfree(c);
+        p = mfree(p);
+
+        ASSERT_ERROR(cg_split_spec("foobar:asdfd", &c, &p), EINVAL);
 
         ASSERT_OK(cg_split_spec("/", &c, &p));
         ASSERT_NULL(c);
         ASSERT_STREQ(p, "/");
         p = mfree(p);
-
-        ASSERT_OK(cg_split_spec("foo", &c, &p));
-        ASSERT_STREQ(c, "foo");
-        ASSERT_NULL(p);
-        c = mfree(c);
 }
 
 static void test_slice_to_path_one(const char *unit, const char *path, int error) {
@@ -428,68 +433,38 @@ TEST(mask_supported, .sd_booted = true) {
                        yes_no(m & CGROUP_CONTROLLER_TO_MASK(c)));
 }
 
-TEST(cg_tests) {
-        int all, hybrid, systemd, r;
-
-        r = cg_unified();
-        if (IN_SET(r, -ENOENT, -ENOMEDIUM))
-                return (void) log_tests_skipped("cgroup not mounted");
-        assert_se(r >= 0);
-
-        all = cg_all_unified();
-        assert_se(IN_SET(all, 0, 1));
-
-        hybrid = cg_hybrid_unified();
-        assert_se(IN_SET(hybrid, 0, 1));
-
-        systemd = cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER);
-        assert_se(IN_SET(systemd, 0, 1));
-
-        if (all) {
-                assert_se(systemd);
-                assert_se(!hybrid);
-
-        } else if (hybrid) {
-                assert_se(systemd);
-                assert_se(!all);
-
-        } else
-                assert_se(!systemd);
-}
-
 TEST(cg_get_keyed_attribute) {
         _cleanup_free_ char *val = NULL;
         char *vals3[3] = {}, *vals3a[3] = {};
         int r;
 
-        r = cg_get_keyed_attribute("cpu", "/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
-        if (r == -ENOMEDIUM || ERRNO_IS_PRIVILEGE(r)) {
-                log_info_errno(r, "Skipping most of %s, /sys/fs/cgroup not accessible: %m", __func__);
-                return;
-        }
+        if (cg_is_available() <= 0)
+                return (void) log_tests_skipped("cgroupfs v2 is not mounted");
+
+        r = cg_get_keyed_attribute("/init.scope", "no_such_file", STRV_MAKE("no_such_attr"), &val);
+        if (ERRNO_IS_PRIVILEGE(r))
+                return (void) log_tests_skipped_errno(r, "/sys/fs/cgroup not accessible");
 
         assert_se(r == -ENOENT);
         ASSERT_NULL(val);
 
-        if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0) {
-                log_info_errno(errno, "Skipping most of %s, /init.scope/cpu.stat not accessible: %m", __func__);
-                return;
-        }
+        if (access("/sys/fs/cgroup/init.scope/cpu.stat", R_OK) < 0)
+                return (void) log_tests_skipped_errno(errno, "/init.scope/cpu.stat not accessible");
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("no_such_attr"), &val) == -ENXIO);
         ASSERT_NULL(val);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec"), &val) == 0);
         val = mfree(val);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat", STRV_MAKE("usage_usec", "no_such_attr"), vals3) == -ENXIO);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat",
                                          STRV_MAKE("usage_usec", "user_usec", "system_usec"), vals3) == 0);
         for (size_t i = 0; i < 3; i++)
                 free(vals3[i]);
 
-        assert_se(cg_get_keyed_attribute("cpu", "/init.scope", "cpu.stat",
+        assert_se(cg_get_keyed_attribute("/init.scope", "cpu.stat",
                                          STRV_MAKE("system_usec", "user_usec", "usage_usec"), vals3a) == 0);
         for (size_t i = 0; i < 3; i++)
                 free(vals3a[i]);
@@ -508,16 +483,11 @@ TEST(cgroupid) {
         _cleanup_free_ char *p = NULL, *p2 = NULL;
         _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
         uint64_t id, id2;
-        int r;
 
-        r = cg_all_unified();
-        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return (void) log_tests_skipped("cgroupfs is not mounted");
-        if (r == 0)
-                return (void) log_tests_skipped("skipping cgroupid test, not running in unified mode");
-        ASSERT_OK_POSITIVE(r);
+        if (cg_is_available() <= 0)
+                return (void) log_tests_skipped("cgroupfs v2 is not mounted");
 
-        fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        fd = cg_path_open("/");
         ASSERT_OK(fd);
 
         ASSERT_OK(fd_get_path(fd, &p));
