@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-07-23 15:38+0100\n"
+"POT-Creation-Date: 2025-11-17 08:58+0000\n"
 "PO-Revision-Date: 2025-02-10 02:01+0000\n"
 "Last-Translator: Jan Kalabza <jan.kalabza@gmail.com>\n"
 "Language-Team: Czech <https://translate.fedoraproject.org/projects/systemd/"
@@ -154,12 +154,11 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:94
 #, fuzzy
-#| msgid "Authentication is required to manage system services or other units."
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
 "Pro správu systémových služeb nebo dalších jednotek je vyžadováno ověření."
 
-#: src/home/pam_systemd_home.c:336
+#: src/home/pam_systemd_home.c:334
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -168,30 +167,30 @@ msgstr ""
 "Domovská složka uživatele %s v tuto chvíli není dostupná, připojte prosím "
 "potřebné úložné zařízení nebo záložní souborový systém."
 
-#: src/home/pam_systemd_home.c:341
+#: src/home/pam_systemd_home.c:339
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Příliš časté pokusy o přihlášení uživatele %s, zkuste to znovu později."
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:351
 msgid "Password: "
 msgstr "Heslo: "
 
-#: src/home/pam_systemd_home.c:355
+#: src/home/pam_systemd_home.c:353
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "Neplatné heslo nebo nedostačující pro ověření se uživatele %s."
 
-#: src/home/pam_systemd_home.c:356
+#: src/home/pam_systemd_home.c:354
 msgid "Sorry, try again: "
 msgstr "Je nám líto, zkuste znovu: "
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:376
 msgid "Recovery key: "
 msgstr "Obnovovací klíč: "
 
-#: src/home/pam_systemd_home.c:380
+#: src/home/pam_systemd_home.c:378
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -200,20 +199,20 @@ msgstr ""
 "Heslo/obnovovací klíč jsou nesprávné nebo nedostatečné pro ověření uživatele "
 "%s."
 
-#: src/home/pam_systemd_home.c:381
+#: src/home/pam_systemd_home.c:379
 msgid "Sorry, reenter recovery key: "
 msgstr "Je nám líto, zadejte obnovovací klíč znovu: "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:399
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Bezpečnostní token uživatele %s není vložen."
 
-#: src/home/pam_systemd_home.c:402 src/home/pam_systemd_home.c:405
+#: src/home/pam_systemd_home.c:400 src/home/pam_systemd_home.c:403
 msgid "Try again with password: "
 msgstr "Zkuste znovu s heslem: "
 
-#: src/home/pam_systemd_home.c:404
+#: src/home/pam_systemd_home.c:402
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -222,26 +221,26 @@ msgstr ""
 "Nesprávné nebo nedostatečné heslo a není vložen nakonfigurovaný bezpečnostní "
 "token uživatele %s."
 
-#: src/home/pam_systemd_home.c:424
+#: src/home/pam_systemd_home.c:422
 msgid "Security token PIN: "
 msgstr "PIN bezpečnostního tokenu: "
 
-#: src/home/pam_systemd_home.c:441
+#: src/home/pam_systemd_home.c:439
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Ověřte se prosím fyzicky na bezpečnostním tokenu uživatele %s."
 
-#: src/home/pam_systemd_home.c:452
+#: src/home/pam_systemd_home.c:450
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Potvrďte prosím přítomnost na bezpečnostním tokenu uživatele %s."
 
-#: src/home/pam_systemd_home.c:463
+#: src/home/pam_systemd_home.c:461
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Ověřte prosím uživatele na bezpečnostním tokenu uživatele %s."
 
-#: src/home/pam_systemd_home.c:472
+#: src/home/pam_systemd_home.c:470
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -249,86 +248,86 @@ msgstr ""
 "PIN bezpečnostního tokenu je uzamčen, nejprve jej prosím odemkněte. (Tip: "
 "Vyjmutí a opětovné vložení může stačit.)"
 
-#: src/home/pam_systemd_home.c:480
+#: src/home/pam_systemd_home.c:478
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Nesprávný PIN bezpečnostního tokenu pro uživatele %s."
 
-#: src/home/pam_systemd_home.c:481 src/home/pam_systemd_home.c:500
-#: src/home/pam_systemd_home.c:519
+#: src/home/pam_systemd_home.c:479 src/home/pam_systemd_home.c:498
+#: src/home/pam_systemd_home.c:517
 msgid "Sorry, retry security token PIN: "
 msgstr "Je nám líto, zkuste PIN bezpečnostního tokenu znovu: "
 
-#: src/home/pam_systemd_home.c:499
+#: src/home/pam_systemd_home.c:497
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "PIN bezpečnostního tokenu uživatele %s je nesprávný (zbývá jen několik "
 "pokusů!)"
 
-#: src/home/pam_systemd_home.c:518
+#: src/home/pam_systemd_home.c:516
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "PIN bezpečnostního tokenu uživatele %s je nesprávný (zbývá pouze jeden "
 "pokus!)"
 
-#: src/home/pam_systemd_home.c:685
+#: src/home/pam_systemd_home.c:683
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Domovská složka uživatele %s v tuto chvíli není aktivní – nejprve se "
 "přihlaste lokálně."
 
-#: src/home/pam_systemd_home.c:687
+#: src/home/pam_systemd_home.c:685
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Domovská složka uživatele %s je v tuto chvíli uzamčená – nejprve lokálně "
 "odemkněte."
 
-#: src/home/pam_systemd_home.c:719
+#: src/home/pam_systemd_home.c:717
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr ""
 "Příliš mnoho neúspěšných pokusů o přihlášení uživatele %s, proto odmítnuto."
 
-#: src/home/pam_systemd_home.c:1005
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is blocked, prohibiting access."
 msgstr "Záznam uživatele je blokován, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:1009
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Záznam uživatele ještě není platný, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:1013
+#: src/home/pam_systemd_home.c:1024
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Záznam uživatele již není platný, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:1018 src/home/pam_systemd_home.c:1067
+#: src/home/pam_systemd_home.c:1029 src/home/pam_systemd_home.c:1078
 msgid "User record not valid, prohibiting access."
 msgstr "Záznam uživatele neplatný, přístup proto zamezen."
 
-#: src/home/pam_systemd_home.c:1028
+#: src/home/pam_systemd_home.c:1039
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Příliš mnoho přihlášení, zkuste znovu za %s."
 
-#: src/home/pam_systemd_home.c:1039
+#: src/home/pam_systemd_home.c:1050
 msgid "Password change required."
 msgstr "Je vyžadována změna hesla."
 
-#: src/home/pam_systemd_home.c:1043
+#: src/home/pam_systemd_home.c:1054
 msgid "Password expired, change required."
 msgstr "Platnost hesla skončila, je zapotřebí ho změnit."
 
-#: src/home/pam_systemd_home.c:1049
+#: src/home/pam_systemd_home.c:1060
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Platnost hesla skončila, ale není možné ho změnit – přihlášení proto "
 "odmítnuto."
 
-#: src/home/pam_systemd_home.c:1053
+#: src/home/pam_systemd_home.c:1064
 msgid "Password will expire soon, please change."
 msgstr "Platnost hesla brzy skončí – změňte si ho."
 
@@ -884,14 +883,11 @@ msgstr ""
 
 #: src/machine/org.freedesktop.machine1.policy:106
 #, fuzzy
-#| msgid "Create a local virtual machine or container"
 msgid "Register a local virtual machine or container"
 msgstr "Vytvoření místního virtuálního počítače nebo kontejneru"
 
 #: src/machine/org.freedesktop.machine1.policy:107
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to create a local virtual machine or container."
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
@@ -1123,7 +1119,6 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 #, fuzzy
-#| msgid "Authentication is required to subscribe query results."
 msgid "Authentication is required to subscribe to DNS configuration."
 msgstr "Pro přihlášení k odběru výsledků dotazu je vyžadováno ověření."
 
@@ -1265,9 +1260,6 @@ msgstr "Pro odeslání UNIX signálu procesům „$(unit)” je vyžadováno ov�
 
 #: src/core/dbus-unit.c:620
 #, fuzzy
-#| msgid ""
-#| "Authentication is required to send a UNIX signal to the processes of '$"
-#| "(unit)'."
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
