@@ -578,8 +578,8 @@ disk images with `--image=` or similar:
   environment variable to the build directory and you are set. This variable
   is only supported when systemd is compiled in developer mode.
 
-Various tools that read passwords from the TTY, such as `systemd-cryptenroll`
-and `homectl`:
+Various tools that read passwords from the TTY, such as `systemd-cryptenroll`,
+`systemd-dissect` and `homectl`:
 
 * `$PASSWORD` — takes a string: the literal password to use. If this
   environment variable is set it is used as password instead of prompting the
