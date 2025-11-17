@@ -1538,10 +1538,10 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
         case NTS_HANDSHAKE_TLS:
                 r = NTS_TLS_handshake(m->nts_handshake);
-                if (r > 0)
+                if (r == 0)
                         return 1;
 
-                if (r != 0) {
+                if (r < 0) {
                         log_error("Could not set up TLS session with server");
                         NTS_TLS_close(m->nts_handshake);
                         return manager_connect(m);
