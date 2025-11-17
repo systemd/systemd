@@ -444,6 +444,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron11-3168:pvr*
 
 # Dell Inspiron 1520 and Latitude 2110
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*1520:*
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnInspiron*3505:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnDell*:pnLatitude*2110:*
  KEYBOARD_KEY_85=unknown  # Brightness Down, also emitted by acpi-video, ignore
  KEYBOARD_KEY_86=unknown  # Brightness Up, also emitted by acpi-video, ignore
