@@ -337,6 +337,12 @@ int oomd_kill_by_pgscan_rate(Hashmap *h, const char *prefix, bool dry_run, char 
                 if (c->pgscan == 0 && c->current_memory_usage == 0)
                         continue;
 
+                /* First try killing recursively to ensure all child cgroups can be killed. */
+                r = cg_kill_recursive(c->path, /* sig= */ 0, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL,
+                                      /* log_kill= */ NULL, /* userdata= */ NULL);
+                if (r < 0)
+                        continue;
+
                 r = oomd_cgroup_kill(c->path, /* recurse= */ true, /* dry_run= */ dry_run);
                 if (r == -ENOMEM)
                         return r; /* Treat oom as a hard error */
@@ -379,6 +385,12 @@ int oomd_kill_by_swap_usage(Hashmap *h, uint64_t threshold_usage, bool dry_run, 
                 /* Skip over cgroups with not enough swap usage. Don't break since there might be "avoid"
                  * cgroups at the end. */
                 if (c->swap_usage <= threshold_usage)
+                        continue;
+
+                /* First try killing recursively to ensure all child cgroups can be killed. */
+                r = cg_kill_recursive(c->path, /* sig= */ 0, CGROUP_IGNORE_SELF, /* killed_pids= */ NULL,
+                                      /* log_kill= */ NULL, /* userdata= */ NULL);
+                if (r < 0)
                         continue;
 
                 r = oomd_cgroup_kill(c->path, /* recurse= */ true, /* dry_run= */ dry_run);
