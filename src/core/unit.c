@@ -7003,3 +7003,57 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
                 assert_not_reached();
         }
 }
+
+int unit_queue_job_check_and_collapse_type(
+                Unit *u,
+                JobType *type, /* input and output */
+                bool reload_if_possible) {
+
+        /* Returns:
+         *
+         * -ENOENT    → Unit not loaded
+         * -EUNATCH   → Unit can only be activated via dependency, not directly
+         * -ESHUTDOWN → System bus is shutting down */
+
+        JobType t;
+
+        assert(u);
+        assert(type);
+
+        t = *type;
+
+        if (reload_if_possible && unit_can_reload(u)) {
+                if (t == JOB_RESTART)
+                        t = JOB_RELOAD_OR_START;
+                else if (t == JOB_TRY_RESTART)
+                        t = JOB_TRY_RELOAD;
+        }
+
+        if (t == JOB_STOP && UNIT_IS_LOAD_ERROR(u->load_state) && unit_active_state(u) == UNIT_INACTIVE)
+                return -ENOENT;
+
+        if ((t == JOB_START && u->refuse_manual_start) ||
+            (t == JOB_STOP && u->refuse_manual_stop) ||
+            (IN_SET(t, JOB_RESTART, JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
+            (t == JOB_RELOAD_OR_START && job_type_collapse(t, u) == JOB_START && u->refuse_manual_start))
+                return -EUNATCH;
+
+        /* dbus-broker issues StartUnit for activation requests, and Type=dbus services automatically
+         * gain dependency on dbus.socket. Therefore, if dbus has a pending stop job, the new start
+         * job that pulls in dbus again would cause job type conflict. Let's avoid that by rejecting
+         * job enqueuing early.
+         *
+         * Note that unlike signal_activation_request(), we can't use unit_inactive_or_pending()
+         * here. StartUnit is a more generic interface, and thus users are allowed to use e.g. systemctl
+         * to start Type=dbus services even when dbus is inactive. */
+        if (t == JOB_START && u->type == UNIT_SERVICE && SERVICE(u)->type == SERVICE_DBUS)
+                FOREACH_STRING(dbus_unit, SPECIAL_DBUS_SOCKET, SPECIAL_DBUS_SERVICE) {
+                        Unit *dbus = manager_get_unit(u->manager, dbus_unit);
+                        if (dbus && unit_stop_pending(dbus))
+                                return -ESHUTDOWN;
+                }
+
+        *type = t;
+
+        return 0;
+}
