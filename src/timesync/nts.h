@@ -97,14 +97,12 @@ typedef struct NTS_TLS NTS_TLS;
 /* Perform key extraction on the TLS session using the specified algorithm_type. C2S and S2C must point to
  * buffers that provide key_capacity amount of bytes.
  *
- * FIXME: https://github.com/pendulum-project/nts-timesyncd/issues/6
- *
  * RETURNS
  *      0 upon success
  *      a negative value upon failure:
- *              -1 OpenSSL error
- *              -2 not enough space in buffer
- *              -3 unkown AEAD
+ *              -EBADE   OpenSSL error
+ *              -ENOBUFS not enough space in buffer
+ *              -EINVAL  unkown AEAD
  */
 int NTS_TLS_extract_keys(NTS_TLS *session, NTS_AEADAlgorithmType, uint8_t *c2s, uint8_t *s2c, int key_capacity);
 
@@ -117,12 +115,10 @@ NTS_TLS* NTS_TLS_setup(const char *hostname, int socket);
 
 /* Perform a TLS handshake
  *
- * FIXME: https://github.com/pendulum-project/nts-timesyncd/issues/6
- *
  * RETURNS
- *      0 upon success
- *      1 if it needs to be retried (e.g. if the socket is non-blocking)
- *     -1 upon permanent failure
+ *      > 0 upon success
+ *      0   if it needs to be retried (e.g. if the socket is non-blocking)
+ *      < 0 upon permanent failure
  *
  */
 int NTS_TLS_handshake(NTS_TLS *session);
