@@ -1133,7 +1133,7 @@ manpages = [
  ['systemd-rc-local-generator',
   '8',
   ['rc-local.service'],
-  'HAVE_SYSV_COMPAT HAVE_SYSV_RC_LOCAL'],
+  'HAVE_SYSV_RC_LOCAL'],
  ['systemd-remount-fs.service', '8', ['systemd-remount-fs'], ''],
  ['systemd-repart', '8', ['systemd-repart.service'], 'ENABLE_REPART'],
  ['systemd-resolved.service', '8', ['systemd-resolved'], 'ENABLE_RESOLVE'],
