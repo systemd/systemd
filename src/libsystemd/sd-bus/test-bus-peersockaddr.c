@@ -1,9 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <pthread.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-future.h"
 
 #include "bus-dump.h"
 #include "fd-util.h"
@@ -38,9 +38,9 @@ static bool gid_list_same(const gid_t *a, size_t n, const gid_t *b, size_t m) {
                 gid_list_contained(b, m, a, n);
 }
 
-static void* server(void *p) {
+static int server(void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int listen_fd = PTR_TO_INT(p), fd = -EBADF;
+        _cleanup_close_ int listen_fd = PTR_TO_INT(userdata), fd = -EBADF;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         _cleanup_free_ char *our_comm = NULL;
         sd_id128_t id;
@@ -48,7 +48,7 @@ static void* server(void *p) {
 
         ASSERT_OK(sd_id128_randomize(&id));
 
-        ASSERT_OK_ERRNO(fd = accept4(listen_fd, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK));
+        ASSERT_OK(fd = sd_fiber_accept(listen_fd, NULL, NULL, SOCK_CLOEXEC|SOCK_NONBLOCK));
 
         ASSERT_OK(sd_bus_new(&bus));
         ASSERT_OK(sd_bus_set_fd(bus, fd, fd));
@@ -114,17 +114,18 @@ static void* server(void *p) {
                 }
         }
 
-        return NULL;
+        return 0;
 }
 
-static void* client(void *p) {
+static int client(void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         const char *z;
 
         ASSERT_OK(sd_bus_new(&bus));
         ASSERT_OK(sd_bus_set_description(bus, "wuffwuff"));
-        ASSERT_OK(sd_bus_set_address(bus, p));
+        ASSERT_OK(sd_bus_set_address(bus, userdata));
+        ASSERT_OK(sd_bus_attach_event(bus, sd_fiber_get_event(), 0));
         ASSERT_OK(sd_bus_start(bus));
 
         ASSERT_OK(sd_bus_call_method(bus, "foo.foo", "/foo", "foo.foo", "Foo", NULL, &reply, "s", "foo"));
@@ -132,17 +133,18 @@ static void* client(void *p) {
         ASSERT_OK(sd_bus_message_read(reply, "s", &z));
         ASSERT_STREQ(z, "bar");
 
-        return NULL;
+        return 0;
 }
 
 TEST(description) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_future_unrefp) sd_future *f_server = NULL, *f_client = NULL;
         _cleanup_free_ char *a = NULL;
         _cleanup_close_ int fd = -EBADF;
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
         };
         socklen_t salen;
-        pthread_t s, c;
 
         ASSERT_OK_ERRNO(fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
         ASSERT_OK_ERRNO(bind(fd, &sa.sa, offsetof(struct sockaddr_un, sun_path))); /* force auto-bind */
@@ -155,13 +157,18 @@ TEST(description) {
 
         ASSERT_OK(asprintf(&a, "unix:abstract=%s", sa.un.sun_path + 1));
 
-        ASSERT_OK(-pthread_create(&s, NULL, server, INT_TO_PTR(fd)));
+        ASSERT_OK(sd_event_new(&e));
+        ASSERT_OK(sd_event_set_exit_on_idle(e, true));
+
+        ASSERT_OK(sd_future_new_fiber(e, "server", server, INT_TO_PTR(fd), /* destroy= */ NULL, &f_server));
         TAKE_FD(fd);
 
-        ASSERT_OK(-pthread_create(&c, NULL, client, a));
+        ASSERT_OK(sd_future_new_fiber(e, "client", client, a, /* destroy= */ NULL, &f_client));
 
-        ASSERT_OK(-pthread_join(s, NULL));
-        ASSERT_OK(-pthread_join(c, NULL));
+        ASSERT_OK(sd_event_loop(e));
+
+        ASSERT_OK(sd_future_result(f_server));
+        ASSERT_OK(sd_future_result(f_client));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
