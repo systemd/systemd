@@ -4,6 +4,7 @@
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "argv-util.h"
 #include "alloc-util.h"
 #include "dns-answer.h"
 #include "dns-domain.h"
@@ -11,6 +12,7 @@
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -214,11 +216,8 @@ int manager_varlink_init_resolve_hook(Manager *m, int fd) {
         if (m->varlink_resolve_hook_server)
                 return 0;
 
-        r = getenv_bool("SYSTEMD_NETWORK_RESOLVE_HOOK");
-        if (r < 0 && r != -ENXIO)
-                log_warning_errno(r, "Failed to parse $SYSTEMD_NETWORK_RESOLVE_HOOK, ignoring: %m");
-        if (r == 0) {
-                log_notice("Resolve hook disabled via $SYSTEMD_NETWORK_RESOLVE_HOOK.");
+        if (fd < 0 && invoked_by_systemd()) {
+                log_debug("systemd-networkd-resolve-hook.socket seems to be disabled. Resolve hook is disabled.");
                 return 0;
         }
 
@@ -243,9 +242,14 @@ int manager_varlink_init_resolve_hook(Manager *m, int fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind on resolve hook disconnection events: %m");
 
-        if (fd < 0)
-                r = sd_varlink_server_listen_address(s, "/run/systemd/resolve.hook/io.systemd.Network", 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
-        else
+        if (fd < 0) {
+                r = sd_varlink_server_listen_address(s, "/run/systemd/resolve.hook/io.systemd.Network",
+                                                     0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                        log_info("Failed to bind to systemd-resolved hook Varlink socket, ignoring: %m");
+                        return 0;
+                }
+        } else
                 r = sd_varlink_server_listen_fd(s, fd);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to systemd-resolved hook Varlink socket: %m");
