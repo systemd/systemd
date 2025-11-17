@@ -1535,6 +1535,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                         return -ENOMEM;
 
                 m->nts_handshake_state = NTS_HANDSHAKE_TLS;
+                _fallthrough_;
 
         case NTS_HANDSHAKE_TLS:
                 r = NTS_TLS_handshake(m->nts_handshake);
@@ -1568,6 +1569,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 assert(m->nts_request_size <= (int)sizeof(m->nts_packet_buffer));
 
                 m->nts_handshake_state = NTS_HANDSHAKE_TX;
+                _fallthrough_;
 
         case NTS_HANDSHAKE_TX:
                 size = m->nts_request_size - m->nts_bytes_processed;
@@ -1588,6 +1590,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 /* NTS request sent, read the reply */
                 m->nts_bytes_processed = 0;
                 m->nts_handshake_state = NTS_HANDSHAKE_RX;
+                _fallthrough_;
 
         case NTS_HANDSHAKE_RX:
                 size = sizeof(m->nts_packet_buffer) - m->nts_bytes_processed;
