@@ -37,7 +37,7 @@ for phase in "${PHASES[@]}"; do
             info "Run phase"
 
             # Create dummy machine ID.
-            echo '052e58f661f94bd080e258b96aea3f7b' > /etc/machine-id
+            echo '052e58f661f94bd080e258b96aea3f7b' >/etc/machine-id
 
             # Start dbus for several unit tests.
             mkdir -p /var/run/dbus
