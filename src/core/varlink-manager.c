@@ -2,24 +2,32 @@
 
 #include <sys/prctl.h>
 
+#include "sd-json.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "bitfield.h"
 #include "build.h"
 #include "bus-polkit.h"
 #include "confidential-virt.h"
+#include "dbus-job.h"
+#include "errno-util.h"
+#include "glyph-util.h"
 #include "json-util.h"
 #include "manager.h"
 #include "pidref.h"
 #include "selinux-access.h"
+#include "service.h"
 #include "set.h"
+#include "special.h"
 #include "strv.h"
 #include "syslog-util.h"
 #include "taint.h"
 #include "version.h"
 #include "varlink-common.h"
 #include "varlink-manager.h"
+#include "varlink-unit.h"
 #include "varlink-util.h"
 #include "virt.h"
 #include "watchdog.h"
@@ -298,4 +306,132 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
         manager->objective = MANAGER_REEXECUTE;
 
         return 1;
+}
+
+static int varlink_unit_queue_job_one(
+                sd_varlink *link,
+                Unit *u,
+                JobType type,
+                JobMode mode,
+                bool reload_if_possible,
+                uint32_t *ret_job_id) {
+
+        _cleanup_free_ char *job_path = NULL, *unit_path = NULL;
+        int r;
+
+        assert(u);
+
+        if (reload_if_possible && unit_can_reload(u)) {
+                if (type == JOB_RESTART)
+                        type = JOB_RELOAD_OR_START;
+                else if (type == JOB_TRY_RESTART)
+                        type = JOB_TRY_RELOAD;
+        }
+
+        if (type == JOB_STOP && UNIT_IS_LOAD_ERROR(u->load_state) && unit_active_state(u) == UNIT_INACTIVE)
+                return varlink_error_no_such_unit(link, "name");
+
+        if ((type == JOB_START && u->refuse_manual_start) ||
+            (type == JOB_STOP && u->refuse_manual_stop) ||
+            (IN_SET(type, JOB_RESTART, JOB_TRY_RESTART) && (u->refuse_manual_start || u->refuse_manual_stop)) ||
+            (type == JOB_RELOAD_OR_START && job_type_collapse(type, u) == JOB_START && u->refuse_manual_start))
+                return sd_varlink_errorb(link, VARLINK_ERROR_MANAGER_ONLY_BY_DEPENDENCY);
+
+        /* dbus-broker issues StartUnit for activation requests, and Type=dbus services automatically
+         * gain dependency on dbus.socket. Therefore, if dbus has a pending stop job, the new start
+         * job that pulls in dbus again would cause job type conflict. Let's avoid that by rejecting
+         * job enqueuing early.
+         *
+         * Note that unlike signal_activation_request(), we can't use unit_inactive_or_pending()
+         * here. StartUnit is a more generic interface, and thus users are allowed to use e.g. systemctl
+         * to start Type=dbus services even when dbus is inactive. */
+        if (type == JOB_START && u->type == UNIT_SERVICE && SERVICE(u)->type == SERVICE_DBUS)
+                FOREACH_STRING(dbus_unit, SPECIAL_DBUS_SOCKET, SPECIAL_DBUS_SERVICE) {
+                        Unit *dbus = manager_get_unit(u->manager, dbus_unit);
+                        if (dbus && unit_stop_pending(dbus))
+                                return sd_varlink_errorb(link, VARLINK_ERROR_MANAGER_BUS_SHUTTING_DOWN);
+                }
+
+        Job *j;
+        r = manager_add_job(u->manager, type, u, mode, /* error= */ NULL, &j);
+        if (r < 0)
+                return r;
+
+        /* Before we send the method reply, force out the announcement JobNew for this job */
+        bus_job_send_pending_change_signal(j, true);
+
+        if (ret_job_id)
+                *ret_job_id = j->id;
+
+        return 0;
+}
+
+int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = mac_selinux_access_check_varlink(link, "start");
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->system_bus,
+                        "org.freedesktop.systemd1.manage-units",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        log_info("Queuing reload/restart jobs for marked units%s", glyph(GLYPH_ELLIPSIS));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *reply = NULL;
+        Unit *u;
+        char *k;
+        int ret = 0;
+        HASHMAP_FOREACH_KEY(u, k, manager->units) {
+                uint32_t job_id;
+
+                /* ignore aliases */
+                if (u->id != k)
+                        continue;
+
+                if (!BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART) && !BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD))
+                        continue;
+
+                r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(JOB_TRY_RESTART));
+                if (r >= 0)
+                        r = varlink_unit_queue_job_one(
+                                        link,
+                                        u,
+                                        JOB_TRY_RESTART,
+                                        JOB_FAIL,
+                                        BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD),
+                                        &job_id);
+                if (ERRNO_IS_NEG_RESOURCE(r))
+                        return r;
+                RET_GATHER(ret, r);
+                if (r >= 0) {
+                        r = sd_json_variant_append_arrayb(&array, SD_JSON_BUILD_UNSIGNED(job_id));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        if (ret < 0)
+                return ret;
+
+        r = sd_json_buildo(&reply, SD_JSON_BUILD_PAIR_VARIANT("JobIDs", array));
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, reply);
 }
