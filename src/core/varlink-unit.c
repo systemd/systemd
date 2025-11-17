@@ -382,7 +382,7 @@ static void unit_lookup_parameters_done(UnitLookupParameters *p) {
         pidref_done(&p->pidref);
 }
 
-static int varlink_error_no_such_unit(sd_varlink *v, const char *name) {
+int varlink_error_no_such_unit(sd_varlink *v, const char *name) {
         return sd_varlink_errorbo(
                         ASSERT_PTR(v),
                         VARLINK_ERROR_UNIT_NO_SUCH_UNIT,
