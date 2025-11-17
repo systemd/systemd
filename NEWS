@@ -5,10 +5,12 @@ CHANGES WITH 259 in spe:
         Announcements of Future Feature Removals and Incompatible Changes:
 
         * The parsing of RootImageOptions= and the mount image parameters of
-          ExtensionImages= and MountImages= will be changed so that the last
-          duplicated definition for a given partition wins and is applied,
-          rather than the first, to keep these options coherent with other
-          unit settings.
+          ExtensionImages= and MountImages= will be changed in the next version
+          so that the last duplicated definition for a given partition wins and
+          is applied, rather than the first, to keep these options coherent with
+          other unit settings.
+
+        Feature Removals and Incompatible Changes:
 
         * The cgroup2 file system is now mounted with the
           "memory_hugetlb_accounting" mount option, supported since kernel 6.6.
@@ -61,6 +63,9 @@ CHANGES WITH 259 in spe:
           now exposes service execution settings and more. Its Unit.List() call
           now can filter by cgroup or invocation ID.
 
+        * The service manager now exposes Reload() and Reexecute() Varlink IPC
+          calls, mirroring the calls of the same name accessible via D-Bus.
+
         * The $LISTEN_FDS protocol has been extended to support pidfd inode
           IDs. The $LISTEN_PID environment variable is now augmented with a new
           $LISTEN_PIDFDID environment variable which contains the inode ID of
@@ -87,15 +92,12 @@ CHANGES WITH 259 in spe:
           unique 64bit numeric ID assigned. This ID is logged as additional log
           fields for any log messages related to the transaction. Moreover, PID
           1 will now keep track of transactions with ordering cycles and expose
-          them in the TransactionsWithOrderingCycle D-Bus property, lsted by
+          them in the TransactionsWithOrderingCycle D-Bus property, listed by
           their IDs.
-
-        * The service manager now exposes Reload() and Reexecute() Varlink IPC
-          calls, mirroring the calls of the same name accessible via D-Bus.
 
         systemd-sysext/systemd-confext:
 
-        * systemd-sysext and systemd-confext now have configuration files
+        * systemd-sysext and systemd-confext now support configuration files
           /etc/systemd/systemd-sysext.conf /etc/systemd/systemd-confext.conf,
           which can be used to configure mutability or the image policy to
           apply to DDI images.
@@ -131,6 +133,12 @@ CHANGES WITH 259 in spe:
           --bind-user-group= switch for adding a user bound via --bind-user= to
           the specified group (for example the 'wheel' or 'empower' group).
 
+        * systemd-vmspawn now configures RSA4096 support in the vTPM, if swtpm
+          supports it.
+
+        * systemd-vmspawn now enables qemu guest agent via the
+          org.qemu.guest_agent.0 protocol when started with --console=gui.
+
         systemd-repart:
 
         * repart.d/ drop-ins gained support for a new TPM2PCRs= setting, which
@@ -150,7 +158,7 @@ CHANGES WITH 259 in spe:
           and --defer-partitions-factory-reset=yes which are similar to
           --defer-partitions= but instead of expecting a list of partitions to
           defer will blanket defer all partitions marked via Format=empty or
-          FactoryReset=yes. This funcionality is useful for installers, as
+          FactoryReset=yes. This functionality is useful for installers, as
           partitions marked empty or marked for factory reset should typically
           be left out at install time, but in on first boot.
 
@@ -201,18 +209,15 @@ CHANGES WITH 259 in spe:
         systemd-boot/systemd-stub:
 
         * systemd-boot now supports a log level concept. The level may be set
-          via loader.conf and via the SMBIOS Type 11 field
+          via log-level= in loader.conf and via the SMBIOS Type 11 field
           'io.systemd.boot.loglevel='.
 
         * systemd-boot's loader.conf file gained support for configuring the
-          SecureBoot key enrollment time-out.
+          SecureBoot key enrollment time-out via secure-boot-enroll-timeout-sec=.
 
         * Boot Loader Specification Type #1 entries now support a "profile"
           field which may be used to explicitly select a profile in
           multi-profile UKIs invoked via the "uki" field.
-
-        * systemd-stub gained support for marking invoked kernels for W^X
-          ("NX") memory mappings, using the new UEFI protocol for that.
 
         sd-varlink/varlinkctl:
 
@@ -249,13 +254,13 @@ CHANGES WITH 259 in spe:
 
         * Similar, libseccomp support is now implemented via dlopen().
 
+        * Similar, libselinux support is now implemented via dlopen().
+
         * Similar, libmount support is now implemented via dlopen(). Note, that
           libmount still must be installed in order to invoke the service
           manager itself. However, libsystemd.so no longer requires it, and
           neither do various ways to invoke the systemd service manager binary
           short of using it to manage a system.
-
-        * Similar, libselinux support is now implemented via dlopen().
 
         * systemd no longer links against libcap at all. The simple system call
           wrappers and other APIs it provides have been reimplemented directly
@@ -265,15 +270,16 @@ CHANGES WITH 259 in spe:
 
         * systemd-machined gained support for RegisterMachineEx() +
           CreateMachineEx() method calls which operate like their counterparts
-          without "Ex" but take a number of additional parameters, similar to
+          without "Ex", but take a number of additional parameters, similar to
           what is already supported via the equivalent functionality in the
-          Varlink APIs of systemd-machined.
+          Varlink APIs of systemd-machined. Most importantly, they support
+          PIDFDs instead of PIDs.
 
         * systemd-machined may now also run in a per-user instance, in addition
           to the per-system instance. systemd-vmspawn and systemd-nspawn have
           been updated to register their invocations with both the calling
           user's per-user instance of systemd-machined and the per-system one,
-          if permission allow it. machinectl now knows --user and --system
+          if permissions allow it. machinectl now knows --user and --system
           switches that control which daemon instance to operate
           on. systemd-ssh-proxy now will query both instances for the AF_VSOCK
           CID.
@@ -285,7 +291,7 @@ CHANGES WITH 259 in spe:
         * systemd-importd's tar extraction logic has been reimplemented based
           on libarchive, instead of shelling out to GNU tar. This completes
           work begun earlier which already ported systemd-importd's tar
-          generation over.
+          generation.
 
         * systemd-importd now may also be run as a per-user service, in
           addition to the existing per-system instance. It will place the
@@ -308,11 +314,11 @@ CHANGES WITH 259 in spe:
           systemd-mute-console component (which provides a simple Varlink
           interface).
 
-        * systemd-firstboot gained a new switch --prompt-keymap-auto. if
-          specified the tool will interactively query the user for a keymap
+        * systemd-firstboot gained a new switch --prompt-keymap-auto. If
+          specified, the tool will interactively query the user for a keymap
           when running on a real local VT console (i.e. on a user device where
           the keymap would actually be respected), but not if invoked on other
-          TTYs (such as a serial port, hypervisor console, SSH, …), here the
+          TTYs (such as a serial port, hypervisor console, SSH, …), where the
           keymap setting would have no effect anyway. The invocation in
           systemd-firstboot.service now defaults to this.
 
@@ -338,12 +344,12 @@ CHANGES WITH 259 in spe:
           domain, and which. It also gained a per-static lease Hostname=
           setting for setting the hostname for the client.
 
-        * systemd-networkd knows exposes a Describe() method call for showing
+        * systemd-networkd now exposes a Describe() method call for showing
           network interface properties.
 
-        * systemd-networkd implements a resolve hook now for its internal DHCP
+        * systemd-networkd now implements a resolve hook for its internal DHCP
           server, so that the hostnames tracked in DHCP leases can be resolved
-          locally. This is now enabled by default for the DHCP server run on
+          locally. This is now enabled by default for the DHCP server running on
           the host side of local systemd-nspawn or systemd-vmspawn networking.
 
         systemd-resolved:
@@ -362,7 +368,7 @@ CHANGES WITH 259 in spe:
           let the regular request handling take place.
 
         * DNS0 has been removed from the default fallback DNS server list of
-          systemd-resolved, since it ceased operation.
+          systemd-resolved, since it ceased operations.
 
         TPM2 infrastructure:
 
@@ -380,9 +386,9 @@ CHANGES WITH 259 in spe:
           current use of the scarce regular PCRs. Note that NvPCRs have
           different semantics than PCRs: they are not available pre-userspace
           (i.e. initrd userspace creates them and initializes them), including
-          in the pre-kernel firmware world; moreover they require an explicit
+          in the pre-kernel firmware world; moreover, they require an explicit
           "anchor" initialization of a privileged per-system secret (in order
-          to fight the ability of attackers to remove/recreate the backing NV
+          to prevent attackers from removing/recreating the backing NV
           indexes to reset them). This makes them predictable only if the
           result of the anchor measurement is known ahead of time, which will
           differ on each installed system. Initialization of defined NvPCRs is
@@ -390,8 +396,8 @@ CHANGES WITH 259 in spe:
           the initialization of NvPCRs is measured into PCR 9, and finalized by
           a separator measurement. The NV index base handle is configurable at
           build time via the "tpm2-nvpcr-base" meson setting. It currently
-          defaults to a value the TCG has shown intentions to assign to Linux,
-          but this has not officially been done. systemd-pcrextend and its
+          defaults to a value the TCG has shown intention to assign to Linux,
+          but this has not officially been done yet. systemd-pcrextend and its
           Varlink APIs have been extended to optionally measure into an NvPCR
           instead of a classic PCR.
 
@@ -416,18 +422,17 @@ CHANGES WITH 259 in spe:
         systemd-run/run0:
 
         * run0 gained a new --empower switch. It will invoke a new session with
-          elevated privileges – without switching to the root
-          user. Specifically, it sets the full ambient capabilities mask
-          (including CAP_SYS_ADMIN), which ensures that privileged system calls
-          will typically be permitted. Moreover it adds the session processes
-          to the new "empower" system group, which is respected by polkit and
-          allows most polkit actions to be accessed fully privileged. This
-          should be a much less invasive way to acquire privileges, as it will
-          not switch over $HOME or the UID and hence risk creation of files
-          owned by the wrong UID in there. (Note that --empower is not
-          perfect, there's still various software around that does access
-          checks purely based on the UID, without Linux process capabilities or
-          polkit policies having any effect on them.)
+          elevated privileges – without switching to the root user. Specifically,
+          it sets the full ambient capabilities mask (including CAP_SYS_ADMIN),
+          which ensures that privileged system calls will typically be permitted.
+          Moreover, it adds the session processes to the new "empower" system
+          group, which is respected by polkit and allows most polkit actions to
+          be accessed fully privileged. This should be a much less invasive way
+          to acquire privileges, as it will not switch over $HOME or the UID and
+          hence risk creation of files owned by the wrong UID in there. (Note
+          that --empower is not perfect, there's still various software around
+          that does access checks purely based on the UID, without Linux process
+          capabilities or polkit policies having any effect on them.)
 
         * systemd-run gained support for --root-directory= to invoke the service
           in the specified root directory. It also gained --same-root-dir (whith
@@ -478,7 +483,8 @@ CHANGES WITH 259 in spe:
           resources as the usual memory pressure behaviour of long-running
           systemd services has no effect on musl.
 
-        * systemd-integrity-setup now supports HMAC-SHA256, PHMAC-SHA256, PHMAC-SHA512.
+        * systemd-integrity-setup now supports HMAC-SHA256, PHMAC-SHA256,
+          PHMAC-SHA512.
 
         * systemd-stdio-bridge gained a new --quiet option.
 
@@ -490,6 +496,8 @@ CHANGES WITH 259 in spe:
 
         * journalctl learned a new short switch "-W" for the existing long
           switch "--no-hostname".
+
+        * system-alloc-{uid,gid}-min are now exported in systemd.pc.
 
         Contributions from: Alan Brady, Alberto Planas, Aleksandr Mezin,
         Allison Karlitskaya, Andreas Schneider, Anton Tiurin,
