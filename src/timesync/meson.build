@@ -76,25 +76,23 @@ executables += [
 ]
 
 if conf.get('ENABLE_TIMESYNC_NTS') == 1
-
-executables += [
-        test_template + {
-                'sources' : files('test-nts.c') + nts_sources,
-                'link_with' : timesyncd_link_with,
-                'dependencies' : crypto_deps,
-        },
-        fuzz_template + {
-                'sources' : files('fuzz-nts.c', 'fuzz-nullcipher.c', 'nts_packet.c'),
-                'link_with' : libshared,
-                'dependencies' : crypto_deps,
-        },
-        fuzz_template + {
-                'sources' : files('fuzz-nts-extfields.c', 'fuzz-nullcipher.c', 'nts_extfields.c'),
-                'link_with' : libshared,
-                'dependencies' : crypto_deps,
-        },
-]
-
+        executables += [
+                test_template + {
+                        'sources' : files('test-nts.c') + nts_sources,
+                        'link_with' : timesyncd_link_with,
+                        'dependencies' : crypto_deps,
+                },
+                fuzz_template + {
+                        'sources' : files('fuzz-nts.c', 'fuzz-nullcipher.c', 'nts_packet.c'),
+                        'link_with' : libshared,
+                        'dependencies' : crypto_deps,
+                },
+                fuzz_template + {
+                        'sources' : files('fuzz-nts-extfields.c', 'fuzz-nullcipher.c', 'nts_extfields.c'),
+                        'link_with' : libshared,
+                        'dependencies' : crypto_deps,
+                },
+        ]
 endif
 
 custom_target(
