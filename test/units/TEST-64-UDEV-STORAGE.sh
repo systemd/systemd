@@ -611,6 +611,13 @@ EOF
 }
 
 testcase_simultaneous_events() {
+    . /etc/os-release
+    if [[ "$ID" == "debian" ]]; then
+        # See https://github.com/systemd/systemd/issues/39552
+        echo "Simultaneous events test cases are not working on Debian, skipping the test" | tee --append /skipped
+        exit 77
+    fi
+
     testcase_simultaneous_events_1
     testcase_simultaneous_events_2
     testcase_simultaneous_events_3
