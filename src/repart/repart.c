@@ -4008,7 +4008,7 @@ static int context_dump_partitions(Context *context) {
         if (!t)
                 return log_oom();
 
-        /* For compatiblity, use the original longer name for JSON output. */
+        /* For compatibility, use the original longer name for JSON output. */
         table_set_json_field_name(t, 3, "partno");
 
         /* Starting in v257, these fields would be automatically formatted with underscores. This would have
