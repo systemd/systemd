@@ -153,9 +153,6 @@ _DEFINE_ABS_WRAPPER(SECCOMP_FATAL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(scmp_filter_ctx, sym_seccomp_release, seccomp_releasep, NULL);
 
 int parse_syscall_archs(char **l, Set **ret_archs);
-
-uint32_t scmp_act_kill_process(void);
-
 int parse_syscall_and_errno(const char *in, char **name, int *error);
 
 int seccomp_suppress_sync(void);
