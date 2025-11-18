@@ -132,6 +132,15 @@ static const char *const image_dirname_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_CONFEXT]  = "confexts",
 };
 
+static const char auxiliary_suffixes_nulstr[] =
+        ".nspawn\0"
+        ".oci-config\0"
+        ".roothash\0"
+        ".roothash.p7s\0"
+        ".usrhash\0"
+        ".usrhash.p7s\0"
+        ".verity\0";
+
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_dirname, ImageClass);
 
 static Image* image_free(Image *i) {
@@ -222,12 +231,11 @@ static char** image_settings_path(Image *image, RuntimeScope scope) {
         return TAKE_PTR(l);
 }
 
-static int image_roothash_path(Image *image, char **ret) {
-        _cleanup_free_ char *fn = NULL;
-
+static int image_auxiliary_path(Image *image, const char *suffix, char **ret) {
         assert(image);
+        assert(suffix);
 
-        fn = strjoin(image->name, ".roothash");
+        _cleanup_free_ char *fn = strjoin(image->name, suffix);
         if (!fn)
                 return -ENOMEM;
 
@@ -1259,7 +1267,6 @@ static int unprivileged_remove(Image *i) {
 int image_remove(Image *i, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
-        _cleanup_free_ char *roothash = NULL;
         int r;
 
         assert(i);
@@ -1270,10 +1277,6 @@ int image_remove(Image *i, RuntimeScope scope) {
         settings = image_settings_path(i, scope);
         if (!settings)
                 return -ENOMEM;
-
-        r = image_roothash_path(i, &roothash);
-        if (r < 0)
-                return r;
 
         /* Make sure we don't interfere with a running nspawn */
         r = image_path_lock(scope, i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
@@ -1331,20 +1334,31 @@ int image_remove(Image *i, RuntimeScope scope) {
                 if (unlink(*j) < 0 && errno != ENOENT)
                         log_debug_errno(errno, "Failed to unlink %s, ignoring: %m", *j);
 
-        if (unlink(roothash) < 0 && errno != ENOENT)
-                log_debug_errno(errno, "Failed to unlink %s, ignoring: %m", roothash);
+        NULSTR_FOREACH(suffix, auxiliary_suffixes_nulstr) {
+                _cleanup_free_ char *aux = NULL;
+                r = image_auxiliary_path(i, suffix, &aux);
+                if (r < 0)
+                        return r;
+
+                if (unlink(aux) < 0 && errno != ENOENT)
+                        log_debug_errno(errno, "Failed to unlink %s, ignoring: %m", aux);
+        }
 
         return 0;
 }
 
 static int rename_auxiliary_file(const char *path, const char *new_name, const char *suffix) {
-        _cleanup_free_ char *fn = NULL, *rs = NULL;
         int r;
 
-        fn = strjoin(new_name, suffix);
+        assert(path);
+        assert(new_name);
+        assert(suffix);
+
+        _cleanup_free_ char *fn = strjoin(new_name, suffix);
         if (!fn)
                 return -ENOMEM;
 
+        _cleanup_free_ char *rs = NULL;
         r = file_in_same_dir(path, fn, &rs);
         if (r < 0)
                 return r;
@@ -1354,7 +1368,7 @@ static int rename_auxiliary_file(const char *path, const char *new_name, const c
 
 int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
-        _cleanup_free_ char *new_path = NULL, *nn = NULL, *roothash = NULL;
+        _cleanup_free_ char *new_path = NULL, *nn = NULL;
         _cleanup_strv_free_ char **settings = NULL;
         unsigned file_attr = 0;
         int r;
@@ -1370,10 +1384,6 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         settings = image_settings_path(i, scope);
         if (!settings)
                 return -ENOMEM;
-
-        r = image_roothash_path(i, &roothash);
-        if (r < 0)
-                return r;
 
         /* Make sure we don't interfere with a running nspawn */
         r = image_path_lock(scope, i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
@@ -1452,21 +1462,32 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
                         log_debug_errno(r, "Failed to rename settings file %s, ignoring: %m", *j);
         }
 
-        r = rename_auxiliary_file(roothash, new_name, ".roothash");
-        if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to rename roothash file %s, ignoring: %m", roothash);
+        NULSTR_FOREACH(suffix, auxiliary_suffixes_nulstr) {
+                _cleanup_free_ char *aux = NULL;
+                r = image_auxiliary_path(i, suffix, &aux);
+                if (r < 0)
+                        return r;
+
+                r = rename_auxiliary_file(aux, new_name, suffix);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to rename roothash file %s, ignoring: %m", aux);
+        }
 
         return 0;
 }
 
 static int clone_auxiliary_file(const char *path, const char *new_name, const char *suffix) {
-        _cleanup_free_ char *fn = NULL, *rs = NULL;
         int r;
 
-        fn = strjoin(new_name, suffix);
+        assert(path);
+        assert(new_name);
+        assert(suffix);
+
+        _cleanup_free_ char *fn = strjoin(new_name, suffix);
         if (!fn)
                 return -ENOMEM;
 
+        _cleanup_free_ char *rs = NULL;
         r = file_in_same_dir(path, fn, &rs);
         if (r < 0)
                 return r;
@@ -1613,7 +1634,6 @@ static int unpriviled_clone(Image *i, const char *new_path) {
 int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile name_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
-        _cleanup_free_ char *roothash = NULL;
         int r;
 
         assert(i);
@@ -1624,10 +1644,6 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
         settings = image_settings_path(i, scope);
         if (!settings)
                 return -ENOMEM;
-
-        r = image_roothash_path(i, &roothash);
-        if (r < 0)
-                return r;
 
         /* Make sure nobody takes the new name, between the time we
          * checked it is currently unused in all search paths, and the
@@ -1698,9 +1714,16 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
                         log_debug_errno(r, "Failed to clone settings %s, ignoring: %m", *j);
         }
 
-        r = clone_auxiliary_file(roothash, new_name, ".roothash");
-        if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to clone root hash file %s, ignoring: %m", roothash);
+        NULSTR_FOREACH(suffix, auxiliary_suffixes_nulstr) {
+                _cleanup_free_ char *aux = NULL;
+                r = image_auxiliary_path(i, suffix, &aux);
+                if (r < 0)
+                        return r;
+
+                r = clone_auxiliary_file(aux, new_name, suffix);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to clone root hash file %s, ignoring: %m", aux);
+        }
 
         return 0;
 }
