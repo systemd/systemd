@@ -119,20 +119,18 @@ static char* systemd_crypt_ra(const char *phrase, const char *setting, void **da
 
 #endif
 
-int hash_password_full(const char *password, void **cd_data, int *cd_size, char **ret) {
+int hash_password(const char *password, char **ret) {
         _cleanup_free_ char *salt = NULL;
-        _cleanup_(erase_and_freep) void *_cd_data = NULL;
+        _cleanup_(erase_and_freep) void *cd_data = NULL;
         const char *p;
-        int r, _cd_size = 0;
-
-        assert(!!cd_data == !!cd_size);
+        int r, cd_size = 0;
 
         r = make_salt(&salt);
         if (r < 0)
                 return log_debug_errno(r, "Failed to generate salt: %m");
 
         errno = 0;
-        p = crypt_ra(password, salt, cd_data ?: &_cd_data, cd_size ?: &_cd_size);
+        p = crypt_ra(password, salt, &cd_data, &cd_size);
         if (!p)
                 return log_debug_errno(errno_or_else(SYNTHETIC_ERRNO(EINVAL)),
                                        CRYPT_RA_NAME "() failed: %m");
