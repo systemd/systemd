@@ -140,22 +140,6 @@ int hash_password_full(const char *password, void **cd_data, int *cd_size, char 
         return strdup_to(ret, p);
 }
 
-bool looks_like_hashed_password(const char *s) {
-        /* Returns false if the specified string is certainly not a hashed UNIX password. crypt(5) lists
-         * various hashing methods. We only reject (return false) strings which are documented to have
-         * different meanings.
-         *
-         * In particular, we allow locked passwords, i.e. strings starting with "!", including just "!",
-         * i.e. the locked empty password. See also fc58c0c7bf7e4f525b916e3e5be0de2307fef04e.
-         */
-        if (!s)
-                return false;
-
-        s += strspn(s, "!"); /* Skip (possibly duplicated) locking prefix */
-
-        return !STR_IN_SET(s, "x", "*");
-}
-
 int test_password_one(const char *hashed_password, const char *password) {
         _cleanup_(erase_and_freep) void *cd_data = NULL;
         int cd_size = 0;
@@ -185,4 +169,20 @@ int test_password_many(char **hashed_password, const char *password) {
         }
 
         return false;
+}
+
+bool looks_like_hashed_password(const char *s) {
+        /* Returns false if the specified string is certainly not a hashed UNIX password. crypt(5) lists
+         * various hashing methods. We only reject (return false) strings which are documented to have
+         * different meanings.
+         *
+         * In particular, we allow locked passwords, i.e. strings starting with "!", including just "!",
+         * i.e. the locked empty password. See also fc58c0c7bf7e4f525b916e3e5be0de2307fef04e.
+         */
+        if (!s)
+                return false;
+
+        s += strspn(s, "!"); /* Skip (possibly duplicated) locking prefix */
+
+        return !STR_IN_SET(s, "x", "*");
 }
