@@ -64,8 +64,10 @@ int path_uses_vpick(const char *path);
 
 extern const PickFilter pick_filter_image_raw[1];
 extern const PickFilter pick_filter_image_dir[1];
+extern const PickFilter pick_filter_image_mstack[1];
 
 #define pick_filter_image_any (const PickFilter[]) {    \
         pick_filter_image_raw[0],                       \
+        pick_filter_image_mstack[0],                    \
         pick_filter_image_dir[0],                       \
 }
