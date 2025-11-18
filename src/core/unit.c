@@ -4373,17 +4373,9 @@ static PrivateTmp unit_get_private_var_tmp(const Unit *u, const ExecContext *c) 
                 if (hashmap_contains(u->mounts_for[t], "/var/"))
                         return PRIVATE_TMP_DISCONNECTED;
 
-        /* Check the same but for After= with Requires=/Requisite=/Wants= or friends. */
+        /* Check the same but for After=. */
         Unit *m = manager_get_unit(u->manager, "var.mount");
-        if (!m)
-                return PRIVATE_TMP_NO;
-
-        if (!unit_has_dependency(u, UNIT_ATOM_AFTER, m))
-                return PRIVATE_TMP_NO;
-
-        if (unit_has_dependency(u, UNIT_ATOM_PULL_IN_START, m) ||
-            unit_has_dependency(u, UNIT_ATOM_PULL_IN_VERIFY, m) ||
-            unit_has_dependency(u, UNIT_ATOM_PULL_IN_START_IGNORED, m))
+        if (m && unit_has_dependency(u, UNIT_ATOM_AFTER, m))
                 return PRIVATE_TMP_DISCONNECTED;
 
         return PRIVATE_TMP_NO;
