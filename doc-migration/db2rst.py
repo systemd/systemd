@@ -258,6 +258,9 @@ def _has_no_text(el):
             continue
         if i.tag == "emphasis":
             continue
+        # The skipped tail here is usually a comma, we add that in simplelist
+        if i.tag == 'member' and _is_inside_of(i, "simplelist"):
+            continue
         if i.tail is not None and not i.tail.isspace():
             _warn("skipping tail of <%s>: %s" % (_get_path(i), i.tail))
 
