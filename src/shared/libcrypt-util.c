@@ -12,6 +12,7 @@
 #include "strv.h"
 
 int make_salt(char **ret) {
+        assert(ret);
 
 #if HAVE_CRYPT_GENSALT_RA
         const char *e;
@@ -86,6 +87,8 @@ int make_salt(char **ret) {
 /* Provide a poor man's fallback that uses a fixed size buffer. */
 
 static char* systemd_crypt_ra(const char *phrase, const char *setting, void **data, int *size) {
+        assert(phrase);
+        assert(setting);
         assert(data);
         assert(size);
 
@@ -125,6 +128,9 @@ int hash_password(const char *password, char **ret) {
         const char *p;
         int r, cd_size = 0;
 
+        assert(password);
+        assert(ret);
+
         r = make_salt(&salt);
         if (r < 0)
                 return log_debug_errno(r, "Failed to generate salt: %m");
@@ -143,6 +149,9 @@ int test_password_one(const char *hashed_password, const char *password) {
         int cd_size = 0;
         const char *k;
 
+        assert(hashed_password);
+        assert(password);
+
         errno = 0;
         k = crypt_ra(password, hashed_password, &cd_data, &cd_size);
         if (!k) {
@@ -157,6 +166,8 @@ int test_password_one(const char *hashed_password, const char *password) {
 
 int test_password_many(char **hashed_password, const char *password) {
         int r;
+
+        assert(password);
 
         STRV_FOREACH(hpw, hashed_password) {
                 r = test_password_one(*hpw, password);
