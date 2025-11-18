@@ -512,12 +512,10 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
         r = userdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
                            USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                            &ur);
-        if (r == -ESRCH)
-                return log_line_error_errno(rule_line, r, "Unknown user '%s', ignoring.", name);
-        if (r == -ENOEXEC)
-                return log_line_error_errno(rule_line, r, "User '%s' is not a system user, ignoring.", name);
         if (r < 0)
-                return log_line_error_errno(rule_line, r, "Failed to resolve user '%s', ignoring: %m", name);
+                return log_line_error_errno(rule_line, r,
+                                            "Failed to resolve user '%s', ignoring: %s",
+                                            name, STRERROR_USER(r));
 
         _cleanup_free_ char *n = strdup(name);
         if (!n)
@@ -549,12 +547,10 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
         r = groupdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
                             USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                             &gr);
-        if (r == -ESRCH)
-                return log_line_error_errno(rule_line, r, "Unknown group '%s', ignoring.", name);
-        if (r == -ENOEXEC)
-                return log_line_error_errno(rule_line, r, "Group '%s' is not a system group, ignoring.", name);
         if (r < 0)
-                return log_line_error_errno(rule_line, r, "Failed to resolve group '%s', ignoring: %m", name);
+                return log_line_error_errno(rule_line, r,
+                                            "Failed to resolve group '%s', ignoring: %s",
+                                            name, STRERROR_GROUP(r));
 
         _cleanup_free_ char *n = strdup(name);
         if (!n)
@@ -2681,12 +2677,10 @@ static int udev_rule_apply_token_to_event(
                 r = userdb_by_name(owner, &USERDB_MATCH_ROOT_AND_SYSTEM,
                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                    &ur);
-                if (r == -ESRCH)
-                        log_event_error_errno(event, token, r, "Unknown user \"%s\", ignoring.", owner);
-                else if (r == -ENOEXEC)
-                        log_event_error(event, token, "User \"%s\" is not a system user, ignoring.", owner);
-                else if (r < 0)
-                        log_event_error_errno(event, token, r, "Failed to resolve user \"%s\", ignoring: %m", owner);
+                if (r < 0)
+                        log_event_error_errno(event, token, r,
+                                              "Failed to resolve user \"%s\", ignoring: %s",
+                                              owner, STRERROR_USER(r));
                 else {
                         event->uid = ur->uid;
                         log_event_debug(event, token, "Set owner: %s("UID_FMT")", owner, event->uid);
@@ -2709,12 +2703,10 @@ static int udev_rule_apply_token_to_event(
                 r = groupdb_by_name(group, &USERDB_MATCH_ROOT_AND_SYSTEM,
                                     USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                     &gr);
-                if (r == -ESRCH)
-                        log_event_error_errno(event, token, r, "Unknown group \"%s\", ignoring.", group);
-                else if (r == -ENOEXEC)
-                        log_event_error(event, token, "Group \"%s\" is not a system group, ignoring.", group);
-                else if (r < 0)
-                        log_event_error_errno(event, token, r, "Failed to resolve group \"%s\", ignoring: %m", group);
+                if (r < 0)
+                        log_event_error_errno(event, token, r,
+                                              "Failed to resolve group \"%s\", ignoring: %s",
+                                              group, STRERROR_GROUP(r));
                 else {
                         event->gid = gr->gid;
                         log_event_debug(event, token, "Set group: %s("GID_FMT")", group, event->gid);
