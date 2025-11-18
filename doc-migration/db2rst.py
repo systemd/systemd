@@ -683,12 +683,15 @@ group = optional
 def replaceable(el):
     # If it’s in an arg with `choice="opt"`, it should have brackets
     isInsideArg = False
+    isRepeat = False
     result = ''
     for arg in el.iterancestors(tag='arg'):
         if arg.get("choice") == 'opt':
             isInsideArg = True
+        if arg.get("rep") == 'repeat':
+            isRepeat = True
     if isInsideArg:
-        result = "*[%s]*" % _concat(el).strip()
+        result = f"*[%s{'...' if isRepeat else ''}]*" % _concat(el).strip()
     else:
         # Otherwise < >
         result = "*<%s>*" % _concat(el).strip()
