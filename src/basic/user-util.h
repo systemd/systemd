@@ -9,14 +9,29 @@
 #include <shadow.h>
 
 #include "basic-forward.h"
+#include "errno-util.h"
 
-/* Users managed by systemd-homed. See https://systemd.io/UIDS-GIDS for details how this range fits into the rest of the world */
+/* Users managed by systemd-homed. See https://systemd.io/UIDS-GIDS for details
+ * how this range fits into the rest of the world. */
 #define HOME_UID_MIN ((uid_t) 60001)
 #define HOME_UID_MAX ((uid_t) 60513)
 
 /* Users mapped from host into a container */
 #define MAP_UID_MIN ((uid_t) 60514)
 #define MAP_UID_MAX ((uid_t) 60577)
+
+/* A helper to print an error message when user or group resolution fails.
+ * Note that we can't use ({ … }) to define a temporary variable, so errnum is
+ * evaluated multiple times. */
+#define STRERROR_USER(errnum) ((errnum) == -ESRCH ? "Unknown user" : (errnum) == -ENOEXEC ? "Not a system user" : STRERROR(errnum))
+#define STRERROR_GROUP(errnum) ((errnum) == -ESRCH ? "Unknown group" : (errnum) == -ENOEXEC ? "Not a system group" : STRERROR(errnum))
+
+static inline bool ERRNO_IS_NEG_BAD_ACCOUNT(intmax_t r) {
+        return IN_SET(r,
+                      -ESRCH,
+                      -ENOEXEC);
+}
+_DEFINE_ABS_WRAPPER(BAD_ACCOUNT);
 
 bool uid_is_valid(uid_t uid) _const_;
 

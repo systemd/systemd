@@ -932,7 +932,7 @@ int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags
         r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ false, query, flags);
         if (r >= 0) {
                 r = userdb_process(iterator, &ur, /* ret_group_record= */ NULL, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
-                if (r == -ENOEXEC) /* found a user matching UID or name, but not filter. In this case the
+                if (r == -ENOEXEC) /* Found a user matching UID or name, but not filter. In this case the
                                     * fallback paths below are pointless */
                         return r;
         }

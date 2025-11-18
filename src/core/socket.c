@@ -2056,7 +2056,9 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 
                         r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve user %s: %m", user);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve user '%s': %s",
+                                                     user, STRERROR_USER(r));
                                 _exit(EXIT_USER);
                         }
                 }
@@ -2066,7 +2068,9 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 
                         r = get_group_creds(&group, &gid, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve group %s: %m", group);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve group '%s': %s",
+                                                     group, STRERROR_GROUP(r));
                                 _exit(EXIT_GROUP);
                         }
                 }
