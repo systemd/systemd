@@ -20,5 +20,5 @@ cleanup() (
 
 trap cleanup EXIT ERR INT TERM
 
-tools/setup-musl-build.sh "${TMPDIR}/build"
+tools/setup-musl-build.sh "${TMPDIR}/build" -Dlibiptc=disabled
 ninja -v -C "${TMPDIR}/build"
