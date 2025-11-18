@@ -1670,7 +1670,7 @@ static int open_osc_context(pam_handle_t *handle, const char *session_type, User
         return PAM_SUCCESS;
 }
 
-static int close_osc_context(pam_handle_t *handle) {
+static int close_osc_context(pam_handle_t *handle, bool debug) {
         int r;
 
         assert(handle);
@@ -1715,7 +1715,7 @@ static int close_osc_context(pam_handle_t *handle) {
         /* When we are closing things, the TTY might not take our writes anymore. Accept that gracefully. */
         r = loop_write(fd, osc, SIZE_MAX);
         if (r < 0)
-                pam_syslog_errno(handle, LOG_DEBUG, r, "Failed to write OSC sequence to TTY, ignoring: %m");
+                pam_debug_syslog(handle, debug, "Failed to write OSC sequence to TTY");
 
         return PAM_SUCCESS;
 }
@@ -1844,7 +1844,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 return pam_syslog_pam_error(handle, LOG_ERR, r,
                                             "Failed to get PAM systemd.existing data: @PAMERR@");
 
-        (void) close_osc_context(handle);
+        (void) close_osc_context(handle, debug);
 
         id = pam_getenv(handle, "XDG_SESSION_ID");
         if (id && !existing) {
