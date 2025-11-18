@@ -756,8 +756,8 @@ static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
 
         assert(ml);
         assert(p);
-        assert(p->private_tmp == p->private_var_tmp ||
-               (p->private_tmp == PRIVATE_TMP_DISCONNECTED && p->private_var_tmp == PRIVATE_TMP_NO));
+        assert(p->private_tmp >= 0 && p->private_tmp < _PRIVATE_TMP_MAX);
+        assert(p->private_var_tmp >= 0 && p->private_var_tmp < _PRIVATE_TMP_MAX);
 
         if (p->tmp_dir) {
                 assert(p->private_tmp == PRIVATE_TMP_CONNECTED);

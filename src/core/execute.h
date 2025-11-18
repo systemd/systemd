@@ -333,9 +333,9 @@ typedef struct ExecContext {
         int bind_log_sockets;
         int memory_ksm;
         MemoryTHP memory_thp;
-        PrivateTmp private_tmp;
-        PrivateTmp private_var_tmp; /* This is not an independent parameter, but calculated from other
-                                     * parameters in unit_patch_contexts(). */
+        PrivateTmp private_tmp;     /* Those are not independent parameters, but are calculated from */
+        PrivateTmp private_var_tmp; /* other parameters in unit_patch_contexts(). */
+
         bool private_network;
         bool private_devices;
         PrivateUsers private_users;
