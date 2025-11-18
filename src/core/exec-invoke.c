@@ -2248,10 +2248,8 @@ static int build_environment(
         }
 
         assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
-        if (needs_sandboxing && c->private_tmp != c->private_var_tmp) {
-                assert(c->private_tmp == PRIVATE_TMP_DISCONNECTED);
-                assert(c->private_var_tmp == PRIVATE_TMP_NO);
-
+        if (needs_sandboxing &&
+            c->private_var_tmp == PRIVATE_TMP_NO && c->private_tmp != PRIVATE_TMP_NO) {
                 /* When private tmpfs is enabled only on /tmp/, then explicitly set $TMPDIR to suggest the
                  * service to use /tmp/. */
 
@@ -3907,14 +3905,16 @@ static int apply_mount_namespace(
         if (needs_sandboxing) {
                 /* The runtime struct only contains the parent of the private /tmp, which is non-accessible
                  * to world users. Inside of it there's a /tmp that is sticky, and that's the one we want to
-                 * use here.  This does not apply when we are using /run/systemd/empty as fallback. */
+                 * use here. This does not apply when we are using /run/systemd/empty as fallback. */
 
                 if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime->shared) {
                         if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
                                 tmp_dir = runtime->shared->tmp_dir;
                         else if (runtime->shared->tmp_dir)
                                 tmp_dir = strjoina(runtime->shared->tmp_dir, "/tmp");
+                }
 
+                if (context->private_var_tmp == PRIVATE_TMP_CONNECTED && runtime->shared) {
                         if (streq_ptr(runtime->shared->var_tmp_dir, RUN_SYSTEMD_EMPTY))
                                 var_tmp_dir = runtime->shared->var_tmp_dir;
                         else if (runtime->shared->var_tmp_dir)
@@ -4624,7 +4624,7 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                 return false;
 
         return context->private_users != PRIVATE_USERS_NO ||
-               context->private_tmp != PRIVATE_TMP_NO ||
+               context->private_tmp != PRIVATE_TMP_NO || /* no need to check for private_var_tmp here, private_tmp is never demoted to "no" */
                context->private_devices ||
                context->private_network ||
                context->user_namespace_path ||
