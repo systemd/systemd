@@ -1518,7 +1518,8 @@ static int socket_address_listen_do(
                         s->transparent,
                         s->directory_mode,
                         s->socket_mode,
-                        label);
+                        label,
+                        s->smack);
 }
 
 #define log_address_error_errno(u, address, error, fmt)          \
