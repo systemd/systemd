@@ -567,7 +567,10 @@ def arg(el):
         if len(el.getchildren()) == 0:
             return text
         else:
-            return "%s" % _join_children(el, '')
+            # join_children will swallow any text that is present alongside children tags e.g.
+            # <arg choice="plain"><option>--unit</option>|<option>--user-unit</option></arg>
+            # the | will get lost, so better to use concat()
+            return "%s" % _concat(el).strip()
     else:
         if choice is None:
             return "[%s]" % text
@@ -643,6 +646,13 @@ def varname(el):
 def option(el):
     if _is_inside_of(el, 'term'):
         return _concat(el).strip()
+    if _is_inside_of(el, 'arg'):
+        result = ""
+        if el.text and re.match(r'^\--', el.text):
+            result += '\\' + el.text
+        else:
+            result = "%s" % _concat(el).strip()
+        return result
 
     classname = ''
     for varlist in el.iterancestors(tag='variablelist'):
