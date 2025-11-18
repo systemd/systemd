@@ -583,8 +583,8 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   code. (With one exception: it is OK to log with DEBUG level from any code,
   with the exception of maybe inner loops).
 
-- In public API calls, you **must** validate all your input arguments for
-  programming error with `assert_return()` and return a sensible return
+- In libsystemd public API calls, you **must** validate all your input arguments
+  for programming error with `assert_return()` and return a sensible return
   code. In all other calls, it is recommended to check for programming errors
   with a more brutal `assert()`. We are more forgiving to public users than for
   ourselves! Note that `assert()` and `assert_return()` really only should be
@@ -981,6 +981,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   make sure a descriptive error is logged when an assertion fails. If no assertion
   macro exists for your specific use case, please add a new assertion macro in a
   separate commit.
+
+- Use `ASSERT_OK_ERRNO()` and similar macros instead of `ASSERT_OK()` when
+  calling glibc APIs that return the error in `errno`.
 
 - When modifying existing tests, please convert the test to use the new assertion
   macros from `tests.h` if it is not already using those.
