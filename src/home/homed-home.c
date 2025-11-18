@@ -2189,7 +2189,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         return (void) log_debug_errno(r, "Failed to parse SYSTEMD_LUKS_LOCK_FD value: %m");
                 if (r > 0) {
                         if (taken_fd < 0)
-                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring: %m");
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring.");
 
                         close_and_replace(h->luks_lock_fd, taken_fd);
 
@@ -2199,7 +2199,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         home_maybe_close_luks_lock_fd(h, _HOME_STATE_INVALID);
                 } else {
                         if (taken_fd >= 0)
-                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring: %m");
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring.");
 
                         h->luks_lock_fd = safe_close(h->luks_lock_fd);
                 }

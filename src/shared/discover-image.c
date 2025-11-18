@@ -844,7 +844,7 @@ int image_find(RuntimeScope scope,
                                         continue;
                                 }
                                 if (!result.path) {
-                                        log_debug("Found versioned directory '%s', without matching entry, skipping: %m", vp);
+                                        log_debug("Found versioned directory '%s', without matching entry, skipping.", vp);
                                         continue;
                                 }
 
@@ -1052,7 +1052,7 @@ int image_discover(
                                                 continue;
                                         }
                                         if (!result.path) {
-                                                log_debug("Found versioned directory '%s', without matching entry, skipping: %m", vp);
+                                                log_debug("Found versioned directory '%s', without matching entry, skipping.", vp);
                                                 continue;
                                         }
 
