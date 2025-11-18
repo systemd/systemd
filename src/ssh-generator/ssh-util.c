@@ -27,8 +27,9 @@ int vsock_get_local_cid_or_warn(unsigned *ret) {
         int r;
 
         r = vsock_get_local_cid(ret);
-        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
-                log_debug_errno(r, "/dev/vsock is not available (even though AF_VSOCK is), ignoring: %m");
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r) || r == -EADDRNOTAVAIL) {
+                if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                        log_debug_errno(r, "/dev/vsock is not available (even though AF_VSOCK is), ignoring: %m");
                 if (ret)
                         *ret = 0;  /* bogus value */
                 return 0;
