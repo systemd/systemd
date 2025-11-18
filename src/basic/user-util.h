@@ -20,11 +20,24 @@
 #define MAP_UID_MIN ((uid_t) 60514)
 #define MAP_UID_MAX ((uid_t) 60577)
 
-/* A helper to print an error message when user or group resolution fails.
- * Note that we can't use ({ … }) to define a temporary variable, so errnum is
- * evaluated multiple times. */
-#define STRERROR_USER(errnum) ((errnum) == -ESRCH ? "Unknown user" : (errnum) == -ENOEXEC ? "Not a system user" : STRERROR(errnum))
-#define STRERROR_GROUP(errnum) ((errnum) == -ESRCH ? "Unknown group" : (errnum) == -ENOEXEC ? "Not a system group" : STRERROR(errnum))
+/* A helper to print an error message when user or group resolution fails. */
+#define DEFINE_STRERROR_ACCOUNT(type)                                   \
+        static inline const char* strerror_##type(int errnum, char *buf, size_t buflen) { \
+                errnum = ABS(errnum);                                   \
+                switch (errnum) {                                       \
+                case ESRCH:                                             \
+                        return "Unknown " STRINGIFY(type);              \
+                case ENOEXEC:                                           \
+                        return "Not a system " STRINGIFY(type);         \
+                default:                                                \
+                        return strerror_r(errnum, buf, buflen);         \
+                }                                                       \
+        }
+
+DEFINE_STRERROR_ACCOUNT(user);
+#define STRERROR_USER(errnum) strerror_user(errnum, (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
+DEFINE_STRERROR_ACCOUNT(group);
+#define STRERROR_GROUP(errnum) strerror_group(errnum, (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
 
 static inline bool ERRNO_IS_NEG_BAD_ACCOUNT(intmax_t r) {
         return IN_SET(r,
