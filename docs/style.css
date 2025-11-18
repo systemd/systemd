@@ -251,7 +251,7 @@ tbody td {
   vertical-align: top;
 }
 
-/* Rouge Code Highlight, github style */
+/* Rogue Code Highlight, github style */
 /* Generated with: rougify style github | sed '/background-color: #f8f8f8/d' */
 .highlight table td { padding: 5px; }
 .highlight table pre { margin: 0; }
@@ -468,7 +468,7 @@ tbody td {
 }
 
 @media (prefers-color-scheme: dark) {
-  /* rouge "base16.dark" code highlight */
+  /* rogue "base16.dark" code highlight */
   /* generated with: rougify style base16.dark | sed '/background-color: #151515/d' */
   .highlight, .highlight .w {
     color: #d0d0d0;
