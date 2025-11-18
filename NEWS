@@ -100,7 +100,7 @@ CHANGES WITH 259 in spe:
           points to its own PID can now also verify the pidfd inode ID, which
           does not recycle IDs.
 
-        * The log message made when a service exists will now show the
+        * The log message made when a service exits will now show the
           wallclock time the service took in addition to the previously shown
           CPU time.
 
