@@ -17,6 +17,7 @@
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "special.h"
+#include "ssh-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "virt.h"
@@ -211,17 +212,9 @@ static int add_vsock_socket(
                 return 0;
         }
 
-        _cleanup_close_ int vsock_fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        if (vsock_fd < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno)) {
-                        log_debug("Not creating AF_VSOCK ssh listener, since AF_VSOCK is not available.");
-                        return 0;
-                }
-
-                return log_error_errno(errno, "Unable to test if AF_VSOCK is available: %m");
-        }
-
-        vsock_fd = safe_close(vsock_fd);
+        r = vsock_open_or_warn(/* ret= */ NULL);
+        if (r <= 0)
+                return r;
 
         /* Determine the local CID so that we can log it to help users to connect to this VM */
         unsigned local_cid;
