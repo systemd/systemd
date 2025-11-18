@@ -1180,6 +1180,18 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
                 if (r < 0)
                         log_unit_error_errno(UNIT(s), r, "Failed to apply SMACK label for IP output, ignoring: %m");
         }
+        if (s->smack) {
+                const char *path;
+                path = socket_address_get_path(&p->address);
+                if (path) {
+                        r = mac_smack_apply(path, SMACK_ATTR_ACCESS, s->smack);
+                        if (r < 0)
+                                log_unit_error_errno(UNIT(s), r, "Failed to apply SMACK label for socket path, ignoring: %m");
+                }
+                r = mac_smack_apply_fd(fd, SMACK_ATTR_ACCESS, s->smack);
+                if (r < 0)
+                        log_unit_error_errno(UNIT(s), r, "Failed to apply SMACK label for socket FD, ignoring: %m");
+        }
 }
 
 static void socket_apply_fifo_options(Socket *s, int fd) {

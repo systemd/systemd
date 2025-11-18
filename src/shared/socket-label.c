@@ -23,7 +23,7 @@ int socket_address_listen(
                 bool transparent,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                const char *label) {
+                const char *selinux_label) {
 
         _cleanup_close_ int fd = -EBADF;
         const char *p;
@@ -38,15 +38,15 @@ int socket_address_listen(
         if (socket_address_family(a) == AF_INET6 && !socket_ipv6_is_supported())
                 return -EAFNOSUPPORT;
 
-        if (label) {
-                r = mac_selinux_create_socket_prepare(label);
+        if (selinux_label) {
+                r = mac_selinux_create_socket_prepare(selinux_label);
                 if (r < 0)
                         return r;
         }
 
         fd = RET_NERRNO(socket(socket_address_family(a), a->type | flags, a->protocol));
 
-        if (label)
+        if (selinux_label)
                 mac_selinux_create_socket_clear();
 
         if (fd < 0)
@@ -110,6 +110,12 @@ int socket_address_listen(
         } else {
                 if (bind(fd, &a->sockaddr.sa, a->size) < 0)
                         return -errno;
+        }
+
+        if (selinux_label) {
+                r = mac_selinux_apply_fd(fd, p, selinux_label);
+                        if (r < 0)
+                                log_warning_errno(r, "SELinux FD failed: %m");
         }
 
         if (socket_address_can_accept(a))
