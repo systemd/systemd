@@ -2087,8 +2087,11 @@ static int build_environment(
                 assert(!c->user);
 
                 r = get_fixed_user("root", /* prefer_nss = */ false, &username, NULL, NULL, &home, &shell);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to determine user credentials for root: %m");
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to determine credentials for user root: %s",
+                                        STRERROR_USER(r));
+                        return ERRNO_IS_NEG_BAD_ACCOUNT(r) ? -EINVAL : r;  /* Suppress confusing errno */
+                }
         }
 
         bool set_user_login_env = exec_context_get_set_login_environment(c);
@@ -5265,7 +5268,9 @@ int exec_invoke(
                                            &username, &uid, &gid, &pwent_home, &shell);
                         if (r < 0) {
                                 *exit_status = EXIT_USER;
-                                return log_error_errno(r, "Failed to determine user credentials: %m");
+                                log_error_errno(r, "Failed to determine credentials for user '%s': %s",
+                                                u, STRERROR_USER(r));
+                                return ERRNO_IS_NEG_BAD_ACCOUNT(r) ? -EINVAL : r;  /* Suppress confusing errno */
                         }
                 }
 
@@ -5273,7 +5278,9 @@ int exec_invoke(
                         r = get_fixed_group(context->group, &groupname, &gid);
                         if (r < 0) {
                                 *exit_status = EXIT_GROUP;
-                                return log_error_errno(r, "Failed to determine group credentials: %m");
+                                log_error_errno(r, "Failed to determine credentials for group '%s': %s",
+                                                u, STRERROR_GROUP(r));
+                                return ERRNO_IS_NEG_BAD_ACCOUNT(r) ? -EINVAL : r;  /* Suppress confusing errno */
                         }
                 }
         }
