@@ -5292,7 +5292,6 @@ int mountfsd_make_directory_fd(
 
         assert(parent_fd >= 0);
         assert(name);
-        assert(ret_directory_fd);
 
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
@@ -5338,7 +5337,8 @@ int mountfsd_make_directory_fd(
         if (directory_fd < 0)
                 return log_error_errno(directory_fd, "Failed to take directory fd from Varlink connection: %m");
 
-        *ret_directory_fd = TAKE_FD(directory_fd);
+        if (ret_directory_fd)
+                *ret_directory_fd = TAKE_FD(directory_fd);
         return 0;
 }
 
