@@ -76,7 +76,13 @@
       <listitem><para>Units with <varname>PrivateTmp=disconnected</varname> automatically gain dependencies
       of type <varname>Wants=</varname> and <varname>After=</varname> on the mount required to access
       <filename>/var/</filename>, unless <varname>DefaultDependencies=no</varname> and/or
-      <varname>RootDirectory=/RootImage=</varname> are specified.</para></listitem>
+      <varname>RootDirectory=</varname>/<varname>RootImage=</varname> are specified. If
+      <varname>DefaultDependencies=no</varname> is specified, and a
+      <varname>RequiresMountsFor=/var/</varname>, <varname>WantsMountsFor=/var/</varname>,
+      <varname>After=var.mount</varname>, <varname>RootDirectory=</varname>/<varname>RootImage=</varname> are
+      not specified, the private mount on <filename>/tmp/</filename> is reused for
+      <filename>/var/tmp/</filename> by setting <varname>$TMPDIR</varname> appropriately.</para>
+      </listitem>
 
       <listitem><para>Units whose standard output or error output is connected to <option>journal</option> or
       <option>kmsg</option> (or their combinations with console output, see below) automatically acquire
