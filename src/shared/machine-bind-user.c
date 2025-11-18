@@ -244,8 +244,10 @@ int machine_bind_user_prepare(
                 _cleanup_(group_record_unrefp) GroupRecord *g = NULL, *cg = NULL;
 
                 r = userdb_by_name(*n, /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &u);
+                if (r == -ENOEXEC)
+                        return log_error_errno(r, "User '%s' did not pass filter.", *n);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve user '%s': %m", *n);
+                        return log_error_errno(r, "Failed to resolve user '%s': %s", *n, STRERROR_USER(r));
 
                 /* For now, let's refuse mapping the root/nobody users explicitly. The records we generate
                  * are strictly additive, nss-systemd is typically placed last in /etc/nsswitch.conf. Thus
@@ -266,8 +268,11 @@ int machine_bind_user_prepare(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot bind user with no UID, refusing.");
 
                 r = groupdb_by_gid(user_record_gid(u), /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &g);
+                if (r == -ENOEXEC)
+                        return log_error_errno(r, "Group of user '%s' did not pass filter.", u->user_name);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve group of user '%s': %m", u->user_name);
+                        return log_error_errno(r, "Failed to resolve group of user '%s': %s",
+                                               u->user_name, STRERROR_GROUP(r));
 
                 /* We want to synthesize exactly one user + group from the host into the machine. This only
                  * makes sense if the user on the host has its own private group. We can't reasonably check
