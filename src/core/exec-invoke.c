@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <grp.h>
-#include <linux/prctl.h>
 #include <linux/sched.h>
 #include <linux/securebits.h>
 #include <poll.h>
@@ -2116,7 +2115,7 @@ static int build_environment(
         }
 
         if (!sd_id128_is_null(p->invocation_id)) {
-                assert(p->invocation_id_string);
+                assert(!isempty(p->invocation_id_string));
 
                 x = strjoin("INVOCATION_ID=", p->invocation_id_string);
                 if (!x)

@@ -2,7 +2,6 @@
 #pragma once
 
 #include <fcntl.h>
-#include <features.h>
 #include <linux/fs.h>
 #include <linux/mount.h> /* IWYU pragma: export */
 #include <stddef.h>
@@ -29,20 +28,20 @@ enum
 };
 
 /* Mount a filesystem.  */
-extern int mount(const char *__special_file, const char *__dir, const char *__fstype, unsigned long int __rwflag, const void *__data) __THROW;
+extern int mount(const char *__special_file, const char *__dir, const char *__fstype, unsigned long int __rwflag, const void *__data);
 
 /* Unmount a filesystem.  */
-extern int umount(const char *__special_file) __THROW;
+extern int umount(const char *__special_file);
 
 /* Unmount a filesystem.  Force unmounting if FLAGS is set to MNT_FORCE.  */
-extern int umount2(const char *__special_file, int __flags) __THROW;
+extern int umount2(const char *__special_file, int __flags);
 
 /* Open the filesystem referenced by FS_NAME so it can be configured for
    mouting.  */
 /* Defined since glibc-2.36.
  * Supported since kernel v5.2 (24dcb3d90a1f67fe08c68a004af37df059d74005). */
 #if HAVE_FSOPEN
-extern int fsopen(const char *__fs_name, unsigned int __flags) __THROW;
+extern int fsopen(const char *__fs_name, unsigned int __flags);
 #else
 int missing_fsopen(const char *fsname, unsigned flags);
 #  define fsopen missing_fsopen
@@ -53,7 +52,7 @@ int missing_fsopen(const char *fsname, unsigned flags);
 /* Defined since glibc-2.36.
  * Supported since kernel v5.2 (93766fbd2696c2c4453dd8e1070977e9cd4e6b6d). */
 #if HAVE_FSMOUNT
-extern int fsmount(int __fd, unsigned int __flags, unsigned int __ms_flags) __THROW;
+extern int fsmount(int __fd, unsigned int __flags, unsigned int __ms_flags);
 #else
 int missing_fsmount(int fd, unsigned flags, unsigned ms_flags);
 #  define fsmount missing_fsmount
@@ -65,7 +64,7 @@ int missing_fsmount(int fd, unsigned flags, unsigned ms_flags);
 /* Defined since glibc-2.36.
  * Supported since kernel v5.2 (2db154b3ea8e14b04fee23e3fdfd5e9d17fbc6ae). */
 #if HAVE_MOVE_MOUNT
-extern int move_mount(int __from_dfd, const char *__from_pathname, int __to_dfd, const char *__to_pathname, unsigned int flags) __THROW;
+extern int move_mount(int __from_dfd, const char *__from_pathname, int __to_dfd, const char *__to_pathname, unsigned int flags);
 #else
 int missing_move_mount(int from_dfd, const char *from_pathname, int to_dfd, const char *to_pathname, unsigned flags);
 #  define move_mount missing_move_mount
@@ -76,7 +75,7 @@ int missing_move_mount(int from_dfd, const char *from_pathname, int to_dfd, cons
 /* Defined since glibc-2.36.
  * Supported since kernel v5.2 (ecdab150fddb42fe6a739335257949220033b782). */
 #if HAVE_FSCONFIG
-extern int fsconfig(int __fd, unsigned int __cmd, const char *__key, const void *__value, int __aux) __THROW;
+extern int fsconfig(int __fd, unsigned int __cmd, const char *__key, const void *__value, int __aux);
 #else
 int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, int aux);
 #  define fsconfig missing_fsconfig
@@ -86,7 +85,7 @@ int missing_fsconfig(int fd, unsigned cmd, const char *key, const void *value, i
 /* Defined since glibc-2.36.
  * Supported since kernel v5.2 (a07b20004793d8926f78d63eb5980559f7813404). */
 #if HAVE_OPEN_TREE
-extern int open_tree(int __dfd, const char *__filename, unsigned int __flags) __THROW;
+extern int open_tree(int __dfd, const char *__filename, unsigned int __flags);
 #else
 int missing_open_tree(int dfd, const char *filename, unsigned flags);
 #  define open_tree missing_open_tree
@@ -100,7 +99,7 @@ int missing_open_tree(int dfd, const char *filename, unsigned flags);
 /* Defined since glibc-2.36.
  * Supported since kernel v5.12 (2a1867219c7b27f928e2545782b86daaf9ad50bd). */
 #if HAVE_MOUNT_SETATTR
-extern int mount_setattr(int __dfd, const char *__path, unsigned int __flags, struct mount_attr *__uattr, size_t __usize) __THROW;
+extern int mount_setattr(int __dfd, const char *__path, unsigned int __flags, struct mount_attr *__uattr, size_t __usize);
 #else
 int missing_mount_setattr(int dfd, const char *path, unsigned flags, struct mount_attr *attr, size_t size);
 #  define mount_setattr missing_mount_setattr
@@ -109,7 +108,7 @@ int missing_mount_setattr(int dfd, const char *path, unsigned flags, struct moun
 /* Not defined in glibc yet as of glibc-2.41.
  * Supported since kernel v6.15 (c4a16820d90199409c9bf01c4f794e1e9e8d8fd8). */
 #if HAVE_OPEN_TREE_ATTR
-extern int open_tree_attr(int __dfd, const char *__filename, unsigned int __flags, struct mount_attr *__uattr, size_t __usize) __THROW;
+extern int open_tree_attr(int __dfd, const char *__filename, unsigned int __flags, struct mount_attr *__uattr, size_t __usize);
 #else
 int missing_open_tree_attr(int dfd, const char *filename, unsigned int flags, struct mount_attr *attr, size_t size);
 #  define open_tree_attr missing_open_tree_attr

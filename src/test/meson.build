@@ -16,6 +16,7 @@ test_env = {
         'PROJECT_BUILD_ROOT' : meson.project_build_root(),
         'SYSTEMD_SLOW_TESTS' : want_slow_tests ? '1' : '0',
         'PYTHONDONTWRITEBYTECODE' : '1',
+        'SYSTEMD_LIBC' : get_option('libc'),
 }
 if conf.get('ENABLE_LOCALED') == 1
         test_env += {'SYSTEMD_LANGUAGE_FALLBACK_MAP' : language_fallback_map}
@@ -160,6 +161,7 @@ simple_tests += files(
         'test-percent-util.c',
         'test-pidref.c',
         'test-pretty-print.c',
+        'test-printf.c',
         'test-prioq.c',
         'test-proc-cmdline.c',
         'test-procfs-util.c',
@@ -187,6 +189,7 @@ simple_tests += files(
         'test-specifier.c',
         'test-stat-util.c',
         'test-static-destruct.c',
+        'test-stdio.c',
         'test-strbuf.c',
         'test-string-util.c',
         'test-strip-tab-ansi.c',

@@ -6654,7 +6654,7 @@ int config_parse_protect_hostname(
 
         const char *colon = strchr(rvalue, ':');
         if (colon) {
-                r = unit_full_printf_full(u, colon + 1, HOST_NAME_MAX, &h);
+                r = unit_full_printf_full(u, colon + 1, LINUX_HOST_NAME_MAX, &h);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve unit specifiers in '%s', ignoring: %m", colon + 1);

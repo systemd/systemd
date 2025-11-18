@@ -669,12 +669,14 @@ TEST(condition_test_version) {
         condition_free(condition);
 
         /* Test glibc version */
+        bool has = !isempty(gnu_get_libc_version());
+
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc > 1", false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        ASSERT_OK_EQ(condition_test(condition, environ), has);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 2", false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        ASSERT_OK_EQ(condition_test(condition, environ), !has);
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc < 9999", false, false)));
@@ -686,15 +688,27 @@ TEST(condition_test_version) {
         condition_free(condition);
 
         v = strjoina("glibc = ", gnu_get_libc_version());
-
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        if (has)
+                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+        else
+                ASSERT_ERROR(condition_test(condition, environ), EINVAL);
         condition_free(condition);
 
         v = strjoina("glibc != ", gnu_get_libc_version());
-
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, v, false, false)));
-        ASSERT_OK_ZERO(condition_test(condition, environ));
+        if (has)
+                ASSERT_OK_ZERO(condition_test(condition, environ));
+        else
+                ASSERT_ERROR(condition_test(condition, environ), EINVAL);
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc $= ?*", false, false)));
+        ASSERT_OK_EQ(condition_test(condition, environ), has);
+        condition_free(condition);
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_VERSION, "glibc !$= ?*", false, false)));
+        ASSERT_OK_EQ(condition_test(condition, environ), !has);
         condition_free(condition);
 }
 

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
-#include <linux/prctl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mount.h>
@@ -1612,6 +1611,9 @@ static int intro(void) {
         /* It is needed otherwise cgroup creation fails */
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
                 return log_tests_skipped("not privileged");
+
+        if (running_in_chroot() > 0)
+                return log_tests_skipped("running in chroot");
 
         if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)
                 return log_tests_skipped("cgroupfs not available");
