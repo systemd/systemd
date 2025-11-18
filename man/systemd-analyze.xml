@@ -464,7 +464,7 @@ $ eog targets.svg</programlisting>
       <title><command>systemd-analyze exit-status <optional><replaceable>STATUS</replaceable>...</optional></command></title>
 
       <para>This command prints a list of exit statuses along with their "class", i.e. the source of the
-      definition (one of <literal>glibc</literal>, <literal>systemd</literal>, <literal>LSB</literal>, or
+      definition (one of <literal>libc</literal>, <literal>systemd</literal>, <literal>LSB</literal>, or
       <literal>BSD</literal>), see the Process Exit Codes section in
       <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
       If no additional arguments are specified, all known statuses are shown. Otherwise, only the
@@ -475,8 +475,8 @@ $ eog targets.svg</programlisting>
 
         <programlisting>$ systemd-analyze exit-status 0 1 {63..65}
 NAME    STATUS CLASS
-SUCCESS 0      glibc
-FAILURE 1      glibc
+SUCCESS 0      libc
+FAILURE 1      libc
 -       63     -
 USAGE   64     BSD
 DATAERR 65     BSD
