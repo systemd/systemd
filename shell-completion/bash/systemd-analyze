@@ -56,6 +56,15 @@ __get_architectures() {
     systemd-analyze --no-legend --no-pager architectures 2>/dev/null | { while read -r a b; do echo " $a"; done; }
 }
 
+__get_filesystem_sets() {
+    local line
+    systemd-analyze filesystems --no-pager 2>/dev/null | while IFS= read -r line; do
+        if [[ $line == @* ]]; then
+            printf '%s\n' "$line"
+        fi
+    done
+}
+
 _systemd_analyze() {
     local i verb comps mode
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
@@ -68,7 +77,7 @@ _systemd_analyze() {
     )
 
     local -A VERBS=(
-        [STANDALONE]='time blame unit-files unit-paths exit-status compare-versions calendar timestamp timespan pcrs nvpcrs srk has-tpm2 smbios11 chid image-policy'
+        [STANDALONE]='time blame unit-files unit-paths exit-status compare-versions timestamp timespan pcrs nvpcrs srk has-tpm2 smbios11 chid image-policy'
         [CRITICAL_CHAIN]='critical-chain'
         [DOT]='dot'
         [DUMP]='dump'
@@ -86,6 +95,8 @@ _systemd_analyze() {
         [TRANSIENT_SETTINGS]='transient-settings'
         [UNIT_SHELL]='unit-shell'
         [UNIT_GDB]='unit-gdb'
+        [FILESYSTEMS]='filesystems'
+        [CALENDAR]='calendar'
     )
 
     local CONFIGS='locale.conf systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -264,6 +275,18 @@ _systemd_analyze() {
             comps='--help --version --debugger --debugger-arguments --root'
         else
             comps=$( __get_services $mode )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[FILESYSTEMS]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --no-pager'
+        else
+            comps=$( __get_filesystem_sets )
+        fi
+
+    elif __contains_word "$verb" ${VERBS[CALENDAR]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --iterations --base-time'
         fi
     fi
 
