@@ -917,7 +917,7 @@ static int link_apply_sr_iov_config(Link *link) {
                 return 0;
         }
         if (n == 0) {
-                log_link_warning(link, "No SR-IOV virtual function exists, ignoring all [SR-IOV] sections: %m");
+                log_link_warning(link, "No SR-IOV virtual functions exist, ignoring all [SR-IOV] sections.");
                 return 0;
         }
 
