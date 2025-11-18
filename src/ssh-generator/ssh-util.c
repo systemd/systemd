@@ -32,6 +32,8 @@ int vsock_get_local_cid_or_warn(unsigned *ret) {
                 log_debug_errno(r, "/dev/vsock is not available (even though AF_VSOCK is), ignoring: %m");
                 return 0;
         }
+        if (r == -EADDRNOTAVAIL)
+                return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to query local AF_VSOCK CID: %m");
         return 1;
