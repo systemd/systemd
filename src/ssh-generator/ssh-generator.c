@@ -218,15 +218,9 @@ static int add_vsock_socket(
 
         /* Determine the local CID so that we can log it to help users to connect to this VM */
         unsigned local_cid;
-        r = vsock_get_local_cid(&local_cid);
-        if (r < 0) {
-                if (ERRNO_IS_DEVICE_ABSENT(r)) {
-                        log_debug("Not creating AF_VSOCK ssh listener, since /dev/vsock is not available (even though AF_VSOCK is).");
-                        return 0;
-                }
-
-                return log_error_errno(r, "Failed to query local AF_VSOCK CID: %m");
-        }
+        r = vsock_get_local_cid_or_warn(&local_cid);
+        if (r <= 0)
+                return r;
 
         r = make_sshd_template_unit(
                         dest,

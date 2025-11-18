@@ -5,6 +5,7 @@
 
 #include "errno-util.h"
 #include "log.h"
+#include "socket-util.h"
 #include "ssh-util.h"
 
 int vsock_open_or_warn(int *ret) {
@@ -20,4 +21,19 @@ int vsock_open_or_warn(int *ret) {
                 close(fd);
 
         return fd >= 0;
+}
+
+int vsock_get_local_cid_or_warn(unsigned *ret) {
+        int r;
+
+        r = vsock_get_local_cid(ret);
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r)) {
+                log_debug_errno(r, "/dev/vsock is not available (even though AF_VSOCK is), ignoring: %m");
+                if (ret)
+                        *ret = 0;  /* bogus value */
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to query local AF_VSOCK CID: %m");
+        return 1;
 }
