@@ -56,6 +56,7 @@ FILES_USED_FOR_INCLUDES = [
     'sd_bus_message_append_basic.xml',
     'sd_bus_message_read_basic.xml',
     'standard-conf.xml',
+    'standard-specifiers.xml',
     'standard-options.xml',
     'supported-controllers.xml',
     'system-only.xml',
@@ -494,6 +495,9 @@ def TreeRoot(el):
 
 
 def Comment(el):
+    # FIXME: Keep block-level comments, wanrn for inline comments
+    _warn(f"skipping comment in {_get_path(el)}, content: '{el.text}'")
+    return "  "
     return _indent(el, 12, ".. COMMENT: ")
 
 # Meta refs
@@ -1031,16 +1035,20 @@ def parameter(el):
 def table(el):
     title = _concat(el.find('title'))
     headers = el.findall('.//thead/row/entry')
-    rows = el.findall('.//tbody/row')
+    # Table bodies can either have rows or xi:includes
+    parseableChildren = el.xpath(".//tbody/xi:include | .//tbody/row", namespaces={'xi': 'http://www.w3.org/2001/XInclude'})
 
     # Collect header names
     header_texts = [_concat(header) for header in headers]
 
     # Collect row data
     row_data = []
-    for row in rows:
-        entries = row.findall('entry')
-        row_data.append([_concat(entry) for entry in entries])
+    for row in parseableChildren:
+        if row.tag == 'row':
+            entries = row.findall('entry')
+            row_data.append([_concat(entry) for entry in entries])
+        if row.tag == '{http://www.w3.org/2001/XInclude}include':
+            row_data.append(ET.tostring(row, encoding=str))
 
     # Create the table in reST list-table format
     rst_table = []
@@ -1054,11 +1062,41 @@ def table(el):
 
     # Add rows
     for row in row_data:
-        row_line = "   * - " + "\n     - ".join(row)
+        # a row might be a parsed table row,
+        # or a raw <xi:include> tag
+        row_line = ''
+        # Since rst can’t do block-level includes inside tables,
+        # we use a Sphinx preprocessor to do this (since a Sphinx
+        # Extension would also not be able to do this). For this, we
+        # convert the xi:include into a custom include syntax
+        # that is only understood by the preprocessor script, eg.:
+        # `%% include="standard-specifiers.rst" id="A" %%`
+        if 'xi:include' in row:
+            row_line = "   "+ row.replace('<xi:include xmlns:xi="http://www.w3.org/2001/XInclude" href=', '%% include=').replace('xpointer', 'id').replace('/>', ' %%').replace('.xml', '.rst')
+        else:
+            row_line = "   * - " + "\n     - ".join(row)
         rst_table.append(row_line)
 
     return '\n'.join(rst_table)
 
+
+# tbody tags outside of tables (See directly above) are only used as
+# include libraries and will be included via the preprocessor script.
+def tbody(el):
+    rows = el.findall('.//row')
+    # Collect row data
+    output = []
+    for row in rows:
+        entries = row.findall('entry')
+        id = row.get('id')
+        # Even though these are generally consumed by the preprocessor and not
+        # Sphinx itself, we still use the same inclusion-marker directive
+        # syntax, in case someone wants to include these snippets somewhere else.
+        output.append(f".. inclusion-marker-do-not-remove {id}")
+        row_line = "* - " + "\n  - ".join([_concat(entry) for entry in entries])
+        output.append(row_line)
+        output.append(f".. inclusion-end-marker-do-not-remove {id}")
+    return '\n'.join(output)
 
 def userinput(el):
     return _indent(el, 3, "\n\n")
