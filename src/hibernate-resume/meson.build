@@ -7,10 +7,7 @@ endif
 executables += [
         libexec_template + {
                 'name' : 'systemd-hibernate-resume',
-                'sources' : files(
-                        'hibernate-resume.c',
-                        'hibernate-resume-config.c',
-                ),
+                'sources' : files('hibernate-resume.c'),
                 'extract' : files('hibernate-resume-config.c'),
         },
         generator_template + {
