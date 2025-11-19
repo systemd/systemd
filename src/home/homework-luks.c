@@ -7,6 +7,7 @@
 #include <sys/ioctl.h>
 #include <sys/xattr.h>
 #include <unistd.h>
+#include "pidref.h"
 #if HAVE_VALGRIND_MEMCHECK_H
 #include <valgrind/memcheck.h>
 #endif
@@ -227,7 +228,6 @@ static int block_get_size_by_path(const char *path, uint64_t *ret) {
 
 static int run_fsck(const char *node, const char *fstype) {
         int r, exit_status;
-        pid_t fsck_pid;
 
         assert(node);
         assert(fstype);
@@ -240,9 +240,11 @@ static int run_fsck(const char *node, const char *fstype) {
                 return 0;
         }
 
-        r = safe_fork("(fsck)",
-                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
-                      &fsck_pid);
+        _cleanup_(pidref_done) PidRef fsck_pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(fsck)",
+                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                        &fsck_pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -253,7 +255,7 @@ static int run_fsck(const char *node, const char *fstype) {
                 _exit(FSCK_OPERATIONAL_ERROR);
         }
 
-        exit_status = wait_for_terminate_and_check("fsck", fsck_pid, WAIT_LOG_ABNORMAL);
+        exit_status = pidref_wait_for_terminate_and_check("fsck", &fsck_pidref, WAIT_LOG_ABNORMAL);
         if (exit_status < 0)
                 return exit_status;
         if ((exit_status & ~FSCK_ERROR_CORRECTED) != 0) {
@@ -2604,7 +2606,7 @@ static int ext4_offline_resize_fs(
 
         _cleanup_free_ char *size_str = NULL;
         bool re_open = false, re_mount = false;
-        pid_t resize_pid, fsck_pid;
+        _cleanup_(pidref_done) PidRef resize_pidref = PIDREF_NULL, fsck_pidref = PIDREF_NULL;
         int r, exit_status;
 
         assert(setup);
@@ -2627,9 +2629,10 @@ static int ext4_offline_resize_fs(
         log_info("Temporary unmounting of file system completed.");
 
         /* resize2fs requires that the file system is force checked first, do so. */
-        r = safe_fork("(e2fsck)",
-                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
-                      &fsck_pid);
+        r = pidref_safe_fork(
+                        "(e2fsck)",
+                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                        &fsck_pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -2640,7 +2643,7 @@ static int ext4_offline_resize_fs(
                 _exit(EXIT_FAILURE);
         }
 
-        exit_status = wait_for_terminate_and_check("e2fsck", fsck_pid, WAIT_LOG_ABNORMAL);
+        exit_status = pidref_wait_for_terminate_and_check("e2fsck", &fsck_pidref, WAIT_LOG_ABNORMAL);
         if (exit_status < 0)
                 return exit_status;
         if ((exit_status & ~FSCK_ERROR_CORRECTED) != 0) {
@@ -2659,9 +2662,10 @@ static int ext4_offline_resize_fs(
                 return log_oom();
 
         /* Resize the thing */
-        r = safe_fork("(e2resize)",
-                      FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
-                      &resize_pid);
+        r = pidref_safe_fork(
+                        "(e2resize)",
+                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
+                        &resize_pidref);
         if (r < 0)
                 return r;
         if (r == 0) {

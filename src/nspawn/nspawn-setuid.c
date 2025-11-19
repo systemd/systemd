@@ -11,26 +11,28 @@
 #include "log.h"
 #include "mkdir.h"
 #include "nspawn-setuid.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 
-static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
+static int spawn_getent(const char *database, const char *key, PidRef *ret) {
         int pipe_fds[2], r;
-        pid_t pid;
 
         assert(database);
         assert(key);
-        assert(rpid);
+        assert(ret);
 
         if (pipe2(pipe_fds, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
-        r = safe_fork_full("(getent)",
-                           (int[]) { -EBADF, pipe_fds[1], -EBADF }, NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
-                           &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork_full(
+                        "(getent)",
+                        (int[]) { -EBADF, pipe_fds[1], -EBADF }, NULL, 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        &pidref);
         if (r < 0) {
                 safe_close_pair(pipe_fds);
                 return r;
@@ -43,7 +45,7 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
 
         pipe_fds[1] = safe_close(pipe_fds[1]);
 
-        *rpid = pid;
+        *ret = TAKE_PIDREF(pidref);
 
         return pipe_fds[0];
 }
@@ -84,7 +86,6 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         unsigned n_gids = 0;
         uid_t uid;
         gid_t gid;
-        pid_t pid;
         int r;
 
         assert(ret_home);
@@ -101,7 +102,8 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         }
 
         /* First, get user credentials */
-        fd = spawn_getent("passwd", user, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        fd = spawn_getent("passwd", user, &pidref);
         if (fd < 0)
                 return fd;
 
@@ -116,7 +118,7 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read from getent: %m");
 
-        (void) wait_for_terminate_and_check("getent passwd", pid, WAIT_LOG);
+        (void) pidref_wait_for_terminate_and_check("getent passwd", &pidref, WAIT_LOG);
 
         x = strchr(line, ':');
         if (!x)
@@ -173,7 +175,8 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         line = mfree(line);
 
         /* Second, get group memberships */
-        fd = spawn_getent("initgroups", user, &pid);
+        pidref_done(&pidref);
+        fd = spawn_getent("initgroups", user, &pidref);
         if (fd < 0)
                 return fd;
 
@@ -188,7 +191,7 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read from getent: %m");
 
-        (void) wait_for_terminate_and_check("getent initgroups", pid, WAIT_LOG);
+        (void) pidref_wait_for_terminate_and_check("getent initgroups", &pidref, WAIT_LOG);
 
         /* Skip over the username and subsequent separator whitespace */
         x = line;
