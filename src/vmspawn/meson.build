@@ -19,7 +19,7 @@ executables += [
         executable_template + {
                 'name' : 'systemd-vmspawn',
                 'public' : true,
-                'sources' : vmspawn_sources + vmspawn_extract_sources,
+                'sources' : vmspawn_sources,
                 'extract' : vmspawn_extract_sources,
         },
         test_template + {

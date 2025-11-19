@@ -2561,11 +2561,13 @@ foreach dict : executables
                 continue
         endif
 
+        exe_sources = dict.get('sources', []) + dict.get('extract', [])
+
         kwargs = {}
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions',
                            'type', 'suite', 'timeout', 'parallel',
-                           'objects', 'extract']
+                           'objects', 'sources', 'extract']
                         continue
                 endif
 
@@ -2596,12 +2598,17 @@ foreach dict : executables
 
         if is_fuzz
                 foreach key, val : fuzz_additional_kwargs
-                        kwargs += { key : [ kwargs.get(key, []), val ] }
+                        if key == 'sources'
+                                exe_sources += val
+                        else
+                                kwargs += { key : [ kwargs.get(key, []), val ] }
+                        endif
                 endforeach
         endif
 
         exe = executable(
                 name,
+                sources : exe_sources,
                 kwargs : kwargs,
                 implicit_include_directories : false,
         )
@@ -2609,7 +2616,7 @@ foreach dict : executables
         executables_by_name += { name : exe }
 
         if not name.endswith('.standalone')
-                sources += dict.get('sources', [])
+                sources += exe_sources
         endif
 
         if dict.has_key('extract')

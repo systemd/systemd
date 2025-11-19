@@ -39,7 +39,7 @@ executables += [
                         'ENABLE_REMOTE',
                         'HAVE_MICROHTTPD',
                 ],
-                'sources' : systemd_journal_gatewayd_sources + systemd_journal_gatewayd_extract_sources,
+                'sources' : systemd_journal_gatewayd_sources,
                 'extract' : systemd_journal_gatewayd_extract_sources,
                 'dependencies' : common_deps + [libmicrohttpd],
         },
@@ -50,9 +50,9 @@ executables += [
                 # fuzz-journal-remote even when --auto-features=disabled (see tools/oss-fuzz.sh for why).
                 # Instead, we make sure we don't install it when the remote feature is disabled.
                 'install' : conf.get('ENABLE_REMOTE') == 1,
-                'sources' : systemd_journal_remote_sources + systemd_journal_remote_extract_sources,
-                'objects' : conf.get('HAVE_MICROHTTPD') == 1 ? ['systemd-journal-gatewayd'] : [],
+                'sources' : systemd_journal_remote_sources,
                 'extract' : systemd_journal_remote_extract_sources,
+                'objects' : conf.get('HAVE_MICROHTTPD') == 1 ? ['systemd-journal-gatewayd'] : [],
                 'dependencies' : common_deps + [libmicrohttpd],
         },
         libexec_template + {
@@ -62,9 +62,9 @@ executables += [
                         'ENABLE_REMOTE',
                         'HAVE_LIBCURL',
                 ],
-                'sources' : systemd_journal_upload_sources + systemd_journal_upload_extract_sources,
-                'objects' : ['systemd-journal-remote'],
+                'sources' : systemd_journal_upload_sources,
                 'extract' : systemd_journal_upload_extract_sources,
+                'objects' : ['systemd-journal-remote'],
                 'dependencies' : common_deps + [libcurl],
         },
         test_template + {

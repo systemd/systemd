@@ -382,10 +382,7 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
-                'sources' : files(
-                        'test-nss-hosts.c',
-                        'nss-test-util.c',
-                ),
+                'sources' : files('test-nss-hosts.c'),
                 'extract' : files('nss-test-util.c'),
                 'dependencies' : [
                         libdl,
@@ -490,13 +487,13 @@ executables += [
         # Symbol tests
         test_template + {
                 'name' : 'test-libsystemd-sym',
-                'sources' : test_libsystemd_sym_c,
+                'sources' : [test_libsystemd_sym_c],
                 'link_with' : libsystemd,
                 'suite' : 'libsystemd',
         },
         test_template + {
                 'name' : 'test-libudev-sym',
-                'sources' : test_libudev_sym_c,
+                'sources' : [test_libudev_sym_c],
                 'include_directories' : libudev_includes,
                 'c_args' : ['-Wno-deprecated-declarations'] + test_cflags,
                 'link_with' : libudev,
