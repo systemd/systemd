@@ -18,6 +18,13 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
                                 pam_syslog(handle, LOG_DEBUG, fmt, ## __VA_ARGS__); \
                 })
 
+/* Call pam_syslog_errno if debug is enabled */
+#define pam_debug_syslog_errno(handle, debug, error, fmt, ...)          \
+        ({                                                              \
+                if (debug)                                              \
+                        pam_syslog_errno(handle, LOG_DEBUG, error, fmt, ## __VA_ARGS__); \
+        })
+
 static inline int pam_log_oom(pam_handle_t *handle) {
         /* This is like log_oom(), but uses PAM logging */
         return pam_syslog_errno(handle, LOG_ERR, ENOMEM, "Out of memory.");
