@@ -825,7 +825,7 @@ int manager_start(Manager *m) {
         return 0;
 }
 
-int manager_config_load(Manager *m) {
+int manager_load_config(Manager *m) {
         int r;
 
         log_debug("Loading...");
