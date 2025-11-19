@@ -53,12 +53,12 @@ html_theme_options = {
 man_pages = [
     # ('docs/systemd-directives', 'directives', 'Systemd Directives', None, '7'),
     ('docs/busctl', 'busctl', 'Introspect the bus', None, '1'),
-    ('docs/systemctl', 'systemctl', 'Control the systemd system and service manager', None, '1'),
-    ('docs/journalctl', 'journalctl', 'Print log entries from the systemd journal', None, '1'),
-    ('docs/os-release', 'os-release', 'Operating system identification', None, '5'),
-    ('docs/systemd', 'systemd, init', 'systemd system and service manager', None, '1'),
-    ('docs/kernel-install', 'kernel-install', 'Add and remove kernel and initrd images to and from the boot partition', None, '8'),
-    ('docs/sd_machine_get_class', 'sd_machine_get_class', 'Determine the class and network interface indices of a locally running virtual machine or container', None, '3'),
+    # ('docs/systemctl', 'systemctl', 'Control the systemd system and service manager', None, '1'),
+    # ('docs/journalctl', 'journalctl', 'Print log entries from the systemd journal', None, '1'),
+    # ('docs/os-release', 'os-release', 'Operating system identification', None, '5'),
+    # ('docs/systemd', 'systemd, init', 'systemd system and service manager', None, '1'),
+    # ('docs/kernel-install', 'kernel-install', 'Add and remove kernel and initrd images to and from the boot partition', None, '8'),
+    # ('docs/sd_machine_get_class', 'sd_machine_get_class', 'Determine the class and network interface indices of a locally running virtual machine or container', None, '3'),
 ]
 
 # Note that these substitutions are performed _before_ Sphinx runs.
@@ -85,11 +85,14 @@ global_substitutions = {f'v{n}': f'{n}' for n in range(183, 300)} | {
     'HIGH_RLIMIT_NOFILE': '{{HIGH_RLIMIT_NOFILE}}',
     'DEFAULT_DNSSEC_MODE': '{{DEFAULT_DNSSEC_MODE_STR}}',
     'DEFAULT_DNS_OVER_TLS_MODE': '{{DEFAULT_DNS_OVER_TLS_MODE_STR}}',
-    'DEFAULT_TIMEOUT': '{{DEFAULT_TIMEOUT_SEC}} s',
-    'DEFAULT_USER_TIMEOUT': '{{DEFAULT_USER_TIMEOUT_SEC}} s',
+    'DEFAULT_TIMEOUT_SEC': '{{DEFAULT_TIMEOUT_SEC}} s',
+    'DEFAULT_USER_TIMEOUT_SEC': '{{DEFAULT_USER_TIMEOUT_SEC}} s',
     'DEFAULT_KEYMAP': '{{SYSTEMD_DEFAULT_KEYMAP}}',
     'fedora_latest_version': '40',
     'fedora_cloud_release': '1.10',
+    'SYSTEM_SYSVRCLOCAL_PATH': '{{SYSTEM_SYSVRCLOCAL_PATH}}',
+    'SYSTEMD_DEFAULT_KEYMAP': '{{SYSTEMD_DEFAULT_KEYMAP}}',
+    'JOURNAL_STORAGE_DEFAULT': '{{JOURNAL_STORAGE_DEFAULT}}',
 }
 
 # Existing lists of directive groups
