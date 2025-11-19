@@ -3299,11 +3299,14 @@ int home_wait_for_worker(Home *h) {
 
         log_info("Worker process for home %s is still running while exiting. Waiting for it to finish.", h->user_name);
 
-        r = wait_for_terminate_with_timeout(h->worker_pid.pid, 30 * USEC_PER_SEC);
+        siginfo_t si;
+        r = pidref_wait_for_terminate_full(&h->worker_pid, 30 * USEC_PER_SEC, &si);
         if (r == -ETIMEDOUT)
                 log_warning_errno(r, "Waiting for worker process for home %s timed out. Ignoring.", h->user_name);
         else if (r < 0)
-                log_warning_errno(r, "Failed to wait for worker process for home %s. Ignoring.", h->user_name);
+                log_warning_errno(r, "Failed to wait for worker process for home %s, ignoring: %m", h->user_name);
+        else if (si.si_code != CLD_EXITED || si.si_status != 0)
+                log_warning("Worker process for home %s failed with non-zero exit status. Ignoring.", h->user_name);
 
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, &h->worker_pid, h);
         pidref_done(&h->worker_pid);
