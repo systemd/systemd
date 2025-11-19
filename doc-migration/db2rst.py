@@ -716,6 +716,8 @@ group = optional
 # The workaround is: *<PATTERN>*\s
 def replaceable(el):
     # If it’s in an arg with `choice="opt"`, it should have brackets
+    if el.text is None and len(el.getchildren()) == 0:
+        return " "
     isInsideArg = False
     isRepeat = False
     result = ''
