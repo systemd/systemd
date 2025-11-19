@@ -518,18 +518,19 @@ int assert_signal_internal(void);
 #ifdef __COVERITY__
 #  define ASSERT_SIGNAL(expr, signal) __coverity_check__(((expr), false))
 #else
-#  define ASSERT_SIGNAL(expr, signal)                                                                           \
+#  define ASSERT_SIGNAL(expr, signal) __ASSERT_SIGNAL(UNIQ, expr, signal)
+#  define __ASSERT_SIGNAL(uniq, expr, signal)                                                                   \
         ({                                                                                                      \
                 ASSERT_TRUE(SIGNAL_VALID(signal));                                                              \
-                int _r = assert_signal_internal();                                                              \
-                ASSERT_OK_ERRNO(_r);                                                                            \
-                if (_r == 0) {                                                                                  \
+                int UNIQ_T(_r, uniq) = assert_signal_internal();                                                \
+                ASSERT_OK_ERRNO(UNIQ_T(_r, uniq));                                                              \
+                if (UNIQ_T(_r, uniq) == 0) {                                                                    \
                         expr;                                                                                   \
                         _exit(EXIT_SUCCESS);                                                                    \
                 }                                                                                               \
-                if (_r != signal)                                                                               \
+                if (UNIQ_T(_r, uniq) != signal)                                                                 \
                         log_test_failed("\"%s\" died with signal %s, but %s was expected",                      \
-                                        #expr, signal_to_string(_r), signal_to_string(signal));                 \
+                                        #expr, signal_to_string(UNIQ_T(_r, uniq)), signal_to_string(signal));   \
         })
 #endif
 
