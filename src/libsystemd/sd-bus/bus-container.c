@@ -53,7 +53,12 @@ int bus_container_connect_socket(sd_bus *b) {
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_debug_errno(errno, "Failed to create a socket pair: %m");
 
+<<<<<<< HEAD
         r = namespace_fork("(sd-buscntrns)", "(sd-buscntr)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+=======
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        r = namespace_fork("(sd-buscntrns)", "(sd-buscntr)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
+>>>>>>> 2b85c46fbc (process-util: Migrate namespace_fork() to PidRef)
                            pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create namespace for (sd-buscntr): %m");

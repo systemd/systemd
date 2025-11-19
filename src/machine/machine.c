@@ -1181,6 +1181,7 @@ int machine_copy_from_to_operation(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return log_debug_errno(errno, "Failed to create pipe: %m");
 
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         r = namespace_fork("(sd-copyns)",
                            "(sd-copy)",
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
@@ -1549,6 +1550,7 @@ int machine_open_root_directory(Machine *machine) {
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, fd_pass_socket) < 0)
                         return log_debug_errno(errno, "Failed to create socket pair: %m");
 
+                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
                 r = namespace_fork(
                                 "(sd-openrootns)",
                                 "(sd-openroot)",
