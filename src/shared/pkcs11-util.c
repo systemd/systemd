@@ -1217,6 +1217,15 @@ static int pkcs11_token_decrypt_data_rsa(
 
                 if (rv == CKR_OK) {
                         log_info("Successfully decrypted key with security token using %s.", mechanism_name);
+
+                        /* Emit deprecation warning for legacy padding */
+                        if (i == 1) { /* PKCS#1 v1.5 was used */
+                                log_warning("DEPRECATION WARNING: This LUKS volume uses legacy RSA-PKCS#1 v1.5 padding.");
+                                log_warning("This padding is vulnerable to Bleichenbacher padding oracle attacks.");
+                                log_warning("Run 'systemd-cryptenroll --migrate-to-oaep <device>' to migrate to secure RSA-OAEP.");
+                                log_warning("Support for legacy padding will be removed in systemd v260.");
+                        }
+
                         *ret_decrypted_data = TAKE_PTR(dbuffer);
                         *ret_decrypted_data_size = dbuffer_size;
                         return 0;

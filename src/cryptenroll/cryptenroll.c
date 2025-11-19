@@ -16,6 +16,7 @@
 #include "cryptenroll-recovery.h"
 #include "cryptenroll-tpm2.h"
 #include "cryptenroll-wipe.h"
+#include "cryptenroll-pkcs11-migrate.h"
 #include "cryptsetup-util.h"
 #include "extract-word.h"
 #include "fileio.h"
@@ -64,6 +65,7 @@ static int arg_fido2_cred_alg = COSE_ES256;
 #else
 static int arg_fido2_cred_alg = 0;
 #endif
+static bool arg_migrate_to_oaep = false;
 
 assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 
@@ -186,6 +188,7 @@ static int help(void) {
                "     --list-devices    List candidate block devices to operate on\n"
                "     --wipe-slot=SLOT1,SLOT2,…\n"
                "                       Wipe specified slots\n"
+               "     --migrate-to-oaep Migrate PKCS#11 tokens to RSA-OAEP encryption\n"
                "\n%3$sUnlocking:%4$s\n"
                "     --unlock-key-file=PATH\n"
                "                       Use a file to unlock the volume\n"
@@ -273,6 +276,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FIDO2_WITH_UV,
                 ARG_FIDO2_CRED_ALG,
                 ARG_LIST_DEVICES,
+                ARG_MIGRATE_TO_OAEP,
         };
 
         static const struct option options[] = {
@@ -303,6 +307,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "tpm2-with-pin",                 required_argument, NULL, ARG_TPM2_WITH_PIN              },
                 { "wipe-slot",                     required_argument, NULL, ARG_WIPE_SLOT                  },
                 { "list-devices",                  no_argument,       NULL, ARG_LIST_DEVICES               },
+                { "migrate-to-oaep",               no_argument,       NULL, ARG_MIGRATE_TO_OAEP            },
                 {}
         };
 
@@ -636,6 +641,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         return 0;
 
+                case ARG_MIGRATE_TO_OAEP:
+                        arg_migrate_to_oaep = true;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -853,6 +862,23 @@ static int run(int argc, char *argv[]) {
         (void) mlockall(MCL_FUTURE);
 
         cryptsetup_enable_logging(NULL);
+
+        /* Handle migration separately */
+        if (arg_migrate_to_oaep) {
+                if (arg_enroll_type >= 0 || wipe_requested())
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                             "Migration cannot be combined with enrollment or wiping.");
+
+                r = prepare_luks(&cd, /* ret_volume_key= */ NULL);
+                if (r < 0)
+                        return r;
+
+                r = migrate_pkcs11_to_oaep(cd);
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
 
         if (arg_enroll_type < 0)
                 r = prepare_luks(&cd, /* ret_volume_key= */ NULL); /* No need to unlock device if we don't need the volume key because we don't need to enroll anything */
