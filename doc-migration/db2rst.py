@@ -273,6 +273,12 @@ def _has_no_text(el):
         # The skipped tail here is usually a comma, we add that in simplelist
         if i.tag == 'member' and _is_inside_of(i, "simplelist"):
             continue
+        # arg elements handle their tails themselves
+        if i.tag == 'option':
+            parent = i.getparent()
+            choice = parent.get("choice")
+            if parent.tag == 'arg' and choice == 'plain' and len(parent.getchildren()) > 0:
+                continue
         if i.tail is not None and not i.tail.isspace():
             _warn("skipping tail of <%s>: %s" % (_get_path(i), i.tail))
 
@@ -571,7 +577,7 @@ def arg(el):
         # This if there is only text inside and an optional ´rep="repeat"´
             return f"[%s{'...' if el.get('rep') == 'repeat' else ''}]" % text
         else:
-            return "%s" % _join_children(el, '')
+            return "[%s]" % _concat(el).strip()
     elif choice == 'req':
         return "{%s}" % text
     elif choice == 'plain':
