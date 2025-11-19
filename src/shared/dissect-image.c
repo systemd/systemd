@@ -59,11 +59,11 @@
 #include "openssl-util.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "resize-fs.h"
 #include "runtime-scope.h"
-#include "signal-util.h"
 #include "siphash24.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -3897,14 +3897,12 @@ int dissected_image_acquire_metadata(
         _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **sysext_release = NULL, **confext_release = NULL;
         _cleanup_free_ char *hostname = NULL, *t = NULL;
         _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t child = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         sd_id128_t machine_id = SD_ID128_NULL;
         unsigned n_meta_initialized = 0;
         int fds[2 * _META_MAX], r, v;
         int has_init_system = -1;
         ssize_t n;
-
-        BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
 
@@ -3930,7 +3928,7 @@ int dissected_image_acquire_metadata(
                 goto finish;
         }
 
-        r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM, &child);
+        r = pidref_safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM, &child);
         if (r < 0)
                 goto finish;
         if (r == 0) {
@@ -4153,10 +4151,11 @@ int dissected_image_acquire_metadata(
                 }}
         }
 
-        r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
-        child = 0;
+        r = pidref_wait_for_terminate_and_check("(sd-dissect)", &child, 0);
         if (r < 0)
                 goto finish;
+
+        TAKE_PIDREF(child);
 
         n = read(error_pipe[0], &v, sizeof(v));
         if (n < 0) {
