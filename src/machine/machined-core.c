@@ -228,7 +228,6 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
         case MACHINE_CONTAINER: {
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
                 _cleanup_close_ int netns_fd = -EBADF;
-                pid_t child;
                 int r;
 
                 r = pidref_in_same_namespace(/* pid1= */ NULL, &machine->leader, NAMESPACE_NET);
@@ -249,6 +248,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return log_debug_errno(errno, "Failed to call socketpair(): %m");
 
+                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
                 r = namespace_fork("(sd-addrns)",
                                    "(sd-addr)",
                                    /* except_fds= */ NULL,
@@ -313,7 +313,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
                                 return log_debug_errno(r, "Failed to add local address: %m");
                 }
 
-                r = wait_for_terminate_and_check("(sd-addrns)", child, /* flags= */ 0);
+                r = pidref_wait_for_terminate_and_check("(sd-addrns)", &child, /* flags= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to wait for child: %m");
                 if (r != EXIT_SUCCESS)
@@ -350,7 +350,6 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                 _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
                 _cleanup_fclose_ FILE *f = NULL;
-                pid_t child;
 
                 r = pidref_namespace_open(&machine->leader,
                                           &pidns_fd,
@@ -364,6 +363,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                 if (socketpair(AF_UNIX, SOCK_SEQPACKET, 0, pair) < 0)
                         return log_debug_errno(errno, "Failed to call socketpair(): %m");
 
+                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
                 r = namespace_fork("(sd-osrelns)",
                                    "(sd-osrel)",
                                    /* except_fds= */ NULL,
@@ -409,7 +409,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to load OS release information: %m");
 
-                r = wait_for_terminate_and_check("(sd-osrelns)", child, /* flags= */ 0);
+                r = pidref_wait_for_terminate_and_check("(sd-osrelns)", &child, /* flags= */ 0);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to wait for child: %m");
                 if (r == EXIT_NOT_FOUND)
