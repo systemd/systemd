@@ -1157,7 +1157,7 @@ static int manager_listen_notify(Manager *m) {
 
         r = notify_socket_prepare_full(
                         m->event,
-                        SD_EVENT_PRIORITY_NORMAL - 5, /* Make sure we process sd_notify() before SIGCHLD for
+                        SD_EVENT_PRIORITY_NORMAL - 5, /* Make sure we process sd_notify() before child exit for
                                                        * any worker, so that we always know the error number
                                                        * of a client before it exits. */
                         on_notify_socket,
