@@ -628,6 +628,7 @@ citetitle = emphasis
 acronym = _no_special_markup
 structname = _no_special_markup
 type = _no_special_markup
+property = _no_special_markup
 
 def command(el):
     # Only enclose in backticks if it’s not part of a term
@@ -994,6 +995,9 @@ def videodata(el):
         '      Your browser does not support the <code>video</code> element.\n' + \
         '    </video>'
 
+def informalexample(el):
+    # This is only used once as a wrapper around a <programlisting>
+    return _conv(el.getchildren()[0])
 
 def programlisting(el):
     # TODO: newlines at the end aren't applied properly
