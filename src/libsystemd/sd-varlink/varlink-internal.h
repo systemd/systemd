@@ -6,6 +6,7 @@
 #include "sd-varlink.h"
 
 #include "list.h"
+#include "pidref.h"
 #include "sd-forward.h"
 
 typedef enum VarlinkState {
@@ -187,7 +188,7 @@ struct sd_varlink {
         sd_event_source *quit_event_source;
         sd_event_source *defer_event_source;
 
-        pid_t exec_pid;
+        PidRef exec_pidref;
 };
 
 typedef struct VarlinkServerSocket VarlinkServerSocket;
