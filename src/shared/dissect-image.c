@@ -5051,7 +5051,6 @@ int mountfsd_mount_image(
         int r;
 
         assert(path);
-        assert(verity);
         assert(ret);
 
         _cleanup_close_ int image_fd = open(path, O_RDONLY|O_CLOEXEC);
