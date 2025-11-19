@@ -120,6 +120,7 @@
           <literal>development</literal>,
           <literal>integration</literal>,
           <literal>staging</literal>,
+          <literal>testing</literal>,
           <literal>production</literal>.
           </para>
 
