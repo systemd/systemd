@@ -1738,7 +1738,7 @@ static int manager_new(Manager **ret) {
 
         r = notify_socket_prepare(
                         m->event,
-                        SD_EVENT_PRIORITY_NORMAL - 1, /* Make this processed before SIGCHLD. */
+                        SD_EVENT_PRIORITY_NORMAL - 1, /* Make this processed before worker exit. */
                         manager_on_notify,
                         m,
                         &m->notify_socket_path);
@@ -2077,9 +2077,6 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
-
-        /* SIGCHLD signal must be blocked for sd_event_add_child to work */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         r = manager_new(&m);
         if (r < 0)
