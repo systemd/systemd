@@ -630,10 +630,13 @@ structname = _no_special_markup
 type = _no_special_markup
 property = _no_special_markup
 
+def cmdsynopsis(el):
+    return "``%s``" % _concat(el).strip()
+
 def command(el):
     # Only enclose in backticks if it’s not part of a term
     # (which is already enclosed in backticks)
-    if _is_inside_of(el, 'term'):
+    if _is_inside_of(el, 'term') or _is_inside_of(el, 'cmdsynopsis'):
         return _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
@@ -716,22 +719,24 @@ def replaceable(el):
     isInsideArg = False
     isRepeat = False
     result = ''
+    isInsideTerm = _is_inside_of(el, 'term')
     for arg in el.iterancestors(tag='arg'):
         if arg.get("choice") == 'opt':
             isInsideArg = True
         if arg.get("rep") == 'repeat':
             isRepeat = True
-    if isInsideArg:
-        result = f"*[%s{'...' if isRepeat else ''}]*" % _concat(el).strip()
+    if isInsideArg or isInsideTerm:
+        result = f"{_concat(el).strip()}{'...' if isRepeat else ''}"
+        # result = f"*[%s{'...' if isRepeat else ''}]*" % _concat(el).strip()
     else:
         # Otherwise < >
         result = "*<%s>*" % _concat(el).strip()
 
-    if el.tail and re.match(r'^\S', el.tail):
-        # tail starts with a non-whitespace char → needs escaping
-        result += '\\' + el.tail
-    else:
-        result += el.tail or ''
+    # if el.tail and re.match(r'^\S', el.tail):
+    #     # tail starts with a non-whitespace char → needs escaping
+    #     result += '\\' + el.tail
+    # else:
+    #     result += el.tail or ''
 
     return result
 
