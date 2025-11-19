@@ -6454,7 +6454,7 @@ Gateway=192.168.0.1</programlisting>
     <example>
       <title>DHCP on ethernet links</title>
 
-      <programlisting># /etc/systemd/network/80-dhcp.network
+      <programlisting># /etc/systemd/network/60-dhcp.network
 [Match]
 Name=en*
 
