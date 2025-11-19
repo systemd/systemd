@@ -411,6 +411,10 @@ def _get_level(el):
     "return number of ancestors"
     return sum(1 for i in el.iterancestors())
 
+def _get_title_level(el):
+    "return number of title ancestors"
+    return sum(1 for i in el.iterancestors("title"))
+
 
 def _get_path(el):
     t = [el] + list(el.iterancestors())
@@ -523,8 +527,6 @@ def Comment(el):
 def refentry(el):
     return _concat(el)
 
-# FIXME: how to ignore/delete a tag???
-
 
 def refentryinfo(el):
     # ignore
@@ -538,7 +540,19 @@ def refnamediv(el):
     # - append refpurpose, separated by an em-dash, and strip line breaks
     #   beforehand with t.replace('\n', ' ').strip()
     # return '**Name** \n\n' + _make_title(_join_children(el, ' — '), 2)
-    return '.. only:: html\n\n' + _make_title(_join_children(el, ' — '), 2, 3)
+    # return '.. only:: html\n\n' + _make_title(_join_children(el, ' — '), 2, 3)
+    refnames = []
+    for refname in el.iterchildren(tag='refname'):
+        refnames.append(refname.text)
+    purpose = el.find('refpurpose').text
+    if refnames is None or purpose is None:
+        return "  "
+    return f"""
+Name
+####
+
+{', '.join(refnames)} — {purpose}
+"""
 
 
 def refsynopsisdiv(el):
@@ -915,7 +929,7 @@ def section(el):
 
 
 def title(el):
-    return _make_title(_concat(el).strip(), _get_level(el) + 1)
+    return _make_title(_concat(el).strip(), _get_title_level(el) + 2)
 
 # bibliographic elements
 
