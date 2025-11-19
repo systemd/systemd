@@ -61,10 +61,10 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-homed',
                 'dbus' : true,
-                'sources' : systemd_homed_sources + systemd_homed_extract_sources,
+                'sources' : systemd_homed_sources,
+                'extract' : systemd_homed_extract_sources,
                 'include_directories' : includes +
                                         include_directories('.'),
-                'extract' : systemd_homed_extract_sources,
                 'dependencies' : [
                         libcrypt,
                         libm,
