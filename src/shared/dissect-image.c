@@ -4761,7 +4761,6 @@ int mountfsd_mount_image(
         int r;
 
         assert(path);
-        assert(verity);
         assert(ret);
 
         r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
@@ -4796,7 +4795,7 @@ int mountfsd_mount_image(
                         return log_error_errno(r, "Failed to format image policy to string: %m");
         }
 
-        if (verity->data_path) {
+        if (verity && verity->data_path) {
                 verity_data_fd = open(verity->data_path, O_RDONLY|O_CLOEXEC);
                 if (verity_data_fd < 0)
                         return log_error_errno(errno, "Failed to open verity data file '%s': %m", verity->data_path);
@@ -4819,8 +4818,8 @@ int mountfsd_mount_image(
                         SD_JSON_BUILD_PAIR_CONDITION(!!ps, "imagePolicy", SD_JSON_BUILD_STRING(ps)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("veritySharing", FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE)),
                         SD_JSON_BUILD_PAIR_CONDITION(verity_data_fd >= 0, "verityDataFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd >= 0 ? 2 : 1)),
-                        JSON_BUILD_PAIR_IOVEC_HEX("verityRootHash", &verity->root_hash),
-                        JSON_BUILD_PAIR_IOVEC_BASE64("verityRootHashSignature", &verity->root_hash_sig),
+                        SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash), "verityRootHash", JSON_BUILD_IOVEC_HEX(&verity->root_hash)),
+                        SD_JSON_BUILD_PAIR_CONDITION(verity && iovec_is_set(&verity->root_hash_sig), "verityRootHashSignature", JSON_BUILD_IOVEC_BASE64(&verity->root_hash_sig)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
         if (r < 0)
                 return r;
