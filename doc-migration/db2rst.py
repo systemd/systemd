@@ -505,7 +505,7 @@ def TreeRoot(el):
     if len(_footnotes) > 0:
         output += "\n\n.. rubric:: Footnotes"
         for index, footnote in enumerate(_footnotes, start=1):
-            output += f"\n\n.. [#f{index}] {_remove_line_breaks(_conv(footnote))}"
+            output += f"\n\n.. [#f] {_remove_line_breaks(_conv(footnote))}"
     # Reset footnotes list after rendering them
     _footnotes.clear()
     return output + '\n'
@@ -599,8 +599,7 @@ def arg(el):
 def footnote(el):
     # TODO: handle footnotes with multiple children?
     _footnotes.append(el.getchildren()[0])
-    currentNumber = len(_footnotes)
-    return f" [#f{currentNumber}]_ "
+    return f" [#f]_ "
 
 # general inline elements
 
