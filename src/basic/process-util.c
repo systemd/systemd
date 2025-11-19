@@ -912,69 +912,6 @@ int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
         return pidref_wait_for_terminate_and_check(name, &PIDREF_MAKE_FROM_PID(pid), flags);
 }
 
-/*
- * Return values:
- *
- * < 0 : wait_for_terminate_with_timeout() failed to get the state of the process, the process timed out, the process
- *       was terminated by a signal, or failed for an unknown reason.
- *
- * >=0 : The process terminated normally with no failures.
- *
- * Success is indicated by a return value of zero, a timeout is indicated by ETIMEDOUT, and all other child failure
- * states are indicated by error is indicated by a non-zero value.
- *
- * This call assumes SIGCHLD has been blocked already, in particular before the child to wait for has been forked off
- * to remain entirely race-free.
- */
-int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout) {
-        sigset_t mask;
-        int r;
-        usec_t until;
-
-        assert_se(sigemptyset(&mask) == 0);
-        assert_se(sigaddset(&mask, SIGCHLD) == 0);
-
-        /* Drop into a sigtimewait-based timeout. Waiting for the
-         * pid to exit. */
-        until = usec_add(now(CLOCK_MONOTONIC), timeout);
-        for (;;) {
-                usec_t n;
-                siginfo_t status = {};
-
-                n = now(CLOCK_MONOTONIC);
-                if (n >= until)
-                        break;
-
-                r = RET_NERRNO(sigtimedwait(&mask, NULL, TIMESPEC_STORE(until - n)));
-                /* Assuming we woke due to the child exiting. */
-                if (waitid(P_PID, pid, &status, WEXITED|WNOHANG) == 0) {
-                        if (status.si_pid == pid) {
-                                /* This is the correct child. */
-                                if (status.si_code == CLD_EXITED)
-                                        return status.si_status == 0 ? 0 : -EPROTO;
-                                else
-                                        return -EPROTO;
-                        }
-                }
-                /* Not the child, check for errors and proceed appropriately */
-                if (r < 0) {
-                        switch (r) {
-                        case -EAGAIN:
-                                /* Timed out, child is likely hung. */
-                                return -ETIMEDOUT;
-                        case -EINTR:
-                                /* Received a different signal and should retry */
-                                continue;
-                        default:
-                                /* Return any unexpected errors */
-                                return r;
-                        }
-                }
-        }
-
-        return -EPROTO;
-}
-
 void sigkill_wait(pid_t pid) {
         assert(pid > 1);
 
