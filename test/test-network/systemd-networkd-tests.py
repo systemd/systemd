@@ -4633,6 +4633,21 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertNotIn('149.10.124.59', output)
         self.assertIn('default via 149.10.124.60 proto static', output)
 
+    def test_gateway_clear_routes(self):
+        copy_network_unit('25-gateway-clear-routes.network', '12-dummy.netdev')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        print('### ip -4 route show dev dummy98')
+        output = check_output('ip -4 route show dev dummy98')
+        print(output)
+        # All routes should be cleared - no default gateway, no [Route] section routes
+        self.assertNotIn('default via 10.0.0.2', output)
+        self.assertNotIn('192.168.1.0/24', output)
+        self.assertNotIn('192.168.2.0/24', output)
+        # Only the directly connected network should remain
+        self.assertIn('10.0.0.0/24 proto kernel scope link src 10.0.0.1', output)
+
     def test_ip_route_ipv6_src_route(self):
         # a dummy device does not make the addresses go through tentative state, so we
         # reuse a bond from an earlier test, which does make the addresses go through
