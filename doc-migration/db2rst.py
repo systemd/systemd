@@ -98,6 +98,10 @@ _indent_next_listItem_by = 0
 
 _footnotes = []
 
+# Used to improve logs
+_current_filename = ''
+
+
 WHITESPACE_SENSITIVE_TAGS = {
     'programlisting', 'screen', 'literallayout'
 }
@@ -183,9 +187,11 @@ def normalize_whitespace(elem):
 
 
 def _run(input_file, output_dir):
+    global _current_filename
     if input_file in SKIP_LITERAL_INCLUDES:
         return
-    sys.stderr.write("Parsing XML file `%s'...\n" % input_file)
+    _current_filename = input_file
+    # sys.stderr.write("Parsing XML file `%s'...\n" % input_file)
 
     # Read the XML file content as string for preprocessing
     with open(input_file, 'r', encoding='utf-8') as f:
@@ -226,7 +232,8 @@ def _run(input_file, output_dir):
         file.write(TreeRoot(tree.getroot()).encode('utf-8').decode('utf-8'))
 
 def _warn(s):
-    sys.stderr.write("WARNING: %s\n" % s)
+    sys.stderr.write(f"WARNING ⎹ {_current_filename}:\n")
+    sys.stderr.write(f"        ↳ {s}\n")
 
 
 def _supports_only(el, tags):
