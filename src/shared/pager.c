@@ -14,6 +14,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "pager.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "string-util.h"
@@ -288,8 +289,10 @@ void pager_close(void) {
         stdout_redirected = stderr_redirected = false;
 
         (void) kill(pager_pid, SIGCONT);
-        (void) wait_for_terminate(TAKE_PID(pager_pid), NULL);
-        pager_pid = 0;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pager_pid);
+        (void) pidref_set_pid(&pidref, pager_pid);
+        (void) pidref_wait_for_terminate(&pidref, NULL);
+        TAKE_PID(pager_pid);
 }
 
 bool pager_have(void) {
@@ -299,7 +302,6 @@ bool pager_have(void) {
 int show_man_page(const char *desc, bool null_stdio) {
         const char *args[4] = { "man", NULL, NULL, NULL };
         const char *e = NULL;
-        pid_t pid;
         size_t k;
         int r;
 
@@ -319,7 +321,11 @@ int show_man_page(const char *desc, bool null_stdio) {
         } else
                 args[1] = desc;
 
-        r = safe_fork("(man)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|(null_stdio ? FORK_REARRANGE_STDIO : 0)|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(man)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|(null_stdio ? FORK_REARRANGE_STDIO : 0)|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_WAIT,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -329,5 +335,5 @@ int show_man_page(const char *desc, bool null_stdio) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_check(NULL, pid, 0);
+        return pidref_wait_for_terminate_and_check(NULL, &pidref, 0);
 }
