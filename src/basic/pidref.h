@@ -101,6 +101,15 @@ static inline int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret) {
         return pidref_wait_for_terminate_full(pidref, USEC_INFINITY, ret);
 }
 
+static inline void pidref_done_sigterm_wait(PidRef *pidref) {
+        if (!pidref_is_set(pidref))
+                return;
+
+        (void) pidref_kill(pidref, SIGTERM);
+        (void) pidref_wait_for_terminate(pidref, NULL);
+        pidref_done(pidref);
+}
+
 static inline void pidref_done_sigkill_wait(PidRef *pidref) {
         if (!pidref_is_set(pidref))
                 return;

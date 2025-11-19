@@ -488,7 +488,7 @@ int bus_image_common_remove(
                 sd_bus_error *error) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t child = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         PortableState state;
         int r;
 
@@ -533,7 +533,7 @@ int bus_image_common_remove(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        r = safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
+        r = pidref_safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
@@ -550,11 +550,11 @@ int bus_image_common_remove(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new(m, child, message, errno_pipe_fd[0], NULL);
+        r = operation_new(m, &child, message, errno_pipe_fd[0], NULL);
         if (r < 0)
                 return r;
 
-        child = 0;
+        TAKE_PIDREF(child);
         errno_pipe_fd[0] = -EBADF;
 
         return 1;
