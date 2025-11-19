@@ -226,7 +226,6 @@ static int receive_ucred(int transport_fd, struct ucred *ret_ucred) {
 int coredump_send_to_container(CoredumpContext *context) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        pid_t child;
         struct ucred ucred = {
                 .pid = context->pidref.pid,
                 .uid = context->uid,
@@ -267,6 +266,7 @@ int coredump_send_to_container(CoredumpContext *context) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open namespaces of PID " PID_FMT ": %m", leader_pid.pid);
 
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
         r = namespace_fork("(sd-coredumpns)", "(sd-coredump)", NULL, 0,
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidnsfd, mntnsfd, netnsfd, usernsfd, rootfd, &child);
@@ -325,7 +325,7 @@ int coredump_send_to_container(CoredumpContext *context) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to send metadata to container: %m");
 
-        r = wait_for_terminate_and_check("(sd-coredumpns)", child, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-coredumpns)", &child, 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to wait for child to terminate: %m");
         if (r != EXIT_SUCCESS)
