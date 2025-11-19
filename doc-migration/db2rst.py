@@ -647,6 +647,9 @@ structfield = command
 def literal(el):
     return "\"%s\"" % _concat(el).strip()
 
+def quote(el):
+    return "“%s”" % _concat(el).strip()
+
 
 def varname(el):
     if _is_inside_of(el, 'term'):
@@ -1150,7 +1153,19 @@ def keycap(el):
 
 
 def warning(el):
-    return ".. warning::`%s`" % el.text
+    return f""".. warning::
+
+    {_concat(el)}
+"""
+
+def caution(el):
+    title = el.xpath("title")[0].text
+    content = el.xpath("para")[0]
+    output = ".. caution::"
+    if title is not None:
+        output += f"\n   **{title}**\n"
+    output += _indent(content, 3)
+    return output
 
 
 def para(el):
