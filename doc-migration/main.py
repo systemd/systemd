@@ -7,29 +7,34 @@ from typing import List
 from db2rst import convert_xml_to_rst
 
 FILES_USED_FOR_INCLUDES = [
+    'bpf-delegate.xml',
     'cgroup-sandboxing.xml',
     'common-variables.xml',
+    'hostname.xml',
     'importctl.xml',
     'libsystemd-pkgconfig.xml',
     'org.freedesktop.locale1.xml',
-    'sd_journal_get_data.xml',
     'sd_bus_add_match.xml',
     'sd_bus_message_append_basic.xml',
     'sd_bus_message_read_basic.xml',
+    'sd_journal_get_data.xml',
     'standard-conf.xml',
     'standard-options.xml',
+    'standard-specifiers.xml',
     'supported-controllers.xml',
     'system-only.xml',
     'system-or-user-ns.xml',
+    'system-or-user-ns-mountfsd.xml',
     'systemctl.xml',
-    'systemd.service.xml',
+    'systemd-resolved.service.xml',
     'systemd.link.xml',
     'systemd.mount.xml',
     'systemd.netdev.xml',
-    'systemd-resolved.service.xml',
+    'systemd.service.xml',
     'tc.xml',
     'threads-aware.xml',
     'timedatectl.xml',
+    'unit-states.xml',
     'user-system-options.xml',
     'vpick.xml',
 ]
@@ -132,7 +137,7 @@ def process_xml_files_in_directory(dir: str, output_dir: str, specific_file: str
     for filename in files_to_process:
         filepath = os.path.join(dir, filename)
         output_subdir = includes_output_dir if filename in FILES_USED_FOR_INCLUDES else files_output_dir
-        print('converting file: ', filename)
+        # print('converting file: ', filename)
         try:
             if filename != 'directives-template.xml':
                 unhandled_tags, error = convert_xml_to_rst(filepath, output_subdir)
