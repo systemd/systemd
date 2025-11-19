@@ -72,3 +72,11 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
  * _SONAME_ARRAY<X+1> will need to be added). */
 #define ELF_NOTE_DLOPEN(feature, description, priority, ...) \
         _ELF_NOTE_DLOPEN("[{\"feature\":\"" feature "\",\"description\":\"" description "\",\"priority\":\"" priority "\",\"soname\":" _SONAME_ARRAY(__VA_ARGS__) "}]", UNIQ_T(s, UNIQ))
+
+/* If called dlopen_many_sym_or_warn() will fail with EPERM. This can be used to block lazy loading of shared
+ * libs, if we transfer a process into a different namespace. Note that this does not work for all calls of
+ * dlopen(), just those through our dlopen_safe() wrapper (which we use comprehensively in our
+ * codebase). This hence has *no* effect on NSS. (Would be great if we could change that...) */
+void block_dlopen(void);
+
+int dlopen_safe(const char *filename, void **ret, const char **reterr_dlerror);
