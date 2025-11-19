@@ -519,18 +519,19 @@ int assert_signal_internal(void);
 #  define ASSERT_SIGNAL(expr, signal) __coverity_check__(((expr), false))
 #else
 #  define ASSERT_SIGNAL(expr, signal) __ASSERT_SIGNAL(UNIQ, expr, signal)
-#  define __ASSERT_SIGNAL(uniq, expr, signal)                                                                   \
+#  define __ASSERT_SIGNAL(uniq, expr, sgnl)                                                                     \
         ({                                                                                                      \
-                ASSERT_TRUE(SIGNAL_VALID(signal));                                                              \
+                ASSERT_TRUE(SIGNAL_VALID(sgnl));                                                                \
                 int UNIQ_T(_r, uniq) = assert_signal_internal();                                                \
                 ASSERT_OK_ERRNO(UNIQ_T(_r, uniq));                                                              \
                 if (UNIQ_T(_r, uniq) == 0) {                                                                    \
+                        (void) signal(sgnl, SIG_DFL);                                                           \
                         expr;                                                                                   \
                         _exit(EXIT_SUCCESS);                                                                    \
                 }                                                                                               \
-                if (UNIQ_T(_r, uniq) != signal)                                                                 \
+                if (UNIQ_T(_r, uniq) != sgnl)                                                                   \
                         log_test_failed("\"%s\" died with signal %s, but %s was expected",                      \
-                                        #expr, signal_to_string(UNIQ_T(_r, uniq)), signal_to_string(signal));   \
+                                        #expr, signal_to_string(UNIQ_T(_r, uniq)), signal_to_string(sgnl));     \
         })
 #endif
 
