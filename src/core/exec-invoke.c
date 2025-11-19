@@ -5823,6 +5823,10 @@ int exec_invoke(
                 }
         }
 
+        /* Let's now disable further dlopen()ing of libraries, since we are about to do namespace
+         * shenanigans, and do not want to mix resources from host and namespace */
+        block_dlopen = true;
+
         if (needs_sandboxing && !have_cap_sys_admin && exec_needs_cap_sys_admin(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.
                  * Users with CAP_SYS_ADMIN can set up user namespaces last because they will be able to

@@ -52,6 +52,10 @@ int dlopen_idn(void) {
         if (idn_dl)
                 return 0; /* Already loaded */
 
+        r = check_dlopen_blocked("libidn.so.12");
+        if (r < 0)
+                return r;
+
         dl = dlopen("libidn.so.12", RTLD_NOW|RTLD_NODELETE);
         if (!dl) {
                 /* libidn broke ABI in 1.34, but not in a way we care about (a new field got added to an
