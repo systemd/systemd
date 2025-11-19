@@ -442,7 +442,15 @@ int assert_signal_internal(void) {
         if (r < 0)
                 return r;
 
-        return siginfo.si_status;
+        /* si_status means different things depending on si_code:
+         * - CLD_EXITED: si_status is the exit code
+         * - CLD_KILLED/CLD_DUMPED: si_status is the signal number that killed the process
+         * We need to return the signal number only if the child was killed by a signal. */
+        if (IN_SET(siginfo.si_code, CLD_KILLED, CLD_DUMPED))
+                return siginfo.si_status;
+
+        /* Child exited normally, return 0 to indicate no signal was received, regardless of actual exit */
+        return 0;
 }
 
 

@@ -137,4 +137,33 @@ TEST(ASSERT_OK_OR) {
         ASSERT_SIGNAL(ASSERT_OK_OR(-1, -2), SIGABRT);
 }
 
+/* Regression test for issue where assert_signal_internal() wasn't checking si_code before returning
+ * si_status.
+ *
+ * In the bug case, siginfo.si_status has different meanings depending on siginfo.si_code:
+ *
+ *   - If si_code == CLD_EXITED: si_status is the exit code (0-255)
+ *   - If si_code == CLD_KILLED/CLD_DUMPED: si_status is the signal number
+ *
+ * In the bug case where st_code is not checked, exit codes would be confused with signal numbers. For
+ * example, if a child exits with code 6, it would incorrectly look like SIGABRT.
+ *
+ * This test verifies that exit codes are NOT confused with signal numbers, even when the exit code
+ * numerically matches a signal number.
+ */
+TEST(ASSERT_SIGNAL_exit_code_vs_signal) {
+        /* These exit codes numerically match common signal numbers, but ASSERT_SIGNAL should correctly
+         * identify them as exit codes (si_code==CLD_EXITED), not signals. The inner ASSERT_SIGNAL expects a
+         * signal but gets an exit code, so it should fail (aborting with SIGABRT), which the outer
+         * ASSERT_SIGNAL then catches. */
+
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(6), SIGABRT), SIGABRT);  /* 6 = SIGABRT */
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(9), SIGKILL), SIGABRT);  /* 9 = SIGKILL */
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(11), SIGSEGV), SIGABRT); /* 11 = SIGSEGV */
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(15), SIGTERM), SIGABRT); /* 15 = SIGTERM */
+
+        /* _exit(0) should not be confused with any signal */
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(0), SIGABRT), SIGABRT);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
