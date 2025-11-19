@@ -12,6 +12,7 @@
 #include "fs-util.h"
 #include "mkdir.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -743,30 +744,29 @@ TEST(xopenat_lock_full) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         siginfo_t si;
+        int r;
 
-        assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
+        ASSERT_OK((tfd = mkdtemp_open(NULL, 0, &t)));
 
         /* Test that we can acquire an exclusive lock on a directory in one process, remove the directory,
          * and close the file descriptor and still properly create the directory and acquire the lock in
          * another process.  */
 
-        fd = xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX);
-        assert_se(fd >= 0);
-        assert_se(faccessat(tfd, "abc", F_OK, 0) >= 0);
-        assert_se(fd_verify_directory(fd) >= 0);
-        assert_se(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+        fd = ASSERT_OK(xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX));
+        ASSERT_OK_ERRNO(faccessat(tfd, "abc", F_OK, 0));
+        ASSERT_OK(fd_verify_directory(fd));
+        ASSERT_ERROR(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB), EAGAIN);
 
-        pid_t pid = fork();
-        assert_se(pid >= 0);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = ASSERT_OK(pidref_safe_fork("(lock)", FORK_DEATHSIG_SIGKILL|FORK_LOG, &pidref));
 
-        if (pid == 0) {
+        if (r == 0) {
                 safe_close(fd);
 
-                fd = xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX);
-                assert_se(fd >= 0);
-                assert_se(faccessat(tfd, "abc", F_OK, 0) >= 0);
-                assert_se(fd_verify_directory(fd) >= 0);
-                assert_se(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+                fd = ASSERT_OK(xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX));
+                ASSERT_OK_ERRNO(faccessat(tfd, "abc", F_OK, 0));
+                ASSERT_OK(fd_verify_directory(fd));
+                ASSERT_ERROR(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB), EAGAIN);
 
                 _exit(EXIT_SUCCESS);
         }
@@ -777,16 +777,16 @@ TEST(xopenat_lock_full) {
          * for a little and assume that's enough time for the child process to get along far enough. It
          * doesn't matter if it doesn't get far enough, in that case we just won't trigger the fallback logic
          * in xopenat_lock_full(), but the test will still succeed. */
-        assert_se(usleep_safe(20 * USEC_PER_MSEC) >= 0);
+        ASSERT_OK(usleep_safe(20 * USEC_PER_MSEC));
 
-        assert_se(unlinkat(tfd, "abc", AT_REMOVEDIR) >= 0);
+        ASSERT_OK(unlinkat(tfd, "abc", AT_REMOVEDIR));
         fd = safe_close(fd);
 
-        assert_se(wait_for_terminate(pid, &si) >= 0);
-        assert_se(si.si_code == CLD_EXITED);
+        ASSERT_OK(pidref_wait_for_terminate(&pidref, &si));
+        ASSERT_EQ(si.si_code, CLD_EXITED);
 
-        assert_se(xopenat_lock_full(tfd, "abc", 0, 0, 0755, LOCK_POSIX, LOCK_EX) == -EBADF);
-        assert_se(xopenat_lock_full(tfd, "def", O_DIRECTORY, 0, 0755, LOCK_POSIX, LOCK_EX) == -EBADF);
+        ASSERT_ERROR(xopenat_lock_full(tfd, "abc", 0, 0, 0755, LOCK_POSIX, LOCK_EX), EBADF);
+        ASSERT_ERROR(xopenat_lock_full(tfd, "def", O_DIRECTORY, 0, 0755, LOCK_POSIX, LOCK_EX), EBADF);
 }
 
 TEST(linkat_replace) {

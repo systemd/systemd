@@ -9,6 +9,7 @@
 #include "log.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -56,7 +57,6 @@ int enable_sysv_units(const char *verb, char **args) {
                 bool found_native = false, found_sysv;
                 const char *name;
                 unsigned c = 1;
-                pid_t pid;
                 int j;
 
                 name = args[f++];
@@ -122,7 +122,8 @@ int enable_sysv_units(const char *verb, char **args) {
                 if (!arg_quiet)
                         log_info("Executing: %s", l);
 
-                j = safe_fork("(sysv-install)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                j = pidref_safe_fork("(sysv-install)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pidref);
                 if (j < 0)
                         return j;
                 if (j == 0) {
@@ -132,7 +133,7 @@ int enable_sysv_units(const char *verb, char **args) {
                         _exit(EXIT_FAILURE);
                 }
 
-                j = wait_for_terminate_and_check("sysv-install", pid, WAIT_LOG_ABNORMAL);
+                j = pidref_wait_for_terminate_and_check("sysv-install", &pidref, WAIT_LOG_ABNORMAL);
                 if (j < 0)
                         return j;
                 if (streq(verb, "is-enabled")) {

@@ -48,6 +48,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
@@ -2139,14 +2140,15 @@ static int merge(ImageClass image_class,
                  bool no_reload,
                  int noexec,
                  Hashmap *images) {
-        pid_t pid;
+
         int r;
 
         (void) dlopen_cryptsetup();
         (void) dlopen_libblkid();
         (void) dlopen_libmount();
 
-        r = safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pidref);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork off child: %m");
         if (r == 0) {
@@ -2162,7 +2164,7 @@ static int merge(ImageClass image_class,
                 _exit(r > 0 ? EXIT_SUCCESS : 123); /* 123 means: didn't find any extensions */
         }
 
-        r = wait_for_terminate_and_check("(sd-merge)", pid, WAIT_LOG_ABNORMAL);
+        r = pidref_wait_for_terminate_and_check("(sd-merge)", &pidref, WAIT_LOG_ABNORMAL);
         if (r < 0)
                 return r;
         if (r == 123) /* exit code 123 means: didn't do anything */

@@ -464,7 +464,6 @@ TEST(find_executable) {
 static void test_find_executable_exec_one(const char *path) {
         _cleanup_free_ char *t = NULL;
         _cleanup_close_ int fd = -EBADF;
-        pid_t pid;
         int r;
 
         r = find_executable_full(path, NULL, NULL, false, &t, &fd);
@@ -476,15 +475,13 @@ static void test_find_executable_exec_one(const char *path) {
         if (path_is_absolute(path))
                 ASSERT_STREQ(t, path);
 
-        pid = fork();
-        assert_se(pid >= 0);
-        if (pid == 0) {
+        r = ASSERT_OK(safe_fork("(find-exec)", FORK_LOG|FORK_DEATHSIG_SIGKILL|FORK_WAIT, /* ret_pid= */ NULL));
+
+        if (r == 0) {
                 r = fexecve_or_execve(fd, t, STRV_MAKE(t, "--version"), STRV_MAKE(NULL));
                 log_error_errno(r, "[f]execve: %m");
                 _exit(EXIT_FAILURE);
         }
-
-        assert_se(wait_for_terminate_and_check(t, pid, WAIT_LOG) == 0);
 }
 
 TEST(find_executable_exec) {

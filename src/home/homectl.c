@@ -46,6 +46,7 @@
 #include "password-quality-util.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "pidref.h"
 #include "pkcs11-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
@@ -2341,7 +2342,6 @@ static int with_home(int argc, char *argv[], void *userdata) {
         _cleanup_strv_free_ char **cmdline  = NULL;
         const char *home;
         int r, ret;
-        pid_t pid;
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -2414,7 +2414,11 @@ static int with_home(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = safe_fork("(with)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REOPEN_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(with)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REOPEN_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -2428,7 +2432,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
                 _exit(255);
         }
 
-        ret = wait_for_terminate_and_check(cmdline[0], pid, WAIT_LOG_ABNORMAL);
+        ret = pidref_wait_for_terminate_and_check(cmdline[0], &pidref, WAIT_LOG_ABNORMAL);
 
         /* Close the fd that pings the home now. */
         acquired_fd = safe_close(acquired_fd);

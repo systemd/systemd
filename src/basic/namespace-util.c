@@ -601,25 +601,25 @@ int userns_acquire_self_root(void) {
         return userns_acquire(uid_map, gid_map, /* setgroups_deny= */ true);
 }
 
-int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
+int userns_enter_and_pin(int userns_fd, PidRef *ret) {
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         ssize_t n;
         char x;
         int r;
 
         assert(userns_fd >= 0);
-        assert(ret_pid);
+        assert(ret);
 
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "(sd-pinuserns)",
                         /* stdio_fds= */ NULL,
                         (int[]) { pfd[1], userns_fd }, 2,
                         FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
-                        &pid);
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -652,7 +652,7 @@ int userns_enter_and_pin(int userns_fd, pid_t *ret_pid) {
         assert(n == 1);
         assert(x == 'x');
 
-        *ret_pid = TAKE_PID(pid);
+        *ret = TAKE_PIDREF(pidref);
         return 0;
 }
 
@@ -661,22 +661,22 @@ bool userns_supported(void) {
 }
 
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid) {
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(userns_fd >= 0);
 
-        r = userns_enter_and_pin(userns_fd, &pid);
+        r = userns_enter_and_pin(userns_fd, &pidref);
         if (r < 0)
                 return r;
 
         uid_t uid;
-        r = uid_map_search_root(pid, UID_RANGE_USERNS_OUTSIDE, &uid);
+        r = uid_map_search_root(pidref.pid, UID_RANGE_USERNS_OUTSIDE, &uid);
         if (r < 0)
                 return r;
 
         gid_t gid;
-        r = uid_map_search_root(pid, GID_RANGE_USERNS_OUTSIDE, &gid);
+        r = uid_map_search_root(pidref.pid, GID_RANGE_USERNS_OUTSIDE, &gid);
         if (r < 0)
                 return r;
 

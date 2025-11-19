@@ -2413,7 +2413,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         uint64_t c = 1;
         ssize_t n;
         int r;
@@ -2510,7 +2510,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (pipe2(errno_pipe, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pid);
+        r = pidref_safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -2542,9 +2542,10 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (n != 0) /* on success we should have read 0 bytes */
                 return -EIO;
 
-        r = wait_for_terminate_and_check("(sd-userns)", TAKE_PID(pid), 0);
+        r = pidref_wait_for_terminate_and_check("(sd-userns)", &pidref, 0);
         if (r < 0)
                 return r;
+        pidref_done(&pidref);
         if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
                 return -EIO;
 
@@ -2553,7 +2554,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
 
 static int can_mount_proc(void) {
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         ssize_t n;
         int r;
 
@@ -2568,8 +2569,10 @@ static int can_mount_proc(void) {
 
         /* Fork a child process into its own mount and PID namespace. Note safe_fork() already remounts / as SLAVE
          * with FORK_MOUNTNS_SLAVE. */
-        r = safe_fork("(sd-proc-check)",
-                      FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_PIDNS, &pid);
+        r = pidref_safe_fork(
+                        "(sd-proc-check)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_PIDNS,
+                        &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork child process (sd-proc-check): %m");
         if (r == 0) {
@@ -2604,9 +2607,10 @@ static int can_mount_proc(void) {
         if (n != 0) /* on success we should have read 0 bytes */
                 return -EIO;
 
-        r = wait_for_terminate_and_check("(sd-proc-check)", TAKE_PID(pid), /* flags= */ 0);
+        r = pidref_wait_for_terminate_and_check("(sd-proc-check)", &pidref, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to wait for (sd-proc-check) child process to terminate: %m");
+        pidref_done(&pidref);
         if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Child process (sd-proc-check) exited with unexpected exit status '%d'.", r);
 
