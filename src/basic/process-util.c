@@ -845,13 +845,9 @@ int get_process_umask(pid_t pid, mode_t *ret) {
         return parse_mode(m, ret);
 }
 
-int wait_for_terminate(pid_t pid, siginfo_t *ret) {
-        return pidref_wait_for_terminate(&PIDREF_MAKE_FROM_PID(pid), ret);
-}
-
 /*
  * Return values:
- * < 0 : wait_for_terminate() failed to get the state of the
+ * < 0 : pidref_wait_for_terminate() failed to get the state of the
  *       process, the process was terminated by a signal, or
  *       failed for an unknown reason.
  * >=0 : The process terminated normally, and its exit code is
@@ -906,52 +902,6 @@ int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFl
 
         log_full(prio, "%s failed due to unknown reason.", strna(name));
         return -EPROTO;
-}
-
-int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags) {
-        return pidref_wait_for_terminate_and_check(name, &PIDREF_MAKE_FROM_PID(pid), flags);
-}
-
-void sigkill_wait(pid_t pid) {
-        assert(pid > 1);
-
-        (void) kill(pid, SIGKILL);
-        (void) wait_for_terminate(pid, NULL);
-}
-
-void sigkill_waitp(pid_t *pid) {
-        PROTECT_ERRNO;
-
-        if (!pid)
-                return;
-        if (*pid <= 1)
-                return;
-
-        sigkill_wait(*pid);
-}
-
-void sigterm_wait(pid_t pid) {
-        assert(pid > 1);
-
-        (void) kill_and_sigcont(pid, SIGTERM);
-        (void) wait_for_terminate(pid, NULL);
-}
-
-void sigkill_nowait(pid_t pid) {
-        assert(pid > 1);
-
-        (void) kill(pid, SIGKILL);
-}
-
-void sigkill_nowaitp(pid_t *pid) {
-        PROTECT_ERRNO;
-
-        if (!pid)
-                return;
-        if (*pid <= 1)
-                return;
-
-        sigkill_nowait(*pid);
 }
 
 int kill_and_sigcont(pid_t pid, int sig) {
@@ -1280,7 +1230,9 @@ void valgrind_summary_hack(void) {
                         exit(EXIT_SUCCESS);
                 else {
                         log_info("Spawned valgrind helper as PID "PID_FMT".", pid);
-                        (void) wait_for_terminate(pid, NULL);
+                        _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
+                        (void) pidref_set_pid(&pidref, pid);
+                        (void) pidref_wait_for_terminate(&pidref, NULL);
                 }
         }
 #endif

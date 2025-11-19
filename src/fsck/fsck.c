@@ -23,6 +23,7 @@
 #include "fsck-util.h"
 #include "main-func.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "socket-util.h"
@@ -267,7 +268,6 @@ static int run(int argc, char *argv[]) {
         bool root_directory;
         struct stat st;
         int r, exit_status;
-        pid_t pid;
 
         log_setup();
 
@@ -366,7 +366,11 @@ static int run(int argc, char *argv[]) {
             pipe(progress_pipe) < 0)
                 return log_error_errno(errno, "pipe(): %m");
 
-        r = safe_fork("(fsck)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(fsck)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -424,7 +428,7 @@ static int run(int argc, char *argv[]) {
                 (void) process_progress(TAKE_FD(progress_pipe[0]), console);
         }
 
-        exit_status = wait_for_terminate_and_check("fsck", pid, WAIT_LOG_ABNORMAL);
+        exit_status = pidref_wait_for_terminate_and_check("fsck", &pidref, WAIT_LOG_ABNORMAL);
         if (exit_status < 0)
                 return exit_status;
         if ((exit_status & ~FSCK_ERROR_CORRECTED) != FSCK_SUCCESS) {

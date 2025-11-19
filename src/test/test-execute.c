@@ -246,18 +246,17 @@ static bool apparmor_restrict_unprivileged_userns(void) {
 }
 
 static bool have_userns_privileges(void) {
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
         if (apparmor_restrict_unprivileged_userns())
                 return false;
 
-        r = safe_fork("(sd-test-check-userns)",
-                      FORK_RESET_SIGNALS |
-                      FORK_CLOSE_ALL_FDS |
-                      FORK_DEATHSIG_SIGKILL,
-                      &pid);
-        ASSERT_OK(r);
+        r = ASSERT_OK(pidref_safe_fork(
+                        "(sd-test-check-userns)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
+                        &pidref));
+
         if (r == 0) {
                 /* Keep CAP_SYS_ADMIN if we have it to ensure we give an
                  * accurate result to the caller. Some kernels have a
@@ -282,7 +281,7 @@ static bool have_userns_privileges(void) {
          *  EXIT_SUCCESS => we can use user namespaces
          *  EXIT_FAILURE => we can NOT use user namespaces
          *  2            => some other error occurred */
-        r = wait_for_terminate_and_check("(sd-test-check-userns)", pid, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-test-check-userns)", &pidref, 0);
         if (!IN_SET(r, EXIT_SUCCESS, EXIT_FAILURE))
                 log_debug("Failed to check if user namespaces can be used, assuming not.");
 

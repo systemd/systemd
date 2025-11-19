@@ -1,19 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <signal.h>
-
 #include "ask-password-agent.h"
 #include "bus-util.h"
 #include "exec-util.h"
 #include "log.h"
-#include "process-util.h"
+#include "pidref.h"
 
-static pid_t agent_pid = 0;
+static PidRef agent_pidref = PIDREF_NULL;
 
 int ask_password_agent_open(void) {
         int r;
 
-        if (agent_pid > 0)
+        if (pidref_is_set(&agent_pidref))
                 return 0;
 
         r = shall_fork_agent();
@@ -22,7 +20,7 @@ int ask_password_agent_open(void) {
 
         r = fork_agent("(sd-askpwagent)",
                        NULL, 0,
-                       &agent_pid,
+                       &agent_pidref,
                        SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH,
                        "--watch");
         if (r < 0)
@@ -32,12 +30,8 @@ int ask_password_agent_open(void) {
 }
 
 void ask_password_agent_close(void) {
-
-        if (agent_pid <= 0)
-                return;
-
         /* Inform agent that we are done */
-        sigterm_wait(TAKE_PID(agent_pid));
+        pidref_done_sigterm_wait(&agent_pidref);
 }
 
 int ask_password_agent_open_if_enabled(BusTransport transport, bool ask_password) {
