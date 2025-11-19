@@ -421,9 +421,16 @@ void test_prepare(int argc, char *argv[], int log_level) {
         test_setup_logging(log_level);
 }
 
-int assert_signal_internal(void) {
+/* Returns:
+ * ASSERT_SIGNAL_FORK_CHILD  = We are in the child process
+ * ASSERT_SIGNAL_FORK_PARENT = We are in the parent process (signal/status stored in *ret_signal)
+ * <0                        = Error (negative errno)
+ */
+int assert_signal_internal(int *ret_signal) {
         siginfo_t siginfo = {};
         int r;
+
+        assert(ret_signal);
 
         r = fork();
         if (r < 0)
@@ -435,7 +442,7 @@ int assert_signal_internal(void) {
 
                 /* But still set an rlimit just in case */
                 (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(0));
-                return 0;
+                return ASSERT_SIGNAL_FORK_CHILD;
         }
 
         r = wait_for_terminate(r, &siginfo);
@@ -447,10 +454,11 @@ int assert_signal_internal(void) {
          * - CLD_KILLED/CLD_DUMPED: si_status is the signal number that killed the process
          * We need to return the signal number only if the child was killed by a signal. */
         if (IN_SET(siginfo.si_code, CLD_KILLED, CLD_DUMPED))
-                return siginfo.si_status;
+                *ret_signal = siginfo.si_status;
+        else
+                *ret_signal = 0;
 
-        /* Child exited normally, return 0 to indicate no signal was received, regardless of actual exit */
-        return 0;
+        return ASSERT_SIGNAL_FORK_PARENT;
 }
 
 
