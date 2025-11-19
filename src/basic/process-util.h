@@ -225,7 +225,7 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                pid_t *ret_pid);
+                PidRef *ret);
 
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);
