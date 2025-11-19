@@ -40,12 +40,12 @@ executables += [
         executable_template + {
                 'name' : 'systemd-nspawn',
                 'public' : true,
-                'sources' : nspawn_sources + nspawn_extract_sources,
+                'sources' : nspawn_sources,
+                'extract' : nspawn_extract_sources,
                 'include_directories' : [
                         executable_template['include_directories'],
                         include_directories('.')
                 ],
-                'extract' : nspawn_extract_sources,
                 'dependencies' : [
                         libseccomp_cflags,
                         libselinux_cflags,
