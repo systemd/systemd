@@ -194,7 +194,7 @@ bool sleep_needs_mem_sleep(const SleepConfig *sc, SleepOperation operation) {
 }
 
 int sleep_state_supported(char * const *states) {
-        _cleanup_free_ char *supported_sysfs = NULL;
+        static char *volatile supported_sysfs = NULL;
         const char *found;
         int r;
 
@@ -204,9 +204,17 @@ int sleep_state_supported(char * const *states) {
         if (access("/sys/power/state", W_OK) < 0)
                 return log_debug_errno(errno, "/sys/power/state is not writable: %m");
 
-        r = read_one_line_file("/sys/power/state", &supported_sysfs);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to read /sys/power/state: %m");
+        if (!supported_sysfs) {
+                /* Caching prevents kernel_lockdown(7) logspam */
+                char * supported_sysfs_buf;
+                char * null_string = NULL;
+                r = read_one_line_file("/sys/power/state", &supported_sysfs_buf);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read /sys/power/state: %m");
+                __atomic_compare_exchange_n(&supported_sysfs, &null_string, supported_sysfs_buf, false,
+                        __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
+                free(null_string);
+        }
 
         r = string_contains_word_strv(supported_sysfs, NULL, states, &found);
         if (r < 0)
