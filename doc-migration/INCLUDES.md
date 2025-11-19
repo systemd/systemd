@@ -4,6 +4,11 @@ An overview of all documentation files that are wholly or partially included in 
 
 ## XML files used for includes
 
+Included, but does not exist:
+```
+bpf-delegate.xml
+```
+
 Import collections:
 ```
 cgroup-sandboxing.xml
@@ -16,13 +21,16 @@ standard-specifiers.xml
 supported-controllers.xml
 system-only.xml
 system-or-user-ns.xml
+system-or-user-ns-mountfsd.xml
 tc.xml
 threads-aware.xml
+unit-states.xml
 user-system-options.xml
 ```
 
 Re-used documentation pages:
 ```
+hostname.xml
 importctl.xml
 org.freedesktop.locale1.xml
 sd_bus_add_match.xml
