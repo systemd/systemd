@@ -137,4 +137,79 @@ TEST(ASSERT_OK_OR) {
         ASSERT_SIGNAL(ASSERT_OK_OR(-1, -2), SIGABRT);
 }
 
+/* Regression test for issue where assert_signal_internal() wasn't checking si_code before returning
+ * si_status.
+ *
+ * In the bug case, siginfo.si_status has different meanings depending on siginfo.si_code:
+ *
+ *   - If si_code == CLD_EXITED: si_status is the exit code (0-255)
+ *   - If si_code == CLD_KILLED/CLD_DUMPED: si_status is the signal number
+ *
+ * In the bug case where st_code is not checked, exit codes would be confused with signal numbers. For
+ * example, if a child exits with code 6, it would incorrectly look like SIGABRT.
+ *
+ * This test verifies that exit codes are NOT confused with signal numbers, even when the exit code
+ * numerically matches a signal number.
+ */
+TEST(ASSERT_SIGNAL_exit_code_vs_signal) {
+        /* These exit codes numerically match common signal numbers, but ASSERT_SIGNAL should correctly
+         * identify them as exit codes (si_code==CLD_EXITED), not signals. The inner ASSERT_SIGNAL expects a
+         * signal but gets an exit code, so it should fail (aborting with SIGABRT), which the outer
+         * ASSERT_SIGNAL then catches. */
+
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(6), SIGABRT), SIGABRT);  /* 6 = SIGABRT */
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(9), SIGKILL), SIGABRT);  /* 9 = SIGKILL */
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(11), SIGSEGV), SIGABRT); /* 11 = SIGSEGV */
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(15), SIGTERM), SIGABRT); /* 15 = SIGTERM */
+
+        /* _exit(0) should not be confused with any signal */
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(0), SIGABRT), SIGABRT);
+}
+
+/* Regression test for issue where returning 0 from assert_signal_internal() was ambiguous.
+ *
+ * In the bug case, when assert_signal_internal() returned 0, it could mean two different things:
+ *
+ *   1. We're in the child process (fork() just returned 0)
+ *   2. We're in the parent and the child exited normally (no signal)
+ *
+ * The ASSERT_SIGNAL macro couldn't distinguish between these cases. When case #2 occurred, the macro would
+ * re-enter the "if (_r == 0)" block, re-run the expression in the parent, and call _exit(EXIT_SUCCESS),
+ * causing tests to incorrectly pass even when no signal occurred.
+ *
+ * The fix separates the question of which process we are in from which signal occurred:
+ *
+ *   - assert_signal_internal() now returns ASSERT_SIGNAL_FORK_CHILD (0) or ASSERT_SIGNAL_FORK_PARENT (1) to
+ *     indicate execution path
+ *   - The actual signal/status is passed via an output parameter (*ret_status)
+ *
+ * This allows the macro to unambiguously distinguish between being the child (path ==
+ * ASSERT_SIGNAL_FORK_CHILD) and being the parent when the child has exited normally (path ==
+ * ASSERT_SIGNAL_FORK_PARENT && status == 0).
+ *
+ * This test verifies that when a child exits normally (with exit code 0), ASSERT_SIGNAL correctly detects
+ * that NO signal was raised, rather than being confused and thinking it's still in the child process.
+ */
+TEST(ASSERT_SIGNAL_exit_vs_child_process) {
+        /* When a child calls _exit(0), it exits normally with code 0 (no signal). The parent's
+         * assert_signal_internal() returns ASSERT_SIGNAL_FORK_PARENT, and sets ret_status to 0, meaning
+         * there was no signal. This should NOT be confused with being the child process. The inner
+         * ASSERT_SIGNAL expects SIGABRT but sees no signal, so it should fail, which the outerj
+         * ASSERT_SIGNAL catches. */
+        ASSERT_SIGNAL(ASSERT_SIGNAL(_exit(EXIT_SUCCESS), SIGABRT), SIGABRT);
+}
+
+TEST(ASSERT_SIGNAL_basic) {
+        /* Correct behavior: expression raises expected signal */
+        ASSERT_SIGNAL(abort(), SIGABRT);
+        ASSERT_SIGNAL(raise(SIGTERM), SIGTERM);
+        ASSERT_SIGNAL(raise(SIGSEGV), SIGSEGV);
+        ASSERT_SIGNAL(raise(SIGILL), SIGILL);
+
+        /* Wrong signal: inner ASSERT_SIGNAL expects SIGABRT but gets SIGTERM, so it fails (aborts), which
+         * outer ASSERT_SIGNAL catches. */
+        ASSERT_SIGNAL(ASSERT_SIGNAL(raise(SIGTERM), SIGABRT), SIGABRT);
+        ASSERT_SIGNAL(ASSERT_SIGNAL(raise(SIGKILL), SIGTERM), SIGABRT);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
