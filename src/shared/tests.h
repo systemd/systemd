@@ -592,7 +592,12 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         })
 #endif
 
-int assert_signal_internal(void);
+enum {
+        ASSERT_SIGNAL_FORK_CHILD = 0,  /* We are in the child process */
+        ASSERT_SIGNAL_FORK_PARENT = 1, /* We are in the parent process */
+};
+
+int assert_signal_internal(int *ret_status);
 
 #ifdef __COVERITY__
 #  define ASSERT_SIGNAL(expr, signal) __coverity_check__(((expr), false))
@@ -601,15 +606,18 @@ int assert_signal_internal(void);
 #  define __ASSERT_SIGNAL(uniq, expr, signal)                                                                   \
         ({                                                                                                      \
                 ASSERT_TRUE(SIGNAL_VALID(signal));                                                              \
-                int UNIQ_T(_r, uniq) = assert_signal_internal();                                                \
-                ASSERT_OK_ERRNO(UNIQ_T(_r, uniq));                                                              \
-                if (UNIQ_T(_r, uniq) == 0) {                                                                    \
+                int UNIQ_T(_status, uniq);                                                                      \
+                int UNIQ_T(_path, uniq) = assert_signal_internal(&UNIQ_T(_status, uniq));                       \
+                ASSERT_OK_ERRNO(UNIQ_T(_path, uniq));                                                           \
+                if (UNIQ_T(_path, uniq) == ASSERT_SIGNAL_FORK_CHILD) {                                          \
                         expr;                                                                                   \
                         _exit(EXIT_SUCCESS);                                                                    \
                 }                                                                                               \
-                if (UNIQ_T(_r, uniq) != signal)                                                                 \
+                assert(UNIQ_T(_path, uniq) == ASSERT_SIGNAL_FORK_PARENT);                                       \
+                if (UNIQ_T(_status, uniq) != signal)                                                            \
                         log_test_failed("\"%s\" died with signal %s, but %s was expected",                      \
-                                        #expr, signal_to_string(UNIQ_T(_r, uniq)), signal_to_string(signal));   \
+                                        #expr, signal_to_string(UNIQ_T(_status, uniq)),                         \
+                                                                       signal_to_string(signal));               \
         })
 #endif
 
