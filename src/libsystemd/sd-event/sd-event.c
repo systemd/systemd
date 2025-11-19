@@ -1592,11 +1592,8 @@ _public_ int sd_event_add_child(
         if (!callback)
                 callback = child_exit_callback;
 
-        if (e->n_online_child_sources == 0) {
-                /* Caller must block SIGCHLD before using us to watch children, even if pidfd is available,
-                 * for compatibility with pre-pidfd and because we don't want the reap the child processes
-                 * ourselves, i.e. call waitid(), and don't want Linux' default internal logic for that to
-                 * take effect.
+        if (e->n_online_child_sources == 0 && (options & ~WNOWAIT) != WEXITED) {
+                /* Caller must block SIGCHLD before using us to watch for WSTOPPED or WCONTINUED.
                  *
                  * (As an optimization we only do this check on the first child event source created.) */
                 r = signal_is_blocked(SIGCHLD);
@@ -1617,8 +1614,8 @@ _public_ int sd_event_add_child(
         if (!s)
                 return -ENOMEM;
 
-        /* We always take a pidfd here if we can, even if we wait for anything else than WEXITED, so that we
-         * pin the PID, and make regular waitid() handling race-free. */
+        /* We always take a pidfd here, even if we wait for anything else than WEXITED, so that we pin the
+         * PID, and make regular waitid() handling race-free. */
 
         s->child.pidfd = pidfd_open(pid, 0);
         if (s->child.pidfd < 0)
@@ -1684,7 +1681,7 @@ _public_ int sd_event_add_child_pidfd(
         if (!callback)
                 callback = child_exit_callback;
 
-        if (e->n_online_child_sources == 0) {
+        if (e->n_online_child_sources == 0 && (options & ~WNOWAIT) != WEXITED) {
                 r = signal_is_blocked(SIGCHLD);
                 if (r < 0)
                         return r;

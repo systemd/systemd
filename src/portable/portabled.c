@@ -143,8 +143,6 @@ static int run(int argc, char *argv[]) {
         if (argc != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
-
         r = manager_new(&m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");

@@ -366,8 +366,6 @@ static int run(int argc, char *argv[]) {
         if (scope == RUNTIME_SCOPE_SYSTEM)
                 (void) mkdir_label("/run/systemd/machines", 0755);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
-
         r = manager_new(scope, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");
