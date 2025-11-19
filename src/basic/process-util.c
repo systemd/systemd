@@ -1884,7 +1884,7 @@ int safe_fork_full(
         return r;
 }
 
-int namespace_fork(
+int namespace_fork_full(
                 const char *outer_name,
                 const char *inner_name,
                 int except_fds[],
@@ -1895,7 +1895,7 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                pid_t *ret_pid) {
+                PidRef *ret) {
 
         int r;
 
@@ -1904,14 +1904,16 @@ int namespace_fork(
          * /proc/self/fd works correctly. */
         assert(!FLAGS_SET(flags, FORK_ALLOW_DLOPEN)); /* never allow loading shared library from another ns */
 
-        r = safe_fork_full(outer_name,
-                           NULL,
-                           except_fds, n_except_fds,
-                           (flags|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGKILL) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE), ret_pid);
+        r = pidref_safe_fork_full(
+                        outer_name,
+                        NULL,
+                        except_fds, n_except_fds,
+                        (flags|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGKILL) & ~(FORK_REOPEN_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE),
+                        ret);
         if (r < 0)
                 return r;
         if (r == 0) {
-                pid_t pid;
+                _cleanup_(pidref_done) PidRef pidref_inner = PIDREF_NULL;
 
                 /* Child */
 
@@ -1922,20 +1924,25 @@ int namespace_fork(
                 }
 
                 /* We mask a few flags here that either make no sense for the grandchild, or that we don't have to do again */
-                r = safe_fork_full(inner_name,
-                                   NULL,
-                                   except_fds, n_except_fds,
-                                   flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO), &pid);
+                r = pidref_safe_fork_full(
+                                inner_name,
+                                NULL,
+                                except_fds, n_except_fds,
+                                flags & ~(FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO),
+                                &pidref_inner);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
                 if (r == 0) {
                         /* Child */
-                        if (ret_pid)
-                                *ret_pid = pid;
+                        if (ret)
+                                *ret = TAKE_PIDREF(pidref_inner);
                         return 0;
                 }
 
-                r = wait_for_terminate_and_check(inner_name, pid, FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
+                r = pidref_wait_for_terminate_and_check(
+                                inner_name,
+                                &pidref_inner,
+                                FLAGS_SET(flags, FORK_LOG) ? WAIT_LOG : 0);
                 if (r < 0)
                         _exit(EXIT_FAILURE);
 
