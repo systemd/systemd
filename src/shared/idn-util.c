@@ -41,7 +41,6 @@ DLSYM_PROTOTYPE(stringprep_ucs4_to_utf8) = NULL;
 DLSYM_PROTOTYPE(stringprep_utf8_to_ucs4) = NULL;
 
 int dlopen_idn(void) {
-        _cleanup_(dlclosep) void *dl = NULL;
         int r;
 
         ELF_NOTE_DLOPEN("idn",
@@ -52,14 +51,21 @@ int dlopen_idn(void) {
         if (idn_dl)
                 return 0; /* Already loaded */
 
-        dl = dlopen("libidn.so.12", RTLD_NOW|RTLD_NODELETE);
-        if (!dl) {
+        r = check_dlopen_blocked("libidn.so.12");
+        if (r < 0)
+                return r;
+
+        _cleanup_(dlclosep) void *dl = NULL;
+        r = dlopen_safe("libidn.so.12", &dl, /* reterr_dlerror= */ NULL);
+        if (r < 0) {
                 /* libidn broke ABI in 1.34, but not in a way we care about (a new field got added to an
                  * open-coded struct we do not use), hence support both versions. */
-                dl = dlopen("libidn.so.11", RTLD_NOW|RTLD_NODELETE);
-                if (!dl)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "libidn support is not installed: %s", dlerror());
+                const char *dle = NULL;
+                r = dlopen_safe("libidn.so.11", &dl, &dle);
+                if (r < 0) {
+                        log_debug_errno(r, "libidn support is not available: %s", dle ?: STRERROR(r));
+                        return -EOPNOTSUPP; /* turn into recognizable error */
+                }
                 log_debug("Loaded 'libidn.so.11' via dlopen()");
         } else
                 log_debug("Loaded 'libidn.so.12' via dlopen()");
