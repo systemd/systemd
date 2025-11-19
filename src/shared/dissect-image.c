@@ -630,7 +630,35 @@ static void check_partition_flags(
                 log_debug("Unexpected partition flag %llu set on %s!", bit, node);
         }
 }
+#endif
 
+static int make_image_name(const char *path, char **ret) {
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        _cleanup_free_ char *filename = NULL;
+        r = path_extract_filename(path, &filename);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *name = NULL;
+        r = raw_strip_suffixes(filename, &name);
+        if (r < 0)
+                return r;
+
+        if (!image_name_is_valid(name)) {
+                log_debug("Image name %s is not valid, ignoring.", strna(name));
+                *ret = NULL;
+                return 0;
+        }
+
+        *ret = TAKE_PTR(name);
+        return 1;
+}
+
+#if HAVE_BLKID
 static int dissected_image_new(const char *path, DissectedImage **ret) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_free_ char *name = NULL;
@@ -639,20 +667,9 @@ static int dissected_image_new(const char *path, DissectedImage **ret) {
         assert(ret);
 
         if (path) {
-                _cleanup_free_ char *filename = NULL;
-
-                r = path_extract_filename(path, &filename);
+                r = make_image_name(path, &name);
                 if (r < 0)
                         return r;
-
-                r = raw_strip_suffixes(filename, &name);
-                if (r < 0)
-                        return r;
-
-                if (!image_name_is_valid(name)) {
-                        log_debug("Image name %s is not valid, ignoring.", strna(name));
-                        name = mfree(name);
-                }
         }
 
         m = new(DissectedImage, 1);
@@ -5023,8 +5040,8 @@ static void mount_image_reply_parameters_done(MountImageReplyParameters *p) {
 
 #endif
 
-int mountfsd_mount_image(
-                const char *path,
+int mountfsd_mount_image_fd(
+                int image_fd,
                 int userns_fd,
                 const ImagePolicy *image_policy,
                 const VeritySettings *verity,
@@ -5044,13 +5061,13 @@ int mountfsd_mount_image(
         };
 
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
-        _cleanup_close_ int image_fd = -EBADF, verity_data_fd = -EBADF;
+        _cleanup_close_ int verity_data_fd = -EBADF;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_free_ char *ps = NULL;
         const char *error_id;
         int r;
 
-        assert(path);
+        assert(image_fd >= 0);
         assert(ret);
 
         r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.MountFileSystem");
@@ -5064,10 +5081,6 @@ int mountfsd_mount_image(
         r = sd_varlink_set_allow_fd_passing_output(vl, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
-
-        image_fd = open(path, O_RDONLY|O_CLOEXEC);
-        if (image_fd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", path);
 
         r = sd_varlink_push_dup_fd(vl, image_fd);
         if (r < 0)
@@ -5160,7 +5173,7 @@ int mountfsd_mount_image(
                 assert(pp.designator >= 0);
 
                 if (!di) {
-                        r = dissected_image_new(path, &di);
+                        r = dissected_image_new(/* path= */ NULL, &di);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to allocated new dissected image structure: %m");
                 }
@@ -5193,6 +5206,39 @@ int mountfsd_mount_image(
 #else
         return -EOPNOTSUPP;
 #endif
+}
+
+int mountfsd_mount_image(
+                const char *path,
+                int userns_fd,
+                const ImagePolicy *image_policy,
+                const VeritySettings *verity,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
+
+        int r;
+
+        assert(path);
+        assert(verity);
+        assert(ret);
+
+        _cleanup_close_ int image_fd = open(path, O_RDONLY|O_CLOEXEC);
+        if (image_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+        _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
+        r = mountfsd_mount_image_fd(image_fd, userns_fd, image_policy, verity, flags, &di);
+        if (r < 0)
+                return r;
+
+        if (!di->image_name) {
+                r = make_image_name(path, &di->image_name);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(di);
+        return 0;
 }
 
 int mountfsd_mount_directory_fd(
