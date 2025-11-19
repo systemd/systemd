@@ -15,7 +15,7 @@ project('systemd', 'c',
 
 add_test_setup(
         'default',
-        exclude_suites : ['clang-tidy', 'integration-tests'],
+        exclude_suites : ['clang-tidy', 'unused-symbols', 'integration-tests'],
         is_default : true,
 )
 
@@ -2227,7 +2227,7 @@ libudev = shared_library(
         implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
-        link_with : [libsystemd_static, libshared_static],
+        link_with : [libsystemd_static],
         link_whole : libudev_basic,
         dependencies : [threads,
                         userspace],
@@ -2999,6 +2999,19 @@ if meson.version().version_compare('>=1.4.0')
                 endforeach
         endforeach
 endif
+
+symbol_analysis_exes = []
+foreach name, exe : executables_by_name
+        symbol_analysis_exes += exe
+endforeach
+
+find_unused_library_symbols = find_program('tools/find-unused-library-symbols.py')
+test(
+        'libshared-unused-symbols',
+        find_unused_library_symbols,
+        suite : 'unused-symbols',
+        args : [libshared, libcore] + nss_targets + pam_targets + symbol_analysis_exes,
+)
 
 run_target(
         'check-api-docs',
