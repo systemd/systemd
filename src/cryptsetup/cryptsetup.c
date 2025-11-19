@@ -1233,7 +1233,7 @@ static int measured_crypt_activate_by_passphrase(
         if (keyslot < 0)
                 return keyslot;
 
-        return measured_crypt_activate_by_volume_key(cd, mechanism, name, keyslot, vk, vks, flags);
+        return measured_crypt_activate_by_volume_key(cd, name, mechanism, keyslot, vk, vks, flags);
 
 shortcut:
         keyslot = crypt_activate_by_passphrase(cd, name, keyslot, passphrase, passphrase_size, flags);
