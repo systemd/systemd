@@ -6,6 +6,7 @@
 #include "process-util.h"
 #include "stdio-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(pidref_is_set) {
         ASSERT_FALSE(pidref_is_set(NULL));
@@ -244,6 +245,24 @@ TEST(pidref_is_remote) {
         ASSERT_ERROR(pidref_kill_and_sigcont(&p, SIGTERM), EREMOTE);
         ASSERT_ERROR(pidref_wait_for_terminate(&p, /* ret= */ NULL), EREMOTE);
         ASSERT_ERROR(pidref_verify(&p), EREMOTE);
+}
+
+TEST(pidref_wait_for_terminate_timeout) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        siginfo_t si;
+
+        /* Test successful termination within timeout */
+        ASSERT_OK(pidref_safe_fork("(test-pidref-wait-timeout)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
+
+        assert_se(pidref_kill(&pidref, SIGKILL) >= 0);
+        ASSERT_OK(pidref_wait_for_terminate_full(&pidref, 5 * USEC_PER_SEC, &si));
+        ASSERT_EQ(si.si_signo, SIGCHLD);
+
+        pidref_done(&pidref);
+
+        /* Test timeout when process doesn't terminate */
+        ASSERT_OK(pidref_safe_fork("(test-pidref-wait-timeout-expired)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
+        ASSERT_ERROR(pidref_wait_for_terminate_full(&pidref, 100 * USEC_PER_MSEC, NULL), ETIMEDOUT);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

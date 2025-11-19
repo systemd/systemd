@@ -73,8 +73,6 @@ typedef enum WaitFlags {
 int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags);
 int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags);
 
-int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout);
-
 void sigkill_wait(pid_t pid);
 void sigkill_waitp(pid_t *pid);
 void sigterm_wait(pid_t pid);
