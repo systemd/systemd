@@ -10367,19 +10367,12 @@ static int vl_method_run(
                 if (r < 0)
                         return r;
 
-                /* Check if space issue is caused by the whole disk being too small */
-                if (size > context->total)
-                        return sd_varlink_errorbo(
-                                        link,
-                                        "io.systemd.Repart.DiskTooSmall",
-                                        SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", current_size),
-                                        SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size));
-
-                /* Or if the disk would fit, but theres's not enough unallocated space */
                 uint64_t need_free = LESS_BY(size, current_size);
+
                 return sd_varlink_errorbo(
                                 link,
-                                "io.systemd.Repart.InsufficientFreeSpace",
+                                need_free > context->total ? "io.systemd.Repart.DiskTooSmall" :
+                                                             "io.systemd.Repart.InsufficientFreeSpace",
                                 SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", current_size),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size));
         }
