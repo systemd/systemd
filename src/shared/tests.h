@@ -604,6 +604,7 @@ int assert_signal_internal(void);
                 int UNIQ_T(_r, uniq) = assert_signal_internal();                                                \
                 ASSERT_OK_ERRNO(UNIQ_T(_r, uniq));                                                              \
                 if (UNIQ_T(_r, uniq) == 0) {                                                                    \
+                        (void) signal(signal, SIG_DFL);                                                         \
                         expr;                                                                                   \
                         _exit(EXIT_SUCCESS);                                                                    \
                 }                                                                                               \
