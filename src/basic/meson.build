@@ -23,6 +23,7 @@ basic_sources = files(
         'compress.c',
         'conf-files.c',
         'confidential-virt.c',
+        'device-nodes.c',
         'devnum-util.c',
         'dirent-util.c',
         'dlfcn-util.c',

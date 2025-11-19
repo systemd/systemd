@@ -2227,7 +2227,7 @@ libudev = shared_library(
         implicit_include_directories : false,
         link_args : ['-shared',
                      '-Wl,--version-script=' + libudev_sym_path],
-        link_with : [libsystemd_static, libshared_static],
+        link_with : [libsystemd_static],
         link_whole : libudev_basic,
         dependencies : [threads,
                         userspace],
