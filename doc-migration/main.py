@@ -136,7 +136,10 @@ def process_xml_files_in_directory(dir: str, output_dir: str, specific_file: str
 
     for filename in files_to_process:
         filepath = os.path.join(dir, filename)
-        output_subdir = includes_output_dir if filename in FILES_USED_FOR_INCLUDES else files_output_dir
+        # output_subdir = includes_output_dir if filename in FILES_USED_FOR_INCLUDES else files_output_dir
+        # No longer put includes in a separate folder, this makes nested
+        # includes needlessly complicated
+        output_subdir = files_output_dir
         # print('converting file: ', filename)
         try:
             if filename != 'directives-template.xml':

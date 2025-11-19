@@ -295,10 +295,10 @@ def _includes(el):
         elif not el.get("xpointer"):
             if el.get("parse") == 'text':
                 # Handle literal xml includes
-                return f".. literalinclude:: ../includes/{el.get('href')}"
-            return f".. include:: ../includes/{el.get('href').replace('xml', 'rst')}"
+                return f".. literalinclude:: {el.get('href')}"
+            return f".. include:: {el.get('href').replace('xml', 'rst')}"
         elif el.get('href') in include_files:
-            return f""".. include:: ../includes/{el.get('href').replace('xml', 'rst')}
+            return f""".. include:: {el.get('href').replace('xml', 'rst')}
     :start-after: .. inclusion-marker-do-not-remove {el.get("xpointer")}
     :end-before: .. inclusion-end-marker-do-not-remove {el.get("xpointer")}
 
