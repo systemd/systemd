@@ -797,6 +797,28 @@ grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
 varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Unmerge '{}'
 (! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
 
+# And again, but unprivileged
+mkdir -p /etc/polkit-1/rules.d
+cat >/etc/polkit-1/rules.d/sysext-unpriv.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.systemd.sysext.manage" &&
+        subject.user == "testuser") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+systemctl try-reload-or-restart polkit.service
+run0 -u testuser varlinkctl call --more /run/systemd/io.systemd.sysext io.systemd.sysext.List '{}'
+(! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Merge '{"allowInteractiveAuthentication": true}'
+grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Refresh '{"allowInteractiveAuthentication": true}'
+grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+run0 -u testuser varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Unmerge '{"allowInteractiveAuthentication": true}'
+(! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
+rm -f /etc/polkit-1/rules.d/sysext-unpriv.rules
+systemctl try-reload-or-restart polkit.service
+
 # Check that extensions cannot contain os-release
 mkdir -p /run/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system}
 echo "ID=_any" >/run/extensions/app-reject/usr/lib/extension-release.d/extension-release.app-reject

@@ -13,6 +13,7 @@
 #include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
+#include "bus-polkit.h"
 #include "bus-unit-util.h"
 #include "bus-util.h"
 #include "capability-util.h"
@@ -602,13 +603,16 @@ static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_v
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "class",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodUnmergeParameters, class),     0 },
                 { "noReload", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodUnmergeParameters, no_reload), 0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
         MethodUnmergeParameters p = {
                 .no_reload = -1,
         };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
+        bool no_reload;
         int r;
 
         assert(link);
@@ -617,13 +621,24 @@ static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r != 0)
                 return r;
 
+        no_reload = p.no_reload >= 0 ? p.no_reload : arg_no_reload;
+
         r = parse_image_class_parameter(link, p.class, &image_class, &hierarchies);
         if (r < 0)
                 return r;
 
-        r = unmerge(image_class,
-                    hierarchies ?: arg_hierarchies,
-                    p.no_reload >= 0 ? p.no_reload : arg_no_reload);
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        image_class == IMAGE_SYSEXT ? "io.systemd.sysext.manage" : "io.systemd.confext.manage",
+                        (const char**) STRV_MAKE(
+                                "verb", "unmerge",
+                                "noReload", yes_no(no_reload)),
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = unmerge(image_class,hierarchies ?: arg_hierarchies, no_reload);
         if (r < 0)
                 return r;
 
@@ -2236,6 +2251,7 @@ static int parse_merge_parameters(sd_varlink *link, sd_json_variant *parameters,
                 { "force",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, force),     0 },
                 { "noReload", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, no_reload), 0 },
                 { "noexec",   SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,     offsetof(MethodMergeParameters, noexec),    0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
@@ -2247,6 +2263,7 @@ static int parse_merge_parameters(sd_varlink *link, sd_json_variant *parameters,
 }
 
 static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         MethodMergeParameters p = {
                 .force = -1,
@@ -2255,7 +2272,8 @@ static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_var
         };
         _cleanup_strv_free_ char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
-        int r;
+        bool force, no_reload;
+        int r, noexec;
 
         assert(link);
 
@@ -2265,6 +2283,23 @@ static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_var
 
         r = parse_image_class_parameter(link, p.class, &image_class, &hierarchies);
         if (r < 0)
+                return r;
+
+        force = p.force >= 0 ? p.force : arg_force;
+        no_reload = p.no_reload >= 0 ? p.no_reload : arg_no_reload;
+        noexec = p.noexec >= 0 ? p.noexec : arg_noexec;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        image_class == IMAGE_SYSEXT ? "io.systemd.sysext.manage" : "io.systemd.confext.manage",
+                        (const char**) STRV_MAKE(
+                                "verb", "merge",
+                                "force", yes_no(force),
+                                "noReload", yes_no(no_reload),
+                                "noexec", yes_no(MIN(noexec, 0))),
+                        polkit_registry);
+        if (r <= 0)
                 return r;
 
         r = image_discover_and_read_metadata(image_class, &images);
@@ -2281,12 +2316,7 @@ static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_var
         if (r > 0)
                 return sd_varlink_errorbo(link, "io.systemd.sysext.AlreadyMerged", SD_JSON_BUILD_PAIR_STRING("hierarchy", which));
 
-        r = merge(image_class,
-                  hierarchies ?: arg_hierarchies,
-                  p.force >= 0 ? p.force : arg_force,
-                  p.no_reload >= 0 ? p.no_reload : arg_no_reload,
-                  p.noexec >= 0 ? p.noexec : arg_noexec,
-                  images);
+        r = merge(image_class, hierarchies ?: arg_hierarchies, force, no_reload, noexec, images);
         if (r < 0)
                 return r;
 
@@ -2356,9 +2386,11 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
                 .no_reload = -1,
                 .noexec = -1,
         };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
-        int r;
+        bool force, no_reload;
+        int r, noexec;
 
         assert(link);
 
@@ -2370,11 +2402,24 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r < 0)
                 return r;
 
-        r = refresh(image_class,
-                    hierarchies ?: arg_hierarchies,
-                    p.force >= 0 ? p.force : arg_force,
-                    p.no_reload >= 0 ? p.no_reload : arg_no_reload,
-                    p.noexec >= 0 ? p.noexec : arg_noexec);
+        force = p.force >= 0 ? p.force : arg_force;
+        no_reload = p.no_reload >= 0 ? p.no_reload : arg_no_reload;
+        noexec = p.noexec >= 0 ? p.noexec : arg_noexec;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        image_class == IMAGE_SYSEXT ? "io.systemd.sysext.manage" : "io.systemd.confext.manage",
+                        (const char**) STRV_MAKE(
+                                "verb", "refresh",
+                                "force", yes_no(force),
+                                "noReload", yes_no(no_reload),
+                                "noexec", yes_no(MIN(noexec, 0))),
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = refresh(image_class, hierarchies ?: arg_hierarchies, force, no_reload, noexec);
         if (r < 0)
                 return r;
 
@@ -2420,9 +2465,11 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "class", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
@@ -2435,6 +2482,15 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         ImageClass image_class = arg_image_class;
         r = parse_image_class_parameter(link, class, &image_class, NULL);
         if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        image_class == IMAGE_SYSEXT ? "io.systemd.sysext.read" : "io.systemd.confext.read",
+                        (const char**) STRV_MAKE("verb", "list"),
+                        polkit_registry);
+        if (r <= 0)
                 return r;
 
         _cleanup_hashmap_free_ Hashmap *images = NULL;
@@ -2694,10 +2750,14 @@ static int run(int argc, char *argv[]) {
 
         if (arg_varlink) {
                 _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+                _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, NULL);
+                r = varlink_server_new(
+                                &varlink_server,
+                                SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
+                                &polkit_registry);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
