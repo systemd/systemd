@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "openssl-util.h"
+#include "random-util.h"
 #include "tests.h"
 
 TEST(openssl_pkey_from_pem) {
@@ -477,6 +478,60 @@ TEST(ecc_ecdh) {
         assert_se(memcmp_nn(secretAB, secretAB_size, secretBA, secretBA_size) == 0);
         assert_se(memcmp_nn(secretAC, secretAC_size, secretCA, secretCA_size) == 0);
         assert_se(memcmp_nn(secretAC, secretAC_size, secretAB, secretAB_size) != 0);
+}
+
+TEST(rsa_encrypt_oaep) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free_ void *cipher = NULL, *plain2 = NULL;
+        size_t cipher_size, plain2_size;
+
+        /* Generate RSA key */
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *genctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+        assert_se(genctx);
+        assert_se(EVP_PKEY_keygen_init(genctx) == 1);
+        assert_se(EVP_PKEY_CTX_set_rsa_keygen_bits(genctx, 2048) == 1);
+        assert_se(EVP_PKEY_keygen(genctx, &pkey) == 1);
+
+        uint8_t plain[32];
+
+        assert_se(crypto_random_bytes(plain, sizeof(plain)) >= 0);
+
+        assert_se(rsa_encrypt_bytes(pkey, plain, sizeof(plain), &cipher, &cipher_size) >= 0);
+
+        /* Decrypt expecting OAEP padding should succeed */
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
+        assert_se(ctx);
+        assert_se(EVP_PKEY_decrypt_init(ctx) == 1);
+        assert_se(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_OAEP_PADDING) == 1);
+#if OPENSSL_VERSION_MAJOR >= 3
+        _cleanup_(EVP_MD_freep) EVP_MD *md = EVP_MD_fetch(NULL, "sha256", NULL);
+        assert_se(md);
+        assert_se(EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) == 1);
+#else
+        assert_se(EVP_PKEY_CTX_set_rsa_oaep_md(ctx, EVP_sha256()) == 1);
+#endif
+        _cleanup_free_ char *label = strdup("");
+        assert_se(label);
+        assert_se(EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, (unsigned char*)label, 1) == 1);
+        label = NULL;
+        assert_se(EVP_PKEY_decrypt(ctx, NULL, &plain2_size, cipher, cipher_size) == 1);
+        plain2 = malloc(plain2_size);
+        assert_se(plain2);
+        assert_se(EVP_PKEY_decrypt(ctx, plain2, &plain2_size, cipher, cipher_size) == 1);
+        assert_se(plain2_size == sizeof(plain));
+        assert_se(memcmp(plain, plain2, sizeof(plain)) == 0);
+
+        /* PKCS#1 v1.5 decryption produces incorrect result */
+        assert_se(EVP_PKEY_decrypt_init(ctx) == 1);
+        assert_se(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) == 1);
+        int r = EVP_PKEY_decrypt(ctx, NULL, &plain2_size, cipher, cipher_size);
+        if (r > 0) {
+                plain2 = realloc(plain2, plain2_size);
+                assert_se(plain2);
+                r = EVP_PKEY_decrypt(ctx, plain2, &plain2_size, cipher, cipher_size);
+                /* Decryption may fail or succeed with incorrect plaintext */
+                assert_se(r <= 0 || plain2_size != sizeof(plain) || memcmp(plain, plain2, sizeof(plain)) != 0);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
