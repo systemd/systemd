@@ -37,6 +37,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "mkdir.h"
+#include "mstack.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
@@ -133,6 +134,15 @@ static const char *const image_dirname_table[_IMAGE_CLASS_MAX] = {
         [IMAGE_CONFEXT]  = "confexts",
 };
 
+static const char auxiliary_suffixes_nulstr[] =
+        ".nspawn\0"
+        ".oci-config\0"
+        ".roothash\0"
+        ".roothash.p7s\0"
+        ".usrhash\0"
+        ".usrhash.p7s\0"
+        ".verity\0";
+
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_dirname, ImageClass);
 
 static Image* image_free(Image *i) {
@@ -174,13 +184,13 @@ static char** image_settings_path(Image *image, RuntimeScope scope) {
                 SD_PATH_SYSTEM_CONFIGURATION,
                 SD_PATH_SYSTEM_RUNTIME,
                 SD_PATH_SYSTEM_LIBRARY_PRIVATE,
-                UINT64_MAX
+                _SD_PATH_INVALID
         };
         static const uint64_t user_locations[] = {
                 SD_PATH_USER_CONFIGURATION,
                 SD_PATH_USER_RUNTIME,
                 SD_PATH_USER_LIBRARY_PRIVATE,
-                UINT64_MAX
+                _SD_PATH_INVALID
         };
         const uint64_t *locations;
 
@@ -197,7 +207,7 @@ static char** image_settings_path(Image *image, RuntimeScope scope) {
                 assert_not_reached();
         }
 
-        for (size_t k = 0; locations[k] != UINT64_MAX; k++) {
+        for (size_t k = 0; locations[k] != _SD_PATH_INVALID; k++) {
                 _cleanup_free_ char *s = NULL;
                 r = sd_path_lookup(locations[k], "systemd/nspawn", &s);
                 if (r == -ENXIO)
@@ -223,12 +233,11 @@ static char** image_settings_path(Image *image, RuntimeScope scope) {
         return TAKE_PTR(l);
 }
 
-static int image_roothash_path(Image *image, char **ret) {
-        _cleanup_free_ char *fn = NULL;
-
+static int image_auxiliary_path(Image *image, const char *suffix, char **ret) {
         assert(image);
+        assert(suffix);
 
-        fn = strjoin(image->name, ".roothash");
+        _cleanup_free_ char *fn = strjoin(image->name, suffix);
         if (!fn)
                 return -ENOMEM;
 
@@ -440,11 +449,68 @@ static int image_make(
                 (faccessat(fd, "", W_OK, AT_EACCESS|AT_EMPTY_PATH) < 0 && errno == EROFS);
 
         if (S_ISDIR(st->st_mode)) {
-                unsigned file_attr = 0;
-                usec_t crtime = 0;
 
                 if (!ret)
                         return 0;
+
+                if (endswith(filename, ".mstack")) {
+                        usec_t crtime = 0;
+                        r = fd_getcrtime(fd, &crtime);
+                        if (r < 0)
+                                log_debug_errno(r, "Unable to read creation time of '%s', ignoring: %m", filename);
+
+                        if (!pretty) {
+                                r = extract_image_basename(
+                                                filename,
+                                                image_class_suffix_to_string(c),
+                                                STRV_MAKE(".mstack"),
+                                                &pretty_buffer,
+                                                /* ret_suffix= */ NULL);
+                                if (r < 0)
+                                        return r;
+
+                                pretty = pretty_buffer;
+                        }
+
+                        _cleanup_free_ char *j = path_join(dir_path, filename);
+                        if (!j)
+                                return -ENOMEM;
+
+                        _cleanup_(mstack_freep) MStack *mstack = NULL;
+                        r = mstack_load(j, fd, &mstack);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to load mstack '%s', ignoring: %m", filename);
+                                read_only = true;
+                        } else if (!read_only) {
+                                r = mstack_is_read_only(mstack);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine if mstack '%s' is read-only, assuming it is: %m", filename);
+
+                                read_only = r != 0;
+                        }
+
+                        r = image_new(IMAGE_MSTACK,
+                                      c,
+                                      pretty,
+                                      dir_path,
+                                      filename,
+                                      read_only,
+                                      crtime,
+                                      /* mtime= */ 0,
+                                      ret);
+                        if (r < 0)
+                                return r;
+
+                        if (mstack) {
+                                r = mstack_is_foreign_uid_owned(mstack);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine if mstack '%s' is foreign UID owned, assuming it is not: %m", filename);
+                                if (r > 0)
+                                        (*ret)->foreign_uid_owned = true;
+                        }
+
+                        return 0;
+                }
 
                 if (!pretty) {
                         r = extract_image_basename(
@@ -492,10 +558,12 @@ static int image_make(
                 }
 
                 /* Get directory creation time (not available everywhere, but that's OK */
+                usec_t crtime = 0;
                 (void) fd_getcrtime(fd, &crtime);
 
                 /* If the IMMUTABLE bit is set, we consider the directory read-only. Since the ioctl is not
                  * supported everywhere we ignore failures. */
+                unsigned file_attr = 0;
                 (void) read_attr_fd(fd, &file_attr);
 
                 /* It's just a normal directory. */
@@ -721,7 +789,7 @@ static char** make_possible_filenames(ImageClass class, const char *image_name) 
         assert(image_name);
 
         FOREACH_STRING(v_suffix, "", ".v")
-                FOREACH_STRING(format_suffix, "", ".raw") {
+                FOREACH_STRING(format_suffix, "", ".raw", ".mstack") {
                         _cleanup_free_ char *j = NULL;
                         const char *class_suffix;
 
@@ -804,6 +872,12 @@ int image_find(RuntimeScope scope,
                         if (endswith(fname, ".raw")) {
                                 if (!S_ISREG(st.st_mode)) {
                                         log_debug("Ignoring non-regular file '%s' with .raw suffix.", fname);
+                                        continue;
+                                }
+                        } else if (endswith(fname, ".mstack")) {
+
+                                if (!S_ISDIR(st.st_mode)) {
+                                        log_debug("Ignoring non-directory '%s' with .mstack suffix.", fname);
                                         continue;
                                 }
 
@@ -1021,7 +1095,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         nov,
                                                         image_class_suffix_to_string(class),
-                                                        STRV_MAKE(".raw", ""),
+                                                        STRV_MAKE("", ".raw", ".mstack"),
                                                         &pretty,
                                                         &suffix);
                                         if (r < 0) {
@@ -1207,7 +1281,6 @@ static int unprivileged_remove(Image *i) {
 int image_remove(Image *i, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
-        _cleanup_free_ char *roothash = NULL;
         int r;
 
         assert(i);
@@ -1218,10 +1291,6 @@ int image_remove(Image *i, RuntimeScope scope) {
         settings = image_settings_path(i, scope);
         if (!settings)
                 return -ENOMEM;
-
-        r = image_roothash_path(i, &roothash);
-        if (r < 0)
-                return r;
 
         /* Make sure we don't interfere with a running nspawn */
         r = image_path_lock(scope, i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
@@ -1279,20 +1348,31 @@ int image_remove(Image *i, RuntimeScope scope) {
                 if (unlink(*j) < 0 && errno != ENOENT)
                         log_debug_errno(errno, "Failed to unlink %s, ignoring: %m", *j);
 
-        if (unlink(roothash) < 0 && errno != ENOENT)
-                log_debug_errno(errno, "Failed to unlink %s, ignoring: %m", roothash);
+        NULSTR_FOREACH(suffix, auxiliary_suffixes_nulstr) {
+                _cleanup_free_ char *aux = NULL;
+                r = image_auxiliary_path(i, suffix, &aux);
+                if (r < 0)
+                        return r;
+
+                if (unlink(aux) < 0 && errno != ENOENT)
+                        log_debug_errno(errno, "Failed to unlink %s, ignoring: %m", aux);
+        }
 
         return 0;
 }
 
 static int rename_auxiliary_file(const char *path, const char *new_name, const char *suffix) {
-        _cleanup_free_ char *fn = NULL, *rs = NULL;
         int r;
 
-        fn = strjoin(new_name, suffix);
+        assert(path);
+        assert(new_name);
+        assert(suffix);
+
+        _cleanup_free_ char *fn = strjoin(new_name, suffix);
         if (!fn)
                 return -ENOMEM;
 
+        _cleanup_free_ char *rs = NULL;
         r = file_in_same_dir(path, fn, &rs);
         if (r < 0)
                 return r;
@@ -1302,7 +1382,7 @@ static int rename_auxiliary_file(const char *path, const char *new_name, const c
 
 int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
-        _cleanup_free_ char *new_path = NULL, *nn = NULL, *roothash = NULL;
+        _cleanup_free_ char *new_path = NULL, *nn = NULL;
         _cleanup_strv_free_ char **settings = NULL;
         unsigned file_attr = 0;
         int r;
@@ -1318,10 +1398,6 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         settings = image_settings_path(i, scope);
         if (!settings)
                 return -ENOMEM;
-
-        r = image_roothash_path(i, &roothash);
-        if (r < 0)
-                return r;
 
         /* Make sure we don't interfere with a running nspawn */
         r = image_path_lock(scope, i->path, LOCK_EX|LOCK_NB, &global_lock, &local_lock);
@@ -1400,21 +1476,32 @@ int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
                         log_debug_errno(r, "Failed to rename settings file %s, ignoring: %m", *j);
         }
 
-        r = rename_auxiliary_file(roothash, new_name, ".roothash");
-        if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to rename roothash file %s, ignoring: %m", roothash);
+        NULSTR_FOREACH(suffix, auxiliary_suffixes_nulstr) {
+                _cleanup_free_ char *aux = NULL;
+                r = image_auxiliary_path(i, suffix, &aux);
+                if (r < 0)
+                        return r;
+
+                r = rename_auxiliary_file(aux, new_name, suffix);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to rename roothash file %s, ignoring: %m", aux);
+        }
 
         return 0;
 }
 
 static int clone_auxiliary_file(const char *path, const char *new_name, const char *suffix) {
-        _cleanup_free_ char *fn = NULL, *rs = NULL;
         int r;
 
-        fn = strjoin(new_name, suffix);
+        assert(path);
+        assert(new_name);
+        assert(suffix);
+
+        _cleanup_free_ char *fn = strjoin(new_name, suffix);
         if (!fn)
                 return -ENOMEM;
 
+        _cleanup_free_ char *rs = NULL;
         r = file_in_same_dir(path, fn, &rs);
         if (r < 0)
                 return r;
@@ -1560,7 +1647,6 @@ static int unpriviled_clone(Image *i, const char *new_path) {
 int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile name_lock = LOCK_FILE_INIT;
         _cleanup_strv_free_ char **settings = NULL;
-        _cleanup_free_ char *roothash = NULL;
         int r;
 
         assert(i);
@@ -1571,10 +1657,6 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
         settings = image_settings_path(i, scope);
         if (!settings)
                 return -ENOMEM;
-
-        r = image_roothash_path(i, &roothash);
-        if (r < 0)
-                return r;
 
         /* Make sure nobody takes the new name, between the time we
          * checked it is currently unused in all search paths, and the
@@ -1645,9 +1727,16 @@ int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope sco
                         log_debug_errno(r, "Failed to clone settings %s, ignoring: %m", *j);
         }
 
-        r = clone_auxiliary_file(roothash, new_name, ".roothash");
-        if (r < 0 && r != -ENOENT)
-                log_debug_errno(r, "Failed to clone root hash file %s, ignoring: %m", roothash);
+        NULSTR_FOREACH(suffix, auxiliary_suffixes_nulstr) {
+                _cleanup_free_ char *aux = NULL;
+                r = image_auxiliary_path(i, suffix, &aux);
+                if (r < 0)
+                        return r;
+
+                r = clone_auxiliary_file(aux, new_name, suffix);
+                if (r < 0 && r != -ENOENT)
+                        log_debug_errno(r, "Failed to clone root hash file %s, ignoring: %m", aux);
+        }
 
         return 0;
 }
@@ -2206,6 +2295,7 @@ static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_SUBVOLUME] = "subvolume",
         [IMAGE_RAW]       = "raw",
         [IMAGE_BLOCK]     = "block",
+        [IMAGE_MSTACK]    = "mstack",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);
