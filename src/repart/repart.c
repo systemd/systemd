@@ -10360,8 +10360,13 @@ static int vl_method_run(
         if (r == -ENOSPC) {
                 uint64_t size = UINT64_MAX;
                 uint64_t current_size = UINT64_MAX;
+
                 (void) determine_auto_size(context, LOG_DEBUG, &size, &current_size);
-                if (size != UINT64_MAX && context->total != UINT64_MAX && size > context->total)
+
+                uint64_t need_free = LESS_BY(size, current_size);
+
+                /* Check if space issue is caused by the whole disk being too small */
+                if (size != UINT64_MAX && context->total != UINT64_MAX && need_free > context->total)
                         return sd_varlink_errorbo(
                                         link,
                                         "io.systemd.Repart.DiskTooSmall",
@@ -10369,7 +10374,6 @@ static int vl_method_run(
                                         SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", current_size));
 
                 /* Or if the disk would fit, but theres's not enough unallocated space */
-                uint64_t need_free = LESS_BY(size, current_size);
                 return sd_varlink_errorbo(
                                 link,
                                 "io.systemd.Repart.InsufficientFreeSpace",
