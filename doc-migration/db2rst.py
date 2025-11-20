@@ -558,7 +558,7 @@ Name
 def refsynopsisdiv(el):
     # return '**Synopsis** \n\n' + _make_title(_join_children(el, ' '), 3)
     s = ""
-    s += _make_title('Synopsis', 2, 3)
+    s += _make_title('Synopsis', 2, 0)
     s += '\n\n'
     # s += _join_children(el, ', ')
     # changed to accomodate man/systemd-dissect.xml
