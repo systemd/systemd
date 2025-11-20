@@ -20,15 +20,9 @@ int mac_apparmor_setup(void) {
         int r;
 
         if (!mac_apparmor_use()) {
-                log_debug("Skipping AppArmor initialization: not supported by the kernel or disabled.");
+                log_debug("Skipping AppArmor initialization: not supported by the kernel, is disabled or libapparmor is not installed.");
                 return 0;
         }
-
-        r = dlopen_libapparmor();
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                return 0;
-        if (r < 0)
-                return log_error_errno(r, "Failed to load libapparmor: %m");
 
         /* To honor LSM stacking, check per-LSM subdirectory first, and then the generic one as fallback. */
         FOREACH_STRING(current_file, "/proc/self/attr/apparmor/current", "/proc/self/attr/current") {
