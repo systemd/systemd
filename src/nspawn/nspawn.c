@@ -58,6 +58,7 @@
 #include "image-policy.h"
 #include "in-addr-util.h"
 #include "io-util.h"
+#include "libmount-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
@@ -4352,6 +4353,9 @@ static int outer_child(
         if (pid == 0) {
                 fd_outer_socket = safe_close(fd_outer_socket);
 
+                /* In the child refuse dlopen(), so that we never mix shared libraries from payload and parent */
+                block_dlopen = true;
+
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
                  * user if user namespaces are turned on. */
 
@@ -5938,6 +5942,10 @@ static int run(int argc, char *argv[]) {
 
         if (arg_cleanup)
                 return do_cleanup();
+
+        (void) dlopen_libmount();
+        (void) dlopen_libseccomp();
+        (void) dlopen_libselinux();
 
         r = cg_has_legacy();
         if (r < 0)
