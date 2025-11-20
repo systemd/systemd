@@ -37,6 +37,11 @@
 #include "timesyncd-manager.h"
 #include "timesyncd-server.h"
 
+#if ENABLE_TIMESYNC_NTS
+#include "nts.h"
+#include "nts_extfields.h"
+#endif
+
 #ifndef ADJ_SETOFFSET
 #define ADJ_SETOFFSET                   0x0100  /* add 'time' to current time */
 #endif
@@ -67,6 +72,12 @@ static int manager_clock_watch_setup(Manager *m);
 static int manager_listen_setup(Manager *m);
 static void manager_listen_stop(Manager *m);
 static int manager_save_time_and_rearm(Manager *m, usec_t t);
+static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct addrinfo *ai, Manager *m);
+#if ENABLE_TIMESYNC_NTS
+static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+static int manager_nts_handshake_setup(Manager *m);
+static void manager_flush_cookies(Manager *m);
+#endif
 
 static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
         return be16toh(ts->sec) + (be16toh(ts->frac) / 65536.0);
@@ -79,6 +90,14 @@ static double ntp_ts_to_d(const struct ntp_ts *ts) {
 static double ts_to_d(const struct timespec *ts) {
         return ts->tv_sec + (1.0e-9 * ts->tv_nsec);
 }
+
+#if ENABLE_TIMESYNC_NTS
+static void swap_cookies(NTS_Cookie *a, NTS_Cookie *b) {
+        NTS_Cookie tmp = *a;
+        *a = *b;
+        *b = tmp;
+}
+#endif
 
 static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata) {
         _cleanup_free_ char *pretty = NULL;
@@ -95,17 +114,21 @@ static int manager_timeout(sd_event_source *source, usec_t usec, void *userdata)
 
 static int manager_send_request(Manager *m) {
         _cleanup_free_ char *pretty = NULL;
-        struct ntp_msg ntpmsg = {
-                /*
-                 * "The client initializes the NTP message header, sends the request
-                 * to the server, and strips the time of day from the Transmit
-                 * Timestamp field of the reply.  For this purpose, all the NTP
-                 * header fields are set to 0, except the Mode, VN, and optional
-                 * Transmit Timestamp fields."
-                 */
-                .field = NTP_FIELD(0, 4, NTP_MODE_CLIENT),
+
+        union ntp_packet packet = {
+            .ntpmsg = (struct ntp_msg) {
+                    /*
+                     * "The client initializes the NTP message header, sends the request
+                     * to the server, and strips the time of day from the Transmit
+                     * Timestamp field of the reply.  For this purpose, all the NTP
+                     * header fields are set to 0, except the Mode, VN, and optional
+                     * Transmit Timestamp fields."
+                     */
+                    .field = NTP_FIELD(0, 4, NTP_MODE_CLIENT),
+            }
         };
-        ssize_t len;
+
+        ssize_t packet_len = sizeof(struct ntp_msg);
         int r;
 
         assert(m);
@@ -114,19 +137,78 @@ static int manager_send_request(Manager *m) {
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
+#if ENABLE_TIMESYNC_NTS
+        /* If we are using NTS and out of cookies, we must first make an TLS
+         * connection to perform key extractions and obtain cookies
+         */
+        if (m->nts_missing_cookies >= ELEMENTSOF(m->nts_cookies)) {
+                log_warning("Out of cookies for NTS server %s", m->current_server_name->string);
+                server_name_flush_addresses(m->current_server_name);
+                manager_flush_cookies(m);
+                if (m->talking)
+                        /* We have been contacting a time server, let's find that one again */
+                        m->current_server_name = NULL;
+                return manager_connect(m);
+        }
+#endif
+
         r = manager_listen_setup(m);
         if (r < 0) {
                 log_warning_errno(r, "Failed to set up connection socket: %m");
                 return manager_connect(m);
         }
 
+#if ENABLE_TIMESYNC_NTS
         /*
-         * Generate a random number as transmit timestamp, to ensure we get
-         * a full 64 bits of entropy to make it hard for off-path attackers
-         * to inject random time to us.
+         * Add NTS extension fields if NTS is supported for this NTP time source
          */
-        random_bytes(&m->request_nonce, sizeof(m->request_nonce));
-        ntpmsg.trans_time = m->request_nonce;
+        if (m->nts_cookies->data) {
+                packet_len = NTS_add_extension_fields(
+                        packet.raw_data,
+                        &(NTS_Query) {
+                            .cookie = m->nts_cookies[m->nts_missing_cookies],
+                            .c2s_key = m->nts_keys.c2s,
+                            .s2c_key = m->nts_keys.s2c,
+                            .cipher = m->nts_aead,
+                            /* note: we only ever request 1 cookie if we are short; some routers
+                             * don't like overly long NTP packets and might actually drop them,
+                             * which would only exacerbate the problem. If we have < 50% avg packet
+                             * loss, this will be enough to keep the cookie reservoir filled
+                             */
+                            .extra_cookies = m->nts_missing_cookies > 0,
+                        },
+                        &m->nts_identifier);
+
+                if (packet_len <= (int)sizeof(struct ntp_msg)) {
+                        log_error("Failed to encode extension fields");
+                        return -EINVAL;
+                }
+
+                /* Select an arbitrary cookie to rotate to the top, to keep cookies fresh.
+                 * This has the added benefit to detect NTS servers that try to sequence cookies.
+                 * We re-use a byte from the identifier, since this information does not need to be
+                 * hidden (it is enough that it is unpredictable).
+                 */
+                NTS_Cookie *jar = m->nts_cookies + m->nts_missing_cookies;
+                int randidx = m->nts_identifier[0] % (ELEMENTSOF(m->nts_cookies) - m->nts_missing_cookies);
+                swap_cookies(jar, &jar[randidx]);
+
+                /* Consume and invalidate the cookie */
+                m->nts_cookies[m->nts_missing_cookies].data[0] ^= 1;
+                m->nts_missing_cookies++;
+        } else {
+#else
+        {
+#endif
+                /*
+                 * Generate a random number as transmit timestamp, to ensure we get
+                 * a full 64 bits of entropy to make it hard for off-path attackers
+                 * to inject random time to us.
+                 * In NTS mode, this is handled through the unique identifier.
+                 */
+                random_bytes(&m->request_nonce, sizeof(m->request_nonce));
+                packet.ntpmsg.trans_time = m->request_nonce;
+        }
 
         server_address_pretty(m->current_server_address, &pretty);
 
@@ -137,8 +219,8 @@ static int manager_send_request(Manager *m) {
         assert_se(clock_gettime(CLOCK_BOOTTIME, &m->trans_time_mon) >= 0);
         assert_se(clock_gettime(CLOCK_REALTIME, &m->trans_time) >= 0);
 
-        len = sendto(m->server_socket, &ntpmsg, sizeof(ntpmsg), MSG_DONTWAIT, &m->current_server_address->sockaddr.sa, m->current_server_address->socklen);
-        if (len == sizeof(ntpmsg)) {
+        ssize_t sent = sendto(m->server_socket, &packet.ntpmsg, packet_len, MSG_DONTWAIT, &m->current_server_address->sockaddr.sa, m->current_server_address->socklen);
+        if (sent == packet_len) {
                 m->pending = true;
                 log_debug("Sent NTP request to %s (%s).", strna(pretty), m->current_server_name->string);
         } else {
@@ -391,11 +473,11 @@ static void manager_adjust_poll(Manager *m, double offset, bool spike) {
 
 static int manager_receive_response(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
-        struct ntp_msg ntpmsg;
+        union ntp_packet packet;
 
         struct iovec iov = {
-                .iov_base = &ntpmsg,
-                .iov_len = sizeof(ntpmsg),
+                .iov_base = &packet,
+                .iov_len = sizeof(packet),
         };
         /* This needs to be initialized with zero. See #20741.
          * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
@@ -426,6 +508,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
         len = recvmsg_safe(fd, &msghdr, MSG_DONTWAIT);
         if (ERRNO_IS_NEG_TRANSIENT(len))
                 return 0;
+
         if (len < 0) {
                 log_warning_errno(len, "Error receiving message, disconnecting: %s",
                                   len == -ECHRNG ? "got truncated control data" :
@@ -458,11 +541,62 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
         m->missed_replies = 0;
 
-        /* check the transmit request nonce was properly returned in the origin_time field */
-        if (ntpmsg.origin_time.sec != m->request_nonce.sec || ntpmsg.origin_time.frac != m->request_nonce.frac) {
-                log_debug("Invalid reply; not our transmit time. Ignoring.");
-                return 0;
-        }
+        struct ntp_msg ntpmsg = packet.ntpmsg;
+
+        const char *security = "insecure";
+#if ENABLE_TIMESYNC_NTS
+        if (m->nts_cookies->data) {
+                /* verify the NTS extension fields and unique identifier */
+                NTS_Receipt rcpt = {};
+                r = NTS_parse_extension_fields(packet.raw_data, iov.iov_len,
+                                               &(NTS_Query) {
+                                                     .cookie = *m->nts_cookies,
+                                                     .c2s_key = m->nts_keys.c2s,
+                                                     .s2c_key = m->nts_keys.s2c,
+                                                     .cipher = m->nts_aead,
+                                               },
+                                               &rcpt);
+                if (r <= 0) {
+                        log_debug("NTS verification for %s failed! Ignoring.", m->current_server_name->string);
+                        return 0;
+                }
+
+                if (!rcpt.identifier || memcmp(m->nts_identifier, *rcpt.identifier, sizeof(m->nts_identifier)) != 0) {
+                        log_debug("NTS packet had an invalid unique identifier. Ignoring.");
+                        return 0;
+                }
+
+                assert(m->nts_missing_cookies <= ELEMENTSOF(m->nts_cookies));
+
+                if (!rcpt.new_cookie->data)
+                        log_warning("Server did not return a new cookie.");
+                else if (m->nts_missing_cookies <= 0)
+                        log_error("A valid NTS packet was received but we were not missing any cookies. Please report this bug.");
+                else FOREACH_ELEMENT(new_cookie, rcpt.new_cookie) {
+                        if (m->nts_missing_cookies == 0 || new_cookie->data == NULL)
+                                break;
+
+                        m->nts_missing_cookies--;
+                        NTS_Cookie *cookie = &m->nts_cookies[m->nts_missing_cookies];
+                        /* re-use the existing storage */
+                        if (rcpt.new_cookie->length > cookie->length) {
+                                log_info("Server returned a fresh cookie that was longer than the original one. Disconnecting.");
+                                return manager_connect(m);
+                        }
+                        memcpy(cookie->data, new_cookie->data, new_cookie->length);
+                        cookie->length = new_cookie->length;
+                }
+
+                log_debug("NTP packet is authentic.");
+                security = "secure";
+        } else
+#endif
+                /* check the transmit request nonce was properly returned in the origin_time field */
+                if (ntpmsg.origin_time.sec != m->request_nonce.sec || ntpmsg.origin_time.frac != m->request_nonce.frac) {
+                        log_debug("Invalid reply; not our transmit time. Ignoring.");
+                        return 0;
+                }
+
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
@@ -609,7 +743,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
                 (void) server_address_pretty(m->current_server_address, &pretty);
 
-                log_info("Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
+                log_info("Contacted %s time server %s (%s).", security, strna(pretty), m->current_server_name->string);
                 (void) sd_notifyf(false, "STATUS=Contacted time server %s (%s).", strna(pretty), m->current_server_name->string);
         }
 
@@ -691,7 +825,10 @@ static int manager_begin(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_send_request(m);
+        if (m->nts_missing_cookies >= ELEMENTSOF(m->nts_cookies))
+                return manager_nts_handshake_setup(m);
+        else
+                return manager_send_request(m);
 }
 
 void manager_set_server_name(Manager *m, ServerName *n) {
@@ -815,30 +952,37 @@ int manager_connect(Manager *m) {
                         ServerName *f;
                         bool restart = true;
 
-                        /* Our current server name list is exhausted,
-                         * let's find the next one to iterate. First we try the runtime list, then the system list,
-                         * then the link list. After having processed the link list we jump back to the system list
-                         * if no runtime server list.
-                         * However, if all lists are empty, we change to the fallback list. */
-                        if (!m->current_server_name || m->current_server_name->type == SERVER_LINK) {
-                                f = m->runtime_servers;
-                                if (!f)
-                                        f = m->system_servers;
-                                if (!f)
-                                        f = m->link_servers;
-                        } else {
-                                f = m->link_servers;
-                                if (f)
-                                        restart = false;
-                                else {
+                        /* Our current server name list is exhausted, let's find the next one to iterate.
+                         * There are two scenarios: secure time servers are configured or not.
+                         * - If there is a NTSKE list: try only that.
+                         * - Otherwise, we try the runtime list first, then the system list, then the link list.
+                         *   After having processed the link list we jump back to the system list if no
+                         *   runtime server list. If all lists are empty, we change to the fallback list. */
+                        if (m->nts_ke_servers) {
+                                if(!m->current_server_name)
+                                        f = m->nts_ke_servers;
+                                else
+                                        f = NULL;
+                        }  else {
+                                if (!m->current_server_name || m->current_server_name->type == SERVER_LINK) {
                                         f = m->runtime_servers;
                                         if (!f)
                                                 f = m->system_servers;
+                                        if (!f)
+                                                f = m->link_servers;
+                                } else {
+                                        f = m->link_servers;
+                                        if (f)
+                                                restart = false;
+                                        else {
+                                                f = m->runtime_servers;
+                                                if (!f)
+                                                        f = m->system_servers;
+                                        }
                                 }
+                                if (!f)
+                                        f = m->fallback_servers;
                         }
-
-                        if (!f)
-                                f = m->fallback_servers;
 
                         if (!f) {
                                 manager_set_server_name(m, NULL);
@@ -875,13 +1019,28 @@ int manager_connect(Manager *m) {
 
                 log_debug("Resolving %s...", m->current_server_name->string);
 
+                bool nts = m->current_server_name->type == SERVER_NTSKE;
+
                 struct addrinfo hints = {
                         .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
-                        .ai_socktype = SOCK_DGRAM,
+                        .ai_socktype = nts? SOCK_STREAM : SOCK_DGRAM,
                         .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
                 };
 
-                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, "123", &hints, manager_resolve_handler, NULL, m);
+#if ENABLE_TIMESYNC_NTS
+                /* For NTS, we first connect to the NTSKE */
+                const char *port = nts? "4460" : "123";
+
+                m->nts_missing_cookies = nts? ELEMENTSOF(m->nts_cookies) : 0;
+#else
+                const char *port = "123";
+
+                if (nts)
+                        return log_error("timesyncd was not compiled with NTS support"), 0;
+#endif
+
+                r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, port, &hints, manager_resolve_handler, NULL, m);
+
                 if (r < 0)
                         return log_error_errno(r, "Failed to create resolver: %m");
 
@@ -926,6 +1085,10 @@ void manager_flush_server_names(Manager *m, ServerType t) {
                 while (m->fallback_servers)
                         server_name_free(m->fallback_servers);
 
+        if (t == SERVER_NTSKE)
+                while (m->nts_ke_servers)
+                        server_name_free(m->nts_ke_servers);
+
         if (t == SERVER_RUNTIME)
                 manager_flush_runtime_servers(m);
 }
@@ -946,6 +1109,7 @@ Manager* manager_free(Manager *m) {
         manager_flush_server_names(m, SERVER_LINK);
         manager_flush_server_names(m, SERVER_RUNTIME);
         manager_flush_server_names(m, SERVER_FALLBACK);
+        manager_flush_server_names(m, SERVER_NTSKE);
 
         sd_event_source_unref(m->event_retry);
 
@@ -962,6 +1126,10 @@ Manager* manager_free(Manager *m) {
         sd_bus_flush_close_unref(m->bus);
 
         hashmap_free(m->polkit_registry);
+
+#if ENABLE_TIMESYNC_NTS
+        manager_flush_cookies(m);
+#endif
 
         return mfree(m);
 }
@@ -1115,6 +1283,7 @@ int manager_new(Manager **ret) {
                 .root_distance_max_usec = NTP_ROOT_DISTANCE_MAX_USEC,
                 .poll_interval_min_usec = NTP_POLL_INTERVAL_MIN_USEC,
                 .poll_interval_max_usec = NTP_POLL_INTERVAL_MAX_USEC,
+                .nts_keyexchange_timeout_usec = NTP_POLL_INTERVAL_MIN_USEC,
 
                 .connection_retry_usec = DEFAULT_CONNECTION_RETRY_USEC,
 
@@ -1225,6 +1394,7 @@ static int manager_save_time_and_rearm(Manager *m, usec_t t) {
 static const char* ntp_server_property_name[_SERVER_TYPE_MAX] = {
         [SERVER_SYSTEM]   = "SystemNTPServers",
         [SERVER_FALLBACK] = "FallbackNTPServers",
+        [SERVER_NTSKE]    = "NTSKeyExchangeServers",
         [SERVER_LINK]     = "LinkNTPServers",
         [SERVER_RUNTIME]  = "RuntimeNTPServers",
 };
@@ -1289,3 +1459,264 @@ int bus_manager_emit_ntp_server_changed(Manager *m) {
 
         return 1;
 }
+
+#if ENABLE_TIMESYNC_NTS
+
+static int manager_nts_handshake_timeout(sd_event_source *source, usec_t usec, void *userdata) {
+        _cleanup_free_ char *pretty = NULL;
+        Manager *m = ASSERT_PTR(userdata);
+
+        assert(m->current_server_name);
+        assert(m->current_server_address);
+
+        m->event_timeout = sd_event_source_unref(m->event_timeout);
+
+        if (m->nts_handshake)
+                NTS_TLS_close(m->nts_handshake);
+        m->nts_handshake = NULL;
+        manager_listen_stop(m);
+
+        server_address_pretty(m->current_server_address, &pretty);
+        log_info("Timed out during key exchange with %s (%s).", strna(pretty), m->current_server_name->string);
+
+        return manager_connect(m);
+}
+
+static int manager_nts_handshake_setup(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (m->server_socket >= 0)
+                return 0;
+
+        assert(!m->event_receive);
+        assert(m->current_server_address);
+
+        struct sockaddr *addr = &m->current_server_address->sockaddr.sa;
+
+        m->server_socket = socket(addr->sa_family, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+        if (m->server_socket < 0)
+                return -errno;
+
+        m->nts_handshake_state = NTS_HANDSHAKE_CONNECTING;
+
+        m->nts_timeout = sd_event_source_unref(m->nts_timeout);
+
+        r = sd_event_add_time_relative(
+                        m->event,
+                        &m->nts_timeout,
+                        CLOCK_BOOTTIME,
+                        m->nts_keyexchange_timeout_usec, 0,
+                        manager_nts_handshake_timeout, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to arm NTS key exchange timeout timer: %m");
+
+        (void) connect(m->server_socket, addr, m->current_server_address->socklen);
+
+        return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN|EPOLLOUT, manager_nts_obtain_agreement, m);
+}
+
+static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+
+        NTS_Agreement NTS;
+        int r;
+
+        if (revents & (EPOLLHUP|EPOLLERR)) {
+                log_warning("Server connection returned error.");
+                return manager_connect(m);
+        }
+
+        switch (m->nts_handshake_state) {
+                struct sockaddr *addr;
+                uint8_t *bufp;
+                int size;
+
+        case NTS_HANDSHAKE_CONNECTING:
+                addr = &m->current_server_address->sockaddr.sa;
+
+                r = connect(m->server_socket, addr, m->current_server_address->socklen);
+                if (IN_SET(r, EINPROGRESS, EALREADY))
+                        return 1;
+                if (r < 0 && r != EISCONN)
+                        return -errno;
+
+                r = setsockopt_int(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, true);
+                if (r < 0)
+                        return r;
+
+                (void) socket_set_option(m->server_socket, addr->sa_family, IP_TOS, IPV6_TCLASS, IPTOS_DSCP_EF);
+
+                log_debug("Performing key exchange with %s\n", m->current_server_name->string);
+
+                m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, m->server_socket);
+                if (!m->nts_handshake)
+                        return -ENOMEM;
+
+                m->nts_handshake_state = NTS_HANDSHAKE_TLS;
+                _fallthrough_;
+
+        case NTS_HANDSHAKE_TLS:
+                r = NTS_TLS_handshake(m->nts_handshake);
+                if (r == 0)
+                        return 1;
+
+                if (r < 0) {
+                        log_error("Could not set up TLS session with server");
+                        NTS_TLS_close(m->nts_handshake);
+                        return manager_connect(m);
+                }
+
+                /* tls handshake is established, prepare the request */
+                NTS_AEADAlgorithmType prefs[6] = {
+                        NTS_AEAD_AES_128_GCM_SIV,
+                        NTS_AEAD_AES_256_GCM_SIV,
+                        NTS_AEAD_AES_SIV_CMAC_256,
+                        NTS_AEAD_AES_SIV_CMAC_384,
+                        NTS_AEAD_AES_SIV_CMAC_512,
+                        0
+                };
+
+                int prefs_len = 0;
+                FOREACH_ELEMENT(algo_type, prefs)
+                        if (NTS_get_param(*algo_type))
+                                prefs[prefs_len++] = *algo_type;
+
+
+                m->nts_request_size = NTS_encode_request(m->nts_packet_buffer, sizeof(m->nts_packet_buffer), prefs);
+                m->nts_bytes_processed = 0;
+                assert(m->nts_request_size <= (int)sizeof(m->nts_packet_buffer));
+
+                m->nts_handshake_state = NTS_HANDSHAKE_TX;
+                _fallthrough_;
+
+        case NTS_HANDSHAKE_TX:
+                size = m->nts_request_size - m->nts_bytes_processed;
+                bufp = m->nts_packet_buffer + m->nts_bytes_processed;
+
+                r = NTS_TLS_write(m->nts_handshake, bufp, size);
+                assert(r <= size);
+
+                if (r <= 0) {
+                        log_error("Error sending NTS key request");
+                        NTS_TLS_close(m->nts_handshake);
+                        return manager_connect(m);
+                } else if (r < size) {
+                        m->nts_bytes_processed += r;
+                        return 1;
+                }
+
+                /* NTS request sent, read the reply */
+                m->nts_bytes_processed = 0;
+                m->nts_handshake_state = NTS_HANDSHAKE_RX;
+                _fallthrough_;
+
+        case NTS_HANDSHAKE_RX:
+                size = sizeof(m->nts_packet_buffer) - m->nts_bytes_processed;
+                bufp = m->nts_packet_buffer + m->nts_bytes_processed;
+                r = NTS_TLS_read(m->nts_handshake, bufp, size);
+                assert(r <= size);
+
+                if (r < 0) {
+                        log_error("Error receiving NTS key response");
+                        NTS_TLS_close(m->nts_handshake);
+                        return manager_connect(m);
+                }
+
+                m->nts_bytes_processed += r;
+
+                r = NTS_decode_response(m->nts_packet_buffer, m->nts_bytes_processed, &NTS);
+                if (r < 0) {
+                        if (NTS.error == NTS_INSUFFICIENT_DATA)
+                                return 1;
+
+                        log_error("NTS Error: %s", NTS_error_string(NTS.error));
+                        NTS_TLS_close(m->nts_handshake);
+                        return manager_connect(m);
+                }
+
+                /* end of interactive part of the NTS handshake */
+                m->nts_handshake_state = _NTS_HANDSHAKE_STATE_INVALID;
+                m->nts_timeout = sd_event_source_unref(m->nts_timeout);
+                break;
+
+        default:
+                __builtin_unreachable();
+        }
+
+        /* extract keys from TLS session and process the NTS response */
+
+        r = NTS_TLS_extract_keys(
+                    m->nts_handshake,
+                    NTS.aead_id,
+                    m->nts_keys.c2s,
+                    m->nts_keys.s2c,
+                    MAX_NTS_AEAD_KEY_LEN);
+
+        NTS_TLS_close(m->nts_handshake);
+        m->nts_handshake = NULL;
+        manager_listen_stop(m);
+
+        if (r != 0) {
+                log_error("Key extraction failed");
+                return manager_connect(m);
+        }
+
+        const NTS_AEADParam *param = NTS_get_param(NTS.aead_id);
+        if (!param) {
+                log_error("NTS server offered unknown AEAD %d", NTS.aead_id);
+                return manager_connect(m);
+        }
+        m->nts_aead = *param;
+
+        const char *hostname = NTS.ntp_server? NTS.ntp_server : m->current_server_name->string;
+        char port[sizeof("65535")];
+        xsprintf(port, "%u", NTS.ntp_port? NTS.ntp_port : 123U);
+
+        static_assert(ELEMENTSOF(NTS.cookie) <= ELEMENTSOF(m->nts_cookies), "size mismatch in data structures");
+
+        int num_cookies = 0;
+        FOREACH_ELEMENT(cookie, NTS.cookie)
+                if (cookie->data) {
+                        char *copy = malloc(cookie->length);
+                        if (copy == NULL)
+                                return -ENOMEM;
+
+                        mfree(m->nts_cookies[num_cookies].data);
+                        m->nts_cookies[num_cookies].data = memcpy(copy, cookie->data, cookie->length);
+                        m->nts_cookies[num_cookies].length = cookie->length;
+                        num_cookies++;
+                }
+
+        /* An invariant for the manager: there are always > 0 cookies when NTS is enabled */
+        if (num_cookies == 0) {
+                log_error("NTS server offered no cookies");
+                return manager_connect(m);
+        }
+
+        log_debug("Secured NTP server: %s:%s, %s, %d cookies\n", hostname, port, m->nts_aead.cipher_name, num_cookies);
+
+        struct addrinfo hints = {
+                .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
+                .ai_socktype = SOCK_DGRAM,
+                .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
+        };
+
+        /* Clear the current NTSKE server */
+        server_name_flush_addresses(m->current_server_name);
+
+        r = resolve_getaddrinfo(m->resolve, &m->resolve_query, hostname, port, &hints, manager_resolve_handler, NULL, m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create resolver: %m");
+
+        m->nts_missing_cookies = ELEMENTSOF(m->nts_cookies) - num_cookies;
+
+        return 1;
+}
+
+static void manager_flush_cookies(Manager *m) {
+        FOREACH_ELEMENT(cookie, m->nts_cookies)
+                cookie->data = mfree(cookie->data);
+}
+#endif
