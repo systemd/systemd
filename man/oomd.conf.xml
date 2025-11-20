@@ -98,6 +98,19 @@
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>PreKillHookTimeoutSec=</varname></term>
+
+        <listitem><para>Sets the amount of time <command>systemd-oomd</command> will wait for pre-kill hooks
+        to complete before forcibly terminating the process. Pre-kill hooks work by registering a varlink
+        endpoint in <filename>/run/systemd/oomd.prekill-hooks/</filename>, then before killing a cgroup,
+        a varlink message is sent to every socket found. The timeout is intended global and not per hook.
+        If all hooks return earlier, the kill is performed as soon as possible. Must be at least a 1s.
+        Defaults to 0, which means don't wait and no notifications sent.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
