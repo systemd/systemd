@@ -20,7 +20,7 @@ int mac_apparmor_setup(void) {
         int r;
 
         if (!mac_apparmor_use()) {
-                log_debug("Skipping AppArmor initialization: not supported by the kernel, is disabled or libapparmor is not installed.");
+                log_debug("Skipping AppArmor initialization: not supported by the kernel, disabled, or libapparmor not installed.");
                 return 0;
         }
 
