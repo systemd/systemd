@@ -2,6 +2,7 @@
 
 #include "sd-bus.h"
 #include "sd-netlink.h"
+#include "sd-varlink.h"
 
 #include "bus-error.h"
 #include "bus-locator.h"
