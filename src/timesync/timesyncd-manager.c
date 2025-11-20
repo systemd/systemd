@@ -825,10 +825,14 @@ static int manager_begin(Manager *m) {
         if (r < 0)
                 return r;
 
+#if ENABLE_TIMESYNC_NTS
         if (m->nts_missing_cookies >= ELEMENTSOF(m->nts_cookies))
                 return manager_nts_handshake_setup(m);
         else
                 return manager_send_request(m);
+#else
+        return manager_send_request(m);
+#endif
 }
 
 void manager_set_server_name(Manager *m, ServerName *n) {
