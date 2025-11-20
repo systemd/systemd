@@ -80,7 +80,7 @@ CHANGES WITH 259 in spe:
           conflict between /dev/disk/by-label/ symlinks is removed, as this
           symlink is generated both for file system and LUKS superblock
           labels. There's a new VolumeLabel= setting for partitions that can be
-          used to expicitly choose a LUKS superblock label, which can be used
+          used to explicitly choose a LUKS superblock label, which can be used
           to explicitly revert to the old naming, if required.
 
         Service manager/PID1:
