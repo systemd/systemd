@@ -5,12 +5,8 @@
 #include "sd-json.h"
 #include "json-util.h"
 #include "log.h"
-#include "memory-util.h"
-#include "strv.h"
 
 int migrate_pkcs11_to_oaep(struct crypt_device *cd) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jwe = NULL, *jwe_array = NULL;
-        _cleanup_strv_free_ char **array = NULL;
         int r, migrated = 0, skipped = 0;
 
         assert(cd);
