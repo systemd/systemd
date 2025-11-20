@@ -400,6 +400,8 @@ static int image_make(
 
         /* We explicitly *do* follow symlinks here, since we want to allow symlinking trees, raw files and block
          * devices into /var/lib/machines/, and treat them normally.
+         * Note that if the caller does not want to follow symlinks (and does not care about symlink races)
+         * then the caller should pass in a resolved path and an fd.
          *
          * This function returns -ENOENT if we can't find the image after all, and -EMEDIUMTYPE if it's not a file we
          * recognize. */
@@ -736,10 +738,7 @@ int image_find(RuntimeScope scope,
                const char *root,
                Image **ret) {
 
-        /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people to
-         * symlink block devices into the search path. (For now, we disable that when operating relative to
-         * some root directory.) */
-        int open_flags = root ? O_NOFOLLOW : 0, r;
+        int r;
 
         assert(scope < _RUNTIME_SCOPE_MAX && scope != RUNTIME_SCOPE_GLOBAL);
         assert(class >= 0);
@@ -754,32 +753,47 @@ int image_find(RuntimeScope scope,
         if (!names)
                 return -ENOMEM;
 
+        _cleanup_close_ int rfd = -EBADF;
+        if (root) {
+                rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (rfd < 0)
+                        return log_debug_errno(errno, "Failed to open root directory '%s': %m", root);
+        }
+
         _cleanup_strv_free_ char **search = NULL;
         r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
 
         STRV_FOREACH(s, search) {
-                _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                r = chase_and_opendir(*s, root, CHASE_PREFIX_ROOT, &resolved, &d);
+                r = chase_and_opendirat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, /* ret_path= */ NULL, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
                         return r;
 
                 STRV_FOREACH(n, names) {
-                        _cleanup_free_ char *fname_buf = NULL;
                         const char *fname = *n;
+                        _cleanup_free_ char *fname_path = NULL, *chased_path = NULL, *resolved_file = NULL;
+                        _cleanup_close_ int fd = -EBADF;
 
-                        _cleanup_close_ int fd = openat(dirfd(d), fname, O_PATH|O_CLOEXEC|open_flags);
-                        if (fd < 0) {
-                                if (errno != ENOENT)
-                                        return -errno;
+                        fname_path = path_join(*s, fname);
+                        if (!fname_path)
+                                return -ENOMEM;
+
+                        /* Follow symlinks only inside given root */
+                        r = chaseat(rfd, fname_path, CHASE_AT_RESOLVE_IN_ROOT, &chased_path, &fd);
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        return r;
 
                                 continue;
                         }
+                        r = chaseat_prefix_root(chased_path, root, &resolved_file);
+                        if (r < 0)
+                                return r;
 
                         struct stat st;
                         if (fstat(fd, &st) < 0)
@@ -805,10 +819,6 @@ int image_find(RuntimeScope scope,
 
                                 *ASSERT_PTR(endswith(suffix, ".v")) = 0;
 
-                                _cleanup_free_ char *vp = path_join(resolved, fname);
-                                if (!vp)
-                                        return -ENOMEM;
-
                                 PickFilter filter = {
                                         .type_mask = endswith(suffix, ".raw") ? (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) : (UINT32_C(1) << DT_DIR),
                                         .basename = name,
@@ -818,48 +828,45 @@ int image_find(RuntimeScope scope,
 
                                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                                 r = path_pick(root,
-                                              /* toplevel_fd= */ AT_FDCWD,
-                                              vp,
+                                              rfd,
+                                              fname_path,
                                               &filter,
                                               /* n_filters= */ 1,
-                                              PICK_ARCHITECTURE|PICK_TRIES,
+                                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                               &result);
                                 if (r < 0) {
-                                        log_debug_errno(r, "Failed to pick versioned image on '%s', skipping: %m", vp);
+                                        log_debug_errno(r, "Failed to pick versioned image on '%s/%s', skipping: %m", empty_to_root(root), skip_leading_slash(fname_path));
                                         continue;
                                 }
                                 if (!result.path) {
-                                        log_debug("Found versioned directory '%s', without matching entry, skipping.", vp);
+                                        log_debug("Found versioned directory '%s/%s', without matching entry, skipping.", empty_to_root(root), skip_leading_slash(fname_path));
                                         continue;
                                 }
 
                                 /* Refresh the stat data for the discovered target */
                                 st = result.st;
                                 close_and_replace(fd, result.fd);
+                                free(resolved_file);
+                                resolved_file = path_join(root, result.path);
+                                if (!resolved_file)
+                                        return -ENOMEM;
 
-                                _cleanup_free_ char *bn = NULL;
-                                r = path_extract_filename(result.path, &bn);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to extract basename of image path '%s', skipping: %m", result.path);
-                                        continue;
-                                }
-
-                                fname_buf = path_join(fname, bn);
-                                if (!fname_buf)
-                                        return log_oom();
-
-                                fname = fname_buf;
-
+                                /* fname and fname_path are invalid now because they
+                                 * would need to be set from result.path by extracting
+                                 * the filename to set fname = path_join(fname, filename)
+                                 * and then fname_path = path_join(*s, fname) but
+                                 * since they are unused we don't do it */
+                                fname = NULL;
+                                fname_path = mfree(fname_path);
                         } else if (!S_ISDIR(st.st_mode) && !S_ISBLK(st.st_mode)) {
                                 log_debug("Ignoring non-directory and non-block device file '%s' without suffix.", fname);
                                 continue;
                         }
 
-                        _cleanup_free_ char *path = path_join(resolved, fname);
-                        if (!path)
-                                return -ENOMEM;
-
-                        r = image_make(class, name, fd, path, &st, ret);
+                        /* Only put resolved paths into the image entry (incl. --root=).
+                         * Defending against symlink races is not done
+                         * and would be a TODO. */
+                        r = image_make(class, name, fd, resolved_file, &st, ret);
                         if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                                 continue;
                         if (r < 0)
@@ -940,15 +947,19 @@ int image_discover(
                 const char *root,
                 Hashmap **images) {
 
-        /* As mentioned above, we follow symlinks on this fstatat(), because we want to permit people to
-         * symlink block devices into the search path. (For now, we disable that when operating relative to
-         * some root directory.) */
-        int open_flags = root ? O_NOFOLLOW : 0, r;
+        int r;
 
         assert(scope < _RUNTIME_SCOPE_MAX && scope != RUNTIME_SCOPE_GLOBAL);
         assert(class >= 0);
         assert(class < _IMAGE_CLASS_MAX);
         assert(images);
+
+        _cleanup_close_ int rfd = -EBADF;
+        if (root) {
+                rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (rfd < 0)
+                        return log_debug_errno(errno, "Failed to open root directory '%s': %m", root);
+        }
 
         _cleanup_strv_free_ char **search = NULL;
         r = pick_image_search_path(scope, class, root, &search);
@@ -956,30 +967,38 @@ int image_discover(
                 return r;
 
         STRV_FOREACH(s, search) {
-                _cleanup_free_ char *resolved = NULL;
                 _cleanup_closedir_ DIR *d = NULL;
 
-                r = chase_and_opendir(*s, root, CHASE_PREFIX_ROOT, &resolved, &d);
+                r = chase_and_opendirat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, /* ret_path= */ NULL, &d);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0)
                         return r;
 
                 FOREACH_DIRENT_ALL(de, d, return -errno) {
-                        _cleanup_free_ char *pretty = NULL, *fname_buf = NULL;
+                        _cleanup_free_ char *pretty = NULL, *fname_path = NULL, *chased_path = NULL, *resolved_file = NULL;
                         _cleanup_(image_unrefp) Image *image = NULL;
                         const char *fname = de->d_name;
+                        _cleanup_close_ int fd = -EBADF;
 
                         if (dot_or_dot_dot(fname))
                                 continue;
 
-                        _cleanup_close_ int fd = openat(dirfd(d), fname, O_PATH|O_CLOEXEC|open_flags);
-                        if (fd < 0) {
-                                if (errno != ENOENT)
-                                        return -errno;
+                        fname_path = path_join(*s, fname);
+                        if (!fname_path)
+                                return -ENOMEM;
+
+                        /* Follow symlinks only inside given root */
+                        r = chaseat(rfd, fname_path, CHASE_AT_RESOLVE_IN_ROOT, &chased_path, &fd);
+                        if (r < 0) {
+                                if (r != -ENOENT)
+                                        return r;
 
                                 continue; /* Vanished while we were looking at it */
                         }
+                        r = chaseat_prefix_root(chased_path, root, &resolved_file);
+                        if (r < 0)
+                                return r;
 
                         struct stat st;
                         if (fstat(fd, &st) < 0)
@@ -1018,10 +1037,6 @@ int image_discover(
                                                 continue;
                                         }
 
-                                        _cleanup_free_ char *vp = path_join(resolved, fname);
-                                        if (!vp)
-                                                return -ENOMEM;
-
                                         PickFilter filter = {
                                                 .type_mask = endswith(suffix, ".raw") ? (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK) : (UINT32_C(1) << DT_DIR),
                                                 .basename = pretty,
@@ -1031,38 +1046,36 @@ int image_discover(
 
                                         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                                         r = path_pick(root,
-                                                      /* toplevel_fd= */ AT_FDCWD,
-                                                      vp,
+                                                      rfd,
+                                                      fname_path,
                                                       &filter,
                                                       /* n_filters= */ 1,
-                                                      PICK_ARCHITECTURE|PICK_TRIES,
+                                                      PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                                                       &result);
                                         if (r < 0) {
-                                                log_debug_errno(r, "Failed to pick versioned image on '%s', skipping: %m", vp);
+                                                log_debug_errno(r, "Failed to pick versioned image on '%s/%s', skipping: %m", empty_to_root(root), skip_leading_slash(fname_path));
                                                 continue;
                                         }
                                         if (!result.path) {
-                                                log_debug("Found versioned directory '%s', without matching entry, skipping.", vp);
+                                                log_debug("Found versioned directory '%s/%s', without matching entry, skipping.", empty_to_root(root), skip_leading_slash(fname_path));
                                                 continue;
                                         }
 
                                         /* Refresh the stat data for the discovered target */
                                         st = result.st;
                                         close_and_replace(fd, result.fd);
+                                        free(resolved_file);
+                                        resolved_file = path_join(root, result.path);
+                                        if (!resolved_file)
+                                                return -ENOMEM;
 
-                                        _cleanup_free_ char *bn = NULL;
-                                        r = path_extract_filename(result.path, &bn);
-                                        if (r < 0) {
-                                                log_debug_errno(r, "Failed to extract basename of image path '%s', skipping: %m", result.path);
-                                                continue;
-                                        }
-
-                                        fname_buf = path_join(fname, bn);
-                                        if (!fname_buf)
-                                                return log_oom();
-
-                                        fname = fname_buf;
-
+                                        /* fname and fname_path are invalid now because they
+                                         * would need to be set from result.path by extracting
+                                         * the filename to set fname = path_join(fname, filename)
+                                         * and then fname_path = path_join(*s, fname) but
+                                         * since they are unused we don't do it */
+                                         fname = NULL;
+                                         fname_path = mfree(fname_path);
                                 } else {
                                         r = extract_image_basename(
                                                         fname,
@@ -1095,11 +1108,11 @@ int image_discover(
                         if (hashmap_contains(*images, pretty))
                                 continue;
 
-                        _cleanup_free_ char *path = path_join(resolved, fname);
-                        if (!path)
-                                return -ENOMEM;
+                        /* Only put resolved paths into the image entry.
+                         * Defending against symlink races is not done
+                         * and would be a TODO. */
+                        r = image_make(class, pretty, fd, resolved_file, &st, &image);
 
-                        r = image_make(class, pretty, fd, path, &st, &image);
                         if (IN_SET(r, -ENOENT, -EMEDIUMTYPE))
                                 continue;
                         if (r < 0)
