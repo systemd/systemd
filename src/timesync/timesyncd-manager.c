@@ -1495,24 +1495,11 @@ static int manager_nts_handshake_setup(Manager *m) {
 
         struct sockaddr *addr = &m->current_server_address->sockaddr.sa;
 
-        m->server_socket = socket(addr->sa_family, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        m->server_socket = socket(addr->sa_family, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
         if (m->server_socket < 0)
                 return -errno;
 
-        /* TODO: replace this blocking call */
-        r = connect(m->server_socket, addr, m->current_server_address->socklen);
-        if (r < 0)
-                return -errno;
-
-        r = setsockopt_int(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, true);
-        if (r < 0)
-                return r;
-
-        (void) socket_set_option(m->server_socket, addr->sa_family, IP_TOS, IPV6_TCLASS, IPTOS_DSCP_EF);
-
-        m->nts_handshake_state = NTS_HANDSHAKE_SETUP;
-
-        log_debug("Performing key exchange with %s\n", m->current_server_name->string);
+        m->nts_handshake_state = NTS_HANDSHAKE_CONNECTING;
 
         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
 
@@ -1525,6 +1512,8 @@ static int manager_nts_handshake_setup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to arm NTS key exchange timeout timer: %m");
 
+        (void) connect(m->server_socket, addr, m->current_server_address->socklen);
+
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN|EPOLLOUT, manager_nts_obtain_agreement, m);
 }
 
@@ -1532,8 +1521,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         Manager *m = ASSERT_PTR(userdata);
 
         NTS_Agreement NTS;
-        uint8_t *bufp;
-        int size, r;
+        int r;
 
         if (revents & (EPOLLHUP|EPOLLERR)) {
                 log_warning("Server connection returned error.");
@@ -1541,7 +1529,27 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         }
 
         switch (m->nts_handshake_state) {
-        case NTS_HANDSHAKE_SETUP:
+                struct sockaddr *addr;
+                uint8_t *bufp;
+                int size;
+
+        case NTS_HANDSHAKE_CONNECTING:
+                addr = &m->current_server_address->sockaddr.sa;
+
+                r = connect(m->server_socket, addr, m->current_server_address->socklen);
+                if (IN_SET(r, EINPROGRESS, EALREADY))
+                        return 1;
+                if (r < 0 && r != EISCONN)
+                        return -errno;
+
+                r = setsockopt_int(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, true);
+                if (r < 0)
+                        return r;
+
+                (void) socket_set_option(m->server_socket, addr->sa_family, IP_TOS, IPV6_TCLASS, IPTOS_DSCP_EF);
+
+                log_debug("Performing key exchange with %s\n", m->current_server_name->string);
+
                 m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, m->server_socket);
                 if (!m->nts_handshake)
                         return -ENOMEM;
