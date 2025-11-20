@@ -184,8 +184,7 @@ TEST(touch_file) {
         r = touch_file(a, false, test_mtime, test_uid, test_gid, 0640);
         if (r < 0) {
                 assert_se(IN_SET(r, -EINVAL, -ENOSYS, -ENOTTY, -EPERM));
-                log_tests_skipped_errno(errno, "touch_file() not possible");
-                return;
+                return (void) log_tests_skipped_errno(errno, "touch_file() not possible");
         }
 
         assert_se(lstat(a, &st) >= 0);

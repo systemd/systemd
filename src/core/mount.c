@@ -636,7 +636,11 @@ static int mount_add_extras(Mount *m) {
         path_simplify(m->where);
 
         if (!u->description) {
-                r = unit_set_description(u, m->where);
+                _cleanup_free_ char *w = mount_get_where_escaped(m);
+                if (!w)
+                        return log_oom();
+
+                r = unit_set_description(u, w);
                 if (r < 0)
                         return r;
         }
@@ -1169,14 +1173,9 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
         if (r < 0)
                 return r;
 
-        if (remount) {
-                if (isempty(opts)) {
-                        opts = strdup("remount");
-                        if (!opts)
-                                return -ENOMEM;
-                } else if (!strprepend(&opts, "remount,"))
+        if (remount)
+                if (!strprepend_with_separator(&opts, ",", "remount"))
                         return -ENOMEM;
-        }
 
         if (!isempty(opts)) {
                 r = exec_command_append(c, "-o", opts, NULL);
@@ -1197,7 +1196,7 @@ static void mount_enter_mounting(Mount *m) {
         /* Validate that the path we are overmounting does not contain any symlinks, because if it does, we
          * couldn't support that reasonably: the mounts in /proc/self/mountinfo would not be recognizable to
          * us anymore. */
-        fd = chase_and_open_parent(m->where, /* root= */ NULL, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755, &fn);
+        fd = chase_and_open_parent(m->where, /* root= */ NULL, CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_TRIGGER_AUTOFS, &fn);
         if (fd == -EREMCHG) {
                 r = unit_log_noncanonical_mount_path(UNIT(m), m->where);
                 goto fail;
@@ -1270,7 +1269,7 @@ static void mount_enter_mounting(Mount *m) {
                  * when the path is on NFS. See issue #24120. All such errors will be logged in the debug level. */
                 if (r < 0 && r != -EEXIST)
                         log_unit_full_errno(UNIT(m),
-                                            (r == -EROFS || ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_WARNING,
+                                            ERRNO_IS_NEG_FS_WRITE_REFUSED(r) ? LOG_DEBUG : LOG_WARNING,
                                             r, "Failed to make bind mount source '%s', ignoring: %m", p->what);
         }
 
@@ -1364,19 +1363,6 @@ static int mount_start(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
 
-        /* We cannot fulfill this request right now, try again later
-         * please! */
-        if (IN_SET(m->state,
-                   MOUNT_UNMOUNTING,
-                   MOUNT_UNMOUNTING_SIGTERM,
-                   MOUNT_UNMOUNTING_SIGKILL,
-                   MOUNT_CLEANING))
-                return -EAGAIN;
-
-        /* Already on it! */
-        if (IN_SET(m->state, MOUNT_MOUNTING, MOUNT_MOUNTING_DONE))
-                return 0;
-
         assert(IN_SET(m->state, MOUNT_DEAD, MOUNT_FAILED));
 
         r = unit_acquire_invocation_id(u);
@@ -1391,6 +1377,7 @@ static int mount_start(Unit *u) {
 
 static int mount_stop(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
+        int r;
 
         switch (m->state) {
 
@@ -1402,21 +1389,22 @@ static int mount_stop(Unit *u) {
 
         case MOUNT_MOUNTING:
         case MOUNT_MOUNTING_DONE:
-        case MOUNT_REMOUNTING:
                 /* If we are still waiting for /bin/mount, we go directly into kill mode. */
                 mount_enter_signal(m, MOUNT_UNMOUNTING_SIGTERM, MOUNT_SUCCESS);
                 return 0;
 
+        case MOUNT_REMOUNTING:
         case MOUNT_REMOUNTING_SIGTERM:
-                /* If we are already waiting for a hung remount, convert this to the matching unmounting state */
-                mount_set_state(m, MOUNT_UNMOUNTING_SIGTERM);
-                return 0;
+                assert(pidref_is_set(&m->control_pid));
 
+                r = pidref_kill_and_sigcont(&m->control_pid, SIGKILL);
+                if (r < 0)
+                        log_unit_debug_errno(u, r,
+                                             "Failed to kill remount process " PID_FMT ", ignoring: %m",
+                                             m->control_pid.pid);
+
+                _fallthrough_;
         case MOUNT_REMOUNTING_SIGKILL:
-                /* as above */
-                mount_set_state(m, MOUNT_UNMOUNTING_SIGKILL);
-                return 0;
-
         case MOUNT_MOUNTED:
                 mount_enter_unmounting(m);
                 return 1;
@@ -1953,16 +1941,16 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
                 struct libmnt_fs *fs;
                 const char *device, *path, *options, *fstype;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break;
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                device = mnt_fs_get_source(fs);
-                path = mnt_fs_get_target(fs);
-                options = mnt_fs_get_options(fs);
-                fstype = mnt_fs_get_fstype(fs);
+                device = sym_mnt_fs_get_source(fs);
+                path = sym_mnt_fs_get_target(fs);
+                options = sym_mnt_fs_get_options(fs);
+                fstype = sym_mnt_fs_get_fstype(fs);
 
                 if (!device || !path)
                         continue;
@@ -1984,8 +1972,10 @@ static void mount_shutdown(Manager *m) {
 
         m->mount_event_source = sd_event_source_disable_unref(m->mount_event_source);
 
-        mnt_unref_monitor(m->mount_monitor);
-        m->mount_monitor = NULL;
+        if (m->mount_monitor) {
+                sym_mnt_unref_monitor(m->mount_monitor);
+                m->mount_monitor = NULL;
+        }
 }
 
 static void mount_handoff_timestamp(
@@ -2076,33 +2066,39 @@ static void mount_enumerate(Manager *m) {
 
         assert(m);
 
-        mnt_init_debug(0);
+        r = dlopen_libmount();
+        if (r < 0) {
+                log_error_errno(r, "Cannot enumerate mounts, as libmount is not available: %m");
+                goto fail;
+        }
+
+        sym_mnt_init_debug(0);
 
         if (!m->mount_monitor) {
                 usec_t mount_rate_limit_interval = 1 * USEC_PER_SEC;
                 unsigned mount_rate_limit_burst = 5;
                 int fd;
 
-                m->mount_monitor = mnt_new_monitor();
+                m->mount_monitor = sym_mnt_new_monitor();
                 if (!m->mount_monitor) {
                         log_oom();
                         goto fail;
                 }
 
-                r = mnt_monitor_enable_kernel(m->mount_monitor, 1);
+                r = sym_mnt_monitor_enable_kernel(m->mount_monitor, 1);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable watching of kernel mount events: %m");
                         goto fail;
                 }
 
-                r = mnt_monitor_enable_userspace(m->mount_monitor, 1, NULL);
+                r = sym_mnt_monitor_enable_userspace(m->mount_monitor, 1, NULL);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable watching of userspace mount events: %m");
                         goto fail;
                 }
 
                 /* mnt_unref_monitor() will close the fd */
-                fd = r = mnt_monitor_get_fd(m->mount_monitor);
+                fd = r = sym_mnt_monitor_get_fd(m->mount_monitor);
                 if (r < 0) {
                         log_error_errno(r, "Failed to acquire watch file descriptor: %m");
                         goto fail;
@@ -2166,6 +2162,9 @@ static int drain_libmount(Manager *m) {
 
         assert(m);
 
+        if (!m->mount_monitor)
+                return false;
+
         /* Drain all events and verify that the event is valid.
          *
          * Note that libmount also monitors /run/mount mkdir if the directory does not exist yet. The mkdir
@@ -2173,7 +2172,7 @@ static int drain_libmount(Manager *m) {
          *
          * error: r < 0; valid: r == 0, false positive: r == 1 */
         do {
-                r = mnt_monitor_next_change(m->mount_monitor, NULL, NULL);
+                r = sym_mnt_monitor_next_change(m->mount_monitor, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to drain libmount events: %m");
                 if (r == 0)
@@ -2370,9 +2369,13 @@ static int mount_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&m->exec_context, ret);
 }
 
-static int mount_can_start(Unit *u) {
+static int mount_test_startable(Unit *u) {
         Mount *m = ASSERT_PTR(MOUNT(u));
         int r;
+
+        /* It is already being started. */
+        if (IN_SET(m->state, MOUNT_MOUNTING, MOUNT_MOUNTING_DONE))
+                return false;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
@@ -2383,7 +2386,7 @@ static int mount_can_start(Unit *u) {
         if (!get_mount_parameters_fragment(m))
                 return -ENOENT;
 
-        return 1;
+        return true;
 }
 
 static int mount_subsystem_ratelimited(Manager *m) {
@@ -2395,8 +2398,16 @@ static int mount_subsystem_ratelimited(Manager *m) {
         return sd_event_source_is_ratelimited(m->mount_event_source);
 }
 
+char* mount_get_where_escaped(const Mount *m) {
+        assert(m);
+
+        if (!m->where)
+                return strdup("");
+
+        return utf8_escape_invalid(m->where);
+}
+
 char* mount_get_what_escaped(const Mount *m) {
-        _cleanup_free_ char *escaped = NULL;
         const char *s = NULL;
 
         assert(m);
@@ -2405,14 +2416,10 @@ char* mount_get_what_escaped(const Mount *m) {
                 s = m->parameters_proc_self_mountinfo.what;
         else if (m->from_fragment && m->parameters_fragment.what)
                 s = m->parameters_fragment.what;
+        if (!s)
+                return strdup("");
 
-        if (s) {
-                escaped = utf8_escape_invalid(s);
-                if (!escaped)
-                        return NULL;
-        }
-
-        return escaped ? TAKE_PTR(escaped) : strdup("");
+        return utf8_escape_invalid(s);
 }
 
 char* mount_get_options_escaped(const Mount *m) {
@@ -2545,7 +2552,7 @@ const UnitVTable mount_vtable = {
                 },
         },
 
-        .can_start = mount_can_start,
+        .test_startable = mount_test_startable,
 
         .notify_plymouth = true,
 };

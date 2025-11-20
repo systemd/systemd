@@ -147,7 +147,8 @@ libsystemd_static = static_library(
         include_directories : libsystemd_includes,
         implicit_include_directories : false,
         c_args : libsystemd_c_args,
-        link_with : [libbasic_static],
+        link_with : [libc_wrapper_static,
+                     libbasic_static],
         dependencies : [threads,
                         libm,
                         librt,
@@ -163,7 +164,6 @@ static_libsystemd = get_option('static-libsystemd')
 static_libsystemd_pic = static_libsystemd == 'true' or static_libsystemd == 'pic'
 
 libsystemd_pc = custom_target(
-        'libsystemd.pc',
         input : 'libsystemd.pc.in',
         output : 'libsystemd.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
@@ -229,7 +229,7 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-bus/test-bus-cleanup.c'),
-                'dependencies' : [threads, libseccomp],
+                'dependencies' : [threads, libseccomp_cflags],
         },
         {
                 'sources' : files('sd-bus/test-bus-marshal.c'),
@@ -264,7 +264,7 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-bus/test-bus-track.c'),
-                'dependencies' : libseccomp,
+                'dependencies' : libseccomp_cflags,
         },
         {
                 'sources' : files('sd-bus/test-bus-watch-bind.c'),
@@ -273,6 +273,10 @@ libsystemd_tests += [
         },
         {
                 'sources' : files('sd-journal/test-journal-append.c'),
+                'type' : 'manual',
+        },
+        {
+                'sources' : files('sd-journal/test-journal-dump.c'),
                 'type' : 'manual',
         },
         {

@@ -3,18 +3,31 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "creds-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
-#include "static-destruct.h"
+#include "string-table.h"
 #include "string-util.h"
 
-static char *arg_path = NULL;
-static bool arg_skip = false;
-static bool arg_force = false;
+typedef enum QuotaCheckMode {
+        QUOTA_CHECK_AUTO,
+        QUOTA_CHECK_FORCE,
+        QUOTA_CHECK_SKIP,
+        _QUOTA_CHECK_MODE_MAX,
+        _QUOTA_CHECK_MODE_INVALID = -EINVAL,
+} QuotaCheckMode;
 
-STATIC_DESTRUCTOR_REGISTER(arg_path, freep);
+static QuotaCheckMode arg_mode = QUOTA_CHECK_AUTO;
+
+static const char * const quota_check_mode_table[_QUOTA_CHECK_MODE_MAX] = {
+        [QUOTA_CHECK_AUTO]  = "auto",
+        [QUOTA_CHECK_FORCE] = "force",
+        [QUOTA_CHECK_SKIP]  = "skip",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(quota_check_mode, QuotaCheckMode);
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
@@ -23,29 +36,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                if (streq(value, "auto"))
-                        arg_force = arg_skip = false;
-                else if (streq(value, "force"))
-                        arg_force = true;
-                else if (streq(value, "skip"))
-                        arg_skip = true;
-                else
-                        log_warning("Invalid quotacheck.mode= value, ignoring: %s", value);
+                arg_mode = quota_check_mode_from_string(value);
+                if (arg_mode < 0)
+                        log_warning_errno(arg_mode, "Invalid quotacheck.mode= value, ignoring: %s", value);
 
         } else if (streq(key, "forcequotacheck") && !value)
-                arg_force = true;
+                arg_mode = QUOTA_CHECK_FORCE;
 
         return 0;
 }
 
-static void test_files(void) {
+static void parse_credentials(void) {
+        _cleanup_free_ char *value = NULL;
+        int r;
 
-#if HAVE_SYSV_COMPAT
-        if (access("/forcequotacheck", F_OK) >= 0) {
-                log_error("Please pass 'quotacheck.mode=force' on the kernel command line rather than creating /forcequotacheck on the root file system. Proceeding anyway.");
-                arg_force = true;
+        r = read_credential("quotacheck.mode", (void**) &value, /* ret_size = */ NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential 'quotacheck.mode', ignoring: %m");
+        else {
+                arg_mode = quota_check_mode_from_string(value);
+                if (arg_mode < 0)
+                        log_warning_errno(arg_mode, "Invalid 'quotacheck.mode' credential, ignoring: %s", value);
         }
-#endif
 }
 
 static int run(int argc, char *argv[]) {
@@ -63,12 +75,12 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
-        test_files();
+        parse_credentials();
 
-        if (!arg_force) {
-                if (arg_skip)
-                        return 0;
+        if (arg_mode == QUOTA_CHECK_SKIP)
+                return 0;
 
+        if (arg_mode == QUOTA_CHECK_AUTO) {
                 /* This is created by systemd-fsck when fsck detected and corrected errors. In normal
                  * operations quotacheck is not needed. */
                 if (access("/run/systemd/quotacheck", F_OK) < 0) {
@@ -80,9 +92,10 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
+        _cleanup_free_ char *path = NULL;
         if (argc == 2) {
-                arg_path = strdup(argv[1]);
-                if (!arg_path)
+                path = strdup(argv[1]);
+                if (!path)
                         return log_oom();
         }
 
@@ -92,8 +105,8 @@ static int run(int argc, char *argv[]) {
         if (r == 0) {
                 const char *cmdline[] = {
                         QUOTACHECK,
-                        arg_path ? "-nug" : "-anug", /* Check all file systems if path isn't specified */
-                        arg_path,
+                        path ? "-nug" : "-anug", /* Check all file systems if path isn't specified */
+                        path,
                         NULL
                 };
 

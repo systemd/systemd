@@ -5,6 +5,7 @@
 
 #include "sd-event.h"
 
+#include "capability-util.h"
 #include "device-internal.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -25,14 +26,17 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "udev-util.h"
+#include "virt.h"
 
 TEST(mdio_bus) {
         int r;
 
         /* For issue #37711 */
 
-        if (getuid() != 0)
-                return (void) log_tests_skipped("not running as root");
+        if (getuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("Not privileged");
+        if (running_in_chroot() > 0)
+                return (void) log_tests_skipped("Running in chroot");
 
         ASSERT_OK(r = safe_fork("(mdio_bus)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL));
         if (r == 0) {
@@ -52,7 +56,12 @@ TEST(mdio_bus) {
 
                 ASSERT_OK_ERRNO(setenv("SYSTEMD_DEVICE_VERIFY_SYSFS", "0", /* overwrite = */ false));
                 ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", "/sys/bus/", "tmpfs", 0, NULL));
-                ASSERT_OK(mkdir_p(syspath, 0755));
+                r = mkdir_p(syspath, 0755);
+                if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                        log_tests_skipped("Lacking privileges to create %s", syspath);
+                        _exit(EXIT_SUCCESS);
+                }
+                ASSERT_OK(r);
 
                 _cleanup_free_ char *uevent = path_join(syspath, "uevent");
                 ASSERT_NOT_NULL(uevent);
@@ -298,8 +307,12 @@ static void exclude_problematic_devices(sd_device_enumerator *e) {
          * disappear during running this test. Let's exclude them here for stability. */
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "bdi", false));
         ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
-        /* On CentOS CI, systemd-networkd-tests.py may be running when this test is invoked. The networkd
-         * test creates and removes many network interfaces, and may interfere with this test. */
+        /* On some CI environments, it seems dm block devices sometimes disappear during running this test.
+         * Let's exclude them here for stability. */
+        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "dm-*"));
+        /* Several other unit tests create and remove virtual network interfaces, e.g. test-netlink and
+         * test-local-addresses. When one of these tests run in parallel with this unit test, the enumerated
+         * device may disappear. Let's exclude them here for stability. */
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "net", false));
 }
 
@@ -335,7 +348,7 @@ static void test_sd_device_enumerator_filter_subsystem_one(
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, subsystem, true));
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
+        exclude_problematic_devices(e);
 
         FOREACH_DEVICE(e, d) {
                 const char *syspath;
@@ -604,9 +617,9 @@ TEST(sd_device_enumerator_add_all_parents) {
         /* STEP 1: enumerate all block devices without all_parents() */
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        exclude_problematic_devices(e);
 
         /* filter in only a subsystem */
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVTYPE", "partition"));
 
@@ -749,8 +762,9 @@ TEST(sd_device_new_from_path) {
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
+        exclude_problematic_devices(e);
+
         ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
-        ASSERT_OK(sd_device_enumerator_add_nomatch_sysname(e, "loop*"));
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVNAME", "*"));
 
         FOREACH_DEVICE(e, dev) {

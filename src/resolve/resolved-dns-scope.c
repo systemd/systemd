@@ -7,19 +7,20 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "dns-type.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "log.h"
 #include "random-util.h"
-#include "resolved-dns-answer.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-delegate.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -162,6 +163,9 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
+
+        /* Clear records of mDNS service browse subscriber, since cache bas been flushed */
+        dns_browse_services_purge(s->manager, s->family);
 
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
         return mfree(s);
@@ -764,11 +768,6 @@ DnsScopeMatch dns_scope_good_domain(
                 if (!dns_scope_get_dns_server(s))
                         return DNS_SCOPE_NO;
 
-                /* Route DS requests to the parent */
-                const char *route_domain = domain;
-                if (dns_question_contains_key_type(question, DNS_TYPE_DS))
-                        (void) dns_name_parent(&route_domain);
-
                 /* Always honour search domains for routing queries, except if this scope lacks DNS servers. Note that
                  * we return DNS_SCOPE_YES here, rather than just DNS_SCOPE_MAYBE, which means other wildcard scopes
                  * won't be considered anymore. */
@@ -777,7 +776,7 @@ DnsScopeMatch dns_scope_good_domain(
                         if (!d->route_only && !dns_name_is_root(d->name))
                                 has_search_domains = true;
 
-                        if (dns_name_endswith(route_domain, d->name) > 0) {
+                        if (dns_name_endswith(domain, d->name) > 0) {
                                 int c;
 
                                 c = dns_name_count_labels(d->name);
@@ -1428,6 +1427,14 @@ void dns_scope_dump(DnsScope *s, FILE *f) {
                 fputs(s->delegate->id, f);
         }
 
+        if (s->protocol == DNS_PROTOCOL_DNS) {
+                fputs(" DNSSEC=", f);
+                fputs(dnssec_mode_to_string(s->dnssec_mode), f);
+
+                fputs(" DNSOverTLS=", f);
+                fputs(dns_over_tls_mode_to_string(s->dns_over_tls_mode), f);
+        }
+
         fputs("]\n", f);
 
         if (!dns_zone_is_empty(&s->zone)) {
@@ -1657,18 +1664,18 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         return 0;
 }
 
-int dns_scope_add_dnssd_services(DnsScope *scope) {
-        DnssdService *service;
+int dns_scope_add_dnssd_registered_services(DnsScope *scope) {
+        DnssdRegisteredService *service;
         int r;
 
         assert(scope);
 
-        if (hashmap_isempty(scope->manager->dnssd_services))
+        if (hashmap_isempty(scope->manager->dnssd_registered_services))
                 return 0;
 
         scope->announced = false;
 
-        HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
+        HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services) {
                 service->withdrawn = false;
 
                 r = dns_zone_put(&scope->zone, scope, service->ptr_rr, false);
@@ -1695,9 +1702,9 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
         return 0;
 }
 
-int dns_scope_remove_dnssd_services(DnsScope *scope) {
+int dns_scope_remove_dnssd_registered_services(DnsScope *scope) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        DnssdService *service;
+        DnssdRegisteredService *service;
         int r;
 
         assert(scope);
@@ -1711,7 +1718,7 @@ int dns_scope_remove_dnssd_services(DnsScope *scope) {
         if (r < 0)
                 return r;
 
-        HASHMAP_FOREACH(service, scope->manager->dnssd_services) {
+        HASHMAP_FOREACH(service, scope->manager->dnssd_registered_services) {
                 dns_zone_remove_rr(&scope->zone, service->ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->sub_ptr_rr);
                 dns_zone_remove_rr(&scope->zone, service->srv_rr);
@@ -1786,16 +1793,18 @@ bool dns_scope_is_default_route(DnsScope *scope) {
                 return true;
 }
 
-int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
+int dns_scope_to_json(DnsScope *scope, bool with_cache, sd_json_variant **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *cache = NULL;
         int r;
 
         assert(scope);
         assert(ret);
 
-        r = dns_cache_dump_to_json(&scope->cache, &cache);
-        if (r < 0)
-                return r;
+        if (with_cache) {
+                r = dns_cache_dump_to_json(&scope->cache, &cache);
+                if (r < 0)
+                        return r;
+        }
 
         return sd_json_buildo(
                         ret,
@@ -1803,7 +1812,13 @@ int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(scope->family != AF_UNSPEC, "family", SD_JSON_BUILD_INTEGER(scope->family)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifindex", SD_JSON_BUILD_INTEGER(dns_scope_ifindex(scope))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!scope->link, "ifname", SD_JSON_BUILD_STRING(dns_scope_ifname(scope))),
-                        SD_JSON_BUILD_PAIR_VARIANT("cache", cache));
+                        SD_JSON_BUILD_PAIR_CONDITION(with_cache, "cache", SD_JSON_BUILD_VARIANT(cache)),
+                        SD_JSON_BUILD_PAIR_CONDITION(scope->protocol == DNS_PROTOCOL_DNS,
+                                                     "dnssec",
+                                                     SD_JSON_BUILD_STRING(dnssec_mode_to_string(scope->dnssec_mode))),
+                        SD_JSON_BUILD_PAIR_CONDITION(scope->protocol == DNS_PROTOCOL_DNS,
+                                                     "dnsOverTLS",
+                                                     SD_JSON_BUILD_STRING(dns_over_tls_mode_to_string(scope->dns_over_tls_mode))));
 }
 
 int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol) {

@@ -3,7 +3,6 @@
 factory_etc_dir = factorydir / 'etc'
 
 custom_target(
-        'locale.conf',
         input : 'locale.conf.in',
         output : 'locale.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
@@ -11,7 +10,6 @@ custom_target(
         install_dir : factory_etc_dir)
 
 custom_target(
-        'vconsole.conf',
         input : 'vconsole.conf.in',
         output : 'vconsole.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

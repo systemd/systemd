@@ -8,7 +8,7 @@
 #  include <stringprep.h>
 #endif
 
-#include "forward.h"
+#include "shared-forward.h"
 
 #if HAVE_LIBIDN2 || HAVE_LIBIDN
 #include "dlfcn-util.h"

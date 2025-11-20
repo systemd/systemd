@@ -61,28 +61,23 @@ endif
 
 ############################################################
 
-generate_keyboard_keys_list = find_program('generate-keyboard-keys-list.sh')
+generate_keyboard_keys_list = files('generate-keyboard-keys-list.sh')
 keyboard_keys_list_txt = custom_target(
-        'keyboard-keys-list.txt',
-        input : files('../basic/include/linux/input.h'),
+        input : [generate_keyboard_keys_list, keyboard_sources],
         output : 'keyboard-keys-list.txt',
-        command : [generate_keyboard_keys_list, cpp, '@INPUT@'],
+        command : [env, 'bash', generate_keyboard_keys_list, cpp, system_include_args],
         capture : true)
 
-generate_keyboard_keys_gperf = find_program('generate-keyboard-keys-gperf.sh')
-fname = 'keyboard-keys-from-name.gperf'
+generate_keyboard_keys_gperf = files('generate-keyboard-keys-gperf.sh')
 gperf_file = custom_target(
-        fname,
-        input : keyboard_keys_list_txt,
-        output : fname,
-        command : [generate_keyboard_keys_gperf, '@INPUT@'],
+        input : [generate_keyboard_keys_gperf, keyboard_keys_list_txt],
+        output : 'keyboard-keys-from-name.gperf',
+        command : [env, 'bash', '@INPUT@'],
         capture : true)
 
-fname = 'keyboard-keys-from-name.inc'
 keyboard_keys_from_name_inc = custom_target(
-        fname,
         input : gperf_file,
-        output : fname,
+        output : 'keyboard-keys-from-name.inc',
         command : [gperf,
                    '-L', 'ANSI-C', '-t',
                    '-N', 'keyboard_lookup_key',
@@ -98,7 +93,6 @@ generated_sources += keyboard_keys_from_name_inc
 udev_link_gperf_gperf = files('net/link-config-gperf.gperf')
 
 link_config_gperf_c = custom_target(
-        'link-config-gperf.c',
         input : udev_link_gperf_gperf,
         output : 'link-config-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -120,8 +114,8 @@ endif
 ############################################################
 
 udev_dependencies = [
-        libacl,
-        libblkid,
+        libacl_cflags,
+        libblkid_cflags,
         libkmod,
         threads,
 ]
@@ -137,8 +131,8 @@ udev_plugin_template = executable_template + {
 udev_common_template = {
         'objects' : ['udevadm'],
         'dependencies' : [
-                libacl,
-                libblkid,
+                libacl_cflags,
+                libblkid_cflags,
                 threads,
         ],
 }
@@ -157,6 +151,7 @@ udev_binaries_dict = [
                         include_directories('.', 'net'),
                 ],
                 'dependencies' : udev_dependencies,
+                'link_with' : udev_link_with,
                 'install_rpath' : udev_rpath,
                 'install_tag' : 'udev',
                 'extract' : udevadm_extract_sources,
@@ -237,7 +232,7 @@ executables += [
         udev_test_template + {
                 'sources' : files('test-udev-rule-runner.c'),
                 'dependencies' : udev_dependencies + [
-                        libselinux,
+                        libselinux_cflags,
                 ],
                 'type' : 'manual',
         },
@@ -277,7 +272,6 @@ if install_sysconfdir_samples
 endif
 
 udev_pc = custom_target(
-        'udev.pc',
         input : 'udev.pc.in',
         output : 'udev.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

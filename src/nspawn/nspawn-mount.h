@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "volatile-util.h"
 
 typedef enum MountSettingsMask {
@@ -38,6 +38,7 @@ typedef struct CustomMount {
         bool read_only;
         char *source; /* for overlayfs this is the upper directory */
         char *destination;
+        uid_t destination_uid;
         char *options;
         char *work_dir;
         char **lower;

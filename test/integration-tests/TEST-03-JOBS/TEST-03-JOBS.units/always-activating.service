@@ -5,4 +5,4 @@ After=always-activating.socket
 
 [Service]
 Type=notify
-ExecStart=bash -c 'sleep infinity'
+ExecStart=sleep infinity

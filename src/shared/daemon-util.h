@@ -3,7 +3,7 @@
 
 #include "sd-daemon.h" /* IWYU pragma: export */
 
-#include "forward.h"
+#include "shared-forward.h"
 
 #define NOTIFY_READY_MESSAGE "READY=1\n" "STATUS=Processing requests..."
 #define NOTIFY_STOPPING_MESSAGE "STOPPING=1\n" "STATUS=Shutting down..."

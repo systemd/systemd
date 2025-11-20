@@ -3,9 +3,6 @@ rebuild:
     - trigger_services:
         project: system:systemd
         package: systemd
-    - trigger_services:
-        project: system:systemd
-        package: systemd-suse
   filters:
     event: push
     branches:

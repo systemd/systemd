@@ -23,7 +23,6 @@
 #include "iovec-util.h"
 #include "keyring-util.h"
 #include "log.h"
-#include "missing_syscall.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
@@ -241,14 +240,14 @@ static int ask_password_keyring(const AskPasswordRequest *req, AskPasswordFlags 
                 return -EUNATCH;
 
         r = lookup_key(req->keyring, &serial);
-        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || r == -EPERM)
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r) || IN_SET(r, -EPERM, -ENOKEY))
                 /* When retrieving, the distinction between "kernel or container manager don't support or
                  * allow this" and "no matching key known" doesn't matter. Note that we propagate EACCESS
                  * here (even if EPERM not) since that is used if the keyring is available, but we lack
                  * access to the key. */
                 return -ENOKEY;
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to look up key %s in keyring: %m", req->keyring);
 
         _cleanup_strv_free_erase_ char **l = NULL;
         r = retrieve_key(serial, &l);
@@ -566,7 +565,7 @@ int ask_password_tty(
                 new_termios = old_termios;
                 termios_disable_echo(&new_termios);
 
-                r = RET_NERRNO(tcsetattr(ttyfd, TCSADRAIN, &new_termios));
+                r = RET_NERRNO(tcsetattr(ttyfd, TCSANOW, &new_termios));
                 if (r < 0)
                         goto finish;
 
@@ -783,7 +782,7 @@ skipped:
 finish:
         if (ttyfd >= 0 && reset_tty) {
                 (void) loop_write(ttyfd, "\n", 1);
-                (void) tcsetattr(ttyfd, TCSADRAIN, &old_termios);
+                (void) tcsetattr(ttyfd, TCSANOW, &old_termios);
         }
 
         return r;
@@ -818,6 +817,8 @@ static int create_socket(const char *askpwdir, char **ret) {
         r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
                 return r;
+
+        (void) setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
 
         *ret = TAKE_PTR(path);
         return TAKE_FD(fd);
@@ -1132,6 +1133,8 @@ static int ask_password_credential(const AskPasswordRequest *req, AskPasswordFla
         r = read_credential(req->credential, (void**) &buffer, &size);
         if (IN_SET(r, -ENXIO, -ENOENT)) /* No credentials passed or this credential not defined? */
                 return -ENOKEY;
+        if (r < 0)
+                return r;
 
         l = strv_parse_nulstr(buffer, size);
         if (!l)

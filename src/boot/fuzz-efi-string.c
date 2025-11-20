@@ -31,10 +31,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         DO_NOT_OPTIMIZE(parse_number8(str8, &(uint64_t){ 0 }, size % 2 == 0 ? NULL : &tail8));
 
         const char16_t *tail16 = NULL;
-        _cleanup_free_ char16_t *str16 = memdup_str16(data, size);
+        _cleanup_free_ char16_t *str16 = ASSERT_SE_PTR(memdup_str16(data, size));
         DO_NOT_OPTIMIZE(parse_number16(str16, &(uint64_t){ 0 }, size % 2 == 0 ? NULL : &tail16));
 
-        _cleanup_free_ char16_t *pattern = memdup_str16(data, len), *haystack = memdup_str16(data + len, len2);
+        _cleanup_free_ char16_t
+                *pattern = ASSERT_SE_PTR(memdup_str16(data, len)),
+                *haystack = ASSERT_SE_PTR(memdup_str16(data + len, len2));
         DO_NOT_OPTIMIZE(efi_fnmatch(pattern, haystack));
 
         return 0;

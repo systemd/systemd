@@ -781,7 +781,7 @@ static void swap_enter_activating(Swap *s) {
                 }
         }
 
-        r = exec_command_set(s->control_command, "/sbin/swapon", "--fixpgsz", NULL);
+        r = exec_command_set(s->control_command, SWAPON, "--fixpgsz", NULL);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to initialize swapon command line: %m");
                 goto fail;
@@ -826,7 +826,7 @@ static void swap_enter_deactivating(Swap *s) {
         s->control_command = s->exec_command + SWAP_EXEC_DEACTIVATE;
 
         r = exec_command_set(s->control_command,
-                             "/sbin/swapoff",
+                             SWAPOFF,
                              s->what,
                              NULL);
         if (r < 0) {
@@ -864,19 +864,6 @@ static int swap_start(Unit *u) {
         int r;
 
         assert(s);
-
-        /* We cannot fulfill this request right now, try again later please! */
-        if (IN_SET(s->state,
-                   SWAP_DEACTIVATING,
-                   SWAP_DEACTIVATING_SIGTERM,
-                   SWAP_DEACTIVATING_SIGKILL,
-                   SWAP_CLEANING))
-                return -EAGAIN;
-
-        /* Already on it! */
-        if (s->state == SWAP_ACTIVATING)
-                return 0;
-
         assert(IN_SET(s->state, SWAP_DEAD, SWAP_FAILED));
 
         if (detect_container() > 0)
@@ -1521,9 +1508,13 @@ static int swap_can_clean(Unit *u, ExecCleanMask *ret) {
         return exec_context_get_clean_mask(&s->exec_context, ret);
 }
 
-static int swap_can_start(Unit *u) {
+static int swap_test_startable(Unit *u) {
         Swap *s = ASSERT_PTR(SWAP(u));
         int r;
+
+        /* It is already being started. */
+        if (s->state == SWAP_ACTIVATING)
+                return false;
 
         r = unit_test_start_limit(u);
         if (r < 0) {
@@ -1531,7 +1522,7 @@ static int swap_can_start(Unit *u) {
                 return r;
         }
 
-        return 1;
+        return true;
 }
 
 int swap_get_priority(const Swap *s) {
@@ -1652,7 +1643,7 @@ const UnitVTable swap_vtable = {
                 },
         },
 
-        .can_start = swap_can_start,
+        .test_startable = swap_test_startable,
 
         .notify_plymouth = true,
 };

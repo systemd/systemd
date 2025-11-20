@@ -85,8 +85,7 @@ int manager_image_cache_add(Manager *m, Image *image) {
         return 0;
 }
 
-int manager_image_cache_discover(Manager *m, Hashmap *images, sd_bus_error *error) {
-        Image *image;
+int manager_image_cache_discover(Manager *m, Hashmap **ret_images, sd_bus_error *error) {
         int r;
 
         assert(m);
@@ -94,12 +93,17 @@ int manager_image_cache_discover(Manager *m, Hashmap *images, sd_bus_error *erro
         /* A wrapper around image_discover() (for finding images in search path) and portable_discover_attached() (for
          * finding attached images). */
 
-        r = image_discover(m->runtime_scope, IMAGE_PORTABLE, NULL, images);
+        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        r = image_discover(m->runtime_scope, IMAGE_PORTABLE, NULL, &images);
         if (r < 0)
                 return r;
 
+        Image *image;
         HASHMAP_FOREACH(image, images)
                 (void) manager_image_cache_add(m, image);
+
+        if (ret_images)
+                *ret_images = TAKE_PTR(images);
 
         return 0;
 }

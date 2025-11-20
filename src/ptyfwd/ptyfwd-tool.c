@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -96,7 +97,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_BACKGROUND:
-                        r = free_and_strdup_warn(&arg_background, optarg);
+                        r = parse_background_argument(optarg, &arg_background);
                         if (r < 0)
                                 return r;
                         break;

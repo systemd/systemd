@@ -50,7 +50,7 @@ static inline int __coverity_check_and_return__(int condition) {
 
 #define assert_message_se(expr, message) __coverity_check__(!!(expr))
 
-#define assert_log(expr, message) __coverity_check_and_return__(!!(expr))
+#define assert_log(expr) __coverity_check_and_return__(!!(expr))
 
 #else  /* ! __COVERITY__ */
 

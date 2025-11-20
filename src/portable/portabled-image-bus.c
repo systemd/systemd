@@ -61,7 +61,7 @@ int bus_image_common_get_os_release(
                 return 1;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_service);
+                r = image_read_metadata(image, &image_policy_service, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -250,7 +250,7 @@ int bus_image_common_get_metadata(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int bus_image_method_get_metadata(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -539,7 +539,7 @@ int bus_image_common_remove(
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                r = image_remove(image);
+                r = image_remove(image, m->runtime_scope);
                 if (r < 0) {
                         (void) write(errno_pipe_fd[1], &r, sizeof(r));
                         _exit(EXIT_FAILURE);
@@ -801,7 +801,7 @@ int bus_image_common_mark_read_only(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = image_read_only(image, read_only);
+        r = image_read_only(image, read_only, m->runtime_scope);
         if (r < 0)
                 return r;
 
@@ -865,7 +865,7 @@ const sd_bus_vtable image_vtable[] = {
         SD_BUS_PROPERTY("Name", "s", NULL, offsetof(Image, name), 0),
         SD_BUS_PROPERTY("Path", "s", NULL, offsetof(Image, path), 0),
         SD_BUS_PROPERTY("Type", "s", property_get_type,  offsetof(Image, type), 0),
-        SD_BUS_PROPERTY("ReadOnly", "b", bus_property_get_bool, offsetof(Image, read_only), 0),
+        SD_BUS_PROPERTY("ReadOnly", "b", bus_property_get_image_is_read_only, 0, 0),
         SD_BUS_PROPERTY("CreationTimestamp", "t", NULL, offsetof(Image, crtime), 0),
         SD_BUS_PROPERTY("ModificationTimestamp", "t", NULL, offsetof(Image, mtime), 0),
         SD_BUS_PROPERTY("Usage", "t", NULL, offsetof(Image, usage), 0),
@@ -1156,11 +1156,7 @@ int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, cha
         assert(path);
         assert(nodes);
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = manager_image_cache_discover(m, images, error);
+        r = manager_image_cache_discover(m, &images, error);
         if (r < 0)
                 return r;
 

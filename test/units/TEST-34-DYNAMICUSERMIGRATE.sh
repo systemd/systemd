@@ -3,8 +3,6 @@
 set -eux
 set -o pipefail
 
-systemd-analyze log-level debug
-
 test_directory() {
     local directory="$1"
     local path="$2"
@@ -180,7 +178,7 @@ PrivateUsers=yes
 TemporaryFileSystem=/run /var/opt /var/lib /vol
 UMask=0000
 StateDirectory=testidmapped:sampleservice
-ExecStart=/bin/bash -c ' \
+ExecStart=bash -c ' \
     set -eux; \
     set -o pipefail; \
     touch /var/lib/sampleservice/testfile; \
@@ -213,7 +211,7 @@ PrivateUsers=no
 TemporaryFileSystem=/run /var/opt /var/lib /vol
 UMask=0000
 StateDirectory=testidmapped:sampleservice
-ExecStart=/bin/bash -c ' \
+ExecStart=bash -c ' \
     set -eux; \
     set -o pipefail; \
     touch /var/lib/sampleservice/testfile; \
@@ -238,7 +236,5 @@ if systemd-analyze compare-versions "$(uname -r)" ge 5.12; then
     test_check_idmapped_mounts
     test_check_idmapped_mounts_root
 fi
-
-systemd-analyze log-level info
 
 touch /testok

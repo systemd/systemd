@@ -9,7 +9,6 @@
 #include "cgroup-util.h"
 #include "dbus-cgroup.h"
 #include "escape.h"
-#include "firewall-util.h"
 #include "in-addr-prefix-util.h"
 #include "limits-util.h"
 #include "manager.h"
@@ -614,7 +613,7 @@ static int bus_cgroup_set_transient_property(
                         if (n == 0)
                                 *filters = strv_free(*filters);
 
-                        unit_invalidate_cgroup_bpf(u);
+                        unit_invalidate_cgroup_bpf_firewall(u);
 
                         f = memstream_init(&m);
                         if (!f)
@@ -1241,7 +1240,7 @@ int bus_cgroup_set_property(
         } else if (STR_IN_SET(name, "AllowedCPUs", "StartupAllowedCPUs", "AllowedMemoryNodes", "StartupAllowedMemoryNodes")) {
                 const void *a;
                 size_t n;
-                _cleanup_(cpu_set_reset) CPUSet new_set = {};
+                _cleanup_(cpu_set_done) CPUSet new_set = {};
 
                 r = sd_bus_message_read_array(message, 'y', &a, &n);
                 if (r < 0)
@@ -1267,12 +1266,10 @@ int bus_cgroup_set_property(
                                 set = &c->cpuset_mems;
                         else if (streq(name, "StartupAllowedMemoryNodes"))
                                 set = &c->startup_cpuset_mems;
+                        else
+                                assert_not_reached();
 
-                        assert(set);
-
-                        cpu_set_reset(set);
-                        *set = new_set;
-                        new_set = (CPUSet) {};
+                        cpu_set_done_and_replace(*set, new_set);
 
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPUSET);
                         unit_write_settingf(u, flags, name, "%s=\n%s=%s", name, name, setstr);
@@ -1529,7 +1526,7 @@ int bus_cgroup_set_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->device_policy = p;
-                        unit_invalidate_cgroup(u, CGROUP_MASK_DEVICES);
+                        unit_invalidate_cgroup(u, CGROUP_MASK_BPF_DEVICES);
                         unit_write_settingf(u, flags, name, "DevicePolicy=%s", policy);
                 }
 
@@ -1581,7 +1578,7 @@ int bus_cgroup_set_property(
                                 while (c->device_allow)
                                         cgroup_context_free_device_allow(c, c->device_allow);
 
-                        unit_invalidate_cgroup(u, CGROUP_MASK_DEVICES);
+                        unit_invalidate_cgroup(u, CGROUP_MASK_BPF_DEVICES);
 
                         f = memstream_init(&m);
                         if (!f)
@@ -1610,7 +1607,7 @@ int bus_cgroup_set_property(
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->ip_accounting = b;
 
-                        unit_invalidate_cgroup_bpf(u);
+                        unit_invalidate_cgroup_bpf_firewall(u);
                         unit_write_settingf(u, flags, name, "IPAccounting=%s", yes_no(b));
                 }
 
@@ -1672,7 +1669,7 @@ int bus_cgroup_set_property(
                         bool *reduced;
                         FILE *f;
 
-                        unit_invalidate_cgroup_bpf(u);
+                        unit_invalidate_cgroup_bpf_firewall(u);
 
                         f = memstream_init(&m);
                         if (!f)

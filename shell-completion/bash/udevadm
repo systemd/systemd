@@ -36,7 +36,7 @@ __get_all_device_nodes() {
 }
 
 __get_all_device_units() {
-    systemctl list-units -t device --full --no-legend --no-pager --plain 2>/dev/null | \
+    systemctl list-units -t device --full --no-legend --no-pager --plain 2>/dev/null |
         { while read -r a b; do echo "$a"; done; }
 }
 
@@ -51,12 +51,12 @@ __get_root() {
 
     for ((i=0; i < COMP_CWORD; i++)); do
         if [[ "${COMP_WORDS[i]}" = --root=* ]]; then
-             echo "${COMP_WORDS[i]#--root=}"
-             break
+            echo "${COMP_WORDS[i]#--root=}"
+            break
         fi
         if (( i > 0 )) && [[ "${COMP_WORDS[i-1]}" == "--root" ]]; then
-             echo "${COMP_WORDS[i]}"
-             break
+            echo "${COMP_WORDS[i]}"
+            break
         fi
     done
 }

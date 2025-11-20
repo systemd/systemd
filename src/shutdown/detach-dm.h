@@ -5,6 +5,6 @@
   Copyright © 2010 ProFUSION embedded systems
 ***/
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int dm_detach_all(bool *changed, bool last_try);

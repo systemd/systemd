@@ -2,6 +2,7 @@
 
 #include <fnmatch.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-id128.h"

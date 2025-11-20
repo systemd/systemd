@@ -4,7 +4,7 @@
 #include <sys/stat.h>
 #include <syslog.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "locale-setup.h"
 #include "vconsole-util.h"
 

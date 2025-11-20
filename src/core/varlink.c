@@ -4,7 +4,6 @@
 
 #include "constants.h"
 #include "errno-util.h"
-#include "json-util.h"
 #include "manager.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -69,16 +68,18 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
                               SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_duration_usec)));
 }
 
-static int build_managed_oom_cgroups_json(Manager *m, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *arr = NULL;
+static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *arr = NULL;
         int r;
 
         assert(m);
         assert(ret);
 
-        r = sd_json_build(&arr, SD_JSON_BUILD_EMPTY_ARRAY);
-        if (r < 0)
-                return r;
+        if (allow_empty) {
+                r = sd_json_build(&arr, SD_JSON_BUILD_EMPTY_ARRAY);
+                if (r < 0)
+                        return r;
+        }
 
         for (UnitType t = 0; t < _UNIT_TYPE_MAX; t++) {
 
@@ -93,6 +94,10 @@ static int build_managed_oom_cgroups_json(Manager *m, sd_json_variant **ret) {
 
                         c = unit_get_cgroup_context(u);
                         if (!c)
+                                continue;
+
+                        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+                        if (!crt || !crt->cgroup_path)
                                 continue;
 
                         FOREACH_ELEMENT(i, managed_oom_mode_properties) {
@@ -115,12 +120,17 @@ static int build_managed_oom_cgroups_json(Manager *m, sd_json_variant **ret) {
                 }
         }
 
-        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr)));
+        if (!arr) {
+                assert(!allow_empty);
+                *ret = NULL;
+                return 0;
+        }
+
+        r = sd_json_buildo(ret, SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr)));
         if (r < 0)
                 return r;
 
-        *ret = TAKE_PTR(v);
-        return 0;
+        return 1;
 }
 
 static int manager_varlink_send_managed_oom_initial(Manager *m) {
@@ -137,8 +147,8 @@ static int manager_varlink_send_managed_oom_initial(Manager *m) {
 
         assert(m->managed_oom_varlink);
 
-        r = build_managed_oom_cgroups_json(m, &v);
-        if (r < 0)
+        r = build_managed_oom_cgroups_json(m, /* allow_empty = */ false, &v);
+        if (r <= 0)
                 return r;
 
         return sd_varlink_send(m->managed_oom_varlink, "io.systemd.oom.ReportManagedOOMCGroups", v);
@@ -247,9 +257,11 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         if (!c)
                 return 0;
 
-        r = sd_json_build(&arr, SD_JSON_BUILD_EMPTY_ARRAY);
-        if (r < 0)
-                return r;
+        if (MANAGER_IS_SYSTEM(u->manager)) {
+                r = sd_json_build(&arr, SD_JSON_BUILD_EMPTY_ARRAY);
+                if (r < 0)
+                        return r;
+        }
 
         FOREACH_ELEMENT(i, managed_oom_mode_properties) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL;
@@ -261,6 +273,12 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
                 r = sd_json_variant_append_array(&arr, e);
                 if (r < 0)
                         return r;
+        }
+
+        if (!arr) {
+                /* There is nothing updated. Skip calling method. */
+                assert(!MANAGER_IS_SYSTEM(u->manager));
+                return 0;
         }
 
         r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr)));
@@ -316,7 +334,7 @@ static int vl_method_subscribe_managed_oom_cgroups(
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-        r = build_managed_oom_cgroups_json(m, &v);
+        r = build_managed_oom_cgroups_json(m, /* allow_empty = */ true, &v);
         if (r < 0)
                 return r;
 
@@ -366,6 +384,8 @@ int manager_setup_varlink_server(Manager *m) {
         r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.Manager.Describe", vl_method_describe_manager,
+                        "io.systemd.Manager.Reexecute", vl_method_reexecute_manager,
+                        "io.systemd.Manager.Reload", vl_method_reload_manager,
                         "io.systemd.Unit.List", vl_method_list_units,
                         "io.systemd.service.Ping", varlink_method_ping,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
@@ -407,9 +427,6 @@ static int manager_varlink_init_system(Manager *m) {
 
         assert(m);
 
-        if (!MANAGER_IS_SYSTEM(m))
-                return 0;
-
         r = manager_setup_varlink_server(m);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up varlink server: %m");
@@ -437,9 +454,6 @@ static int manager_varlink_init_user(Manager *m) {
         int r;
 
         assert(m);
-
-        if (!MANAGER_IS_USER(m))
-                return 0;
 
         if (MANAGER_IS_TEST_RUN(m))
                 return 0;
@@ -482,4 +496,19 @@ void manager_varlink_done(Manager *m) {
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
+}
+
+void manager_varlink_send_pending_reload_message(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (!m->pending_reload_message_vl)
+                return;
+
+        r = sd_varlink_reply(m->pending_reload_message_vl, /* parameters= */ NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
+
+        m->pending_reload_message_vl = sd_varlink_unref(m->pending_reload_message_vl);
 }

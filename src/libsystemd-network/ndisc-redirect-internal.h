@@ -3,7 +3,7 @@
 
 #include <linux/in6.h>
 
-#include "forward.h"
+#include "sd-forward.h"
 
 typedef struct sd_ndisc_redirect {
         unsigned n_ref;

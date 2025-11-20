@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/magic.h>
+#include <linux/nsfs.h>
+#include <sched.h>
 #include <sys/ioctl.h>
 #include <sys/mount.h>
+#include <unistd.h>
 
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "missing_magic.h"
-#include "missing_namespace.h"
-#include "missing_sched.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "parse-util.h"

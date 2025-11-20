@@ -4,7 +4,7 @@
 #include <sys/stat.h>           /* IWYU pragma: export */
 #include <sys/statfs.h>         /* IWYU pragma: export */
 
-#include "forward.h"
+#include "basic-forward.h"
 
 int stat_verify_regular(const struct stat *st);
 int verify_regular_at(int fd, const char *path, bool follow);
@@ -16,6 +16,7 @@ int is_dir_at(int fd, const char *path, bool follow);
 int is_dir(const char *path, bool follow);
 
 int stat_verify_symlink(const struct stat *st);
+int fd_verify_symlink(int fd);
 int is_symlink(const char *path);
 
 int stat_verify_linked(const struct stat *st);
@@ -29,7 +30,11 @@ static inline int dir_is_empty(const char *path, bool ignore_hidden_or_backup) {
         return dir_is_empty_at(AT_FDCWD, path, ignore_hidden_or_backup);
 }
 
-bool null_or_empty(struct stat *st) _pure_;
+bool stat_may_be_dev_null(struct stat *st) _pure_;
+bool stat_is_empty(struct stat *st) _pure_;
+static inline bool null_or_empty(struct stat *st) {
+        return stat_may_be_dev_null(st) || stat_is_empty(st);
+}
 int null_or_empty_path_with_root(const char *fn, const char *root);
 
 static inline int null_or_empty_path(const char *fn) {
@@ -105,4 +110,11 @@ static inline bool stat_is_set(const struct stat *st) {
 }
 static inline bool statx_is_set(const struct statx *sx) {
         return sx && sx->stx_mask != 0;
+}
+
+static inline bool inode_type_can_hardlink(mode_t m) {
+        /* returns true for all inode types that support hardlinks on linux. Note this is effectively all
+         * inode types except for directories (and those weird misc fds such as eventfds() that have no inode
+         * type). */
+        return IN_SET(m & S_IFMT, S_IFSOCK, S_IFLNK, S_IFREG, S_IFBLK, S_IFCHR, S_IFIFO);
 }

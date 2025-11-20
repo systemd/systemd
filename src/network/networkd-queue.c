@@ -293,7 +293,7 @@ int manager_process_requests(Manager *manager) {
                  * queued, then this event may make reply callback queue in sd-netlink full. */
                 if (netlink_get_reply_callback_count(manager->rtnl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
                     netlink_get_reply_callback_count(manager->genl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
-                    fw_ctx_get_reply_callback_count(manager->fw_ctx) >= REPLY_CALLBACK_COUNT_THRESHOLD)
+                    netlink_get_reply_callback_count(manager->nfnl) >= REPLY_CALLBACK_COUNT_THRESHOLD)
                         break;
 
                 /* Avoid the request and link freed by req->process() and request_detach(). */

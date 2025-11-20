@@ -286,6 +286,8 @@ static int enumerate_dir_d(
                 log_debug("Adding to drops: %s %s %s %s %s/%s",
                           unit, glyph(GLYPH_ARROW_RIGHT), *file, glyph(GLYPH_ARROW_RIGHT), path, *file);
                 r = path_put(&h, path, *file, /* override = */ false);
+                if (r < 0)
+                        return r;
         }
         return 0;
 }

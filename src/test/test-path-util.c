@@ -1202,6 +1202,7 @@ TEST(hidden_or_backup_file) {
         assert_se(hidden_or_backup_file("aquota.user"));
         assert_se(hidden_or_backup_file("aquota.group"));
 
+        assert_se(hidden_or_backup_file("test.ignore"));
         assert_se(hidden_or_backup_file("test.rpmnew"));
         assert_se(hidden_or_backup_file("test.dpkg-old"));
         assert_se(hidden_or_backup_file("test.dpkg-remove"));
@@ -1236,6 +1237,42 @@ TEST(empty_or_root) {
         assert_se(!empty_or_root("/xxx"));
         assert_se(!empty_or_root("/xxx/"));
         assert_se(!empty_or_root("//yy//"));
+}
+
+TEST(empty_or_root_harder_to_null) {
+        const char *p;
+
+        p = NULL;
+        ASSERT_OK(empty_or_root_harder_to_null(&p));
+        ASSERT_NULL(p);
+
+        p = "/";
+        ASSERT_OK(empty_or_root_harder_to_null(&p));
+        ASSERT_NULL(p);
+
+        p = "////////";
+        ASSERT_OK(empty_or_root_harder_to_null(&p));
+        ASSERT_NULL(p);
+
+        p = "/../../././//";
+        ASSERT_OK(empty_or_root_harder_to_null(&p));
+        ASSERT_NULL(p);
+
+        p = "/usr";
+        ASSERT_OK(empty_or_root_harder_to_null(&p));
+        ASSERT_STREQ(p, "/usr");
+
+        p = "/usr/../../../";
+        ASSERT_OK(empty_or_root_harder_to_null(&p));
+        ASSERT_NULL(p);
+
+        p = "/usr/";
+        ASSERT_OK(empty_or_root_harder_to_null(&p));
+        ASSERT_STREQ(p, "/usr/");
+
+        p = "///././/../../usr////";
+        ASSERT_OK(empty_or_root_harder_to_null(&p));
+        ASSERT_STREQ(p, "///././/../../usr////");
 }
 
 TEST(path_startswith_set) {

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef struct BusObjectVtablePair {
         const sd_bus_vtable *vtable;
@@ -26,4 +26,4 @@ int bus_add_implementation(sd_bus *bus, const BusObjectImplementation *impl, voi
 int bus_introspect_implementations(
                 FILE *out,
                 const char *pattern,
-                const BusObjectImplementation* const* bus_objects);
+                const BusObjectImplementation* const *bus_objects);

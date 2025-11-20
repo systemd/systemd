@@ -11,7 +11,7 @@
 #include <linux/wireguard.h>
 #include <netinet/in.h>
 
-#include "missing_network.h"
+#include "missing-network.h"
 #include "netlink-genl.h"
 #include "netlink-types-internal.h"
 

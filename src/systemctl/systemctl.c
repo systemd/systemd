@@ -16,6 +16,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "static-destruct.h"
 #include "string-table.h"
@@ -23,9 +24,7 @@
 #include "strv.h"
 #include "systemctl.h"
 #include "systemctl-compat-halt.h"
-#include "systemctl-compat-runlevel.h"
 #include "systemctl-compat-shutdown.h"
-#include "systemctl-compat-telinit.h"
 #include "systemctl-logind.h"
 #include "time-util.h"
 
@@ -88,6 +87,7 @@ bool arg_mkdir = false;
 bool arg_marked = false;
 const char *arg_drop_in = NULL;
 ImagePolicy *arg_image_policy = NULL;
+char *arg_kill_subgroup = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_types, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_states, strv_freep);
@@ -103,6 +103,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_boot_loader_entry, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_clean_what, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, unsetp);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_kill_subgroup, freep);
 
 static int systemctl_help(void) {
         _cleanup_free_ char *link = NULL;
@@ -253,9 +254,11 @@ static int systemctl_help(void) {
                "                         Whether to check inhibitors before shutting down,\n"
                "                         sleeping, or hibernating\n"
                "  -i                     Shortcut for --check-inhibitors=no\n"
+               "  -s --signal=SIGNAL     Which signal to send\n"
                "     --kill-whom=WHOM    Whom to send signal to\n"
                "     --kill-value=INT    Signal value to enqueue\n"
-               "  -s --signal=SIGNAL     Which signal to send\n"
+               "     --kill-subgroup=PATH\n"
+               "                         Send signal to sub-control group only\n"
                "     --what=RESOURCES    Which types of resources to remove\n"
                "     --now               Start or stop unit after enabling or disabling it\n"
                "     --dry-run           Only print what would be done\n"
@@ -271,7 +274,7 @@ static int systemctl_help(void) {
                "                         For kill, wait until service stopped\n"
                "     --no-block          Do not wait until operation finished\n"
                "     --no-wall           Don't send wall message before halt/power-off/reboot\n"
-               "     --message=MESSAGE   Specify human readable reason for system shutdown\n"
+               "     --message=MESSAGE   Specify human-readable reason for system shutdown\n"
                "     --no-reload         Don't reload daemon after en-/dis-abling unit files\n"
                "     --legend=BOOL       Enable/disable the legend (column headers and hints)\n"
                "     --no-pager          Do not pipe output into a pager\n"
@@ -438,6 +441,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_DROP_IN,
                 ARG_WHEN,
                 ARG_STDIN,
+                ARG_KILL_SUBGROUP,
         };
 
         static const struct option options[] = {
@@ -507,6 +511,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
                 { "when",                required_argument, NULL, ARG_WHEN                },
                 { "stdin",               no_argument,       NULL, ARG_STDIN               },
+                { "kill-subgroup",       required_argument, NULL, ARG_KILL_SUBGROUP       },
                 {}
         };
 
@@ -788,8 +793,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_RUNTIME:
@@ -804,10 +810,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
 
                         arg_output = output_mode_from_string(optarg);
                         if (arg_output < 0)
@@ -893,10 +897,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PRESET_MODE:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MODE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(unit_file_preset_mode, UnitFilePresetMode, _UNIT_FILE_PRESET_MODE_MAX);
 
                         arg_preset_mode = unit_file_preset_mode_from_string(optarg);
                         if (arg_preset_mode < 0)
@@ -958,10 +960,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TIMESTAMP_STYLE:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(timestamp_style, TimestampStyle, _TIMESTAMP_STYLE_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(timestamp_style, TimestampStyle, _TIMESTAMP_STYLE_MAX);
 
                         arg_timestamp_style = timestamp_style_from_string(optarg);
                         if (arg_timestamp_style < 0)
@@ -1019,6 +1019,23 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 case ARG_STDIN:
                         arg_stdin = true;
                         break;
+
+                case ARG_KILL_SUBGROUP: {
+                        if (empty_or_root(optarg)) {
+                                arg_kill_subgroup = mfree(arg_kill_subgroup);
+                                break;
+                        }
+
+                        _cleanup_free_ char *p = NULL;
+                        if (path_simplify_alloc(optarg, &p) < 0)
+                                return log_oom();
+
+                        if (!path_is_safe(p))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Control group sub-path '%s' is not valid.", p);
+
+                        free_and_replace(arg_kill_subgroup, p);
+                        break;
+                }
 
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
@@ -1099,28 +1116,6 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
         } else if (invoked_as(argv, "shutdown")) {
                 arg_action = ACTION_POWEROFF;
                 return shutdown_parse_argv(argc, argv);
-
-        } else if (invoked_as(argv, "init")) {
-
-                /* Matches invocations as "init" as well as "telinit", which are synonymous when run
-                 * as PID != 1 on SysV.
-                 *
-                 * On SysV "telinit" was the official command to communicate with PID 1, but "init" would
-                 * redirect itself to "telinit" if called with PID != 1. We follow the same logic here still,
-                 * though we add one level of indirection, as we implement "telinit" in "systemctl". Hence,
-                 * for us if you invoke "init" you get "systemd", but it will execve() "systemctl"
-                 * immediately with argv[] unmodified if PID is != 1. If you invoke "telinit" you directly
-                 * get "systemctl". In both cases we shall do the same thing, which is why we do
-                 * invoked_as(argv, "init") here, as a quick way to match both.
-                 *
-                 * Also see redirect_telinit() in src/core/main.c. */
-
-                arg_action = _ACTION_INVALID; /* telinit_parse_argv() will figure out the actual action we'll execute */
-                return telinit_parse_argv(argc, argv);
-
-        } else if (invoked_as(argv, "runlevel")) {
-                arg_action = ACTION_RUNLEVEL;
-                return runlevel_parse_argv(argc, argv);
         }
 
         arg_action = ACTION_SYSTEMCTL;

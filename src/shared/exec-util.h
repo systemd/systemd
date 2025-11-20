@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef int (*gather_stdout_callback_t) (int fd, void *arg);
 
@@ -32,6 +32,7 @@ int execute_strv(
                 ExecDirFlags flags);
 
 int execute_directories(
+                const char *name,
                 const char * const *directories,
                 usec_t timeout,
                 gather_stdout_callback_t const callbacks[_STDOUT_CONSUME_MAX],

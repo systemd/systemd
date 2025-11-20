@@ -30,6 +30,10 @@
       <member><filename>/run/systemd/user-preset/*.preset</filename></member>
       <member><filename>/usr/local/lib/systemd/user-preset/*.preset</filename></member>
       <member><filename>/usr/lib/systemd/user-preset/*.preset</filename></member>
+      <member><filename>/etc/systemd/initrd-preset/*.preset</filename></member>
+      <member><filename>/run/systemd/initrd-preset/*.preset</filename></member>
+      <member><filename>/usr/local/lib/systemd/initrd-preset/*.preset</filename></member>
+      <member><filename>/usr/lib/systemd/initrd-preset/*.preset</filename></member>
     </simplelist></para>
   </refsynopsisdiv>
 

@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-quotacheck_.service" conditional='ENABLE_QUOTACHECK'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-quotacheck@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-quotacheck@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-quotacheck@.service</refname>
+    <refname>systemd-quotacheck-root.service</refname>
+    <refname>systemd-quotacheck</refname>
+    <refpurpose>File system quota checker logic</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-quotacheck@.service</filename></para>
+    <para><filename>systemd-quotacheck-root.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-quotacheck</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-quotacheck@.service</filename> and
+    <filename>systemd-quotacheck-root.service</filename> are services responsible for file system quota
+    checks. They run once at boot after all necessary file systems are mounted. They are pulled in only if at
+    least one file system has quotas enabled.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <para><filename>systemd-quotacheck</filename> understands one
+    kernel command line parameter:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>quotacheck.mode=</varname></term>
+
+        <listitem><para>One of <literal>auto</literal>,
+        <literal>force</literal>, <literal>skip</literal>. Controls
+        the mode of operation. The default is <literal>auto</literal>,
+        and ensures that file system quota checks are done when the
+        file system quota checker deems them necessary.
+        <literal>force</literal> unconditionally results in full file
+        system quota checks. <literal>skip</literal> skips any file
+        system quota checks.</para>
+
+        <xi:include href="version-info.xml" xpointer="v186"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-quotacheck</command> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>quotacheck.mode</varname></term>
+
+        <listitem>
+          <para>The contents of the credential is parsed as same as the kernel command line option with the
+          same name. See above for more details.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-quotacheck@.service</filename> and
+    <filename>systemd-quotacheck-root.service</filename> unit files are set up to inherit
+    <varname>quotacheck.mode</varname> credential from the service manager.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>quotacheck</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

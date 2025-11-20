@@ -26,24 +26,26 @@ __contains_word() {
 
 __get_users() {
     local a b
-    loginctl list-users --no-legend --no-pager | { while read a b; do echo " $b"; done; };
+    loginctl list-users --no-legend --no-pager 2>/dev/null |
+        { while read -r a b; do echo " $b"; done; }
 }
 
 __get_slices() {
     local a b
-    systemctl list-units -t slice --no-legend --no-pager --plain | { while read a b; do echo " $a"; done; };
+    systemctl list-units -t slice --no-legend --no-pager --plain 2>/dev/null |
+        { while read -r a b; do echo " $a"; done; }
 }
 
 __get_machines() {
     local a b
-    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-	{ while read a b; do echo " $a"; done; } | \
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
+        { while read -r a b; do echo " $a"; done; } |
         sort -u
 }
 
 __get_env() {
     local a
-    env | { while read a; do echo " ${a%%=*}"; done; };
+    env | { while read -r a; do [[ $a =~ ^[A-Za-z0-9_]+= ]] && echo " ${a%%=*}"; done; }
 }
 
 __get_interfaces(){

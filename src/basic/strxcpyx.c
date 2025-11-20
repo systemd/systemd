@@ -41,7 +41,7 @@ size_t strnpcpy_full(char **dest, size_t size, const char *src, size_t len, bool
         if (ret_truncated)
                 *ret_truncated = truncated;
 
-        *dest[0] = '\0';
+        (*dest)[0] = '\0';
         return size;
 }
 

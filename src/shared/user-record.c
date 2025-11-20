@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "bitfield.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "cgroup-util.h"
 #include "dns-domain.h"
 #include "glyph-util.h"
@@ -1403,6 +1403,7 @@ static int dispatch_status(const char *name, sd_json_variant *variant, sd_json_d
                 { "fallbackHomeDirectory",      SD_JSON_VARIANT_STRING,        json_dispatch_home_directory,   offsetof(UserRecord, fallback_home_directory),       0              },
                 { "useFallback",                SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,       offsetof(UserRecord, use_fallback),                  0              },
                 { "defaultArea",                SD_JSON_VARIANT_STRING,        json_dispatch_filename,         offsetof(UserRecord, default_area),                  0              },
+                { "aliases",                    SD_JSON_VARIANT_ARRAY,         json_dispatch_user_group_list,  offsetof(UserRecord, aliases),                       SD_JSON_RELAX  },
                 {},
         };
 
@@ -1530,6 +1531,11 @@ int user_group_record_mangle(
 
         if (USER_RECORD_STRIP_MASK(load_flags) == _USER_RECORD_MASK_MAX) /* strip everything? */
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EINVAL), "Stripping everything from record, refusing.");
+
+        /* Extra safety: mark the "secret" part (that contains literal passwords and such) as sensitive, so
+         * that it is not included in debug output and erased from memory when we are done. We do this for
+         * any record that passes through here. */
+        sd_json_variant_sensitive(sd_json_variant_by_key(v, "secret"));
 
         /* Check if we have the special sections and if they match our flags set */
         FOREACH_ELEMENT(i, mask_field) {
@@ -2035,7 +2041,7 @@ uint64_t user_record_luks_sector_size(UserRecord *h) {
                 return 512;
 
         /* Allow up to 4K due to dm-crypt support and 4K alignment by the homed LUKS backend */
-        return CLAMP(UINT64_C(1) << (63 - __builtin_clzl(h->luks_sector_size)), 512U, 4096U);
+        return CLAMP(UINT64_C(1) << (63 - __builtin_clzll(h->luks_sector_size)), 512U, 4096U);
 }
 
 const char* user_record_luks_pbkdf_hash_algorithm(UserRecord *h) {
@@ -2771,7 +2777,8 @@ bool userdb_match_is_set(const UserDBMatch *match) {
         return !strv_isempty(match->fuzzy_names) ||
                 !FLAGS_SET(match->disposition_mask, USER_DISPOSITION_MASK_ALL) ||
                 match->uid_min > 0 ||
-                match->uid_max < UID_INVALID-1;
+                match->uid_max < UID_INVALID-1 ||
+                !sd_id128_is_null(match->uuid);
 }
 
 void userdb_match_done(UserDBMatch *match) {
@@ -2828,6 +2835,9 @@ bool user_record_match(UserRecord *u, const UserDBMatch *match) {
                 return false;
 
         if (!BIT_SET(match->disposition_mask, user_record_disposition(u)))
+                return false;
+
+        if (!sd_id128_is_null(match->uuid) && !sd_id128_equal(match->uuid, u->uuid))
                 return false;
 
         if (!strv_isempty(match->fuzzy_names)) {

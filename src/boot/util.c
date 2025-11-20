@@ -195,16 +195,27 @@ EFI_STATUS file_read(
         return file_handle_read(handle, offset, size, ret, ret_size);
 }
 
+void set_attribute_safe(size_t attr) {
+        /* Various UEFI implementations suppress color changes from a color to the same color. Often, we want
+         * to force out the color change though, hence change the color here once, and then back. We simply
+         * mark the color as bright for a moment, and then revert that. */
+
+        attr ^= 0x08;
+        ST->ConOut->SetAttribute(ST->ConOut, attr);
+        attr ^= 0x08;
+        ST->ConOut->SetAttribute(ST->ConOut, attr);
+}
+
 void print_at(size_t x, size_t y, size_t attr, const char16_t *str) {
         assert(str);
         ST->ConOut->SetCursorPosition(ST->ConOut, x, y);
-        ST->ConOut->SetAttribute(ST->ConOut, attr);
+        set_attribute_safe(attr);
         ST->ConOut->OutputString(ST->ConOut, (char16_t *) str);
 }
 
 void clear_screen(size_t attr) {
         log_wait();
-        ST->ConOut->SetAttribute(ST->ConOut, attr);
+        set_attribute_safe(attr);
         ST->ConOut->ClearScreen(ST->ConOut);
 }
 

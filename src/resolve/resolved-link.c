@@ -8,6 +8,8 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-rr.h"
 #include "env-file.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -17,8 +19,7 @@
 #include "mkdir.h"
 #include "netif-util.h"
 #include "parse-util.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-rr.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -176,6 +177,7 @@ void link_allocate_scopes(Link *l) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv4_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_MDNS, AF_INET);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv4 scope, ignoring: %m");
+                        dns_browse_services_restart(l->manager);
                 }
         } else
                 l->mdns_ipv4_scope = dns_scope_free(l->mdns_ipv4_scope);
@@ -186,6 +188,7 @@ void link_allocate_scopes(Link *l) {
                         r = dns_scope_new(l->manager, &l->mdns_ipv6_scope, DNS_SCOPE_LINK, l, /* delegate= */ NULL, DNS_PROTOCOL_MDNS, AF_INET6);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to allocate mDNS IPv6 scope, ignoring: %m");
+                        dns_browse_services_restart(l->manager);
                 }
         } else
                 l->mdns_ipv6_scope = dns_scope_free(l->mdns_ipv6_scope);
@@ -201,13 +204,13 @@ void link_add_rrs(Link *l, bool force_remove) {
             link_get_mdns_support(l) == RESOLVE_SUPPORT_YES) {
 
                 if (l->mdns_ipv4_scope) {
-                        r = dns_scope_add_dnssd_services(l->mdns_ipv4_scope);
+                        r = dns_scope_add_dnssd_registered_services(l->mdns_ipv4_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to add IPv4 DNS-SD services, ignoring: %m");
                 }
 
                 if (l->mdns_ipv6_scope) {
-                        r = dns_scope_add_dnssd_services(l->mdns_ipv6_scope);
+                        r = dns_scope_add_dnssd_registered_services(l->mdns_ipv6_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to add IPv6 DNS-SD services, ignoring: %m");
                 }
@@ -215,13 +218,13 @@ void link_add_rrs(Link *l, bool force_remove) {
         } else {
 
                 if (l->mdns_ipv4_scope) {
-                        r = dns_scope_remove_dnssd_services(l->mdns_ipv4_scope);
+                        r = dns_scope_remove_dnssd_registered_services(l->mdns_ipv4_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to remove IPv4 DNS-SD services, ignoring: %m");
                 }
 
                 if (l->mdns_ipv6_scope) {
-                        r = dns_scope_remove_dnssd_services(l->mdns_ipv6_scope);
+                        r = dns_scope_remove_dnssd_registered_services(l->mdns_ipv6_scope);
                         if (r < 0)
                                 log_link_warning_errno(l, r, "Failed to remove IPv6 DNS-SD services, ignoring: %m");
                 }
@@ -674,14 +677,35 @@ int link_update(Link *l) {
         return 0;
 }
 
+static bool link_has_link_local_dns(Link *l, int family) {
+
+        /* Check if the link has a link-local dns server for the specified family */
+
+        LIST_FOREACH(servers, s, l->dns_servers)
+                if ((family == AF_UNSPEC || s->family == family) &&
+                    in_addr_is_link_local(s->family, &s->address))
+                        return true;
+
+        return false;
+}
+
 bool link_relevant(Link *l, int family, bool local_multicast) {
+        bool allow_link_local;
+
         assert(l);
 
-        /* A link is relevant for local multicast traffic if it isn't a loopback device, has a link
-         * beat, can do multicast and has at least one link-local (or better) IP address.
-         *
-         * A link is relevant for non-multicast traffic if it isn't a loopback device, has a link beat, and has at
-         * least one routable address. */
+        /*
+         * A link is relevant if:
+         * - it isn't a loopback device
+         * - has a link beat
+         * - for multicast traffic:
+         *   - can do multicast
+         *   - has at least one link-local (or better) IP address.
+         * - for non-multicast traffic:
+         *   - has at least one address that must be:
+         *     - At least link-local, if using a link-local dns server to this interface.
+         *     - Better than link-local.
+         */
 
         if ((l->flags & (IFF_LOOPBACK | IFF_DORMANT)) != 0)
                 return false;
@@ -700,8 +724,11 @@ bool link_relevant(Link *l, int family, bool local_multicast) {
             !IN_SET(l->networkd_operstate, LINK_OPERSTATE_DEGRADED_CARRIER, LINK_OPERSTATE_DEGRADED, LINK_OPERSTATE_ROUTABLE))
                 return false;
 
+        allow_link_local = local_multicast || link_has_link_local_dns(l, family);
+
         LIST_FOREACH(addresses, a, l->addresses)
-                if ((family == AF_UNSPEC || a->family == family) && link_address_relevant(a, local_multicast))
+                if ((family == AF_UNSPEC || a->family == family) &&
+                    link_address_relevant(a, allow_link_local))
                         return true;
 
         return false;
@@ -1179,13 +1206,13 @@ int link_address_update_rtnl(LinkAddress *a, sd_netlink_message *m) {
         return 0;
 }
 
-bool link_address_relevant(LinkAddress *a, bool local_multicast) {
+bool link_address_relevant(LinkAddress *a, bool allow_link_local) {
         assert(a);
 
         if (a->flags & (IFA_F_DEPRECATED|IFA_F_TENTATIVE))
                 return false;
 
-        if (a->scope >= (local_multicast ? RT_SCOPE_HOST : RT_SCOPE_LINK))
+        if (a->scope >= (allow_link_local ? RT_SCOPE_HOST : RT_SCOPE_LINK))
                 return false;
 
         return true;

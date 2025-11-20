@@ -27,7 +27,7 @@
       <funcsynopsisinfo>#include &lt;systemd/sd-bus.h&gt;</funcsynopsisinfo>
 
       <funcprototype>
-        <funcdef>void <function>sd_bus_can_send</function></funcdef>
+        <funcdef>int <function>sd_bus_can_send</function></funcdef>
         <paramdef>sd_bus *<parameter>bus</parameter></paramdef>
         <paramdef>char <parameter>type</parameter></paramdef>
       </funcprototype>

@@ -19,7 +19,7 @@ at_exit() {
 }
 trap at_exit EXIT
 
-cat << EOF > /run/systemd/system/mqueue-ownership.socket
+cat <<EOF >/run/systemd/system/mqueue-ownership.socket
 [Unit]
 Description=Create a message queue with customized ownership
 [Socket]
@@ -30,12 +30,12 @@ SocketGroup=$group
 SocketMode=$mode
 EOF
 
-cat << 'EOF' > /run/systemd/system/mqueue-ownership.service
+cat <<EOF >/run/systemd/system/mqueue-ownership.service
 [Unit]
 Description=Dummy service for the socket unit
 Requires=%N.socket
 [Service]
-ExecStart=/usr/bin/true
+ExecStart=true
 Type=oneshot
 EOF
 

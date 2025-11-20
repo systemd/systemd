@@ -44,7 +44,7 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>char *<function>sd_id128_uuid_string</function></funcdef>
+        <funcdef>char *<function>sd_id128_to_uuid_string</function></funcdef>
         <paramdef>sd_id128_t <parameter>id</parameter>, char <parameter>s</parameter>[static SD_ID128_UUID_STRING_MAX]</paramdef>
       </funcprototype>
 
@@ -113,7 +113,7 @@
     <title>History</title>
     <para><function>sd_id128_to_string()</function> and
     <function>sd_id128_from_string()</function> were added in version 187.</para>
-    <para><function>sd_id128_uuid_string()</function> was added in version 251.</para>
+    <para><function>sd_id128_to_uuid_string()</function> was added in version 251.</para>
   </refsect1>
 
   <refsect1>

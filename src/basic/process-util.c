@@ -34,8 +34,6 @@
 #include "locale-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_sched.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nulstr-util.h"
@@ -1664,7 +1662,7 @@ int pidref_safe_fork_full(
                 }
 
                 if (ret_pid) {
-                        if (FLAGS_SET(flags, FORK_PID_ONLY))
+                        if (FLAGS_SET(flags, _FORK_PID_ONLY))
                                 *ret_pid = PIDREF_MAKE_FROM_PID(pid);
                         else {
                                 r = pidref_set_pid(ret_pid, pid);
@@ -1842,7 +1840,7 @@ int pidref_safe_fork_full(
                 freeze();
 
         if (ret_pid) {
-                if (FLAGS_SET(flags, FORK_PID_ONLY))
+                if (FLAGS_SET(flags, _FORK_PID_ONLY))
                         *ret_pid = PIDREF_MAKE_FROM_PID(getpid_cached());
                 else {
                         r = pidref_set_self(ret_pid);
@@ -1871,7 +1869,7 @@ int safe_fork_full(
          * a pidref to the caller. */
         assert(!FLAGS_SET(flags, FORK_DETACH) || !ret_pid);
 
-        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|FORK_PID_ONLY, ret_pid ? &pidref : NULL);
+        r = pidref_safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags|_FORK_PID_ONLY, ret_pid ? &pidref : NULL);
         if (r < 0 || !ret_pid)
                 return r;
 
@@ -2148,11 +2146,7 @@ int posix_spawn_wrapper(
         if (cgroup && have_clone_into_cgroup) {
                 _cleanup_free_ char *resolved_cgroup = NULL;
 
-                r = cg_get_path_and_check(
-                                SYSTEMD_CGROUP_CONTROLLER,
-                                cgroup,
-                                /* suffix= */ NULL,
-                                &resolved_cgroup);
+                r = cg_get_path(cgroup, /* suffix= */ NULL, &resolved_cgroup);
                 if (r < 0)
                         return r;
 

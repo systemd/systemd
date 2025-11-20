@@ -3,7 +3,7 @@
 
 #include <sys/sysmacros.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 int parse_devnum(const char *s, dev_t *ret);
 

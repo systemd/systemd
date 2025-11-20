@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-subdir('bpf/sysctl_monitor')
+subdir('bpf/sysctl-monitor')
 
 systemd_networkd_sources = files(
         'networkd.c'
@@ -74,6 +74,7 @@ systemd_networkd_extract_sources = files(
         'networkd-ntp.c',
         'networkd-queue.c',
         'networkd-radv.c',
+        'networkd-resolve-hook.c',
         'networkd-route.c',
         'networkd-route-metric.c',
         'networkd-route-nexthop.c',
@@ -140,24 +141,21 @@ networkctl_sources = files(
 networkd_network_gperf_gperf = files('networkd-network-gperf.gperf')
 networkd_netdev_gperf_gperf = files('netdev/netdev-gperf.gperf')
 
-if conf.get('HAVE_VMLINUX_H') == 1
+if conf.get('ENABLE_SYSCTL_BPF') == 1
         systemd_networkd_extract_sources += sysctl_monitor_skel_h
 endif
 
 networkd_gperf_c = custom_target(
-        'networkd-gperf.c',
         input : 'networkd-gperf.gperf',
         output : 'networkd-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 networkd_network_gperf_c = custom_target(
-        'networkd-network-gperf.c',
         input : networkd_network_gperf_gperf,
         output : 'networkd-network-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
 
 netdev_gperf_c = custom_target(
-        'netdev-gperf.c',
         input : networkd_netdev_gperf_gperf,
         output : 'netdev-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])

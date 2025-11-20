@@ -49,10 +49,9 @@ FSTAB_GENERAL=(
     "/dev/test25    /x-systemd.validatefs               xfs         x-systemd.validatefs 0 0"
 
     # Incomplete, but valid entries
-    "/dev/incomplete1 /incomplete1"
-    "/dev/incomplete2 /incomplete2                      ext4"
-    "/dev/incomplete3 /incomplete3                      ext4        defaults"
-    "/dev/incomplete4 /incomplete4                      ext4        defaults 0"
+    "/dev/incomplete1 /incomplete1                      ext4"
+    "/dev/incomplete2 /incomplete2                      ext4        defaults"
+    "/dev/incomplete3 /incomplete3                      ext4        defaults 0"
 
     # Remote filesystems
     "/dev/remote1   /nfs                                nfs         bg 0 0"

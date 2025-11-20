@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-event.h"
 
@@ -28,6 +29,7 @@ static int run(int argc, char *argv[]) {
         r = service_parse_argv("systemd-networkd.service",
                                "Manage and configure network devices, create virtual network devices",
                                BUS_IMPLEMENTATIONS(&manager_object, &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;
@@ -69,8 +71,9 @@ static int run(int argc, char *argv[]) {
         /* Always create the directories people can create inotify watches in. It is necessary to create the
          * following subdirectories after drop_privileges() to make them owned by systemd-network. */
         FOREACH_STRING(p,
-                       "/run/systemd/netif/links/",
-                       "/run/systemd/netif/leases/") {
+                       "/run/systemd/netif/dhcp-server-lease/",
+                       "/run/systemd/netif/leases/",
+                       "/run/systemd/netif/links/") {
                 r = mkdir_safe_label(p, 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
                 if (r < 0)
                         log_warning_errno(r, "Could not create directory '%s': %m", p);

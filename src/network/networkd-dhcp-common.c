@@ -338,7 +338,7 @@ int link_get_captive_portal(Link *link, const char **ret) {
 }
 
 int config_parse_dhcp(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -383,7 +383,7 @@ int config_parse_dhcp(
 }
 
 int config_parse_dhcp_route_metric(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,
@@ -492,7 +492,7 @@ int config_parse_ndisc_route_metric(
 }
 
 int config_parse_dhcp_send_hostname(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,

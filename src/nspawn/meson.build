@@ -22,7 +22,6 @@ nspawn_extract_sources = files(
 )
 
 nspawn_gperf_c = custom_target(
-        'nspawn-gperf.c',
         input : 'nspawn-gperf.gperf',
         output : 'nspawn-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -31,7 +30,7 @@ generated_sources += nspawn_gperf_c
 nspawn_extract_sources += nspawn_gperf_c
 
 nspawn_common_template = {
-        'dependencies' : libseccomp,
+        'dependencies' : libseccomp_cflags,
         'objects' : ['systemd-nspawn'],
 }
 nspawn_test_template = test_template + nspawn_common_template
@@ -48,9 +47,8 @@ executables += [
                 ],
                 'extract' : nspawn_extract_sources,
                 'dependencies' : [
-                        libblkid,
-                        libseccomp,
-                        libselinux,
+                        libseccomp_cflags,
+                        libselinux_cflags,
                 ],
         },
         nspawn_test_template + {

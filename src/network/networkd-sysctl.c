@@ -26,11 +26,11 @@
 #include "string-util.h"
 #include "sysctl-util.h"
 
-#if HAVE_VMLINUX_H
+#if ENABLE_SYSCTL_BPF
 
 #include "bpf-link.h"
-#include "bpf/sysctl_monitor/sysctl-monitor-skel.h"
-#include "bpf/sysctl_monitor/sysctl-write-event.h"
+#include "bpf/sysctl-monitor/sysctl-monitor-skel.h"
+#include "bpf/sysctl-monitor/sysctl-write-event.h"
 
 static struct sysctl_monitor_bpf* sysctl_monitor_bpf_free(struct sysctl_monitor_bpf *obj) {
         sysctl_monitor_bpf__destroy(obj);
@@ -109,11 +109,11 @@ int manager_install_sysctl_monitor(Manager *manager) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to load libbpf, not installing sysctl monitor: %m");
 
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+        r = cg_pid_get_path(0, &cgroup);
         if (r < 0)
                 return log_warning_errno(r, "Failed to get cgroup path, ignoring: %m.");
 
-        root_cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        root_cgroup_fd = cg_path_open("/");
         if (root_cgroup_fd < 0)
                 return log_warning_errno(root_cgroup_fd, "Failed to open cgroup, ignoring: %m");
 
@@ -122,7 +122,7 @@ int manager_install_sysctl_monitor(Manager *manager) {
                 return log_full_errno(errno == EINVAL ? LOG_DEBUG : LOG_INFO, errno,
                                       "Unable to load sysctl monitor BPF program, ignoring: %m");
 
-        cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, cgroup);
+        cgroup_fd = cg_path_open(cgroup);
         if (cgroup_fd < 0)
                 return log_warning_errno(cgroup_fd, "Failed to open cgroup: %m");
 
@@ -376,6 +376,8 @@ static int link_set_ip_forwarding(Link *link, int family) {
          * re-apply per-link setting for all links. */
         if (FLAGS_SET(link->network->ip_masquerade, AF_TO_ADDRESS_FAMILY(family)) &&
             link->manager->ip_forwarding[family == AF_INET6] < 0) {
+
+                log_link_notice(link, "IPMasquerade= is enabled on the interface, enabling the global IPv6Forwarding= setting, which may affect NDisc and DHCPv6 client on other interfaces.");
 
                 link->manager->ip_forwarding[family == AF_INET6] = true;
                 manager_set_ip_forwarding(link->manager, family);
@@ -783,7 +785,7 @@ DEFINE_STRING_TABLE_LOOKUP(ip_reverse_path_filter, IPReversePathFilter);
 DEFINE_CONFIG_PARSE_ENUM(config_parse_ip_reverse_path_filter, ip_reverse_path_filter, IPReversePathFilter);
 
 int config_parse_ip_forward_deprecated(
-                const char* unit,
+                const char *unit,
                 const char *filename,
                 unsigned line,
                 const char *section,

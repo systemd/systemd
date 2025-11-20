@@ -5,7 +5,7 @@
 
 #include <libfdisk.h> /* IWYU pragma: export */
 
-#include "forward.h"
+#include "shared-forward.h"
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_context*, fdisk_unref_context, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct fdisk_partition*, fdisk_unref_partition, NULL);

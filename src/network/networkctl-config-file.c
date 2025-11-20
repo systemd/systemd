@@ -66,7 +66,7 @@ static int get_config_files_by_name(
         _cleanup_free_ char *path = NULL;
         int r;
 
-        assert(name);
+        assert(filename_is_valid(name));
         assert(ret_path);
 
         STRV_FOREACH(i, NETWORK_DIRS) {
@@ -520,12 +520,15 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                         continue;
                 }
 
+                if (!filename_is_valid(*name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid config filename: %s", *name);
+
                 if (ENDSWITH_SET(*name, ".network", ".netdev"))
                         reload |= RELOAD_NETWORKD;
                 else if (endswith(*name, ".link"))
                         reload |= RELOAD_UDEVD;
                 else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid network config name '%s'.", *name);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Network config of unknown type: %s", *name);
 
                 r = get_config_files_by_name(*name, /* allow_masked = */ false, &path, &dropins);
                 if (r == -ERFKILL)
@@ -642,6 +645,9 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                         continue;
                 }
 
+                if (!filename_is_valid(*name) || !ENDSWITH_SET(*name, ".network", ".netdev", ".link"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid network config name: %s", *name);
+
                 _cleanup_strv_free_ char **dropins = NULL;
                 _cleanup_free_ char *path = NULL;
 
@@ -682,13 +688,16 @@ int verb_mask(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *config_path = NULL, *symlink_path = NULL;
                 ReloadFlags reload;
 
+                if (!filename_is_valid(*name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid config filename: %s", *name);
+
                 /* We update the real 'flags' at last, since the operation can be skipped. */
                 if (ENDSWITH_SET(*name, ".network", ".netdev"))
                         reload = RELOAD_NETWORKD;
                 else if (endswith(*name, ".link"))
                         reload = RELOAD_UDEVD;
                 else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid network config name '%s'.", *name);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Network config of unknown type: %s", *name);
 
                 r = get_config_files_by_name(*name, /* allow_masked = */ true, &config_path, /* ret_dropins = */ NULL);
                 if (r == -ENOENT)
@@ -739,12 +748,15 @@ int verb_unmask(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *path = NULL;
                 ReloadFlags reload;
 
+                if (!filename_is_valid(*name))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid config filename: %s", *name);
+
                 if (ENDSWITH_SET(*name, ".network", ".netdev"))
                         reload = RELOAD_NETWORKD;
                 else if (endswith(*name, ".link"))
                         reload = RELOAD_UDEVD;
                 else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid network config name '%s'.", *name);
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Network config of unknown type: %s", *name);
 
                 r = get_config_files_by_name(*name, /* allow_masked = */ true, &path, /* ret_dropins = */ NULL);
                 if (r == -ENOENT) {

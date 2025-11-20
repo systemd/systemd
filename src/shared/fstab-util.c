@@ -56,13 +56,13 @@ int fstab_has_fstype(const char *fstype) {
         for (;;) {
                 struct libmnt_fs *fs;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r < 0)
                         return r;
                 if (r > 0) /* EOF */
                         return false;
 
-                if (streq_ptr(mnt_fs_get_fstype(fs), fstype))
+                if (streq_ptr(sym_mnt_fs_get_fstype(fs), fstype))
                         return true;
         }
 }
@@ -134,13 +134,13 @@ int fstab_has_mount_point_prefix_strv(char * const *prefixes) {
                 struct libmnt_fs *fs;
                 const char *path;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r < 0)
                         return r;
                 if (r > 0) /* EOF */
                         return false;
 
-                path = mnt_fs_get_target(fs);
+                path = sym_mnt_fs_get_target(fs);
                 if (!path)
                         continue;
 
@@ -168,19 +168,19 @@ int fstab_is_mount_point_full(const char *where, const char *path) {
         for (;;) {
                 struct libmnt_fs *fs;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r < 0)
                         return r;
                 if (r > 0) /* EOF */
                         return false;
 
-                if (where && !path_equal(mnt_fs_get_target(fs), where))
+                if (where && !path_equal(sym_mnt_fs_get_target(fs), where))
                         continue;
 
                 if (!path)
                         return true;
 
-                r = fstab_is_same_node(mnt_fs_get_source(fs), path);
+                r = fstab_is_same_node(sym_mnt_fs_get_source(fs), path);
                 if (r > 0 || (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r)))
                         return r;
         }

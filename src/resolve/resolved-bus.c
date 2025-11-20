@@ -11,20 +11,20 @@
 #include "bus-object.h"
 #include "bus-polkit.h"
 #include "bus-util.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "format-util.h"
 #include "path-util.h"
 #include "resolve-util.h"
 #include "resolved-bus.h"
 #include "resolved-def.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-delegate.h"
 #include "resolved-dns-delegate-bus.h"
+#include "resolved-dns-delegate.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -32,10 +32,10 @@
 #include "resolved-dns-stub.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-dns-transaction.h"
-#include "resolved-dnssd.h"
 #include "resolved-dnssd-bus.h"
-#include "resolved-link.h"
+#include "resolved-dnssd.h"
 #include "resolved-link-bus.h"
+#include "resolved-link.h"
 #include "resolved-manager.h"
 #include "resolved-resolv-conf.h"
 #include "set.h"
@@ -1017,7 +1017,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
 
         assert(q);
 
-        if (q->block_all_complete > 0) {
+        if (q->hook_query || q->block_all_complete > 0) {
                 TAKE_PTR(q);
                 return;
         }
@@ -1027,6 +1027,12 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 bool have_success = false;
 
                 LIST_FOREACH(auxiliary_queries, aux, q->auxiliary_queries) {
+
+                        if (aux->hook_query) {
+                                /* If an auxiliary query's hook is still pending, let's wait */
+                                TAKE_PTR(q);
+                                return;
+                        }
 
                         switch (aux->state) {
 
@@ -1847,24 +1853,24 @@ static int bus_method_reset_server_features(sd_bus_message *message, void *userd
         return sd_bus_reply_method_return(message, NULL);
 }
 
-static int dnssd_service_on_bus_track(sd_bus_track *t, void *userdata) {
-        DnssdService *s = ASSERT_PTR(userdata);
+static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata) {
+        DnssdRegisteredService *s = ASSERT_PTR(userdata);
 
         assert(t);
 
         log_debug("Client of active request vanished, destroying DNS-SD service.");
-        dnssd_service_free(s);
+        dnssd_registered_service_free(s);
 
         return 0;
 }
 
 static int bus_method_register_service(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        _cleanup_(dnssd_service_freep) DnssdService *service = NULL;
+        _cleanup_(dnssd_registered_service_freep) DnssdRegisteredService *service = NULL;
         _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
         const char *id, *name_template, *type;
         _cleanup_free_ char *path = NULL;
-        DnssdService *s = NULL;
+        DnssdRegisteredService *s = NULL;
         Manager *m = ASSERT_PTR(userdata);
         uid_t euid;
         int r;
@@ -1874,7 +1880,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (m->mdns_support != RESOLVE_SUPPORT_YES)
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Support for MulticastDNS is disabled");
 
-        service = new0(DnssdService, 1);
+        service = new0(DnssdRegisteredService, 1);
         if (!service)
                 return log_oom();
 
@@ -1900,7 +1906,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (!dnssd_srv_type_is_valid(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "DNS-SD service type '%s' is invalid", type);
 
-        s = hashmap_get(m->dnssd_services, id);
+        s = hashmap_get(m->dnssd_registered_services, id);
         if (s)
                 return sd_bus_error_setf(error, BUS_ERROR_DNSSD_SERVICE_EXISTS, "DNS-SD service '%s' exists already", id);
 
@@ -2013,11 +2019,11 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = hashmap_ensure_put(&m->dnssd_services, &string_hash_ops, service->id, service);
+        r = hashmap_ensure_put(&m->dnssd_registered_services, &string_hash_ops, service->id, service);
         if (r < 0)
                 return r;
 
-        r = sd_bus_track_new(sd_bus_message_get_bus(message), &bus_track, dnssd_service_on_bus_track, service);
+        r = sd_bus_track_new(sd_bus_message_get_bus(message), &bus_track, dnssd_registered_service_on_bus_track, service);
         if (r < 0)
                 return r;
 
@@ -2036,7 +2042,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
 
 static int call_dnssd_method(Manager *m, sd_bus_message *message, sd_bus_message_handler_t handler, sd_bus_error *error) {
         _cleanup_free_ char *name = NULL;
-        DnssdService *s = NULL;
+        DnssdRegisteredService *s = NULL;
         const char *path;
         int r;
 
@@ -2054,7 +2060,7 @@ static int call_dnssd_method(Manager *m, sd_bus_message *message, sd_bus_message
         if (r < 0)
                 return r;
 
-        s = hashmap_get(m->dnssd_services, name);
+        s = hashmap_get(m->dnssd_registered_services, name);
         if (!s)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_DNSSD_SERVICE, "DNS-SD service '%s' not known", name);
 

@@ -19,7 +19,7 @@ localectl_sources = files('localectl.c')
 if conf.get('HAVE_XKBCOMMON') == 1
         libxkbcommon_deps = [
                 libdl,
-                libxkbcommon.partial_dependency(compile_args: true),
+                libxkbcommon_cflags,
         ]
 else
         libxkbcommon_deps = []

@@ -552,6 +552,15 @@
           <xi:include href="version-info.xml" xpointer="v258"/>
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><constant>v259</constant></term>
+
+          <listitem><para>The naming scheme based on devicetree aliases was extended to support WLAN devices.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/>
+          </listitem>
+        </varlistentry>
       </variablelist>
 
     <para>Note that <constant>latest</constant> may be used to denote the latest scheme known (to this

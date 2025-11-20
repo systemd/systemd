@@ -17,8 +17,8 @@ bool bootspec_pick_name_version_sort_key(
 
         const sd_char *good_name, *good_version, *good_sort_key;
 
-        /* Find the best human readable title, version string and sort key for a boot entry (using the
-         * os-release(5) fields). Precise is preferred over vague, and human readable over machine
+        /* Find the best human-readable title, version string and sort key for a boot entry (using the
+         * os-release(5) fields). Precise is preferred over vague, and human-readable over machine
          * readable. Thus:
          *
          * 1. First priority gets the PRETTY_NAME field, which is the primary string intended for display,
@@ -28,7 +28,7 @@ bool bootspec_pick_name_version_sort_key(
          * 2. Otherwise we go for IMAGE_ID and IMAGE_VERSION (thus we show details about the image,
          *    i.e. specific combination of packages and configuration), if that concept applies.
          *
-         * 3. Otherwise we go for NAME and VERSION (i.e. human readable OS name and version)
+         * 3. Otherwise we go for NAME and VERSION (i.e. human-readable OS name and version)
          *
          * 4. Otherwise we go for ID and VERSION_ID (i.e. machine readable OS name and version)
          *

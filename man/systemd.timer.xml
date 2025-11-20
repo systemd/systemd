@@ -266,13 +266,13 @@
 
         <listitem><para>Delay the timer by a randomly selected, evenly distributed amount of time between 0
         and the specified time value. Defaults to 0, indicating that no randomized delay shall be applied.
-        Each timer unit will determine this delay randomly before each iteration, and the delay will simply
-        be added on top of the next determined elapsing time, unless modified with
-        <varname>FixedRandomDelay=</varname>, see below.</para>
+        Each timer unit will determine this delay randomly before each iteration, unless modified with
+        <varname>FixedRandomDelay=</varname>, see below. The delay is added on top of the next determined
+        elapsing time or the service manager's startup time, whichever is later.</para>
 
         <para>This setting is useful to stretch dispatching of similarly configured timer events over a
         certain time interval, to prevent them from firing all at the same time, possibly resulting in
-        resource congestion.</para>
+        resource congestion on the local system.</para>
 
         <para>Note the relation to <varname>AccuracySec=</varname> above: the latter allows the service
         manager to coalesce timer events within a specified time range in order to minimize wakeups, while
@@ -292,17 +292,47 @@
       <varlistentry>
         <term><varname>FixedRandomDelay=</varname></term>
 
-        <listitem><para>Takes a boolean argument. When enabled, the randomized offset specified by
-        <varname>RandomizedDelaySec=</varname> is reused for all firings of the same timer. For a given timer
-        unit, the offset depends on the machine ID, user identifier and timer name, which means that it is
-        stable between restarts of the manager. This effectively creates a fixed offset for an individual
-        timer, reducing the jitter in firings of this timer, while still avoiding firing at the same time as
-        other similarly configured timers.</para>
+        <listitem><para>Takes a boolean argument. When enabled, the randomized delay specified by
+        <varname>RandomizedDelaySec=</varname> is chosen deterministically, and remains stable between all
+        firings of the same timer, even if the manager is restarted. The delay is derived from the machine
+        ID, the manager's user identifier, and the timer unit's name. This effectively creates a unique fixed
+        offset for each timer, reducing the jitter in firings of an individual timer while still avoiding
+        firing at the same time as other similarly configured timers.</para>
 
         <para>This setting has an effect only if <varname>RandomizedDelaySec=</varname> is not 0. Defaults to
         <option>false</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RandomizedOffsetSec=</varname></term>
+
+        <listitem><para>Offsets the timer by a stable, randomly-selected, and evenly distributed amount of
+        time between 0 and the specified time value. Defaults to 0, indicating that no such offset shall be
+        applied. The offset is chosen deterministically, and is derived the same way as
+        <varname>FixedRandomDelay=</varname>, see above. The offset is added on top of the next determined
+        elapsing time. This setting only has an effect on timers configured with <varname>OnCalendar=</varname>,
+        and it can be combined with <varname>RandomizedDelaySec=</varname>.</para>
+
+        <para>Much like <varname>RandomizedDelaySec=</varname>, this setting is for distributing timer events
+        to prevent them from firing all at once. However, this setting is most useful to prevent resource
+        congestion on a remote service, from a fleet of similarly-configured clients. Unlike
+        <varname>RandomizedDelaySec=</varname>, this setting applies its offset with no regard to manager
+        startup time. This maintains the periodicity of configured <varname>OnCalendar=</varname> events
+        across manager restarts.</para>
+
+        <para>For example, let's say you're running a backup service and have a fleet of laptops that wish
+        to make backups weekly. To distribute load on the backup service, each laptop should randomly pick
+        a weekday to upload its backups. This could be achieved by setting <varname>OnCalendar=</varname> to
+        <literal>weekly</literal>, and then configuring a <varname>RandomizedDelaySec=</varname> of
+        <literal>5 days</literal> with <varname>FixedRandomDelay=</varname> enabled. Let's say that some
+        laptop randomly chooses a delay of 4 days. If this laptop is restarted more often than that, then the
+        timer will never fire: on each fresh boot, the 4 day delay is restarted and will not be finished by
+        the time of the next shutdown. Instead, you should use <varname>RandomizedOffsetSec=</varname>, which
+        will maintain the configured weekly cadence of timer events, even across reboots.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
       <varlistentry>

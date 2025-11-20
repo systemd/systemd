@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LicenseRef-lookup3-public-domain */
 #pragma once
 
-#include "forward.h"
+#include "sd-forward.h"
 
 uint32_t jenkins_hashword(const uint32_t *k, size_t length, uint32_t initval) _pure_;
 void jenkins_hashword2(const uint32_t *k, size_t length, uint32_t *pc, uint32_t *pb);

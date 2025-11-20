@@ -13,8 +13,12 @@
 # Not bash?
 [ -n "${BASH_VERSION:-}" ] || return 0
 
+# If we're on a "dumb" terminal, do not install the prompt.
+# Treat missing $TERM same as "dumb".
+[ "${TERM:-dumb}" = "dumb" ] && return 0
+
 __systemd_osc_context_escape() {
-    # Escape according to the OSC 8003 spec. Since this requires shelling out
+    # Escape according to the OSC 3008 spec. Since this requires shelling out
     # to 'sed' we'll only do it where it's strictly necessary, and skip it when
     # processing strings we are pretty sure we won't need it for, such as
     # uuids, id128, hostnames, usernames, since they all come with syntax
@@ -24,7 +28,10 @@ __systemd_osc_context_escape() {
 }
 
 __systemd_osc_context_common() {
-    printf ";user=%s;hostname=%s;machineid=%s;bootid=%s;pid=%s" "$USER" "$HOSTNAME" "$(</etc/machine-id)" "$(</proc/sys/kernel/random/boot_id)" "$$"
+    if [ -f /etc/machine-id ]; then
+        printf ";machineid=%s" "$(</etc/machine-id)"
+    fi
+    printf ";user=%s;hostname=%s;bootid=%s;pid=%s" "$USER" "$HOSTNAME" "$(</proc/sys/kernel/random/boot_id)" "$$"
 }
 
 __systemd_osc_context_precmdline() {
@@ -33,11 +40,11 @@ __systemd_osc_context_precmdline() {
     # Close previous command
     if [ -n "${systemd_osc_context_cmd_id:-}" ]; then
         if [ "$systemd_exitstatus" -ge 127 ]; then
-            printf "\033]8003;end=%s;exit=interrupt;signal=%s\033\\" "$systemd_osc_context_cmd_id" $((systemd_exitstatus-127))
+            printf "\033]3008;end=%s;exit=interrupt;signal=%s\033\\" "$systemd_osc_context_cmd_id" $((systemd_exitstatus-127))
         elif [ "$systemd_exitstatus" -ne 0 ]; then
-            printf "\033]8003;end=%s;exit=failure;status=%s\033\\" "$systemd_osc_context_cmd_id" $((systemd_exitstatus))
+            printf "\033]3008;end=%s;exit=failure;status=%s\033\\" "$systemd_osc_context_cmd_id" $((systemd_exitstatus))
         else
-            printf "\033]8003;end=%s;exit=success\033\\" "$systemd_osc_context_cmd_id"
+            printf "\033]3008;end=%s;exit=success\033\\" "$systemd_osc_context_cmd_id"
         fi
     fi
 
@@ -47,16 +54,27 @@ __systemd_osc_context_precmdline() {
     fi
 
     # Create or update the shell session
-    printf "\033]8003;start=%s%s;type=shell;cwd=%s\033\\" "$systemd_osc_context_shell_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
+    printf "\033]3008;start=%s%s;type=shell;cwd=%s\033\\" "$systemd_osc_context_shell_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
 
     # Prepare cmd id for next command
     read -r systemd_osc_context_cmd_id </proc/sys/kernel/random/uuid
 }
 
-if [[ -n "${BASH_VERSION:-}" ]]; then
-    # Whenever a new prompt is shown close the previous command, and prepare new command
+__systemd_osc_context_ps0() {
+    # Skip if PROMPT_COMMAND= is cleared manually or by other profiles.
+    [ -n "${systemd_osc_context_cmd_id:-}" ] || return
+
+    printf "\033]3008;start=%s%s;type=command;cwd=%s\033\\" "$systemd_osc_context_cmd_id" "$(__systemd_osc_context_common)" "$(__systemd_osc_context_escape "$PWD")"
+}
+
+if [ -n "${BASH_VERSION:-}" ]; then
+    # Legacy bashrc will assign PROMPT_COMMAND=, which is equivalent to assigning
+    # index 0 in the array. Leave an empty spot to handle this gracefully.
+    [ -n "$(declare -p PROMPT_COMMAND 2>/dev/null)" ] || PROMPT_COMMAND+=('')
+
+    # Whenever a new prompt is shown, close the previous command, and prepare new command
     PROMPT_COMMAND+=(__systemd_osc_context_precmdline)
 
     # PS0 is shown right after a prompt completed, but before the command is executed
-    PS0='\033]8003;start=$systemd_osc_context_cmd_id$(__systemd_osc_context_common);type=command;cwd=$(__systemd_osc_context_escape "$PWD")\033\\'"${PS0:-}"
+    PS0='$(__systemd_osc_context_ps0)'"${PS0:-}"
 fi

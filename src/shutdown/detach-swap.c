@@ -36,12 +36,16 @@ int swap_list_get(const char *swaps, SwapDevice **head) {
 
         assert(head);
 
-        t = mnt_new_table();
-        i = mnt_new_iter(MNT_ITER_FORWARD);
+        r = dlopen_libmount();
+        if (r < 0)
+                return log_error_errno(r, "Cannot enumerate swap partitions, no libmount support.");
+
+        t = sym_mnt_new_table();
+        i = sym_mnt_new_iter(MNT_ITER_FORWARD);
         if (!t || !i)
                 return log_oom();
 
-        r = mnt_table_parse_swaps(t, swaps);
+        r = sym_mnt_table_parse_swaps(t, swaps);
         if (r == -ENOENT) /* no /proc/swaps is fine */
                 return 0;
         if (r < 0)
@@ -52,13 +56,13 @@ int swap_list_get(const char *swaps, SwapDevice **head) {
                 _cleanup_free_ SwapDevice *swap = NULL;
                 const char *source;
 
-                r = mnt_table_next_fs(t, i, &fs);
+                r = sym_mnt_table_next_fs(t, i, &fs);
                 if (r == 1) /* EOF */
                         break;
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from %s: %m", swaps ?: "/proc/swaps");
 
-                source = mnt_fs_get_source(fs);
+                source = sym_mnt_fs_get_source(fs);
                 if (!source)
                         continue;
 

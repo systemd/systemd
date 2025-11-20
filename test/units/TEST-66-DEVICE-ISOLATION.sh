@@ -5,8 +5,6 @@ set -o pipefail
 
 RESULTS_FILE=/tmp/TEST-66-DEVICE-ISOLATION.serviceresults
 
-systemd-analyze log-level debug
-
 systemctl start TEST-66-DEVICE-ISOLATION-device-isolation.service
 
 sleep 5
@@ -18,7 +16,5 @@ systemctl daemon-reexec
 systemctl stop TEST-66-DEVICE-ISOLATION-device-isolation.service
 
 grep -q "thisshouldnotbehere" "$RESULTS_FILE" && exit 42
-
-systemd-analyze log-level info
 
 touch /testok

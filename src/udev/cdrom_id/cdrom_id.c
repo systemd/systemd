@@ -11,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "main-func.h"
 #include "random-util.h"
@@ -966,8 +967,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = open_drive(&c);
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
+                return 0;
         if (r < 0)
-                return r;
+                return log_warning_errno(r, "Failed to open device node '%s': %m", arg_node);
 
         /* same data as original cdrom_id */
         r = cd_capability_compat(&c);

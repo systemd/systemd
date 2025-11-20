@@ -15,7 +15,8 @@ if want_ukify and want_tests != 'false'
         test('test-ukify',
              files('test_ukify.py'),
              args: args,
-             env : test_env,
+             env : test_env + {'EFI_ADDON' : efi_addon.length() > 0 ? efi_addon[0].full_path() : ''},
              timeout : 120,
-             suite : 'ukify')
+             suite : 'ukify',
+             depends : efi_addon)
 endif

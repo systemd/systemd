@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <locale.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
@@ -44,19 +45,28 @@ static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static const char* arg_format = NULL;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 static ImageClass arg_image_class = _IMAGE_CLASS_INVALID;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 #define PROGRESS_PREFIX "Total:"
 
 static int settle_image_class(void) {
+        int r;
 
         if (arg_image_class < 0) {
                 _cleanup_free_ char *j = NULL;
 
-                for (ImageClass class = 0; class < _IMAGE_CLASS_MAX; class++)
+                for (ImageClass class = 0; class < _IMAGE_CLASS_MAX; class++) {
+                        _cleanup_free_ char *root = NULL;
+
+                        r = image_root_pick(arg_runtime_scope, class, /* runtime= */ false, &root);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to pick image root: %m");
+
                         if (strextendf_with_separator(&j, ", ", "%s (downloads to %s/)",
                                                       image_class_to_string(class),
-                                                      image_root_to_string(class)) < 0)
+                                                      root) < 0)
                                 return log_oom();
+                }
 
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "No image class specified, retry with --class= set to one of: %s.", j);
@@ -273,7 +283,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Cannot extract container name from filename: %m");
                 if (r == O_DIRECTORY)
                         return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
-                                               "Path '%s' refers to directory, but we need a regular file: %m", path);
+                                               "Path '%s' refers to directory, but we need a regular file.", path);
 
                 local = fn;
         }
@@ -352,7 +362,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Cannot extract container name from filename: %m");
                 if (r == O_DIRECTORY)
                         return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
-                                               "Path '%s' refers to directory, but we need a regular file: %m", path);
+                                               "Path '%s' refers to directory, but we need a regular file.", path);
 
                 local = fn;
         }
@@ -850,7 +860,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         if (!table_isempty(t)) {
                 r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                        return r;
         }
 
         if (arg_legend) {
@@ -969,7 +979,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         if (!table_isempty(t)) {
                 r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to output table: %m");
+                        return r;
         }
 
         if (arg_legend) {
@@ -1013,6 +1023,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --no-ask-password        Do not ask for system passwords\n"
                "  -H --host=[USER@]HOST       Operate on remote host\n"
                "  -M --machine=CONTAINER      Operate on local container\n"
+               "     --system                 Connect to system machine manager\n"
+               "     --user                   Connect to user machine manager\n"
                "     --read-only              Create read-only image\n"
                "  -q --quiet                  Suppress output\n"
                "     --json=pretty|short|off  Generate JSON output\n"
@@ -1054,6 +1066,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FORMAT,
                 ARG_CLASS,
                 ARG_KEEP_DOWNLOAD,
+                ARG_SYSTEM,
+                ARG_USER,
         };
 
         static const struct option options[] = {
@@ -1072,6 +1086,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "format",          required_argument, NULL, ARG_FORMAT          },
                 { "class",           required_argument, NULL, ARG_CLASS           },
                 { "keep-download",   required_argument, NULL, ARG_KEEP_DOWNLOAD   },
+                { "system",          no_argument,       NULL, ARG_SYSTEM          },
+                { "user",            no_argument,       NULL, ARG_USER            },
                 {}
         };
 
@@ -1111,8 +1127,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_READ_ONLY:
@@ -1125,10 +1142,8 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VERIFY:
-                        if (streq(optarg, "help")) {
-                                DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
-                                return 0;
-                        }
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
 
                         r = import_verify_from_string(optarg);
                         if (r < 0)
@@ -1198,6 +1213,14 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_import_flags_mask |= IMPORT_PULL_KEEP_DOWNLOAD;
                         break;
 
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1240,9 +1263,9 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = bus_connect_transport(arg_transport, arg_host, RUNTIME_SCOPE_SYSTEM, &bus);
+        r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
         if (r < 0)
-                return bus_log_connect_error(r, arg_transport, RUNTIME_SCOPE_SYSTEM);
+                return bus_log_connect_error(r, arg_transport, arg_runtime_scope);
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 

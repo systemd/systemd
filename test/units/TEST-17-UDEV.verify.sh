@@ -76,7 +76,6 @@ assert_1_impl() {
     udevadm verify "$@" >"${out}" 2>"${err}"
     rc=$?
     set -e
-    assert_eq "$rc" 1
 
     if [ -f "${exp}" ]; then
         diff -u "${exp}" "${err}"
@@ -87,6 +86,7 @@ assert_1_impl() {
     elif [ -f "${rules}" ]; then
         diff -u "${workdir}/default_output_1_fail" "${out}"
     fi
+    assert_eq "$rc" 1
 }
 
 assert_1() {
@@ -132,11 +132,11 @@ assert_0 "${rules_dir}"
 
 # Directory with a loop.
 ln -s . "${rules_dir}/loop.rules"
-assert_1 "${rules_dir}"
+assert_0 "${rules_dir}"
 rm "${rules_dir}/loop.rules"
 
-# Empty rules.
-touch "${rules_dir}/empty.rules"
+# Effectively empty rules.
+echo '#' >"${rules_dir}/empty.rules"
 assert_0 --root="${workdir}"
 : >"${exo}"
 assert_0 --root="${workdir}" --no-summary
@@ -160,13 +160,13 @@ echo "Failed to parse rules file $(pwd)/${rules}: No buffer space available" >"$
 assert_1 "${rules}"
 
 {
-    printf 'RUN+="/bin/true",%8174s\\\n' ' '
-    printf 'RUN+="/bin/false"%8174s\\\n' ' '
+    printf 'RUN+="/usr/bin/true",%8170s\\\n' ' '
+    printf 'RUN+="/usr/bin/false"%8170s\\\n' ' '
     echo
 } >"${rules}"
 assert_0 "${rules}"
 
-printf 'RUN+="/bin/true"%8176s\\\n #\n' ' ' ' ' >"${rules}"
+printf 'RUN+="/usr/bin/true"%8176s\\\n #\n' ' ' ' ' >"${rules}"
 echo >>"${rules}"
 cat >"${exp}" <<EOF
 $(pwd)/${rules}:1 Line is too long, ignored.
@@ -293,7 +293,7 @@ test_syntax_error 'OWNER!="b"' 'Invalid operator for OWNER.'
 test_syntax_error 'OWNER+="0"' "OWNER key takes '=' or ':=' operator, assuming '='."
 # numeric system UID is valid even if it does not exist
 SYS_UID_MAX=999
-if command userdbctl >/dev/null; then
+if command -v userdbctl >/dev/null; then
     # For the case if non-default setting is used. E.g. OpenSUSE uses 499.
     SYS_UID_MAX="$(userdbctl user -S --no-legend --no-pager | grep 'end system' | awk '{print $8}')"
     echo "SYS_UID_MAX=$SYS_UID_MAX acquired from userdbctl"
@@ -309,21 +309,23 @@ assert_0 "${rules}"
 test_syntax_error 'OWNER=":nosuchuser:"' "Failed to resolve user ':nosuchuser:', ignoring: Invalid argument"
 # nonexistent user
 if ! getent passwd nosuchuser >/dev/null; then
-    test_syntax_error 'OWNER="nosuchuser"' "Unknown user 'nosuchuser', ignoring."
+    test_syntax_error 'OWNER="nosuchuser"' "Failed to resolve user 'nosuchuser', ignoring: Unknown user"
 fi
 if ! getent passwd 12345 >/dev/null; then
-    test_syntax_error 'OWNER="12345"' "Unknown user '12345', ignoring."
+    test_syntax_error 'OWNER="12345"' "Failed to resolve user '12345', ignoring: Unknown user"
 fi
 # regular user
-test_syntax_error 'OWNER="testuser"' "User 'testuser' is not a system user, ignoring."
-test_syntax_error "OWNER=\"$(id -u testuser)\"" "User '$(id -u testuser)' is not a system user, ignoring."
+if getent passwd testuser >/dev/null; then
+    test_syntax_error 'OWNER="testuser"' "Failed to resolve user 'testuser', ignoring: Not a system user"
+    test_syntax_error "OWNER=\"$(id -u testuser)\"" "Failed to resolve user '$(id -u testuser)', ignoring: Not a system user"
+fi
 test_syntax_error 'GROUP{a}="b"' 'Invalid attribute for GROUP.'
 test_syntax_error 'GROUP-="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP!="b"' 'Invalid operator for GROUP.'
 test_syntax_error 'GROUP+="0"' "GROUP key takes '=' or ':=' operator, assuming '='."
 # numeric system GID is valid even if it does not exist
 SYS_GID_MAX=999
-if command userdbctl >/dev/null; then
+if command -v userdbctl >/dev/null; then
     # For the case if non-default setting is used. E.g. OpenSUSE uses 499.
     SYS_GID_MAX="$(userdbctl group -S --no-legend --no-pager | grep 'end system' | awk '{print $8}')"
     echo "SYS_GID_MAX=$SYS_GID_MAX acquired from userdbctl"
@@ -339,14 +341,16 @@ assert_0 "${rules}"
 test_syntax_error 'GROUP=":nosuchgroup:"' "Failed to resolve group ':nosuchgroup:', ignoring: Invalid argument"
 # nonexistent group
 if ! getent group nosuchgroup >/dev/null; then
-    test_syntax_error 'GROUP="nosuchgroup"' "Unknown group 'nosuchgroup', ignoring."
+    test_syntax_error 'GROUP="nosuchgroup"' "Failed to resolve group 'nosuchgroup', ignoring: Unknown group"
 fi
 if ! getent group 12345 >/dev/null; then
-    test_syntax_error 'GROUP="12345"' "Unknown group '12345', ignoring."
+    test_syntax_error 'GROUP="12345"' "Failed to resolve group '12345', ignoring: Unknown group"
 fi
 # regular group
-test_syntax_error 'GROUP="testuser"' "Group 'testuser' is not a system group, ignoring."
-test_syntax_error "GROUP=\"$(id -g testuser)\"" "Group '$(id -g testuser)' is not a system group, ignoring."
+if getent group testuser >/dev/null; then
+    test_syntax_error 'GROUP="testuser"' "Failed to resolve group 'testuser', ignoring: Not a system group"
+    test_syntax_error "GROUP=\"$(id -g testuser)\"" "Failed to resolve group '$(id -g testuser)', ignoring: Not a system group"
+fi
 test_syntax_error 'MODE{a}="b"' 'Invalid attribute for MODE.'
 test_syntax_error 'MODE-="b"' 'Invalid operator for MODE.'
 test_syntax_error 'MODE!="b"' 'Invalid operator for MODE.'

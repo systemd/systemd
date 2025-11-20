@@ -141,11 +141,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
 
         assert(message);
 
-        images = hashmap_new(&image_hash_ops);
-        if (!images)
-                return -ENOMEM;
-
-        r = manager_image_cache_discover(m, images, error);
+        r = manager_image_cache_discover(m, &images, error);
         if (r < 0)
                 return r;
 
@@ -181,7 +177,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
                 r = sd_bus_message_append(reply, "(ssbtttso)",
                                           image->name,
                                           image_type_to_string(image->type),
-                                          image->read_only,
+                                          image_is_read_only(image),
                                           image->crtime,
                                           image->mtime,
                                           image->usage,
@@ -195,7 +191,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int redirect_method_to_image(
@@ -581,7 +577,7 @@ int reply_portable_changes(sd_bus_message *m, const PortableChange *changes, siz
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 int reply_portable_changes_pair(
@@ -608,5 +604,5 @@ int reply_portable_changes_pair(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }

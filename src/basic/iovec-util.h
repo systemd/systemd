@@ -3,7 +3,7 @@
 
 #include <sys/uio.h>                /* IWYU pragma: export */
 
-#include "forward.h"
+#include "basic-forward.h"
 #include "iovec-util-fundamental.h" /* IWYU pragma: export */
 
 extern const struct iovec iovec_nul_byte; /* Points to a single NUL byte */

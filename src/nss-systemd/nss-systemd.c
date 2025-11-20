@@ -122,15 +122,6 @@ static GetentData getsgent_data = {
 };
 REENABLE_WARNING;
 
-static void setup_logging_once(void) {
-        static pthread_once_t once = PTHREAD_ONCE_INIT;
-        assert_se(pthread_once(&once, log_parse_environment_variables) == 0);
-}
-
-#define NSS_ENTRYPOINT_BEGIN                    \
-        BLOCK_SIGNALS(NSS_SIGNALS_BLOCK);       \
-        setup_logging_once()
-
 NSS_GETPW_PROTOTYPES(systemd);
 NSS_GETSP_PROTOTYPES(systemd);
 NSS_GETGR_PROTOTYPES(systemd);
@@ -735,7 +726,7 @@ enum nss_status _nss_systemd_getgrent_r(
                 int *errnop) {
 
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        _cleanup_free_ char **members = NULL;
+        _cleanup_strv_free_ char **members = NULL;
         int r;
 
         PROTECT_ERRNO;

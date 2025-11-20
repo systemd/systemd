@@ -138,7 +138,7 @@ portablectl detach --now --runtime --enable /tmp/rootdir minimal-app0
 # The wrong file should be ignored, given the right one has the xattr set
 trap 'rm -rf /var/cache/wrongext' EXIT
 mkdir -p /var/cache/wrongext/usr/lib/extension-release.d /var/cache/wrongext/usr/lib/systemd/system/
-echo "[Service]" > /var/cache/wrongext/usr/lib/systemd/system/app0.service
+echo "[Service]" >/var/cache/wrongext/usr/lib/systemd/system/app0.service
 touch /var/cache/wrongext/usr/lib/extension-release.d/extension-release.wrongext_somethingwrong.txt
 cp /tmp/rootdir/usr/lib/os-release /var/cache/wrongext/usr/lib/extension-release.d/extension-release.app0
 setfattr -n user.extension-release.strict -v "false" /var/cache/wrongext/usr/lib/extension-release.d/extension-release.app0

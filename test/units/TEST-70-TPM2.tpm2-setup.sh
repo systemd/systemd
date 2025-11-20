@@ -15,7 +15,7 @@ fi
 "$SD_TPM2SETUP" --version
 "$SD_TPM2SETUP" --tpm2-device=list
 "$SD_TPM2SETUP" --tpm2-device=auto
-"$SD_TPM2SETUP" --tpm2-device=/dev/tpm0
+"$SD_TPM2SETUP" --tpm2-device=/dev/tpmrm0
 "$SD_TPM2SETUP" --early=yes
 "$SD_TPM2SETUP" --early=yes
 "$SD_TPM2SETUP" --early=no

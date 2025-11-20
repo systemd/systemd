@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 #include "memory-util.h"
 
 #if HAS_FEATURE_MEMORY_SANITIZER

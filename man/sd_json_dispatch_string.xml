@@ -1,0 +1,364 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_json_dispatch_string" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_json_dispatch_string</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_json_dispatch_string</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_json_dispatch_string</refname>
+    <refname>sd_json_dispatch_const_string</refname>
+    <refname>sd_json_dispatch_strv</refname>
+    <refname>sd_json_dispatch_stdbool</refname>
+    <refname>sd_json_dispatch_intbool</refname>
+    <refname>sd_json_dispatch_tristate</refname>
+    <refname>sd_json_dispatch_variant</refname>
+    <refname>sd_json_dispatch_variant_noref</refname>
+    <refname>sd_json_dispatch_int64</refname>
+    <refname>sd_json_dispatch_int32</refname>
+    <refname>sd_json_dispatch_int16</refname>
+    <refname>sd_json_dispatch_int8</refname>
+    <refname>sd_json_dispatch_uint64</refname>
+    <refname>sd_json_dispatch_uint32</refname>
+    <refname>sd_json_dispatch_uint16</refname>
+    <refname>sd_json_dispatch_uint8</refname>
+    <refname>sd_json_dispatch_double</refname>
+    <refname>sd_json_dispatch_uid_gid</refname>
+    <refname>sd_json_dispatch_id128</refname>
+    <refname>sd_json_dispatch_signal</refname>
+    <refname>sd_json_dispatch_unsupported</refname>
+
+    <refpurpose>Decode JSON variant values and write them to the specified memory</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_string</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_const_string</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_strv</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_stdbool</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_intbool</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_tristate</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_variant</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_variant_noref</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_int64</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_int32</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_int16</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_int8</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_uint64</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_uint32</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_uint16</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_uint8</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_double</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_uid_gid</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_id128</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_signal</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_dispatch_unsupported</function></funcdef>
+        <paramdef>const char *<parameter>name</parameter></paramdef>
+        <paramdef>sd_json_variant *<parameter>variant</parameter></paramdef>
+        <paramdef>sd_dispatch_flags <parameter>flags</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The various functions described here are intended for use in the
+    <type>sd_json_dispatch_field</type> structure arrays the
+    <citerefentry><refentrytitle>sd_json_dispatch</refentrytitle><manvolnum>3</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>sd_varlink_dispatch</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    functions accept; they decode the provided JSON variant object's value, and write it to the memory
+    indicated by the <parameter>userdata</parameter> pointer. The <parameter>name</parameter> parameter
+    contains the field name (in the JSON object it is contained in) of the value being decoded. For details
+    on the <parameter>flags</parameter> parameter see the <function>sd_json_dispatch()</function>
+    documentation.</para>
+
+    <para>Note that all these functions not only accept the native JSON type they are intended for, but also
+    accept null JSON values, in which case they assign an appropriate invalid/unset/null value, as
+    appropriate for the type (for details see below).</para>
+
+    <para><function>sd_json_dispatch_string()</function> decodes a JSON string value, and allocates a
+    <constant>NUL</constant> terminated copy in dynamic memory. The <parameter>userdata</parameter> pointer
+    must point to a pointer to a string, which is freed if non-<constant>NULL</constant>, and then replaced
+    by the newly allocated one. If a JSON null value is passed, the existing string is freed and
+    <constant>NULL</constant> is assigned.</para>
+
+    <para><function>sd_json_dispatch_const_string()</function> is very similar to
+    <function>sd_json_dispatch_string()</function>, but does not allocate a string in dynamic
+    memory. Instead, it just writes a pointer into the JSON object into the indicated memory (or
+    <constant>NULL</constant> in case a JSON null object is passed). The memory remains valid only as long as
+    the indicated variant object is kept allocated (which can happen via direct reference, or via an indirect
+    one via an object that references the specified variant). The memory <parameter>userdata</parameter>
+    points to on input is <emphasis>not</emphasis> freed before the new value is assigned.</para>
+
+    <para><function>sd_json_dispatch_stdbool()</function> and <function>sd_json_dispatch_intbool()</function>
+    decode JSON boolean values and write them to the indicated memory. The former expects a variable of the
+    C99 <type>bool</type> type in the indicated memory, the latter an <type>int</type> (which will only
+    receive the values 0 and 1). The JSON null value is treated equivalent to a JSON false.</para>
+
+    <para><function>sd_json_dispatch_tristate()</function> is very similar
+    to<function>sd_json_dispatch_intbool()</function>, but will assign -1 if a JSON null value is passed. Or
+    in other words, the integer will have a value &gt; 0, == 0 or &lt; 0, for the cases true, false or
+    invalid/unset/null.</para>
+
+    <para><function>sd_json_dispatch_variant()</function> takes an additional reference to the passed JSON
+    object (via <function>sd_json_variant_ref()</function>) and writes the pointer to the indicated
+    memory. No decoding is done. If the indicated pointer is non-<constant>NULL</constant> on input it is
+    freed (via <function>sd_json_variant_unref()</function>) before the new pointer is written.</para>
+
+    <para><function>sd_json_dispatch_variant_noref()</function> is similar, but does <emphasis>not</emphasis>
+    take a new reference to the JSON variant object. The pointer hence only remains valid as long as the
+    original object stays referenced. If the indicated pointer is non-<constant>NULL</constant> on input it
+    is <emphasis>not</emphasis> freed before the new pointer is written.</para>
+
+    <para>The <function>sd_json_dispatch_int64()</function>, <function>sd_json_dispatch_int32()</function>,
+    <function>sd_json_dispatch_int16()</function>, <function>sd_json_dispatch_int8()</function>,
+    <function>sd_json_dispatch_uint64()</function>, <function>sd_json_dispatch_uint32()</function>,
+    <function>sd_json_dispatch_uint16()</function> and <function>sd_json_dispatch_uint8()</function>
+    functions decode a JSON integer value, and write the value to the indicated memory. The function names
+    indicate the word width and signedness of the integers being parsed. If the JSON null value is passed the
+    functions for the unsigned integer types will assign the maximum value the type takes
+    (i.e. <constant>UINT64_MAX</constant>, <constant>UINT32_MAX</constant> …), and the signed versions assign
+    -1. Instead of a JSON integer value these functions also accept JSON strings that contain formatted
+    decimal numbers, in order to improve compatibility for encoding integer values that cannot be represented
+    in 64bit double precision floating point numbers in other programming languages that encode JSON numerals
+    this way.</para>
+
+    <para>The <function>sd_json_dispatch_double()</function> function decodes a 64bit double precision
+    floating point number. If a JSON null value is passed, assigns NaN.</para>
+
+    <para>The <function>sd_json_dispatch_uid_gid()</function> function is similar to
+    <function>sd_json_dispatch_uint32()</function>, and is intended to decode 32bit UNIX UID/GID numbers, as
+    used on Linux. It will decode a JSON null value as 4294967295 (i.e. <literal>(uid_t) -1</literal>), and
+    will refuse the values 65535 and 4294967295 when passed as JSON numerals (i.e. both the 16bit and 32bit
+    "invalid" UID/GID, as these values have special meaning for various UNIX syscalls, on different OSes and
+    file systems).</para>
+
+    <para><function>sd_json_dispatch_id128()</function> decodes a 128bit ID formatted as a JSON string. It
+    supports both RFC9562 UUID formatting, as well as 64 hexadecimal characters without separators, the same
+    way as
+    <citerefentry><refentrytitle>sd_id128_from_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
+    the JSON null value is passed, the all-zero ID is assigned.</para>
+
+    <para><function>sd_json_dispatch_signal()</function> decodes a UNIX process signal specification. It
+    expects either an JSON string containing a signal name such as <literal>SIGINT</literal> or
+    <literal>SIGTERM</literal>, or an unsigned JSON integer value with the signal number (in the Linux
+    definition). The indicated memory must point to an <type>int</type> variable to write the signal number
+    to. If the JSON null value is passed a negative value will be written to the memory.</para>
+
+    <para><function>sd_json_dispatch_unsupported()</function> will always fail with the
+    -<constant>EINVAL</constant> error.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return a non-negative integer. On failure, they return a negative
+    errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para>
+    <function>sd_json_dispatch_string()</function>, <function>sd_json_dispatch_const_string()</function>,
+    <function>sd_json_dispatch_strv()</function>, <function>sd_json_dispatch_stdbool()</function>,
+    <function>sd_json_dispatch_intbool()</function>, <function>sd_json_dispatch_tristate()</function>,
+    <function>sd_json_dispatch_variant()</function>, <function>sd_json_dispatch_variant_noref()</function>,
+    <function>sd_json_dispatch_int64()</function>, <function>sd_json_dispatch_int32()</function>,
+    <function>sd_json_dispatch_int16()</function>, <function>sd_json_dispatch_int8()</function>,
+    <function>sd_json_dispatch_uint64()</function>, <function>sd_json_dispatch_uint32()</function>,
+    <function>sd_json_dispatch_uint16()</function>, <function>sd_json_dispatch_uint8()</function>,
+    <function>sd_json_dispatch_double()</function>, <function>sd_json_dispatch_uid_gid()</function>,
+    <function>sd_json_dispatch_id128()</function>, <function>sd_json_dispatch_signal()</function>,
+    <function>sd_json_dispatch_unsupported()</function> were added in version 257.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_dispatch</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_variant_dispatch</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

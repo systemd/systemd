@@ -214,6 +214,7 @@ IGNORE_SECTIONS = [
     ".eh_frame_hdr",
     ".ARM.exidx",
     ".relro_padding",
+    ".sframe",
 ]
 
 IGNORE_SECTION_TYPES = [

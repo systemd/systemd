@@ -6,7 +6,7 @@
 #include "cgroup.h"
 #include "common-signal.h"
 #include "execute.h"
-#include "forward.h"
+#include "core-forward.h"
 #include "log.h"
 #include "path-lookup.h"
 #include "show-status.h"
@@ -141,6 +141,8 @@ typedef struct UnitDefaults {
         CGroupTasksMax tasks_max;
         usec_t timer_accuracy_usec;
 
+        bool restrict_suid_sgid;
+
         OOMPolicy oom_policy;
         int oom_score_adjust;
         bool oom_score_adjust_set;
@@ -171,7 +173,7 @@ typedef struct Manager {
         LIST_HEAD(Unit, load_queue); /* this is actually more a stack than a queue, but uh. */
 
         /* Jobs that need to be run */
-        struct Prioq *run_queue;
+        Prioq *run_queue;
 
         /* Units and jobs that have not yet been announced via
          * D-Bus. When something about a job changes it is added here
@@ -211,6 +213,9 @@ typedef struct Manager {
         /* Units that have resources open, and where it might be good to check if they can be released now */
         LIST_HEAD(Unit, release_resources_queue);
 
+        /* Units that perform certain actions after some other unit deactivates */
+        LIST_HEAD(Unit, stop_notify_queue);
+
         sd_event *event;
 
         /* This maps PIDs we care about to units that are interested in them. We allow multiple units to be
@@ -230,6 +235,11 @@ typedef struct Manager {
 
         /* A set which contains all currently failed units */
         Set *failed_units;
+
+        uint64_t last_transaction_id;
+
+        /* IDs of transactions that once encountered ordering cycle */
+        Set *transactions_with_cycle;
 
         sd_event_source *run_queue_event_source;
 
@@ -311,23 +321,22 @@ typedef struct Manager {
         sd_id128_t bus_id, deserialized_bus_id;
 
         /* This is used during reloading: before the reload we queue
-         * the reply message here, and afterwards we send it */
-        sd_bus_message *pending_reload_message;
+         * the reply message here, and afterwards we send it.
+         * It can be either a D-Bus message or a Varlink message, but not both. */
+        sd_bus_message *pending_reload_message_dbus;
+        sd_varlink *pending_reload_message_vl;
 
         Hashmap *watch_bus;  /* D-Bus names => Unit object n:1 */
 
-        bool send_reloading_done;
-
         uint32_t current_job_id;
-        uint32_t default_unit_job_id;
 
         /* Data specific to the Automount subsystem */
         int dev_autofs_fd;
 
         /* Data specific to the cgroup subsystem */
         Hashmap *cgroup_unit;
-        CGroupMask cgroup_supported;
         char *cgroup_root;
+        CGroupMask cgroup_supported;
 
         /* Notifications from cgroups, when the unified hierarchy is used is done via inotify. */
         int cgroup_inotify_fd;
@@ -358,6 +367,9 @@ typedef struct Manager {
 
         /* Flags */
         bool dispatching_load_queue;
+        int may_dispatch_stop_notify_queue; /* tristate */
+
+        bool send_reloading_done;
 
         /* Have we already sent out the READY=1 notification? */
         bool ready_sent;
@@ -468,7 +480,7 @@ typedef struct Manager {
         sd_event_source *memory_pressure_event_source;
 
         /* For NFTSet= */
-        FirewallContext *fw_ctx;
+        sd_netlink *nfnl;
 
         /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
          * serialization/deserialization compatibility issues during upgrades. */
@@ -630,6 +642,8 @@ int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor);
 int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor);
 
 LogTarget manager_get_executor_log_target(Manager *m);
+
+void manager_log_caller(Manager *manager, PidRef *caller, const char *method);
 
 int manager_allocate_idle_pipe(Manager *m);
 

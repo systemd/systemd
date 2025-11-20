@@ -27,7 +27,14 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                 if (fd < 0)
                         return log_error_errno(fd, "Could not open \"%s\": %m", *filename);
 
-                r = parse_elf_object(fd, abspath, arg_root, /* fork_disable_dump= */false, &stacktrace, &package_metadata);
+                r = parse_elf_object(
+                                fd,
+                                abspath,
+                                arg_root,
+                                /* fork_disable_dump= */ false,
+                                &stacktrace,
+                                &package_metadata,
+                                /* ret_dlopen_metadata= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Parsing \"%s\" as ELF object failed: %m", abspath);
 

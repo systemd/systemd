@@ -9,7 +9,6 @@
 #include "fuzz.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
-#include "log.h"
 
 static FILE *null = NULL;
 

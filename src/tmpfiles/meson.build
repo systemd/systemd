@@ -17,7 +17,7 @@ executables += [
                 'public' : true,
                 'sources' : systemd_tmpfiles_sources + systemd_tmpfiles_extract_sources,
                 'extract' : systemd_tmpfiles_extract_sources,
-                'dependencies' : libacl,
+                'dependencies' : libacl_cflags,
         },
         executable_template + {
                 'name' : 'systemd-tmpfiles.standalone',
@@ -25,11 +25,12 @@ executables += [
                 'sources' : systemd_tmpfiles_sources + systemd_tmpfiles_extract_sources,
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
+                        libc_wrapper_static,
                         libbasic_static,
                         libshared_static,
                         libsystemd_static,
                 ],
-                'dependencies' : libacl,
+                'dependencies' : libacl_cflags,
         },
         test_template + {
                 'sources' : files('test-offline-passwd.c'),

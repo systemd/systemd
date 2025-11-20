@@ -2,5 +2,5 @@
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/echo "I'm unstoppable!"
-ExecStop=/bin/systemctl start --no-block unstoppable.service
+ExecStart=echo "I'm unstoppable!"
+ExecStop=systemctl start --no-block unstoppable.service

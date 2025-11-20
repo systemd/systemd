@@ -4,6 +4,5 @@ Name=ip6tnl-slaac
 Kind=ip6tnl
 
 [Tunnel]
-Mode=ip6ip6
 Local=slaac
 Remote=2001:473:fece:cafe::5179

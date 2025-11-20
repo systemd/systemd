@@ -10,7 +10,7 @@
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "bus-wait-for-units.h"
-#include "fork-journal.h"
+#include "fork-notify.h"
 #include "pidref.h"
 #include "runtime-scope.h"
 #include "special.h"
@@ -232,10 +232,6 @@ const struct action_metadata action_table[_ACTION_MAX] = {
         [ACTION_REBOOT]                 = { SPECIAL_REBOOT_TARGET,                 "reboot",                 "replace-irreversibly" },
         [ACTION_KEXEC]                  = { SPECIAL_KEXEC_TARGET,                  "kexec",                  "replace-irreversibly" },
         [ACTION_SOFT_REBOOT]            = { SPECIAL_SOFT_REBOOT_TARGET,            "soft-reboot",            "replace-irreversibly" },
-        [ACTION_RUNLEVEL2]              = { SPECIAL_MULTI_USER_TARGET,             NULL,                     "isolate"              },
-        [ACTION_RUNLEVEL3]              = { SPECIAL_MULTI_USER_TARGET,             NULL,                     "isolate"              },
-        [ACTION_RUNLEVEL4]              = { SPECIAL_MULTI_USER_TARGET,             NULL,                     "isolate"              },
-        [ACTION_RUNLEVEL5]              = { SPECIAL_GRAPHICAL_TARGET,              NULL,                     "isolate"              },
         [ACTION_RESCUE]                 = { SPECIAL_RESCUE_TARGET,                 "rescue",                 "isolate"              },
         [ACTION_EMERGENCY]              = { SPECIAL_EMERGENCY_TARGET,              "emergency",              "isolate"              },
         [ACTION_DEFAULT]                = { SPECIAL_DEFAULT_TARGET,                "default",                "isolate"              },
@@ -390,7 +386,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to allocate unit watch context: %m");
         }
 
-        _cleanup_(journal_terminate) PidRef journal_pid = PIDREF_NULL;
+        _cleanup_(fork_notify_terminate) PidRef journal_pid = PIDREF_NULL;
         if (arg_marked)
                 ret = enqueue_marked_jobs(bus, w);
         else {

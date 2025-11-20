@@ -257,6 +257,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>VolumeLabel=</varname></term>
+
+        <listitem><para>The textual label to assign to the LUKS superblock if applicable. If not specified
+        defaults to the same string as the partition label (see <varname>Label=</varname> above), however
+        prefixed with <literal>luks-</literal>. This setting has no effect if encryption is not enabled for
+        this partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UUID=</varname></term>
 
         <listitem><para>The UUID to assign to the partition if none is assigned yet. Note that this
@@ -341,6 +352,11 @@
         and the placing algorithm restarted. By default, a minimum size constraint of 10M and no maximum size
         constraint is set.</para>
 
+        <para>If <varname>Format=</varname> is set, the minimum size is automatically raised to the minimum
+        file system size for the selected file system type, if known. Moreover, for the ESP/XBOOTLDR
+        partitions the minimum is raised to 100M (for 512b sector images) or 260M (for 4K sector images)
+        automatically, if specified smaller.</para>
+
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
@@ -411,6 +427,9 @@
         the size allocation algorithm is slightly altered: the partition is created at least as big as
         required for the minimal file system of the specified type (or 4KiB if the minimal size is not
         known).</para>
+
+        <para>This also takes a special meta value <literal>empty</literal>. If specified this is equivalent
+        to specifying <literal>Label=_empty</literal> and <literal>NoAuto=1</literal>.</para>
 
         <para>This option has no effect if the partition already exists.</para>
 
@@ -604,6 +623,10 @@
                 <entry><literal>ro</literal></entry>
                 <entry>Make this subvolume read-only.</entry>
               </row>
+              <row id='C'>
+                <entry><literal>nodatacow</literal></entry>
+                <entry>Disable data CoW for this subvolume.</entry>
+              </row>
             </tbody>
           </tgroup>
         </table>
@@ -615,7 +638,7 @@
         <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
         <para>Note that this option is only supported in combination with <option>--offline=yes</option>
-        since <filename>btrfs-progs</filename> 6.11 or newer.</para>
+        since <filename>btrfs-progs</filename> 6.12 or newer.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
@@ -632,7 +655,7 @@
         </para>
 
         <para>Note that this option is only supported in combination with <option>--offline=yes</option>
-        since <filename>btrfs-progs</filename> 6.11 or newer.</para>
+        since <filename>btrfs-progs</filename> 6.12 or newer.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -829,8 +852,10 @@
         partition should be mounted. The second field specifies extra mount options to append to the default
         mount options. These fields correspond to the second and fourth column of the
         <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-        format. This setting may be specified multiple times to mount the partition multiple times. This can
-        be used to add mounts for different
+        format. As a colon is used for separating fields, each field needs to be quoted when it contains
+        colons. E.g. <programlisting>MountPoint="/path/with:colon":"zstd:1,noatime,lazytime"</programlisting>
+        This setting may be specified multiple times to mount the partition multiple times. This can be used
+        to add mounts for different
         <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         subvolumes located on the same btrfs partition.</para>
 
@@ -857,6 +882,31 @@
         is specified on the <command>systemd-repart</command> command line.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>TPM2PCRs=</varname></term>
+
+        <listitem><para>Configures the list of PCRs to use for LUKS2 volumes configured with
+        the <varname>Encrypt=tpm2</varname> setting in partition files.
+        This option take the same parameters as the similarly named options to
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        and have the same effect on partitions where TPM2 enrollment is requested.
+        This option will be overridden by the global <varname>--tpm2-pcrs=</varname> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>KeyFile=</varname></term>
+
+        <listitem><para>Takes a file system path. This path must be absolute, otherwise the option is ignored.
+        Configures the encryption key to use when setting up LUKS2 volumes configured with the
+        <varname>Encrypt=key-file</varname> setting in partition files. Please refer to the documentation of
+        <varname>--key-file=</varname> for more details. This option will be overridden by the global
+        <varname>--key-file=</varname> option.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1003,6 +1053,25 @@
         table. As these extended attributes are stored inside the file system, they are typically
         authenticated as part of the file system (assuming it is contained in protected volume; i.e. LUKS or
         dm-verity), and hence may be used to securely validate the matching partition table fields.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>FileSystemSectorSize=</varname></term>
+
+        <listitem><para>Controls the sector size for any file system, LUKS volume or Verity volume formatted
+        on this partition. Expects a power of 2 as value, and must be equal or larger than 512. Typically
+        it's recommended to set the file system sector size to 4096, even on 512 sector disks (and in
+        particular for images that are only ever intended to be stored as file on disks), in order to
+        optimize performance. However, for compatibility with foreign operating systems or firmware it might
+        be advisable to use the native sector size of the backing disk.</para>
+
+        <para>If unspecified and operating on a block device, defaults to the native sector size of the
+        device. If unspecified and operating on a disk image file defaults to 4096.</para>
+
+        <para>Regardless of what is configured here, or which default is picked, the file system sector size
+        is always increased to be equal or larger than the disk sector size.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>

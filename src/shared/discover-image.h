@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "os-util.h"
 
 typedef enum ImageType {
@@ -39,41 +39,42 @@ typedef struct Image {
         char **sysext_release;
         char **confext_release;
 
-        bool metadata_valid:1;
-        bool discoverable:1;  /* true if we know for sure that image_find() would find the image given just the short name */
+        bool metadata_valid:1;     /* true if the above 6 metadata fields have been read from the image */
+        bool discoverable:1;       /* true if we know for sure that image_find() would find the image given just the short name */
+        bool foreign_uid_owned:1;  /* true if this is of type IMAGE_DIRECTORY/IMAGE_SUBVOLUME and owned by foreign UID range */
 
         void *userdata;
 } Image;
 
-Image *image_unref(Image *i);
-Image *image_ref(Image *i);
+Image* image_unref(Image *i);
+Image* image_ref(Image *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Image*, image_unref);
 
 int image_find(RuntimeScope scope, ImageClass class, const char *name, const char *root, Image **ret);
 int image_from_path(const char *path, Image **ret);
 int image_find_harder(RuntimeScope scope, ImageClass class, const char *name_or_path, const char *root, Image **ret);
-int image_discover(RuntimeScope scope, ImageClass class, const char *root, Hashmap *map);
+int image_discover(RuntimeScope scope, ImageClass class, const char *root, Hashmap **images);
 
-int image_remove(Image *i);
+int image_remove(Image *i, RuntimeScope scope);
 int image_rename(Image *i, const char *new_name, RuntimeScope scope);
 int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope);
-int image_read_only(Image *i, bool b);
+int image_read_only(Image *i, bool b, RuntimeScope scope);
 
 const char* image_type_to_string(ImageType t) _const_;
 ImageType image_type_from_string(const char *s) _pure_;
 
-int image_path_lock(const char *path, int operation, LockFile *global, LockFile *local);
-int image_name_lock(const char *name, int operation, LockFile *ret);
+int image_path_lock(RuntimeScope scope, const char *path, int operation, LockFile *global, LockFile *local);
+int image_name_lock(RuntimeScope scope, const char *name, int operation, LockFile *ret);
 
 int image_set_limit(Image *i, uint64_t referenced_max);
-int image_set_pool_limit(ImageClass class, uint64_t referenced_max);
+int image_set_pool_limit(RuntimeScope scope, ImageClass class, uint64_t referenced_max);
 
-int image_read_metadata(Image *i, const ImagePolicy *image_policy);
+int image_read_metadata(Image *i, const ImagePolicy *image_policy, RuntimeScope scope);
 
 bool image_in_search_path(RuntimeScope scope, ImageClass class, const char *root, const char *image);
 
-static inline char **image_extension_release(Image *image, ImageClass class) {
+static inline char** image_extension_release(Image *image, ImageClass class) {
         assert(image);
 
         if (class == IMAGE_SYSEXT)
@@ -84,19 +85,31 @@ static inline char **image_extension_release(Image *image, ImageClass class) {
         return NULL;
 }
 
-static inline bool image_is_hidden(const struct Image *i) {
+static inline bool image_is_hidden(const Image *i) {
         assert(i);
 
         return i->name && i->name[0] == '.';
 }
 
-bool image_is_vendor(const struct Image *i);
-bool image_is_host(const struct Image *i);
+static inline bool image_is_read_only(const Image *i) {
+        assert(i);
 
-int image_to_json(const struct Image *i, sd_json_variant **ret);
+        /* We enforce the rule that hidden images are always read-only too. If people want to change hidden
+         * images they should make a copy first, and make that one mutable */
 
-const char* image_root_to_string(ImageClass c) _const_;
-const char* image_root_runtime_to_string(ImageClass c) _const_;
+        if (image_is_hidden(i))
+                return true;
+
+        return i->read_only;
+}
+int bus_property_get_image_is_read_only(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
+
+bool image_is_vendor(const Image *i);
+bool image_is_host(const Image *i);
+
+int image_to_json(const Image *i, sd_json_variant **ret);
+
+int image_root_pick(RuntimeScope scope, ImageClass c, bool runtime, char **ret);
 
 extern const struct hash_ops image_hash_ops;
 

@@ -87,7 +87,7 @@ __dbus_matchspec() {
     local -a bus_names
     local NAME OTHER
     __busctl --unique list |
-    while read NAME OTHER; do
+    while read -r NAME OTHER; do
         echo $NAME
     done
 }
@@ -104,7 +104,7 @@ __dbus_matchspec() {
 {
     local NAME TYPE OTHER
     __busctl introspect "$1" "$2" |
-    while read NAME TYPE OTHER; do
+    while read -r NAME TYPE OTHER; do
         if [[ ${TYPE} == "interface" ]]; then
             echo ${NAME}
         fi
@@ -117,7 +117,7 @@ __dbus_matchspec() {
     local required="$5"
     local NAME TYPE SIGNATURE VALUE FLAGS
     __busctl introspect "$1" "$2" "$3" |
-    while read NAME TYPE SIGNATURE VALUE FLAGS; do
+    while read -r NAME TYPE SIGNATURE VALUE FLAGS; do
         [[ -z "$member" || ${TYPE} == "$member" ]] &&
         [[ -z "$required" || "${${(os: :)FLAGS}}" == $~required ]] &&
         echo ${NAME#.}
@@ -128,7 +128,7 @@ __dbus_matchspec() {
 {
     local NAME TYPE SIGNATURE VALUE FLAGS
     __busctl introspect "$1" "$2" "$3" |
-    while read NAME TYPE SIGNATURE VALUE FLAGS; do
+    while read -r NAME TYPE SIGNATURE VALUE FLAGS; do
         if [[ ${NAME#.} == "$4" ]]; then
             [[ ${SIGNATURE} != "-" ]] && echo ${SIGNATURE}
         fi

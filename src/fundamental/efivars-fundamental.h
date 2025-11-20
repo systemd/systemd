@@ -27,6 +27,7 @@
 #define EFI_LOADER_FEATURE_REPORT_URL              (UINT64_C(1) << 15)
 #define EFI_LOADER_FEATURE_TYPE1_UKI               (UINT64_C(1) << 16)
 #define EFI_LOADER_FEATURE_TYPE1_UKI_URL           (UINT64_C(1) << 17)
+#define EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS   (UINT64_C(1) << 18)
 
 /* Features of the stub, i.e. systemd-stub */
 #define EFI_STUB_FEATURE_REPORT_BOOT_PARTITION     (UINT64_C(1) << 0)
@@ -50,9 +51,10 @@ typedef enum SecureBootMode {
         SECURE_BOOT_DEPLOYED,
         SECURE_BOOT_SETUP,
         SECURE_BOOT_USER,
+        SECURE_BOOT_TAINTED,
         _SECURE_BOOT_MAX,
         _SECURE_BOOT_INVALID = -EINVAL,
 } SecureBootMode;
 
 const sd_char *secure_boot_mode_to_string(SecureBootMode m);
-SecureBootMode decode_secure_boot_mode(bool secure, bool audit, bool deployed, bool setup);
+SecureBootMode decode_secure_boot_mode(bool secure, bool audit, bool deployed, bool setup, bool moksb);

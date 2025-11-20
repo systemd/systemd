@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int register_machine(
                 sd_bus *bus,
                 const char *machine_name,
                 sd_id128_t uuid,
                 const char *service,
+                const PidRef *pidref,
                 const char *directory,
                 unsigned cid,
                 const char *address,

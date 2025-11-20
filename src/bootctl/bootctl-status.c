@@ -83,6 +83,17 @@ static int status_entries(
                 printf(", %s$BOOT%s", ansi_green(), ansi_normal());
         printf(")");
 
+        if (config->loader_conf_status != 0) {
+                assert(esp_path);
+                printf("\n       config: %s%s/%s%s",
+                       ansi_grey(), esp_path, ansi_normal(), "/loader/loader.conf");
+                if (config->loader_conf_status < 0)
+                        printf(": %s%s%s",
+                               config->loader_conf_status == -ENOENT ? ansi_grey() : ansi_highlight_yellow(),
+                               STRERROR(config->loader_conf_status),
+                               ansi_normal());
+        }
+
         if (xbootldr_path) {
                 printf("\n     XBOOTLDR: %s (", xbootldr_path);
                 if (!sd_id128_is_null(xbootldr_partition_uuid))
@@ -211,7 +222,7 @@ static int enumerate_binaries(
         assert(previous);
         assert(is_first);
 
-        r = chase_and_opendir(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, &p, &d);
+        r = chase_and_opendir(path, esp_path, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, &p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -413,6 +424,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_REPORT_URL,              "Loader reports network boot URL"       },
                         { EFI_LOADER_FEATURE_TYPE1_UKI,               "Support Type #1 uki field"             },
                         { EFI_LOADER_FEATURE_TYPE1_UKI_URL,           "Support Type #1 uki-url field"         },
+                        { EFI_LOADER_FEATURE_TPM2_ACTIVE_PCR_BANKS,   "Loader reports TPM2 active PCR banks"  },
                 };
                 static const struct {
                         uint64_t flag;
@@ -560,7 +572,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                                  * to _either_ of them, print a warning. */
                                 if (!sd_id128_is_null(esp_uuid) && !sd_id128_equal(stub_partition_uuid, esp_uuid) &&
                                     !sd_id128_is_null(xbootldr_uuid) && !sd_id128_equal(stub_partition_uuid, xbootldr_uuid))
-                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP and XBOOTDLR partitions "
+                                        printf("WARNING: The stub loader reports a different UUID than the detected ESP and XBOOTLDR partitions "
                                                "("SD_ID128_UUID_FORMAT_STR" vs. "SD_ID128_UUID_FORMAT_STR"/"SD_ID128_UUID_FORMAT_STR")!\n",
                                                SD_ID128_FORMAT_VAL(stub_partition_uuid),
                                                SD_ID128_FORMAT_VAL(esp_uuid),
@@ -681,7 +693,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
                 return;
 
         if (arg_dry_run) {
-                r = chase_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, F_OK, &path);
+                r = chase_and_access(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, F_OK, &path);
                 if (r < 0)
                         log_info_errno(r, "Unable to determine whether \"%s\" exists, ignoring: %m", fn);
                 else
@@ -689,7 +701,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
                 return;
         }
 
-        r = chase_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, 0, &path);
+        r = chase_and_unlink(fn, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, 0, &path);
         if (r >= 0)
                 log_info("Removed \"%s\"", path);
         else if (r != -ENOENT)
@@ -697,7 +709,7 @@ static void deref_unlink_file(Hashmap **known_files, const char *fn, const char 
 
         _cleanup_free_ char *d = NULL;
         if (path_extract_directory(fn, &d) >= 0 && !path_equal(d, "/")) {
-                r = chase_and_unlink(d, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, AT_REMOVEDIR, NULL);
+                r = chase_and_unlink(d, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, AT_REMOVEDIR, NULL);
                 if (r < 0 && !IN_SET(r, -ENOTEMPTY, -ENOENT))
                         log_warning_errno(r, "Failed to remove directory \"%s\", ignoring: %m", d);
         }
@@ -720,6 +732,9 @@ static int count_known_files(const BootConfig *config, const char* root, Hashmap
                 if (r < 0)
                         return r;
                 r = ref_file(&known_files, e->efi, +1);
+                if (r < 0)
+                        return r;
+                r = ref_file(&known_files, e->uki, +1);
                 if (r < 0)
                         return r;
                 STRV_FOREACH(s, e->initrd) {
@@ -769,7 +784,7 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
 
         r = boot_config_find_in(config, root, id);
         if (r < 0)
-                return r;
+                return 0; /* There is nothing to remove. */
 
         if (r == config->default_entry)
                 log_warning("%s is the default boot entry", id);
@@ -780,6 +795,7 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
 
         deref_unlink_file(&known_files, e->kernel, e->root);
         deref_unlink_file(&known_files, e->efi, e->root);
+        deref_unlink_file(&known_files, e->uki, e->root);
         STRV_FOREACH(s, e->initrd)
                 deref_unlink_file(&known_files, *s, e->root);
         deref_unlink_file(&known_files, e->device_tree, e->root);
@@ -789,7 +805,9 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
         if (arg_dry_run)
                 log_info("Would remove \"%s\"", e->path);
         else {
-                r = chase_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS, 0, NULL);
+                r = chase_and_unlink(e->path, root, CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, 0, NULL);
+                if (r == -ENOENT)
+                        return 0; /* Already removed? */
                 if (r < 0)
                         return log_error_errno(r, "Failed to remove \"%s\": %m", e->path);
 
@@ -821,7 +839,8 @@ static int list_remove_orphaned_file(
         if (arg_dry_run)
                 log_info("Would remove %s", path);
         else if (unlinkat(dir_fd, de->d_name, 0) < 0)
-                log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", path);
+                log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
+                               "Failed to remove \"%s\", ignoring: %m", path);
         else
                 log_info("Removed %s", path);
 
@@ -850,7 +869,7 @@ static int cleanup_orphaned_files(
         if (r < 0)
                 return log_error_errno(r, "Failed to count files in %s: %m", root);
 
-        dir_fd = chase_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS,
+        dir_fd = chase_and_open(arg_entry_token, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS,
                         O_DIRECTORY|O_CLOEXEC, &full);
         if (dir_fd == -ENOENT)
                 return 0;
@@ -908,17 +927,10 @@ int verb_list(int argc, char *argv[], void *userdata) {
                 return cleanup_orphaned_files(&config, arg_esp_path);
         } else {
                 assert(streq(argv[0], "unlink"));
-                if (arg_xbootldr_path && xbootldr_devid != esp_devid) {
+                if (arg_xbootldr_path && xbootldr_devid != esp_devid)
                         r = unlink_entry(&config, arg_xbootldr_path, argv[1]);
-                        if (r == 0 || r != -ENOENT)
-                                return r;
-                }
-                return unlink_entry(&config, arg_esp_path, argv[1]);
+                return RET_GATHER(r, unlink_entry(&config, arg_esp_path, argv[1]));
         }
-}
-
-int verb_unlink(int argc, char *argv[], void *userdata) {
-        return verb_list(argc, argv, userdata);
 }
 
 int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {

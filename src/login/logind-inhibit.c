@@ -421,10 +421,10 @@ bool manager_is_inhibited(
                 if (!(i->what & w))
                         continue;
 
-                if ((flags & MANAGER_IS_INHIBITED_CHECK_DELAY) != (i->mode == INHIBIT_DELAY))
+                if (FLAGS_SET(flags, MANAGER_IS_INHIBITED_CHECK_DELAY) != (i->mode == INHIBIT_DELAY))
                         continue;
 
-                if ((flags & MANAGER_IS_INHIBITED_IGNORE_INACTIVE) &&
+                if (FLAGS_SET(flags, MANAGER_IS_INHIBITED_IGNORE_INACTIVE) &&
                     pidref_is_active_session(m, &i->pid) <= 0)
                         continue;
 

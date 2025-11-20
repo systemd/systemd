@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-bus.h"
 
 #include "alloc-util.h"
@@ -570,7 +572,60 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = unit_kill(u, whom, signo, code, value, error);
+        r = unit_kill(u, whom, /* subgroup= */ NULL, signo, code, value, error);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
+int bus_unit_method_kill_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Unit *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(message);
+
+        r = mac_selinux_unit_access_check(u, message, "stop", error);
+        if (r < 0)
+                return r;
+
+        const char *swhom, *subgroup;
+        int32_t signo;
+        r = sd_bus_message_read(message, "ssi", &swhom, &subgroup, &signo);
+        if (r < 0)
+                return r;
+
+        KillWhom whom;
+        if (isempty(swhom))
+                whom = KILL_CGROUP;
+        else {
+                whom = kill_whom_from_string(swhom);
+                if (whom < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid whom argument: %s", swhom);
+        }
+
+        if (isempty(subgroup))
+                subgroup = NULL;
+        else if (!path_is_normalized(subgroup))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Specified cgroup sub-path is not valid.");
+        else if (!IN_SET(whom, KILL_CGROUP, KILL_CGROUP_FAIL))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Subgroup can only be specified in combination with 'cgroup' or 'cgroup-fail'.");
+
+        if (!SIGNAL_VALID(signo))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Signal number out of range.");
+
+        r = bus_verify_manage_units_async_full(
+                        u,
+                        "kill-subgroup",
+                        N_("Authentication is required to send a UNIX signal to the processes of subgroup of '$(unit)'."),
+                        message,
+                        error);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        r = unit_kill(u, whom, subgroup, signo, SI_USER, /* value= */ 0, error);
         if (r < 0)
                 return r;
 
@@ -984,6 +1039,11 @@ const sd_bus_vtable bus_unit_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 bus_unit_method_kill,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("KillSubgroup",
+                                SD_BUS_ARGS("s", subgroup, "i", signal),
+                                SD_BUS_NO_RESULT,
+                                bus_unit_method_kill_subgroup,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("QueueSignal",
                                 SD_BUS_ARGS("s", whom, "i", signal, "i", value),
                                 SD_BUS_NO_RESULT,
@@ -1154,7 +1214,7 @@ static int property_get_cpuset_cpus(
                 sd_bus_error *error) {
 
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_reset) CPUSet cpus = {};
+        _cleanup_(cpu_set_done) CPUSet cpus = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -1176,7 +1236,7 @@ static int property_get_cpuset_mems(
                 sd_bus_error *error) {
 
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_reset) CPUSet mems = {};
+        _cleanup_(cpu_set_done) CPUSet mems = {};
         _cleanup_free_ uint8_t *array = NULL;
         size_t allocated;
 
@@ -1235,6 +1295,42 @@ static int property_get_cgroup_id(
         return sd_bus_message_append(reply, "t", crt ? crt->cgroup_id : UINT64_C(0));
 }
 
+static int property_get_oom_kills(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        return sd_bus_message_append(reply, "t", crt ? crt->oom_kill_last : UINT64_MAX);
+}
+
+static int property_get_managed_oom_kills(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        return sd_bus_message_append(reply, "t", crt ? crt->managed_oom_kill_last : UINT64_MAX);
+}
+
 static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set *pids) {
         _cleanup_free_ char *buf = NULL, *cmdline = NULL;
         int r;
@@ -1249,7 +1345,7 @@ static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set
                 return r;
 
         if (!p) {
-                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &buf);
+                r = cg_pidref_get_path(pid, &buf);
                 if (r == -ESRCH)
                         return 0;
                 if (r < 0)
@@ -1279,7 +1375,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
         assert(reply);
         assert(p);
 
-        r = cg_enumerate_processes(SYSTEMD_CGROUP_CONTROLLER, p, &f);
+        r = cg_enumerate_processes(p, &f);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1291,10 +1387,13 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
                  * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads, “cgroup.procs” in a
                  * threaded domain cgroup contains the PIDs of all processes in the subtree and is not
-                 * readable in the subtree proper. */
+                 * readable in the subtree proper.
+                 *
+                 * We'll see ENODEV when trying to enumerate processes and the cgroup is removed at the same
+                 * time. Handle this gracefully. */
 
                 r = cg_read_pidref(f, &pidref, /* flags = */ 0);
-                if (IN_SET(r, 0, -EOPNOTSUPP))
+                if (IN_SET(r, 0, -EOPNOTSUPP, -ENODEV))
                         break;
                 if (r < 0)
                         return r;
@@ -1312,7 +1411,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                         return r;
         }
 
-        r = cg_enumerate_subgroups(SYSTEMD_CGROUP_CONTROLLER, p, &d);
+        r = cg_enumerate_subgroups(p, &d);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -1389,7 +1488,7 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int property_get_ip_counter(
@@ -1617,7 +1716,7 @@ int bus_unit_method_remove_subgroup(sd_bus_message *message, void *userdata, sd_
 
         /* Allow this only if the client is privileged, is us, or is the user of the unit itself. */
         if (sender_uid != 0 && sender_uid != getuid() && sender_uid != u->ref_uid)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Client is not permitted to alter cgroup.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Client is not permitted to alter cgroup.");
 
         r = unit_remove_subcgroup(u, path);
         if (r < 0)
@@ -1652,6 +1751,8 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("IOReadOperations", "t", property_get_io_counter, 0, 0),
         SD_BUS_PROPERTY("IOWriteBytes", "t", property_get_io_counter, 0, 0),
         SD_BUS_PROPERTY("IOWriteOperations", "t", property_get_io_counter, 0, 0),
+        SD_BUS_PROPERTY("OOMKills", "t", property_get_oom_kills, 0, 0),
+        SD_BUS_PROPERTY("ManagedOOMKills", "t", property_get_managed_oom_kills, 0, 0),
 
         SD_BUS_METHOD_WITH_ARGS("GetProcesses",
                                 SD_BUS_NO_ARGS,
@@ -1793,7 +1894,7 @@ int bus_unit_send_pending_freezer_message(Unit *u, bool canceled) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_send(NULL, reply, NULL);
+        r = sd_bus_message_send(reply);
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued message, ignoring: %m");
 
@@ -1998,7 +2099,7 @@ int bus_unit_queue_job(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int bus_unit_set_live_property(

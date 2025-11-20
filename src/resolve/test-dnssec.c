@@ -5,10 +5,10 @@
 
 #include "alloc-util.h"
 #include "bitmap.h"
+#include "dns-answer.h"
+#include "dns-rr.h"
 #include "hexdecoct.h"
-#include "resolved-dns-answer.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-rr.h"
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"

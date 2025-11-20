@@ -9,7 +9,7 @@ executables += [
                 'name' : 'systemd-sysusers',
                 'public' : true,
                 'sources' : files('sysusers.c'),
-                'dependencies' : libaudit,
+                'dependencies' : libaudit_cflags,
         },
         executable_template + {
                 'name' : 'systemd-sysusers.standalone',
@@ -17,10 +17,11 @@ executables += [
                 'sources' : files('sysusers.c'),
                 'c_args' : '-DSTANDALONE',
                 'link_with' : [
+                        libc_wrapper_static,
                         libbasic_static,
                         libshared_static,
                         libsystemd_static,
                 ],
-                'dependencies' : libaudit,
+                'dependencies' : libaudit_cflags,
         },
 ]

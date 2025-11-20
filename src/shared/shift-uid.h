@@ -2,6 +2,6 @@
 
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int path_patch_uid(const char *path, uid_t shift, uid_t range);

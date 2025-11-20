@@ -3,7 +3,7 @@
 
 #include <signal.h>     /* IWYU pragma: export */
 
-#include "forward.h"
+#include "basic-forward.h"
 
 int reset_all_signal_handlers(void);
 int reset_signal_mask(void);
@@ -36,16 +36,21 @@ int signal_from_string(const char *s) _pure_;
 
 void nop_signal_handler(int sig);
 
-static inline void block_signals_reset(sigset_t *ss) {
-        assert_se(sigprocmask(SIG_SETMASK, ss, NULL) >= 0);
+static inline void block_signals_reset(sigset_t **ss) {
+        assert(ss);
+
+        if (!*ss)
+                return;
+
+        assert_log(sigprocmask(SIG_SETMASK, *ss, NULL) >= 0);
 }
 
-#define BLOCK_SIGNALS(...)                                                         \
-        _cleanup_(block_signals_reset) _unused_ sigset_t _saved_sigset = ({        \
-                sigset_t _t;                                                       \
-                assert_se(sigprocmask_many(SIG_BLOCK, &_t, __VA_ARGS__) >= 0);     \
-                _t;                                                                \
-        })
+#define BLOCK_SIGNALS(...)                                              \
+        sigset_t _saved_sigset;                                         \
+        _cleanup_(block_signals_reset) _unused_ sigset_t *_saved_sigsetp = \
+                assert_log(sigprocmask_many(SIG_BLOCK, &_saved_sigset, __VA_ARGS__) >= 0) ? \
+                &_saved_sigset : NULL;
+
 #define SIGNO_INVALID (-EINVAL)
 
 static inline bool SIGNAL_VALID(int signo) {
@@ -93,3 +98,5 @@ static inline bool si_code_from_process(int si_code) {
 
         return si_code < 0 || IN_SET(si_code, SI_USER, SI_QUEUE);
 }
+
+void sigterm_process_group_handler(int signal, siginfo_t *info, void *ucontext);

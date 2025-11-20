@@ -11,8 +11,8 @@
 #include "strv.h"
 
 static int saved_log_context_enabled = -1;
-thread_local LIST_HEAD(LogContext, _log_context) = NULL;
-thread_local size_t _log_context_num_fields = 0;
+static thread_local LIST_HEAD(LogContext, _log_context) = NULL;
+static thread_local size_t _log_context_num_fields = 0;
 
 bool log_context_enabled(void) {
         int r;
@@ -58,7 +58,9 @@ static LogContext* log_context_detach(LogContext *c) {
 LogContext* log_context_new(const char *key, const char *value) {
         assert(key);
         assert(endswith(key, "="));
-        assert(value);
+
+        if (!value)
+                return NULL;
 
         LIST_FOREACH(ll, i, _log_context)
                 if (i->key == key && i->value == value)

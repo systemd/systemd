@@ -247,7 +247,7 @@ tomorrow Pacific/Auckland → Thu 2012-11-23 19:00:00
     decimal places.</para>
 
     <para>Either time or date specification may be omitted, in which
-    case *-*-* and 00:00:00 is implied, respectively. If the
+    case 00:00:00 and *-*-* is implied, respectively. If the
     seconds component is not specified, <literal>:00</literal> is
     assumed.</para>
 

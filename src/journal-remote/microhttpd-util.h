@@ -5,7 +5,7 @@
 
 #include <microhttpd.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 /* Those defines are added when options are renamed. If the old names
  * are not '#define'd, then they are not deprecated yet and there are

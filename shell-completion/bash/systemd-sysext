@@ -31,9 +31,13 @@ _systemd-sysext() {
         [STANDALONE]='-h --help --version
                      --no-pager
                      --no-legend
+                     --no-reload
                      --force'
         [ARG]='--root
-               --json'
+               --json
+               --noexec
+               --image-policy
+               --mutable'
     )
 
     local -A VERBS=(
@@ -54,6 +58,15 @@ _systemd-sysext() {
                 ;;
             --json)
                 comps='pretty short off'
+                ;;
+            --noexec)
+                comps='no yes'
+                ;;
+            --image-policy)
+                comps=''
+                ;;
+            --mutable)
+                comps=$( systemd-sysext --no-legend --mutable=help 2>/dev/null; echo help )
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )

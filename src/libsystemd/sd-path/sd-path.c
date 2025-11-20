@@ -302,6 +302,10 @@ static int get_path(uint64_t type, char **buffer, const char **ret) {
                 *ret = PREFIX_NOSLASH "/lib/systemd/user-preset";
                 return 0;
 
+        case SD_PATH_SYSTEMD_INITRD_PRESET:
+                *ret = PREFIX_NOSLASH "/lib/systemd/initrd-preset";
+                return 0;
+
         case SD_PATH_SYSTEMD_SYSTEM_CONF:
                 *ret = SYSTEM_CONFIG_UNIT_DIR;
                 return 0;
@@ -519,6 +523,9 @@ static int get_search(uint64_t type, char ***ret) {
         assert(ret);
 
         switch (type) {
+
+        case SD_PATH_SYSTEM_SEARCH_CONFIGURATION:
+                return strv_from_nulstr(ret, CONF_PATHS_NULSTR(""));
 
         case SD_PATH_SEARCH_BINARIES:
                 return search_from_environment(ret,

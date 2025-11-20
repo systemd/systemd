@@ -76,8 +76,9 @@ int open_file_validate(const OpenFile *of) {
         if (!fdname_is_valid(of->fdname))
                 return -EINVAL;
 
-        if ((FLAGS_SET(of->flags, OPENFILE_READ_ONLY) + FLAGS_SET(of->flags, OPENFILE_APPEND) +
-             FLAGS_SET(of->flags, OPENFILE_TRUNCATE)) > 1)
+        if (FLAGS_SET(of->flags, OPENFILE_READ_ONLY) +
+            FLAGS_SET(of->flags, OPENFILE_APPEND) +
+            FLAGS_SET(of->flags, OPENFILE_TRUNCATE) > 1)
                 return -EINVAL;
 
         if ((of->flags & ~_OPENFILE_MASK_PUBLIC) != 0)

@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-id128.h"
 
@@ -408,7 +409,7 @@ static int config_parse_resource_ptype(
         r = gpt_partition_type_from_string(rvalue, &rr->partition_type);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed parse partition type, ignoring: %s", rvalue);
+                           "Failed to parse partition type, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -436,7 +437,7 @@ static int config_parse_partition_uuid(
         r = sd_id128_from_string(rvalue, &t->partition_uuid);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed parse partition UUID, ignoring: %s", rvalue);
+                           "Failed to parse partition UUID, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -464,7 +465,7 @@ static int config_parse_partition_flags(
         r = safe_atou64(rvalue, &t->partition_flags);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed parse partition flags, ignoring: %s", rvalue);
+                           "Failed to parse partition flags, ignoring: %s", rvalue);
                 return 0;
         }
 
@@ -1066,8 +1067,7 @@ static int run_callout(
                         SD_EVENT_PRIORITY_NORMAL - 5,
                         helper_on_notify,
                         ctx,
-                        &bind_name,
-                        /* ret_event_source= */ NULL);
+                        &bind_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
@@ -1131,7 +1131,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
 
         if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
 
-                if (!path_is_valid_full(formatted_pattern, /* accept_dot_dot = */ false))
+                if (!path_is_safe(formatted_pattern))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as file name, refusing: %s", formatted_pattern);
 
                 t->final_path = path_join(t->target.path, formatted_pattern);
@@ -1498,7 +1498,7 @@ int transfer_install_instance(
                         assert_not_reached();
 
                 if (resolve_link_path && root) {
-                        r = chase(link_path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT, &resolved, NULL);
+                        r = chase(link_path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &resolved, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to resolve current symlink path '%s': %m", link_path);
 

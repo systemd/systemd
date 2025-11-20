@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-varlink.h"
@@ -19,6 +20,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "pidfd-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -586,8 +588,13 @@ static int reply_callback(
                         else
                                 r = *ret = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call failed: %s", error);
                 }
-        } else
+        } else {
+                /* Let the caller know we have received at least one reply now. This is useful for
+                 * subscription style interfaces where the first reply indicates the subscription being
+                 * successfully enabled. */
+                (void) sd_notify(/* unset_environment= */ false, "READY=1");
                 r = 0;
+        }
 
         if (!arg_quiet)
                 sd_json_variant_dump(parameters, arg_json_format_flags, stdout, NULL);
@@ -777,7 +784,9 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                          "Method call %s() returned expected error: %s", method, error);
 
                                 r = 0;
-                        } else {
+                        } else if (streq(error, SD_VARLINK_ERROR_EXPECTED_MORE))
+                                r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: called without 'more' flag, but flag needs to be set.", method);
+                        else {
                                 r = sd_varlink_error_to_errno(error, reply);
                                 if (r != -EBADR)
                                         log_error_errno(r, "Method call %s() failed: %m", method);
@@ -868,9 +877,19 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                                         log_error_errno(r, "Failed to set $LISTEN_PID environment variable: %m");
                                         _exit(EXIT_FAILURE);
                                 }
+
+                                uint64_t pidfdid;
+                                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                                        r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
+                                        if (r < 0) {
+                                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID environment variable: %m");
+                                                _exit(EXIT_FAILURE);
+                                        }
+                                }
                         } else {
                                 (void) unsetenv("LISTEN_FDS");
                                 (void) unsetenv("LISTEN_PID");
+                                (void) unsetenv("LISTEN_PIDFDID");
                         }
                         (void) unsetenv("LISTEN_FDNAMES");
 

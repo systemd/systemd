@@ -9,7 +9,6 @@ executables += [
                 'name' : 'systemd-pstore',
                 'sources' : files('pstore.c'),
                 'dependencies' : [
-                        libacl,
                         liblz4_cflags,
                         libxz_cflags,
                         libzstd_cflags,

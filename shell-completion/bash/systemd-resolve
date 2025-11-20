@@ -50,7 +50,7 @@ _systemd-resolve() {
                 comps=$( __get_interfaces )
                 ;;
             --protocol|-p|--type|-t|--class|-c)
-                comps=$( systemd-resolve --legend=no "$prev" help; echo help )
+                comps=$( systemd-resolve --legend=no "$prev" help 2>/dev/null; echo help )
                 ;;
             --raw)
                 comps="payload packet"

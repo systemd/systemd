@@ -26,14 +26,14 @@ __contains_word () {
     done
 }
 
-__get_all_sessions () { loginctl --no-legend list-sessions | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
-__get_all_users    () { loginctl --no-legend list-users    | { while read -r a b; do printf "%s\n" "$b"; done; } ; }
-__get_all_seats    () { loginctl --no-legend list-seats    | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
+__get_all_sessions () { loginctl --no-legend list-sessions 2>/dev/null | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
+__get_all_users    () { loginctl --no-legend list-users    2>/dev/null | { while read -r a b; do printf "%s\n" "$b"; done; } ; }
+__get_all_seats    () { loginctl --no-legend list-seats    2>/dev/null | { while read -r a b; do printf "%s\n" "$a"; done; } ; }
 
 __get_machines() {
     local a b
-    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-	{ while read a b; do echo " $a"; done; } | \
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
+        { while read -r a b; do echo " $a"; done; } |
         sort -u
 }
 

@@ -251,16 +251,16 @@ static int stdout_stream_log(
         if (r <= 0)
                 return r;
 
-        if (s->forward_to_syslog || s->manager->forward_to_syslog)
+        if (s->forward_to_syslog || s->manager->config.forward_to_syslog)
                 manager_forward_syslog(s->manager, syslog_fixup_facility(priority), s->identifier, p, &s->ucred, NULL);
 
-        if (s->forward_to_kmsg || s->manager->forward_to_kmsg)
+        if (s->forward_to_kmsg || s->manager->config.forward_to_kmsg)
                 manager_forward_kmsg(s->manager, priority, s->identifier, p, &s->ucred);
 
-        if (s->forward_to_console || s->manager->forward_to_console)
+        if (s->forward_to_console || s->manager->config.forward_to_console)
                 manager_forward_console(s->manager, priority, s->identifier, p, &s->ucred);
 
-        if (s->manager->forward_to_wall)
+        if (s->manager->config.forward_to_wall)
                 manager_forward_wall(s->manager, priority, s->identifier, p, &s->ucred);
 
         m = N_IOVEC_META_FIELDS + 7 + client_context_extra_fields_n_iovec(s->context);
@@ -454,7 +454,7 @@ static size_t stdout_stream_line_max(StdoutStream *s) {
                 return STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX;
 
         /* After the protocol's "setup" phase is complete, let's use whatever the user configured */
-        return s->manager->line_max;
+        return s->manager->config.line_max;
 }
 
 static int stdout_stream_scan(
@@ -557,7 +557,7 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
 
         /* Try to make use of the allocated buffer in full, but never read more than the configured line size. Also,
          * always leave room for a terminating NUL we might need to add. */
-        limit = MIN(allocated - 1, MAX(s->manager->line_max, STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX));
+        limit = MIN(allocated - 1, MAX(s->manager->config.line_max, STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX));
         assert(s->length <= limit);
         iovec = IOVEC_MAKE(s->buffer + s->length, limit - s->length);
 
@@ -646,10 +646,6 @@ int stdout_stream_install(Manager *m, int fd, StdoutStream **ret) {
         r = getpeercred(fd, &stream->ucred);
         if (r < 0)
                 return log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "Failed to determine peer credentials: %m");
-
-        r = setsockopt_int(fd, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return log_error_errno(r, "SO_PASSCRED failed: %m");
 
         if (mac_selinux_use()) {
                 r = getpeersec(fd, &stream->label);
@@ -917,6 +913,14 @@ int manager_open_stdout_socket(Manager *m, const char *stdout_socket) {
                         return log_error_errno(errno, "listen(%s) failed: %m", sa.un.sun_path);
         } else
                 (void) fd_nonblock(m->stdout_fd, true);
+
+        r = setsockopt_int(m->stdout_fd, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
+
+        r = setsockopt_int(m->stdout_fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        if (r < 0)
+                log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
 
         r = sd_event_add_io(m->event, &m->stdout_event_source, m->stdout_fd, EPOLLIN, stdout_stream_new, m);
         if (r < 0)

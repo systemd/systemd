@@ -199,13 +199,13 @@ _public_ sd_bus* sd_bus_slot_get_bus(sd_bus_slot *slot) {
         return slot->bus;
 }
 
-_public_ void *sd_bus_slot_get_userdata(sd_bus_slot *slot) {
+_public_ void* sd_bus_slot_get_userdata(sd_bus_slot *slot) {
         assert_return(slot, NULL);
 
         return slot->userdata;
 }
 
-_public_ void *sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata) {
+_public_ void* sd_bus_slot_set_userdata(sd_bus_slot *slot, void *userdata) {
         void *ret;
 
         assert_return(slot, NULL);
@@ -223,16 +223,16 @@ _public_ int sd_bus_slot_set_destroy_callback(sd_bus_slot *slot, sd_bus_destroy_
         return 0;
 }
 
-_public_ int sd_bus_slot_get_destroy_callback(sd_bus_slot *slot, sd_bus_destroy_t *callback) {
+_public_ int sd_bus_slot_get_destroy_callback(sd_bus_slot *slot, sd_bus_destroy_t *ret) {
         assert_return(slot, -EINVAL);
 
-        if (callback)
-                *callback = slot->destroy_callback;
+        if (ret)
+                *ret = slot->destroy_callback;
 
         return !!slot->destroy_callback;
 }
 
-_public_ sd_bus_message *sd_bus_slot_get_current_message(sd_bus_slot *slot) {
+_public_ sd_bus_message* sd_bus_slot_get_current_message(sd_bus_slot *slot) {
         assert_return(slot, NULL);
         assert_return(slot->type >= 0, NULL);
 
@@ -299,14 +299,14 @@ _public_ int sd_bus_slot_set_description(sd_bus_slot *slot, const char *descript
         return free_and_strdup(&slot->description, description);
 }
 
-_public_ int sd_bus_slot_get_description(sd_bus_slot *slot, const char **description) {
+_public_ int sd_bus_slot_get_description(sd_bus_slot *slot, const char **ret) {
         assert_return(slot, -EINVAL);
-        assert_return(description, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (slot->description)
-                *description = slot->description;
+                *ret = slot->description;
         else if (slot->type == BUS_MATCH_CALLBACK)
-                *description = slot->match_callback.match_string;
+                *ret = slot->match_callback.match_string;
         else
                 return -ENXIO;
 

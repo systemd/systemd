@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #define NULSTR_FOREACH(i, l)                                    \
         for (typeof(*(l)) *(i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)

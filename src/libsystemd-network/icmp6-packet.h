@@ -3,7 +3,7 @@
 
 #include <netinet/in.h>
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "time-util.h"
 
 typedef struct ICMP6Packet {

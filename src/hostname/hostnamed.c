@@ -21,7 +21,6 @@
 #include "daemon-util.h"
 #include "device-private.h"
 #include "env-file.h"
-#include "env-file-label.h"
 #include "env-util.h"
 #include "extract-word.h"
 #include "fileio.h"
@@ -128,7 +127,7 @@ static void context_read_etc_hostname(Context *c) {
 
         assert(c);
 
-        if (stat("/etc/hostname", &current_stat) >= 0 &&
+        if (stat(etc_hostname(), &current_stat) >= 0 &&
             stat_inode_unmodified(&c->etc_hostname_stat, &current_stat))
                 return;
 
@@ -161,7 +160,7 @@ static void context_read_machine_info(Context *c) {
 
         assert(c);
 
-        if (stat("/etc/machine-info", &current_stat) >= 0 &&
+        if (stat(etc_machine_info(), &current_stat) >= 0 &&
             stat_inode_unmodified(&c->etc_machine_info_stat, &current_stat))
                 return;
 
@@ -176,7 +175,7 @@ static void context_read_machine_info(Context *c) {
                       (UINT64_C(1) << PROP_HARDWARE_SKU) |
                       (UINT64_C(1) << PROP_HARDWARE_VERSION));
 
-        r = parse_env_file(NULL, "/etc/machine-info",
+        r = parse_env_file(NULL, etc_machine_info(),
                            "PRETTY_HOSTNAME", &c->data[PROP_PRETTY_HOSTNAME],
                            "ICON_NAME", &c->data[PROP_ICON_NAME],
                            "CHASSIS", &c->data[PROP_CHASSIS],
@@ -637,7 +636,7 @@ static const char* fallback_chassis_by_acpi(Context *c) {
 
         r = device_get_sysattr_unsigned(c->device_acpi, "pm_profile", &t);
         if (r < 0) {
-                log_debug_errno(r, "Failed read/parse ACPI PM profile, ignoring: %m");
+                log_debug_errno(r, "Failed to read/parse ACPI PM profile, ignoring: %m");
                 return NULL;
         }
 
@@ -807,14 +806,14 @@ static int context_write_data_static_hostname(Context *c) {
         s = &c->etc_hostname_stat;
 
         if (isempty(c->data[PROP_STATIC_HOSTNAME])) {
-                if (unlink("/etc/hostname") < 0 && errno != ENOENT)
+                if (unlink(etc_hostname()) < 0 && errno != ENOENT)
                         return -errno;
 
                 TAKE_PTR(s);
                 return 0;
         }
 
-        r = write_string_file("/etc/hostname", c->data[PROP_STATIC_HOSTNAME], WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
+        r = write_string_file(etc_hostname(), c->data[PROP_STATIC_HOSTNAME], WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_LABEL);
         if (r < 0)
                 return r;
 
@@ -840,7 +839,7 @@ static int context_write_data_machine_info(Context *c) {
          * already, even if we can't make it hit the disk. */
         s = &c->etc_machine_info_stat;
 
-        r = load_env_file(NULL, "/etc/machine-info", &l);
+        r = load_env_file(NULL, etc_machine_info(), &l);
         if (r < 0 && r != -ENOENT)
                 return r;
 
@@ -853,14 +852,19 @@ static int context_write_data_machine_info(Context *c) {
         }
 
         if (strv_isempty(l)) {
-                if (unlink("/etc/machine-info") < 0 && errno != ENOENT)
+                if (unlink(etc_machine_info()) < 0 && errno != ENOENT)
                         return -errno;
 
                 TAKE_PTR(s);
                 return 0;
         }
 
-        r = write_env_file_label(AT_FDCWD, "/etc/machine-info", NULL, l);
+        r = write_env_file(
+                        AT_FDCWD,
+                        etc_machine_info(),
+                        /* headers= */NULL,
+                        l,
+                        WRITE_ENV_FILE_LABEL);
         if (r < 0)
                 return r;
 
@@ -1586,7 +1590,7 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_error *error) {
@@ -1683,7 +1687,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         (void) vsock_get_local_cid(&local_cid);
 
         (void) load_os_release_pairs(/* root= */ NULL, &os_release_pairs);
-        (void) load_env_file_pairs(/* f=*/ NULL, "/etc/machine-info", &machine_info_pairs);
+        (void) load_env_file_pairs(/* f=*/ NULL, etc_machine_info(), &machine_info_pairs);
 
         r = sd_json_buildo(
                         &v,
@@ -1984,6 +1988,7 @@ static int run(int argc, char *argv[]) {
                                "Manage the system hostname and related metadata.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

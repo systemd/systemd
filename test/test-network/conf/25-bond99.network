@@ -5,3 +5,4 @@ Name=bond99
 [Network]
 IPv6AcceptRA=no
 Address=192.168.123.45/24
+BindCarrier=dummy98 test1

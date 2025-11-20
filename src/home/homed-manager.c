@@ -8,8 +8,8 @@
 #include <pwd.h>
 #include <sys/inotify.h>
 #include <sys/ioctl.h>
-#include <sys/quota.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-event.h"
@@ -1101,7 +1101,7 @@ static int manager_bind_varlink(Manager *m) {
 
         r = sd_varlink_server_listen_address(m->varlink_server, socket_path, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
         if (r < 0)
-                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", socket_path);
 
         r = sd_varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
@@ -1155,15 +1155,16 @@ static int manager_listen_notify(Manager *m) {
         assert(m);
         assert(!m->notify_socket_path);
 
-        r = notify_socket_prepare(
+        r = notify_socket_prepare_full(
                         m->event,
                         SD_EVENT_PRIORITY_NORMAL - 5, /* Make sure we process sd_notify() before SIGCHLD for
                                                        * any worker, so that we always know the error number
                                                        * of a client before it exits. */
                         on_notify_socket,
                         m,
+                        /* accept_fds = */ true,
                         &m->notify_socket_path,
-                        /* ret_event_source= */ NULL);
+                        /* ret_event_source = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 

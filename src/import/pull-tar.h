@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "import-common.h"
 #include "import-util.h"
 
@@ -14,4 +14,4 @@ TarPull* tar_pull_unref(TarPull *pull);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(TarPull*, tar_pull_unref);
 
-int tar_pull_start(TarPull *pull, const char *url, const char *local, ImportFlags flags, ImportVerify verify, const char *checksum);
+int tar_pull_start(TarPull *pull, const char *url, const char *local, ImportFlags flags, ImportVerify verify, const struct iovec *checksum);

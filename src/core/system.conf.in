@@ -79,5 +79,6 @@
 #DefaultMemoryPressureWatch=auto
 #DefaultOOMPolicy=stop
 #DefaultSmackProcessLabel=
+#DefaultRestrictSUIDSGID=
 #ReloadLimitIntervalSec=
 #ReloadLimitBurst=

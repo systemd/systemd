@@ -23,6 +23,7 @@
 #include "arphrd-util.h"
 #include "bitfield.h"
 #include "device-util.h"
+#include "dns-domain.h"
 #include "errno-util.h"
 #include "ethtool-util.h"
 #include "event-util.h"
@@ -53,6 +54,7 @@
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
 #include "networkd-radv.h"
+#include "networkd-resolve-hook.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
@@ -133,7 +135,7 @@ bool link_ipv6_enabled(Link *link) {
         if (link->network->bond)
                 return false;
 
-        if (link_may_have_ipv6ll(link, /* check_multicast = */ false))
+        if (link_ipv6ll_enabled(link))
                 return true;
 
         if (network_has_static_ipv6_configurations(link->network))
@@ -1070,6 +1072,8 @@ static Link *link_drop(Link *link) {
 
         assert(link->manager);
 
+        bool notify = link_has_local_lease_domain(link);
+
         link_set_state(link, LINK_STATE_LINGER);
 
         /* Drop all references from other links and manager. Note that async netlink calls may have
@@ -1098,6 +1102,10 @@ static Link *link_drop(Link *link) {
 
         /* The following must be called at last. */
         assert_se(hashmap_remove(link->manager->links_by_index, INT_TO_PTR(link->ifindex)) == link);
+
+        if (notify)
+                manager_notify_hook_filters(link->manager);
+
         return link_unref(link);
 }
 
@@ -1351,6 +1359,8 @@ static void link_enter_unmanaged(Link *link) {
         if (link->state == LINK_STATE_UNMANAGED)
                 return;
 
+        bool notify = link_has_local_lease_domain(link);
+
         log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
                       "Unmanaging interface.");
 
@@ -1367,6 +1377,35 @@ static void link_enter_unmanaged(Link *link) {
 
         link->network = network_unref(link->network);
         link_set_state(link, LINK_STATE_UNMANAGED);
+
+        if (notify)
+                manager_notify_hook_filters(link->manager);
+}
+
+static int link_managed_by_us(Link *link) {
+        int r;
+
+        assert(link);
+
+        if (!link->dev)
+                return true;
+
+        const char *s;
+        r = sd_device_get_property_value(link->dev, "ID_NET_MANAGED_BY", &s);
+        if (r == -ENOENT)
+                return true;
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get ID_NET_MANAGED_BY udev property: %m");
+
+        if (streq(s, "io.systemd.Network"))
+                return true;
+
+        if (link->state == LINK_STATE_UNMANAGED)
+                return false; /* Already in unmanaged state */
+
+        log_link_debug(link, "Interface is requested to be managed by '%s', unmanaging the interface.", s);
+        link_set_state(link, LINK_STATE_UNMANAGED);
+        return false;
 }
 
 int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
@@ -1383,6 +1422,10 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
 
         if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_LINGER))
                 return 0;
+
+        r = link_managed_by_us(link);
+        if (r <= 0)
+                return r;
 
         r = link_get_network(link, &network);
         if (r == -ENOENT) {
@@ -1621,6 +1664,10 @@ static int link_initialized(Link *link, sd_device *device) {
          * or sysattrs) may be outdated. */
         device_unref_and_replace(link->dev, device);
 
+        r = link_managed_by_us(link);
+        if (r <= 0)
+                return r;
+
         if (link->dhcp_client) {
                 r = sd_dhcp_client_attach_device(link->dhcp_client, link->dev);
                 if (r < 0)
@@ -1688,7 +1735,6 @@ int link_check_initialized(Link *link) {
 
 int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t action) {
         int r, ifindex;
-        const char *s;
         Link *link;
 
         assert(m);
@@ -1720,15 +1766,6 @@ int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t 
                 /* TODO:
                  * What happens when a device is initialized, then soon renamed after that? When we detect
                  * such, maybe we should cancel or postpone all queued requests for the interface. */
-                return 0;
-        }
-
-        r = sd_device_get_property_value(device, "ID_NET_MANAGED_BY", &s);
-        if (r < 0 && r != -ENOENT)
-                log_device_debug_errno(device, r, "Failed to get ID_NET_MANAGED_BY udev property, ignoring: %m");
-        if (r >= 0 && !streq(s, "io.systemd.Network")) {
-                log_device_debug(device, "Interface is requested to be managed by '%s', not managing the interface.", s);
-                link_set_state(link, LINK_STATE_UNMANAGED);
                 return 0;
         }
 
@@ -2102,6 +2139,17 @@ bool link_has_carrier(Link *link) {
         return netif_has_carrier(link->kernel_operstate, link->flags);
 }
 
+bool link_multicast_enabled(Link *link) {
+        assert(link);
+
+        /* If Multicast= is specified, use the value. */
+        if (link->network && link->network->multicast >= 0)
+                return link->network->multicast;
+
+        /* Otherwise, return the current state. */
+        return FLAGS_SET(link->flags, IFF_MULTICAST);
+}
+
 #define FLAG_STRING(string, flag, old, new)                      \
         (((old ^ new) & flag)                                    \
          ? ((old & flag) ? (" -" string) : (" +" string))        \
@@ -2190,7 +2238,7 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
         if (!had_carrier && link_has_carrier(link))
                 r = link_carrier_gained(link);
         else if (had_carrier && !link_has_carrier(link))
-                link_carrier_lost(link);
+                r = link_carrier_lost(link);
         if (r < 0)
                 return r;
 
@@ -3026,3 +3074,12 @@ static const char * const kernel_operstate_table[] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(kernel_operstate, int);
+
+bool link_has_local_lease_domain(Link *link) {
+        assert(link);
+
+        return link->dhcp_server &&
+                link->network &&
+                link->network->dhcp_server_local_lease_domain &&
+                !dns_name_is_root(link->network->dhcp_server_local_lease_domain);
+}

@@ -32,37 +32,37 @@
 #include "strv.h"
 #include "uki.h"
 
+static const char* const boot_entry_type_description_table[_BOOT_ENTRY_TYPE_MAX] = {
+        [BOOT_ENTRY_TYPE1]  = "Boot Loader Specification Type #1 (.conf)",
+        [BOOT_ENTRY_TYPE2]  = "Boot Loader Specification Type #2 (UKI, .efi)",
+        [BOOT_ENTRY_LOADER] = "Reported by Boot Loader",
+        [BOOT_ENTRY_AUTO]   = "Automatic",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_description, BootEntryType);
+
 static const char* const boot_entry_type_table[_BOOT_ENTRY_TYPE_MAX] = {
-        [BOOT_ENTRY_CONF]        = "Boot Loader Specification Type #1 (.conf)",
-        [BOOT_ENTRY_UNIFIED]     = "Boot Loader Specification Type #2 (.efi)",
-        [BOOT_ENTRY_LOADER]      = "Reported by Boot Loader",
-        [BOOT_ENTRY_LOADER_AUTO] = "Automatic",
+        [BOOT_ENTRY_TYPE1]  = "type1",
+        [BOOT_ENTRY_TYPE2]  = "type2",
+        [BOOT_ENTRY_LOADER] = "loader",
+        [BOOT_ENTRY_AUTO]   = "auto",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type, BootEntryType);
+DEFINE_STRING_TABLE_LOOKUP(boot_entry_type, BootEntryType);
 
-static const char* const boot_entry_type_json_table[_BOOT_ENTRY_TYPE_MAX] = {
-        [BOOT_ENTRY_CONF]        = "type1",
-        [BOOT_ENTRY_UNIFIED]     = "type2",
-        [BOOT_ENTRY_LOADER]      = "loader",
-        [BOOT_ENTRY_LOADER_AUTO] = "auto",
-};
-
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_type_json, BootEntryType);
-
-static const char* const boot_entry_source_table[_BOOT_ENTRY_SOURCE_MAX] = {
+static const char* const boot_entry_source_description_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "EFI System Partition",
         [BOOT_ENTRY_XBOOTLDR] = "Extended Boot Loader Partition",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source, BootEntrySource);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_description, BootEntrySource);
 
-static const char* const boot_entry_source_json_table[_BOOT_ENTRY_SOURCE_MAX] = {
+static const char* const boot_entry_source_table[_BOOT_ENTRY_SOURCE_MAX] = {
         [BOOT_ENTRY_ESP]      = "esp",
         [BOOT_ENTRY_XBOOTLDR] = "xbootldr",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source_json, BootEntrySource);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_source, BootEntrySource);
 
 static void boot_entry_addons_done(BootEntryAddons *addons) {
         assert(addons);
@@ -93,6 +93,8 @@ static void boot_entry_free(BootEntry *entry) {
         boot_entry_addons_done(&entry->local_addons);
         free(entry->kernel);
         free(entry->efi);
+        free(entry->uki);
+        free(entry->uki_url);
         strv_free(entry->initrd);
         free(entry->device_tree);
         strv_free(entry->device_tree_overlay);
@@ -319,7 +321,7 @@ static int boot_entry_load_type1(
                 const char *fname,
                 BootEntry *ret) {
 
-        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_CONF, source);
+        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_TYPE1, source);
         char *c;
         int r;
 
@@ -403,6 +405,12 @@ static int boot_entry_load_type1(
                         r = parse_path_one(tmp.path, line, field, &tmp.kernel, p);
                 else if (streq(field, "efi"))
                         r = parse_path_one(tmp.path, line, field, &tmp.efi, p);
+                else if (streq(field, "uki"))
+                        r = parse_path_one(tmp.path, line, field, &tmp.uki, p);
+                else if (streq(field, "uki-url"))
+                        r = free_and_strdup(&tmp.uki_url, p);
+                else if (streq(field, "profile"))
+                        r = safe_atou_full(p, 10, &tmp.profile);
                 else if (streq(field, "initrd"))
                         r = parse_path_strv(tmp.path, line, field, &tmp.initrd, p);
                 else if (streq(field, "devicetree"))
@@ -511,7 +519,8 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
                         r = free_and_strdup(&config->default_pattern, p);
                 else if (STR_IN_SET(field, "timeout", "editor", "auto-entries", "auto-firmware",
                                     "auto-poweroff", "auto-reboot", "beep", "reboot-for-bitlocker",
-                                    "secure-boot-enroll", "console-mode"))
+                                    "reboot-on-error", "secure-boot-enroll", "secure-boot-enroll-action",
+                                    "secure-boot-enroll-timeout-sec", "console-mode", "log-level"))
                         r = 0; /* we don't parse these in userspace, but they are OK */
                 else {
                         log_syntax(NULL, LOG_WARNING, path, line, 0, "Unknown line '%s', ignoring.", field);
@@ -533,6 +542,7 @@ static int boot_loader_read_conf_path(BootConfig *config, const char *root, cons
         assert(path);
 
         r = chase_and_fopen_unlocked(path, root, CHASE_PREFIX_ROOT|CHASE_PROHIBIT_SYMLINKS, "re", &full, &f);
+        config->loader_conf_status = r < 0 ? r : true;
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
@@ -759,7 +769,7 @@ static int boot_entry_load_unified(
         if (r < 0)
                 return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
 
-        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_UNIFIED, source);
+        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_TYPE2, source);
 
         r = boot_filename_extract_tries(fname, &tmp.id, &tmp.tries_left, &tmp.tries_done);
         if (r < 0)
@@ -836,9 +846,9 @@ static int pe_load_headers_and_sections(
                 IMAGE_SECTION_HEADER **ret_sections,
                 PeHeader **ret_pe_header) {
 
+        _cleanup_free_ IMAGE_SECTION_HEADER *sections = NULL;
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
-        IMAGE_SECTION_HEADER *sections;
-        PeHeader *pe_header;
+        _cleanup_free_ PeHeader *pe_header = NULL;
         int r;
 
         assert(fd >= 0);
@@ -1620,13 +1630,14 @@ int boot_config_augment_from_loader(
                         return log_oom();
 
                 config->entries[config->n_entries++] = (BootEntry) {
-                        .type = startswith(*i, "auto-") ? BOOT_ENTRY_LOADER_AUTO : BOOT_ENTRY_LOADER,
+                        .type = startswith(*i, "auto-") ? BOOT_ENTRY_AUTO : BOOT_ENTRY_LOADER,
                         .id = TAKE_PTR(c),
                         .title = TAKE_PTR(t),
                         .path = TAKE_PTR(p),
                         .reported_by_loader = true,
                         .tries_left = UINT_MAX,
                         .tries_done = UINT_MAX,
+                        .profile = UINT_MAX,
                         .global_addons = &no_addons,
                 };
         }
@@ -1823,7 +1834,7 @@ int show_boot_entry(
         assert(e);
 
         printf("         type: %s\n",
-               boot_entry_type_to_string(e->type));
+               boot_entry_type_description_to_string(e->type));
 
         printf("        title: %s%s%s",
                ansi_highlight(), boot_entry_title(e), ansi_normal());
@@ -1840,7 +1851,7 @@ int show_boot_entry(
                 if (e->type == BOOT_ENTRY_LOADER)
                         printf(" %s(reported/absent)%s",
                                ansi_highlight_red(), ansi_normal());
-                else if (!e->reported_by_loader && e->type != BOOT_ENTRY_LOADER_AUTO)
+                else if (!e->reported_by_loader && e->type != BOOT_ENTRY_AUTO)
                         printf(" %s(not reported/new)%s",
                                ansi_highlight_green(), ansi_normal());
         }
@@ -1867,12 +1878,12 @@ int show_boot_entry(
 
                 /* Let's urlify the link to make it easy to view in an editor, but only if it is a text
                  * file. Unified images are binary ELFs, and EFI variables are not pure text either. */
-                if (e->type == BOOT_ENTRY_CONF)
+                if (e->type == BOOT_ENTRY_TYPE1)
                         (void) terminal_urlify_path(e->path, text, &link);
 
                 printf("       source: %s (on the %s)\n",
                        link ?: text ?: e->path,
-                       boot_entry_source_to_string(e->source));
+                       boot_entry_source_description_to_string(e->source));
         }
         if (e->tries_left != UINT_MAX) {
                 printf("        tries: %u left", e->tries_left);
@@ -1895,6 +1906,12 @@ int show_boot_entry(
                 boot_entry_file_list("linux", e->root, e->kernel, &status);
         if (e->efi)
                 boot_entry_file_list("efi", e->root, e->efi, &status);
+        if (e->uki)
+                boot_entry_file_list("uki", e->root, e->uki, &status);
+        if (e->uki_url)
+                printf("      uki-url: %s\n", e->uki_url);
+        if (e->profile != UINT_MAX)
+                printf("      profile: %u\n", e->profile);
 
         STRV_FOREACH(s, e->initrd)
                 boot_entry_file_list(s == e->initrd ? "initrd" : NULL,
@@ -1942,8 +1959,8 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
 
         r = sd_json_variant_merge_objectbo(
                         &v,
-                        SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(boot_entry_type_json_to_string(e->type))),
-                        SD_JSON_BUILD_PAIR("source", SD_JSON_BUILD_STRING(boot_entry_source_json_to_string(e->source))),
+                        SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(boot_entry_type_to_string(e->type))),
+                        SD_JSON_BUILD_PAIR("source", SD_JSON_BUILD_STRING(boot_entry_source_to_string(e->source))),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->id, "id", SD_JSON_BUILD_STRING(e->id)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->path, "path", SD_JSON_BUILD_STRING(e->path)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->root, "root", SD_JSON_BUILD_STRING(e->root)),
@@ -1956,9 +1973,10 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
                         SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_STRING(opts)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->kernel, "linux", SD_JSON_BUILD_STRING(e->kernel)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!e->efi, "efi", SD_JSON_BUILD_STRING(e->efi)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", SD_JSON_BUILD_STRV(e->initrd)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!!e->device_tree, "devicetree", SD_JSON_BUILD_STRING(e->device_tree)),
-                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", SD_JSON_BUILD_STRV(e->device_tree_overlay)));
+                        SD_JSON_BUILD_PAIR_CONDITION(!!e->uki, "uki", SD_JSON_BUILD_STRING(e->uki)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!e->uki_url, "ukiUrl", SD_JSON_BUILD_STRING(e->uki_url)),
+                        SD_JSON_BUILD_PAIR_CONDITION(e->profile != UINT_MAX, "profile", SD_JSON_BUILD_UNSIGNED(e->profile)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", SD_JSON_BUILD_STRV(e->initrd)));
         if (r < 0)
                 return log_oom();
 
@@ -1967,6 +1985,8 @@ int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
          * at once. */
         r = sd_json_variant_merge_objectbo(
                         &v,
+                        SD_JSON_BUILD_PAIR_CONDITION(!!e->device_tree, "devicetree", SD_JSON_BUILD_STRING(e->device_tree)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", SD_JSON_BUILD_STRV(e->device_tree_overlay)),
                         SD_JSON_BUILD_PAIR("isReported", SD_JSON_BUILD_BOOLEAN(e->reported_by_loader)),
                         SD_JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", SD_JSON_BUILD_UNSIGNED(e->tries_left)),
                         SD_JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", SD_JSON_BUILD_UNSIGNED(e->tries_done)),

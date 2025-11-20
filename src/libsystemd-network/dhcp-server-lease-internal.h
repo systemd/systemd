@@ -5,7 +5,7 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-server-internal.h"
-#include "forward.h"
+#include "sd-forward.h"
 
 typedef struct sd_dhcp_server_lease {
         unsigned n_ref;

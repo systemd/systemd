@@ -18,6 +18,12 @@ acpi:AANT*:
 acpi:AAVA*:
  ID_VENDOR_FROM_DATABASE=Aava Mobile Oy
 
+acpi:ACPI*:
+ ID_VENDOR_FROM_DATABASE=Intel Corporation
+
+acpi:AHCL*:
+ ID_VENDOR_FROM_DATABASE=Advantech Co., Ltd.
+
 acpi:AMDI*:
  ID_VENDOR_FROM_DATABASE=AMD
 
@@ -228,6 +234,9 @@ acpi:ISIC*:
 acpi:JMIC*:
  ID_VENDOR_FROM_DATABASE=Shenzhen Jaguar Microsystems Co.,Ltd.
 
+acpi:JPMC*:
+ ID_VENDOR_FROM_DATABASE=JP Morgan Chase N.A.
+
 acpi:JSYS*:
  ID_VENDOR_FROM_DATABASE=Juniper Systems, Inc.
 
@@ -303,6 +312,9 @@ acpi:PEGA*:
 acpi:PHYT*:
  ID_VENDOR_FROM_DATABASE=Phytium Technology Co. Ltd.
 
+acpi:PICO*:
+ ID_VENDOR_FROM_DATABASE=Picoheart (SG) Pte. Ltd.
+
 acpi:PIXA*:
  ID_VENDOR_FROM_DATABASE=PixArt imaging inc.
 
@@ -326,6 +338,9 @@ acpi:RKCP*:
 
 acpi:ROKL*:
  ID_VENDOR_FROM_DATABASE=Rockwell Automation, Inc
+
+acpi:ROKU*:
+ ID_VENDOR_FROM_DATABASE=Roku, Inc.
 
 acpi:RPIL*:
  ID_VENDOR_FROM_DATABASE=Raspberry Pi
@@ -375,6 +390,9 @@ acpi:SWEM*:
 acpi:SYNA*:
  ID_VENDOR_FROM_DATABASE=Synaptics Inc
 
+acpi:SYNC*:
+ ID_VENDOR_FROM_DATABASE=SYNCS / Aviot Systems Pte Ltd
+
 acpi:TCAG*:
  ID_VENDOR_FROM_DATABASE=Teracue AG
 
@@ -389,6 +407,9 @@ acpi:UBLX*:
 
 acpi:UBOO*:
  ID_VENDOR_FROM_DATABASE=Das U-Boot
+
+acpi:ULRV*:
+ ID_VENDOR_FROM_DATABASE=UltraRISC Technology (Shanghai) Co., Ltd
 
 acpi:VAIO*:
  ID_VENDOR_FROM_DATABASE=VAIO Corporation

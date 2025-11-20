@@ -17,10 +17,13 @@ typedef struct Manager {
         sd_netlink *rtnl;
         /* lazy initialized */
         sd_netlink *genl;
+        sd_netlink *nfnl;
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
         sd_varlink_server *varlink_server;
+        sd_varlink_server *varlink_resolve_hook_server;
+        Set *query_filter_subscriptions;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;
         int ethtool_fd;
@@ -36,7 +39,7 @@ typedef struct Manager {
         bool manage_foreign_routes;
         bool manage_foreign_rules;
         bool manage_foreign_nexthops;
-        bool dhcp_server_persist_leases;
+        DHCPServerPersistLeases dhcp_server_persist_leases;
 
         Set *dirty_links;
         Set *new_wlan_ifindices;
@@ -103,8 +106,6 @@ typedef struct Manager {
         usec_t speed_meter_usec_new;
         usec_t speed_meter_usec_old;
 
-        FirewallContext *fw_ctx;
-
         bool request_queued;
         OrderedSet *request_queue;
         OrderedSet *remove_request_queue;
@@ -117,7 +118,7 @@ typedef struct Manager {
 
         /* sysctl */
         int ip_forwarding[2];
-#if HAVE_VMLINUX_H
+#if ENABLE_SYSCTL_BPF
         Hashmap *sysctl_shadow;
         sd_event_source *sysctl_event_source;
         struct ring_buffer *sysctl_buffer;
@@ -148,7 +149,7 @@ int manager_set_timezone(Manager *m, const char *timezone);
 int manager_reload(Manager *m, sd_bus_message *message);
 
 static inline Hashmap** manager_get_sysctl_shadow(Manager *manager) {
-#if HAVE_VMLINUX_H
+#if ENABLE_SYSCTL_BPF
         return &ASSERT_PTR(manager)->sysctl_shadow;
 #else
         return NULL;

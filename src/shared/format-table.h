@@ -3,7 +3,7 @@
 
 #include "sd-json.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "log.h"
 #include "pager.h"
 
@@ -16,6 +16,7 @@ typedef enum TableDataType {
         TABLE_STRV_WRAPPED,
         TABLE_PATH,
         TABLE_PATH_BASENAME,       /* like TABLE_PATH, but display only last path element (i.e. the "basename") in regular output */
+        TABLE_VERSION,             /* just like TABLE_STRING, but uses version comparison when sorting */
         TABLE_BOOLEAN,
         TABLE_BOOLEAN_CHECKMARK,
         TABLE_TIMESTAMP,
@@ -39,8 +40,10 @@ typedef enum TableDataType {
         TABLE_UINT16,
         TABLE_UINT32,
         TABLE_UINT32_HEX,
+        TABLE_UINT32_HEX_0x,
         TABLE_UINT64,
         TABLE_UINT64_HEX,
+        TABLE_UINT64_HEX_0x,
         TABLE_PERCENT,
         TABLE_IFINDEX,
         TABLE_IN_ADDR,  /* Takes a union in_addr_union (or a struct in_addr) */

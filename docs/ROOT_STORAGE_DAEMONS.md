@@ -161,7 +161,7 @@ and ensure to set:
 DefaultDependencies=no
 IgnoreOnIsolate=yes
 RefuseManualStop=yes
-SurviceFinalKillSignal=yes
+SurviveFinalKillSignal=yes
 …
 ```
 

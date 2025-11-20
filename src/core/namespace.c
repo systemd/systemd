@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/loop.h>
+#include <linux/magic.h>
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +11,7 @@
 
 #include "alloc-util.h"
 #include "base-filesystem.h"
+#include "bitfield.h"
 #include "chase.h"
 #include "dev-setup.h"
 #include "devnum-util.h"
@@ -17,17 +19,18 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "extension-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "iovec-util.h"
 #include "label-util.h"
 #include "list.h"
 #include "lock-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "loopback-setup.h"
-#include "missing_magic.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -79,6 +82,7 @@ typedef enum MountMode {
         MOUNT_EXTENSION_IMAGE,     /* Mounted outside the root directory, and used by subsequent mounts */
         MOUNT_MQUEUEFS,
         MOUNT_READ_WRITE_IMPLICIT, /* Should have the lowest priority. */
+        MOUNT_BPFFS,               /* Special mount for bpffs, which is mounted with fsmount() and move_mount() */
         _MOUNT_MODE_MAX,
         _MOUNT_MODE_INVALID = -EINVAL,
 } MountMode;
@@ -132,8 +136,9 @@ static const BindMount bind_log_sockets_table[] = {
         { (char*) "/run/systemd/journal/dev-log", (char*) "/run/systemd/journal/dev-log", .read_only = true, .nosuid = true, .noexec = true, .nodev = true, .ignore_enoent = true },
 };
 
-/* If MountAPIVFS= is used, let's mount /sys, /proc, /dev and /run into the it, but only as a fallback if the user hasn't mounted
- * something there already. These mounts are hence overridden by any other explicitly configured mounts. */
+/* If MountAPIVFS= is used, let's mount /proc/, /dev/, /sys/, and /run/, but only as a fallback if the user
+ * hasn't mounted something already. These mounts are hence overridden by any other explicitly configured
+ * mounts. */
 static const MountEntry apivfs_table[] = {
         { "/proc",               MOUNT_PROCFS,       false },
         { "/dev",                MOUNT_BIND_DEV,     false },
@@ -161,11 +166,15 @@ static const MountEntry protect_kernel_tunables_proc_table[] = {
 
 static const MountEntry protect_kernel_tunables_sys_table[] = {
         { "/sys",                MOUNT_READ_ONLY,           false },
-        { "/sys/fs/bpf",         MOUNT_READ_ONLY,           true  },
         { "/sys/fs/cgroup",      MOUNT_READ_WRITE_IMPLICIT, false }, /* READ_ONLY is set by ProtectControlGroups= option */
         { "/sys/fs/selinux",     MOUNT_READ_WRITE_IMPLICIT, true  },
         { "/sys/kernel/debug",   MOUNT_READ_ONLY,           true  },
         { "/sys/kernel/tracing", MOUNT_READ_ONLY,           true  },
+};
+
+/* PrivateBPF= option */
+static const MountEntry private_bpf_no_table[] = {
+        { "/sys/fs/bpf",         MOUNT_READ_ONLY,    true  },
 };
 
 /* ProtectKernelModules= option */
@@ -183,8 +192,8 @@ static const MountEntry protect_kernel_logs_dev_table[] = {
 };
 
 /*
- * ProtectHome=read-only table, protect $HOME and $XDG_RUNTIME_DIR and rest of
- * system should be protected by ProtectSystem=
+ * ProtectHome=read-only. Protect $HOME and $XDG_RUNTIME_DIR and rest of
+ * system should be protected by ProtectSystem=.
  */
 static const MountEntry protect_home_read_only_table[] = {
         { "/home",               MOUNT_READ_ONLY,     true  },
@@ -192,37 +201,37 @@ static const MountEntry protect_home_read_only_table[] = {
         { "/root",               MOUNT_READ_ONLY,     true  },
 };
 
-/* ProtectHome=tmpfs table */
+/* ProtectHome=tmpfs */
 static const MountEntry protect_home_tmpfs_table[] = {
         { "/home",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
         { "/run/user",           MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
         { "/root",               MOUNT_TMPFS,        true, .read_only = true, .options_const = "mode=0700" TMPFS_LIMITS_EMPTY_OR_ALMOST, .flags = MS_NODEV|MS_STRICTATIME },
 };
 
-/* ProtectHome=yes table */
+/* ProtectHome=yes */
 static const MountEntry protect_home_yes_table[] = {
         { "/home",               MOUNT_INACCESSIBLE, true  },
         { "/run/user",           MOUNT_INACCESSIBLE, true  },
         { "/root",               MOUNT_INACCESSIBLE, true  },
 };
 
-/* ProtectControlGroups=yes table */
+/* ProtectControlGroups=yes */
 static const MountEntry protect_control_groups_yes_table[] = {
         { "/sys/fs/cgroup",      MOUNT_READ_ONLY,         false  },
 };
 
-/* ProtectControlGroups=private table. Note mount_private_apivfs() always use MS_NOSUID|MS_NOEXEC|MS_NODEV so
- * flags is not set here. */
+/* ProtectControlGroups=private. Note mount_private_apivfs() always use MS_NOSUID|MS_NOEXEC|MS_NODEV so
+ * flags are not set here. */
 static const MountEntry protect_control_groups_private_table[] = {
         { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = false },
 };
 
-/* ProtectControlGroups=strict table */
+/* ProtectControlGroups=strict */
 static const MountEntry protect_control_groups_strict_table[] = {
         { "/sys/fs/cgroup",      MOUNT_PRIVATE_CGROUP2FS, false, .read_only = true },
 };
 
-/* ProtectSystem=yes table */
+/* ProtectSystem=yes */
 static const MountEntry protect_system_yes_table[] = {
         { "/usr",                MOUNT_READ_ONLY,     false },
         { "/boot",               MOUNT_READ_ONLY,     true  },
@@ -237,9 +246,9 @@ static const MountEntry protect_system_full_table[] = {
         { "/etc",                MOUNT_READ_ONLY,     false },
 };
 
-/* ProtectSystem=strict table. In this strict mode, we mount everything read-only, except for /proc, /dev,
- * /sys which are the kernel API VFS, which are left writable, but PrivateDevices= + ProtectKernelTunables=
- * protect those, and these options should be fully orthogonal.  (And of course /home and friends are also
+/* ProtectSystem=strict. In this strict mode, we mount everything read-only, except for /proc, /dev, and
+ * /sys which are the kernel API VFS and left writable. PrivateDevices= + ProtectKernelTunables=
+ * protect those, and these options should be fully orthogonal. (And of course /home and friends are also
  * left writable, as ProtectHome= shall manage those, orthogonally).
  */
 static const MountEntry protect_system_strict_table[] = {
@@ -252,7 +261,7 @@ static const MountEntry protect_system_strict_table[] = {
         { "/root",               MOUNT_READ_WRITE_IMPLICIT, true  },      /* ProtectHome= */
 };
 
-/* ProtectHostname=yes able */
+/* ProtectHostname=yes */
 static const MountEntry protect_hostname_yes_table[] = {
         { "/proc/sys/kernel/hostname",   MOUNT_READ_ONLY, false },
         { "/proc/sys/kernel/domainname", MOUNT_READ_ONLY, false },
@@ -927,6 +936,37 @@ static int append_protect_system(MountList *ml, ProtectSystem protect_system, bo
         }
 }
 
+static int append_private_bpf(
+                MountList *ml,
+                PrivateBPF private_bpf,
+                bool protect_kernel_tunables,
+                bool ignore_protect,
+                const NamespaceParameters *p) {
+
+        assert(ml);
+
+        switch (private_bpf) {
+        case PRIVATE_BPF_NO:
+                if (protect_kernel_tunables)
+                        return append_static_mounts(ml, private_bpf_no_table, ELEMENTSOF(private_bpf_no_table), ignore_protect);
+                return 0;
+        case PRIVATE_BPF_YES: {
+                MountEntry *me = mount_list_extend(ml);
+                if (!me)
+                        return log_oom_debug();
+
+                *me = (MountEntry) {
+                        .path_const = "/sys/fs/bpf",
+                        .mode = MOUNT_BPFFS,
+                        .ignore = !protect_kernel_tunables, /* indicate whether we should fall back to MOUNT_READ_ONLY on failure. */
+                };
+                return 0;
+        }
+        default:
+                assert_not_reached();
+        }
+}
+
 static int mount_path_compare(const MountEntry *a, const MountEntry *b) {
         int d;
 
@@ -981,7 +1021,7 @@ static bool verity_has_later_duplicates(MountList *ml, const MountEntry *needle)
         assert(needle >= ml->mounts && needle < ml->mounts + ml->n_mounts);
         assert(needle->mode == MOUNT_EXTENSION_IMAGE);
 
-        if (needle->verity.root_hash_size == 0)
+        if (!iovec_is_set(&needle->verity.root_hash))
                 return false;
 
         /* Overlayfs rejects supplying the same directory inode twice as determined by filesystem UUID and
@@ -994,10 +1034,7 @@ static bool verity_has_later_duplicates(MountList *ml, const MountEntry *needle)
         for (const MountEntry *m = needle + 1; m < ml->mounts + ml->n_mounts; m++) {
                 if (m->mode != MOUNT_EXTENSION_IMAGE)
                         continue;
-                if (memcmp_nn(m->verity.root_hash,
-                              m->verity.root_hash_size,
-                              needle->verity.root_hash,
-                              needle->verity.root_hash_size) == 0)
+                if (iovec_memcmp(&m->verity.root_hash, &needle->verity.root_hash) == 0)
                         return true;
         }
 
@@ -1321,7 +1358,7 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
 
         /* We assume /run/systemd/journal/ is available if not changing root, which isn't entirely accurate
          * but shouldn't matter, as either way the user would get ENOENT when accessing /dev/log */
-        if ((!p->root_image && !p->root_directory) || p->bind_log_sockets) {
+        if ((!p->root_image && !p->root_directory && p->root_directory_fd < 0) || p->bind_log_sockets) {
                 const char *devlog = strjoina(temporary_mount, "/dev/log");
                 if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
                         log_debug_errno(errno,
@@ -1579,18 +1616,14 @@ static int mount_mqueuefs(const MountEntry *m) {
 static int mount_image(
                 MountEntry *m,
                 const char *root_directory,
-                const ImagePolicy *image_policy) {
+                const ImagePolicy *image_policy,
+                RuntimeScope runtime_scope) {
 
         _cleanup_(extension_release_data_done) ExtensionReleaseData rdata = {};
-        _cleanup_free_ char *extension_name = NULL;
         ImageClass required_class = _IMAGE_CLASS_INVALID;
         int r;
 
         assert(m);
-
-        r = path_extract_filename(mount_entry_source(m), &extension_name);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to extract extension name from %s: %m", mount_entry_source(m));
 
         if (m->mode == MOUNT_EXTENSION_IMAGE) {
                 r = parse_os_release(
@@ -1619,6 +1652,7 @@ static int mount_image(
                         &rdata,
                         required_class,
                         &m->verity,
+                        runtime_scope,
                         /* ret_image= */ NULL);
         if (r == -ENOENT && m->ignore)
                 return 0;
@@ -1697,6 +1731,49 @@ static int mount_overlay(const MountEntry *m) {
         return 1;
 }
 
+static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int errno_pipe) {
+        int r;
+
+        assert(m);
+        assert(pidref_is_set(pidref));
+        assert(socket_fd >= 0);
+        assert(errno_pipe >= 0);
+
+        _cleanup_close_ int fs_fd = fsopen("bpf", FSOPEN_CLOEXEC);
+        if (fs_fd < 0)
+                return log_debug_errno(errno, "Failed to fsopen: %m");
+
+        r = send_one_fd(socket_fd, fs_fd, /* flags = */ 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send bpffs fd to child: %m");
+
+        r = pidref_wait_for_terminate_and_check("(sd-bpffs)", pidref, /* flags = */ 0);
+        if (r < 0)
+                return r;
+
+        /* If something strange happened with the child, let's consider this fatal, too */
+        if (r != EXIT_SUCCESS) {
+                ssize_t ss = read(errno_pipe, &r, sizeof(r));
+                if (ss < 0)
+                        return log_debug_errno(errno, "Failed to read from the bpffs helper errno pipe: %m");
+                if (ss != sizeof(r))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from the bpffs helper errno pipe.");
+                return log_debug_errno(r, "bpffs helper exited with error: %m");
+        }
+
+        pidref_done(pidref);
+
+        _cleanup_close_ int mnt_fd = fsmount(fs_fd, /* flags = */ 0, /* mount_attrs = */ 0);
+        if (mnt_fd < 0)
+                return log_debug_errno(errno, "Failed to fsmount bpffs: %m");
+
+        r = move_mount(mnt_fd, "", AT_FDCWD, mount_entry_path(m), MOVE_MOUNT_F_EMPTY_PATH);
+        if (r < 0)
+                return log_debug_errno(errno, "Failed to move bpffs mount to %s: %m", mount_entry_path(m));
+
+        return 1;
+}
+
 static int follow_symlink(
                 const char *root_directory,
                 MountEntry *m) {
@@ -1711,7 +1788,7 @@ static int follow_symlink(
          * a time by specifying CHASE_STEP. This function returns 0 if we resolved one step, and > 0 if we reached the
          * end and already have a fully normalized name. */
 
-        r = chase(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT, &target, NULL);
+        r = chase(mount_entry_path(m), root_directory, CHASE_STEP|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &target, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to chase symlinks '%s': %m", mount_entry_path(m));
         if (r > 0) /* Reached the end, nothing more to resolve */
@@ -1750,6 +1827,23 @@ static int apply_one_mount(
         assert(p);
 
         log_debug("Applying namespace mount on %s", mount_entry_path(m));
+
+        if (m->mode == MOUNT_BPFFS) {
+                r = mount_bpffs(m, p->bpffs_pidref, p->bpffs_socket_fd, p->bpffs_errno_pipe);
+                if (r >= 0 ||
+                    (!ERRNO_IS_NEG_NOT_SUPPORTED(r) && /* old kernel? */
+                     !ERRNO_IS_NEG_PRIVILEGE(r)))      /* ubuntu kernel bug? See issue #38225 */
+                        return r;
+
+                if (m->ignore) {
+                        log_debug_errno(r, "Failed to mount new bpffs instance, ignoring: %m");
+                        return 0;
+                }
+
+                log_debug_errno(r, "Failed to mount new bpffs instance at %s, will make read-only, ignoring: %m", mount_entry_path(m));
+                m->mode = MOUNT_READ_ONLY;
+                m->ignore = true;
+        }
 
         switch (m->mode) {
 
@@ -1892,7 +1986,7 @@ static int apply_one_mount(
                                 return log_error_errno(r, "Failed to set label of the source directory %s: %m", mount_entry_source(m));
                 }
 
-                r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH, &chased, NULL);
+                r = chase(mount_entry_source(m), NULL, CHASE_TRAIL_SLASH|CHASE_TRIGGER_AUTOFS, &chased, NULL);
                 if (r == -ENOENT && m->ignore) {
                         log_debug_errno(r, "Path %s does not exist, ignoring.", mount_entry_source(m));
                         return 0;
@@ -1945,10 +2039,10 @@ static int apply_one_mount(
                 return mount_mqueuefs(m);
 
         case MOUNT_IMAGE:
-                return mount_image(m, NULL, p->mount_image_policy);
+                return mount_image(m, NULL, p->mount_image_policy, p->runtime_scope);
 
         case MOUNT_EXTENSION_IMAGE:
-                return mount_image(m, root_directory, p->extension_image_policy);
+                return mount_image(m, root_directory, p->extension_image_policy, p->runtime_scope);
 
         case MOUNT_OVERLAY:
                 return mount_overlay(m);
@@ -2151,6 +2245,7 @@ static bool namespace_parameters_mount_apivfs(const NamespaceParameters *p) {
                 p->protect_kernel_tunables ||
                 p->protect_proc != PROTECT_PROC_DEFAULT ||
                 p->proc_subset != PROC_SUBSET_ALL ||
+                p->private_bpf != PRIVATE_BPF_NO ||
                 p->private_pids != PRIVATE_PIDS_NO;
 }
 
@@ -2429,7 +2524,8 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 DISSECT_IMAGE_GROWFS |
                 DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
-                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
+                DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
+                DISSECT_IMAGE_VERITY_SHARE;
         int r;
 
         assert(p);
@@ -2494,6 +2590,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                         dissected_image,
                                         NULL,
                                         p->verity,
+                                        p->root_image_policy,
                                         dissect_image_flags);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to decrypt dissected image: %m");
@@ -2506,6 +2603,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                         p->root_image,
                                         userns_fd,
                                         p->root_image_policy,
+                                        p->verity,
                                         dissect_image_flags,
                                         &dissected_image);
                         if (r < 0)
@@ -2653,6 +2751,10 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (r < 0)
                 return r;
 
+        r = append_private_bpf(&ml, p->private_bpf, p->protect_kernel_tunables, /* ignore_protect = */ false, p);
+        if (r < 0)
+                return r;
+
         if (namespace_parameters_mount_apivfs(p)) {
                 r = append_static_mounts(&ml,
                                          apivfs_table,
@@ -2708,12 +2810,20 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         return log_oom_debug();
 
                 *me = (MountEntry) {
-                        .path_const = "/run/credentials",
                         .mode = MOUNT_TMPFS,
                         .read_only = true,
                         .options_const = "mode=0755" TMPFS_LIMITS_EMPTY_OR_ALMOST,
                         .flags = MS_NODEV|MS_STRICTATIME|MS_NOSUID|MS_NOEXEC,
                 };
+
+                if (p->runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                        me->path_const = "/run/credentials";
+                else {
+                        r = path_extract_directory(p->creds_path, &me->path_malloc);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract parent directory from '%s': %m",
+                                                       p->creds_path);
+                }
 
                 me = mount_list_extend(&ml);
                 if (!me)
@@ -2726,9 +2836,11 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                         .source_const = p->creds_path,
                         .ignore = true,
                 };
-        } else {
-                /* If our service has no credentials store configured, then make the whole credentials tree
-                 * inaccessible wholesale. */
+        }
+
+        if (!p->creds_path || p->runtime_scope != RUNTIME_SCOPE_SYSTEM) {
+                /* If our service has no credentials store configured, or we're running in user scope, then
+                 * make the system credentials tree inaccessible wholesale. */
 
                 MountEntry *me = mount_list_extend(&ml);
                 if (!me)
@@ -2845,7 +2957,18 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         if (mount(NULL, "/", NULL, MS_SLAVE|MS_REC, NULL) < 0)
                 return log_debug_errno(errno, "Failed to remount '/' as SLAVE: %m");
 
-        if (p->root_image) {
+        if (p->root_directory_fd >= 0) {
+
+                if (move_mount(p->root_directory_fd, "", AT_FDCWD, root, MOVE_MOUNT_F_EMPTY_PATH) < 0)
+                        return log_debug_errno(errno, "Failed to move detached mount to '%s': %m", root);
+
+                /* We just remounted / as slave, but that didn't affect the detached mount that we just
+                 * mounted, so remount that one as slave recursive as well now. */
+
+                if (mount(NULL, root, NULL, MS_SLAVE|MS_REC, NULL) < 0)
+                        return log_debug_errno(errno, "Failed to remount '%s' as SLAVE: %m", root);
+
+        } else if (p->root_image) {
                 /* A root image is specified, mount it to the right place */
                 r = dissected_image_mount(
                                 dissected_image,
@@ -2889,7 +3012,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         }
 
         /* Try to set up the new root directory before mounting anything else there. */
-        if (p->root_image || p->root_directory)
+        if (p->root_image || p->root_directory || p->root_directory_fd >= 0)
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
@@ -3330,7 +3453,7 @@ static int is_extension_overlay(const char *path, int fd) {
         assert(path);
 
         if (fd < 0) {
-                r = chase(path, /* root= */ NULL, CHASE_TRAIL_SLASH|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &dfd);
+                r = chase(path, /* root= */ NULL, CHASE_TRAIL_SLASH|CHASE_MUST_BE_DIRECTORY|CHASE_TRIGGER_AUTOFS, /* ret_path= */ NULL, &dfd);
                 if (r < 0)
                         return r;
                 fd = dfd;
@@ -3887,6 +4010,76 @@ static const char* const proc_subset_table[_PROC_SUBSET_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
+
+static const char* const private_bpf_table[_PRIVATE_BPF_MAX] = {
+        [PRIVATE_BPF_NO]  = "no",
+        [PRIVATE_BPF_YES] = "yes",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(private_bpf, PrivateBPF, PRIVATE_BPF_YES);
+
+#include "bpf-delegate-configs.inc"
+
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_cmd, uint64_t);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_map_type, uint64_t);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t);
+DEFINE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t);
+
+char* bpf_delegate_to_string(uint64_t u, const char * (*parser)(uint64_t) _const_ ) {
+        assert(parser);
+
+        if (u == UINT64_MAX)
+                return strdup("any");
+
+        _cleanup_free_ char *buf = NULL;
+
+        BIT_FOREACH(i, u) {
+                const char *s = parser(i);
+                if (s) {
+                        if (!strextend_with_separator(&buf, ",", s))
+                                return NULL;
+                } else {
+                        if (strextendf_with_separator(&buf, ",", "%d", i) < 0)
+                                return NULL;
+                }
+        }
+
+        return TAKE_PTR(buf) ?: strdup("");
+}
+
+int bpf_delegate_from_string(const char *s, uint64_t *ret, uint64_t (*parser)(const char *)) {
+        int r;
+
+        assert(s);
+        assert(ret);
+        assert(parser);
+
+        if (streq(s, "any")) {
+                *ret = UINT64_MAX;
+                return 0;
+        }
+
+        uint64_t mask = 0;
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ",", /* flags = */ 0);
+                if (r < 0)
+                        return log_warning_errno(r, "Failed to parse delegate options \"%s\": %m", s);
+                if (r == 0)
+                        break;
+
+                r = parser(word);
+                if (r < 0)
+                        log_warning_errno(r, "Unknown BPF delegate option, ignoring: %s", word);
+                else
+                        mask |= UINT64_C(1) << r;
+        }
+
+        *ret = mask;
+
+        return 0;
+}
 
 static const char* const private_tmp_table[_PRIVATE_TMP_MAX] = {
         [PRIVATE_TMP_NO]           = "no",

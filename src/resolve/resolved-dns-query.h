@@ -1,15 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "dns-packet.h"
 #include "in-addr-util.h"
 #include "list.h"
-#include "resolved-dns-packet.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-forward.h"
 
 typedef struct DnsQueryCandidate {
         unsigned n_ref;
         int error_code;
+        uint64_t generation;
 
         DnsQuery *query;
         DnsScope *scope;
@@ -103,6 +105,13 @@ typedef struct DnsQuery {
         DnsAnswer *reply_authoritative;
         DnsAnswer *reply_additional;
         DnsStubListenerExtra *stub_listener_extra;
+
+        /* Browser Service and Dnssd Discovered Service Information */
+        DnssdDiscoveredService *dnsservice_request;
+        DnsServiceBrowser *service_browser_request;
+
+        /* Pending query to any installed hooks */
+        HookQuery *hook_query;
 
         /* Completion callback */
         void (*complete)(DnsQuery* q);

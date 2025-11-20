@@ -91,7 +91,7 @@ static int parse_where(const char *input, char **ret_where) {
         assert(ret_where);
 
         if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
-                r = chase(input, /* root= */ NULL, CHASE_NONEXISTENT, ret_where, /* ret_fd= */ NULL);
+                r = chase(input, /* root= */ NULL, CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, ret_where, /* ret_fd= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to make path %s absolute: %m", input);
         } else {
@@ -279,8 +279,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_DISCOVER:
@@ -475,7 +476,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 }
 
                                 if (arg_transport == BUS_TRANSPORT_LOCAL && arg_canonicalize) {
-                                        r = chase(p, /* root= */ NULL, /* flags= */ 0, &arg_mount_what, /* ret_fd= */ NULL);
+                                        r = chase(p, /* root= */ NULL, CHASE_TRIGGER_AUTOFS, &arg_mount_what, /* ret_fd= */ NULL);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to chase path '%s': %m", p);
                                 } else {
@@ -859,14 +860,14 @@ static int find_mount_points_by_source(const char *what, char ***ret) {
                 struct libmnt_fs *fs;
                 const char *source, *target;
 
-                r = mnt_table_next_fs(table, iter, &fs);
+                r = sym_mnt_table_next_fs(table, iter, &fs);
                 if (r == 1)
                         break;
                 if (r < 0)
                         return log_error_errno(r, "Failed to get next entry from /proc/self/mountinfo: %m");
 
-                source = mnt_fs_get_source(fs);
-                target = mnt_fs_get_target(fs);
+                source = sym_mnt_fs_get_source(fs);
+                target = sym_mnt_fs_get_target(fs);
                 if (!source || !target)
                         continue;
 
@@ -1102,7 +1103,7 @@ static int action_umount(sd_bus *bus, int argc, char **argv) {
                         return log_oom();
 
                 _cleanup_close_ int fd = -EBADF;
-                r = chase(u, /* root= */ NULL, 0, &p, &fd);
+                r = chase(u, /* root= */ NULL, CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0) {
                         RET_GATHER(ret, log_error_errno(r, "Failed to chase path '%s': %m", u));
                         continue;

@@ -8,6 +8,7 @@
 #include "errno-util.h"
 #include "log.h"
 #include "password-quality-util.h"
+#include "password-quality-util-pwquality.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -24,23 +25,7 @@ DLSYM_PROTOTYPE(pwquality_read_config) = NULL;
 DLSYM_PROTOTYPE(pwquality_set_int_value) = NULL;
 DLSYM_PROTOTYPE(pwquality_strerror) = NULL;
 
-int dlopen_pwquality(void) {
-        ELF_NOTE_DLOPEN("pwquality",
-                        "Support for password quality checks",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
-                        "libpwquality.so.1");
-
-        return dlopen_many_sym_or_warn(
-                        &pwquality_dl, "libpwquality.so.1", LOG_DEBUG,
-                        DLSYM_ARG(pwquality_check),
-                        DLSYM_ARG(pwquality_default_settings),
-                        DLSYM_ARG(pwquality_free_settings),
-                        DLSYM_ARG(pwquality_generate),
-                        DLSYM_ARG(pwquality_get_str_value),
-                        DLSYM_ARG(pwquality_read_config),
-                        DLSYM_ARG(pwquality_set_int_value),
-                        DLSYM_ARG(pwquality_strerror));
-}
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(pwquality_settings_t*, sym_pwquality_free_settings, pwquality_free_settingsp, NULL);
 
 static void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
@@ -76,7 +61,7 @@ static void pwq_maybe_disable_dictionary(pwquality_settings_t *pwq) {
 }
 
 static int pwq_allocate_context(pwquality_settings_t **ret) {
-        _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
+        _cleanup_(pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
         void *auxerror;
         int r;
@@ -103,7 +88,7 @@ static int pwq_allocate_context(pwquality_settings_t **ret) {
 }
 
 int suggest_passwords(void) {
-        _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
+        _cleanup_(pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
         _cleanup_strv_free_erase_ char **suggestions = NULL;
         _cleanup_(erase_and_freep) char *joined = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
@@ -136,7 +121,7 @@ int suggest_passwords(void) {
 }
 
 int check_password_quality(const char *password, const char *old, const char *username, char **ret_error) {
-        _cleanup_(sym_pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
+        _cleanup_(pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
         void *auxerror;
         int r;
@@ -163,3 +148,25 @@ int check_password_quality(const char *password, const char *old, const char *us
 }
 
 #endif
+
+int dlopen_pwquality(void) {
+#if HAVE_PWQUALITY
+        ELF_NOTE_DLOPEN("pwquality",
+                        "Support for password quality checks",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libpwquality.so.1");
+
+        return dlopen_many_sym_or_warn(
+                        &pwquality_dl, "libpwquality.so.1", LOG_DEBUG,
+                        DLSYM_ARG(pwquality_check),
+                        DLSYM_ARG(pwquality_default_settings),
+                        DLSYM_ARG(pwquality_free_settings),
+                        DLSYM_ARG(pwquality_generate),
+                        DLSYM_ARG(pwquality_get_str_value),
+                        DLSYM_ARG(pwquality_read_config),
+                        DLSYM_ARG(pwquality_set_int_value),
+                        DLSYM_ARG(pwquality_strerror));
+#else
+        return -EOPNOTSUPP;
+#endif
+}

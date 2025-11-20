@@ -8,6 +8,7 @@
 #include "sd-dhcp6-lease.h"
 
 #include "alloc-util.h"
+#include "dns-domain.h"
 #include "dns-resolver-internal.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -152,7 +153,7 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 sd_dns_resolver *resolvers;
 
                 r = sd_dhcp6_lease_get_dnr(link->dhcp6_lease, &resolvers);
-                if (r >= 0 ) {
+                if (r >= 0) {
                         struct in_addr_full **dot_servers;
                         size_t n = 0;
                         CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
@@ -263,6 +264,25 @@ static int link_put_sip(Link *link, OrderedSet **s) {
                 }
         }
 
+        if (link->dhcp6_lease && link->network->dhcp6_use_sip) {
+                const struct in6_addr *addresses;
+                char **domains;
+
+                r = sd_dhcp6_lease_get_sip_addrs(link->dhcp6_lease, &addresses);
+                if (r >= 0) {
+                        r = ordered_set_put_in6_addrv(s, addresses, r);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = sd_dhcp6_lease_get_sip_domains(link->dhcp6_lease, &domains);
+                if (r >= 0) {
+                        r = ordered_set_put_strdupv_full(s, &dns_name_hash_ops_free, domains);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         return 0;
 }
 
@@ -280,9 +300,9 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
         use_domains = is_route ? USE_DOMAINS_ROUTE : USE_DOMAINS_YES;
 
         if (link_domains)
-                return ordered_set_put_string_set(s, link_domains);
+                return ordered_set_put_string_set_full(s, &dns_name_hash_ops_free, link_domains);
 
-        r = ordered_set_put_string_set(s, network_domains);
+        r = ordered_set_put_string_set_full(s, &dns_name_hash_ops_free, network_domains);
         if (r < 0)
                 return r;
 
@@ -292,14 +312,14 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
 
                 r = sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname);
                 if (r >= 0) {
-                        r = ordered_set_put_strdup(s, domainname);
+                        r = ordered_set_put_strdup_full(s, &dns_name_hash_ops_free, domainname);
                         if (r < 0)
                                 return r;
                 }
 
                 r = sd_dhcp_lease_get_search_domains(link->dhcp_lease, &domains);
                 if (r >= 0) {
-                        r = ordered_set_put_strdupv(s, domains);
+                        r = ordered_set_put_strdupv_full(s, &dns_name_hash_ops_free, domains);
                         if (r < 0)
                                 return r;
                 }
@@ -310,7 +330,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
 
                 r = sd_dhcp6_lease_get_domains(link->dhcp6_lease, &domains);
                 if (r >= 0) {
-                        r = ordered_set_put_strdupv(s, domains);
+                        r = ordered_set_put_strdupv_full(s, &dns_name_hash_ops_free, domains);
                         if (r < 0)
                                 return r;
                 }
@@ -320,7 +340,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
                 NDiscDNSSL *a;
 
                 SET_FOREACH(a, link->ndisc_dnssl) {
-                        r = ordered_set_put_strdup(s, ndisc_dnssl_domain(a));
+                        r = ordered_set_put_strdup_full(s, &dns_name_hash_ops_free, ndisc_dnssl_domain(a));
                         if (r < 0)
                                 return r;
                 }
@@ -623,10 +643,7 @@ static void serialize_resolvers(
                 int r;
 
                 r = sd_dhcp6_lease_get_dnr(lease6, &resolvers);
-                if (r < 0 && r != -ENODATA)
-                        log_warning_errno(r, "Failed to get DNR from DHCPv6 lease, ignoring: %m");
-
-                if (r > 0) {
+                if (r >= 0) {
                         r = dns_resolvers_to_dot_strv(resolvers, r, &names);
                         if (r < 0)
                                 return (void) log_warning_errno(r, "Failed to get DoT servers from DHCPv6 DNR, ignoring: %m");
@@ -841,7 +858,10 @@ static int link_save(Link *link) {
                                     link->dhcp_lease,
                                     link->network->dhcp_use_sip,
                                     SD_DHCP_LEASE_SIP,
-                                    NULL, false, NULL, NULL);
+                                    link->dhcp6_lease,
+                                    link->network->dhcp6_use_sip,
+                                    sd_dhcp6_lease_get_sip_addrs,
+                                    sd_dhcp6_lease_get_sip_domains);
 
                 /************************************************************/
 

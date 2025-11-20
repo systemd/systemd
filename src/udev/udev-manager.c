@@ -2,6 +2,7 @@
 
 #include <poll.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "sd-varlink.h"
 
@@ -303,13 +304,13 @@ void manager_exit(Manager *manager) {
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
         (void) manager_serialize_config(manager);
 
-        /* Disable the event source, but does not close the inotify fd here, as we may still receive
+        /* Disable the event source, but do not close the inotify fd here, as we may still receive
          * notification messages about requests to add or remove inotify watches. */
         manager->inotify_event = sd_event_source_disable_unref(manager->inotify_event);
 
         /* Disable the device monitor but do not free device monitor, as it may be used when a worker failed,
          * and the manager needs to broadcast the kernel event assigned to the worker to libudev listeners.
-         * Note, hwere we cannot use sd_device_monitor_stop(), as it changes the multicast group of the socket. */
+         * Note, here we cannot use sd_device_monitor_stop(), as it changes the multicast group of the socket. */
         (void) sd_event_source_set_enabled(sd_device_monitor_get_event_source(manager->monitor), SD_EVENT_OFF);
         (void) sd_device_monitor_detach_event(manager->monitor);
 
@@ -860,7 +861,7 @@ static int event_enter_locked(Event *event, const char *whole_disk) {
         if (isempty(whole_disk))
                 return log_device_warning_errno(
                                 dev, SYNTHETIC_ERRNO(EBADMSG),
-                                "Unexpected notify message received, skipping event (SEQNUM=%"PRIu64", ACTION=%s): %m",
+                                "Unexpected notify message received, skipping event (SEQNUM=%"PRIu64", ACTION=%s).",
                                 event->seqnum, strna(device_action_to_string(event->action)));
 
         _cleanup_free_ char *whole_disk_copy = strdup(whole_disk);
@@ -1232,8 +1233,7 @@ static int manager_start_worker_notify(Manager *manager) {
                         EVENT_PRIORITY_WORKER_NOTIFY,
                         on_worker_notify,
                         manager,
-                        &manager->worker_notify_socket_path,
-                        /* ret_event_source= */ NULL);
+                        &manager->worker_notify_socket_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare worker notification socket: %m");
 
@@ -1405,11 +1405,13 @@ static int manager_setup_event(Manager *manager) {
         return 0;
 }
 
-static int manager_listen_fds(Manager *manager) {
+static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
         _cleanup_strv_free_ char **names = NULL;
+        int varlink_fd = -EBADF;
         int r;
 
         assert(manager);
+        assert(ret_varlink_fd);
 
         int n = sd_listen_fds_with_names(/* unset_environment = */ true, &names);
         if (n < 0)
@@ -1418,9 +1420,10 @@ static int manager_listen_fds(Manager *manager) {
         for (int i = 0; i < n; i++) {
                 int fd = SD_LISTEN_FDS_START + i;
 
-                if (streq(names[i], "varlink"))
-                        r = 0; /* The fd will be handled by sd_varlink_server_listen_auto(). */
-                else if (streq(names[i], "systemd-udevd-control.socket"))
+                if (streq(names[i], "varlink")) {
+                        varlink_fd = fd;
+                        r = 0;
+                } else if (streq(names[i], "systemd-udevd-control.socket"))
                         r = manager_init_ctrl(manager, fd);
                 else if (streq(names[i], "systemd-udevd-kernel.socket"))
                         r = manager_init_device_monitor(manager, fd);
@@ -1437,16 +1440,19 @@ static int manager_listen_fds(Manager *manager) {
                         close_and_notify_warn(fd, names[i]);
         }
 
+        *ret_varlink_fd = varlink_fd;
+
         return 0;
 }
 
 int manager_main(Manager *manager) {
+        _cleanup_close_ int varlink_fd = -EBADF;
         int r;
 
         assert(manager);
 
         _cleanup_free_ char *cgroup = NULL;
-        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, 0, &cgroup);
+        r = cg_pid_get_path(0, &cgroup);
         if (r < 0)
                 log_debug_errno(r, "Failed to get cgroup, ignoring: %m");
         else if (endswith(cgroup, "/udev")) { /* If we are in a subcgroup /udev/ we assume it was delegated to us */
@@ -1458,7 +1464,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_listen_fds(manager);
+        r = manager_listen_fds(manager, &varlink_fd);
         if (r < 0)
                 return r;
 
@@ -1466,7 +1472,7 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return r;
 
-        r = manager_start_varlink_server(manager);
+        r = manager_start_varlink_server(manager, TAKE_FD(varlink_fd));
         if (r < 0)
                 return r;
 

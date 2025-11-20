@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <linux/magic.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -20,7 +21,6 @@
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "import-util.h"
-#include "missing_magic.h"
 #include "process-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -327,7 +327,7 @@ static int download_manifest(
 
         manifest = fdopen(pfd[0], "r");
         if (!manifest)
-                return log_error_errno(errno, "Failed allocate FILE object for manifest file: %m");
+                return log_error_errno(errno, "Failed to allocate FILE object for manifest file: %m");
 
         TAKE_FD(pfd[0]);
 
@@ -660,7 +660,7 @@ int resource_resolve_path(
                 _cleanup_free_ char *resolved = NULL;
                 struct stat st;
 
-                r = chase(rr->path, root, CHASE_PREFIX_ROOT, &resolved, &fd);
+                r = chase(rr->path, root, CHASE_PREFIX_ROOT|CHASE_TRIGGER_AUTOFS, &resolved, &fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve '%s': %m", rr->path);
 
@@ -697,7 +697,7 @@ int resource_resolve_path(
 
         } else if (RESOURCE_IS_FILESYSTEM(rr->type)) {
                 _cleanup_free_ char *resolved = NULL, *relative_to = NULL;
-                ChaseFlags chase_flags = CHASE_PREFIX_ROOT;
+                ChaseFlags chase_flags = CHASE_NONEXISTENT | CHASE_PREFIX_ROOT | CHASE_TRIGGER_AUTOFS;
 
                 if (rr->path_relative_to == PATH_RELATIVE_TO_EXPLICIT) {
                         assert(relative_to_directory);

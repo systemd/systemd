@@ -16,6 +16,7 @@ systemd_machined_extract_sources = files(
         'machine.c',
         'machined-core.c',
         'machined-dbus.c',
+        'machined-resolve-hook.c',
         'machined-varlink.c',
         'operation.c',
 )
@@ -49,5 +50,8 @@ install_data('org.freedesktop.machine1.conf',
              install_dir : dbuspolicydir)
 install_data('org.freedesktop.machine1.service',
              install_dir : dbussystemservicedir)
+install_data('org.freedesktop.machine1.service-for-session',
+             install_dir : dbussessionservicedir,
+             rename : 'org.freedesktop.machine1.service')
 install_data('org.freedesktop.machine1.policy',
              install_dir : polkitpolicydir)

@@ -1,0 +1,79 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-mute-console"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-mute-console</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-mute-console</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-mute-console</refname>
+    <refname>systemd-mute-console@.service</refname>
+    <refname>systemd-mute-console.socket</refname>
+    <refpurpose>Temporarily mute kernel log output and service manager status output to the system console</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-mute-console</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+
+    <para><filename>systemd-mute-console@.service</filename></para>
+    <para><filename>systemd-mute-console.socket</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>The <command>systemd-mute-console</command> tool and service may be used to
+    temporarily mute the log output of the kernel as well as the status output of the service manager to
+    the system console. It may be used by tools running on the console to ensure their terminal output is not
+    interrupted by unrelated messages.</para>
+
+    <para>The tool can be invoked directly in which case it will mute the two outputs and then issue an
+    <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    <literal>READY=1</literal> notification once that is completed. On <constant>SIGINT</constant> or
+    <constant>SIGTERM</constant> output is unmuted again. Alternatively it can be invoked via Varlink
+    IPC.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--kernel=<replaceable>bool</replaceable></option></term>
+        <term><option>--pid1=<replaceable>bool</replaceable></option></term>
+        <listitem><para>Individually controls which output to mute. If true is specified the respective
+        output is muted, if false the output is left as is. Defaults to true.</para>
+
+        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

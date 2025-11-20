@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <unistd.h>
 
 #include "sd-device.h"
@@ -19,7 +20,6 @@
 #include "fileio.h"
 #include "fs-util.h"
 #include "hashmap.h"
-#include "missing_magic.h"
 #include "netlink-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -52,7 +52,7 @@ int device_new_aux(sd_device **ret) {
         return 0;
 }
 
-static sd_device *device_free(sd_device *device) {
+static sd_device* device_free(sd_device *device) {
         assert(device);
 
         sd_device_unref(device->parent);
@@ -150,8 +150,8 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
                 r = chase(_syspath, NULL, 0, &syspath, &fd);
                 if (r == -ENOENT)
                          /* the device does not exist (any more?) */
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
-                                               "sd-device: Failed to chase symlinks in \"%s\".", _syspath);
+                        return log_trace_errno(SYNTHETIC_ERRNO(ENODEV),
+                                               "sd-device: Device \"%s\" not found.", _syspath);
                 if (r < 0)
                         return log_debug_errno(r, "sd-device: Failed to get target of '%s': %m", _syspath);
 
@@ -1051,7 +1051,7 @@ static int device_enumerate_children(sd_device *device) {
         return 1; /* Enumerated. */
 }
 
-_public_ sd_device *sd_device_get_child_first(sd_device *device, const char **ret_suffix) {
+_public_ sd_device* sd_device_get_child_first(sd_device *device, const char **ret_suffix) {
         int r;
 
         assert(device);
@@ -1069,7 +1069,7 @@ _public_ sd_device *sd_device_get_child_first(sd_device *device, const char **re
         return sd_device_get_child_next(device, ret_suffix);
 }
 
-_public_ sd_device *sd_device_get_child_next(sd_device *device, const char **ret_suffix) {
+_public_ sd_device* sd_device_get_child_next(sd_device *device, const char **ret_suffix) {
         sd_device *child;
 
         assert(device);
@@ -1922,7 +1922,7 @@ _public_ int sd_device_get_usec_since_initialized(sd_device *device, uint64_t *r
         return 0;
 }
 
-_public_ const char *sd_device_get_tag_first(sd_device *device) {
+_public_ const char* sd_device_get_tag_first(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -1936,7 +1936,7 @@ _public_ const char *sd_device_get_tag_first(sd_device *device) {
         return v;
 }
 
-_public_ const char *sd_device_get_tag_next(sd_device *device) {
+_public_ const char* sd_device_get_tag_next(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -1962,7 +1962,7 @@ static bool device_database_supports_current_tags(sd_device *device) {
         return device->database_version >= 1;
 }
 
-_public_ const char *sd_device_get_current_tag_first(sd_device *device) {
+_public_ const char* sd_device_get_current_tag_first(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -1979,7 +1979,7 @@ _public_ const char *sd_device_get_current_tag_first(sd_device *device) {
         return v;
 }
 
-_public_ const char *sd_device_get_current_tag_next(sd_device *device) {
+_public_ const char* sd_device_get_current_tag_next(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -1996,7 +1996,7 @@ _public_ const char *sd_device_get_current_tag_next(sd_device *device) {
         return v;
 }
 
-_public_ const char *sd_device_get_devlink_first(sd_device *device) {
+_public_ const char* sd_device_get_devlink_first(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -2010,7 +2010,7 @@ _public_ const char *sd_device_get_devlink_first(sd_device *device) {
         return v;
 }
 
-_public_ const char *sd_device_get_devlink_next(sd_device *device) {
+_public_ const char* sd_device_get_devlink_next(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -2083,7 +2083,7 @@ int device_properties_prepare(sd_device *device) {
         return 0;
 }
 
-_public_ const char *sd_device_get_property_first(sd_device *device, const char **_value) {
+_public_ const char* sd_device_get_property_first(sd_device *device, const char **_value) {
         const char *key;
         int r;
 
@@ -2100,7 +2100,7 @@ _public_ const char *sd_device_get_property_first(sd_device *device, const char 
         return key;
 }
 
-_public_ const char *sd_device_get_property_next(sd_device *device, const char **_value) {
+_public_ const char* sd_device_get_property_next(sd_device *device, const char **_value) {
         const char *key;
         int r;
 
@@ -2217,19 +2217,14 @@ static int device_sysattrs_read_all(sd_device *device) {
         return 0;
 }
 
-_public_ const char *sd_device_get_sysattr_first(sd_device *device) {
+_public_ const char* sd_device_get_sysattr_first(sd_device *device) {
         void *v;
-        int r;
 
         assert_return(device, NULL);
 
-        if (!device->sysattrs_read) {
-                r = device_sysattrs_read_all(device);
-                if (r < 0) {
-                        errno = -r;
-                        return NULL;
-                }
-        }
+        if (!device->sysattrs_read &&
+            device_sysattrs_read_all(device) < 0)
+                return NULL;
 
         device->sysattrs_iterator = ITERATOR_FIRST;
 
@@ -2237,7 +2232,7 @@ _public_ const char *sd_device_get_sysattr_first(sd_device *device) {
         return v;
 }
 
-_public_ const char *sd_device_get_sysattr_next(sd_device *device) {
+_public_ const char* sd_device_get_sysattr_next(sd_device *device) {
         void *v;
 
         assert_return(device, NULL);
@@ -2316,6 +2311,27 @@ int device_get_property_int(sd_device *device, const char *key, int *ret) {
                 return r;
 
         r = safe_atoi(value, &v);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = v;
+        return 0;
+}
+
+int device_get_property_uint(sd_device *device, const char *key, unsigned *ret) {
+        const char *value;
+        int r;
+
+        assert(device);
+        assert(key);
+
+        r = sd_device_get_property_value(device, key, &value);
+        if (r < 0)
+                return r;
+
+        unsigned v;
+        r = safe_atou(value, &v);
         if (r < 0)
                 return r;
 
@@ -2648,6 +2664,25 @@ int device_get_sysattr_u32(sd_device *device, const char *sysattr, uint32_t *ret
 
         uint32_t v;
         r = safe_atou32(value, &v);
+        if (r < 0)
+                return log_device_debug_errno(device, r, "Failed to parse '%s' attribute: %m", sysattr);
+
+        if (ret_value)
+                *ret_value = v;
+        /* We return "true" if the value is positive. */
+        return v > 0;
+}
+
+int device_get_sysattr_u64(sd_device *device, const char *sysattr, uint64_t *ret_value) {
+        const char *value;
+        int r;
+
+        r = sd_device_get_sysattr_value(device, sysattr, &value);
+        if (r < 0)
+                return r;
+
+        uint64_t v;
+        r = safe_atou64(value, &v);
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to parse '%s' attribute: %m", sysattr);
 

@@ -25,7 +25,7 @@
 #include <byteswap.h>
 #include <endian.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 
 #ifdef __CHECKER__
 #define __sd_bitwise __attribute__((__bitwise__))

@@ -22,6 +22,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "pager.h"
+#include "parse-argument.h"
 #include "parse-util.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
@@ -37,7 +38,7 @@
 static PagerFlags arg_pager_flags = 0;
 static bool arg_ask_password = true;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
-static char *arg_host = NULL;
+static const char *arg_host = NULL;
 static bool arg_adjust_system_clock = false;
 static bool arg_monitor = false;
 static char **arg_property = NULL;
@@ -57,7 +58,6 @@ typedef struct StatusInfo {
 
 static int print_status_info(const StatusInfo *i) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        const char *old_tz = NULL, *tz, *tz_colon;
         char a[LINE_MAX];
         TableCell *cell;
         struct tm tm;
@@ -78,13 +78,10 @@ static int print_status_info(const StatusInfo *i) {
         (void) table_set_ellipsize_percent(table, cell, 100);
 
         /* Save the old $TZ */
-        tz = getenv("TZ");
-        if (tz)
-                old_tz = strdupa_safe(tz);
+        SAVE_TIMEZONE;
 
         /* Set the new $TZ */
-        tz_colon = strjoina(":", isempty(i->timezone) ? "UTC" : i->timezone);
-        if (setenv("TZ", tz_colon, true) < 0)
+        if (setenv("TZ", isempty(i->timezone) ? "UTC" : i->timezone, /* overwrite = */ true) < 0)
                 log_warning_errno(errno, "Failed to set TZ environment variable, ignoring: %m");
         else
                 tzset();
@@ -156,13 +153,6 @@ static int print_status_info(const StatusInfo *i) {
         r = table_add_cell_stringf(table, NULL, "%s (%s)", strna(i->timezone), n > 0 ? a : "n/a");
         if (r < 0)
                 return table_log_add_error(r);
-
-        /* Restore the $TZ */
-        r = set_unset_env("TZ", old_tz, true);
-        if (r < 0)
-                log_warning_errno(r, "Failed to set TZ environment variable, ignoring: %m");
-        else
-                tzset();
 
         r = table_add_many(table,
                            TABLE_FIELD, "System clock synchronized",
@@ -996,8 +986,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
+                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:

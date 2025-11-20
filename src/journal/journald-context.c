@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_SELINUX
-#include <selinux/selinux.h>
-#endif
-
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "audit-util.h"
@@ -26,6 +23,7 @@
 #include "prioq.h"
 #include "process-util.h"
 #include "procfs-util.h"
+#include "selinux-util.h"
 #include "set.h"
 #include "string-util.h"
 #include "syslog-util.h"
@@ -138,8 +136,8 @@ static int client_context_new(Manager *m, pid_t pid, ClientContext **ret) {
                 .timestamp = USEC_INFINITY,
                 .extra_fields_mtime = NSEC_INFINITY,
                 .log_level_max = -1,
-                .log_ratelimit_interval = m->ratelimit_interval,
-                .log_ratelimit_burst = m->ratelimit_burst,
+                .log_ratelimit_interval = m->config.ratelimit_interval,
+                .log_ratelimit_burst = m->config.ratelimit_burst,
                 .capability_quintet = CAPABILITY_QUINTET_NULL,
         };
 
@@ -187,8 +185,10 @@ static void client_context_reset(Manager *m, ClientContext *c) {
 
         c->log_level_max = -1;
 
-        c->log_ratelimit_interval = m->ratelimit_interval;
-        c->log_ratelimit_burst = m->ratelimit_burst;
+        c->log_ratelimit_interval = m->config.ratelimit_interval;
+        c->log_ratelimit_burst = m->config.ratelimit_burst;
+        c->log_ratelimit_interval_from_unit = false;
+        c->log_ratelimit_burst_from_unit = false;
 
         c->log_filter_allowed_patterns = set_free(c->log_filter_allowed_patterns);
         c->log_filter_denied_patterns = set_free(c->log_filter_denied_patterns);
@@ -254,6 +254,9 @@ static int client_context_read_label(
         assert(pid_is_valid(c->pid));
         assert(label_size == 0 || label);
 
+        if (!mac_selinux_use())
+                return 0;
+
         if (label_size > 0) {
                 char *l;
 
@@ -272,7 +275,7 @@ static int client_context_read_label(
 
                 /* If we got no SELinux label passed in, let's try to acquire one */
 
-                if (getpidcon(c->pid, &con) >= 0 && con) {
+                if (sym_getpidcon_raw(c->pid, &con) >= 0 && con) {
                         free_and_replace(c->label, con);
                         c->label_size = strlen(c->label);
                 }
@@ -495,7 +498,12 @@ static int client_context_read_log_ratelimit_interval(ClientContext *c) {
         if (r < 0)
                 return r;
 
-        return safe_atou64(value, &c->log_ratelimit_interval);
+        r = safe_atou64(value, &c->log_ratelimit_interval);
+        if (r < 0)
+                return r;
+
+        c->log_ratelimit_interval_from_unit = true;
+        return 0;
 }
 
 static int client_context_read_log_ratelimit_burst(ClientContext *c) {
@@ -513,7 +521,12 @@ static int client_context_read_log_ratelimit_burst(ClientContext *c) {
         if (r < 0)
                 return r;
 
-        return safe_atou(value, &c->log_ratelimit_burst);
+        r = safe_atou(value, &c->log_ratelimit_burst);
+        if (r < 0)
+                return r;
+
+        c->log_ratelimit_burst_from_unit = true;
+        return 0;
 }
 
 static void client_context_really_refresh(
@@ -596,6 +609,33 @@ void client_context_maybe_refresh(
 
 refresh:
         client_context_really_refresh(m, c, ucred, label, label_size, unit_id, timestamp);
+}
+
+static void client_context_refresh_on_reload(Manager *m, ClientContext *c) {
+        assert(m);
+
+        if (!c)
+                return;
+
+        if (!c->log_ratelimit_interval_from_unit)
+                c->log_ratelimit_interval = m->config.ratelimit_interval;
+
+        if (!c->log_ratelimit_burst_from_unit)
+                c->log_ratelimit_burst = m->config.ratelimit_burst;
+}
+
+void manager_refresh_client_contexts_on_reload(Manager *m, usec_t old_interval, unsigned old_burst) {
+        assert(m);
+
+        if (m->config.ratelimit_interval == old_interval && m->config.ratelimit_burst == old_burst)
+                return;
+
+        client_context_refresh_on_reload(m, m->my_context);
+        client_context_refresh_on_reload(m, m->pid1_context);
+
+        ClientContext *c;
+        HASHMAP_FOREACH(c, m->client_contexts)
+                client_context_refresh_on_reload(m, c);
 }
 
 static void client_context_try_shrink_to(Manager *m, size_t limit) {

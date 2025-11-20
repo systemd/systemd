@@ -94,21 +94,28 @@ executables += [
                 'sources' : files('import-generator.c'),
         },
         test_template + {
+                'sources' : files('test-tar-extract.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-qcow2.c'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
-                'conditions' : ['HAVE_ZLIB'],
                 'type' : 'manual',
         },
+
 ]
 
 install_data('org.freedesktop.import1.conf',
              install_dir : dbuspolicydir)
 install_data('org.freedesktop.import1.service',
              install_dir : dbussystemservicedir)
+install_data('org.freedesktop.import1.service-for-session',
+             install_dir : dbussessionservicedir,
+             rename : 'org.freedesktop.import1.service')
 install_data('org.freedesktop.import1.policy',
              install_dir : polkitpolicydir)
 
-install_data('import-pubring.gpg',
+install_data('import-pubring.pgp',
              install_dir : libexecdir)
 # TODO: shouldn't this be in pkgdatadir?

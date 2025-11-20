@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "alloc-util.h"
+#include "conf-files.h"
 #include "log.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
@@ -101,11 +102,15 @@ int cat_main(int argc, char *argv[], void *userdata) {
         if (arg_config)
                 return conf_files_cat(arg_root, "udev/udev.conf", arg_cat_flags);
 
-        _cleanup_strv_free_ char **files = NULL;
-        r = search_rules_files(strv_skip(argv, optind), arg_root, &files);
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        r = search_rules_files(strv_skip(argv, optind), arg_root, &files, &n_files);
         if (r < 0)
                 return r;
 
         /* udev rules file does not support dropin configs. So, we can safely pass multiple files as dropins. */
-        return cat_files(/* file = */ NULL, /* dropins = */ files, arg_cat_flags);
+        return cat_files_full(/* file = */ NULL, files, n_files, arg_cat_flags);
 }

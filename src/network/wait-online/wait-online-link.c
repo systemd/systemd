@@ -272,8 +272,7 @@ int link_update_monitor(Link *l) {
         else {
                 r = parse_operational_state_range(required_operstate, &l->required_operstate);
                 if (r < 0)
-                        ret = log_link_debug_errno(l, SYNTHETIC_ERRNO(EINVAL),
-                                                   "Failed to parse required operational state, ignoring: %m");
+                        ret = log_link_debug_errno(l, r, "Failed to parse required operational state, ignoring: %m");
         }
 
         r = network_link_get_operational_state(l->ifindex, &l->operational_state);

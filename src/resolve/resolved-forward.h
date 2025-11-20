@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+/* IWYU pragma: always_keep */
+
 #include "conf-parser-forward.h"    /* IWYU pragma: export */
-#include "forward.h"                /* IWYU pragma: export */
+#include "shared-forward.h"         /* IWYU pragma: export */
 
 typedef enum DnsAnswerFlags DnsAnswerFlags;
 typedef enum DnsCacheMode DnsCacheMode;
@@ -32,6 +34,7 @@ typedef struct DnsSvcParam DnsSvcParam;
 typedef struct DnsTransaction DnsTransaction;
 typedef struct DnsTxtItem DnsTxtItem;
 typedef struct DnsZoneItem DnsZoneItem;
+typedef struct HookQuery HookQuery;
 typedef struct Link Link;
 typedef struct LinkAddress LinkAddress;
 typedef struct Manager Manager;

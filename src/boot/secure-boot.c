@@ -3,6 +3,7 @@
 #include "console.h"
 #include "efi-efivars.h"
 #include "efi-log.h"
+#include "efi-string.h"
 #include "efi-string-table.h"
 #include "proto/security-arch.h"
 #include "secure-boot.h"
@@ -19,7 +20,7 @@ bool secure_boot_enabled(void) {
 }
 
 SecureBootMode secure_boot_mode(void) {
-        bool secure, audit = false, deployed = false, setup = false;
+        bool secure, audit = false, deployed = false, setup = false, moksb = false;
         EFI_STATUS err;
 
         err = efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"SecureBoot", &secure);
@@ -31,8 +32,9 @@ SecureBootMode secure_boot_mode(void) {
         (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"AuditMode", &audit);
         (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"DeployedMode", &deployed);
         (void) efivar_get_boolean_u8(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"SetupMode", &setup);
+        (void) efivar_get_boolean_u8(MAKE_GUID_PTR(SHIM_LOCK), u"MokSBStateRT", &moksb);
 
-        return decode_secure_boot_mode(secure, audit, deployed, setup);
+        return decode_secure_boot_mode(secure, audit, deployed, setup, moksb);
 }
 
 /*
@@ -70,7 +72,8 @@ static EFI_STATUS set_custom_mode(bool enable) {
                                attr, sizeof(mode), &mode);
 }
 
-EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force, secure_boot_enroll_action action) {
+EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool force,
+                                 secure_boot_enroll_action action, uint64_t timeout_sec) {
         assert(root_dir);
         assert(path);
 
@@ -88,12 +91,11 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
 
         printf("Enrolling secure boot keys from directory: %ls\n", path);
 
-        if (!is_safe) {
+        if (!is_safe && timeout_sec != ENROLL_TIMEOUT_HIDDEN) {
                 printf("Warning: Enrolling custom Secure Boot keys might soft-brick your machine!\n");
 
-                unsigned timeout_sec = 15;
                 for (;;) {
-                        printf("\rEnrolling in %2u s, press any key to abort.", timeout_sec);
+                        printf("\rEnrolling in %"PRIu64"s, press any key to abort.", timeout_sec);
 
                         err = console_key_read(/* ret_key= */ NULL, /* timeout_usec= */ 1000 * 1000);
                         if (err == EFI_NOT_READY)
@@ -104,6 +106,9 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                                 timeout_sec--;
                                 continue;
                         }
+
+                        printf("\n");
+
                         if (err != EFI_SUCCESS)
                                 return log_error_status(
                                                 err,
@@ -120,7 +125,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
 
         err = open_directory(root_dir, path, &dir);
         if (err != EFI_SUCCESS)
-                return log_error_status(err, "Failed opening keys directory %ls: %m", path);
+                return log_error_status(err, "Failed to open keys directory %ls: %m", path);
 
         struct {
                 const char16_t *name;
@@ -140,7 +145,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         FOREACH_ELEMENT(sb_var, sb_vars) {
                 err = file_read(dir, sb_var->filename, 0, 0, &sb_var->buffer, &sb_var->size);
                 if (err != EFI_SUCCESS && sb_var->required) {
-                        log_error_status(err, "Failed reading file %ls\\%ls: %m", path, sb_var->filename);
+                        log_error_status(err, "Failed to read file %ls\\%ls: %m", path, sb_var->filename);
                         goto out_deallocate;
                 }
                 if (streq16(sb_var->name, u"PK") && sb_var->size > 20) {
@@ -161,7 +166,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
         }
 
         if (need_custom_mode && !custom_mode_enabled()) {
-                err = set_custom_mode(/* enable */ true);
+                err = set_custom_mode(/* enable = */ true);
                 if (err != EFI_SUCCESS) {
                         log_error_status(err, "Failed to enable custom mode: %m");
                         goto out_deallocate;
@@ -262,6 +267,7 @@ static EFIAPI EFI_STATUS security2_hook(
  * of their spec. But there is little else we can do to circumvent secure boot short of implementing our own
  * PE loader. We could replace the firmware instances with our own instance using
  * ReinstallProtocolInterface(), but some firmware will still use the old ones. */
+// TODO: now that there is a custom PE loader, this can be dropped once shim < v16 is no longer supported.
 void install_security_override(security_validator_t validator, const void *validator_ctx) {
         EFI_STATUS err;
 
@@ -290,6 +296,14 @@ void install_security_override(security_validator_t validator, const void *valid
                 security_override.original_hook2 = security2->FileAuthentication;
                 security2->FileAuthentication = security2_hook;
         }
+}
+
+bool security_override_available(void) {
+        EFI_SECURITY_ARCH_PROTOCOL *security;
+        EFI_SECURITY2_ARCH_PROTOCOL *security2;
+
+        return BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY_ARCH_PROTOCOL), NULL, (void **) &security) == EFI_SUCCESS &&
+               BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY2_ARCH_PROTOCOL), NULL, (void **) &security2) == EFI_SUCCESS;
 }
 
 void uninstall_security_override(void) {

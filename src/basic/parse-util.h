@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef unsigned long loadavg_t;
 
@@ -20,6 +20,9 @@ int parse_sector_size(const char *t, uint64_t *ret);
 int parse_range(const char *t, unsigned *lower, unsigned *upper);
 int parse_errno(const char *t);
 int parse_fd(const char *t);
+int parse_user_shell(const char *s, char **ret_sh, bool *ret_copy);
+
+int parse_capability_set(const char *s, uint64_t initial, uint64_t *capability_set);
 
 #define SAFE_ATO_REFUSE_PLUS_MINUS (1U << 30)
 #define SAFE_ATO_REFUSE_LEADING_ZERO (1U << 29)

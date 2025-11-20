@@ -3,6 +3,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "capability-util.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
@@ -14,76 +15,81 @@ static void test_rm_rf_chmod_inner(void) {
         const char *a, *b, *x, *y;
         struct stat st;
 
-        assert_se(getuid() != 0);
+        ASSERT_NE(getuid(), 0U);
 
-        assert_se(mkdtemp_malloc("/tmp/test-rm-rf.XXXXXXX", &d) >= 0);
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-rm-rf.XXXXXXX", &d));
         a = strjoina(d, "/a");
         b = strjoina(a, "/b");
         x = strjoina(d, "/x");
         y = strjoina(x, "/y");
 
-        assert_se(mkdir(x, 0700) >= 0);
-        assert_se(mknod(y, S_IFREG | 0600, 0) >= 0);
+        ASSERT_OK_ERRNO(mkdir(x, 0700));
+        ASSERT_OK_ERRNO(mknod(y, S_IFREG | 0600, 0));
 
-        assert_se(chmod(y, 0400) >= 0);
-        assert_se(chmod(x, 0500) >= 0);
-        assert_se(chmod(d, 0500) >= 0);
+        ASSERT_OK_ERRNO(chmod(y, 0400));
+        ASSERT_OK_ERRNO(chmod(x, 0500));
+        ASSERT_OK_ERRNO(chmod(d, 0500));
 
-        assert_se(rm_rf(d, REMOVE_PHYSICAL) == -EACCES);
+        if (!have_effective_cap(CAP_DAC_OVERRIDE))
+                ASSERT_ERROR(rm_rf(d, REMOVE_PHYSICAL), EACCES);
 
-        assert_se(access(d, F_OK) >= 0);
-        assert_se(access(x, F_OK) >= 0);
-        assert_se(access(y, F_OK) >= 0);
+        ASSERT_OK_ERRNO(access(d, F_OK));
+        ASSERT_OK_ERRNO(access(x, F_OK));
+        ASSERT_OK_ERRNO(access(y, F_OK));
 
-        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD) >= 0);
+        ASSERT_OK(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD));
 
-        assert_se(access(d, F_OK) >= 0);
-        assert_se(access(x, F_OK) < 0 && errno == ENOENT);
-        assert_se(access(y, F_OK) < 0 && errno == ENOENT);
+        ASSERT_OK_ERRNO(access(d, F_OK));
+        ASSERT_ERROR_ERRNO(access(x, F_OK), ENOENT);
+        ASSERT_ERROR_ERRNO(access(y, F_OK), ENOENT);
 
-        assert_se(mkdir(a, 0700) >= 0);
-        assert_se(mkdir(b, 0700) >= 0);
-        assert_se(mkdir(x, 0700) >= 0);
-        assert_se(mknod(y, S_IFREG | 0600, 0) >= 0);
+        ASSERT_OK_ERRNO(mkdir(a, 0700));
+        ASSERT_OK_ERRNO(mkdir(b, 0700));
+        ASSERT_OK_ERRNO(mkdir(x, 0700));
+        ASSERT_OK_ERRNO(mknod(y, S_IFREG | 0600, 0));
 
-        assert_se(chmod(b, 0000) >= 0);
-        assert_se(chmod(a, 0000) >= 0);
-        assert_se(chmod(y, 0000) >= 0);
-        assert_se(chmod(x, 0000) >= 0);
-        assert_se(chmod(d, 0500) >= 0);
+        ASSERT_OK_ERRNO(chmod(b, 0000));
+        ASSERT_OK_ERRNO(chmod(a, 0000));
+        ASSERT_OK_ERRNO(chmod(y, 0000));
+        ASSERT_OK_ERRNO(chmod(x, 0000));
+        ASSERT_OK_ERRNO(chmod(d, 0500));
 
-        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD|REMOVE_CHMOD_RESTORE|REMOVE_ONLY_DIRECTORIES) == -ENOTEMPTY);
+        ASSERT_ERROR(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD|REMOVE_CHMOD_RESTORE|REMOVE_ONLY_DIRECTORIES), ENOTEMPTY);
 
-        assert_se(access(a, F_OK) < 0 && errno == ENOENT);
-        assert_se(access(d, F_OK) >= 0);
-        assert_se(stat(d, &st) >= 0 && (st.st_mode & 07777) == 0500);
-        assert_se(access(x, F_OK) >= 0);
-        assert_se(stat(x, &st) >= 0 && (st.st_mode & 07777) == 0000);
-        assert_se(chmod(x, 0700) >= 0);
-        assert_se(access(y, F_OK) >= 0);
-        assert_se(stat(y, &st) >= 0 && (st.st_mode & 07777) == 0000);
+        ASSERT_ERROR_ERRNO(access(a, F_OK), ENOENT);
+        ASSERT_OK_ERRNO(access(d, F_OK));
+        ASSERT_OK_ERRNO(stat(d, &st));
+        ASSERT_EQ(st.st_mode & 07777, 0500U);
+        ASSERT_OK_ERRNO(access(x, F_OK));
+        ASSERT_OK_ERRNO(stat(x, &st));
+        ASSERT_EQ(st.st_mode & 07777, 0000U);
+        ASSERT_OK_ERRNO(chmod(x, 0700));
+        ASSERT_OK_ERRNO(access(y, F_OK));
+        ASSERT_OK_ERRNO(stat(y, &st));
+        ASSERT_EQ(st.st_mode & 07777, 0000U);
 
-        assert_se(chmod(y, 0000) >= 0);
-        assert_se(chmod(x, 0000) >= 0);
-        assert_se(chmod(d, 0000) >= 0);
+        ASSERT_OK_ERRNO(chmod(y, 0000));
+        ASSERT_OK_ERRNO(chmod(x, 0000));
+        ASSERT_OK_ERRNO(chmod(d, 0000));
 
-        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD|REMOVE_CHMOD_RESTORE) >= 0);
+        ASSERT_OK(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD|REMOVE_CHMOD_RESTORE));
 
-        assert_se(stat(d, &st) >= 0 && (st.st_mode & 07777) == 0000);
-        assert_se(access(d, F_OK) >= 0);
-        assert_se(chmod(d, 0700) >= 0);
-        assert_se(access(x, F_OK) < 0 && errno == ENOENT);
+        ASSERT_OK_ERRNO(stat(d, &st));
+        ASSERT_EQ(st.st_mode & 07777, 0000U);
+        ASSERT_OK_ERRNO(access(d, F_OK));
+        ASSERT_OK_ERRNO(chmod(d, 0700));
+        ASSERT_ERROR_ERRNO(access(x, F_OK), ENOENT);
 
-        assert_se(mkdir(x, 0700) >= 0);
-        assert_se(mknod(y, S_IFREG | 0600, 0) >= 0);
+        ASSERT_OK_ERRNO(mkdir(x, 0700));
+        ASSERT_OK_ERRNO(mknod(y, S_IFREG | 0600, 0));
 
-        assert_se(chmod(y, 0000) >= 0);
-        assert_se(chmod(x, 0000) >= 0);
-        assert_se(chmod(d, 0000) >= 0);
+        ASSERT_OK_ERRNO(chmod(y, 0000));
+        ASSERT_OK_ERRNO(chmod(x, 0000));
+        ASSERT_OK_ERRNO(chmod(d, 0000));
 
-        assert_se(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD|REMOVE_ROOT) >= 0);
+        ASSERT_OK(rm_rf(d, REMOVE_PHYSICAL|REMOVE_CHMOD|REMOVE_ROOT));
 
-        assert_se(access(d, F_OK) < 0 && errno == ENOENT);
+        ASSERT_ERROR_ERRNO(access(d, F_OK), ENOENT);
 }
 
 TEST(rm_rf_chmod) {
@@ -96,13 +102,12 @@ TEST(rm_rf_chmod) {
                 /* This test only works unpriv (as only then the access mask for the owning user matters),
                  * hence drop privs here */
 
-                r = safe_fork("(setresuid)", FORK_DEATHSIG_SIGTERM|FORK_WAIT, NULL);
-                assert_se(r >= 0);
+                ASSERT_OK(r = safe_fork("(setresuid)", FORK_DEATHSIG_SIGTERM|FORK_WAIT, NULL));
 
                 if (r == 0) {
                         /* child */
 
-                        assert_se(setresuid(1, 1, 1) >= 0);
+                        ASSERT_OK_ERRNO(setresuid(1, 1, 1));
 
                         test_rm_rf_chmod_inner();
                         _exit(EXIT_SUCCESS);

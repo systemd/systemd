@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mman.h>
-#include <sys/quota.h>
 #include <sys/vfs.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 
@@ -29,7 +28,6 @@
 #include "json-util.h"
 #include "log.h"
 #include "memfd-util.h"
-#include "missing_mman.h"
 #include "mkdir.h"
 #include "ordered-set.h"
 #include "parse-util.h"
@@ -572,7 +570,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
                 return 0;
         }
 
-        if (lseek(fd, SEEK_SET, 0) < 0)
+        if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
 
         f = take_fdopen(&fd, "r");
@@ -1161,7 +1159,7 @@ static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void 
         } else if (si->si_status != EXIT_SUCCESS) {
                 /* If we received an error code via sd_notify(), use it */
                 if (h->worker_error_code != 0)
-                        ret = log_debug_errno(h->worker_error_code, "Worker reported error code %s.", errno_to_name(h->worker_error_code));
+                        ret = log_debug_errno(h->worker_error_code, "Worker reported error code %s.", ERRNO_NAME(h->worker_error_code));
                 else
                         ret = log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Worker exited with exit code %i.", si->si_status);
         } else
@@ -1257,6 +1255,8 @@ static int home_start_work(
                 if (!sub)
                         return -ENOKEY;
 
+                sd_json_variant_sensitive(sub);
+
                 r = sd_json_variant_set_field(&v, "secret", sub);
                 if (r < 0)
                         return r;
@@ -1301,7 +1301,16 @@ static int home_start_work(
         if (stdin_fd < 0)
                 return stdin_fd;
 
-        log_debug("Sending to worker: %s", formatted);
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = sd_json_variant_format(v, /* flags= */ SD_JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                log_debug("Sending to worker: %s", censored_text);
+        }
 
         stdout_fd = memfd_new("homework-stdout");
         if (stdout_fd < 0)
@@ -2180,7 +2189,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         return (void) log_debug_errno(r, "Failed to parse SYSTEMD_LUKS_LOCK_FD value: %m");
                 if (r > 0) {
                         if (taken_fd < 0)
-                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring: %m");
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=1 but no fd passed, ignoring.");
 
                         close_and_replace(h->luks_lock_fd, taken_fd);
 
@@ -2190,7 +2199,7 @@ void home_process_notify(Home *h, char **l, int fd) {
                         home_maybe_close_luks_lock_fd(h, _HOME_STATE_INVALID);
                 } else {
                         if (taken_fd >= 0)
-                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring: %m");
+                                return (void) log_debug("Got notify message with SYSTEMD_LUKS_LOCK_FD=0 but fd passed, ignoring.");
 
                         h->luks_lock_fd = safe_close(h->luks_lock_fd);
                 }

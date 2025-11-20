@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <linux/bpf.h>
 #include <linux/bpf_insn.h>
+#include <sys/bpf.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -14,7 +15,6 @@
 #include "fdset.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "serialize.h"

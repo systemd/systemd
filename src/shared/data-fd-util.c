@@ -8,7 +8,6 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "memfd-util.h"
-#include "missing_mman.h"
 #include "tmpfile-util.h"
 
 /* When the data is smaller or equal to 64K, try to place the copy in a memfd */

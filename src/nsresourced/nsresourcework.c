@@ -2,13 +2,16 @@
 
 #include <fcntl.h>
 #include <linux/if_tun.h>
+#include <linux/magic.h>
 #include <linux/nsfs.h>
 #include <linux/veth.h>
 #include <net/if.h>
 #include <poll.h>
+#include <sched.h>
 #include <sys/eventfd.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <utmpx.h>
 
 #include "sd-daemon.h"
@@ -28,9 +31,6 @@
 #include "io-util.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "missing_magic.h"
-#include "missing_sched.h"
-#include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "netlink-util.h"
@@ -630,14 +630,35 @@ static int test_userns_api_support(sd_varlink *link) {
         return 0;
 }
 
-static char* random_name(void) {
-        char *s = NULL;
+static char* hash_name(sd_varlink *link, const char *name) {
+        int r;
 
-        /* Make up a random name for this userns. Make sure the random name fits into utmpx even if prefixed
-         * with "ns-", the peer's UID, "-", and suffixed by "-65535". */
+        assert(link);
+        assert(name);
+
+        /* Make up a hashed name for this userns. We take the passed name, and hash it together with the
+         * connection cookie. This should make collisions unlikely but generation still deterministic (this
+         * matters because on polkit requests we might be called twice, and should generate the same string
+         * each time, to ensure the Polkit query looks the same) */
+
+        uint64_t cookie = 0;
+        r = socket_get_cookie(sd_varlink_get_fd(link), &cookie);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determine connection cookie, ignoring: %m");
+
+        struct siphash h;
+        static sd_id128_t key = SD_ID128_MAKE(ed,3a,bb,01,3a,14,4b,b3,8a,63,a4,ad,ba,2d,c9,0a);
+        siphash24_init(&h, key.bytes);
+        siphash24_compress_typesafe(cookie, &h);
+        siphash24_compress_string(name, &h);
+
+        /* Make sure the hashed name fits into utmpx even if prefixed with "ns-", the peer's UID, "-", and
+         * suffixed by "-65535". */
+
         assert_cc(STRLEN("ns-65535-") + 16 + STRLEN("-65535") < sizeof_field(struct utmpx, ut_user));
 
-        if (asprintf(&s, "%016" PRIx64, random_u64()) < 0)
+        char *s = NULL;
+        if (asprintf(&s, "%016" PRIx64, siphash24_finalize(&h)) < 0)
                 return NULL;
 
         return s;
@@ -690,8 +711,8 @@ static int validate_name(sd_varlink *link, const char *name, bool mangle, char *
                         if (!userns_name_is_valid(un)) {
                                 free(un);
 
-                                /* if not, make up a random name */
-                                un = random_name();
+                                /* if not, make up a hashed name */
+                                un = hash_name(link, name);
                                 if (!un)
                                         return -ENOMEM;
                         }
@@ -716,7 +737,7 @@ static int validate_name(sd_varlink *link, const char *name, bool mangle, char *
                                 free_and_replace(un, c);
                         else  {
                                 free(c);
-                                c = random_name();
+                                c = hash_name(link, name);
                                 if (!c)
                                         return -ENOMEM;
 
@@ -2069,7 +2090,7 @@ static int run(int argc, char *argv[]) {
                                 if (r == -ESRCH)
                                         return log_error_errno(r, "Parent already died?");
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to send SIGUSR2 signal to parent. %m");
+                                        return log_error_errno(r, "Failed to send SIGUSR2 signal to parent: %m");
                         }
                 }
 

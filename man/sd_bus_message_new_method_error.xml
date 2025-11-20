@@ -76,7 +76,7 @@
     example an error name such as
     <literal>org.freedesktop.DBus.Error.NotSupported</literal> or the equivalent
     symbolic <constant>SD_BUS_ERROR_NOT_SUPPORTED</constant>), and the
-    <parameter>message</parameter> field is set as the human readable error message
+    <parameter>message</parameter> field is set as the human-readable error message
     string if present. The error <parameter>e</parameter> must have the
     <parameter>name</parameter> field set, see
     <citerefentry><refentrytitle>sd_bus_error_is_set</refentrytitle><manvolnum>3</manvolnum></citerefentry>.

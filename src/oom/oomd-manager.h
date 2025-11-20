@@ -2,7 +2,7 @@
 #pragma once
 
 #include "conf-parser-forward.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "oomd-util.h"
 
 /* Polling interval for monitoring stats */

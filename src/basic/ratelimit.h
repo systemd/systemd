@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 typedef struct RateLimit {
         usec_t interval; /* Keep those two fields first so they can be initialized easily: */

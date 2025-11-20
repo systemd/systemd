@@ -11,7 +11,7 @@
 #include "sd-event.h"
 #include "sd-ndisc.h" /* IWYU pragma: export */
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "network-common.h"
 #include "time-util.h"
 

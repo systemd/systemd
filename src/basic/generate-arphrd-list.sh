@@ -3,6 +3,9 @@
 set -eu
 set -o pipefail
 
-${1:?} -dM -include "${2:?}" -include "${3:?}" - </dev/null | \
+CC=${1:?}
+shift
+
+$CC -dM -include linux/if_arp.h "$@" - </dev/null | \
        awk '/^#define[ \t]+ARPHRD_[^ \t]+[ \t]+[^ \t]/ { print $2; }' | \
        sed -e 's/ARPHRD_//'

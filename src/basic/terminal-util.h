@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* Erase characters until the end of the line */
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
@@ -34,6 +34,8 @@
 
 bool isatty_safe(int fd);
 
+int terminal_reset_ansi_seq(int fd);
+
 typedef enum TerminalResetFlags {
         TERMINAL_RESET_SWITCH_TO_TEXT = 1 << 0,
         TERMINAL_RESET_AVOID_ANSI_SEQ = 1 << 1,
@@ -44,6 +46,7 @@ int terminal_reset_defensive(int fd, TerminalResetFlags flags);
 int terminal_reset_defensive_locked(int fd, TerminalResetFlags flags);
 
 int terminal_set_cursor_position(int fd, unsigned row, unsigned column);
+int terminal_get_cursor_position(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_column);
 
 int open_terminal(const char *name, int mode);
 
@@ -163,6 +166,8 @@ static inline bool osc_char_is_valid(char c) {
         return (unsigned char) c >= 32 && (unsigned char) c < 127;
 }
 
+#define VTNR_MAX 63
+
 static inline bool vtnr_is_valid(unsigned n) {
-        return n >= 1 && n <= 63;
+        return n >= 1 && n <= VTNR_MAX;
 }

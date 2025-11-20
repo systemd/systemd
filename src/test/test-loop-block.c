@@ -6,6 +6,7 @@
 #include <pthread.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "capability-util.h"
@@ -89,7 +90,7 @@ static void* thread_func(void *ptr) {
                                 DISSECT_IMAGE_READ_ONLY|DISSECT_IMAGE_ADD_PARTITION_DEVICES|DISSECT_IMAGE_PIN_PARTITION_DEVICES,
                                 &dissected);
                 if (r < 0)
-                        log_error_errno(r, "Failed dissect loopback device %s: %m", loop->node);
+                        log_error_errno(r, "Failed to dissect loopback device %s: %m", loop->node);
                 assert_se(r >= 0);
 
                 log_info("Dissected loop device %s", loop->node);

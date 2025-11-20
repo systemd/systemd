@@ -55,6 +55,13 @@ static inline int strcmp_ptr(const sd_char *a, const sd_char *b) {
         return CMP(a, b);
 }
 
+static inline int strncmp_ptr(const sd_char *a, const sd_char *b, size_t n) {
+        if (a && b)
+                return strncmp(a, b, n);
+
+        return CMP(a, b);
+}
+
 static inline int strcasecmp_ptr(const sd_char *a, const sd_char *b) {
         if (a && b)
                 return strcasecmp(a, b);
@@ -64,6 +71,10 @@ static inline int strcasecmp_ptr(const sd_char *a, const sd_char *b) {
 
 static inline bool streq_ptr(const sd_char *a, const sd_char *b) {
         return strcmp_ptr(a, b) == 0;
+}
+
+static inline bool strneq_ptr(const sd_char *a, const sd_char *b, size_t n) {
+        return strncmp_ptr(a, b, n) == 0;
 }
 
 static inline bool strcaseeq_ptr(const sd_char *a, const sd_char *b) {

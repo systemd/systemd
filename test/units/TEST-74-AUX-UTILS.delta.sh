@@ -29,7 +29,7 @@ systemctl mask delta-test-unit-masked.service
 # Overridden unit
 cp -fv /run/systemd/system/delta-test-unit-extended.service /run/systemd/system/delta-test-unit-overridden.service
 cp -fv /run/systemd/system/delta-test-unit-overridden.service /etc/systemd/system/delta-test-unit-overridden.service
-echo "ExecStartPost=/bin/true" >>/etc/systemd/system/delta-test-unit-overridden.service
+echo "ExecStartPost=true" >>/etc/systemd/system/delta-test-unit-overridden.service
 # Overridden but equivalent unit
 ln -srfv /run/systemd/system/delta-test-unit-extended.service /run/systemd/system/delta-test-unit-equivalent.service
 ln -sfv /run/systemd/system/delta-test-unit-extended.service /etc/systemd/system/delta-test-unit-equivalent.service

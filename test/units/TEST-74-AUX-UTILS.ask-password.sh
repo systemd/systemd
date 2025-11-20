@@ -19,6 +19,6 @@ systemd-tty-ask-password-agent --list
 varlinkctl introspect /run/systemd/io.systemd.AskPassword
 
 # Spawn an agent that always replies all ask password requests with "waldo"
-systemd-run -u waldo-ask-pw-agent.service -p Environment=SYSTEMD_ASK_PASSWORD_AGENT_PASSWORD=waldo -p Type=notify /usr/bin/systemd-tty-ask-password-agent --watch --console=/dev/console
+systemd-run -u waldo-ask-pw-agent.service -p Environment=SYSTEMD_ASK_PASSWORD_AGENT_PASSWORD=waldo -p Type=notify systemd-tty-ask-password-agent --watch --console=/dev/console
 assert_eq "$(systemd-ask-password --no-tty)" "waldo"
 assert_eq "$(varlinkctl call /usr/bin/systemd-ask-password io.systemd.AskPassword.Ask '{"message":"foobar"}' | jq '.passwords[0]')" "\"waldo\""

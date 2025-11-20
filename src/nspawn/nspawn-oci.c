@@ -8,7 +8,7 @@
 
 #include "alloc-util.h"
 #include "bus-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "device-util.h"
@@ -137,32 +137,6 @@ static int oci_console_size(const char *name, sd_json_variant *v, sd_json_dispat
         };
 
         return oci_dispatch(v, table, flags, s);
-}
-
-static int oci_env(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
-        char ***l = ASSERT_PTR(userdata);
-        sd_json_variant *e;
-        int r;
-
-        JSON_VARIANT_ARRAY_FOREACH(e, v) {
-                const char *n;
-
-                if (!sd_json_variant_is_string(e))
-                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Environment array contains non-string.");
-
-                assert_se(n = sd_json_variant_string(e));
-
-                if (!env_assignment_is_valid(n))
-                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Environment assignment not valid: %s", n);
-
-                r = strv_extend(l, n);
-                if (r < 0)
-                        return log_oom();
-        }
-
-        return 0;
 }
 
 static int oci_args(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -324,7 +298,7 @@ static int oci_capabilities(const char *name, sd_json_variant *v, sd_json_dispat
         if (r < 0)
                 return r;
 
-        if (s->full_capabilities.bounding != UINT64_MAX) {
+        if (s->full_capabilities.bounding != CAP_MASK_UNSET) {
                 s->capability = s->full_capabilities.bounding;
                 s->drop_capability = ~s->full_capabilities.bounding;
         }
@@ -387,18 +361,18 @@ static int oci_user(const char *name, sd_json_variant *v, sd_json_dispatch_flags
 static int oci_process(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field table[] = {
-                { "terminal",        SD_JSON_VARIANT_BOOLEAN, oci_terminal,              0,                                     0                  },
-                { "consoleSize",     SD_JSON_VARIANT_OBJECT,  oci_console_size,          0,                                     0                  },
-                { "cwd",             SD_JSON_VARIANT_STRING,  json_dispatch_path,        offsetof(Settings, working_directory), 0                  },
-                { "env",             SD_JSON_VARIANT_ARRAY,   oci_env,                   offsetof(Settings, environment),       0                  },
-                { "args",            SD_JSON_VARIANT_ARRAY,   oci_args,                  offsetof(Settings, parameters),        0                  },
-                { "rlimits",         SD_JSON_VARIANT_ARRAY,   oci_rlimits,               0,                                     0                  },
-                { "apparmorProfile", SD_JSON_VARIANT_STRING,  oci_unsupported,           0,                                     SD_JSON_PERMISSIVE },
-                { "capabilities",    SD_JSON_VARIANT_OBJECT,  oci_capabilities,          0,                                     0                  },
-                { "noNewPrivileges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, offsetof(Settings, no_new_privileges), 0                  },
-                { "oomScoreAdj",     SD_JSON_VARIANT_INTEGER, oci_oom_score_adj,         0,                                     0                  },
-                { "selinuxLabel",    SD_JSON_VARIANT_STRING,  oci_unsupported,           0,                                     SD_JSON_PERMISSIVE },
-                { "user",            SD_JSON_VARIANT_OBJECT,  oci_user,                  0,                                     0                  },
+                { "terminal",        SD_JSON_VARIANT_BOOLEAN, oci_terminal,                   0,                                     0                  },
+                { "consoleSize",     SD_JSON_VARIANT_OBJECT,  oci_console_size,               0,                                     0                  },
+                { "cwd",             SD_JSON_VARIANT_STRING,  json_dispatch_path,             offsetof(Settings, working_directory), 0                  },
+                { "env",             SD_JSON_VARIANT_ARRAY,   json_dispatch_strv_environment, offsetof(Settings, environment),       0                  },
+                { "args",            SD_JSON_VARIANT_ARRAY,   oci_args,                       offsetof(Settings, parameters),        0                  },
+                { "rlimits",         SD_JSON_VARIANT_ARRAY,   oci_rlimits,                    0,                                     0                  },
+                { "apparmorProfile", SD_JSON_VARIANT_STRING,  oci_unsupported,                0,                                     SD_JSON_PERMISSIVE },
+                { "capabilities",    SD_JSON_VARIANT_OBJECT,  oci_capabilities,               0,                                     0                  },
+                { "noNewPrivileges", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate,      offsetof(Settings, no_new_privileges), 0                  },
+                { "oomScoreAdj",     SD_JSON_VARIANT_INTEGER, oci_oom_score_adj,              0,                                     0                  },
+                { "selinuxLabel",    SD_JSON_VARIANT_STRING,  oci_unsupported,                0,                                     SD_JSON_PERMISSIVE },
+                { "user",            SD_JSON_VARIANT_OBJECT,  oci_user,                       0,                                     0                  },
                 {}
         };
 
@@ -1240,10 +1214,7 @@ static int oci_cgroup_cpu_cpus(const char *name, sd_json_variant *v, sd_json_dis
         if (r < 0)
                 return json_log(v, flags, r, "Failed to parse CPU set specification: %s", n);
 
-        cpu_set_reset(&data->cpu_set);
-        data->cpu_set = set;
-
-        return 0;
+        return cpu_set_done_and_replace(data->cpu_set, set);
 }
 
 static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
@@ -1270,12 +1241,11 @@ static int oci_cgroup_cpu(const char *name, sd_json_variant *v, sd_json_dispatch
 
         r = oci_dispatch(v, table, flags, &data);
         if (r < 0) {
-                cpu_set_reset(&data.cpu_set);
+                cpu_set_done(&data.cpu_set);
                 return r;
         }
 
-        cpu_set_reset(&s->cpu_set);
-        s->cpu_set = data.cpu_set;
+        cpu_set_done_and_replace(s->cpu_set, data.cpu_set);
 
         if (data.weight != UINT64_MAX) {
                 r = settings_allocate_properties(s);
@@ -1695,7 +1665,7 @@ static int oci_seccomp_archs(const char *name, sd_json_variant *v, sd_json_dispa
                 if (r < 0)
                         return json_log(e, flags, r, "Unknown architecture: %s", sd_json_variant_string(e));
 
-                r = seccomp_arch_add(sc, a);
+                r = sym_seccomp_arch_add(sc, a);
                 if (r == -EEXIST)
                         continue;
                 if (r < 0)
@@ -1814,13 +1784,13 @@ static int oci_seccomp_syscalls(const char *name, sd_json_variant *v, sd_json_di
                 STRV_FOREACH(i, rule.names) {
                         int nr;
 
-                        nr = seccomp_syscall_resolve_name(*i);
+                        nr = sym_seccomp_syscall_resolve_name(*i);
                         if (nr == __NR_SCMP_ERROR) {
                                 log_debug("Unknown syscall %s, skipping.", *i);
                                 continue;
                         }
 
-                        r = seccomp_rule_add_array(sc, rule.action, nr, rule.n_arguments, rule.arguments);
+                        r = sym_seccomp_rule_add_array(sc, rule.action, nr, rule.n_arguments, rule.arguments);
                         if (r < 0)
                                 return r;
                 }
@@ -1857,7 +1827,11 @@ static int oci_seccomp(const char *name, sd_json_variant *v, sd_json_dispatch_fl
         if (r < 0)
                 return json_log(def, flags, r, "Unknown default action: %s", sd_json_variant_string(def));
 
-        sc = seccomp_init(d);
+        r = dlopen_libseccomp();
+        if (r < 0)
+                return json_log(def, flags, r, "No support for libseccomp: %m");
+
+        sc = sym_seccomp_init(d);
         if (!sc)
                 return json_log(v, flags, SYNTHETIC_ERRNO(ENOMEM), "Couldn't allocate seccomp object.");
 
@@ -1865,7 +1839,7 @@ static int oci_seccomp(const char *name, sd_json_variant *v, sd_json_dispatch_fl
         if (r < 0)
                 return r;
 
-        seccomp_release(s->seccomp);
+        sym_seccomp_release(s->seccomp);
         s->seccomp = TAKE_PTR(sc);
         return 0;
 #else
@@ -2010,10 +1984,10 @@ static int oci_hooks_array(const char *name, sd_json_variant *v, sd_json_dispatc
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
 
                 static const sd_json_dispatch_field table[] = {
-                        { "path",    SD_JSON_VARIANT_STRING,   json_dispatch_path, offsetof(OciHook, path),    SD_JSON_MANDATORY },
-                        { "args",    SD_JSON_VARIANT_ARRAY,    oci_args,           offsetof(OciHook, args),    0,                },
-                        { "env",     SD_JSON_VARIANT_ARRAY,    oci_env,            offsetof(OciHook, env),     0                 },
-                        { "timeout", SD_JSON_VARIANT_UNSIGNED, oci_hook_timeout,   offsetof(OciHook, timeout), 0                 },
+                        { "path",    SD_JSON_VARIANT_STRING,   json_dispatch_path,             offsetof(OciHook, path),    SD_JSON_MANDATORY },
+                        { "args",    SD_JSON_VARIANT_ARRAY,    oci_args,                       offsetof(OciHook, args),    0,                },
+                        { "env",     SD_JSON_VARIANT_ARRAY,    json_dispatch_strv_environment, offsetof(OciHook, env),     0                 },
+                        { "timeout", SD_JSON_VARIANT_UNSIGNED, oci_hook_timeout,               offsetof(OciHook, timeout), 0                 },
                         {}
                 };
 

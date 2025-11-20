@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "sd-bus.h"
 
 #include "discover-image.h"
@@ -115,28 +117,23 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork(): %m");
         if (r == 0) {
-                _cleanup_hashmap_free_ Hashmap *images = NULL;
-                bool success = true;
-                Image *image;
-
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                images = hashmap_new(&image_hash_ops);
-                if (!images)
-                        report_errno_and_exit(errno_pipe_fd[1], ENOMEM);
-
-                r = image_discover(manager->runtime_scope, IMAGE_MACHINE, /* root = */ NULL, images);
+                _cleanup_hashmap_free_ Hashmap *images = NULL;
+                r = image_discover(manager->runtime_scope, IMAGE_MACHINE, /* root = */ NULL, &images);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to discover images: %m");
                         report_errno_and_exit(errno_pipe_fd[1], r);
                 }
 
+                bool success = true;
                 ssize_t n = loop_write(result_fd, &success, sizeof(success));
                 if (n < 0) {
                         log_debug_errno(n, "Failed to write to tmp file: %m");
                         report_errno_and_exit(errno_pipe_fd[1], n);
                 }
 
+                Image *image;
                 HASHMAP_FOREACH(image, images) {
                         /* We can't remove vendor images (i.e. those in /usr) */
                         if (image_is_vendor(image))
@@ -146,7 +143,7 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
                         if (mode == IMAGE_CLEAN_POOL_REMOVE_HIDDEN && !image_is_hidden(image))
                                 continue;
 
-                        r = image_remove(image);
+                        r = image_remove(image, manager->runtime_scope);
                         if (r == -EBUSY) {
                                 log_debug("Keeping image '%s' because it's currently used.", image->name);
                                 continue;

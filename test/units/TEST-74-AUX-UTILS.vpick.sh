@@ -98,19 +98,19 @@ ls -l /var/lib/machines/testroot.v
 
 test "$(systemd-vpick /var/lib/machines/testroot.v)" = /var/lib/machines/testroot.v/testroot_34/
 test "$(systemd-vpick --resolve=yes /var/lib/machines/testroot.v)" = /var/lib/machines/testroot.v/testroot_34/
-(! systemd-run --wait -p RootDirectory=/var/lib/machines/testroot.v /bin/true)
+(! systemd-run --wait -p RootDirectory=/var/lib/machines/testroot.v true)
 
 find /var/lib/machines/testroot.v/testroot_34
 rm -rf /var/lib/machines/testroot.v/testroot_34
 test "$(systemd-vpick /var/lib/machines/testroot.v)" = /var/lib/machines/testroot.v/testroot_33/
 test "$(systemd-vpick --resolve=yes /var/lib/machines/testroot.v)" = /tmp/dotvroot/
-systemd-run --wait -p RootDirectory=/var/lib/machines/testroot.v /bin/true
+systemd-run --wait -p RootDirectory=/var/lib/machines/testroot.v true
 
 rm /var/lib/machines/testroot.v/testroot_33
 test "$(systemd-vpick /var/lib/machines/testroot.v)" = /var/lib/machines/testroot.v/testroot_32/
 test "$(systemd-vpick --resolve=yes /var/lib/machines/testroot.v)" = /var/lib/machines/testroot.v/testroot_32/
-(! systemd-run --wait -p RootDirectory=/var/lib/machines/testroot.v /bin/true)
+(! systemd-run --wait -p RootDirectory=/var/lib/machines/testroot.v true)
 
 rm -rf /var/lib/machines/testroot.v/testroot_32
 (! systemd-vpick /var/lib/machines/testroot.v)
-(! systemd-run --wait -p RootDirectory=/var/lib/machines/testroot.v /bin/true)
+(! systemd-run --wait -p RootDirectory=/var/lib/machines/testroot.v true)

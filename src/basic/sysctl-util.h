@@ -2,7 +2,7 @@
 #pragma once
 
 
-#include "forward.h"
+#include "basic-forward.h"
 #include "stdio-util.h"
 
 char* sysctl_normalize(char *s);

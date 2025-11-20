@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fnmatch.h>
+#include <linux/bpf.h>
 #include <linux/bpf_insn.h>
 #include <sys/stat.h>
 
@@ -12,7 +13,6 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
-#include "missing_bpf.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -236,7 +236,7 @@ int bpf_devices_apply_policy(
         if (r < 0)
                 return log_error_errno(r, "Extending device control BPF program failed: %m");
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, cgroup_path, NULL, &controller_path);
+        r = cg_get_path(cgroup_path, /* suffix = */ NULL, &controller_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine cgroup path: %m");
 

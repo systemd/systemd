@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-generate_directives_py = find_program('generate-directives.py')
+generate_directives_py = files('generate-directives.py')
 
 fuzz_regression_tests = {}
 
@@ -11,7 +11,6 @@ directives = [['fuzz-network-parser', 'directives.network', networkd_network_gpe
 
 foreach tuple : directives
         directive = custom_target(
-                tuple[1],
                 output: tuple[1],
                 command: [generate_directives_py, tuple[2]],
                 capture: true)
@@ -24,9 +23,8 @@ unit_directives = []
 foreach section : ['Automount', 'Mount', 'Path', 'Scope', 'Service', 'Slice', 'Socket', 'Swap', 'Timer']
         unit_type = section.to_lower()
         sec_rx = section == 'Service' ? '(Service|Unit|Install)' : section
-        name = 'directives.@0@'.format(unit_type)
+        name = f'directives.@unit_type@'
         unit_directives += custom_target(
-                name,
                 output: name,
                 command: [generate_directives_py, load_fragment_gperf_gperf, sec_rx, unit_type],
                 capture: true)

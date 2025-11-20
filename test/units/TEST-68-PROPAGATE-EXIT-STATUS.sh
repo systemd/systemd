@@ -14,7 +14,6 @@ wait_on_state_or_fail() {
     state=$(systemctl show "$service" --property=ActiveState --value)
     while [ "$state" != "$expected_state" ]; do
         if [ "$timeout" = "0" ]; then
-            systemd-analyze log-level info
             exit 1
         fi
         timeout=$((timeout - 1))
@@ -22,8 +21,6 @@ wait_on_state_or_fail() {
         state=$(systemctl show "$service" --property=ActiveState --value)
     done
 }
-
-systemd-analyze log-level debug
 
 cat >/run/systemd/system/testservice-failure-68.service <<EOF
 [Unit]
@@ -69,7 +66,7 @@ EOF
 # Script to check that when an OnSuccess= dependency fires, the correct
 # MONITOR* env variables are passed.
 cat >/tmp/check_on_success.sh <<"EOF"
-#!/bin/sh
+#!/usr/bin/env bash
 
 set -ex
 env | sort
@@ -126,7 +123,7 @@ EOF
 # Script to check that when an OnFailure= dependency fires, the correct
 # MONITOR* env variables are passed.
 cat >/tmp/check_on_failure.sh <<"EOF"
-#!/bin/sh
+#!/usr/bin/env bash
 
 set -ex
 env | sort
@@ -225,7 +222,5 @@ wait_on_state_or_fail "testservice-failure-exit-handler-68-template@testservice-
 : "-------VII----------------------------------------------------"
 systemctl start testservice-success-and-failure-68.service
 wait_on_state_or_fail "testservice-success-exit-handler-68.service" "inactive" "10"
-
-systemd-analyze log-level info
 
 touch /testok

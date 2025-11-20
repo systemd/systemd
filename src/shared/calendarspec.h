@@ -4,7 +4,7 @@
 /* A structure for specifying (possibly repetitive) points in calendar
  * time, a la cron */
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef struct CalendarComponent {
         int start;

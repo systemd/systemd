@@ -3,7 +3,7 @@
 #include <dlfcn.h>
 #include <stdlib.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int main(int argc, char **argv) {
         void *handles[argc - 1];

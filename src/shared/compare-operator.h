@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 #define COMPARE_OPERATOR_CHARS "!<=>"
 #define COMPARE_OPERATOR_WITH_FNMATCH_CHARS COMPARE_OPERATOR_CHARS "$"

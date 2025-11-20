@@ -9,7 +9,7 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-option.h"
-#include "forward.h"
+#include "sd-forward.h"
 #include "list.h"
 
 struct sd_dhcp_route {
@@ -66,7 +66,8 @@ struct sd_dhcp_lease {
 
         char *domainname;
         char **search_domains;
-        char *hostname;
+        char *hostname; /* SD_DHCP_OPTION_HOST_NAME (12) */
+        char *fqdn;     /* SD_DHCP_OPTION_FQDN (81) */
         char *root_path;
         char *captive_portal;
 

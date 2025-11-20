@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* What characters are special in the shell? */
 /* must be escaped outside and inside double-quotes */
@@ -65,4 +65,4 @@ char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFl
 
 char* shell_escape(const char *s, const char *bad);
 char* shell_maybe_quote(const char *s, ShellEscapeFlags flags);
-char* quote_command_line(char **argv, ShellEscapeFlags flags);
+char* quote_command_line(char * const *argv, ShellEscapeFlags flags);

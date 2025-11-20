@@ -898,7 +898,7 @@ static void path_reset_failed(Unit *u) {
         p->result = PATH_SUCCESS;
 }
 
-static int path_can_start(Unit *u) {
+static int path_test_startable(Unit *u) {
         Path *p = ASSERT_PTR(PATH(u));
         int r;
 
@@ -908,7 +908,7 @@ static int path_can_start(Unit *u) {
                 return r;
         }
 
-        return 1;
+        return true;
 }
 
 static void activation_details_path_done(ActivationDetails *details) {
@@ -1042,7 +1042,7 @@ const UnitVTable path_vtable = {
 
         .bus_set_property = bus_path_set_property,
 
-        .can_start = path_can_start,
+        .test_startable = path_test_startable,
 };
 
 const ActivationDetailsVTable activation_details_path_vtable = {

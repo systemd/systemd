@@ -1,12 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/mman.h>
 #include <sys/statvfs.h>
 #include <unistd.h>
 
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"
@@ -267,16 +267,16 @@ static int manager_process_entry(
                 if (r <= 0)
                         goto finish;
 
-                if (m->forward_to_syslog)
+                if (m->config.forward_to_syslog)
                         manager_forward_syslog(m, syslog_fixup_facility(priority), identifier, message, ucred, tv);
 
-                if (m->forward_to_kmsg)
+                if (m->config.forward_to_kmsg)
                         manager_forward_kmsg(m, priority, identifier, message, ucred);
 
-                if (m->forward_to_console)
+                if (m->config.forward_to_console)
                         manager_forward_console(m, priority, identifier, message, ucred);
 
-                if (m->forward_to_wall)
+                if (m->config.forward_to_wall)
                         manager_forward_wall(m, priority, identifier, message, ucred);
         }
 
@@ -492,7 +492,7 @@ int manager_open_native_socket(Manager *m, const char *native_socket) {
         if (mac_selinux_use()) {
                 r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_warning_errno(r, "SO_PASSSEC failed: %m");
+                        log_full_errno(ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r, "SO_PASSSEC failed, ignoring: %m");
         }
 
         r = setsockopt_int(m->native_fd, SOL_SOCKET, SO_TIMESTAMP, true);

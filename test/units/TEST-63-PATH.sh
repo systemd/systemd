@@ -6,8 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-systemctl log-level debug
-
 # Test that a path unit continuously triggering a service that fails condition checks eventually fails with
 # the trigger-limit-hit error.
 rm -f /tmp/nonexistent
@@ -112,14 +110,12 @@ assert_in "test63-issue-24577-dep.service" "$output"
 systemctl start test63-pr-30768.path
 exec {lock}<>/tmp/noexit
 flock -e $lock
-echo test1 > /tmp/copyme
+echo test1 >/tmp/copyme
 # shellcheck disable=SC2016
 timeout 30 bash -c 'until test "$(systemctl show test63-pr-30768.service -P ActiveState)" = deactivating; do sleep .2; done'
 diff /tmp/copyme /tmp/copied
-echo test2 > /tmp/copyme
+echo test2 >/tmp/copyme
 exec {lock}<&-
 timeout 30 bash -c 'until diff /tmp/copyme /tmp/copied >/dev/null; do sleep .2; done'
-
-systemctl log-level info
 
 touch /testok

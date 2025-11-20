@@ -33,6 +33,12 @@ case "$COMMAND" in
         exec depmod -a "$KERNEL_VERSION"
         ;;
     remove)
+        if [ -n "$KERNEL_INSTALL_BOOT_ENTRY_TYPE" ] && [ -d "/lib/modules/$KERNEL_VERSION/kernel" ]; then
+            [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
+                echo "Multiple entry types may exist, not removing modules.dep or associated files."
+            exit 0
+        fi
+
         [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && \
             echo "Removing /lib/modules/${KERNEL_VERSION}/modules.dep and associated files"
         exec rm -f \

@@ -24,7 +24,7 @@
 #include "in-addr-prefix-util.h"
 #include "ip-protocol-list.h"
 #include "log.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "nulstr-util.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
@@ -618,7 +618,7 @@ int config_parse_many(
         r = conf_files_list_dropins(&files, dropin_dirname, root, conf_file_dirs);
         if (r < 0)
                 return log_full_errno(FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG, r,
-                                      "Failed to list up drop-in configs in %s: %m", dropin_dirname);
+                                      "Failed to list drop-ins in %s: %m", dropin_dirname);
 
         r = config_parse_many_files(root, conf_files, files, sections, lookup, table, flags, userdata, ret_stats_by_path);
         if (r < 0)

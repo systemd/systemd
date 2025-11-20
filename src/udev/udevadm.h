@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 int cat_main(int argc, char *argv[], void *userdata);
 int info_main(int argc, char *argv[], void *userdata);

@@ -368,6 +368,29 @@ int manager_process_button_device(Manager *m, sd_device *d) {
 
 int manager_get_session_by_pidref(Manager *m, const PidRef *pid, Session **ret) {
         _cleanup_free_ char *unit = NULL;
+        Session *s = NULL;
+        int r;
+
+        assert(m);
+
+        if (!pidref_is_set(pid))
+                return -EINVAL;
+
+        r = manager_get_session_by_leader(m, pid, ret);
+        if (r != 0)
+                return r;
+
+        r = cg_pidref_get_unit(pid, &unit);
+        if (r >= 0)
+                s = hashmap_get(m->session_units, unit);
+
+        if (ret)
+                *ret = s;
+
+        return !!s;
+}
+
+int manager_get_session_by_leader(Manager *m, const PidRef *pid, Session **ret) {
         Session *s;
         int r;
 
@@ -381,10 +404,6 @@ int manager_get_session_by_pidref(Manager *m, const PidRef *pid, Session **ret) 
                 r = pidref_verify(pid);
                 if (r < 0)
                         return r;
-        } else {
-                r = cg_pidref_get_unit(pid, &unit);
-                if (r >= 0)
-                        s = hashmap_get(m->session_units, unit);
         }
 
         if (ret)

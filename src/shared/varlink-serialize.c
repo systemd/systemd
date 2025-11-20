@@ -57,11 +57,11 @@ int varlink_server_deserialize_one(sd_varlink_server *s, const char *value, FDSe
 
         if (v[n] != ' ')
                 return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to deserialize sd_varlink_server_socket: %s: %m", value);
+                                       "Failed to deserialize sd_varlink_server_socket: %s", value);
         v = startswith(v + n + 1, "varlink-server-socket-fd=");
         if (!v)
                 return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EINVAL),
-                                       "Failed to deserialize VarlinkServerSocket fd %s: %m", value);
+                                       "Failed to deserialize VarlinkServerSocket fd: %s", value);
 
         n = strcspn(v, " ");
         buf = strndupa_safe(v, n);
@@ -71,7 +71,7 @@ int varlink_server_deserialize_one(sd_varlink_server *s, const char *value, FDSe
                 return varlink_server_log_errno(s, fd, "Unable to parse VarlinkServerSocket varlink-server-socket-fd=%s: %m", buf);
         if (!fdset_contains(fds, fd))
                 return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBADF),
-                                       "VarlinkServerSocket varlink-server-socket-fd= has unknown fd %d: %m", fd);
+                                       "VarlinkServerSocket varlink-server-socket-fd= has unknown fd: %d", fd);
 
         ss = new(VarlinkServerSocket, 1);
         if (!ss)

@@ -23,13 +23,13 @@ static int manager_open_forward_socket(Manager *m) {
         assert(m);
 
         /* Noop if there is nothing to do. */
-        if (m->forward_to_socket.sockaddr.sa.sa_family == AF_UNSPEC || m->namespace)
+        if (m->config.forward_to_socket.sockaddr.sa.sa_family == AF_UNSPEC || m->namespace)
                 return 0;
         /* All ready, nothing to do. */
         if (m->forward_socket_fd >= 0)
                 return 1;
 
-        addr = &m->forward_to_socket;
+        addr = &m->config.forward_to_socket;
 
         family = socket_address_family(addr);
 
@@ -86,7 +86,7 @@ int manager_forward_socket(
         assert(n_iovec > 0);
         assert(ts);
 
-        if (LOG_PRI(priority) > m->max_level_socket)
+        if (LOG_PRI(priority) > m->config.max_level_socket)
                 return 0;
 
         r = manager_open_forward_socket(m);
@@ -162,4 +162,21 @@ int manager_forward_socket(
         }
 
         return 0;
+}
+
+void manager_reload_forward_socket(Manager *m, const SocketAddress *old) {
+        assert(m);
+        assert(old);
+
+        /* The socket is not opened yet or already closed. There is nothing we need to do now. The socket
+         * will be opened when necessary. */
+        if (m->forward_socket_fd < 0)
+                return;
+
+        if (socket_address_equal(&m->config.forward_to_socket, old))
+                return;
+
+        /* A different socket address is specified. Let's close the old socket. New socket will be opened
+         * when necessary. */
+        m->forward_socket_fd = safe_close(m->forward_socket_fd);
 }

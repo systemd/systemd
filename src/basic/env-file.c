@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -9,6 +10,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "label.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
@@ -629,7 +631,7 @@ static void write_env_var(FILE *f, const char *v) {
         fputc_unlocked('\n', f);
 }
 
-int write_env_file(int dir_fd, const char *fname, char **headers, char **l) {
+int write_env_file(int dir_fd, const char *fname, char **headers, char **l, WriteEnvFileFlags flags) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -637,13 +639,26 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l) {
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(fname);
 
+        bool call_label_ops_post = false;
+        if (FLAGS_SET(flags, WRITE_ENV_FILE_LABEL)) {
+                r = label_ops_pre(dir_fd, fname, S_IFREG);
+                if (r < 0)
+                        return r;
+
+                call_label_ops_post = true;
+        }
+
         r = fopen_tmpfile_linkable_at(dir_fd, fname, O_WRONLY|O_CLOEXEC, &p, &f);
+        int k = call_label_ops_post ? label_ops_post(f ? fileno(f) : dir_fd, f ? NULL : fname, /* created= */ !!f) : 0;
         if (r < 0)
                 return r;
+        CLEANUP_TMPFILE_AT(dir_fd, p);
+        if (k < 0)
+                return k;
 
         r = fchmod_umask(fileno(f), 0644);
         if (r < 0)
-                goto fail;
+                return r;
 
         STRV_FOREACH(i, headers) {
                 assert(isempty(*i) || startswith(*i, "#"));
@@ -656,15 +671,11 @@ int write_env_file(int dir_fd, const char *fname, char **headers, char **l) {
 
         r = flink_tmpfile_at(f, dir_fd, p, fname, LINK_TMPFILE_REPLACE|LINK_TMPFILE_SYNC);
         if (r < 0)
-                goto fail;
+                return r;
+
+        p = mfree(p); /* disarm CLEANUP_TMPFILE_AT() */
 
         return 0;
-
-fail:
-        if (p)
-                (void) unlinkat(dir_fd, p, 0);
-
-        return r;
 }
 
 int write_vconsole_conf(int dir_fd, const char *fname, char **l) {
@@ -672,5 +683,5 @@ int write_vconsole_conf(int dir_fd, const char *fname, char **l) {
                 "# Written by systemd-localed(8) or systemd-firstboot(1), read by systemd-localed",
                 "# and systemd-vconsole-setup(8). Use localectl(1) to update this file.");
 
-        return write_env_file(dir_fd, fname, headers, l);
+        return write_env_file(dir_fd, fname, headers, l, WRITE_ENV_FILE_LABEL);
 }

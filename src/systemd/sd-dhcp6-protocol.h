@@ -165,9 +165,13 @@ enum {
         SD_DHCP6_OPTION_SLAP_QUAD                  = 140, /* RFC 8948 */
         SD_DHCP6_OPTION_V6_DOTS_RI                 = 141, /* RFC 8973 */
         SD_DHCP6_OPTION_V6_DOTS_ADDRESS            = 142, /* RFC 8973 */
-        SD_DHCP6_OPTION_IPV6_ADDRESS_ANDSF         = 143,  /* RFC 6153 */
-        SD_DHCP6_OPTION_V6_DNR                     = 144  /* RFC 9463 */
-        /* option codes 145-65535 are unassigned */
+        SD_DHCP6_OPTION_IPV6_ADDRESS_ANDSF         = 143, /* RFC 6153 */
+        SD_DHCP6_OPTION_V6_DNR                     = 144, /* RFC 9463 */
+        SD_DHCP6_OPTION_REGISTERED_DOMAIN          = 145, /* RFC 9527 */
+        SD_DHCP6_OPTION_FORWARD_DIST_MANAGER       = 146, /* RFC 9527 */
+        SD_DHCP6_OPTION_REVERSE_DIST_MANAGER       = 147, /* RFC 9527 */
+        SD_DHCP6_OPTION_ADDR_REG_ENABLE            = 148  /* RFC 9686 */
+        /* option codes 149-65535 are unassigned */
 };
 
 _SD_END_DECLARATIONS;

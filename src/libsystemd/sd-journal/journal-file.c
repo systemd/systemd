@@ -34,7 +34,6 @@
 #include "path-util.h"
 #include "prioq.h"
 #include "random-util.h"
-#include "ratelimit.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "string-table.h"
@@ -46,11 +45,11 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
-#define DEFAULT_DATA_HASH_TABLE_SIZE (2047ULL*sizeof(HashItem))
-#define DEFAULT_FIELD_HASH_TABLE_SIZE (333ULL*sizeof(HashItem))
+#define DEFAULT_DATA_HASH_TABLE_SIZE 2047U
+#define DEFAULT_FIELD_HASH_TABLE_SIZE 1023U
 
-#define DEFAULT_COMPRESS_THRESHOLD (512ULL)
-#define MIN_COMPRESS_THRESHOLD (8ULL)
+#define DEFAULT_COMPRESS_THRESHOLD 512U
+#define MIN_COMPRESS_THRESHOLD 8U
 
 /* This is the minimum journal file size */
 #define JOURNAL_FILE_SIZE_MIN (512 * U64_KB)             /* 512 KiB */
@@ -197,9 +196,13 @@ int journal_file_set_offline_thread_join(JournalFile *f) {
         if (f->offline_state == OFFLINE_JOINED)
                 return 0;
 
+        log_debug("Joining journal offlining thread for %s.", f->path);
+
         r = pthread_join(f->offline_thread, NULL);
         if (r)
                 return -r;
+
+        log_debug("Journal offlining thread for %s joined.", f->path);
 
         f->offline_state = OFFLINE_JOINED;
 
@@ -1286,15 +1289,14 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
            beyond 75% fill level. Calculate the hash table size for
            the maximum file size based on these metrics. */
 
-        s = (f->metrics.max_size * 4 / 768 / 3) * sizeof(HashItem);
-        if (s < DEFAULT_DATA_HASH_TABLE_SIZE)
-                s = DEFAULT_DATA_HASH_TABLE_SIZE;
+        s = MAX(f->metrics.max_size * 4 / 768 / 3,
+                DEFAULT_DATA_HASH_TABLE_SIZE);
 
-        log_debug("Reserving %"PRIu64" entries in data hash table.", s / sizeof(HashItem));
+        log_debug("Reserving %"PRIu64" entries in data hash table.", s);
 
         r = journal_file_append_object(f,
                                        OBJECT_DATA_HASH_TABLE,
-                                       offsetof(Object, hash_table.items) + s,
+                                       offsetof(Object, hash_table.items) + s * sizeof(HashItem),
                                        &o, &p);
         if (r < 0)
                 return r;
@@ -1302,7 +1304,7 @@ static int journal_file_setup_data_hash_table(JournalFile *f) {
         memzero(o->hash_table.items, s);
 
         f->header->data_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
-        f->header->data_hash_table_size = htole64(s);
+        f->header->data_hash_table_size = htole64(s * sizeof(HashItem));
 
         return 0;
 }
@@ -1319,19 +1321,19 @@ static int journal_file_setup_field_hash_table(JournalFile *f) {
          * number should grow very slowly only */
 
         s = DEFAULT_FIELD_HASH_TABLE_SIZE;
-        log_debug("Reserving %"PRIu64" entries in field hash table.", s / sizeof(HashItem));
+        log_debug("Reserving %"PRIu64" entries in field hash table.", s);
 
         r = journal_file_append_object(f,
                                        OBJECT_FIELD_HASH_TABLE,
-                                       offsetof(Object, hash_table.items) + s,
+                                       offsetof(Object, hash_table.items) + s * sizeof(HashItem),
                                        &o, &p);
         if (r < 0)
                 return r;
 
-        memzero(o->hash_table.items, s);
+        memzero(o->hash_table.items, s * sizeof(HashItem));
 
         f->header->field_hash_table_offset = htole64(p + offsetof(Object, hash_table.items));
-        f->header->field_hash_table_size = htole64(s);
+        f->header->field_hash_table_size = htole64(s * sizeof(HashItem));
 
         return 0;
 }
@@ -4129,28 +4131,12 @@ int journal_file_open(
                 .last_direction = _DIRECTION_INVALID,
         };
 
-        if (fname) {
-                f->path = strdup(fname);
-                if (!f->path) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        } else {
-                assert(fd >= 0);
-
-                /* If we don't know the path, fill in something explanatory and vaguely useful */
-                if (asprintf(&f->path, "/proc/self/%i", fd) < 0) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-        }
-
         if (f->fd < 0) {
                 /* We pass O_NONBLOCK here, so that in case somebody pointed us to some character device node or FIFO
                  * or so, we likely fail quickly than block for long. For regular files O_NONBLOCK has no effect, hence
                  * it doesn't hurt in that case. */
 
-                f->fd = openat_report_new(AT_FDCWD, f->path, f->open_flags|O_CLOEXEC|O_NONBLOCK, f->mode, &newly_created);
+                f->fd = openat_report_new(AT_FDCWD, fname, f->open_flags|O_CLOEXEC|O_NONBLOCK, f->mode, &newly_created);
                 if (f->fd < 0) {
                         r = f->fd;
                         goto fail;
@@ -4163,12 +4149,23 @@ int journal_file_open(
                 if (r < 0)
                         goto fail;
 
+                r = fd_get_path(f->fd, &f->path);
+                if (r < 0)
+                        goto fail;
+
                 if (!newly_created) {
                         r = journal_file_fstat(f);
                         if (r < 0)
                                 goto fail;
                 }
         } else {
+                /* If we don't know the path, fill in something explanatory and vaguely useful */
+                f->path = strdup(fname ?: FORMAT_PROC_FD_PATH(fd));
+                if (!f->path) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
+
                 r = journal_file_fstat(f);
                 if (r < 0)
                         goto fail;
@@ -4540,6 +4537,19 @@ void journal_reset_metrics(JournalMetrics *m) {
         };
 }
 
+bool journal_metrics_equal(const JournalMetrics *x, const JournalMetrics *y) {
+        assert(x);
+        assert(y);
+
+        return
+                x->max_size == y->max_size &&
+                x->min_size == y->min_size &&
+                x->max_use == y->max_use &&
+                x->min_use == y->min_use &&
+                x->keep_free == y->keep_free &&
+                x->n_max_files == y->n_max_files;
+}
+
 int journal_file_get_cutoff_realtime_usec(JournalFile *f, usec_t *ret_from, usec_t *ret_to) {
         assert(f);
         assert(f->header);
@@ -4692,6 +4702,12 @@ bool journal_file_rotate_suggested(JournalFile *f, usec_t max_file_usec, int log
         }
 
         return false;
+}
+
+bool journal_file_writable(const JournalFile *f) {
+        assert(f);
+
+        return (f->open_flags & O_ACCMODE_STRICT) != O_RDONLY;
 }
 
 static const char * const journal_object_type_table[] = {

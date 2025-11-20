@@ -9,7 +9,7 @@
 
 [Unit]
 Description=Root File System Quota Check
-Documentation=man:systemd-quotacheck.service(8)
+Documentation=man:systemd-quotacheck@.service(8)
 
 ConditionPathExists=!/etc/initrd-release
 
@@ -23,3 +23,4 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-quotacheck /
 TimeoutSec=infinity
+ImportCredential=quotacheck.*

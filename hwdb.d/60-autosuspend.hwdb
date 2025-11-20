@@ -96,6 +96,10 @@ usb:v2CB7p0007*
  ID_AUTOSUSPEND=1
  ID_AUTOSUSPEND_DELAY_MS=7000
 
+# Dell Computer Corp. DW5826e Qualcomm Snapdragon X12 Global LTE-A
+usb:v413Cp8217*
+ ID_AUTOSUSPEND=1
+
 #########################################
 # Wacom
 #########################################

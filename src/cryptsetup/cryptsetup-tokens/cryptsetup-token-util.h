@@ -4,7 +4,7 @@
 
 #include <libcryptsetup.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 /* crypt_dump() internal indentation magic */
 #define CRYPT_DUMP_LINE_SEP "\n\t            "

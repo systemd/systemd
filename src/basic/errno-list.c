@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "errno-list.h"
@@ -23,8 +25,8 @@ int errno_from_name(const char *name) {
 }
 
 #if HAVE_STRERRORNAME_NP
-const char* errno_to_name(int id) {
-        if (id == 0) /* To stay in line with our own impl */
+const char* errno_name_no_fallback(int id) {
+        if (id == 0) /* To stay in line with our implementation below.  */
                 return NULL;
 
         return strerrorname_np(ABS(id));
@@ -32,8 +34,7 @@ const char* errno_to_name(int id) {
 #else
 #  include "errno-to-name.inc"
 
-const char* errno_to_name(int id) {
-
+const char* errno_name_no_fallback(int id) {
         if (id < 0)
                 id = -id;
 
@@ -43,3 +44,11 @@ const char* errno_to_name(int id) {
         return errno_names[id];
 }
 #endif
+
+const char* errno_name(int id, char buf[static ERRNO_NAME_BUF_LEN]) {
+        const char *a = errno_name_no_fallback(id);
+        if (a)
+                return a;
+        snprintf(buf, ERRNO_NAME_BUF_LEN, "%d", abs(id));
+        return buf;
+}

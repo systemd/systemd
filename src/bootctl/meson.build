@@ -20,6 +20,6 @@ executables += [
                 ],
                 'sources' : bootctl_sources,
                 'link_with' : boot_link_with,
-                'dependencies' : [libblkid, libopenssl],
+                'dependencies' : [libopenssl],
         },
 ]

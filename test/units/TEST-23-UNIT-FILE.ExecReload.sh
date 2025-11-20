@@ -5,8 +5,6 @@ set -o pipefail
 
 # Test ExecReload= (PR #13098)
 
-systemd-analyze log-level debug
-
 export SYSTEMD_PAGER=
 SERVICE_PATH="$(mktemp /etc/systemd/system/execreloadXXX.service)"
 SERVICE_NAME="${SERVICE_PATH##*/}"
@@ -15,7 +13,7 @@ echo "[#1] Failing ExecReload= should not kill the service"
 cat >"$SERVICE_PATH" <<EOF
 [Service]
 ExecStart=sleep infinity
-ExecReload=/bin/false
+ExecReload=false
 EOF
 
 systemctl daemon-reload
@@ -31,9 +29,9 @@ echo "[#2] Failing ExecReload= should not kill the service (multiple ExecReload=
 cat >"$SERVICE_PATH" <<EOF
 [Service]
 ExecStart=sleep infinity
-ExecReload=/bin/true
-ExecReload=/bin/false
-ExecReload=/bin/true
+ExecReload=true
+ExecReload=false
+ExecReload=true
 EOF
 
 systemctl daemon-reload
@@ -48,7 +46,7 @@ echo "[#3] Failing ExecReload=- should not affect reload's exit code"
 cat >"$SERVICE_PATH" <<EOF
 [Service]
 ExecStart=sleep infinity
-ExecReload=-/bin/false
+ExecReload=-false
 EOF
 
 systemctl daemon-reload
@@ -57,5 +55,3 @@ systemctl status "$SERVICE_NAME"
 systemctl reload "$SERVICE_NAME"
 systemctl status "$SERVICE_NAME"
 systemctl stop "$SERVICE_NAME"
-
-systemd-analyze log-level info

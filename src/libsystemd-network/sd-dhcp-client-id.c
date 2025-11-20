@@ -4,7 +4,6 @@
 #include "dhcp-client-id-internal.h"
 #include "iovec-util.h"
 #include "json-util.h"
-#include "log.h"
 #include "siphash24.h"
 #include "string-util.h"
 #include "unaligned.h"

@@ -1,8 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <linux/sockios.h>
+#include <poll.h>
 #include <sys/ioctl.h>
-#include <sys/poll.h>
 
 #include "sd-varlink.h"
 

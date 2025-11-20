@@ -10,11 +10,18 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
+#include "parse-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "tpm2-util.h"
 #include "utf8.h"
+
+#define EFI_TCG2_BOOT_HASH_ALG_SHA1   0x01
+#define EFI_TCG2_BOOT_HASH_ALG_SHA256 0x02
+#define EFI_TCG2_BOOT_HASH_ALG_SHA384 0x04
+#define EFI_TCG2_BOOT_HASH_ALG_SHA512 0x08
 
 #define LOAD_OPTION_ACTIVE            0x00000001
 #define MEDIA_DEVICE_PATH                   0x04
@@ -516,6 +523,74 @@ int efi_get_boot_options(uint16_t **ret_options) {
 #endif
 }
 
+int efi_get_active_pcr_banks(uint32_t *ret) {
+#if ENABLE_EFI
+        static uint32_t cache = 0;
+        static bool cache_valid = false;
+        int r;
+
+        /* Returns the enabled PCR banks as bitmask, as reported by firmware. If the bitmask is returned as
+         * UINT32_MAX, the firmware supports the TCG protocol, but in a version too old to report this
+         * information. */
+
+        if (!cache_valid) {
+                _cleanup_free_ char *active_pcr_banks = NULL;
+                r = efi_get_variable_string(EFI_LOADER_VARIABLE_STR("LoaderTpm2ActivePcrBanks"), &active_pcr_banks);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read LoaderTpm2ActivePcrBanks variable: %m");
+
+                uint32_t efi_bits;
+                r = safe_atou32_full(active_pcr_banks, 16, &efi_bits);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to parse LoaderTpm2ActivePcrBanks variable: %m");
+
+                if (efi_bits == UINT32_MAX)
+                        /* UINT32_MAX means that the firmware API doesn't implement GetActivePcrBanks() and caller must guess */
+                        cache = UINT32_MAX;
+                else {
+                        /* EFI TPM protocol uses different bit values for the hash algorithms, let's convert */
+                        static const struct {
+                                uint32_t efi;
+                                uint32_t tcg;
+                        } table[] = {
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA1,   1U << TPM2_ALG_SHA1   },
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA256, 1U << TPM2_ALG_SHA256 },
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA384, 1U << TPM2_ALG_SHA384 },
+                                { EFI_TCG2_BOOT_HASH_ALG_SHA512, 1U << TPM2_ALG_SHA512 },
+                        };
+
+                        uint32_t tcg_bits = 0;
+                        FOREACH_ELEMENT(t, table)
+                                SET_FLAG(tcg_bits, t->tcg, efi_bits & t->efi);
+
+                        cache = tcg_bits;
+                }
+
+                cache_valid = true;
+        }
+
+        if (ret)
+                *ret = cache;
+
+        return 0;
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+#if ENABLE_EFI
+static int loader_has_tpm2(void) {
+        uint32_t active_pcr_banks;
+        int r;
+
+        r = efi_get_active_pcr_banks(&active_pcr_banks);
+        if (r < 0)
+                return r;
+
+        return active_pcr_banks != 0;
+}
+#endif
+
 bool efi_has_tpm2(void) {
 #if ENABLE_EFI
         static int cache = -1;
@@ -530,9 +605,17 @@ bool efi_has_tpm2(void) {
         if (!is_efi_boot())
                 return (cache = false);
 
+        /* Secondly, check if the loader told us, as that is the most accurate source of information
+         * regarding the firmware's setup */
+        r = loader_has_tpm2();
+        if (r >= 0)
+                return (cache = r);
+
         /* Then, check if the ACPI table "TPM2" exists, which is the TPM2 event log table, see:
          * https://trustedcomputinggroup.org/wp-content/uploads/TCG_ACPIGeneralSpecification_v1.20_r8.pdf
-         * This table exists whenever the firmware knows ACPI and is hooked up to TPM2. */
+         * This table exists whenever the firmware knows ACPI and is hooked up to TPM2.
+         * Note that in some cases, for example with EDK2 2025.2 with the default arm64 config, this ACPI
+         * table is present even if TPM2 support is not enabled in the firmware. */
         if (access("/sys/firmware/acpi/tables/TPM2", F_OK) >= 0)
                 return (cache = true);
         if (errno != ENOENT)
@@ -585,9 +668,9 @@ void efi_id128_to_guid(sd_id128_t id, void *ret_guid) {
         assert(ret_guid);
 
         EFI_GUID uuid = {
-                .Data1 = id.bytes[0] << 24 | id.bytes[1] << 16 | id.bytes[2] << 8 | id.bytes[3],
-                .Data2 = id.bytes[4] << 8 | id.bytes[5],
-                .Data3 = id.bytes[6] << 8 | id.bytes[7],
+                .Data1 = (uint32_t) id.bytes[0] << 24 | (uint32_t) id.bytes[1] << 16 | (uint32_t) id.bytes[2] << 8 | id.bytes[3],
+                .Data2 = (uint16_t) id.bytes[4] << 8 | id.bytes[5],
+                .Data3 = (uint16_t) id.bytes[6] << 8 | id.bytes[7],
         };
         memcpy(uuid.Data4, id.bytes+8, sizeof(uuid.Data4));
         memcpy(ret_guid, &uuid, sizeof(uuid));

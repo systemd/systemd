@@ -21,13 +21,13 @@ __systemctl() {
     systemctl --system --full --no-legend --no-pager --plain "$@"
 }
 
-__get_slice_units () { __systemctl list-units --all -t slice \
-                           | { while read -r a b c d; do echo " $a"; done; }; }
+__get_slice_units () { __systemctl list-units --all -t slice 2>/dev/null |
+                           { while read -r a b c d; do echo " $a"; done; }; }
 
 __get_machines() {
     local a b
-    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-	{ while read a b; do echo " $a"; done; } | \
+    { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
+        { while read -r a b; do echo " $a"; done; } |
         sort -u
 }
 
@@ -37,7 +37,7 @@ _run0() {
         --machine --unit --property --description --slice -u --user -g --group --nice -D --chdir
         --setenv --background
     )
-    local OPTS="${opts_with_values[*]} -h --help -V --version --no-ask-password --slice-inherit"
+    local OPTS="${opts_with_values[*]} -h --help -V --version --no-ask-password --slice-inherit --empower"
 
     local i
     for (( i=1; i <= COMP_CWORD; i++ )); do

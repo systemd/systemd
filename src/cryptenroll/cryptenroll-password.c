@@ -188,7 +188,7 @@ int enroll_password(
                 }
         }
 
-        r = check_password_quality(new_password, /* old */ NULL, /* user */ NULL, &error);
+        r = check_password_quality(new_password, /* old = */ NULL, /* user = */ NULL, &error);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 log_warning("Password quality check is not supported, proceeding anyway.");
         else if (r < 0)

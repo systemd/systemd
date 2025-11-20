@@ -236,15 +236,6 @@ static int scope_coldplug(Unit *u) {
         if (r < 0)
                 return r;
 
-        if (!IN_SET(s->deserialized_state, SCOPE_DEAD, SCOPE_FAILED) && u->pids) {
-                PidRef *pid;
-                SET_FOREACH(pid, u->pids) {
-                        r = unit_watch_pidref(u, pid, /* exclusive= */ false);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
         bus_scope_track_controller(s);
 
         scope_set_state(s, s->deserialized_state);
@@ -357,7 +348,9 @@ static int scope_enter_start_chown(Scope *s) {
 
                         r = get_user_creds(&user, &uid, &gid, NULL, NULL, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve user \"%s\": %m", user);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve user '%s': %s",
+                                                     user, STRERROR_USER(r));
                                 _exit(EXIT_USER);
                         }
                 }
@@ -367,7 +360,9 @@ static int scope_enter_start_chown(Scope *s) {
 
                         r = get_group_creds(&group, &gid, 0);
                         if (r < 0) {
-                                log_unit_error_errno(UNIT(s), r, "Failed to resolve group \"%s\": %m", group);
+                                log_unit_error_errno(UNIT(s), r,
+                                                     "Failed to resolve group '%s': %s",
+                                                     group, STRERROR_GROUP(r));
                                 _exit(EXIT_GROUP);
                         }
                 }
@@ -511,8 +506,7 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "state", scope_state_to_string(s->state));
         (void) serialize_bool(f, "was-abandoned", s->was_abandoned);
 
-        if (s->controller)
-                (void) serialize_item(f, "controller", s->controller);
+        (void) serialize_item(f, "controller", s->controller);
 
         SET_FOREACH(pid, u->pids)
                 serialize_pidref(f, fds, "pids", pid);

@@ -37,7 +37,6 @@ systemd_homework_sources = files(
 )
 
 homed_gperf_c = custom_target(
-        'homed-gperf.c',
         input : 'homed-gperf.gperf',
         output : 'homed-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -82,7 +81,7 @@ executables += [
                         libshared_fdisk
                 ],
                 'dependencies' : [
-                        libblkid,
+                        libblkid_cflags,
                         libcrypt,
                         libfdisk,
                         libopenssl,
@@ -116,6 +115,7 @@ modules += [
                 'sources' : pam_systemd_home_sources,
                 'dependencies' : [
                         libcrypt,
+                        libintl,
                         libpam_misc,
                         libpam,
                         threads,

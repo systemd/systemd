@@ -3,32 +3,10 @@
 
 #include "common-signal.h"
 #include "journal-file.h"
+#include "journald-config.h"
 #include "journald-forward.h"
 #include "list.h"
 #include "ratelimit.h"
-#include "socket-util.h"
-
-typedef enum Storage {
-        STORAGE_AUTO,
-        STORAGE_VOLATILE,
-        STORAGE_PERSISTENT,
-        STORAGE_NONE,
-        _STORAGE_MAX,
-        _STORAGE_INVALID = -EINVAL,
-} Storage;
-
-typedef enum SplitMode {
-        SPLIT_UID,
-        SPLIT_LOGIN, /* deprecated */
-        SPLIT_NONE,
-        _SPLIT_MAX,
-        _SPLIT_INVALID = -EINVAL,
-} SplitMode;
-
-typedef struct JournalCompressOptions {
-        bool enabled;
-        uint64_t threshold_bytes;
-} JournalCompressOptions;
 
 typedef struct JournalStorageSpace {
         usec_t   timestamp;
@@ -95,50 +73,22 @@ typedef struct Manager {
         char *buffer;
 
         OrderedHashmap *ratelimit_groups_by_id;
-        usec_t sync_interval_usec;
-        usec_t ratelimit_interval;
-        unsigned ratelimit_burst;
 
         JournalStorage runtime_storage;
         JournalStorage system_storage;
-
-        JournalCompressOptions compress;
-        int set_audit;
-        bool seal;
-        bool read_kmsg;
 
         bool send_watchdog;
         bool sent_notify_ready;
         bool sync_scheduled;
 
-        bool forward_to_kmsg;
-        bool forward_to_syslog;
-        bool forward_to_console;
-        bool forward_to_wall;
-        SocketAddress forward_to_socket;
-
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
 
-        usec_t max_retention_usec;
-        usec_t max_file_usec;
         usec_t oldest_file_usec;
 
         LIST_HEAD(StdoutStream, stdout_streams);
         LIST_HEAD(StdoutStream, stdout_streams_notify_queue);
         unsigned n_stdout_streams;
-
-        char *tty_path;
-
-        int max_level_store;
-        int max_level_syslog;
-        int max_level_kmsg;
-        int max_level_console;
-        int max_level_wall;
-        int max_level_socket;
-
-        Storage storage;
-        SplitMode split_mode;
 
         MMapCache *mmap;
 
@@ -159,8 +109,6 @@ typedef struct Manager {
         usec_t watchdog_usec;
 
         usec_t last_realtime_clock;
-
-        size_t line_max;
 
         /* Caching of client metadata */
         Hashmap *client_contexts;
@@ -183,6 +131,20 @@ typedef struct Manager {
 
         /* Pending synchronization requests with non-zero rqlen counter */
         LIST_HEAD(SyncReq, sync_req_pending_rqlen);
+
+        /* These structs are used to preserve configurations set by credentials and command line.
+         *   - config - main configuration used by journald manager,
+         *   - config_by_cred - configuration set by credentials,
+         *   - config_by_conf - configuration set by configuration file,
+         *   - config_by_cmdline - configuration set by command line.
+         * The priority order of the sub-configurations is:
+         *     config_by_cmdline > config_by_conf > config_by_cred
+         * where A > B means that if the two have the same setting, A's value overrides B's value for that
+         * setting. */
+        JournalConfig config;
+        JournalConfig config_by_cred;
+        JournalConfig config_by_conf;
+        JournalConfig config_by_cmdline;
 } Manager;
 
 #define MANAGER_MACHINE_ID(s) ((s)->machine_id_field + STRLEN("_MACHINE_ID="))
@@ -209,24 +171,9 @@ void manager_dispatch_message(Manager *m, struct iovec *iovec, size_t n, size_t 
 void manager_driver_message_internal(Manager *m, pid_t object_pid, const char *format, ...) _sentinel_;
 #define manager_driver_message(...) manager_driver_message_internal(__VA_ARGS__, NULL)
 
-/* gperf lookup function */
-const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
-
-CONFIG_PARSER_PROTOTYPE(config_parse_storage);
-CONFIG_PARSER_PROTOTYPE(config_parse_line_max);
-CONFIG_PARSER_PROTOTYPE(config_parse_compress);
-CONFIG_PARSER_PROTOTYPE(config_parse_forward_to_socket);
-
-const char* storage_to_string(Storage s) _const_;
-Storage storage_from_string(const char *s) _pure_;
-
-CONFIG_PARSER_PROTOTYPE(config_parse_split_mode);
-
-const char* split_mode_to_string(SplitMode s) _const_;
-SplitMode split_mode_from_string(const char *s) _pure_;
-
 int manager_new(Manager **ret);
-int manager_init(Manager *m, const char *namespace);
+int manager_set_namespace(Manager *m, const char *namespace);
+int manager_init(Manager *m);
 Manager* manager_free(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
 void manager_full_sync(Manager *m, bool wait);
@@ -241,5 +188,8 @@ int manager_process_datagram(sd_event_source *es, int fd, uint32_t revents, void
 void manager_space_usage_message(Manager *m, JournalStorage *storage);
 
 int manager_start_or_stop_idle_timer(Manager *m);
+void manager_reopen_journals(Manager *m, const JournalConfig *old);
 
 int manager_map_seqnum_file(Manager *m, const char *fname, size_t size, void **ret);
+void manager_unmap_seqnum_file(void *p, size_t size);
+int manager_unlink_seqnum_file(Manager *m, const char *fname);

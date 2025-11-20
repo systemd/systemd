@@ -4,7 +4,7 @@
 
 #include <curl/curl.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 #include "journal-compression-util.h"
 
 typedef enum {

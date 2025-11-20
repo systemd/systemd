@@ -10,10 +10,9 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 #include "memory-util.h"
-#include "missing_network.h"
-#include "missing_socket.h"
+#include "missing-network.h"
 
 union sockaddr_union {
         /* The minimal, abstract version */
@@ -255,27 +254,13 @@ int socket_bind_to_ifindex(int fd, int ifindex);
 
 int socket_autobind(int fd, char **ret_name);
 
-/* Define a 64-bit version of timeval/timespec in any case, even on 32-bit userspace. */
-struct timeval_large {
-        uint64_t tvl_sec, tvl_usec;
-};
-struct timespec_large {
-        uint64_t tvl_sec, tvl_nsec;
-};
-
 /* glibc duplicates timespec/timeval on certain 32-bit arches, once in 32-bit and once in 64-bit.
  * See __convert_scm_timestamps() in glibc source code. Hence, we need additional buffer space for them
  * to prevent truncating control msg (recvmsg() MSG_CTRUNC). */
 #define CMSG_SPACE_TIMEVAL                                              \
-        ((sizeof(struct timeval) == sizeof(struct timeval_large)) ?     \
-         CMSG_SPACE(sizeof(struct timeval)) :                           \
-         CMSG_SPACE(sizeof(struct timeval)) +                           \
-         CMSG_SPACE(sizeof(struct timeval_large)))
+        (CMSG_SPACE(sizeof(struct timeval)) + CMSG_SPACE(2 * sizeof(uint64_t)))
 #define CMSG_SPACE_TIMESPEC                                             \
-        ((sizeof(struct timespec) == sizeof(struct timespec_large)) ?   \
-         CMSG_SPACE(sizeof(struct timespec)) :                          \
-         CMSG_SPACE(sizeof(struct timespec)) +                          \
-         CMSG_SPACE(sizeof(struct timespec_large)))
+        (CMSG_SPACE(sizeof(struct timespec)) + CMSG_SPACE(2 * sizeof(uint64_t)))
 
 ssize_t recvmsg_safe(int sockfd, struct msghdr *msg, int flags);
 
@@ -337,3 +322,5 @@ int vsock_get_local_cid(unsigned *ret);
 int netlink_socket_get_multicast_groups(int fd, size_t *ret_len, uint32_t **ret_groups);
 
 int socket_get_cookie(int fd, uint64_t *ret);
+
+void cmsg_close_all(struct msghdr *mh);

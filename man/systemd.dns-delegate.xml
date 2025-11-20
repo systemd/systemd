@@ -79,7 +79,7 @@
       <programlisting># /etc/systemd/dns-delegate.d/foobar.dns-delegate
 [Delegate]
 DNS=203.0.113.47
-Domain=foobar.com</programlisting>
+Domains=foobar.com</programlisting>
 
       <para>This ensures lookups of <literal>foobar.com</literal> and any domains below it are directed to
       DNS server 203.0.113.47.</para>

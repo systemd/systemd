@@ -56,17 +56,17 @@ void bus_send_pending_reload_message(Manager *m) {
 
         assert(m);
 
-        if (!m->pending_reload_message)
+        if (!m->pending_reload_message_dbus)
                 return;
 
         /* If we cannot get rid of this message we won't dispatch any D-Bus messages, so that we won't end up wanting
          * to queue another message. */
 
-        r = sd_bus_send(NULL, m->pending_reload_message, NULL);
+        r = sd_bus_message_send(m->pending_reload_message_dbus);
         if (r < 0)
                 log_warning_errno(r, "Failed to send queued reload message, ignoring: %m");
 
-        m->pending_reload_message = sd_bus_message_unref(m->pending_reload_message);
+        m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
 
         return;
 }
@@ -338,9 +338,8 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
         return 1;
 }
 
-static int bus_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_unit_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
-        ExecContext *c;
         Unit *u;
         int r;
 
@@ -355,6 +354,27 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
 
         if (!streq_ptr(interface, unit_dbus_interface_from_type(u->type)))
                 return 0;
+
+        if (!UNIT_HAS_EXEC_CONTEXT(u))
+                return 0;
+
+        *found = u;
+        return 1;
+}
+
+static int bus_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+        ExecContext *c;
+        int r;
+
+        assert(bus);
+        assert(path);
+        assert(interface);
+        assert(found);
+
+        Unit *u;
+        r = bus_unit_exec_context_find(bus, path, interface, userdata, (void**) &u, error);
+        if (r <= 0)
+                return r;
 
         c = unit_get_exec_context(u);
         if (!c)
@@ -443,6 +463,7 @@ static const BusObjectImplementation bus_mount_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -471,6 +492,7 @@ static const BusObjectImplementation bus_service_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -491,6 +513,7 @@ static const BusObjectImplementation bus_socket_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -502,6 +525,7 @@ static const BusObjectImplementation bus_swap_object = {
                 { bus_unit_cgroup_vtable, bus_unit_cgroup_find },
                 { bus_cgroup_vtable,      bus_cgroup_context_find },
                 { bus_exec_vtable,        bus_exec_context_find },
+                { bus_unit_exec_vtable,   bus_unit_exec_context_find },
                 { bus_kill_vtable,        bus_kill_context_find }),
 };
 
@@ -897,7 +921,7 @@ int bus_init_private(Manager *m) {
                 r = sockaddr_un_set_path(&sa.un, p);
         }
         if (r < 0)
-                return log_error_errno(r, "Failed set socket path for private bus: %m");
+                return log_error_errno(r, "Failed to set socket path for private bus: %m");
         sa_len = r;
 
         (void) sockaddr_un_unlink(&sa.un);
@@ -980,8 +1004,8 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
         }
 
         /* Get rid of queued message on this bus */
-        if (m->pending_reload_message && sd_bus_message_get_bus(m->pending_reload_message) == *bus)
-                m->pending_reload_message = sd_bus_message_unref(m->pending_reload_message);
+        if (m->pending_reload_message_dbus && sd_bus_message_get_bus(m->pending_reload_message_dbus) == *bus)
+                m->pending_reload_message_dbus = sd_bus_message_unref(m->pending_reload_message_dbus);
 
         /* Possibly flush unwritten data, but only if we are
          * unprivileged, since we don't want to sync here */
@@ -1160,6 +1184,7 @@ void dump_bus_properties(FILE *f) {
         vtable_dump_bus_properties(f, bus_cgroup_vtable);
         vtable_dump_bus_properties(f, bus_device_vtable);
         vtable_dump_bus_properties(f, bus_exec_vtable);
+        vtable_dump_bus_properties(f, bus_unit_exec_vtable);
         vtable_dump_bus_properties(f, bus_job_vtable);
         vtable_dump_bus_properties(f, bus_kill_vtable);
         vtable_dump_bus_properties(f, bus_manager_vtable);

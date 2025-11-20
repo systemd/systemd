@@ -12,6 +12,8 @@ Description=Portable Service Manager
 Documentation=man:systemd-portabled.service(8)
 Documentation=man:org.freedesktop.portable1(5)
 RequiresMountsFor=/var/lib/portables
+Wants=modprobe@loop.service
+After=modprobe@loop.service
 
 [Service]
 ExecStart={{LIBEXECDIR}}/systemd-portabled

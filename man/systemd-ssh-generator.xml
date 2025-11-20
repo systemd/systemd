@@ -129,6 +129,22 @@
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ssh.ephemeral-authorized_keys-all</varname></term>
+
+        <listitem>
+          <para>Provides additional public keys, given in the customary <filename>authorized_keys</filename>
+            format, for all users, for incoming connections via the generated <constant>AF_VSOCK</constant>
+            and <constant>AF_UNIX</constant> socket units.</para>
+
+          <para>The intended use of this is for a host system (in either VM or container configurations) to
+            generate a keypair and inject the public key into the guest, using the private key to connect to
+            any user account on the guest via ssh, without further authentication.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

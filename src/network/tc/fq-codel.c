@@ -94,7 +94,7 @@ static int fair_queueing_controlled_delay_fill_message(Link *link, QDisc *qdisc,
         return 0;
 }
 
-int config_parse_fair_queueing_controlled_delay_u32(
+int config_parse_fq_codel_u32(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -154,7 +154,7 @@ int config_parse_fair_queueing_controlled_delay_u32(
         return 0;
 }
 
-int config_parse_fair_queueing_controlled_delay_usec(
+int config_parse_fq_codel_usec(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -219,7 +219,7 @@ int config_parse_fair_queueing_controlled_delay_usec(
         return 0;
 }
 
-int config_parse_fair_queueing_controlled_delay_bool(
+int config_parse_fq_codel_bool(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -264,7 +264,7 @@ int config_parse_fair_queueing_controlled_delay_bool(
         return 0;
 }
 
-int config_parse_fair_queueing_controlled_delay_size(
+int config_parse_fq_codel_size(
                 const char *unit,
                 const char *filename,
                 unsigned line,

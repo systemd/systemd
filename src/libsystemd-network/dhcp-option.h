@@ -4,7 +4,7 @@
 #include "sd-dhcp-option.h" /* IWYU pragma: export */
 
 #include "dhcp-protocol.h"
-#include "forward.h"
+#include "sd-forward.h"
 #include "hash-funcs.h"
 
 struct sd_dhcp_option {

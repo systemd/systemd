@@ -3,8 +3,7 @@
 #include <sched.h>
 #include <stdlib.h>
 #include <sys/mman.h>
-#include <sys/prctl.h>
-#include <sys/wait.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
@@ -28,6 +27,7 @@
 #include "log.h"
 #include "namespace-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rlimit-util.h"
@@ -37,13 +37,11 @@
 #include "uid-range.h"
 
 char* setup_fake_runtime_dir(void) {
-        char t[] = "/tmp/fake-xdg-runtime-XXXXXX", *p;
+        char *t;
 
-        assert_se(mkdtemp(t));
-        assert_se(setenv("XDG_RUNTIME_DIR", t, 1) >= 0);
-        assert_se(p = strdup(t));
-
-        return p;
+        ASSERT_OK(mkdtemp_malloc("/tmp/fake-xdg-runtime-XXXXXX", &t));
+        ASSERT_OK(setenv("XDG_RUNTIME_DIR", t, /* overwrite = */ true));
+        return t;
 }
 
 static void load_testdata_env(void) {
@@ -56,18 +54,18 @@ static void load_testdata_env(void) {
                 return;
         called = true;
 
-        assert_se(readlink_and_make_absolute("/proc/self/exe", &s) >= 0);
-        assert_se(path_extract_directory(s, &d) >= 0);
-        assert_se(envpath = path_join(d, "systemd-runtest.env"));
+        ASSERT_OK(readlink_and_make_absolute("/proc/self/exe", &s));
+        ASSERT_OK(path_extract_directory(s, &d));
+        ASSERT_NOT_NULL(envpath = path_join(d, "systemd-runtest.env"));
 
         r = load_env_file_pairs(NULL, envpath, &pairs);
         if (r < 0) {
-                log_debug_errno(r, "Reading %s failed: %m", envpath);
+                log_debug_errno(r, "Reading %s failed, ignoring: %m", envpath);
                 return;
         }
 
         STRV_FOREACH_PAIR(k, v, pairs)
-                assert_se(setenv(*k, *v, 0) >= 0);
+                ASSERT_OK(setenv(*k, *v, /* overwrite = */ false));
 }
 
 int get_testdata_dir(const char *suffix, char **ret) {
@@ -143,16 +141,14 @@ int write_tmpfile(char *pattern, const char *contents) {
 }
 
 bool have_namespaces(void) {
-        siginfo_t si = {};
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        int r;
 
         /* Checks whether namespaces are available. In some cases they aren't. We do this by calling unshare(), and we
          * do so in a child process in order not to affect our own process. */
 
-        pid = fork();
-        assert_se(pid >= 0);
-
-        if (pid == 0) {
+        ASSERT_OK(r = pidref_safe_fork("(have_namespace)", /* flags = */ 0, &pid));
+        if (r == 0) {
                 /* child */
                 if (detach_mount_namespace() < 0)
                         _exit(EXIT_FAILURE);
@@ -160,13 +156,11 @@ bool have_namespaces(void) {
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(waitid(P_PID, pid, &si, WEXITED) >= 0);
-        assert_se(si.si_code == CLD_EXITED);
-
-        if (si.si_status == EXIT_SUCCESS)
+        ASSERT_OK(r = pidref_wait_for_terminate_and_check("(have_namespace)", &pid, /* flags = */ 0));
+        if (r == EXIT_SUCCESS)
                 return true;
 
-        if (si.si_status == EXIT_FAILURE)
+        if (r == EXIT_FAILURE)
                 return false;
 
         assert_not_reached();
@@ -202,9 +196,9 @@ bool can_memlock(void) {
 
         bool b = mlock(p, CAN_MEMLOCK_SIZE) >= 0;
         if (b)
-                assert_se(munlock(p, CAN_MEMLOCK_SIZE) >= 0);
+                ASSERT_OK(munlock(p, CAN_MEMLOCK_SIZE));
 
-        assert_se(munmap(p, CAN_MEMLOCK_SIZE) >= 0);
+        ASSERT_OK(munmap(p, CAN_MEMLOCK_SIZE));
         return b;
 }
 
@@ -219,7 +213,7 @@ static int allocate_scope(void) {
 
         /* Let's try to run this test in a scope of its own, with delegation turned on, so that PID 1 doesn't
          * interfere with our cgroup management. */
-        if (cg_pid_get_path(NULL, 0, &cgroup_root) >= 0 && cg_is_delegated(cgroup_root) && stderr_is_journal()) {
+        if (cg_pid_get_path(0, &cgroup_root) >= 0 && cg_is_delegated(cgroup_root) && stderr_is_journal()) {
                 log_debug("Already running as a unit with delegated cgroup, not allocating a cgroup subroot.");
                 return 0;
         }
@@ -293,23 +287,27 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
         CGroupMask supported;
         int r;
 
+        r = cg_is_available();
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(ENOMEDIUM), "cgroupfs v2 is not mounted.");
+
         r = allocate_scope();
         if (r < 0)
                 log_warning_errno(r, "Couldn't allocate a scope unit for this test, proceeding without.");
 
-        r = cg_pid_get_path(NULL, 0, &cgroup_root);
+        r = cg_pid_get_path(0, &cgroup_root);
         if (IN_SET(r, -ENOMEDIUM, -ENOENT))
-                return log_warning_errno(r, "cg_pid_get_path(NULL, 0, ...) failed: %m");
-        assert(r >= 0);
+                return log_warning_errno(r, "cg_pid_get_path(0, ...) failed: %m");
+        ASSERT_OK(r);
 
         if (enter_subroot)
-                assert_se(asprintf(&cgroup_subroot, "%s/%" PRIx64, cgroup_root, random_u64()) >= 0);
-        else {
-                cgroup_subroot = strdup(cgroup_root);
-                assert_se(cgroup_subroot != NULL);
-        }
+                ASSERT_OK(asprintf(&cgroup_subroot, "%s/%" PRIx64, cgroup_root, random_u64()));
+        else
+                ASSERT_NOT_NULL(cgroup_subroot = strdup(cgroup_root));
 
-        assert_se(cg_mask_supported(&supported) >= 0);
+        ASSERT_OK(cg_mask_supported(&supported));
 
         /* If this fails, then we don't mind as the later cgroup operations will fail too, and it's fine if
          * we handle any errors at that point. */
@@ -427,9 +425,16 @@ void test_prepare(int argc, char *argv[], int log_level) {
         test_setup_logging(log_level);
 }
 
-int assert_signal_internal(void) {
+/* Returns:
+ * ASSERT_SIGNAL_FORK_CHILD  = We are in the child process
+ * ASSERT_SIGNAL_FORK_PARENT = We are in the parent process (signal/status stored in *ret_signal)
+ * <0                        = Error (negative errno)
+ */
+int assert_signal_internal(int *ret_signal) {
         siginfo_t siginfo = {};
         int r;
+
+        assert(ret_signal);
 
         r = fork();
         if (r < 0)
@@ -441,14 +446,23 @@ int assert_signal_internal(void) {
 
                 /* But still set an rlimit just in case */
                 (void) setrlimit(RLIMIT_CORE, &RLIMIT_MAKE_CONST(0));
-                return 0;
+                return ASSERT_SIGNAL_FORK_CHILD;
         }
 
         r = wait_for_terminate(r, &siginfo);
         if (r < 0)
                 return r;
 
-        return siginfo.si_status;
+        /* si_status means different things depending on si_code:
+         * - CLD_EXITED: si_status is the exit code
+         * - CLD_KILLED/CLD_DUMPED: si_status is the signal number that killed the process
+         * We need to return the signal number only if the child was killed by a signal. */
+        if (IN_SET(siginfo.si_code, CLD_KILLED, CLD_DUMPED))
+                *ret_signal = siginfo.si_status;
+        else
+                *ret_signal = 0;
+
+        return ASSERT_SIGNAL_FORK_PARENT;
 }
 
 

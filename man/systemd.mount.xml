@@ -111,7 +111,7 @@
 
         <listitem><para>If traditional file system quota is enabled for a mount unit, automatic
         <varname>Wants=</varname> and <varname>Before=</varname> dependencies on
-        <filename>systemd-quotacheck.service</filename> and <filename>quotaon.service</filename>
+        <filename>systemd-quotacheck@.service</filename> and <filename>quotaon@.service</filename>
         are added.</para></listitem>
 
         <listitem><para>Additional implicit dependencies may be added as result of execution and

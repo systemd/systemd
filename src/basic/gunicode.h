@@ -6,7 +6,7 @@
  */
 #pragma once
 
-#include "forward.h"
+#include "basic-forward.h"
 
 char *utf8_prev_char (const char *p);
 

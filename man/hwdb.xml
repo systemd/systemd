@@ -29,7 +29,7 @@
       <para>The hwdb files are read from the files located in the
       system hwdb directory <filename>/usr/lib/udev/hwdb.d</filename> and
       the local administration directory <filename>/etc/udev/hwdb.d</filename>.
-      All hwdb files are collectively sorted and processed in lexical order,
+      All hwdb files are collectively sorted and processed in lexicographic order,
       regardless of the directories in which they live. However, files with
       identical filenames replace each other. Files in <filename>/etc/</filename>
       have the highest priority and take precedence over files with the same

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 /* We intentionally use snake_case instead of the usual camelCase here to further
  * reduce the chance of collision with a field any legitimate user record may ever

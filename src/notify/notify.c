@@ -511,8 +511,7 @@ static int action_fork(char *const *_command) {
                                                         * more interesting, "positive" information. */
                         on_notify_socket,
                         &child,
-                        &addr_string,
-                        /* ret_event_source= */ NULL);
+                        &addr_string);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
@@ -521,7 +520,7 @@ static int action_fork(char *const *_command) {
                         /* stdio_fds= */ (const int[]) { -EBADF, -EBADF, STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        /* flags= */ FORK_REARRANGE_STDIO,
+                        /* flags= */ FORK_REARRANGE_STDIO|FORK_LOG,
                         &child);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork child in order to execute '%s': %m", c);

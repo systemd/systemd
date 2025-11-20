@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 """Test wrapper command for driving integration tests."""
@@ -445,8 +445,8 @@ def main() -> None:
     summary = Summary.get(args)
 
     # Keep list in sync with TEST-06-SELINUX.sh
-    if args.name == 'TEST-06-SELINUX' and summary.distribution not in ('fedora', 'centos'):
-        print('Skipping TEST-06-SELINUX, only enabled for Fedora/CentOS', file=sys.stderr)
+    if args.name == 'TEST-06-SELINUX' and summary.distribution not in ('centos', 'fedora', 'opensuse'):
+        print('Skipping TEST-06-SELINUX, only enabled for CentOS/Fedora/openSUSE', file=sys.stderr)
         exit(77)
 
     if shell and not sys.stdin.isatty():
@@ -556,21 +556,17 @@ def main() -> None:
     else:
         rtc = None
 
-    # mkosi will use the UEFI secure boot firmware by default on UEFI platforms. However, this breaks on
-    # Github Actions in combination with KVM because of a HyperV bug so make sure we use the non secure
-    # boot firmware on Github Actions.
-    # TODO: Drop after the HyperV bug that breaks secure boot KVM guests is solved
-    if args.firmware == 'auto' and os.getenv('GITHUB_ACTIONS'):
-        firmware = 'uefi'
     # Whenever possible, boot without an initrd. This requires the target distribution kernel to have the
     # necessary modules (virtio-blk, ext4) builtin.
-    elif args.firmware == 'linux-noinitrd' and (summary.distribution, summary.release) not in (
+    if args.firmware == 'linux-noinitrd' and (summary.distribution, summary.release) not in (
         ('fedora', 'rawhide'),
         ('arch', 'rolling'),
     ):
         firmware = 'linux'
     else:
         firmware = args.firmware
+
+    vm = args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1'
 
     cmd = [
         args.mkosi,
@@ -616,7 +612,8 @@ def main() -> None:
         ),
         '--credential', f"journal.storage={'persistent' if sys.stdin.isatty() else args.storage}",
         *(['--runtime-build-sources=no', '--register=no'] if not sys.stdin.isatty() else []),
-        'vm' if args.vm or os.getuid() != 0 or os.getenv('TEST_PREFER_QEMU', '0') == '1' else 'boot',
+        'vm' if vm else 'boot',
+        *(['--', '--capability=CAP_BPF'] if not vm else []),
     ]  # fmt: skip
 
     try:
@@ -663,7 +660,12 @@ def main() -> None:
         journal_file = Path(shutil.move(journal_file, dst))
 
     if shell or (result.returncode in (args.exit_code, 77) and not coredumps and not sanitizer):
-        exit(0 if shell or result.returncode == args.exit_code else 77)
+        exit_code = 0 if shell or result.returncode == args.exit_code else 77
+        exit_str = 'succeeded' if exit_code == 0 else 'skipped'
+    else:
+        # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
+        exit_code = result.returncode or 1
+        exit_str = 'failed'
 
     if journal_file.exists():
         ops = []
@@ -672,16 +674,20 @@ def main() -> None:
             id = os.environ['GITHUB_RUN_ID']
             wf = os.environ['GITHUB_WORKFLOW']
             iter = os.environ['GITHUB_RUN_ATTEMPT']
-            artifact = f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-failed-test-journals'
+            runner = os.environ['TEST_RUNNER']
+            artifact = (
+                f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-{runner}-failed-test-journals'  # noqa: E501
+            )
             ops += [f'gh run download {id} --name {artifact} -D ci/{artifact}']
             journal_file = Path(f'ci/{artifact}/test/journal/{name}.journal')
 
         ops += [f'journalctl --file {journal_file} --no-hostname -o short-monotonic -u {args.unit} -p info']
 
-        print(f'Test failed, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr)
+        print(
+            f'Test {exit_str}, relevant logs can be viewed with: \n\n{(" && ".join(ops))}\n', file=sys.stderr
+        )
 
-    # 0 also means we failed so translate that to a non-zero exit code to mark the test as failed.
-    exit(result.returncode or 1)
+    exit(exit_code)
 
 
 if __name__ == '__main__':

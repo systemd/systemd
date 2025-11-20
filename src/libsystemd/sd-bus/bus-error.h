@@ -4,7 +4,7 @@
 #include "sd-bus-protocol.h"
 
 #include "errno-util.h"
-#include "forward.h"
+#include "sd-forward.h"
 
 bool bus_error_is_dirty(sd_bus_error *e);
 

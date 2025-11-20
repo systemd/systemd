@@ -19,7 +19,6 @@ executables += [
                 ],
                 'sources' : files('bless-boot.c'),
                 'link_with' : boot_link_with,
-                'dependencies' : libblkid,
         },
         generator_template + {
                 'name' : 'systemd-bless-boot-generator',

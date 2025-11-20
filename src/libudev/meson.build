@@ -38,7 +38,6 @@ static_libudev = get_option('static-libudev')
 static_libudev_pic = static_libudev == 'true' or static_libudev == 'pic'
 
 libudev_pc = custom_target(
-        'libudev.pc',
         input : 'libudev.pc.in',
         output : 'libudev.pc',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

@@ -512,12 +512,10 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
         r = userdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
                            USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                            &ur);
-        if (r == -ESRCH)
-                return log_line_error_errno(rule_line, r, "Unknown user '%s', ignoring.", name);
-        if (r == -ENOEXEC)
-                return log_line_error_errno(rule_line, r, "User '%s' is not a system user, ignoring.", name);
         if (r < 0)
-                return log_line_error_errno(rule_line, r, "Failed to resolve user '%s', ignoring: %m", name);
+                return log_line_error_errno(rule_line, r,
+                                            "Failed to resolve user '%s', ignoring: %s",
+                                            name, STRERROR_USER(r));
 
         _cleanup_free_ char *n = strdup(name);
         if (!n)
@@ -549,12 +547,10 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
         r = groupdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
                             USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                             &gr);
-        if (r == -ESRCH)
-                return log_line_error_errno(rule_line, r, "Unknown group '%s', ignoring.", name);
-        if (r == -ENOEXEC)
-                return log_line_error_errno(rule_line, r, "Group '%s' is not a system group, ignoring.", name);
         if (r < 0)
-                return log_line_error_errno(rule_line, r, "Failed to resolve group '%s', ignoring: %m", name);
+                return log_line_error_errno(rule_line, r,
+                                            "Failed to resolve group '%s', ignoring: %s",
+                                            name, STRERROR_GROUP(r));
 
         _cleanup_free_ char *n = strdup(name);
         if (!n)
@@ -954,7 +950,7 @@ static int parse_token(
                 if (is_case_insensitive)
                         return log_line_invalid_prefix(rule_line, key);
 
-                r = rule_line_add_token(rule_line, TK_M_PROGRAM, op, value, NULL, /* is_case_insensitive */ false, token_str);
+                r = rule_line_add_token(rule_line, TK_M_PROGRAM, op, value, NULL, /* is_case_insensitive = */ false, token_str);
         } else if (streq(key, "IMPORT")) {
                 if (isempty(attr))
                         return log_line_invalid_attr(rule_line, key);
@@ -1011,7 +1007,9 @@ static int parse_token(
                         op = OP_ASSIGN;
 
                 if (streq(value, "dump"))
-                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_DUMP, op, NULL, NULL, /* is_case_insensitive = */ false, token_str);
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_DUMP, op, NULL, UINT_TO_PTR(SD_JSON_FORMAT_OFF), /* is_case_insensitive = */ false, token_str);
+                else if (streq(value, "dump-json"))
+                        r = rule_line_add_token(rule_line, TK_A_OPTIONS_DUMP, op, NULL, UINT_TO_PTR(SD_JSON_FORMAT_NEWLINE), /* is_case_insensitive = */ false, token_str);
                 else if (streq(value, "string_escape=none"))
                         r = rule_line_add_token(rule_line, TK_A_OPTIONS_STRING_ESCAPE_NONE, op, NULL, NULL, /* is_case_insensitive = */ false, token_str);
                 else if (streq(value, "string_escape=replace"))
@@ -1645,46 +1643,34 @@ static void udev_check_rule_line(UdevRuleLine *line) {
         udev_check_conflicts_duplicates(line);
 }
 
-int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_checks, UdevRuleFile **ret) {
+int udev_rules_parse_file(UdevRules *rules, const ConfFile *c, bool extra_checks, UdevRuleFile **ret) {
         _cleanup_(udev_rule_file_freep) UdevRuleFile *rule_file = NULL;
         _cleanup_free_ char *name = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        struct stat st;
         int r;
 
         assert(rules);
-        assert(filename);
+        assert(c);
+        assert(c->fd >= 0);
+        assert(c->original_path);
 
-        f = fopen(filename, "re");
+        f = fopen(FORMAT_PROC_FD_PATH(c->fd), "re");
         if (!f) {
                 if (extra_checks)
                         return -errno;
 
-                if (errno == ENOENT)
-                        return 0;
-
-                return log_warning_errno(errno, "Failed to open %s, ignoring: %m", filename);
+                return log_warning_errno(errno, "Failed to open %s, ignoring: %m", c->original_path);
         }
 
-        if (fstat(fileno(f), &st) < 0)
-                return log_warning_errno(errno, "Failed to stat %s, ignoring: %m", filename);
-
-        if (null_or_empty(&st)) {
-                log_debug("Skipping empty file: %s", filename);
-                if (ret)
-                        *ret = NULL;
-                return 0;
-        }
-
-        r = hashmap_put_stats_by_path(&rules->stats_by_path, filename, &st);
+        r = hashmap_put_stats_by_path(&rules->stats_by_path, c->original_path, &c->st);
         if (r < 0)
-                return log_warning_errno(r, "Failed to save stat for %s, ignoring: %m", filename);
+                return log_warning_errno(r, "Failed to save stat for %s, ignoring: %m", c->original_path);
 
-        (void) fd_warn_permissions(filename, fileno(f));
+        (void) stat_warn_permissions(c->original_path, &c->st);
 
-        log_debug("Reading rules file: %s", filename);
+        log_debug("Reading rules file: %s", c->original_path);
 
-        name = strdup(filename);
+        name = strdup(c->original_path);
         if (!name)
                 return log_oom();
 
@@ -1775,7 +1761,7 @@ int udev_rules_parse_file(UdevRules *rules, const char *filename, bool extra_che
                 *ret = rule_file;
 
         TAKE_PTR(rule_file);
-        return 1;
+        return 0;
 }
 
 unsigned udev_rule_file_get_issues(UdevRuleFile *rule_file) {
@@ -1800,7 +1786,7 @@ UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing) {
 
 int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing, char * const *extra) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_strv_free_ char **files = NULL, **directories = NULL;
+        _cleanup_strv_free_ char **directories = NULL;
         int r;
 
         rules = udev_rules_new(resolve_name_timing);
@@ -1817,14 +1803,22 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
         if (r < 0)
                 return r;
 
-        r = conf_files_list_strv(&files, ".rules", NULL, 0, (const char* const*) directories);
+        ConfFile **files = NULL;
+        size_t n_files = 0;
+
+        CLEANUP_ARRAY(files, n_files, conf_file_free_many);
+
+        r = conf_files_list_strv_full(".rules", /* root = */ NULL, CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
+                                      (const char* const*) directories, &files, &n_files);
         if (r < 0)
                 return log_debug_errno(r, "Failed to enumerate rules files: %m");
 
-        STRV_FOREACH(f, files) {
-                r = udev_rules_parse_file(rules, *f, /* extra_checks = */ false, NULL);
+        FOREACH_ARRAY(i, files, n_files) {
+                ConfFile *c = *i;
+
+                r = udev_rules_parse_file(rules, c, /* extra_checks = */ false, /* ret = */ NULL);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to read rules file %s, ignoring: %m", *f);
+                        log_debug_errno(r, "Failed to read rules file '%s', ignoring: %m", c->original_path);
         }
 
         *ret_rules = TAKE_PTR(rules);
@@ -2597,6 +2591,8 @@ static int udev_rule_apply_token_to_event(
                 return token_match_string(event, token, event->program_result, /* log_result = */ true);
 
         case TK_A_OPTIONS_DUMP: {
+                sd_json_format_flags_t flags = PTR_TO_UINT(token->data);
+
                 log_event_info(event, token, "Dumping current state:");
 
                 _cleanup_(memstream_done) MemStream m = {};
@@ -2604,14 +2600,14 @@ static int udev_rule_apply_token_to_event(
                 if (!f)
                         return log_oom();
 
-                (void) dump_event(event, SD_JSON_FORMAT_OFF, f);
+                (void) dump_event(event, flags, f);
 
                 _cleanup_free_ char *buf = NULL;
                 r = memstream_finalize(&m, &buf, NULL);
                 if (r < 0)
                         log_event_warning_errno(event, token, r, "Failed to finalize memory stream, ignoring: %m");
                 else
-                        log_info("%s", buf);
+                        log_device_info(dev, "%s", buf);
 
                 log_event_info(event, token, "DONE");
                 return true;
@@ -2681,12 +2677,10 @@ static int udev_rule_apply_token_to_event(
                 r = userdb_by_name(owner, &USERDB_MATCH_ROOT_AND_SYSTEM,
                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                    &ur);
-                if (r == -ESRCH)
-                        log_event_error_errno(event, token, r, "Unknown user \"%s\", ignoring.", owner);
-                else if (r == -ENOEXEC)
-                        log_event_error(event, token, "User \"%s\" is not a system user, ignoring.", owner);
-                else if (r < 0)
-                        log_event_error_errno(event, token, r, "Failed to resolve user \"%s\", ignoring: %m", owner);
+                if (r < 0)
+                        log_event_error_errno(event, token, r,
+                                              "Failed to resolve user \"%s\", ignoring: %s",
+                                              owner, STRERROR_USER(r));
                 else {
                         event->uid = ur->uid;
                         log_event_debug(event, token, "Set owner: %s("UID_FMT")", owner, event->uid);
@@ -2709,12 +2703,10 @@ static int udev_rule_apply_token_to_event(
                 r = groupdb_by_name(group, &USERDB_MATCH_ROOT_AND_SYSTEM,
                                     USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                     &gr);
-                if (r == -ESRCH)
-                        log_event_error_errno(event, token, r, "Unknown group \"%s\", ignoring.", group);
-                else if (r == -ENOEXEC)
-                        log_event_error(event, token, "Group \"%s\" is not a system group, ignoring.", group);
-                else if (r < 0)
-                        log_event_error_errno(event, token, r, "Failed to resolve group \"%s\", ignoring: %m", group);
+                if (r < 0)
+                        log_event_error_errno(event, token, r,
+                                              "Failed to resolve group \"%s\", ignoring: %s",
+                                              group, STRERROR_GROUP(r));
                 else {
                         event->gid = gr->gid;
                         log_event_debug(event, token, "Set group: %s("GID_FMT")", group, event->gid);

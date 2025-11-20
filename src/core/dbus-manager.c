@@ -455,6 +455,35 @@ static int property_get_oom_score_adjust(
         return sd_bus_message_append(reply, "i", n);
 }
 
+static int property_get_transactions_with_cycle(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = sd_bus_message_open_container(reply, 'a', "t");
+        if (r < 0)
+                return r;
+
+        uint64_t *id;
+        SET_FOREACH(id, m->transactions_with_cycle) {
+                r = sd_bus_message_append_basic(reply, 't', id);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(reply);
+}
+
 static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char *name, Unit **ret_unit, sd_bus_error *error) {
         Unit *u;
         int r;
@@ -685,7 +714,7 @@ static int method_get_unit_by_pidfd(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to get PID from PIDFD: %m");
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_load_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -765,6 +794,7 @@ static int method_generic_unit_operation(
                 sd_bus_message *message,
                 Manager *m,
                 sd_bus_error *error,
+                UnitType type,
                 sd_bus_message_handler_t handler,
                 GenericUnitOperationFlags flags) {
 
@@ -790,6 +820,11 @@ static int method_generic_unit_operation(
         if (r < 0)
                 return r;
 
+        if (type != _UNIT_TYPE_INVALID && u->type != type)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                         "%s operation is not supported for unit type '%s'",
+                                         sd_bus_message_get_member(message), unit_type_to_string(u->type));
+
         if (FLAGS_SET(flags, GENERIC_UNIT_VALIDATE_LOADED)) {
                 r = bus_unit_validate_load_state(u, error);
                 if (r < 0)
@@ -801,7 +836,7 @@ static int method_generic_unit_operation(
 
 static int method_enqueue_unit_job(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* We don't bother with GENERIC_UNIT_VALIDATE_LOADED here, as the job logic validates that anyway */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_enqueue_job, GENERIC_UNIT_LOAD);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_enqueue_job, GENERIC_UNIT_LOAD);
 }
 
 static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -826,57 +861,63 @@ static int method_start_unit_replace(sd_bus_message *message, void *userdata, sd
 }
 
 static int method_kill_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        /* We don't bother with GENERIC_UNIT_LOAD nor GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
-         * matter whether a unit is loaded for killing any processes possibly in the unit's cgroup. */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_kill, 0);
+        /* We don't bother with GENERIC_UNIT_LOAD or GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
+         * matter whether a unit is loaded for killing any processes in the unit's cgroup. */
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_kill, /* flags = */ 0);
+}
+
+static int method_kill_unit_subgroup(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        /* We don't bother with GENERIC_UNIT_LOAD or GENERIC_UNIT_VALIDATE_LOADED here, as it shouldn't
+         * matter whether a unit is loaded for killing any processes in the unit's cgroup. */
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_kill_subgroup, /* flags = */ 0);
 }
 
 static int method_clean_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Load the unit if necessary, in order to load it, and insist on the unit being loaded to be
          * cleaned */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_clean, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_clean, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_freeze_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only active units can be frozen, which must be properly loaded already */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_freeze, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_freeze, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_thaw_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Same as freeze above */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_thaw, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_thaw, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_reset_failed_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Don't load the unit (because unloaded units can't be in failed state), and don't insist on the
          * unit to be loaded properly (since a failed unit might have its unit file disappeared) */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_reset_failed, 0);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_reset_failed, /* flags = */ 0);
 }
 
 static int method_set_unit_properties(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only change properties on fully loaded units, and load them in order to set properties */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_set_properties, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_set_properties, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_bind_mount_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only add mounts on fully loaded units */
-        return method_generic_unit_operation(message, userdata, error, bus_service_method_bind_mount, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, UNIT_SERVICE, bus_service_method_bind_mount, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_mount_image_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only add mounts on fully loaded units */
-        return method_generic_unit_operation(message, userdata, error, bus_service_method_mount_image, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, UNIT_SERVICE, bus_service_method_mount_image, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_ref_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Only allow reffing of fully loaded units, and make sure reffing a unit loads it. */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_ref, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_ref, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_unref_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Dropping a ref OTOH should not require the unit to still be loaded. And since a reffed unit is a
          * loaded unit there's no need to load the unit for unreffing it. */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_unref, 0);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_unref, /* flags = */ 0);
 }
 
 static int reply_unit_info(sd_bus_message *reply, Unit *u) {
@@ -948,27 +989,27 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_get_unit_processes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Don't load a unit actively (since it won't have any processes if it's not loaded), but don't
          * insist on the unit being loaded either (because even improperly loaded units might still have
          * processes around). */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_get_processes, /* flags = */ 0);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_get_processes, /* flags = */ 0);
 }
 
 static int method_attach_processes_to_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Don't allow attaching new processes to units that aren't loaded. Don't bother with loading a unit
          * for this purpose though, as an unloaded unit is a stopped unit, and we don't allow attaching
          * processes to stopped units anyway. */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_attach_processes, GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_attach_processes, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_remove_subgroup_from_unit(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         /* Don't allow removal of subgroups from units that aren't loaded. But allow loading the unit, since
          * this is clean-up work, that is OK to do when the unit is stopped already. */
-        return method_generic_unit_operation(message, userdata, error, bus_unit_method_remove_subgroup, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
+        return method_generic_unit_operation(message, userdata, error, _UNIT_TYPE_INVALID, bus_unit_method_remove_subgroup, GENERIC_UNIT_LOAD|GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int transient_unit_from_message(
@@ -989,7 +1030,7 @@ static int transient_unit_from_message(
         t = unit_name_to_type(name);
         if (t < 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid unit name or type.");
+                                         "Invalid unit name or type: %s", name);
 
         if (!unit_vtable[t]->can_transient)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
@@ -1246,7 +1287,7 @@ static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_e
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_list_units(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1329,7 +1370,7 @@ static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_subscribe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1501,23 +1542,14 @@ static void log_caller(sd_bus_message *message, Manager *manager, const char *me
         assert(manager);
         assert(method);
 
-        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT|SD_BUS_CREDS_COMM, &creds) < 0)
+        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT, &creds) < 0)
                 return;
 
         /* We need at least the PID, otherwise there's nothing to log, the rest is optional. */
         if (bus_creds_get_pidref(creds, &pidref) < 0)
                 return;
 
-        const char *comm = NULL;
-        Unit *caller;
-
-        (void) sd_bus_creds_get_comm(creds, &comm);
-        caller = manager_get_unit_by_pidref(manager, &pidref);
-
-        log_notice("%s requested from client PID " PID_FMT "%s%s%s%s%s%s...",
-                   method, pidref.pid,
-                   comm ? " ('" : "", strempty(comm), comm ? "')" : "",
-                   caller ? " (unit " : "", caller ? caller->id : "", caller ? ")" : "");
+        manager_log_caller(manager, &pidref, method);
 }
 
 static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1542,9 +1574,9 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
                 log_warning("Reloading request rejected due to rate limit.");
-                return sd_bus_error_setf(error,
-                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
-                                         "Reload() request rejected due to rate limit.");
+                return sd_bus_error_set(error,
+                                        SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Reload() request rejected due to rate limit.");
         }
 
         /* Instead of sending the reply back right away, we just
@@ -1552,8 +1584,9 @@ static int method_reload(sd_bus_message *message, void *userdata, sd_bus_error *
          * is finished. That way the caller knows when the reload
          * finished. */
 
-        assert(!m->pending_reload_message);
-        r = sd_bus_message_new_method_return(message, &m->pending_reload_message);
+        assert(!m->pending_reload_message_dbus);
+        assert(!m->pending_reload_message_vl);
+        r = sd_bus_message_new_method_return(message, &m->pending_reload_message_dbus);
         if (r < 0)
                 return r;
 
@@ -1584,9 +1617,9 @@ static int method_reexecute(sd_bus_message *message, void *userdata, sd_bus_erro
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&m->reload_reexec_ratelimit)) {
                 log_warning("Reexecution request rejected due to rate limit.");
-                return sd_bus_error_setf(error,
-                                         SD_BUS_ERROR_LIMITS_EXCEEDED,
-                                         "Reexecute() request rejected due to rate limit.");
+                return sd_bus_error_set(error,
+                                        SD_BUS_ERROR_LIMITS_EXCEEDED,
+                                        "Reexecute() request rejected due to rate limit.");
         }
 
         /* We don't send a reply back here, the client should
@@ -1883,8 +1916,8 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
                 return r;
 
         if (!strv_env_name_or_assignment_is_valid(minus))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid environment variable names or assignments");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Invalid environment variable names or assignments");
 
         r = bus_verify_set_environment_async(m, message, error);
         if (r < 0)
@@ -1919,11 +1952,11 @@ static int method_unset_and_set_environment(sd_bus_message *message, void *userd
                 return r;
 
         if (!strv_env_name_or_assignment_is_valid(minus))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid environment variable names or assignments");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Invalid environment variable names or assignments");
         if (!strv_env_is_valid(plus))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Invalid environment assignments");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Invalid environment assignments");
 
         r = bus_verify_set_environment_async(m, message, error);
         if (r < 0)
@@ -1971,8 +2004,8 @@ static int method_lookup_dynamic_user_by_name(sd_bus_message *message, void *use
                 return r;
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Dynamic users are only supported in the system instance.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Dynamic users are only supported in the system instance.");
         if (!valid_user_group_name(name, VALID_USER_RELAX))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "User name invalid: %s", name);
@@ -2001,8 +2034,8 @@ static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *user
                 return r;
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Dynamic users are only supported in the system instance.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Dynamic users are only supported in the system instance.");
         if (!uid_is_valid(uid))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "User ID invalid: " UID_FMT, uid);
@@ -2028,8 +2061,8 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
         if (!MANAGER_IS_SYSTEM(m))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
-                                         "Dynamic users are only supported in the system instance.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                        "Dynamic users are only supported in the system instance.");
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -2046,8 +2079,8 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
                 if (r == -EAGAIN) /* not realized yet? */
                         continue;
                 if (r < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED,
-                                                 "Failed to look up a dynamic user.");
+                        return sd_bus_error_set(error, SD_BUS_ERROR_FAILED,
+                                                "Failed to look up a dynamic user.");
 
                 r = sd_bus_message_append(reply, "(us)", uid, d->name);
                 if (r < 0)
@@ -2058,7 +2091,7 @@ static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2126,7 +2159,7 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *error, char **states, char **patterns) {
@@ -2166,7 +2199,7 @@ static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2229,7 +2262,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
 
         r = unit_file_get_default(m->runtime_scope, NULL, &default_target);
         if (r == -ERFKILL)
-                sd_bus_error_setf(error, BUS_ERROR_UNIT_MASKED, "Unit file is masked.");
+                return sd_bus_error_set(error, BUS_ERROR_UNIT_MASKED, "Default target unit file is masked.");
         if (r < 0)
                 return r;
 
@@ -2357,7 +2390,7 @@ static int reply_install_changes_and_free(
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_enable_unit_files_generic(
@@ -2735,7 +2768,7 @@ static int method_get_unit_file_links(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_get_job_waiting(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2815,7 +2848,7 @@ static int method_set_show_status(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_dump_unit_descriptor_store(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return method_generic_unit_operation(message, userdata, error, bus_service_method_dump_file_descriptor_store, 0);
+        return method_generic_unit_operation(message, userdata, error, UNIT_SERVICE, bus_service_method_dump_file_descriptor_store, GENERIC_UNIT_VALIDATE_LOADED);
 }
 
 static int method_start_aux_scope(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -2858,6 +2891,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("NJobs", "u", property_get_hashmap_size, offsetof(Manager, jobs), 0),
         SD_BUS_PROPERTY("NInstalledJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_installed_jobs), 0),
         SD_BUS_PROPERTY("NFailedJobs", "u", bus_property_get_unsigned, offsetof(Manager, n_failed_jobs), 0),
+        SD_BUS_PROPERTY("TransactionsWithOrderingCycle", "at", property_get_transactions_with_cycle, 0, 0),
         SD_BUS_PROPERTY("Progress", "d", property_get_progress, 0, 0),
         SD_BUS_PROPERTY("Environment", "as", property_get_environment, 0, 0),
         SD_BUS_PROPERTY("ConfirmSpawn", "b", bus_property_get_bool, offsetof(Manager, confirm_spawn), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -2932,6 +2966,7 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, defaults.oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("DefaultRestrictSUIDSGID", "b", bus_property_get_bool, offsetof(Manager, defaults.restrict_suid_sgid), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("CtrlAltDelBurstAction", "s", bus_property_get_emergency_action, offsetof(Manager, cad_burst_action), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SoftRebootsCount", "u", bus_property_get_unsigned, offsetof(Manager, soft_reboots_count), SD_BUS_VTABLE_PROPERTY_CONST),
 
@@ -3024,6 +3059,11 @@ const sd_bus_vtable bus_manager_vtable[] = {
                                 SD_BUS_ARGS("s", name, "s", whom, "i", signal),
                                 SD_BUS_NO_RESULT,
                                 method_kill_unit,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("KillUnitSubgroup",
+                                SD_BUS_ARGS("s", name, "s", whom, "s", subgroup, "i", signal),
+                                SD_BUS_NO_RESULT,
+                                method_kill_unit_subgroup,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("QueueSignalUnit",
                                 SD_BUS_ARGS("s", name, "s", whom, "i", signal, "i", value),

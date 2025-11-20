@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+/* IWYU pragma: always_keep */
+
+#include "sd-forward.h"         /* IWYU pragma: export */
 
 typedef enum BusAuth BusAuth;
 typedef enum BusSlotType BusSlotType;

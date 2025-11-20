@@ -76,12 +76,12 @@ static PartitionPolicyFlags partition_policy_normalized_flags(const PartitionPol
 
         /* If this is a verity or verity signature designator, then mask off all protection bits, this after
          * all needs no protection, because it *is* the protection */
-        if (partition_verity_to_data(policy->designator) >= 0 ||
+        if (partition_verity_hash_to_data(policy->designator) >= 0 ||
             partition_verity_sig_to_data(policy->designator) >= 0)
                 flags &= ~(PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ENCRYPTED);
 
         /* if this designator has no verity concept, then mask off verity protection flags */
-        if (partition_verity_of(policy->designator) < 0)
+        if (partition_verity_hash_of(policy->designator) < 0)
                 flags &= ~(PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED);
 
         /* If the partition must be absent, then the gpt flags don't matter */
@@ -110,7 +110,7 @@ PartitionPolicyFlags image_policy_get(const ImagePolicy *policy, PartitionDesign
         /* Hmm, so this didn't work, then let's see if we can derive some policy from the underlying data
          * partition in case of verity/signature partitions */
 
-        data_designator = partition_verity_to_data(designator);
+        data_designator = partition_verity_hash_to_data(designator);
         if (data_designator >= 0) {
                 PartitionPolicyFlags data_flags;
 

@@ -199,10 +199,15 @@ int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname) {
         assert_return(lease, -EINVAL);
         assert_return(hostname, -EINVAL);
 
-        if (!lease->hostname)
+        /* FQDN option (81) always takes precedence. */
+
+        if (lease->fqdn)
+                *hostname = lease->fqdn;
+        else if (lease->hostname)
+                *hostname = lease->hostname;
+        else
                 return -ENODATA;
 
-        *hostname = lease->hostname;
         return 0;
 }
 
@@ -422,6 +427,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         free(lease->router);
         free(lease->timezone);
         free(lease->hostname);
+        free(lease->fqdn);
         free(lease->domainname);
         free(lease->captive_portal);
 
@@ -475,18 +481,18 @@ static int lease_parse_be32(const uint8_t *option, size_t len, be32_t *ret) {
         return 0;
 }
 
-static int lease_parse_domain(const uint8_t *option, size_t len, char **ret) {
+static int lease_parse_domain(const uint8_t *option, size_t len, char **domain) {
         _cleanup_free_ char *name = NULL, *normalized = NULL;
         int r;
 
         assert(option);
-        assert(ret);
+        assert(domain);
 
         r = dhcp_option_parse_string(option, len, &name);
         if (r < 0)
                 return r;
         if (!name) {
-                *ret = mfree(*ret);
+                *domain = mfree(*domain);
                 return 0;
         }
 
@@ -500,59 +506,104 @@ static int lease_parse_domain(const uint8_t *option, size_t len, char **ret) {
         if (dns_name_is_root(normalized))
                 return -EINVAL;
 
-        free_and_replace(*ret, normalized);
-
-        return 0;
+        return free_and_replace(*domain, normalized);
 }
 
-static int lease_parse_captive_portal(const uint8_t *option, size_t len, char **ret) {
-        _cleanup_free_ char *uri = NULL;
+static int lease_parse_fqdn(const uint8_t *option, size_t len, char **fqdn) {
+        _cleanup_free_ char *name = NULL, *normalized = NULL;
         int r;
 
         assert(option);
-        assert(ret);
+        assert(fqdn);
 
-        r = dhcp_option_parse_string(option, len, &uri);
-        if (r < 0)
-                return r;
-        if (uri && !in_charset(uri, URI_VALID))
-                return -EINVAL;
+        /* RFC 4702 Section 2
+         *
+         * Byte 0: Flags (S: server should perform A RR updates, O: override existing A RR,
+         *                E: encoding (0=ASCII, 1=Wire format), N: no server updates)
+         * Byte 1: RCODE1 (ignored on receipt)
+         * Byte 2: RCODE2 (ignored on receipt)
+         * Bytes 3+: Domain Name */
 
-        return free_and_replace(*ret, uri);
-}
+        if (len <= 3)
+                return -EBADMSG;
 
-static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_addr **ret, size_t *n_ret) {
-        assert(option || len == 0);
-        assert(ret);
-        assert(n_ret);
+        size_t data_len = len - 3;
+        const uint8_t *data = option + 3;
 
-        if (len <= 0) {
-                *ret = mfree(*ret);
-                *n_ret = 0;
-        } else {
-                size_t n_addresses;
-                struct in_addr *addresses;
+        /* In practice, many servers send DNS wire format regardless of the E flag, so ignore and try wire
+         * format first, then fall back to ASCII if that fails. */
+        r = dns_name_from_wire_format(&data, &data_len, &name);
+        if (r < 0) {
+                if (FLAGS_SET(option[0], DHCP_FQDN_FLAG_E))
+                        return -EBADMSG;
 
-                if (len % 4 != 0)
-                        return -EINVAL;
-
-                n_addresses = len / 4;
-
-                addresses = newdup(struct in_addr, option, n_addresses);
-                if (!addresses)
-                        return -ENOMEM;
-
-                free_and_replace(*ret, addresses);
-                *n_ret = n_addresses;
+                /* Wire format failed, try ASCII format */
+                r = dhcp_option_parse_string(option + 3, len - 3, &name);
+                if (r < 0)
+                        return r;
         }
 
-        return 0;
+        if (!name) {
+                *fqdn = mfree(*fqdn);
+                return 0;
+        }
+
+        r = dns_name_normalize(name, 0, &normalized);
+        if (r < 0)
+                return r;
+
+        if (is_localhost(normalized))
+                return -EINVAL;
+
+        if (dns_name_is_root(normalized))
+                return -EINVAL;
+
+        return free_and_replace(*fqdn, normalized);
 }
 
-static int lease_parse_sip_server(const uint8_t *option, size_t len, struct in_addr **ret, size_t *n_ret) {
+static int lease_parse_captive_portal(const uint8_t *option, size_t len, char **uri) {
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert(option);
+        assert(uri);
+
+        r = dhcp_option_parse_string(option, len, &s);
+        if (r < 0)
+                return r;
+        if (s && !in_charset(s, URI_VALID))
+                return -EINVAL;
+
+        return free_and_replace(*uri, s);
+}
+
+static int lease_parse_in_addrs(const uint8_t *option, size_t len, struct in_addr **addresses, size_t *n_addresses) {
         assert(option || len == 0);
-        assert(ret);
-        assert(n_ret);
+        assert(addresses);
+        assert(n_addresses);
+
+        if (len <= 0) {
+                *n_addresses = 0;
+                *addresses = mfree(*addresses);
+                return 0;
+        }
+
+        if (len % 4 != 0)
+                return -EINVAL;
+
+        size_t n = len / 4;
+        struct in_addr *a = newdup(struct in_addr, option, n);
+        if (!a)
+                return -ENOMEM;
+
+        *n_addresses = n;
+        return free_and_replace(*addresses, a);
+}
+
+static int lease_parse_sip_server(const uint8_t *option, size_t len, struct in_addr **sips, size_t *n_sips) {
+        assert(option || len == 0);
+        assert(sips);
+        assert(n_sips);
 
         if (len <= 0)
                 return -EINVAL;
@@ -562,12 +613,12 @@ static int lease_parse_sip_server(const uint8_t *option, size_t len, struct in_a
          * the other fields */
 
         if (option[0] != 1) { /* We only support IP address encoding for now */
-                *ret = mfree(*ret);
-                *n_ret = 0;
+                *sips = mfree(*sips);
+                *n_sips = 0;
                 return 0;
         }
 
-        return lease_parse_in_addrs(option + 1, len - 1, ret, n_ret);
+        return lease_parse_in_addrs(option + 1, len - 1, sips, n_sips);
 }
 
 static int lease_parse_dns_name(const uint8_t *optval, size_t optlen, char **ret) {
@@ -587,14 +638,15 @@ static int lease_parse_dns_name(const uint8_t *optval, size_t optlen, char **ret
         return r;
 }
 
-static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **ret_dnr, size_t *ret_n_dnr) {
+static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **dnr, size_t *n_dnr) {
         int r;
         sd_dns_resolver *res_list = NULL;
         size_t n_resolvers = 0;
         CLEANUP_ARRAY(res_list, n_resolvers, dns_resolver_done_many);
 
         assert(option || len == 0);
-        assert(ret_dnr);
+        assert(dnr);
+        assert(n_dnr);
 
         _cleanup_(sd_dns_resolver_done) sd_dns_resolver res = {};
 
@@ -693,11 +745,11 @@ static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **
                 res_list[n_resolvers++] = TAKE_STRUCT(res);
         }
 
-        typesafe_qsort(*ret_dnr, *ret_n_dnr, dns_resolver_prio_compare);
+        typesafe_qsort(res_list, n_resolvers, dns_resolver_prio_compare);
 
-        dns_resolver_done_many(*ret_dnr, *ret_n_dnr);
-        *ret_dnr = TAKE_PTR(res_list);
-        *ret_n_dnr = n_resolvers;
+        dns_resolver_done_many(*dnr, *n_dnr);
+        *dnr = TAKE_PTR(res_list);
+        *n_dnr = n_resolvers;
 
         return n_resolvers;
 }
@@ -970,6 +1022,15 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 r = lease_parse_domain(option, len, &lease->hostname);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to parse hostname, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
+        case SD_DHCP_OPTION_FQDN:
+                r = lease_parse_fqdn(option, len, &lease->fqdn);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse FQDN, ignoring: %m");
                         return 0;
                 }
 

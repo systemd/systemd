@@ -5,16 +5,16 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "bitmap.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-rr.h"
 #include "format-ifname.h"
 #include "log.h"
 #include "prioq.h"
 #include "resolve-util.h"
-#include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-rr.h"
 #include "string-util.h"
 #include "time-util.h"
 
@@ -1022,7 +1022,7 @@ static int answer_add_clamp_ttl(
                 }
         }
 
-        r = dns_answer_add_extend(answer, rr, ifindex, answer_flags, rrsig);
+        r = dns_answer_add_extend_full(answer, rr, ifindex, answer_flags, rrsig, until);
         if (r < 0)
                 return r;
 

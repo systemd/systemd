@@ -36,9 +36,7 @@ static char* format_uids(char **buf, uid_t* uids, int count) {
         return *buf;
 }
 
-static const char *e(int r) {
-        return r == 0 ? "OK" : errno_to_name(r);
-}
+#define e(r) (r == 0 ? "OK" : ERRNO_NAME(r))
 
 TEST(login) {
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
@@ -329,8 +327,8 @@ TEST(monitor) {
 }
 
 static int intro(void) {
-        if (IN_SET(cg_unified(), -ENOENT, -ENOMEDIUM))
-                return log_tests_skipped("cgroupfs is not mounted");
+        if (cg_is_available() <= 0)
+                return log_tests_skipped("cgroupfs v2 is not mounted");
 
         log_info("/* Information printed is from the live system */");
         return EXIT_SUCCESS;

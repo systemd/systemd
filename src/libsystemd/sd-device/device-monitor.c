@@ -412,13 +412,13 @@ _public_ int sd_device_monitor_attach_event(sd_device_monitor *m, sd_event *even
         return 0;
 }
 
-_public_ sd_event *sd_device_monitor_get_event(sd_device_monitor *m) {
+_public_ sd_event* sd_device_monitor_get_event(sd_device_monitor *m) {
         assert_return(m, NULL);
 
         return m->event;
 }
 
-_public_ sd_event_source *sd_device_monitor_get_event_source(sd_device_monitor *m) {
+_public_ sd_event_source* sd_device_monitor_get_event_source(sd_device_monitor *m) {
         assert_return(m, NULL);
 
         return m->event_source;
@@ -447,7 +447,7 @@ _public_ int sd_device_monitor_get_description(sd_device_monitor *m, const char 
         return 0;
 }
 
-static sd_device_monitor *device_monitor_free(sd_device_monitor *m) {
+static sd_device_monitor* device_monitor_free(sd_device_monitor *m) {
         assert(m);
 
         (void) sd_device_monitor_detach_event(m);

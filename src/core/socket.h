@@ -66,6 +66,14 @@ typedef enum SocketTimestamping {
         _SOCKET_TIMESTAMPING_INVALID = -EINVAL,
 } SocketTimestamping;
 
+typedef enum SocketDeferTrigger {
+        SOCKET_DEFER_NO,
+        SOCKET_DEFER_YES,
+        SOCKET_DEFER_PATIENT,
+        _SOCKET_DEFER_MAX,
+        _SOCKET_DEFER_INVALID = -EINVAL,
+} SocketDeferTrigger;
+
 typedef struct Socket {
         Unit meta;
 
@@ -86,7 +94,7 @@ typedef struct Socket {
         usec_t keep_alive_interval;
         usec_t defer_accept;
 
-        ExecCommand* exec_command[_SOCKET_EXEC_COMMAND_MAX];
+        ExecCommand *exec_command[_SOCKET_EXEC_COMMAND_MAX];
         ExecContext exec_context;
         KillContext kill_context;
         CGroupContext cgroup_context;
@@ -103,9 +111,11 @@ typedef struct Socket {
 
         sd_event_source *timer_event_source;
 
-        ExecCommand* control_command;
+        ExecCommand *control_command;
         SocketExecCommand control_command_id;
         PidRef control_pid;
+
+        bool pass_fds_to_exec;
 
         mode_t directory_mode;
         mode_t socket_mode;
@@ -129,9 +139,10 @@ typedef struct Socket {
         bool transparent;
         bool broadcast;
         bool pass_cred;
-        bool pass_fds_to_exec;
+        bool pass_pidfd;
         bool pass_sec;
         bool pass_pktinfo;
+        bool pass_rights;
         SocketTimestamping timestamping;
 
         /* Only for INET6 sockets: issue IPV6_V6ONLY sockopt */
@@ -162,6 +173,9 @@ typedef struct Socket {
 
         RateLimit trigger_limit;
         RateLimit poll_limit;
+
+        usec_t defer_trigger_max_usec;
+        SocketDeferTrigger defer_trigger;
 } Socket;
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
@@ -201,5 +215,8 @@ SocketType socket_port_type_from_string(const char *p) _pure_;
 const char* socket_timestamping_to_string(SocketTimestamping p) _const_;
 SocketTimestamping socket_timestamping_from_string(const char *p) _pure_;
 SocketTimestamping socket_timestamping_from_string_harder(const char *p) _pure_;
+
+const char* socket_defer_trigger_to_string(SocketDeferTrigger i) _const_;
+SocketDeferTrigger socket_defer_trigger_from_string(const char *s) _pure_;
 
 DEFINE_CAST(SOCKET, Socket);

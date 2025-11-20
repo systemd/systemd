@@ -4,5 +4,5 @@ Description=Issue 14566 Repro
 
 [Service]
 ExecStart=/usr/lib/systemd/tests/testdata/TEST-07-PID1.units/%N.sh
-ExecStopPost=/bin/true
+ExecStopPost=true
 KillMode=mixed

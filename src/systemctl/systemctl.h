@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 enum action {
         ACTION_SYSTEMCTL,
@@ -16,16 +16,11 @@ enum action {
         ACTION_HIBERNATE,
         ACTION_HYBRID_SLEEP,
         ACTION_SUSPEND_THEN_HIBERNATE,
-        ACTION_RUNLEVEL2,
-        ACTION_RUNLEVEL3,
-        ACTION_RUNLEVEL4,
-        ACTION_RUNLEVEL5,
         ACTION_RESCUE,
         ACTION_EMERGENCY,
         ACTION_DEFAULT,
         ACTION_RELOAD,
         ACTION_REEXEC,
-        ACTION_RUNLEVEL,
         ACTION_CANCEL_SHUTDOWN,
         ACTION_SHOW_SHUTDOWN,
         ACTION_SYSTEMCTL_SHOW_SHUTDOWN,
@@ -100,6 +95,7 @@ extern bool arg_mkdir;
 extern bool arg_marked;
 extern const char *arg_drop_in;
 extern ImagePolicy *arg_image_policy;
+extern char *arg_kill_subgroup;
 
 static inline const char* arg_job_mode(void) {
         return _arg_job_mode ?: "replace";

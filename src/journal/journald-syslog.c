@@ -7,6 +7,7 @@
 #include "sd-messages.h"
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "iovec-util.h"
@@ -126,7 +127,7 @@ static void forward_syslog_raw(
         assert(m);
         assert(buffer);
 
-        if (LOG_PRI(priority) > m->max_level_syslog)
+        if (LOG_PRI(priority) > m->config.max_level_syslog)
                 return;
 
         iovec = IOVEC_MAKE((char *) buffer, buffer_len);
@@ -153,7 +154,7 @@ void manager_forward_syslog(
         assert(priority <= 999);
         assert(message);
 
-        if (LOG_PRI(priority) > m->max_level_syslog)
+        if (LOG_PRI(priority) > m->config.max_level_syslog)
                 return;
 
         /* First: priority field */
@@ -391,9 +392,6 @@ void manager_process_syslog_message(
         if (!client_context_test_priority(context, priority))
                 return;
 
-        if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
-                return;
-
         syslog_ts = msg;
         syslog_ts_len = syslog_skip_timestamp(&msg);
         if (syslog_ts_len == 0)
@@ -402,16 +400,19 @@ void manager_process_syslog_message(
 
         syslog_parse_identifier(&msg, &identifier, &pid);
 
-        if (m->forward_to_syslog)
+        if (client_context_check_keep_log(context, msg, strlen(msg)) <= 0)
+                return;
+
+        if (m->config.forward_to_syslog)
                 forward_syslog_raw(m, priority, buf, raw_len, ucred, tv);
 
-        if (m->forward_to_kmsg)
+        if (m->config.forward_to_kmsg)
                 manager_forward_kmsg(m, priority, identifier, msg, ucred);
 
-        if (m->forward_to_console)
+        if (m->config.forward_to_console)
                 manager_forward_console(m, priority, identifier, msg, ucred);
 
-        if (m->forward_to_wall)
+        if (m->config.forward_to_wall)
                 manager_forward_wall(m, priority, identifier, msg, ucred);
 
         mm = N_IOVEC_META_FIELDS + 8 + client_context_extra_fields_n_iovec(context);
@@ -503,17 +504,22 @@ int manager_open_syslog_socket(Manager *m, const char *syslog_socket) {
 
         r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_error_errno(r, "SO_PASSCRED failed: %m");
+                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
+
+        r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSRIGHTS, false);
+        if (r < 0)
+                log_debug_errno(r, "Failed to turn off SO_PASSRIGHTS, ignoring: %m");
 
         if (mac_selinux_use()) {
                 r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_warning_errno(r, "SO_PASSSEC failed: %m");
+                        log_full_errno(ERRNO_IS_NEG_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Failed to enable SO_PASSSEC, ignoring: %m");
         }
 
         r = setsockopt_int(m->syslog_fd, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)
-                return log_error_errno(r, "SO_TIMESTAMP failed: %m");
+                return log_error_errno(r, "Failed to enable SO_TIMESTAMP: %m");
 
         r = sd_event_add_io(m->event, &m->syslog_event_source, m->syslog_fd, EPOLLIN, manager_process_datagram, m);
         if (r < 0)

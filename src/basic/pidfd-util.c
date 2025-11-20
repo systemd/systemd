@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/fs.h>
+#include <linux/magic.h>
 #include <sys/ioctl.h>
 #include <threads.h>
 #include <unistd.h>
@@ -7,8 +9,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
-#include "missing_fs.h"
-#include "missing_magic.h"
 #include "mountpoint-util.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
@@ -16,6 +16,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "unaligned.h"
 
 static thread_local int have_pidfs = -1;
 
@@ -55,7 +56,7 @@ int pidfd_get_namespace(int fd, unsigned long ns_type_cmd) {
         if (have_pidfs == 0 || !cached_supported)
                 return -EOPNOTSUPP;
 
-        int nsfd = ioctl(fd, ns_type_cmd);
+        int nsfd = ioctl(fd, ns_type_cmd, 0);
         if (nsfd < 0) {
                 /* Kernel returns EOPNOTSUPP if the ns type in question is disabled. Hence we need to look
                  * at precise errno instead of generic ERRNO_IS_(IOCTL_)NOT_SUPPORTED. */
@@ -72,7 +73,7 @@ int pidfd_get_namespace(int fd, unsigned long ns_type_cmd) {
         return nsfd;
 }
 
-static int pidfd_get_info(int fd, struct pidfd_info *info) {
+int pidfd_get_info(int fd, struct pidfd_info *info) {
         static bool cached_supported = true;
 
         assert(fd >= 0);
@@ -248,7 +249,8 @@ int pidfd_get_inode_id_impl(int fd, uint64_t *ret) {
                 r = RET_NERRNO(name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH));
                 if (r >= 0) {
                         if (ret)
-                                *ret = *CAST_ALIGN_PTR(uint64_t, fh.file_handle.f_handle);
+                                /* Note, "struct file_handle" is 32bit aligned usually, but we need to read a 64bit value from it */
+                                *ret = unaligned_read_ne64(fh.file_handle.f_handle);
                         return 0;
                 }
                 assert(r != -EOVERFLOW);

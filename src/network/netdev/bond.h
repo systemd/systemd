@@ -2,7 +2,7 @@
 #pragma once
 
 #include "bond-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "netdev.h"
 
 typedef struct Bond {

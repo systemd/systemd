@@ -24,4 +24,5 @@ Type=notify
 RemainAfterExit=yes
 StandardInput=tty
 StandardOutput=tty
+TTYReset=yes
 ExecStart={{LIBEXECDIR}}/systemd-storagetm --all

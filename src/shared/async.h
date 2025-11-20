@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 /* These functions implement various potentially slow operations that are executed asynchronously. They are
  * carefully written to not use pthreads, but use fork() or clone() (without CLONE_VM) so that the child does

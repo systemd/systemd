@@ -16,7 +16,7 @@
 
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
-#include "bpf/restrict_ifaces/restrict-ifaces-skel.h"
+#include "bpf/restrict-ifaces/restrict-ifaces-skel.h"
 
 static struct restrict_ifaces_bpf *restrict_ifaces_bpf_free(struct restrict_ifaces_bpf *obj) {
         restrict_ifaces_bpf__destroy(obj);
@@ -115,7 +115,7 @@ static int restrict_ifaces_install_impl(Unit *u) {
         if (!crt)
                 return 0;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &cgroup_path);
+        r = cg_get_path(crt->cgroup_path, /* suffix = */ NULL, &cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "restrict-interfaces: Failed to get cgroup path: %m");
 
@@ -211,7 +211,7 @@ int bpf_restrict_ifaces_supported(void) {
 
 int bpf_restrict_ifaces_install(Unit *u) {
         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
-                        "restrict-interfaces: Failed to install; BPF programs built from source code are not supported: %m");
+                        "restrict-interfaces: Failed to install; BPF programs built from source code are not supported.");
 }
 
 int bpf_restrict_ifaces_serialize(Unit *u, FILE *f, FDSet *fds) {

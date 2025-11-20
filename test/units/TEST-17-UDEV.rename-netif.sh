@@ -174,9 +174,7 @@ EOF
     test -n "$found"
 
     journalctl --sync
-    set +o pipefail
     timeout -v 30 journalctl _PID=1 _COMM=systemd --since "$since" -n all --follow | grep -m 1 -q -F 'foobar: systemd-udevd failed to process the device, ignoring: File exists'
-    set -o pipefail
     # check if the invalid SYSTEMD_ALIAS property for the interface foobar is ignored by PID1
     assert_eq "$(systemctl show --property=SysFSPath --value /sys/subsystem/net/devices/hoge)" "/sys/devices/virtual/net/hoge"
 }

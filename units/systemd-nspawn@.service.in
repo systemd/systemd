@@ -29,6 +29,7 @@ Delegate=yes
 DelegateSubgroup=supervisor
 CoredumpReceive=yes
 TasksMax=16384
+TimeoutSec=2min
 {{SERVICE_WATCHDOG}}
 
 {# Enforce a strict device policy, similar to the one nspawn configures (in

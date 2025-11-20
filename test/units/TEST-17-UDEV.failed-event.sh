@@ -17,8 +17,8 @@ SUBSYSTEM!="mem", GOTO="test_end"
 KERNEL!="null", GOTO="test_end"
 
 OPTIONS="log_level=debug"
-PROGRAM=="/bin/touch /tmp/test-udev-marker"
-PROGRAM!="/bin/sleep 60", ENV{PROGRAM_RESULT}="KILLED"
+PROGRAM=="/usr/bin/touch /tmp/test-udev-marker"
+PROGRAM!="/usr/bin/sleep 60", ENV{PROGRAM_RESULT}="KILLED"
 
 LABEL="test_end"
 EOF

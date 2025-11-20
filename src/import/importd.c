@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "sd-bus.h"
 #include "sd-daemon.h"
@@ -31,6 +32,7 @@
 #include "notify-recv.h"
 #include "os-util.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "percent-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -99,7 +101,8 @@ typedef struct Transfer {
 
 typedef struct Manager {
         sd_event *event;
-        sd_bus *bus;
+        sd_bus *api_bus;
+        sd_bus *system_bus;
         sd_varlink_server *varlink_server;
 
         uint32_t current_transfer_id;
@@ -112,7 +115,7 @@ typedef struct Manager {
         bool use_btrfs_subvol;
         bool use_btrfs_quota;
 
-        RuntimeScope runtime_scope; /* for now: always RUNTIME_SCOPE_SYSTEM */
+        RuntimeScope runtime_scope;
 } Manager;
 
 #define TRANSFERS_MAX 64
@@ -128,8 +131,6 @@ static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
-
-DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(varlink_hash_ops, void, trivial_hash_func, trivial_compare_func, sd_varlink, sd_varlink_unref);
 
 static Transfer *transfer_unref(Transfer *t) {
         if (!t)
@@ -224,7 +225,7 @@ static void transfer_send_log_line(Transfer *t, const char *line) {
         log_full(priority, "(transfer%" PRIu32 ") %s", t->id, line);
 
         r = sd_bus_emit_signal(
-                        t->manager->bus,
+                        t->manager->api_bus,
                         t->object_path,
                         "org.freedesktop.import1.Transfer",
                         "LogMessage",
@@ -255,7 +256,7 @@ static void transfer_send_progress_update(Transfer *t) {
         double progress = transfer_percent_as_double(t);
 
         r = sd_bus_emit_signal(
-                        t->manager->bus,
+                        t->manager->api_bus,
                         t->object_path,
                         "org.freedesktop.import1.Transfer",
                         "ProgressUpdate",
@@ -336,7 +337,7 @@ static int transfer_finalize(Transfer *t, bool success) {
         transfer_send_logs(t, true);
 
         r = sd_bus_emit_signal(
-                        t->manager->bus,
+                        t->manager->api_bus,
                         "/org/freedesktop/import1",
                         "org.freedesktop.import1.Manager",
                         "TransferRemoved",
@@ -444,6 +445,7 @@ static int transfer_start(Transfer *t) {
                 const char *cmd[] = {
                         NULL, /* systemd-import, systemd-import-fs, systemd-export or systemd-pull */
                         NULL, /* tar, raw  */
+                        NULL, /* --system or --user */
                         NULL, /* --verify= */
                         NULL, /* verify argument */
                         NULL, /* --class= */
@@ -525,6 +527,8 @@ static int transfer_start(Transfer *t) {
                         ;
                 }
 
+                cmd[k++] = runtime_scope_cmdline_option_to_string(t->manager->runtime_scope);
+
                 if (t->verify != _IMPORT_VERIFY_INVALID) {
                         cmd[k++] = "--verify";
                         cmd[k++] = import_verify_to_string(t->verify);
@@ -603,7 +607,7 @@ static int transfer_start(Transfer *t) {
                 return r;
 
         r = sd_bus_emit_signal(
-                        t->manager->bus,
+                        t->manager->api_bus,
                         "/org/freedesktop/import1",
                         "org.freedesktop.import1.Manager",
                         "TransferNew",
@@ -631,7 +635,8 @@ static Manager *manager_unref(Manager *m) {
 
         hashmap_free(m->polkit_registry);
 
-        m->bus = sd_bus_flush_close_unref(m->bus);
+        m->api_bus = sd_bus_flush_close_unref(m->api_bus);
+        m->system_bus = sd_bus_flush_close_unref(m->system_bus);
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
 
         sd_event_unref(m->event);
@@ -682,7 +687,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         return 0;
 }
 
-static int manager_new(Manager **ret) {
+static int manager_new(RuntimeScope scope, Manager **ret) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
         int r;
 
@@ -695,7 +700,7 @@ static int manager_new(Manager **ret) {
         *m = (Manager) {
                 .use_btrfs_subvol = true,
                 .use_btrfs_quota = true,
-                .runtime_scope = RUNTIME_SCOPE_SYSTEM,
+                .runtime_scope = scope,
         };
 
         r = sd_event_default(&m->event);
@@ -712,7 +717,7 @@ static int manager_new(Manager **ret) {
 
         r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         r = sd_event_set_watchdog(m->event, true);
         if (r < 0)
@@ -720,11 +725,10 @@ static int manager_new(Manager **ret) {
 
         r = notify_socket_prepare(
                         m->event,
-                        SD_EVENT_PRIORITY_NORMAL,
+                        SD_EVENT_PRIORITY_NORMAL - 1, /* Make this processed before SIGCHLD. */
                         manager_on_notify,
                         m,
-                        &m->notify_socket_path,
-                        /* ret_event_source= */ NULL);
+                        &m->notify_socket_path);
         if (r < 0)
                 return r;
 
@@ -759,16 +763,18 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         assert(msg);
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        "org.freedesktop.import1.import",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = bus_verify_polkit_async(
+                                msg,
+                                "org.freedesktop.import1.import",
+                                /* details= */ NULL,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
@@ -860,16 +866,18 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
 
         assert(msg);
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        "org.freedesktop.import1.import",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = bus_verify_polkit_async(
+                                msg,
+                                "org.freedesktop.import1.import",
+                                /* details= */ NULL,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
@@ -958,16 +966,18 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         assert(msg);
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        "org.freedesktop.import1.export",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = bus_verify_polkit_async(
+                                msg,
+                                "org.freedesktop.import1.export",
+                                /* details= */ NULL,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
@@ -1056,16 +1066,18 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
 
         assert(msg);
 
-        r = bus_verify_polkit_async(
-                        msg,
-                        "org.freedesktop.import1.pull",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = bus_verify_polkit_async(
+                                msg,
+                                "org.freedesktop.import1.pull",
+                                /* details= */ NULL,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
@@ -1232,7 +1244,7 @@ static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
@@ -1333,13 +1345,9 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
              class < 0 ? (c < _IMAGE_CLASS_MAX) : (c == class);
              c++) {
 
-                _cleanup_hashmap_free_ Hashmap *h = NULL;
+                _cleanup_hashmap_free_ Hashmap *images = NULL;
 
-                h = hashmap_new(&image_hash_ops);
-                if (!h)
-                        return -ENOMEM;
-
-                r = image_discover(m->runtime_scope, c, /* root= */ NULL, h);
+                r = image_discover(m->runtime_scope, c, /* root= */ NULL, &images);
                 if (r < 0) {
                         if (class >= 0)
                                 return r;
@@ -1349,7 +1357,7 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
                 }
 
                 Image *i;
-                HASHMAP_FOREACH(i, h) {
+                HASHMAP_FOREACH(i, images) {
                         r = sd_bus_message_append(
                                         reply,
                                         "(ssssbtttttt)",
@@ -1357,7 +1365,7 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
                                         i->name,
                                         image_type_to_string(i->type),
                                         i->path,
-                                        i->read_only,
+                                        image_is_read_only(i),
                                         i->crtime,
                                         i->mtime,
                                         i->usage,
@@ -1373,7 +1381,7 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        return sd_bus_send(NULL, reply, NULL);
+        return sd_bus_message_send(reply);
 }
 
 static int property_get_progress(
@@ -1708,27 +1716,42 @@ static int manager_connect_bus(Manager *m) {
 
         assert(m);
         assert(m->event);
-        assert(!m->bus);
+        assert(!m->system_bus);
+        assert(!m->api_bus);
 
-        r = bus_open_system_watch_bind(&m->bus);
+        r = bus_open_system_watch_bind(&m->system_bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = bus_add_implementation(m->bus, &manager_object, m);
+        r = sd_bus_attach_event(m->system_bus, m->event, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach system bus to event loop: %m");
+
+        if (m->runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                m->api_bus = sd_bus_ref(m->system_bus);
+        else {
+                assert(m->runtime_scope == RUNTIME_SCOPE_USER);
+
+                r = sd_bus_default_user(&m->api_bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get user bus connection: %m");
+
+                r = sd_bus_attach_event(m->api_bus, m->event, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to attach user bus to event loop: %m");
+        }
+
+        r = bus_add_implementation(m->api_bus, &manager_object, m);
         if (r < 0)
                 return r;
 
-        r = bus_log_control_api_register(m->bus);
+        r = bus_log_control_api_register(m->api_bus);
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(m->bus, NULL, "org.freedesktop.import1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(m->api_bus, NULL, "org.freedesktop.import1", 0, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
-
-        r = sd_bus_attach_event(m->bus, m->event, 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
         return 0;
 }
@@ -1873,19 +1896,21 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (manager_find(m, tt, p.remote))
                 return sd_varlink_errorbo(link, "io.systemd.Import.AlreadyInProgress", SD_JSON_BUILD_PAIR_STRING("remote", p.remote));
 
-        r = varlink_verify_polkit_async(
-                        link,
-                        m->bus,
-                        "org.freedesktop.import1.pull",
-                        (const char**) STRV_MAKE(
-                                        "remote", p.remote,
-                                        "local",  p.local,
-                                        "class",  image_class_to_string(p.class),
-                                        "type",   import_type_to_string(p.type),
-                                        "verify", import_verify_to_string(p.verify)),
-                        &m->polkit_registry);
-        if (r <= 0)
-                return r;
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = varlink_verify_polkit_async(
+                                link,
+                                m->system_bus,
+                                "org.freedesktop.import1.pull",
+                                (const char**) STRV_MAKE(
+                                                "remote", p.remote,
+                                                "local",  p.local,
+                                                "class",  image_class_to_string(p.class),
+                                                "type",   import_type_to_string(p.type),
+                                                "verify", import_verify_to_string(p.verify)),
+                                &m->polkit_registry);
+                if (r <= 0)
+                        return r;
+        }
 
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
 
@@ -1944,9 +1969,11 @@ static int manager_connect_varlink(Manager *m) {
         assert(m->event);
         assert(!m->varlink_server);
 
-        r = varlink_server_new(&m->varlink_server,
-                               SD_VARLINK_SERVER_ACCOUNT_UID|SD_VARLINK_SERVER_INHERIT_USERDATA,
-                               m);
+        r = varlink_server_new(
+                        &m->varlink_server,
+                        (m->runtime_scope != RUNTIME_SCOPE_USER ? SD_VARLINK_SERVER_ACCOUNT_UID : 0)|
+                        SD_VARLINK_SERVER_INHERIT_USERDATA,
+                        m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
@@ -1975,7 +2002,12 @@ static int manager_connect_varlink(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
         if (r == 0) {
-                r = sd_varlink_server_listen_address(m->varlink_server, "/run/systemd/io.systemd.Import", 0666);
+                _cleanup_free_ char *socket_path = NULL;
+                r = runtime_directory_generic(m->runtime_scope, "systemd/io.systemd.Import", &socket_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine socket path: %m");
+
+                r = sd_varlink_server_listen_address(m->varlink_server, socket_path, runtime_scope_to_socket_mode(m->runtime_scope) | SD_VARLINK_SERVER_MODE_MKDIR_0755);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind to Varlink socket: %m");
         }
@@ -2015,6 +2047,7 @@ static void manager_parse_env(Manager *m) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_unrefp) Manager *m = NULL;
+        RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
 
         log_setup();
@@ -2023,6 +2056,7 @@ static int run(int argc, char *argv[]) {
                                "VM and container image import and export service.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
+                               &scope,
                                argc, argv);
         if (r <= 0)
                 return r;
@@ -2031,7 +2065,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
-        r = manager_new(&m);
+        r = manager_new(scope, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate manager object: %m");
 
@@ -2051,7 +2085,7 @@ static int run(int argc, char *argv[]) {
 
         r = bus_event_loop_with_idle(
                         m->event,
-                        m->bus,
+                        m->api_bus,
                         "org.freedesktop.import1",
                         DEFAULT_EXIT_USEC,
                         manager_check_idle,

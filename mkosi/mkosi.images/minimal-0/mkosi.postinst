@@ -8,4 +8,7 @@ cat >>"$BUILDROOT/usr/lib/os-release" <<EOF
 MARKER=1
 PORTABLE_PREFIXES=app0 minimal minimal-app0
 EOF
+if [ ! -L "$BUILDROOT/etc/os-release" ]; then
+    cp "$BUILDROOT/usr/lib/os-release" "$BUILDROOT/etc/os-release"
+fi
 cp "$BUILDROOT/usr/lib/systemd/system/minimal-app0.service" "$BUILDROOT/usr/lib/systemd/system/minimal-app0-foo.service"

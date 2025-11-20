@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <locale.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "ansi-color.h"
@@ -34,9 +35,11 @@ static bool arg_btrfs_subvol = true;
 static bool arg_btrfs_quota = true;
 static bool arg_sync = true;
 static bool arg_direct = false;
-static const char *arg_image_root = NULL;
+static char *arg_image_root = NULL;
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
+
+STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
 
 typedef struct ProgressInfo {
         RateLimit limit;
@@ -44,6 +47,7 @@ typedef struct ProgressInfo {
         uint64_t size;
         bool started;
         bool logged_incomplete;
+        uint64_t bps;
 } ProgressInfo;
 
 static void progress_info_free(ProgressInfo *p) {
@@ -71,8 +75,10 @@ static void progress_show(ProgressInfo *p) {
 
         if (p->size == 0)
                 log_info("Copying tree, currently at '%s'...", p->path);
-        else
+        else if (p->bps == UINT64_MAX)
                 log_info("Copying tree, currently at '%s' (@%s)...", p->path, FORMAT_BYTES(p->size));
+        else
+                log_info("Copying tree, currently at '%s' (@%s, %s/s)...", p->path, FORMAT_BYTES(p->size), FORMAT_BYTES(p->bps));
 }
 
 static int progress_path(const char *path, const struct stat *st, void *userdata) {
@@ -89,12 +95,13 @@ static int progress_path(const char *path, const struct stat *st, void *userdata
         return 0;
 }
 
-static int progress_bytes(uint64_t nbytes, void *userdata) {
+static int progress_bytes(uint64_t nbytes, uint64_t bps, void *userdata) {
         ProgressInfo *p = ASSERT_PTR(userdata);
 
         assert(p->size != UINT64_MAX);
 
         p->size += nbytes;
+        p->bps = bps;
 
         progress_show(p);
         return 0;
@@ -102,7 +109,7 @@ static int progress_bytes(uint64_t nbytes, void *userdata) {
 
 static int import_fs(int argc, char *argv[], void *userdata) {
         _cleanup_(rm_rf_subvolume_and_freep) char *temp_path = NULL;
-        _cleanup_(progress_info_free) ProgressInfo progress = {};
+        _cleanup_(progress_info_free) ProgressInfo progress = { .bps = UINT64_MAX };
         _cleanup_free_ char *l = NULL, *final_path = NULL;
         const char *path = NULL, *local = NULL, *dest = NULL;
         _cleanup_close_ int open_fd = -EBADF;
@@ -231,7 +238,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                         return log_error_errno(r, "Failed to copy directory: %m");
         }
 
-        r = import_mangle_os_tree(dest);
+        r = import_mangle_os_tree(dest, /* userns_fd= */ -EBADF, /* flags= */ 0);
         if (r < 0)
                 return r;
 
@@ -248,7 +255,7 @@ static int import_fs(int argc, char *argv[], void *userdata) {
                          (arg_read_only ? INSTALL_READ_ONLY : 0) |
                          (arg_sync ? INSTALL_SYNCFS : 0));
         if (r < 0)
-                return log_error_errno(r, "Failed install directory as '%s': %m", final_path);
+                return log_error_errno(r, "Failed to install directory as '%s': %m", final_path);
 
         temp_path = mfree(temp_path);
 
@@ -275,7 +282,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "                              subvolume\n"
                "     --sync=BOOL              Controls whether to sync() before completing\n"
                "     --class=CLASS            Select image class (machine, sysext, confext,\n"
-               "                              portable)\n",
+               "                              portable)\n"
+               "     --system                 Operate in per-system mode\n"
+               "     --user                   Operate in per-user mode\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -297,6 +306,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BTRFS_QUOTA,
                 ARG_SYNC,
                 ARG_CLASS,
+                ARG_SYSTEM,
+                ARG_USER,
         };
 
         static const struct option options[] = {
@@ -310,6 +321,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "btrfs-quota",     required_argument, NULL, ARG_BTRFS_QUOTA     },
                 { "sync",            required_argument, NULL, ARG_SYNC            },
                 { "class",           required_argument, NULL, ARG_CLASS           },
+                { "system",          no_argument,       NULL, ARG_SYSTEM          },
+                { "user",            no_argument,       NULL, ARG_USER            },
                 {}
         };
 
@@ -333,7 +346,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_IMAGE_ROOT:
-                        arg_image_root = optarg;
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image_root);
+                        if (r < 0)
+                                return r;
+
                         break;
 
                 case ARG_READ_ONLY:
@@ -372,6 +388,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -379,8 +403,11 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (!arg_image_root)
-                arg_image_root = image_root_to_string(arg_class);
+        if (!arg_image_root) {
+                r = image_root_pick(arg_runtime_scope < 0 ? RUNTIME_SCOPE_SYSTEM : arg_runtime_scope, arg_class, /* runtime= */ false, &arg_image_root);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pick image root: %m");
+        }
 
         return 1;
 }

@@ -22,6 +22,8 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_TEMPORARY]                                   = "temporary",
         [SD_PATH_TEMPORARY_LARGE]                             = "temporary-large",
 
+        [SD_PATH_SYSTEM_SEARCH_CONFIGURATION]                 = "system-search-configuration",
+
         [SD_PATH_SYSTEM_BINARIES]                             = "system-binaries",
         [SD_PATH_SYSTEM_INCLUDE]                              = "system-include",
         [SD_PATH_SYSTEM_LIBRARY_PRIVATE]                      = "system-library-private",
@@ -75,6 +77,7 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_SYSTEMD_USER_UNIT]                           = "systemd-user-unit",
         [SD_PATH_SYSTEMD_USER_PRESET]                         = "systemd-user-preset",
         [SD_PATH_SYSTEMD_USER_CONF]                           = "systemd-user-conf",
+        [SD_PATH_SYSTEMD_INITRD_PRESET]                       = "systemd-initrd-preset",
 
         [SD_PATH_SYSTEMD_SEARCH_SYSTEM_UNIT]                  = "systemd-search-system-unit",
         [SD_PATH_SYSTEMD_SEARCH_USER_UNIT]                    = "systemd-search-user-unit",
@@ -145,7 +148,7 @@ static int list_paths(void) {
                 printf("%s%s:%s %s\n", ansi_highlight(), t, ansi_normal(), p);
         }
 
-        return r;
+        return ret;
 }
 
 static int print_path(const char *n) {

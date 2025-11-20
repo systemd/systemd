@@ -11,7 +11,6 @@ if bashcompletiondir == ''
 endif
 
 custom_target(
-        'systemctl',
         input : 'systemctl.in',
         output : 'systemctl',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

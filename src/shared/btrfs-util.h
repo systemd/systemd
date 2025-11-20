@@ -4,11 +4,12 @@
 #include "sd-id128.h"
 
 #include "btrfs.h"      /* IWYU pragma: export */
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef struct BtrfsSubvolInfo {
         uint64_t subvol_id;
-        usec_t otime;
+        usec_t otime; /* creation time */
+        usec_t ctime; /* change time */
 
         sd_id128_t uuid;
         sd_id128_t parent_uuid;

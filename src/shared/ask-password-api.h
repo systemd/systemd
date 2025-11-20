@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum AskPasswordFlags {
         ASK_PASSWORD_ACCEPT_CACHED = 1 << 0,  /* read from kernel keyring */
@@ -19,7 +19,7 @@ typedef enum AskPasswordFlags {
 
 /* Encapsulates the mostly static fields of a password query */
 typedef struct AskPasswordRequest {
-        const char *message;         /* The human readable password prompt when asking interactively */
+        const char *message;         /* The human-readable password prompt when asking interactively */
         const char *keyring;         /* kernel keyring key name (key of "user" type) */
         const char *icon;            /* freedesktop icon spec name */
         const char *id;              /* some identifier used for this prompt for the "ask-password" protocol */

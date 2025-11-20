@@ -7,7 +7,7 @@
 #include "errno-util.h"
 #include "log.h"
 #include "loopback-setup.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "time-util.h"
 
 #define LOOPBACK_SETUP_TIMEOUT_USEC (5 * USEC_PER_SEC)

@@ -63,7 +63,7 @@ int user_record_check_password_quality(
                         continue;
 
                 /* If there are no old passwords, let's call check_password_quality() without any. */
-                r = check_password_quality(*pp, /* old */ NULL, hr->user_name, &auxerror);
+                r = check_password_quality(*pp, /* old = */ NULL, hr->user_name, &auxerror);
                 if (r <= 0)
                         goto error;
         }

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 efi_config_h_dir = meson.current_build_dir()
-efi_addon = ''
+efi_addon = []
 
 libefitest = static_library(
         'efitest',
@@ -27,14 +27,12 @@ efitest_base = {
 efi_test_template = test_template + efitest_base
 efi_fuzz_template = fuzz_template + efitest_base
 
-generate_hwids_section_py = find_program('generate-hwids-section.py')
-
 if conf.get('ENABLE_UKIFY') == 1
         test_hwids_section_c = custom_target(
-                'test-hwids-section.c',
                 input : ['hwids/device1.json', 'hwids/device2.json', 'hwids/device3.json', 'hwids/device4.json'],
                 output : 'test-hwids-section.c',
-                command : [generate_hwids_section_py, meson.current_source_dir()/'hwids'],
+                command : [files('generate-hwids-section.py'),
+                           meson.current_source_dir()/'hwids'],
                 capture : true,
                 build_by_default : want_tests != 'false')
 else
@@ -134,21 +132,24 @@ elif get_option('sbat-distro') != ''
         endif
 endif
 
-summary({'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)},
+summary({
+                'UEFI architectures' : efi_arch + (efi_arch_alt == '' ? '' : ', ' + efi_arch_alt)
+        },
         section : 'UEFI')
 
 if efi_conf.get('SBAT_DISTRO', '') != ''
         summary({
-                'SBAT distro':              efi_conf.get('SBAT_DISTRO'),
-                'SBAT distro generation':   efi_conf.get('SBAT_DISTRO_GENERATION'),
-                'SBAT distro version':      efi_conf.get('SBAT_DISTRO_VERSION'),
-                'SBAT distro summary':      efi_conf.get('SBAT_DISTRO_SUMMARY'),
-                'SBAT distro URL':          efi_conf.get('SBAT_DISTRO_URL')},
+                        'SBAT distro'            : efi_conf.get('SBAT_DISTRO'),
+                        'SBAT distro generation' : efi_conf.get('SBAT_DISTRO_GENERATION'),
+                        'SBAT distro version'    : efi_conf.get('SBAT_DISTRO_VERSION'),
+                        'SBAT distro summary'    : efi_conf.get('SBAT_DISTRO_SUMMARY'),
+                        'SBAT distro URL'        : efi_conf.get('SBAT_DISTRO_URL')
+                },
                 section : 'UEFI')
 endif
 
 configure_file(
-        output : 'efi_config.h',
+        output : 'efi-config.h',
         configuration : efi_conf)
 
 ############################################################
@@ -164,7 +165,7 @@ efi_c_args = [
         '-ffreestanding',
         '-fno-strict-aliasing',
         '-fshort-wchar',
-        '-include', 'efi_config.h',
+        '-include', 'efi-config.h',
 ]
 
 efi_c_args += cc.get_supported_arguments(
@@ -179,6 +180,11 @@ efi_c_args += cc.get_supported_arguments(
 # certainly has the means to do their own dev build.
 if get_option('mode') == 'developer' and get_option('debug')
         efi_c_args += '-DEFI_DEBUG'
+endif
+
+if get_option('libc') == 'musl'
+        # To make musl not define wchar_t as int, rather than short.
+        efi_c_args += '-D__DEFINED_wchar_t'
 endif
 
 efi_c_ld_args = [
@@ -206,7 +212,7 @@ efi_c_ld_args = [
 ]
 
 linker_sanity_code = 'void a(void) {}; void _start(void) { a(); }'
-linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings']
+linker_sanity_args = ['-nostdlib', '-Wl,--fatal-warnings', '-fno-stack-protector']
 
 # Check if libgcc is available and then use it. It is needed for gcc builds
 # and for ia32 builds with clang.
@@ -443,7 +449,6 @@ foreach efi_elf_binary : efi_elf_binaries
         endif
 
         exe = custom_target(
-                name,
                 output : name,
                 input : efi_elf_binary,
                 install : true,
@@ -451,12 +456,12 @@ foreach efi_elf_binary : efi_elf_binaries
                 install_tag : 'systemd-boot',
                 command : [
                         elf2efi_py,
-                        '--version-major=' + project_major_version,
-                        '--version-minor=' + project_minor_version,
+                        f'--version-major=@project_major_version@',
+                        f'--version-minor=@project_minor_version@',
                         '--efi-major=1',
                         '--efi-minor=1',
                         '--subsystem=10',
-                        '--minimum-sections=@0@'.format(minimum_sections),
+                        f'--minimum-sections=@minimum_sections@',
                         '--copy-sections=.sbat,.sdmagic,.osrel',
                         '@INPUT@',
                         '@OUTPUT@',
@@ -467,13 +472,13 @@ foreach efi_elf_binary : efi_elf_binaries
         endif
 
         # This is supposed to match exactly one time
-        if name == 'addon@0@.efi.stub'.format(efi_arch)
-                efi_addon = exe.full_path()
+        if name == f'addon@efi_arch@.efi.stub'
+                efi_addon = [exe]
         endif
 
-        test('check-alignment-@0@'.format(name),
+        test(f'check-alignment-@name@',
              check_efi_alignment_py,
-             args : exe.full_path(),
+             args : exe,
              suite : 'boot')
 endforeach
 

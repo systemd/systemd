@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 
@@ -13,6 +14,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "mountfsd-manager.h"
+#include "pidfd-util.h"
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -93,7 +95,7 @@ int manager_new(Manager **ret) {
 
         r = sd_event_add_memory_pressure(m->event, NULL, NULL, NULL);
         if (r < 0)
-                log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
+                log_debug_errno(r, "Failed to allocate memory pressure event source, ignoring: %m");
 
         r = sd_event_set_watchdog(m->event, true);
         if (r < 0)
@@ -140,7 +142,6 @@ static int start_one_worker(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fork new worker child: %m");
         if (r == 0) {
-                char pids[DECIMAL_STR_MAX(pid_t)];
                 /* Child */
 
                 if (m->listen_fd == 3) {
@@ -158,10 +159,19 @@ static int start_one_worker(Manager *m) {
                         safe_close(m->listen_fd);
                 }
 
-                xsprintf(pids, PID_FMT, pid);
-                if (setenv("LISTEN_PID", pids, 1) < 0) {
-                        log_error_errno(errno, "Failed to set $LISTEN_PID: %m");
+                r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, pid);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set $LISTEN_PID: %m");
                         _exit(EXIT_FAILURE);
+                }
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID: %m");
+                                _exit(EXIT_FAILURE);
+                        }
                 }
 
                 if (setenv("LISTEN_FDS", "1", 1) < 0) {
@@ -181,7 +191,7 @@ static int start_one_worker(Manager *m) {
                 }
 
                 r = invoke_callout_binary(SYSTEMD_MOUNTWORK_PATH, STRV_MAKE("systemd-mountwork", "xxxxxxxxxxxxxxxx")); /* With some extra space rename_process() can make use of */
-                log_error_errno(r, "Failed start worker process: %m");
+                log_error_errno(r, "Failed to start worker process: %m");
                 _exit(EXIT_FAILURE);
         }
 

@@ -998,7 +998,7 @@ static int macsec_read_key_file(NetDev *netdev, SecurityAssociation *sa) {
 
         if (key_len != MACSEC_KEYID_LEN)
                 return log_netdev_error_errno(netdev, SYNTHETIC_ERRNO(EINVAL),
-                                              "Invalid key length (%zu bytes), ignoring: %m", key_len);
+                                              "Invalid key length (%zu bytes), ignoring.", key_len);
 
         explicit_bzero_safe(sa->key, sa->key_len);
         free_and_replace(sa->key, key);

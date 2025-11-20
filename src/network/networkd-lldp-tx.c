@@ -13,6 +13,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "vlan.h"
 
 static bool link_lldp_tx_enabled(Link *link) {
         assert(link);
@@ -82,6 +83,12 @@ int link_lldp_tx_configure(Link *link) {
         r = sd_lldp_tx_set_mud_url(link->lldp_tx, link->network->lldp_mudurl);
         if (r < 0)
                 return r;
+
+        if (link->netdev && link->netdev->kind == NETDEV_KIND_VLAN) {
+                r = sd_lldp_tx_set_vlan_id(link->lldp_tx, VLAN(link->netdev)->id);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }

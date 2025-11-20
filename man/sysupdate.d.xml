@@ -481,8 +481,8 @@
         downloaded resources (specifically: validate the GPG signatures for downloaded
         <filename>SHA256SUMS</filename> manifest files, via their detached signature files
         <filename>SHA256SUMS.gpg</filename> in combination with the system keyring
-        <filename>/usr/lib/systemd/import-pubring.gpg</filename> or
-        <filename>/etc/systemd/import-pubring.gpg</filename>).</para>
+        <filename>/usr/lib/systemd/import-pubring.pgp</filename> or
+        <filename>/etc/systemd/import-pubring.pgp</filename>).</para>
 
         <para>This option is essential to provide integrity guarantees for downloaded resources and thus
         should be left enabled, outside of test environments.</para>

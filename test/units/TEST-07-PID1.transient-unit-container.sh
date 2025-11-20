@@ -121,8 +121,8 @@ After=basic.target
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'echo "$EXPECTED_OUTPUT"  > "$guest_output"'
-ExecStartPost=/usr/bin/systemctl --no-block exit 0
+ExecStart=sh -c 'echo "$EXPECTED_OUTPUT"  > "$guest_output"'
+ExecStartPost=systemctl --no-block exit 0
 TimeoutStopSec=15s
 
 [Install]
@@ -157,7 +157,7 @@ testcase_transient_unit_container_file_write() {
     -p RootDirectory="$CONTAINER_ROOT_FS" \
     -p PrivatePIDs=yes \
     -p PrivateUsersEx=full \
-    -p ProtectHostnameEx=private \
+    -p ProtectHostname=private \
     -p ProtectControlGroupsEx=private \
     -p PrivateMounts=yes \
     -p PrivateNetwork=yes \

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 [Service]
 Type=oneshot
-ExecStart=/bin/echo Start Hola
-ExecReload=/bin/echo Reload Hola
-ExecStop=/bin/echo Stop Hola
+ExecStart=echo Start Hola
+ExecReload=echo Reload Hola
+ExecStop=echo Stop Hola
 RemainAfterExit=yes

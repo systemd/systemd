@@ -5,19 +5,19 @@
 
 #include "af-list.h"
 #include "alloc-util.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "glyph-util.h"
 #include "log.h"
 #include "random-util.h"
-#include "resolved-dns-answer.h"
 #include "resolved-dns-cache.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stream.h"
@@ -406,7 +406,6 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
         DnsQueryCandidate *c;
         DnsZoneItem *z;
         DnsTransaction *d;
-        const char *st;
         char key_str[DNS_RESOURCE_KEY_STRING_MAX];
 
         assert(t);
@@ -430,11 +429,6 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
          * should hence not attempt to access the query or transaction
          * after calling this function. */
 
-        if (state == DNS_TRANSACTION_ERRNO)
-                st = errno_to_name(t->answer_errno);
-        else
-                st = dns_transaction_state_to_string(state);
-
         log_debug("%s transaction %" PRIu16 " for <%s> on scope %s on %s/%s now complete with <%s> from %s (%s; %s).",
                   t->bypass ? "Bypass" : "Regular",
                   t->id,
@@ -442,7 +436,7 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                   dns_protocol_to_string(t->scope->protocol),
                   t->scope->link ? t->scope->link->ifname : "*",
                   af_to_name_short(t->scope->family),
-                  st,
+                  state == DNS_TRANSACTION_ERRNO ? ERRNO_NAME(t->answer_errno) : dns_transaction_state_to_string(state),
                   t->answer_source < 0 ? "none" : dns_transaction_source_to_string(t->answer_source),
                   FLAGS_SET(t->query_flags, SD_RESOLVED_NO_VALIDATE) ? "not validated" :
                   (FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED) ? "authenticated" : "unsigned"),
@@ -1708,7 +1702,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                 return 0;
         }
 
-        if (t->n_attempts >= TRANSACTION_ATTEMPTS_MAX(t->scope->protocol)) {
+        if (t->n_attempts >= dns_transaction_attempts_max(t->scope->protocol, t->query_flags)) {
                 DnsTransactionState result;
 
                 if (t->scope->protocol == DNS_PROTOCOL_LLMNR)
@@ -3601,27 +3595,24 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
                   t->id,
                   dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str));
 
-        /* First, see if this response contains any revoked trust
-         * anchors we care about */
+        /* First, see if this response contains any revoked trust anchors we care about. */
         r = dns_transaction_check_revoked_trust_anchors(t);
         if (r < 0)
                 return r;
 
-        /* Third, copy all RRs we acquired successfully from auxiliary RRs over. */
+        /* Second, copy all RRs we acquired successfully from auxiliary RRs over. */
         r = dns_transaction_copy_validated(t);
         if (r < 0)
                 return r;
 
-        /* Second, see if there are DNSKEYs we already know a
-         * validated DS for. */
+        /* Third, see if there are DNSKEYs we already know a validated DS for. */
         r = dns_transaction_validate_dnskey_by_ds(t);
         if (r < 0)
                 return r;
 
-        /* Fourth, remove all DNSKEY and DS RRs again that our trust
-         * anchor says are revoked. After all we might have marked
-         * some keys revoked above, but they might still be lingering
-         * in our validated_keys list. */
+        /* Fourth, remove all DNSKEY and DS RRs again that our trust anchor says are revoked. After all we
+         * might have marked some keys revoked above, but they might still be lingering in our validated_keys
+         * list. */
         r = dns_transaction_invalidate_revoked_keys(t);
         if (r < 0)
                 return r;

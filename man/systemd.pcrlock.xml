@@ -28,8 +28,8 @@
       <member><filename>/run/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
       <member><filename>/var/lib/pcrlock.d/*.pcrlock</filename></member>
       <member><filename>/var/lib/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
-      <member><filename>/usr/local/pcrlock.d/*.pcrlock</filename></member>
-      <member><filename>/usr/local/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/usr/local/lib/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/usr/local/lib/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
       <member><filename>/usr/lib/pcrlock.d/*.pcrlock</filename></member>
       <member><filename>/usr/lib/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
     </simplelist></para>

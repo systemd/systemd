@@ -21,7 +21,7 @@ Before=shutdown.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=bootctl --no-variables --graceful update
+ExecStart=bootctl --variables=no --graceful update
 
 [Install]
 WantedBy=sysinit.target

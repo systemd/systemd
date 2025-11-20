@@ -1,8 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <unistd.h>
+
 #include "fd-util.h"
 #include "fuzz.h"
-#include "fuzz-journald.h"
+#include "fuzz-journald-util.h"
 #include "journald-native.h"
 #include "memfd-util.h"
 #include "process-util.h"
@@ -19,8 +21,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        assert_se(manager_new(&m) >= 0);
-        dummy_manager_init(m, NULL, 0);
+        dummy_manager_new(&m, NULL, 0);
 
         sealed_fd = memfd_new_and_seal(NULL, data, size);
         assert_se(sealed_fd >= 0);

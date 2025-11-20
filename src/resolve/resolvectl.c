@@ -22,6 +22,8 @@
 #include "bus-message-util.h"
 #include "bus-util.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-rr.h"
 #include "errno-list.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -30,7 +32,7 @@
 #include "hostname-util.h"
 #include "json-util.h"
 #include "main-func.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "netlink-util.h"
 #include "openssl-util.h"
 #include "pager.h"
@@ -42,9 +44,8 @@
 #include "resolve-util.h"
 #include "resolvectl.h"
 #include "resolved-def.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-rr.h"
 #include "resolved-util.h"
+#include "set.h"
 #include "socket-netlink.h"
 #include "sort-util.h"
 #include "stdio-util.h"
@@ -101,10 +102,26 @@ typedef enum StatusMode {
         STATUS_DEFAULT_ROUTE,
         STATUS_LLMNR,
         STATUS_MDNS,
-        STATUS_PRIVATE,
+        STATUS_DNS_OVER_TLS,
         STATUS_DNSSEC,
         STATUS_NTA,
+        _STATUS_MAX,
+        _STATUS_INVALID = -EINVAL,
 } StatusMode;
+
+static const char* const status_mode_json_field_table[_STATUS_MAX] = {
+        [STATUS_ALL]           = NULL,
+        [STATUS_DNS]           = "servers",
+        [STATUS_DOMAIN]        = "searchDomains",
+        [STATUS_DEFAULT_ROUTE] = "defaultRoute",
+        [STATUS_LLMNR]         = "llmnr",
+        [STATUS_MDNS]          = "mDNS",
+        [STATUS_DNS_OVER_TLS]  = "dnsOverTLS",
+        [STATUS_DNSSEC]        = "dnssec",
+        [STATUS_NTA]           = "negativeTrustAnchors",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(status_mode_json_field, StatusMode);
 
 typedef struct InterfaceInfo {
         int index;
@@ -236,13 +253,14 @@ static void print_source(uint64_t flags, usec_t rtt) {
                ansi_normal());
 
         if ((flags & (SD_RESOLVED_FROM_MASK|SD_RESOLVED_SYNTHETIC)) != 0)
-                printf("%s-- Data from:%s%s%s%s%s%s\n",
+                printf("%s-- Data from:%s%s%s%s%s%s%s\n",
                        ansi_grey(),
                        FLAGS_SET(flags, SD_RESOLVED_SYNTHETIC) ? " synthetic" : "",
                        FLAGS_SET(flags, SD_RESOLVED_FROM_CACHE) ? " cache" : "",
                        FLAGS_SET(flags, SD_RESOLVED_FROM_ZONE) ? " zone" : "",
                        FLAGS_SET(flags, SD_RESOLVED_FROM_TRUST_ANCHOR) ? " trust-anchor" : "",
                        FLAGS_SET(flags, SD_RESOLVED_FROM_NETWORK) ? " network" : "",
+                       FLAGS_SET(flags, SD_RESOLVED_FROM_HOOK) ? " hook" : "",
                        ansi_normal());
 }
 
@@ -1014,15 +1032,14 @@ static int verb_service(int argc, char **argv, void *userdata) {
                 return resolve_service(bus, argv[1], argv[2], argv[3]);
 }
 
+#if HAVE_OPENSSL
 static int resolve_openpgp(sd_bus *bus, const char *address) {
-        const char *domain, *full;
         int r;
-        _cleanup_free_ char *hashed = NULL;
 
         assert(bus);
         assert(address);
 
-        domain = strrchr(address, '@');
+        const char *domain = strrchr(address, '@');
         if (!domain)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Address does not contain '@': \"%s\"", address);
@@ -1031,37 +1048,55 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
                                        "Address starts or ends with '@': \"%s\"", address);
         domain++;
 
+        _cleanup_free_ char *hashed = NULL;
         r = string_hashsum_sha256(address, domain - 1 - address, &hashed);
         if (r < 0)
                 return log_error_errno(r, "Hashing failed: %m");
 
         strshorten(hashed, 56);
 
-        full = strjoina(hashed, "._openpgpkey.", domain);
+        _cleanup_free_ char *suffix = NULL;
+        r = dns_name_concat("_openpgpkey", domain, /* flags= */ 0, &suffix);
+        if (r < 0)
+                return log_error_errno(r, "Failed to join DNS suffix: %m");
+
+        _cleanup_free_ char *full = NULL;
+        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full);
+        if (r < 0)
+                return log_error_errno(r, "Failed to join OPENPGPKEY name: %m");
         log_debug("Looking up \"%s\".", full);
 
-        r = resolve_record(bus, full,
-                           arg_class ?: DNS_CLASS_IN,
-                           arg_type ?: DNS_TYPE_OPENPGPKEY, false);
+        r = resolve_record(
+                        bus,
+                        full,
+                        arg_class ?: DNS_CLASS_IN,
+                        arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        /* warn_missing= */ false);
+        if (!IN_SET(r, -ENXIO, -ESRCH)) /* Not NXDOMAIN or NODATA? Then fail immediately. */
+                return r;
 
-        if (IN_SET(r, -ENXIO, -ESRCH)) { /* NXDOMAIN or NODATA? */
-              hashed = mfree(hashed);
-              r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
-              if (r < 0)
-                    return log_error_errno(r, "Hashing failed: %m");
+        hashed = mfree(hashed);
+        r = string_hashsum_sha224(address, domain - 1 - address, &hashed);
+        if (r < 0)
+                return log_error_errno(r, "Hashing failed: %m");
 
-              full = strjoina(hashed, "._openpgpkey.", domain);
-              log_debug("Looking up \"%s\".", full);
+        full = mfree(full);
+        r = dns_name_concat(hashed, suffix, /* flags= */ 0, &full);
+        if (r < 0)
+                return log_error_errno(r, "Failed to join OPENPGPKEY name: %m");
+        log_debug("Looking up \"%s\".", full);
 
-              return resolve_record(bus, full,
-                                    arg_class ?: DNS_CLASS_IN,
-                                    arg_type ?: DNS_TYPE_OPENPGPKEY, true);
-        }
-
-        return r;
+        return resolve_record(
+                        bus,
+                        full,
+                        arg_class ?: DNS_CLASS_IN,
+                        arg_type ?: DNS_TYPE_OPENPGPKEY,
+                        /* warn_missing= */ true);
 }
+#endif
 
 static int verb_openpgp(int argc, char **argv, void *userdata) {
+#if HAVE_OPENSSL
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -1076,6 +1111,9 @@ static int verb_openpgp(int argc, char **argv, void *userdata) {
                 RET_GATHER(ret, resolve_openpgp(bus, *p));
 
         return ret;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled, cannot query Open PGP keys.");
+#endif
 }
 
 static int resolve_tlsa(sd_bus *bus, const char *family, const char *address) {
@@ -1772,6 +1810,125 @@ static char** global_protocol_status(const GlobalInfo *info) {
         return TAKE_PTR(s);
 }
 
+static int status_json_filter_fields(sd_json_variant **configuration, StatusMode mode) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        sd_json_variant *w;
+        const char *field;
+        int r;
+
+        assert(configuration);
+
+        field = status_mode_json_field_to_string(mode);
+        if (!field)
+                /* Nothing to filter for this mode. */
+                return 0;
+
+        JSON_VARIANT_ARRAY_FOREACH(w, *configuration) {
+                /* Always include identifier fields like ifname or delegate, and include the requested
+                 * field even if it is empty in the configuration. */
+                r = sd_json_variant_append_arraybo(
+                                &v,
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("ifname", sd_json_variant_by_key(w, "ifname")),
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("ifindex", sd_json_variant_by_key(w, "ifindex")),
+                                JSON_BUILD_PAIR_VARIANT_NON_NULL("delegate", sd_json_variant_by_key(w, "delegate")),
+                                SD_JSON_BUILD_PAIR_VARIANT(field, sd_json_variant_by_key(w, field)));
+                if (r < 0)
+                        return r;
+        }
+
+        JSON_VARIANT_REPLACE(*configuration, TAKE_PTR(v));
+        return 0;
+}
+
+static int status_json_filter_links(sd_json_variant **configuration, char **links) {
+        _cleanup_set_free_ Set *links_by_index = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        sd_json_variant *w;
+        int r;
+
+        assert(configuration);
+
+        if (links)
+                STRV_FOREACH(ifname, links) {
+                        int ifindex = rtnl_resolve_interface_or_warn(/* rtnl= */ NULL, *ifname);
+                        if (ifindex < 0)
+                                return ifindex;
+
+                        r = set_ensure_put(&links_by_index, NULL, INT_TO_PTR(ifindex));
+                        if (r < 0)
+                                return r;
+                }
+
+        JSON_VARIANT_ARRAY_FOREACH(w, *configuration) {
+                int ifindex = sd_json_variant_unsigned(sd_json_variant_by_key(w, "ifindex"));
+
+                if (links_by_index) {
+                        if (ifindex <= 0)
+                                /* Possibly invalid, but most likely unset because this is global
+                                 * or delegate configuration. */
+                                continue;
+
+                        if (!set_contains(links_by_index, INT_TO_PTR(ifindex)))
+                                continue;
+
+                } else if (ifindex == LOOPBACK_IFINDEX)
+                        /* By default, exclude the loopback interface. */
+                        continue;
+
+                r = sd_json_variant_append_array(&v, w);
+                if (r < 0)
+                        return r;
+        }
+
+        JSON_VARIANT_REPLACE(*configuration, TAKE_PTR(v));
+        return 0;
+}
+
+static int varlink_dump_dns_configuration(sd_json_variant **ret) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        sd_json_variant *v;
+        int r;
+
+        assert(ret);
+
+        r = sd_varlink_connect_address(&vl, "/run/systemd/resolve/io.systemd.Resolve");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to service /run/systemd/resolve/io.systemd.Resolve: %m");
+
+        r = varlink_call_and_log(vl, "io.systemd.Resolve.DumpDNSConfiguration", /* parameters= */ NULL, &reply);
+        if (r < 0)
+                return r;
+
+        v = sd_json_variant_by_key(reply, "configuration");
+
+        if (!sd_json_variant_is_array(v))
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA), "DumpDNSConfiguration() response missing 'configuration' key.");
+
+        TAKE_PTR(reply);
+        *ret = sd_json_variant_ref(v);
+        return 0;
+}
+
+static int status_json(StatusMode mode, char **links) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
+        int r;
+
+        r = varlink_dump_dns_configuration(&configuration);
+        if (r < 0)
+                return r;
+
+        r = status_json_filter_links(&configuration, links);
+        if (r < 0)
+                return log_error_errno(r, "Failed to filter configuration JSON links: %m");
+
+        r = status_json_filter_fields(&configuration, mode);
+        if (r < 0)
+                return log_error_errno(r, "Failed to filter configuration JSON fields: %m");
+
+        return sd_json_variant_dump(configuration, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
+}
+
 static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode mode, bool *empty_line) {
         static const struct bus_properties_map property_map[] = {
                 { "ScopesMask",                 "t",        NULL,                           offsetof(LinkInfo, scopes_mask)      },
@@ -1807,6 +1964,9 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
 
                 name = ifname;
         }
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                return status_json(mode, STRV_MAKE(name));
 
         xsprintf(ifi, "%i", ifindex);
         r = sd_bus_path_encode("/org/freedesktop/resolve1/link", ifi, &p);
@@ -1858,7 +2018,7 @@ static int status_ifindex(sd_bus *bus, int ifindex, const char *name, StatusMode
 
                 return 0;
 
-        case STATUS_PRIVATE:
+        case STATUS_DNS_OVER_TLS:
                 printf("%sLink %i (%s)%s: %s\n",
                        ansi_highlight(), ifindex, name, ansi_normal(),
                        strna(link_info.dns_over_tls));
@@ -2086,7 +2246,7 @@ static int status_global(sd_bus *bus, StatusMode mode, bool *empty_line) {
 
                 return 0;
 
-        case STATUS_PRIVATE:
+        case STATUS_DNS_OVER_TLS:
                 printf("%sGlobal%s: %s\n", ansi_highlight(), ansi_normal(),
                        strna(global_info.dns_over_tls));
 
@@ -2338,6 +2498,8 @@ static int status_delegate_one(sd_bus *bus, const char *id, StatusMode mode, boo
                            TABLE_FIELD, "Default Route",
                            TABLE_SET_MINIMUM_WIDTH, 19,
                            TABLE_BOOLEAN, delegate_info.default_route);
+        if (r < 0)
+                return table_log_add_error(r);
 
         r = table_print(table, NULL);
         if (r < 0)
@@ -2401,6 +2563,9 @@ static int status_all(sd_bus *bus, StatusMode mode) {
 
         assert(bus);
 
+        if (sd_json_format_enabled(arg_json_format_flags))
+                return status_json(mode, /* links= */ NULL);
+
         r = status_global(bus, mode, &empty_line);
         if (r < 0)
                 return r;
@@ -2421,6 +2586,9 @@ static int verb_status(int argc, char **argv, void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         bool empty_line = false;
         int r, ret = 0;
+
+        if (sd_json_format_enabled(arg_json_format_flags))
+                return status_json(STATUS_ALL, argc > 1 ? strv_skip(argv, 1) : NULL);
 
         r = acquire_bus(&bus);
         if (r < 0)
@@ -2823,10 +2991,10 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
         }
 
         if (arg_ifindex <= 0)
-                return status_all(bus, STATUS_PRIVATE);
+                return status_all(bus, STATUS_DNS_OVER_TLS);
 
         if (argc < 3)
-                return status_ifindex(bus, arg_ifindex, NULL, STATUS_PRIVATE, NULL);
+                return status_ifindex(bus, arg_ifindex, NULL, STATUS_DNS_OVER_TLS, NULL);
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
@@ -3146,9 +3314,9 @@ static void monitor_query_dump(sd_json_variant *v) {
                streq_ptr(p.state, "success") ? ansi_highlight_green() : ansi_highlight_red(),
                glyph(GLYPH_ARROW_LEFT),
                ansi_normal(),
-               strna(streq_ptr(p.state, "errno") ? errno_to_name(p.error) :
-                     streq_ptr(p.state, "rcode-failure") ? dns_rcode_to_string(p.rcode) :
-                     p.state));
+               streq_ptr(p.state, "errno") ? ERRNO_NAME(p.error) :
+               streq_ptr(p.state, "rcode-failure") ? strna(dns_rcode_to_string(p.rcode)) :
+               strna(p.state));
 
         if (!isempty(p.result))
                 printf(": %s", p.result);
@@ -3321,6 +3489,8 @@ static int dump_cache_scope(sd_json_variant *scope) {
                 int ifindex;
                 const char *ifname;
                 sd_json_variant *cache;
+                const char *dnssec_mode;
+                const char *dns_over_tls_mode;
         } scope_info = {
                 .family = AF_UNSPEC,
         };
@@ -3328,11 +3498,13 @@ static int dump_cache_scope(sd_json_variant *scope) {
         int r, c = 0;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "protocol", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, protocol), SD_JSON_MANDATORY },
-                { "family",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,           offsetof(struct scope_info, family),   0                 },
-                { "ifindex",  _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,          offsetof(struct scope_info, ifindex),  SD_JSON_RELAX     },
-                { "ifname",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, ifname),   0                 },
-                { "cache",    SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(struct scope_info, cache),    SD_JSON_MANDATORY },
+                { "protocol",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, protocol),          SD_JSON_MANDATORY },
+                { "family",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,           offsetof(struct scope_info, family),            0                 },
+                { "ifindex",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,          offsetof(struct scope_info, ifindex),           SD_JSON_RELAX     },
+                { "ifname",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, ifname),            0                 },
+                { "cache",        SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_variant_noref, offsetof(struct scope_info, cache),             SD_JSON_MANDATORY },
+                { "dnssec",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, dnssec_mode),       0                 },
+                { "dnsOverTLS",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  offsetof(struct scope_info, dns_over_tls_mode), 0                 },
                 {},
         };
 
@@ -3349,6 +3521,13 @@ static int dump_cache_scope(sd_json_variant *scope) {
                 printf(" ifindex=%i", scope_info.ifindex);
         if (scope_info.ifname)
                 printf(" ifname=%s", scope_info.ifname);
+
+        if (dns_protocol_from_string(scope_info.protocol) == DNS_PROTOCOL_DNS) {
+                if (scope_info.dnssec_mode)
+                        printf(" DNSSEC=%s", scope_info.dnssec_mode);
+                if (scope_info.dns_over_tls_mode)
+                        printf(" DNSOverTLS=%s", scope_info.dns_over_tls_mode);
+        }
 
         printf("%s\n", ansi_normal());
 
@@ -3625,6 +3804,8 @@ static int compat_help(void) {
         if (r < 0)
                 return log_oom();
 
+        pager_open(arg_pager_flags);
+
         printf("%1$s [OPTIONS...] HOSTNAME|ADDRESS...\n"
                "%1$s [OPTIONS...] --service [[NAME] TYPE] DOMAIN\n"
                "%1$s [OPTIONS...] --openpgp EMAIL@DOMAIN...\n"
@@ -3681,6 +3862,8 @@ static int native_help(void) {
         r = terminal_urlify_man("resolvectl", "1", &link);
         if (r < 0)
                 return log_oom();
+
+        pager_open(arg_pager_flags);
 
         printf("%1$s [OPTIONS...] COMMAND ...\n"
                "\n"

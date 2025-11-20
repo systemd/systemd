@@ -404,7 +404,7 @@ DUIDRawData=00:00:ab:11:f9:2a:c2:77:29:f9:5c:00</programlisting>
         <term><varname>PersistLeases=</varname></term>
         <listitem>
           <para>Specifies the default value for per-network <varname>PersistLeases=</varname>.
-          Takes a boolean. See for details in
+          Takes a boolean or special value <literal>runtime</literal>. See for details in
           <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
           Defaults to <literal>yes</literal>.</para>
 

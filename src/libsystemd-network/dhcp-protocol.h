@@ -10,7 +10,7 @@
 
 #include "sd-dhcp-protocol.h"
 
-#include "forward.h"
+#include "sd-forward.h"
 #include "sparse-endian.h"
 #include "time-util.h"
 

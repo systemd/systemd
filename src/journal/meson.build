@@ -6,6 +6,7 @@ systemd_journald_sources = files(
 systemd_journald_extract_sources = files(
         'journald-audit.c',
         'journald-client.c',
+        'journald-config.c',
         'journald-console.c',
         'journald-context.c',
         'journald-kmsg.c',
@@ -20,11 +21,10 @@ systemd_journald_extract_sources = files(
         'journald-wall.c',
         # Build fuzz-journald.c as part of systemd-journald so we only compile it once instead of once per
         # fuzz test.
-        'fuzz-journald.c',
+        'fuzz-journald-util.c',
 )
 
 journald_gperf_c = custom_target(
-        'journald-gperf.c',
         input : 'journald-gperf.gperf',
         output : 'journald-gperf.c',
         command : [gperf, '@INPUT@', '--output-file', '@OUTPUT@'])
@@ -58,7 +58,7 @@ journal_test_template = test_template + {
 
 journal_fuzz_template = fuzz_template + {
         'objects' : ['systemd-journald'],
-        'dependencies' : libselinux,
+        'dependencies' : libselinux_cflags,
 }
 
 executables += [
@@ -69,7 +69,7 @@ executables += [
                 'extract' : systemd_journald_extract_sources,
                 'dependencies' : [
                         liblz4_cflags,
-                        libselinux,
+                        libselinux_cflags,
                         libxz_cflags,
                         libzstd_cflags,
                         threads,
@@ -87,7 +87,7 @@ executables += [
                 'public' : true,
                 'sources' : files('cat.c'),
                 'objects' : ['systemd-journald'],
-                'dependencies' : [libselinux, threads],
+                'dependencies' : [threads],
         },
         executable_template + {
                 'name' : 'journalctl',
@@ -106,7 +106,7 @@ executables += [
                 'sources' : files('test-journald-config.c'),
                 'dependencies' : [
                         liblz4_cflags,
-                        libselinux,
+                        libselinux_cflags,
                         libxz_cflags,
                 ],
         },
@@ -114,7 +114,7 @@ executables += [
                 'sources' : files('test-journald-rate-limit.c'),
                 'dependencies' : [
                         liblz4_cflags,
-                        libselinux,
+                        libselinux_cflags,
                         libxz_cflags,
                 ],
         },
@@ -122,7 +122,7 @@ executables += [
                 'sources' : files('test-journald-syslog.c'),
                 'dependencies' : [
                         liblz4_cflags,
-                        libselinux,
+                        libselinux_cflags,
                         libxz_cflags,
                         threads,
                 ],
@@ -130,7 +130,7 @@ executables += [
         journal_test_template + {
                 'sources' : files('test-journald-tables.c'),
                 'dependencies' : [
-                        libselinux,
+                        libselinux_cflags,
                 ],
         },
         journal_fuzz_template + {
@@ -153,10 +153,12 @@ executables += [
         },
 ]
 
-if install_sysconfdir_samples
-        install_data('journald.conf',
-                     install_dir : pkgconfigfiledir)
-endif
+custom_target(
+        input : 'journald.conf.in',
+        output: 'journald.conf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : install_sysconfdir_samples,
+        install_dir : pkgconfigfiledir)
 
 if get_option('create-log-dirs')
         install_emptydir('/var/log/journal',

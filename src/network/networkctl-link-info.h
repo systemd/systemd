@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
+#pragma once
 
 #include <linux/if.h>
 #include <linux/if_link.h>
@@ -6,7 +7,7 @@
 
 #include "ether-addr-util.h"
 #include "ethtool-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 #include "in-addr-util.h"
 
 typedef struct VxLanInfo {

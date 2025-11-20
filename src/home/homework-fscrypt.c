@@ -7,6 +7,7 @@
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "errno-util.h"
@@ -21,8 +22,6 @@
 #include "keyring-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "missing_keyctl.h"
-#include "missing_syscall.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "nulstr-util.h"
@@ -416,7 +415,7 @@ int home_setup_fscrypt(
                               FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
                               NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed install encryption key in user's keyring: %m");
+                        return log_error_errno(r, "Failed to install encryption key in user's keyring: %m");
                 if (r == 0) {
                         /* Child */
 

@@ -2,12 +2,11 @@
 #pragma once
 
 #include "dns-def.h"
-#include "forward.h"
+#include "dns-packet.h"
 #include "list.h"
 #include "ratelimit.h"
 #include "resolve-util.h"
 #include "resolved-dns-cache.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-zone.h"
 #include "resolved-forward.h"
 
@@ -116,12 +115,12 @@ const char* dns_scope_ifname(DnsScope *s);
 
 int dns_scope_announce(DnsScope *scope, bool goodbye);
 
-int dns_scope_add_dnssd_services(DnsScope *scope);
-int dns_scope_remove_dnssd_services(DnsScope *scope);
+int dns_scope_add_dnssd_registered_services(DnsScope *scope);
+int dns_scope_remove_dnssd_registered_services(DnsScope *scope);
 
 bool dns_scope_is_default_route(DnsScope *scope);
 
-int dns_scope_dump_cache_to_json(DnsScope *scope, sd_json_variant **ret);
+int dns_scope_to_json(DnsScope *scope, bool with_cache, sd_json_variant **ret);
 
 int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol);
 int dns_question_types_suitable_for_protocol(DnsQuestion *q, DnsProtocol protocol);

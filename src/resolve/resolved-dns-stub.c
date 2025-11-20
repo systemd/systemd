@@ -7,17 +7,17 @@
 
 #include "alloc-util.h"
 #include "capability-util.h"
+#include "dns-answer.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "dns-type.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "missing_network.h"
+#include "missing-network.h"
 #include "resolve-util.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-stub.h"
 #include "resolved-dns-transaction.h"
@@ -1419,7 +1419,7 @@ int manager_dns_stub_start(Manager *m) {
                                                           r == -EADDRINUSE ? "Another process is already listening on %s.\n"
                                                           "Turning off local DNS stub support." :
                                                           "Failed to listen on %s: %m.\n"
-                                          "Turning off local DNS stub support.",
+                                                          "Turning off local DNS stub support.",
                                                           busy_socket);
                                         manager_dns_stub_stop(m);
                                         break;

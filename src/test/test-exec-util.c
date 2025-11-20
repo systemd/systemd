@@ -117,9 +117,9 @@ static void test_execute_directory_one(bool gather_stdout) {
                 return;
 
         if (gather_stdout)
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+                execute_directories("test", dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         else
-                execute_directories(dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+                execute_directories("test", dirs, DEFAULT_TIMEOUT_USEC, NULL, NULL, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(chdir(tmp_lo) == 0);
         assert_se(access("it_works", F_OK) >= 0);
@@ -189,7 +189,9 @@ TEST(execution_order) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        execute_directories(dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        execute_directories(__func__,
+                            dirs, DEFAULT_TIMEOUT_USEC, ignore_stdout, ignore_stdout_args, NULL, NULL,
+                            EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
 
         assert_se(read_full_file(output, &contents, NULL) >= 0);
         ASSERT_STREQ(contents, "30-override\n80-foo\n90-bar\nlast\n");
@@ -270,7 +272,8 @@ TEST(stdout_gathering) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_stdouts, args, NULL, NULL,
+        r = execute_directories(__func__,
+                                dirs, DEFAULT_TIMEOUT_USEC, gather_stdouts, args, NULL, NULL,
                                 EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
@@ -337,7 +340,9 @@ TEST(environment_gathering) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        r = execute_directories(__func__,
+                                dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, NULL,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
@@ -353,7 +358,9 @@ TEST(environment_gathering) {
         env = strv_new("PATH=" DEFAULT_PATH_WITHOUT_SBIN);
         assert_se(env);
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env, EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
+        r = execute_directories(__func__,
+                                dirs, DEFAULT_TIMEOUT_USEC, gather_environment, args, NULL, env,
+                                EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS);
         assert_se(r >= 0);
 
         STRV_FOREACH(p, env)
@@ -399,7 +406,8 @@ TEST(error_catching) {
         if (access(name, X_OK) < 0 && ERRNO_IS_PRIVILEGE(errno))
                 return;
 
-        r = execute_directories(dirs, DEFAULT_TIMEOUT_USEC,
+        r = execute_directories(__func__,
+                                dirs, DEFAULT_TIMEOUT_USEC,
                                 /* callbacks = */ NULL, /* callback_args = */ NULL,
                                 /* argv = */ NULL, /* envp = */ NULL, /* flags = */ 0);
 

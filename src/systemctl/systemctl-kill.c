@@ -20,6 +20,9 @@ int verb_kill(int argc, char *argv[], void *userdata) {
         sd_bus *bus;
         int r, q;
 
+        if (arg_kill_subgroup && arg_kill_value_set)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--kill-subgroup= and --kill-value= may not be combined.");
+
         r = acquire_bus(BUS_MANAGER, &bus);
         if (r < 0)
                 return r;
@@ -32,7 +35,7 @@ int verb_kill(int argc, char *argv[], void *userdata) {
 
         polkit_agent_open_maybe();
 
-        kill_whom = arg_kill_whom ?: "all";
+        kill_whom = arg_kill_whom ?: arg_kill_subgroup ? "cgroup" : "all";
 
         /* --fail was specified */
         if (streq(arg_job_mode(), "fail"))
@@ -53,6 +56,14 @@ int verb_kill(int argc, char *argv[], void *userdata) {
                                         &error,
                                         NULL,
                                         "ssii", *name, kill_whom, arg_signal, arg_kill_value);
+                else if (arg_kill_subgroup)
+                        q = bus_call_method(
+                                        bus,
+                                        bus_systemd_mgr,
+                                        "KillUnitSubgroup",
+                                        &error,
+                                        NULL,
+                                        "sssi", *name, kill_whom, arg_kill_subgroup, arg_signal);
                 else
                         q = bus_call_method(
                                         bus,

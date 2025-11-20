@@ -1,6 +1,11 @@
-target-version = "py39"
+target-version = "py37"
 line-length = 109
 lint.select = ["E", "F", "I", "UP"]
 
 [format]
 quote-style = "single"
+
+[per-file-target-version]
+"src/ukify/*.py" = "py39"
+"test/**/integration-test-wrapper.py" = "py39"
+"test/test-udev.py" = "py39"

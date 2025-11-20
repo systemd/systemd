@@ -112,7 +112,7 @@ static int worker_lock_whole_disk(UdevWorker *worker, sd_device *dev, int *ret_f
 
         fd = sd_device_open(dev_whole_disk, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
-                bool ignore = ERRNO_IS_DEVICE_ABSENT(fd);
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
 
                 log_device_debug_errno(dev, fd, "Failed to open '%s'%s: %m", whole_disk, ignore ? ", ignoring" : "");
                 if (!ignore)
@@ -171,20 +171,25 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
         if (r > 0)
                 return 0;
 
-        const char *val;
-        r = sd_device_get_devname(dev, &val);
+        const char *node;
+        r = sd_device_get_devname(dev, &node);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device node: %m");
 
         _cleanup_close_ int fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (fd < 0)
-                return log_device_debug_errno(dev, fd, "Failed to open '%s', ignoring: %m", val);
+        if (fd < 0) {
+                bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
+                log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
+                                      "Failed to open device node '%s'%s: %m",
+                                      node, ignore ? ", ignoring" : "");
+                return ignore ? 0 : fd;
+        }
 
         int state = 1;
         if (ioctl(fd, BLKROSET, &state) < 0)
-                return log_device_warning_errno(dev, errno, "Failed to mark block device '%s' read-only: %m", val);
+                return log_device_warning_errno(dev, errno, "Failed to mark block device '%s' read-only: %m", node);
 
-        log_device_info(dev, "Successfully marked block device '%s' read-only.", val);
+        log_device_info(dev, "Successfully marked block device '%s' read-only.", node);
         return 0;
 }
 
@@ -291,7 +296,7 @@ static int worker_device_monitor_handler(sd_device_monitor *monitor, sd_device *
                         return 0;
                 }
 
-                const char *e = errno_to_name(r);
+                const char *e = errno_name_no_fallback(r);
                 r = sd_notifyf(/* unset_environment = */ false, "ERRNO=%i%s%s", -r, e ? "\nERRNO_NAME=" : "", strempty(e));
                 if (r < 0) {
                         log_device_warning_errno(dev, r, "Failed to send notification message to manager process, ignoring: %m");

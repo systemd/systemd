@@ -470,18 +470,18 @@ static int method_set_class(sd_bus_message *message, void *userdata, sd_bus_erro
 
         /* For now, we'll allow only upgrades user-incomplete → user */
         if (class != SESSION_USER)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Class may only be set to 'user'");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Class may only be set to 'user'");
 
         if (s->class == SESSION_USER) /* No change, shortcut */
                 return sd_bus_reply_method_return(message, NULL);
         if (s->class != SESSION_USER_INCOMPLETE)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Only sessions with class 'user-incomplete' may change class");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Only sessions with class 'user-incomplete' may change class");
 
         if (s->upgrade_message)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Set session class operation already in progress");
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        "Set session class operation already in progress");
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
@@ -531,8 +531,8 @@ static int method_set_display(sd_bus_message *message, void *userdata, sd_bus_er
 
 static int method_set_tty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = ASSERT_PTR(userdata);
-        int fd, r, flags;
         _cleanup_free_ char *q = NULL;
+        int fd, r;
 
         assert(message);
 
@@ -543,15 +543,11 @@ static int method_set_tty(sd_bus_message *message, void *userdata, sd_bus_error 
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "You must be in control of this session to set tty");
 
-        assert(fd >= 0);
-
-        flags = fcntl(fd, F_GETFL, 0);
-        if (flags < 0)
-                return -errno;
-        if ((flags & O_ACCMODE_STRICT) != O_RDWR)
+        r = fd_vet_accmode(fd, O_RDWR);
+        if (r == -EPROTOTYPE)
                 return -EACCES;
-        if (FLAGS_SET(flags, O_PATH))
-                return -ENOTTY;
+        if (r < 0)
+                return r;
 
         r = getttyname_malloc(fd, &q);
         if (r < 0)

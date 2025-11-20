@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-#include "forward.h"
+#include "basic-forward.h"
 #include "memory-util-fundamental.h" /* IWYU pragma: export */
 
 size_t page_size(void) _pure_;

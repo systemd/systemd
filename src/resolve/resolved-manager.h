@@ -4,9 +4,9 @@
 #include <sys/stat.h>
 
 #include "common-signal.h"
-#include "forward.h"
 #include "list.h"
 #include "resolve-util.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-dnssec.h"
 #include "resolved-dns-stream.h"
 #include "resolved-dns-stub.h"
@@ -14,7 +14,7 @@
 #include "resolved-etc-hosts.h"
 #include "resolved-forward.h"
 
-#define MANAGER_SEARCH_DOMAINS_MAX 256
+#define MANAGER_SEARCH_DOMAINS_MAX 1024
 #define MANAGER_DNS_SERVERS_MAX 256
 
 typedef struct Manager {
@@ -91,7 +91,7 @@ typedef struct Manager {
         sd_event_source *mdns_ipv6_event_source;
 
         /* DNS-SD */
-        Hashmap *dnssd_services;
+        Hashmap *dnssd_registered_services;
 
         /* dbus */
         sd_bus *bus;
@@ -156,6 +156,12 @@ typedef struct Manager {
         size_t n_socket_graveyard;
 
         struct sigrtmin18_info sigrtmin18_info;
+
+        /* Map varlink links to DnsServiceBrowser instances. */
+        Hashmap *dns_service_browsers;
+
+        Hashmap *hooks;
+        struct stat hook_stat;
 } Manager;
 
 /* Manager */
@@ -183,7 +189,13 @@ int manager_next_hostname(Manager *m);
 bool manager_packet_from_local_address(Manager *m, DnsPacket *p);
 bool manager_packet_from_our_transaction(Manager *m, DnsPacket *p);
 
-DnsScope* manager_find_scope(Manager *m, DnsPacket *p);
+DnsScope* manager_find_scope_from_protocol(Manager *m, int ifindex, DnsProtocol protocol, int family);
+
+static inline DnsScope* manager_find_scope(Manager *m, DnsPacket *p) {
+        assert(m);
+        assert(p);
+        return manager_find_scope_from_protocol(m, p->ifindex, p->protocol, p->family);
+}
 
 void manager_verify_all(Manager *m);
 

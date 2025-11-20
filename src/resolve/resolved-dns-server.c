@@ -5,6 +5,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -13,7 +14,6 @@
 #include "resolved-bus.h"
 #include "resolved-dns-cache.h"
 #include "resolved-dns-delegate.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -1373,6 +1373,7 @@ int dns_server_dump_configuration_to_json(DnsServer *server, sd_json_variant **r
 
         return sd_json_buildo(
                         ret,
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("addressString", dns_server_string(server)),
                         JSON_BUILD_PAIR_IN_ADDR("address", &server->address, server->family),
                         SD_JSON_BUILD_PAIR_INTEGER("family", server->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("port", dns_server_port(server)),

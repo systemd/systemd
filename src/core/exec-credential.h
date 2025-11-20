@@ -44,7 +44,6 @@ int exec_context_put_import_credential(ExecContext *c, const char *glob, const c
 bool exec_params_need_credentials(const ExecParameters *p);
 
 bool exec_context_has_credentials(const ExecContext *c);
-bool exec_context_has_encrypted_credentials(const ExecContext *c);
 
 int exec_context_get_credential_directory(
                 const ExecContext *context,
@@ -56,6 +55,7 @@ int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_r
 
 int exec_setup_credentials(
                 const ExecContext *context,
+                const CGroupContext *cgroup_context,
                 const ExecParameters *params,
                 const char *unit,
                 uid_t uid,

@@ -2,10 +2,10 @@
 
 #include "sd-json.h"
 
+#include "dns-packet.h"
+#include "dns-rr.h"
 #include "fuzz.h"
 #include "memstream-util.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-rr.h"
 #include "string-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {

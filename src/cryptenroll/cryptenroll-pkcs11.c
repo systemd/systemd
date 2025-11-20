@@ -10,7 +10,7 @@
 
 #if HAVE_P11KIT && HAVE_OPENSSL
 static int uri_set_private_class(const char *uri, char **ret_uri) {
-        _cleanup_(sym_p11_kit_uri_freep) P11KitUri *p11kit_uri = NULL;
+        _cleanup_(p11_kit_uri_freep) P11KitUri *p11kit_uri = NULL;
         _cleanup_free_ char *private_uri = NULL;
         int r;
 

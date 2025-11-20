@@ -2,11 +2,11 @@
 
 #include "sd-json.h"
 
+#include "dns-answer.h"
+#include "dns-packet.h"
+#include "dns-rr.h"
 #include "hexdecoct.h"
 #include "log.h"
-#include "resolved-dns-answer.h"
-#include "resolved-dns-packet.h"
-#include "resolved-dns-rr.h"
 #include "tests.h"
 
 TEST(dns_packet_new) {

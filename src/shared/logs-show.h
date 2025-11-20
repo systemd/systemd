@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef struct LogId {
         sd_id128_t id; /* boot ID or invocation ID */

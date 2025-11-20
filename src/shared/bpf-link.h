@@ -5,7 +5,7 @@
 
 #include <bpf/libbpf.h>
 
-#include "forward.h"
+#include "shared-forward.h"
 
 bool bpf_can_link_program(struct bpf_program *prog);
 

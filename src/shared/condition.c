@@ -16,7 +16,7 @@
 #include "battery-util.h"
 #include "bitfield.h"
 #include "blockdev-util.h"
-#include "cap-list.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
 #include "compare-operator.h"
@@ -187,7 +187,6 @@ static int condition_test_version_cmp(const char *condition, const char *ver) {
         CompareOperator operator;
         bool first = true;
 
-        assert(condition);
         assert(ver);
 
         for (const char *p = condition;;) {
@@ -1092,7 +1091,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         return log_debug_errno(r, "Cannot determine slice \"%s\" cgroup path: %m", slice);
 
                 /* We might be running under the user manager, so get the root path and prefix it accordingly. */
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, getpid_cached(), &root_scope);
+                r = cg_pid_get_path(getpid_cached(), &root_scope);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to get root cgroup path: %m");
 
@@ -1111,7 +1110,7 @@ static int condition_test_psi(Condition *c, char **env) {
                         free_and_replace(slice_path, slice_joined);
                 }
 
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, slice_path, controller, &pressure_path);
+                r = cg_get_path(slice_path, controller, &pressure_path);
                 if (r < 0)
                         return log_debug_errno(r, "Error getting cgroup pressure path from %s: %m", slice_path);
 
@@ -1402,6 +1401,10 @@ ConditionType condition_type_from_string(const char *s) {
         return _condition_type_from_string(s);
 }
 
+void condition_types_list(void) {
+        DUMP_STRING_TABLE(_condition_type, ConditionType, _CONDITION_TYPE_MAX);
+}
+
 static const char* const _assert_type_table[_CONDITION_TYPE_MAX] = {
         [CONDITION_ARCHITECTURE]             = "AssertArchitecture",
         [CONDITION_FIRMWARE]                 = "AssertFirmware",
@@ -1451,6 +1454,10 @@ ConditionType assert_type_from_string(const char *s) {
                 return CONDITION_VERSION;
 
         return _assert_type_from_string(s);
+}
+
+void assert_types_list(void) {
+        DUMP_STRING_TABLE(_assert_type, ConditionType, _CONDITION_TYPE_MAX);
 }
 
 static const char* const condition_result_table[_CONDITION_RESULT_MAX] = {

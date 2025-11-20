@@ -5,7 +5,7 @@
     __machinectl_get_images () {
         local -a flags
         if [[ $PREFIX == .* ]]; then flags=( --all ); fi
-        machinectl --no-legend list-images $flags | {while read -r a b; do
+        machinectl --no-legend list-images $flags 2>/dev/null | {while read -r a b; do
             # escape : and \; do not interpret existing escape sequences
             printf -- "%s\n" ${a//(#b)(\\|:)/\\$match}
         done;}

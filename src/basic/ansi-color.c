@@ -3,7 +3,6 @@
 #include <stdlib.h>
 
 #include "ansi-color.h"
-#include "log.h"
 #include "process-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -36,18 +35,20 @@ void reset_ansi_feature_caches(void) {
 ColorMode parse_systemd_colors(void) {
         const char *e;
 
+        /* Note: do not log in this function, to avoid infinite recursion issues, as the log functions call
+         * this when deciding whether to color the output. */
+
         e = getenv("SYSTEMD_COLORS");
         if (!e)
                 return _COLOR_MODE_INVALID;
 
-        ColorMode m = color_mode_from_string(e);
-        if (m < 0)
-                return log_debug_errno(m, "Failed to parse $SYSTEMD_COLORS value '%s', ignoring: %m", e);
-
-        return m;
+        return color_mode_from_string(e);
 }
 
 static ColorMode get_color_mode_impl(void) {
+        /* Note: do not log in this function, to avoid infinite recursion issues, as the log functions call
+         * this when deciding whether to color the output. */
+
         /* Returns the mode used to choose output colors. The possible modes are COLOR_OFF for no colors,
          * COLOR_16 for only the base 16 ANSI colors, COLOR_256 for more colors, and COLOR_24BIT for
          * unrestricted color output. */
@@ -99,3 +100,28 @@ static const char* const color_mode_table[_COLOR_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_24BIT);
+
+/*
+ * Check that the string is formatted like an ANSI color code, i.e. that it consists of one or more
+ * sequences of ASCII digits separated by semicolons. This is equivalent to matching the regex:
+ *      ^[0-9]+(;[0-9]+)*$
+ * This can be used to partially validate escape codes of the form "\x1B[%sm", accepting all valid
+ * ANSI color codes while rejecting anything that would result in garbled output (such as injecting
+ * text or changing the type of escape code).
+ */
+bool looks_like_ansi_color_code(const char *str) {
+        assert(str);
+
+        bool prev_char_was_digit = false;
+
+        for (char c = *str; c != '\0'; c = *(++str)) {
+                if (ascii_isdigit(c))
+                        prev_char_was_digit = true;
+                else if (prev_char_was_digit && c == ';')
+                        prev_char_was_digit = false;
+                else
+                        return false;
+        }
+
+        return prev_char_was_digit;
+}

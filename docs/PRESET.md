@@ -29,7 +29,7 @@ systemd 32 and newer support package "preset" policies.
 These encode which units shall be enabled by default when they are installed, and which units shall not be enabled.
 
 Preset files may be written for specific distributions, for specific spins or for specific sites, in order to enforce different policies as needed.
-Preset policies are stored in .preset files in /usr/lib/systemd/system-preset/.
+Preset policies are stored in .preset files in /usr/lib/systemd/system-preset/ (or /usr/lib/systemd/initrd-preset/ for initrds).
 If no policy exists the default implied policy of "enable everything" is enforced, i.e. in Debian style.
 
 The policy encoded in preset files is applied to a unit by invoking "systemctl preset ".

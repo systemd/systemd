@@ -52,10 +52,12 @@ typedef enum OOMPolicy {
 } OOMPolicy;
 
 typedef enum StatusType {
-        STATUS_TYPE_EPHEMERAL,
+        STATUS_TYPE_EPHEMERAL,   /* ordered by severity! Do not break order */
         STATUS_TYPE_NORMAL,
         STATUS_TYPE_NOTICE,
         STATUS_TYPE_EMERGENCY,
+        _STATUS_TYPE_MAX,
+        _STATUS_TYPE_INVALID = -EINVAL,
 } StatusType;
 
 static inline bool UNIT_IS_ACTIVE_OR_RELOADING(UnitActiveState t) {
@@ -346,6 +348,9 @@ typedef struct Unit {
         /* Queue of units that should be checked if they can release resources now */
         LIST_FIELDS(Unit, release_resources_queue);
 
+        /* Queue of units that should be informed when other units stop */
+        LIST_FIELDS(Unit, stop_notify_queue);
+
         /* PIDs we keep an eye on. Note that a unit might have many more, but these are the ones we care
          * enough about to process SIGCHLD for */
         Set *pids; /* → PidRef* */
@@ -446,6 +451,7 @@ typedef struct Unit {
         bool in_start_when_upheld_queue:1;
         bool in_stop_when_bound_queue:1;
         bool in_release_resources_queue:1;
+        bool in_stop_notify_queue:1;
 
         bool sent_dbus_new_signal:1;
 
@@ -670,6 +676,9 @@ typedef struct UnitVTable {
          * state or gains/loses a job */
         void (*trigger_notify)(Unit *u, Unit *trigger);
 
+        /* Invoked when some other units stop */
+        bool (*stop_notify)(Unit *u);
+
         /* Called whenever CLOCK_REALTIME made a jump */
         void (*time_change)(Unit *u);
 
@@ -717,8 +726,8 @@ typedef struct UnitVTable {
         bool (*supported)(void);
 
         /* If this function is set, it's invoked first as part of starting a unit to allow start rate
-         * limiting checks to occur before we do anything else. */
-        int (*can_start)(Unit *u);
+         * limiting checks and unit state checks to occur before we do anything else. */
+        int (*test_startable)(Unit *u);
 
         /* Returns > 0 if the whole subsystem is ratelimited, and new start operations should not be started
          * for this unit type right now. */
@@ -847,6 +856,8 @@ void unit_submit_to_stop_when_unneeded_queue(Unit *u);
 void unit_submit_to_start_when_upheld_queue(Unit *u);
 void unit_submit_to_stop_when_bound_queue(Unit *u);
 void unit_submit_to_release_resources_queue(Unit *u);
+void unit_add_to_stop_notify_queue(Unit *u);
+void unit_remove_from_stop_notify_queue(Unit *u);
 
 int unit_merge(Unit *u, Unit *other);
 int unit_merge_by_name(Unit *u, const char *other);
@@ -877,7 +888,7 @@ int unit_start(Unit *u, ActivationDetails *details);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
-int unit_kill(Unit *u, KillWhom w, int signo, int code, int value, sd_bus_error *ret_error);
+int unit_kill(Unit *u, KillWhom w, const char *subgroup, int signo, int code, int value, sd_bus_error *ret_error);
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
@@ -928,6 +939,8 @@ int unit_add_default_target_dependency(Unit *u, Unit *target);
 
 void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom);
 void unit_trigger_notify(Unit *u);
+
+int unit_get_exec_quota_stats(Unit *u, ExecContext *c, ExecDirectoryType dt, uint64_t *ret_usage, uint64_t *ret_limit);
 
 UnitFileState unit_get_unit_file_state(Unit *u);
 PresetAction unit_get_unit_file_preset(Unit *u);

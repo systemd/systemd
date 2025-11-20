@@ -147,8 +147,8 @@
             <listitem><para>If this option is specified, in place of the URL a simple filename may be
             specified. If the system is booted via UEFI HTTP network booting the last component of the
             network boot origin URL is replaced by this filename and used as download source. This hence
-            allows to automatically derive the URLs for disk images from the original boot URL used to invoke
-            the kernel or boot loader.</para>
+            allows one to automatically derive the URLs for disk images from the original boot URL used to
+            invoke the kernel or boot loader.</para>
 
             <para>If this option is used and the system is not actually booted via UEFI HTTP network booting,
             the download is gracefully skipped. Or in other words without other modifications it is possible

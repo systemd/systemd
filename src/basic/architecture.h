@@ -3,7 +3,7 @@
 
 #include <endian.h>     /* IWYU pragma: keep */
 
-#include "forward.h"
+#include "basic-forward.h"
 
 /* A cleaned up architecture definition. We don't want to get lost in
  * processor features, models, generations or even ABIs. Hence we

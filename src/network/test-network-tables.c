@@ -34,7 +34,7 @@ int main(int argc, char **argv) {
         test_table_sparse(DHCP6MessageType, dhcp6_message_type, DHCP6_MESSAGE_TYPE); /* enum starts from 1 */
         test_table(UseDomains, use_domains, USE_DOMAINS);
         test_table(Duplex, duplex, DUP);
-        test_table(Ip6TnlMode, ip6tnl_mode, NETDEV_IP6_TNL_MODE);
+        test_table(TunnelMode, tunnel_mode, TUNNEL_MODE);
         test_table(IPv6PrivacyExtensions, ipv6_privacy_extensions, IPV6_PRIVACY_EXTENSIONS);
         test_table(IPVlanFlags, ipvlan_flags, NETDEV_IPVLAN_FLAGS);
         test_table(LinkOperationalState, link_operstate, LINK_OPERSTATE);

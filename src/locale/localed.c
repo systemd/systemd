@@ -635,6 +635,7 @@ static int run(int argc, char *argv[]) {
                                "Manage system locale settings and key mappings.",
                                BUS_IMPLEMENTATIONS(&manager_object,
                                                    &log_control_object),
+                               /* runtime_scope= */ NULL,
                                argc, argv);
         if (r <= 0)
                 return r;

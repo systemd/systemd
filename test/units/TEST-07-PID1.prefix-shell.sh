@@ -14,9 +14,14 @@ systemd-run --wait --uid=nobody \
 assert_eq "$(cat /tmp/TEST-07-PID1.prefix-shell.flag)" "a"
 rm /tmp/TEST-07-PID1.prefix-shell.flag
 
+# If the service exits too early, journald cannot find the source process of the log message.
+# Hence, we cannot use 'journalctl -u' below. Instead, let's use --since=.
+journalctl --sync
+TS="$(date '+%H:%M:%S')"
+
 systemctl start prefix-shell.service
 assert_eq "$(cat /tmp/TEST-07-PID1.prefix-shell.flag)" "YAY!"
 
 journalctl --sync
-journalctl -b -u prefix-shell.service --grep "with login shell .*: lvl 101"
-journalctl -b -u prefix-shell.service --grep "with normal shell"
+journalctl --since "$TS" --grep "with login shell .*: lvl 101"
+journalctl --since "$TS" --grep "with normal shell"

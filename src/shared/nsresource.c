@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sched.h>
 #include <sys/prctl.h>
 
 #include "sd-varlink.h"
@@ -9,35 +10,48 @@
 #include "format-util.h"
 #include "json-util.h"
 #include "log.h"
-#include "missing_sched.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "process-util.h"
 #include "string-util.h"
 
+/* Maximum namespace name length */
+#define NAMESPACE_NAME_MAX 16U
+
+/* So the namespace name should be 16 chars at max (because we want that it is usable in usernames, which
+ * have a limit of 31 chars effectively, and the nsresourced service wants to prefix/suffix some bits). But
+ * it also should be unique if we are called multiple times in a row. Hence we take the "comm" name (which is
+ * 15 chars), and suffix it with the PID and a counter, possibly overriding the end. */
+assert_cc(TASK_COMM_LEN == NAMESPACE_NAME_MAX);
+
 static int make_pid_name(char **ret) {
         char comm[TASK_COMM_LEN];
+        static uint64_t counter = 0;
 
         assert(ret);
 
         if (prctl(PR_GET_NAME, comm) < 0)
                 return -errno;
 
-        /* So the namespace name should be 16 chars at max (because we want that it is usable in usernames,
-         * which have a limit of 31 chars effectively, and the nsresourced service wants to prefix/suffix
-         * some bits). But it also should be unique if we are called multiple times in a row. Hence we take
-         * the "comm" name (which is 15 chars), and suffix it with the PID, possibly overriding the end. */
-        assert_cc(TASK_COMM_LEN == 15 + 1);
-
         char spid[DECIMAL_STR_MAX(pid_t)];
         xsprintf(spid, PID_FMT, getpid_cached());
 
-        assert(strlen(spid) <= 16);
-        strshorten(comm, 16 - strlen(spid));
+        /* Include a counter in the name, so that we can allocate multiple namespaces per process, with
+         * unique names. For the first namespace we suppress the suffix */
+        char scounter[sizeof(counter) * 2 + 1];
+        if (counter == 0)
+                scounter[0] = 0;
+        else
+                xsprintf(scounter, "%" PRIx64, counter);
+        counter++;
 
-        _cleanup_free_ char *s = strjoin(comm, spid);
+        strshorten(comm, LESS_BY(NAMESPACE_NAME_MAX, strlen(spid) + strlen(scounter)));
+
+        _cleanup_free_ char *s = strjoin(comm, spid, scounter);
         if (!s)
                 return -ENOMEM;
+
+        strshorten(s, NAMESPACE_NAME_MAX);
 
         *ret = TAKE_PTR(s);
         return 0;
@@ -400,8 +414,8 @@ int nsresource_add_netif_tap(
                 return log_debug_errno(sd_varlink_error_to_errno(error_id, reply), "Failed to add network to user namespace: %s", error_id);
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "hostInterfaceName",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(InterfaceParams, host_interface_name),      SD_JSON_MANDATORY },
-                { "interfaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,   offsetof(InterfaceParams, namespace_interface_name), SD_JSON_MANDATORY },
+                { "hostInterfaceName",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(InterfaceParams, host_interface_name), SD_JSON_MANDATORY },
+                { "interfaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,   offsetof(InterfaceParams, interface_fd_index),  SD_JSON_MANDATORY },
         };
 
         _cleanup_(interface_params_done) InterfaceParams p = {};

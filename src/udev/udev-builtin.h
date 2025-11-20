@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
-#include "forward.h"
+#include "udev-forward.h"
 #include "udev-event.h"
 
 typedef struct UdevBuiltin {

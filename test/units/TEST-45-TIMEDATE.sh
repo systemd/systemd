@@ -224,6 +224,9 @@ assert_timedated_signal() {
 
     for _ in {0..9}; do
         if journalctl "${args[@]}" --grep .; then
+            # Make the found entry in the archived journal, to avoid the following failure:
+            # Journal file /run/log/journal/.../system.journal is truncated, ignoring file.
+            journalctl --rotate
             [[ "$(journalctl "${args[@]}" -o cat | jq -r '.payload.data[1].NTP.data')" == "$value" ]];
             return 0
         fi
@@ -304,6 +307,9 @@ assert_timesyncd_signal() {
 
     for _ in {0..9}; do
         if journalctl "${args[@]}" --grep .; then
+            # Make the found entry in the archived journal, to avoid the following failure:
+            # Journal file /run/log/journal/.../system.journal is truncated, ignoring file.
+            journalctl --rotate
             [[ "$(journalctl "${args[@]}" -o cat | jq -r ".payload.data[1].$property.data | join(\" \")")" == "$value" ]];
             return 0
         fi
@@ -401,6 +407,50 @@ EOF
     # Cleanup
     systemctl stop systemd-networkd systemd-timesyncd
     rm -f /run/systemd/network/ntp99.*
+}
+
+teardown_timedated_alternate_paths() {
+    set +eu
+
+    rm -rf /run/systemd/system/systemd-timedated.service.d
+    systemctl daemon-reload
+    systemctl restart systemd-timedated
+}
+
+testcase_timedated_alternate_paths() {
+    trap teardown_timedated_alternate_paths RETURN
+
+    mkdir -p /run/alternate-path
+    mkdir -p /run/systemd/system/systemd-timedated.service.d
+    cat >/run/systemd/system/systemd-timedated.service.d/override.conf <<EOF
+[Service]
+Environment=SYSTEMD_ETC_LOCALTIME=/run/alternate-path/mylocaltime
+Environment=SYSTEMD_ETC_ADJTIME=/run/alternate-path/myadjtime
+EOF
+    systemctl daemon-reload
+    systemctl restart systemd-timedated
+
+    assert_in "Local time:" "$(timedatectl --no-pager)"
+
+    assert_eq "$(timedatectl --no-pager set-timezone Europe/Kyiv 2>&1)" ""
+    assert_eq "$(readlink /run/alternate-path/mylocaltime | sed 's#^.*zoneinfo/##')" "Europe/Kyiv"
+    assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
+
+    # Restart to force using get_timezine
+    systemctl restart systemd-timedated
+    assert_in "Time zone: Europe/Kyiv \(EES*T, \+0[0-9]00\)" "$(timedatectl)"
+
+    assert_in "RTC in local TZ: no" "$(timedatectl --no-pager)"
+    assert_rc 0 timedatectl set-local-rtc 1
+    assert_in "RTC in local TZ: yes" "$(timedatectl --no-pager)"
+    assert_eq "$(cat /run/alternate-path/myadjtime)" "0.0 0 0
+0
+LOCAL"
+    assert_rc 0 timedatectl set-local-rtc 0
+    if [[ -e /run/alternate-path/myadjtime ]]; then
+        echo "/run/alternate-path/myadjtime still exists" >&2
+        exit 1
+    fi
 }
 
 run_testcases

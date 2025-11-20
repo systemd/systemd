@@ -97,6 +97,13 @@ test ! -e "$entry"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
 test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
 
+# Test --entry-type options
+"$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+"$kernel_install" -v remove 1.1.1 --entry-type=type1
+test ! -e "$entry"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/linux"
+test ! -e "$BOOT_ROOT/the-token/1.1.1/initrd"
+
 # Invoke kernel-install as installkernel
 ln -s --relative -v "$kernel_install" "$D/sources/installkernel"
 "$D/sources/installkernel" -v 1.1.2 "$D/sources/linux" System.map /somedirignored
@@ -284,7 +291,7 @@ rmdir "$BOOT_ROOT/hoge"
 ###########################################
 output="$("$kernel_install" -v --json=pretty inspect 1.1.1 "$D/sources/linux")"
 
-diff -u <(echo "$output") - <<EOF
+diff -u <(echo "$output") - >&2 <<EOF
 {
 	"MachineID" : "3e0484f3634a418b8e6a39e8828b03e3",
 	"KernelImageType" : "unknown",
@@ -302,7 +309,7 @@ diff -u <(echo "$output") - <<EOF
 		"$D/00-skip.install"
 	],
 	"PluginEnvironment" : [
-		"LC_COLLATE=C.UTF-8",
+		"LC_COLLATE=$SYSTEMD_DEFAULT_LOCALE",
 		"KERNEL_INSTALL_VERBOSE=1",
 		"KERNEL_INSTALL_IMAGE_TYPE=unknown",
 		"KERNEL_INSTALL_MACHINE_ID=3e0484f3634a418b8e6a39e8828b03e3",
@@ -311,7 +318,7 @@ diff -u <(echo "$output") - <<EOF
 		"KERNEL_INSTALL_LAYOUT=other",
 		"KERNEL_INSTALL_INITRD_GENERATOR=none",
 		"KERNEL_INSTALL_UKI_GENERATOR=",
-		"KERNEL_INSTALL_STAGING_AREA=/tmp/kernel-install.staging.XXXXXX"
+		"KERNEL_INSTALL_STAGING_AREA=/var/tmp/kernel-install.staging.XXXXXX"
 	]
 }
 EOF

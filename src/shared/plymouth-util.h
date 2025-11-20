@@ -2,7 +2,7 @@
 #pragma once
 
 #include "errno-util.h"
-#include "forward.h"
+#include "shared-forward.h"
 
 int plymouth_connect(int flags);
 int plymouth_send_raw(const void *raw, size_t size, int flags);

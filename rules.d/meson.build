@@ -12,6 +12,7 @@ rules = [
                '60-drm.rules',
                '60-evdev.rules',
                '60-fido-id.rules',
+               '60-gpiochip.rules',
                '60-infiniband.rules',
                '60-input-id.rules',
                '60-persistent-alsa.rules',
@@ -76,7 +77,6 @@ foreach tuple : rules_in
         want = tuple.length() == 1 or tuple[1]
 
         rule = custom_target(
-                tuple[0],
                 input : tuple[0] + '.in',
                 output: tuple[0],
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],

@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdlib.h>
+
 #include "sd-event.h"
 
-#include "resolved-dns-answer.h"
-#include "resolved-dns-packet.h"
+#include "dns-answer.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -128,6 +130,8 @@ TEST(dns_query_new_bypass_ok) {
         ASSERT_NOT_NULL(question);
 
         ASSERT_OK(dns_packet_append_question(packet, question));
+        DNS_PACKET_HEADER(packet)->qdcount = htobe16(dns_question_size(question));
+        ASSERT_OK(dns_packet_extract(packet));
 
         ASSERT_OK(dns_query_new(&manager, &query, NULL, NULL, packet, 1, 0));
         ASSERT_NOT_NULL(query);
@@ -146,6 +150,8 @@ TEST(dns_query_new_bypass_conflict) {
         ASSERT_NOT_NULL(question);
 
         ASSERT_OK(dns_packet_append_question(packet, question));
+        DNS_PACKET_HEADER(packet)->qdcount = htobe16(dns_question_size(question));
+        ASSERT_OK(dns_packet_extract(packet));
 
         ASSERT_OK(dns_question_new_address(&extra_q, AF_INET, "www.example.com", false));
         ASSERT_NOT_NULL(extra_q);
@@ -703,7 +709,7 @@ TEST(dns_query_string_request_address) {
  * particular:
  *
  * - The very first thing it does is try to respond to the query by reading the system /etc/hosts file, which
- *   may be symlinked to a SystemD resource. Ideally we could test this without accessing global files.
+ *   may be symlinked to a systemd resource. Ideally we could test this without accessing global files.
  *
  * - dns_scope_get_dns_server() calls manager_get_dns_server(), which tries to read /etc/resolv.conf.
  *
@@ -886,4 +892,10 @@ TEST(dns_query_go) {
         exercise_dns_query_go(&cfg, NULL);
 }
 
-DEFINE_TEST_MAIN(LOG_DEBUG);
+static int intro(void) {
+        /* Disable hooks in order to make test cases hermetic */
+        ASSERT_OK_ERRNO(setenv("SYSTEMD_RESOLVED_HOOK", "0", /* overwrite= */ false));
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <linux/magic.h>
 #include <unistd.h>
 
 #include "sd-json.h"
@@ -13,7 +14,6 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "json-util.h"
-#include "missing_magic.h"
 #include "path-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"

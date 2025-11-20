@@ -4,18 +4,19 @@
 
 #include "alloc-util.h"
 #include "bus-polkit.h"
+#include "dns-answer.h"
 #include "dns-domain.h"
+#include "dns-packet.h"
+#include "dns-question.h"
+#include "dns-rr.h"
 #include "dns-type.h"
 #include "errno-util.h"
-#include "glyph-util.h"
 #include "in-addr-util.h"
+#include "iovec-util.h"
 #include "json-util.h"
-#include "resolved-dns-answer.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-dnssec.h"
-#include "resolved-dns-packet.h"
 #include "resolved-dns-query.h"
-#include "resolved-dns-question.h"
-#include "resolved-dns-rr.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
@@ -36,9 +37,8 @@ typedef struct LookupParameters {
         int ifindex;
         uint64_t flags;
         int family;
-        union in_addr_union address;
-        size_t address_size;
-        char *name;
+        struct iovec address;
+        const char *name;
         uint16_t class;
         uint16_t type;
 } LookupParameters;
@@ -52,9 +52,17 @@ typedef struct LookupParametersResolveService {
         uint64_t flags;
 } LookupParametersResolveService;
 
+typedef struct LookupParamatersBrowseServices {
+        const char *domain;
+        const char *type;
+        int ifindex;
+        uint64_t flags;
+} LookupParamatersBrowseServices;
+
 static void lookup_parameters_destroy(LookupParameters *p) {
         assert(p);
-        free(p->name);
+
+        iovec_done(&p->address);
 }
 
 static int dns_query_new_for_varlink(
@@ -148,9 +156,17 @@ static int reply_query_state(DnsQuery *q) {
 
 static void vl_on_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata) {
         DnsQuery *q;
+        Manager *m;
 
         assert(s);
         assert(link);
+
+        m = sd_varlink_server_get_userdata(s);
+        if (!m)
+                return;
+
+        DnsServiceBrowser *sb = hashmap_remove(m->dns_service_browsers, link);
+        dns_service_browser_unref(sb);
 
         q = sd_varlink_get_userdata(link);
         if (!q)
@@ -325,10 +341,10 @@ static int parse_as_address(sd_varlink *link, LookupParameters *p) {
 
 static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
-                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
-                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, family),  0                 },
-                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
+                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParameters, family),  0                 },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParameters, flags),   0                 },
                 {}
         };
 
@@ -393,42 +409,6 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
         return 1;
 }
 
-static int json_dispatch_address(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        LookupParameters *p = ASSERT_PTR(userdata);
-        union in_addr_union buf = {};
-        sd_json_variant *i;
-        size_t n, k = 0;
-
-        assert(variant);
-
-        if (!sd_json_variant_is_array(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
-
-        n = sd_json_variant_elements(variant);
-        if (!IN_SET(n, 4, 16))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
-
-        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
-                int64_t b;
-
-                if (!sd_json_variant_is_integer(i))
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is not an integer.", k, strna(name));
-
-                b = sd_json_variant_integer(i);
-                if (b < 0 || b > 0xff)
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Element %zu of JSON field '%s' is out of range 0%s255.",
-                                        k, strna(name), glyph(GLYPH_ELLIPSIS));
-
-                buf.bytes[k++] = (uint8_t) b;
-        }
-
-        p->address = buf;
-        p->address_size = k;
-
-        return 0;
-}
-
 static void vl_method_resolve_address_complete(DnsQuery *query) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_(dns_query_freep) DnsQuery *q = query;
@@ -491,10 +471,10 @@ finish:
 
 static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
-                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,    offsetof(LookupParameters, family),  SD_JSON_MANDATORY },
-                { "address", SD_JSON_VARIANT_ARRAY,         json_dispatch_address,   0,                                   SD_JSON_MANDATORY },
-                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,          offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
+                { "family",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,           offsetof(LookupParameters, family),  SD_JSON_MANDATORY },
+                { "address", SD_JSON_VARIANT_ARRAY,         json_dispatch_byte_array_iovec, offsetof(LookupParameters, address), SD_JSON_MANDATORY },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,        offsetof(LookupParameters, flags),   0                 },
                 {}
         };
 
@@ -521,13 +501,15 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         if (!IN_SET(p.family, AF_INET, AF_INET6))
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("family"));
 
-        if (FAMILY_ADDRESS_SIZE(p.family) != p.address_size)
+        if (FAMILY_ADDRESS_SIZE(p.family) != p.address.iov_len)
                 return sd_varlink_error(link, "io.systemd.Resolve.BadAddressSize", NULL);
 
         if (validate_and_mangle_query_flags(m, &p.flags, /* name = */ NULL, /* ok = */ 0) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
-        r = dns_question_new_reverse(&question, p.family, &p.address);
+        union in_addr_union a = IN_ADDR_NULL;
+        memcpy(&a, p.address.iov_base, p.address.iov_len);
+        r = dns_question_new_reverse(&question, p.family, &a);
         if (r < 0)
                 return r;
 
@@ -539,7 +521,7 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
         sd_varlink_set_userdata(link, q);
 
         q->request_family = p.family;
-        q->request_address = p.address;
+        q->request_address = a;
         q->complete = vl_method_resolve_address_complete;
 
         r = dns_query_go(q);
@@ -718,7 +700,7 @@ static void resolve_service_all_complete(DnsQuery *query) {
 
         assert(q);
 
-        if (q->block_all_complete > 0) {
+        if (q->hook_query || q->block_all_complete > 0) {
                 TAKE_PTR(q);
                 return;
         }
@@ -728,6 +710,13 @@ static void resolve_service_all_complete(DnsQuery *query) {
                 bool have_success = false;
 
                 LIST_FOREACH(auxiliary_queries, aux, q->auxiliary_queries) {
+
+                        if (aux->hook_query) {
+                                /* If an auxiliary query's hook is still pending, let's wait */
+                                TAKE_PTR(q);
+                                return;
+                        }
+
                         switch (aux->state) {
 
                         case DNS_TRANSACTION_PENDING:
@@ -1121,11 +1110,11 @@ finish:
 
 static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,   offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
-                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
-                { "class",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(LookupParameters, class),   0                 },
-                { "type",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16, offsetof(LookupParameters, type),    SD_JSON_MANDATORY },
-                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LookupParameters, flags),   0                 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(LookupParameters, ifindex), SD_JSON_RELAX     },
+                { "name",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParameters, name),    SD_JSON_MANDATORY },
+                { "class",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(LookupParameters, class),   0                 },
+                { "type",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(LookupParameters, type),    SD_JSON_MANDATORY },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParameters, flags),   0                 },
                 {}
         };
 
@@ -1211,6 +1200,41 @@ static int verify_polkit(sd_varlink *link, sd_json_variant *parameters, const ch
                                 &m->polkit_registry);
 }
 
+static int vl_method_browse_services(sd_varlink* link, sd_json_variant* parameters, sd_varlink_method_flags_t flags, void* userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "domain",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParamatersBrowseServices, domain),  0 },
+                { "type",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(LookupParamatersBrowseServices, type),    0 },
+                { "ifindex", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          offsetof(LookupParamatersBrowseServices, ifindex), 0 },
+                { "flags",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(LookupParamatersBrowseServices, flags),   0 },
+                {}
+        };
+
+        LookupParamatersBrowseServices p = {};
+        Manager *m;
+        int r = 0;
+
+        assert(link);
+
+        /* if the client didn't set the more flag, it is using us incorrectly */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (validate_and_mangle_query_flags(m, &p.flags, /* name = */ NULL, /* ok = */ 0))
+                return sd_varlink_error_invalid_parameter_name(link, "flags");
+
+        r = dns_subscribe_browse_service(m, link, p.domain, p.type, p.ifindex, p.flags);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
+        return 1;
+}
+
 static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
@@ -1253,7 +1277,7 @@ static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, s
         LIST_FOREACH(scopes, s, m->dns_scopes) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
 
-                r = dns_scope_dump_cache_to_json(s, &j);
+                r = dns_scope_to_json(s, /* with_cache= */ true, &j);
                 if (r < 0)
                         return r;
 
@@ -1392,6 +1416,29 @@ fail:
         return log_debug_errno(r, "Failed to subscribe client to DNS configuration monitor: %m");
 }
 
+static int vl_method_dump_dns_configuration(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
+        Manager *m;
+        Link *l;
+        int r;
+
+        assert(link);
+
+        m = ASSERT_PTR(sd_varlink_server_get_userdata(sd_varlink_get_server(link)));
+
+        /* Make sure the accessible flag is not stale. */
+        dns_server_reset_accessible_all(m->dns_servers);
+
+        HASHMAP_FOREACH(l, m->links)
+                dns_server_reset_accessible_all(l->dns_servers);
+
+        r = manager_dump_dns_configuration_json(m, &configuration);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, configuration);
+}
+
 static int varlink_monitor_server_init(Manager *m) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
         int r;
@@ -1430,7 +1477,7 @@ static int varlink_monitor_server_init(Manager *m) {
         if (r == 0) {
                 r = sd_varlink_server_listen_address(server, "/run/systemd/resolve/io.systemd.Resolve.Monitor", 0666);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                        return log_error_errno(r, "Failed to bind to varlink socket '/run/systemd/resolve/io.systemd.Resolve.Monitor': %m");
         }
 
         r = sd_varlink_server_attach_event(server, m->event, SD_EVENT_PRIORITY_NORMAL);
@@ -1464,13 +1511,15 @@ static int varlink_main_server_init(Manager *m) {
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Resolve.ResolveHostname", vl_method_resolve_hostname,
-                        "io.systemd.Resolve.ResolveAddress",  vl_method_resolve_address,
-                        "io.systemd.Resolve.ResolveService",  vl_method_resolve_service,
-                        "io.systemd.Resolve.ResolveRecord",   vl_method_resolve_record,
-                        "io.systemd.service.Ping",            varlink_method_ping,
-                        "io.systemd.service.SetLogLevel",     varlink_method_set_log_level,
-                        "io.systemd.service.GetEnvironment",  varlink_method_get_environment);
+                        "io.systemd.Resolve.ResolveHostname",      vl_method_resolve_hostname,
+                        "io.systemd.Resolve.ResolveAddress",       vl_method_resolve_address,
+                        "io.systemd.Resolve.ResolveService",       vl_method_resolve_service,
+                        "io.systemd.Resolve.ResolveRecord",        vl_method_resolve_record,
+                        "io.systemd.service.Ping",                 varlink_method_ping,
+                        "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
+                        "io.systemd.service.GetEnvironment",       varlink_method_get_environment,
+                        "io.systemd.Resolve.BrowseServices",       vl_method_browse_services,
+                        "io.systemd.Resolve.DumpDNSConfiguration", vl_method_dump_dns_configuration);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
@@ -1484,7 +1533,7 @@ static int varlink_main_server_init(Manager *m) {
         if (r == 0) {
                 r = sd_varlink_server_listen_address(s, "/run/systemd/resolve/io.systemd.Resolve", 0666);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                        return log_error_errno(r, "Failed to bind to varlink socket '/run/systemd/resolve/io.systemd.Resolve': %m");
         }
 
         r = sd_varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);

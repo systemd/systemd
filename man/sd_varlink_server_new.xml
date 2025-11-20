@@ -1,0 +1,145 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_varlink_server_new" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_varlink_server_new</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_varlink_server_new</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_varlink_server_new</refname>
+
+    <refpurpose>Allocate Varlink server object</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-varlink.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_varlink_server_new</function></funcdef>
+        <paramdef>sd_varlink_server** <parameter>ret</parameter></paramdef>
+        <paramdef>sd_varlink_server_flags_t <parameter>flags</parameter></paramdef>
+      </funcprototype>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_varlink_server_new()</function> allocates a new Varlink server object. Initially the
+    server does not listen on any socket or file descriptor. The newly allocated server object is returned in
+    the <parameter>ret</parameter> parameter. Use <function>sd_varlink_server_unref()</function> to release
+    the server object again after use.</para>
+
+    <para>The following flags may be passed in the <parameter>flags</parameter> parameter:</para>
+
+    <itemizedlist>
+      <listitem><para><constant>SD_VARLINK_SERVER_ROOT_ONLY</constant>: only allow connections from UID 0
+      (i.e. the root user). This has two effects: any incoming connections is authenticated via
+      <constant>SO_PEERCRED</constant> ensuring the UID reported by the kernel is zero. If this check fails
+      the connection is immediately terminated. Moreover, when binding a socket inode in the file system, the
+      access mode is set to 0600 (rather than 0666). If this option is used connections on
+      non-<constant>AF_UNIX</constant> sockets or via pipes are never permitted.</para></listitem>
+
+      <listitem><para><constant>SD_VARLINK_SERVER_MYSELF_ONLY</constant>: this is very similar to
+      <constant>SD_VARLINK_SERVER_ROOT_ONLY</constant> but enforces that the connecting client's UID must
+      match the server's UID (i.e. the UID this function is invoked as). For servers that run as UID 0 the
+      flags are equivalent. If both flags are specified in combination, connections are allowed by both UID 0
+      and the server's own UID.</para></listitem>
+
+      <listitem><para><constant>SD_VARLINK_SERVER_ACCOUNT_UID</constant>: if set connection accounting per
+      client UID is enabled, and a limit on concurrent connections from the same UID is enforced. The limit can
+      be set via <function>sd_varlink_server_set_connections_per_uid_max()</function>, and defaults to 3/4th
+      of the total concurrent connection limit, as settable via
+      <function>sd_varlink_server_set_connections_max()</function>.</para></listitem>
+
+      <listitem><para><constant>SD_VARLINK_SERVER_INHERIT_USERDATA</constant>: if set the user data field for
+      incoming connection (i.e. <type>sd_varlink</type>) objects (as settable via
+      <function>sd_varlink_set_userdata()</function>) is automatically set to the userdata field of the
+      server (i.e. <type>sd_varlink_server</type>) object (as settable via
+      <function>sd_varlink_server_set_userdata()</function>). If this flag is not specified the connection's
+      user data field will default to <constant>NULL</constant>.</para></listitem>
+
+      <listitem><para><constant>SD_VARLINK_SERVER_INPUT_SENSITIVE</constant>: mark all incoming method call
+      parameters as security sensitive (equivalent to calling
+      <function>sd_json_variant_sensitive()</function>). This is useful for services that deal with secrets
+      and similar, as it ensures that the parameters are kept out of debug logging, and memory used by the
+      parameters is erased after use.</para></listitem>
+
+      <listitem><para><constant>SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT</constant>: if set, allow receiving
+      UNIX file descriptors via the connections, equivalent to calling
+      <function>sd_varlink_set_allow_fd_passing_input()</function> immediately for each incoming
+      connection. Note that this only has an effect if <constant>AF_UNIX</constant> sockets are used for
+      communication.</para></listitem>
+
+      <listitem><para><constant>SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT</constant>: similar, but controls
+      sending of UNIX file descriptors.</para></listitem>
+
+      <listitem><para><constant>SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT</constant>: this flag can be used
+      in conjunction with <constant>SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT</constant>. If so, file
+      descriptor passing is turned off on the listening sockets already, ensuring that the connection sockets
+      derived from it at no time have file descriptor passing enabled. If
+      <constant>SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT</constant> is used without
+      <constant>SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT</constant> then a choice when to prohibit or allow
+      file descriptor passing can still be made after the connection came in, however permitting a time
+      window where file descriptors might already be enqueued, that then need to be dropped
+      again.</para></listitem>
+
+      <listitem><para><constant>SD_VARLINK_SERVER_HANDLE_SIGINT</constant>: if set, and
+      <function>sd_varlink_server_loop_auto()</function> is used, incoming <constant>SIGINT</constant>
+      process signals will be caught gracefully and cause the event loop to exit cleanly.</para></listitem>
+
+      <listitem><para><constant>SD_VARLINK_SERVER_HANDLE_SIGTERM</constant>: similar, but does the same for
+      <constant>SIGTERM</constant>.</para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, <function>sd_varlink_server_new()</function> returns a non-negative integer. On
+    failure, it returns a negative errno-style error code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>An argument is invalid.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_varlink_server_new()</function> was added in version 257.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-varlink</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

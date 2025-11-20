@@ -3,7 +3,7 @@
 
 #include "sd-id128.h"
 
-#include "forward.h"
+#include "shared-forward.h"
 
 typedef enum MachineIdSetupFlags {
         MACHINE_ID_SETUP_FORCE_TRANSIENT = 1 << 0,

@@ -161,7 +161,7 @@
       <varlistentry>
         <term><option>--status=</option></term>
 
-        <listitem><para>Send a free-form human readable status string for the daemon to the service
+        <listitem><para>Send a free-form human-readable status string for the daemon to the service
         manager. This option takes the status string as argument. This is equivalent to
         <command>systemd-notify STATUS=…</command>. For details about the semantics of this option see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>. This
@@ -179,8 +179,8 @@
         <citerefentry><refentrytitle>sd_booted</refentrytitle><manvolnum>3</manvolnum></citerefentry>. An
         alternate way to check for this state is to call
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> with
-        the <command>is-system-running</command> command. It will return <literal>offline</literal> if the
-        system was not booted with systemd.  </para></listitem>
+        the <command>is-system-running</command> command. It will output <literal>offline</literal> if the
+        system was not booted with systemd, though the return value has a different meaning.</para></listitem>
       </varlistentry>
 
       <varlistentry>
