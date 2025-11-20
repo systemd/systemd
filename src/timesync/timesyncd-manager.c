@@ -76,6 +76,7 @@ static int manager_resolve_handler(sd_resolve_query *q, int ret, const struct ad
 #if ENABLE_TIMESYNC_NTS
 static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_nts_handshake_setup(Manager *m);
+static void manager_flush_cookies(Manager *m);
 #endif
 
 static double ntp_ts_short_to_d(const struct ntp_ts_short *ts) {
@@ -141,7 +142,13 @@ static int manager_send_request(Manager *m) {
          * connection to perform key extractions and obtain cookies
          */
         if (m->nts_missing_cookies >= ELEMENTSOF(m->nts_cookies)) {
-                return manager_nts_handshake_setup(m);
+                log_warning("Out of cookies for NTS server %s", m->current_server_name->string);
+                server_name_flush_addresses(m->current_server_name);
+                manager_flush_cookies(m);
+                if (m->talking)
+                        /* We have been contacting a time server, let's find that one again */
+                        m->current_server_name = NULL;
+                return manager_connect(m);
         }
 #endif
 
@@ -818,7 +825,10 @@ static int manager_begin(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_send_request(m);
+        if (m->nts_missing_cookies >= ELEMENTSOF(m->nts_cookies))
+                return manager_nts_handshake_setup(m);
+        else
+                return manager_send_request(m);
 }
 
 void manager_set_server_name(Manager *m, ServerName *n) {
@@ -1117,8 +1127,7 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->polkit_registry);
 
 #if ENABLE_TIMESYNC_NTS
-        FOREACH_ELEMENT(cookie, m->nts_cookies)
-                mfree(cookie->data);
+        manager_flush_cookies(m);
 #endif
 
         return mfree(m);
@@ -1695,5 +1704,10 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         m->nts_missing_cookies = ELEMENTSOF(m->nts_cookies) - num_cookies;
 
         return 1;
+}
+
+static void manager_flush_cookies(Manager *m) {
+        FOREACH_ELEMENT(cookie, m->nts_cookies)
+                cookie->data = mfree(cookie->data);
 }
 #endif
