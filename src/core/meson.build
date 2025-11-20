@@ -215,6 +215,7 @@ executables += [
                         libpam_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
+                        libmount_cflags,
                 ],
         },
         fuzz_template + {
