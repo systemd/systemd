@@ -75,7 +75,7 @@ int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *for
         LOCAL_ERRNO(error);
 
         va_start(ap, format);
-        sym_pam_vsyslog(handle, LOG_ERR, format, ap);
+        sym_pam_vsyslog(handle, level, format, ap);
         va_end(ap);
 
         return error == -ENOMEM ? PAM_BUF_ERR : PAM_SERVICE_ERR;
