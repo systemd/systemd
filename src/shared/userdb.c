@@ -1979,8 +1979,13 @@ int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret)
 int userdb_block_nss_systemd(int b) {
         _cleanup_(dlclosep) void *dl = NULL;
         int (*call)(bool b);
+        int r;
 
         /* Note that we might be called from libnss_systemd.so.2 itself, but that should be fine, really. */
+
+        r = check_dlopen_blocked("libnss_systemd.so.2");
+        if (r < 0)
+                return r;
 
         dl = dlopen(LIBDIR "/libnss_systemd.so.2", RTLD_NOW|RTLD_NODELETE);
         if (!dl) {
