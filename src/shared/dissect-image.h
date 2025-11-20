@@ -273,5 +273,5 @@ int mountfsd_mount_image(const char *path, int userns_fd, const ImagePolicy *ima
 int mountfsd_mount_directory_fd(int directory_fd, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
 int mountfsd_mount_directory(const char *path, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
 
-int mountfsd_make_directory_fd(int parent_fd, const char *name, DissectImageFlags flags, int *ret_directory_fd);
-int mountfsd_make_directory(const char *path, DissectImageFlags flags, int *ret_directory_fd);
+int mountfsd_make_directory_fd(int parent_fd, const char *name, mode_t mode, DissectImageFlags flags, int *ret_directory_fd);
+int mountfsd_make_directory(const char *path, mode_t mode, DissectImageFlags flags, int *ret_directory_fd);
