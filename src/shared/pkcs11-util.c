@@ -40,28 +40,22 @@ bool pkcs11_uri_valid(const char *uri) {
 /* Compatibility definitions for OAEP constants not present in older PKCS#11 headers */
 #ifndef CKM_RSA_PKCS_OAEP
 #  define CKM_RSA_PKCS_OAEP 0x00000009UL
-#endif
-
-#ifndef CKM_SHA256
-#  define CKM_SHA256 0x00000250UL
-#endif
-
-#ifndef CKG_MGF1_SHA256
 #  define CKG_MGF1_SHA256 0x00000002UL
-#endif
-
-#ifndef CKZ_DATA_SPECIFIED
 #  define CKZ_DATA_SPECIFIED 0x00000001UL
-#endif
 
-#ifndef CK_RSA_PKCS_OAEP_PARAMS_PTR
-typedef struct CK_RSA_PKCS_OAEP_PARAMS {
+typedef struct {
         CK_MECHANISM_TYPE hashAlg;
         CK_ULONG mgf;
         CK_ULONG source;
         CK_VOID_PTR pSourceData;
         CK_ULONG ulSourceDataLen;
 } CK_RSA_PKCS_OAEP_PARAMS;
+
+typedef CK_RSA_PKCS_OAEP_PARAMS *CK_RSA_PKCS_OAEP_PARAMS_PTR;
+#endif
+
+#ifndef CKM_SHA256
+#  define CKM_SHA256 0x00000250UL
 #endif
 
 static void *p11kit_dl = NULL;
