@@ -2260,7 +2260,6 @@ int terminal_get_size_by_dsr(
                 unsigned *ret_rows,
                 unsigned *ret_columns) {
 
-        _cleanup_close_ int nonblock_input_fd = -EBADF;
         int r;
 
         assert(input_fd >= 0);
@@ -2288,14 +2287,20 @@ int terminal_get_size_by_dsr(
         if (r < 0)
                 return log_debug_errno(r, "Called with distinct input/output fds: %m");
 
+        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
+         * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
+        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                return r;
+
         struct termios old_termios;
-        if (tcgetattr(input_fd, &old_termios) < 0)
+        if (tcgetattr(nonblock_input_fd, &old_termios) < 0)
                 return log_debug_errno(errno, "Failed to get terminal settings: %m");
 
         struct termios new_termios = old_termios;
         termios_disable_echo(&new_termios);
 
-        if (tcsetattr(input_fd, TCSANOW, &new_termios) < 0)
+        if (tcsetattr(nonblock_input_fd, TCSANOW, &new_termios) < 0)
                 return log_debug_errno(errno, "Failed to set new terminal settings: %m");
 
         unsigned saved_row = 0, saved_column = 0;
@@ -2305,13 +2310,6 @@ int terminal_get_size_by_dsr(
                        "\x1B[32766;32766H" /* Position cursor really far to the right and to the bottom, but let's stay within the 16bit signed range */
                        "\x1B[6n",          /* Request cursor position again */
                        SIZE_MAX);
-        if (r < 0)
-                goto finish;
-
-        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
-         * else process the POLLIN. */
-
-        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 goto finish;
 
@@ -2407,7 +2405,7 @@ finish:
         if (saved_row > 0 && saved_column > 0)
                 RET_GATHER(r, terminal_set_cursor_position(output_fd, saved_row, saved_column));
 
-        RET_GATHER(r, RET_NERRNO(tcsetattr(input_fd, TCSANOW, &old_termios)));
+        RET_GATHER(r, RET_NERRNO(tcsetattr(nonblock_input_fd, TCSANOW, &old_termios)));
         return r;
 }
 
