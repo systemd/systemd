@@ -528,6 +528,7 @@ int kdf_kb_hmac_derive(
 #endif
 }
 
+/* Encrypts key data using PKCS#1 v1.5 padding for compatibility with PKCS#11 tokens. */
 int rsa_encrypt_bytes(
                 EVP_PKEY *pkey,
                 const void *decrypted_key,
@@ -557,7 +558,7 @@ int rsa_encrypt_bytes(
                 return -ENOMEM;
 
         if (EVP_PKEY_encrypt(ctx, b, &l, decrypted_key, decrypted_key_size) <= 0)
-                return log_openssl_errors("Failed to determine encrypted key size");
+                return log_openssl_errors("Failed to encrypt key");
 
         *ret_encrypt_key = TAKE_PTR(b);
         *ret_encrypt_key_size = l;
