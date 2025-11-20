@@ -1326,7 +1326,7 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <term><varname>CPUSchedulingPolicy=</varname></term>
 
         <listitem><para>Sets the CPU scheduling policy for executed processes. Takes one of <option>other</option>,
-        <option>batch</option>, <option>idle</option>, <option>fifo</option> or <option>rr</option>. See
+        <option>batch</option>, <option>idle</option>, <option>fifo</option>, <option>rr</option> or <option>ext</option>. See
         <citerefentry project='man-pages'><refentrytitle>sched_setscheduler</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
         details.</para></listitem>
       </varlistentry>
