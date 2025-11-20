@@ -872,7 +872,12 @@ def simplelist(el):
 
 
 def member(el):
-    return _concat(el)
+    parentListType = el.getparent().get("type")
+    listItemPrefix = "\n| "
+    if parentListType == 'inline':
+        listItemPrefix = ""
+
+    return _concat(el, listItemPrefix)
 
 # varlists
 
