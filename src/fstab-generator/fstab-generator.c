@@ -17,6 +17,7 @@
 #include "efi-loader.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -491,8 +492,8 @@ static int add_mount(
                 const char *target_unit,
                 const char *extra_after) {
 
-        _cleanup_free_ char *name = NULL, *automount_name = NULL, *filtered = NULL, *where_escaped = NULL,
-                *opts_root_filtered = NULL;
+        _cleanup_free_ char *name = NULL, *automount_name = NULL, *filtered = NULL,
+                *where_escaped = NULL, *where_cescaped = NULL, *opts_root_filtered = NULL;
         _cleanup_strv_free_ char **wanted_by = NULL, **required_by = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -615,10 +616,22 @@ static int add_mount(
         if (original_where)
                 fprintf(f, "# Canonicalized from %s\n", original_where);
 
-        where_escaped = specifier_escape(where);
-        if (!where_escaped)
-                return log_oom();
-        fprintf(f, "Where=%s\n", where_escaped);
+        size_t len = strlen(where);
+        assert(len > 0);
+        if (strchr(WHITESPACE, where[0]) || strchr(WHITESPACE, where[len - 1]) || !string_is_safe(where)) {
+                /* PID1 does neither unescape nor unquote Where=, hence we cannot pass path starts or ends
+                 * with space, or contains line break or so. In that case, the mount point needs to be
+                 * automatically obtained through the unit file name. */
+                where_cescaped = cescape(where);
+                log_debug("Mount point starts/ends with space or contains non-safe character(s), skipping setting Where= for '%s'",
+                          strna(where_cescaped));
+                fprintf(f, "# Where=%s\n", strna(where_cescaped));
+        } else {
+                where_escaped = specifier_escape(where);
+                if (!where_escaped)
+                        return log_oom();
+                fprintf(f, "Where=%s\n", where_escaped);
+        }
 
         if (!isempty(fstype) && !streq(fstype, "auto")) {
                 _cleanup_free_ char *t = NULL;
@@ -719,9 +732,12 @@ static int add_mount(
 
                 fprintf(f,
                         "\n"
-                        "[Automount]\n"
-                        "Where=%s\n",
-                        where_escaped);
+                        "[Automount]\n");
+
+                if (where_escaped)
+                        fprintf(f, "Where=%s\n", where_escaped);
+                else
+                        fprintf(f, "# Where=%s\n", strna(where_cescaped));
 
                 r = write_idle_timeout(f, where, opts);
                 if (r < 0)
