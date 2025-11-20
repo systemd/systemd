@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
 #include <getopt.h>
+#include <stdio.h>
 
-#include "sd-json.h"
+#include "build.h"
 #include "cryptsetup-util.h"
 #include "json-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
+#include "sd-json.h"
 #include "string-util.h"
 
 static char *arg_device = NULL;

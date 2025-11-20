@@ -19,10 +19,9 @@ fi
 
 # Setup test environment
 TEMPDIR=$(mktemp -d)
-trap "rm -rf $TEMPDIR" EXIT
+trap 'rm -rf "$TEMPDIR"' EXIT
 
 TESTDEV="$TEMPDIR/test.img"
-MAPPER_NAME="test-pkcs11-migration"
 TOKEN_URL="pkcs11:token=TestToken;object=TestKey"
 
 # Create test LUKS device
@@ -32,7 +31,8 @@ echo -n "testpass" | cryptsetup luksFormat --type luks2 "$TESTDEV" -
 # Function to create a mock legacy PKCS#11 token
 create_legacy_token() {
     local device=$1
-    local token_json=$(cat <<EOF
+    local token_json
+    token_json=$(cat <<EOF
 {
     "type": "systemd-pkcs11",
     "keyslots": ["0"],
@@ -108,7 +108,7 @@ dd if=/dev/zero of="$TESTDEV2" bs=1M count=32 status=none
 echo -n "testpass" | cryptsetup luksFormat --type luks2 "$TESTDEV2" -
 
 # Add multiple mock tokens
-for i in 1 2 3; do
+for _ in 1 2 3; do
     create_legacy_token "$TESTDEV2"
 done
 
