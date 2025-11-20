@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "libmount-util.h"
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
@@ -833,8 +834,14 @@ TEST(devname_from_devnum) {
 }
 
 static int intro(void) {
+        int r;
+
         if (path_is_mount_point("/sys") <= 0)
-                return log_tests_skipped("/sys is not mounted");
+                return log_tests_skipped("/sys/ is not mounted");
+
+        r = dlopen_libmount();
+        if (r < 0)
+                return log_tests_skipped("libmount not available.");
 
         return EXIT_SUCCESS;
 }
