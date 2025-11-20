@@ -62,6 +62,8 @@
 #define VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM "/run/systemd/io.systemd.ManagedOOM"
 /* Path where systemd-oomd listens for varlink connections from user managers to report changes in ManagedOOM settings. */
 #define VARLINK_ADDR_PATH_MANAGED_OOM_USER "/run/systemd/oom/io.systemd.ManagedOOM"
+/* Path where to connect to send varlink prekill events */
+#define VARLINK_ADDR_PATH_OOMD_PREKILL "/run/systemd/oomd.prekill-hooks/"
 
 /* Recommended baseline - see README for details */
 #define KERNEL_BASELINE_VERSION "5.7"
