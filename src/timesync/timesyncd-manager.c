@@ -1459,9 +1459,12 @@ static int manager_nts_handshake_timeout(sd_event_source *source, usec_t usec, v
         assert(m->current_server_name);
         assert(m->current_server_address);
 
+        m->event_timeout = sd_event_source_unref(m->event_timeout);
+
         if (m->nts_handshake)
                 NTS_TLS_close(m->nts_handshake);
         m->nts_handshake = NULL;
+        manager_listen_stop(m);
 
         server_address_pretty(m->current_server_address, &pretty);
         log_info("Timed out during key exchange with %s (%s).", strna(pretty), m->current_server_name->string);
@@ -1486,6 +1489,7 @@ static int manager_nts_handshake_setup(Manager *m) {
         if (m->server_socket < 0)
                 return -errno;
 
+        /* TODO: replace this blocking call */
         r = connect(m->server_socket, addr, m->current_server_address->socklen);
         if (r < 0)
                 return -errno;
@@ -1615,6 +1619,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 }
 
                 /* end of interactive part of the NTS handshake */
+                m->nts_handshake_state = _NTS_HANDSHAKE_STATE_INVALID;
                 m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                 break;
 
@@ -1633,7 +1638,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
         NTS_TLS_close(m->nts_handshake);
         m->nts_handshake = NULL;
-        m->server_socket = safe_close(m->server_socket);
+        manager_listen_stop(m);
 
         if (r != 0) {
                 log_error("Key extraction failed");
