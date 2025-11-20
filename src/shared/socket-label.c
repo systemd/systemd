@@ -8,9 +8,32 @@
 #include "fs-util.h"
 #include "log.h"
 #include "mkdir-label.h"
+#include "parse-util.h"
 #include "selinux-util.h"
+#include "socket-label.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "umask-util.h"
+
+static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
+        [SOCKET_ADDRESS_DEFAULT]   = "default",
+        [SOCKET_ADDRESS_BOTH]      = "both",
+        [SOCKET_ADDRESS_IPV6_ONLY] = "ipv6-only"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
+
+SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *n) {
+        int r;
+
+        r = parse_boolean(n);
+        if (r > 0)
+                return SOCKET_ADDRESS_IPV6_ONLY;
+        if (r == 0)
+                return SOCKET_ADDRESS_BOTH;
+
+        return socket_address_bind_ipv6_only_from_string(n);
+}
 
 int socket_address_listen(
                 const SocketAddress *a,
@@ -23,7 +46,7 @@ int socket_address_listen(
                 bool transparent,
                 mode_t directory_mode,
                 mode_t socket_mode,
-                const char *label) {
+                const char *selinux_label) {
 
         _cleanup_close_ int fd = -EBADF;
         const char *p;
@@ -38,15 +61,15 @@ int socket_address_listen(
         if (socket_address_family(a) == AF_INET6 && !socket_ipv6_is_supported())
                 return -EAFNOSUPPORT;
 
-        if (label) {
-                r = mac_selinux_create_socket_prepare(label);
+        if (selinux_label) {
+                r = mac_selinux_create_socket_prepare(selinux_label);
                 if (r < 0)
                         return r;
         }
 
         fd = RET_NERRNO(socket(socket_address_family(a), a->type | flags, a->protocol));
 
-        if (label)
+        if (selinux_label)
                 mac_selinux_create_socket_clear();
 
         if (fd < 0)

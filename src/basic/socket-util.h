@@ -53,14 +53,6 @@ typedef struct SocketAddress {
         int protocol;
 } SocketAddress;
 
-typedef enum SocketAddressBindIPv6Only {
-        SOCKET_ADDRESS_DEFAULT,
-        SOCKET_ADDRESS_BOTH,
-        SOCKET_ADDRESS_IPV6_ONLY,
-        _SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX,
-        _SOCKET_ADDRESS_BIND_IPV6_ONLY_INVALID = -EINVAL,
-} SocketAddressBindIPv6Only;
-
 #define socket_address_family(a) ((a)->sockaddr.sa.sa_family)
 
 const char* socket_address_type_to_string(int t) _const_;
@@ -73,19 +65,6 @@ static inline int socket_address_unlink(const SocketAddress *a) {
 }
 
 bool socket_address_can_accept(const SocketAddress *a) _pure_;
-
-int socket_address_listen(
-                const SocketAddress *a,
-                int flags,
-                int backlog,
-                SocketAddressBindIPv6Only only,
-                const char *bind_to_device,
-                bool reuse_port,
-                bool free_bind,
-                bool transparent,
-                mode_t directory_mode,
-                mode_t socket_mode,
-                const char *label);
 
 int socket_address_verify(const SocketAddress *a, bool strict) _pure_;
 int socket_address_print(const SocketAddress *a, char **p);
@@ -107,10 +86,6 @@ int getpeername_pretty(int fd, bool include_port, char **ret);
 int getsockname_pretty(int fd, char **ret);
 
 int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **_ret);
-
-const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *s);
 
 int netlink_family_to_string_alloc(int b, char **s);
 int netlink_family_from_string(const char *s) _pure_;
