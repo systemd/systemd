@@ -3,7 +3,6 @@
 #include <syslog.h>
 
 #include "libarchive-util.h"
-#include "user-util.h"
 
 #if HAVE_LIBARCHIVE
 static void *libarchive_dl = NULL;

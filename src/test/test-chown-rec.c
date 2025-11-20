@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "chown-recursive.h"
+#include "errno-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
 #include "tests.h"

@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <stdio.h>
-
 #include "alloc-util.h"
 #include "bus-label.h"
 #include "glyph-util.h"
