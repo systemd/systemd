@@ -547,7 +547,7 @@ executables += [
         },
         core_test_template + {
                 'sources' : files('test-execute.c'),
-                'dependencies' : common_test_dependencies,
+                'dependencies' : common_test_dependencies + libmount,
                 'timeout' : 360,
         },
         core_test_template + {
