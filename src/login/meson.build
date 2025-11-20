@@ -45,9 +45,9 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-logind',
                 'dbus' : true,
-                'sources' : systemd_logind_sources + systemd_logind_extract_sources,
-                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
+                'sources' : systemd_logind_sources,
                 'extract' : systemd_logind_extract_sources,
+                'include_directories' : [libexec_template['include_directories'], include_directories('.')],
                 'dependencies' : [
                         threads,
                 ],

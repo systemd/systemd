@@ -93,10 +93,7 @@ executables += [
                 'sources' : files('test-lldp-rx.c'),
         },
         network_test_template + {
-                'sources' : files(
-                        'test-ndisc-ra.c',
-                        'icmp6-test-util.c',
-                ),
+                'sources' : files('test-ndisc-ra.c'),
                 'extract' : files('icmp6-test-util.c'),
         },
         network_test_template + {
