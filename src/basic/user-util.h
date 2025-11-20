@@ -20,11 +20,11 @@
 #define MAP_UID_MIN ((uid_t) 60514)
 #define MAP_UID_MAX ((uid_t) 60577)
 
-/* A helper to print an error message when user or group resolution fails.
- * Note that we can't use ({ … }) to define a temporary variable, so errnum is
- * evaluated multiple times. */
-#define STRERROR_USER(errnum) ((errnum) == -ESRCH ? "Unknown user" : (errnum) == -ENOEXEC ? "Not a system user" : STRERROR(errnum))
-#define STRERROR_GROUP(errnum) ((errnum) == -ESRCH ? "Unknown group" : (errnum) == -ENOEXEC ? "Not a system group" : STRERROR(errnum))
+/* A helper to print an error message when user or group resolution fails. */
+const char* strerror_user(int errnum, char *buf, size_t buflen);
+#define STRERROR_USER(errnum) strerror_user(errnum, (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
+const char* strerror_group(int errnum, char *buf, size_t buflen);
+#define STRERROR_GROUP(errnum) strerror_group(errnum, (char[ERRNO_BUF_LEN]){}, ERRNO_BUF_LEN)
 
 static inline bool ERRNO_IS_NEG_BAD_ACCOUNT(intmax_t r) {
         return IN_SET(r,
