@@ -52,7 +52,7 @@ executables += [
         executable_template + {
                 'name' : 'systemctl',
                 'public' : true,
-                'sources' : systemctl_sources + systemctl_extract_sources,
+                'sources' : systemctl_sources,
                 'extract' : systemctl_extract_sources,
                 'link_with' : systemctl_link_with,
                 'dependencies' : [

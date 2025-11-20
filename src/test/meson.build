@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-awkscript = 'test-hashmap-ordered.awk'
 test_hashmap_ordered_c = custom_target(
-        input : [awkscript, 'test-hashmap-plain.c'],
+        input : ['test-hashmap-ordered.awk', 'test-hashmap-plain.c'],
         output : 'test-hashmap-ordered.c',
         command : [awk, '-f', '@INPUT0@', '@INPUT1@'],
         capture : true,
@@ -382,10 +381,7 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
-                'sources' : files(
-                        'test-nss-hosts.c',
-                        'nss-test-util.c',
-                ),
+                'sources' : files('test-nss-hosts.c'),
                 'extract' : files('nss-test-util.c'),
                 'dependencies' : [
                         libdl,
@@ -490,13 +486,13 @@ executables += [
         # Symbol tests
         test_template + {
                 'name' : 'test-libsystemd-sym',
-                'sources' : test_libsystemd_sym_c,
+                'sources' : [test_libsystemd_sym_c],
                 'link_with' : libsystemd,
                 'suite' : 'libsystemd',
         },
         test_template + {
                 'name' : 'test-libudev-sym',
-                'sources' : test_libudev_sym_c,
+                'sources' : [test_libudev_sym_c],
                 'include_directories' : libudev_includes,
                 'c_args' : ['-Wno-deprecated-declarations'] + test_cflags,
                 'link_with' : libudev,
@@ -654,7 +650,7 @@ if static_libsystemd != 'false'
         executables += [
                 test_template + {
                         'name' : 'test-libsystemd-static-sym',
-                        'sources' : test_libsystemd_sym_c,
+                        'sources' : [test_libsystemd_sym_c],
                         'link_with' : install_libsystemd_static,
                         'build_by_default' : want_tests != 'false',
                         'install' : install_tests,
@@ -667,7 +663,7 @@ if static_libudev != 'false'
         executables += [
                 test_template + {
                         'name' : 'test-libudev-static-sym',
-                        'sources' : test_libudev_sym_c,
+                        'sources' : [test_libudev_sym_c],
                         'include_directories' : libudev_includes,
                         'c_args' : ['-Wno-deprecated-declarations'] + test_cflags,
                         'link_with' : install_libudev_static,
