@@ -22,6 +22,7 @@
 #include "argv-util.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
+#include "dlfcn-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -1694,6 +1695,13 @@ int pidref_safe_fork_full(
                         log_full_errno(flags & FORK_LOG ? LOG_WARNING : LOG_DEBUG,
                                        r, "Failed to rename process, ignoring: %m");
         }
+
+        /* let's disable dlopen() in the child, as a paranoia safety precaution: children should not live for
+         * long and only do minimal work before exiting or exec()ing. Doing dlopen() is not either. If people
+         * want dlopen() they should do it before forking. This is a safety precuation in particular for
+         * cases where the child does namespace shenanigans: we should never end up loading a module from a
+         * foreign environment */
+        block_dlopen();
 
         if (flags & (FORK_DEATHSIG_SIGTERM|FORK_DEATHSIG_SIGINT|FORK_DEATHSIG_SIGKILL))
                 if (prctl(PR_SET_PDEATHSIG, fork_flags_to_signal(flags)) < 0) {
