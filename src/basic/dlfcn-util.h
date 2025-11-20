@@ -72,3 +72,9 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
  * _SONAME_ARRAY<X+1> will need to be added). */
 #define ELF_NOTE_DLOPEN(feature, description, priority, ...) \
         _ELF_NOTE_DLOPEN("[{\"feature\":\"" feature "\",\"description\":\"" description "\",\"priority\":\"" priority "\",\"soname\":" _SONAME_ARRAY(__VA_ARGS__) "}]", UNIQ_T(s, UNIQ))
+
+/* If set to true dlopen_many_sym_or_warn() will fail with EPERM. This can be used to block lazy loading of
+ * shared libs, if we transfer a process into a different namespace */
+extern bool block_dlopen;
+
+int check_dlopen_blocked(const char *fn);

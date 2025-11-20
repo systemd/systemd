@@ -87,6 +87,10 @@ int dlopen_bpf_full(int log_level) {
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
 
+        r = check_dlopen_blocked("libbpf.so.1");
+        if (r < 0)
+                return r;
+
         dl = dlopen("libbpf.so.1", RTLD_NOW|RTLD_NODELETE);
         if (!dl) {
                 /* libbpf < 1.0.0 (we rely on 0.1.0+) provide most symbols we care about, but

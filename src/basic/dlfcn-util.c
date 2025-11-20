@@ -53,6 +53,10 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
         if (*dlp)
                 return 0; /* Already loaded */
 
+        r = check_dlopen_blocked(filename);
+        if (r < 0)
+                return r;
+
         dl = dlopen(filename, RTLD_NOW|RTLD_NODELETE);
         if (!dl)
                 return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -72,4 +76,15 @@ int dlopen_many_sym_or_warn_sentinel(void **dlp, const char *filename, int log_l
          * was traditionally a regular shared library dependency which lives forever too. */
         *dlp = TAKE_PTR(dl);
         return 1;
+}
+
+bool block_dlopen = false;
+
+int check_dlopen_blocked(const char *fn) {
+        assert(fn);
+
+        if (block_dlopen)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Refusing loading of '%s', as loading further dlopen() modules has been blocked.", fn);
+
+        return 0;
 }
