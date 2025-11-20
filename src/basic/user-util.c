@@ -28,6 +28,26 @@
 #include "user-util.h"
 #include "utf8.h"
 
+#define DEFINE_STRERROR_ACCOUNT(type)                                   \
+        const char* strerror_##type(                                    \
+                        int errnum,                                     \
+                        char *buf,                                      \
+                        size_t buflen) {                                \
+                                                                        \
+                errnum = ABS(errnum);                                   \
+                switch (errnum) {                                       \
+                case ESRCH:                                             \
+                        return "Unknown " STRINGIFY(type);              \
+                case ENOEXEC:                                           \
+                        return "Not a system " STRINGIFY(type);         \
+                default:                                                \
+                        return strerror_r(errnum, buf, buflen);         \
+                }                                                       \
+        }
+
+DEFINE_STRERROR_ACCOUNT(user);
+DEFINE_STRERROR_ACCOUNT(group);
+
 bool uid_is_valid(uid_t uid) {
 
         /* Also see POSIX IEEE Std 1003.1-2008, 2016 Edition, 3.436. */
