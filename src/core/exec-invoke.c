@@ -5751,12 +5751,7 @@ int exec_invoke(
                 use_smack = mac_smack_use();
 #endif
 #if HAVE_APPARMOR
-                if (mac_apparmor_use()) {
-                        r = dlopen_libapparmor();
-                        if (r < 0 && !ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                                log_warning_errno(r, "Failed to load libapparmor, ignoring: %m");
-                        use_apparmor = r >= 0;
-                }
+                user_smack = mac_apparmor_use();
 #endif
         }
 
