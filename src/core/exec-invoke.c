@@ -5732,7 +5732,7 @@ int exec_invoke(
 
         /* We need setresuid() if the caller asked us to apply sandboxing and the command isn't explicitly
          * excepted from either whole sandboxing or just setresuid() itself. */
-        needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
+        needs_setuid = needs_sandboxing && !FLAGS_SET(command->flags, EXEC_COMMAND_NO_SETUID);
 
         uint64_t capability_ambient_set = context->capability_ambient_set;
 
