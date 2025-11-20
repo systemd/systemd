@@ -20,6 +20,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "libmount-util.h"
 #include "manager.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -1629,6 +1630,9 @@ static int intro(void) {
                 have_netns = system("ip netns add test-execute-netns") == 0;
                 have_netns = have_netns && system("ip netns exec test-execute-netns ip link add dummy-test-ns type dummy") == 0;
         }
+
+        /* Load libmount here, before forking */
+        (void) dlopen_libmount();
 
         return EXIT_SUCCESS;
 }
