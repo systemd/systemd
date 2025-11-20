@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <poll.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
@@ -8,12 +9,14 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "hash-funcs.h"
+#include "io-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "pidfd-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "siphash24.h"
+#include "time-util.h"
 
 int pidref_acquire_pidfd_id(PidRef *pidref) {
         int r;
@@ -449,7 +452,8 @@ bool pidref_is_self(PidRef *pidref) {
         return pidref->fd_id == self_id;
 }
 
-int pidref_wait(PidRef *pidref, siginfo_t *ret, int options) {
+int pidref_wait_for_terminate_full(PidRef *pidref, usec_t timeout, siginfo_t *ret) {
+        siginfo_t si = {};
         int r;
 
         if (!pidref_is_set(pidref))
@@ -461,28 +465,45 @@ int pidref_wait(PidRef *pidref, siginfo_t *ret, int options) {
         if (pidref->pid == 1 || pidref_is_self(pidref))
                 return -ECHILD;
 
-        siginfo_t si = {};
-        if (pidref->fd >= 0)
-                r = RET_NERRNO(waitid(P_PIDFD, pidref->fd, &si, options));
-        else
-                r = RET_NERRNO(waitid(P_PID, pidref->pid, &si, options));
-        if (r < 0)
-                return r;
+        if (timeout != USEC_INFINITY && pidref->fd < 0)
+                return -ENOMEDIUM;
+
+        usec_t ts = timeout == USEC_INFINITY ? USEC_INFINITY : now(CLOCK_MONOTONIC);
+
+        for (;;) {
+                if (timeout != USEC_INFINITY) {
+                        usec_t n = usec_sub_unsigned(now(CLOCK_MONOTONIC), ts);
+                        if (n >= timeout)
+                                return -ETIMEDOUT;
+
+                        struct pollfd pollfd = { .fd = pidref->fd, .events = POLLIN };
+                        usec_t left = timeout - n;
+
+                        r = ppoll_usec(&pollfd, 1, left);
+                        if (r == 0)
+                                return -ETIMEDOUT;
+                        if (r == -EINTR)
+                                continue;
+                        if (r < 0)
+                                return r;
+                }
+
+                if (pidref->fd >= 0)
+                        r = RET_NERRNO(waitid(P_PIDFD, pidref->fd, &si, WEXITED));
+                else
+                        r = RET_NERRNO(waitid(P_PID, pidref->pid, &si, WEXITED));
+                if (r == -EINTR)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                break;
+        }
 
         if (ret)
                 *ret = si;
 
         return 0;
-}
-
-int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret) {
-        int r;
-
-        for (;;) {
-                r = pidref_wait(pidref, ret, WEXITED);
-                if (r != -EINTR)
-                        return r;
-        }
 }
 
 bool pidref_is_automatic(const PidRef *pidref) {

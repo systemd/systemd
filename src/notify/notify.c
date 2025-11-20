@@ -541,14 +541,12 @@ static int action_fork(char *const *_command) {
                 fflush(stdout);
         }
 
-        BLOCK_SIGNALS(SIGCHLD);
-
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *child_event_source = NULL;
         r = event_add_child_pidref(event, &child_event_source, &child, WEXITED, on_child, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate child source: %m");
 
-        /* Handle SIGCHLD before propagating the other signals below */
+        /* Handle child exit before propagating the other signals below */
         r = sd_event_source_set_priority(child_event_source, SD_EVENT_PRIORITY_NORMAL - 5);
         if (r < 0)
                 return log_error_errno(r, "Failed to change child event source priority: %m");

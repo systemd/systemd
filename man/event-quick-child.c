@@ -10,12 +10,6 @@ int main(int argc, char **argv) {
   pid_t pid = fork();
   assert(pid >= 0);
 
-  /* SIGCHLD signal must be blocked for sd_event_add_child to work */
-  sigset_t ss;
-  sigemptyset(&ss);
-  sigaddset(&ss, SIGCHLD);
-  sigprocmask(SIG_BLOCK, &ss, NULL);
-
   if (pid == 0)  /* child */
     sleep(1);
 
