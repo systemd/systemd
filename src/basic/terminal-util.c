@@ -2260,7 +2260,6 @@ static int scan_background_color_response(
 }
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue) {
-        _cleanup_close_ int nonblock_input_fd = -EBADF;
         int r;
 
         assert(ret_red);
@@ -2294,13 +2293,6 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         if (r < 0)
                 goto finish;
 
-        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
-         * else process the POLLIN. */
-
-        nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (r < 0)
-                goto finish;
-
         usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
         char buf[STRLEN(ANSI_OSC "11;rgb:0/0/0" ANSI_ST)]; /* shortest possible reply */
         size_t buf_full = 0;
@@ -2314,7 +2306,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                                 goto finish;
                         }
 
-                        r = fd_wait_for_event(nonblock_input_fd, POLLIN, usec_sub_unsigned(end, n));
+                        r = fd_wait_for_event(STDIN_FILENO, POLLIN, usec_sub_unsigned(end, n));
                         if (r < 0)
                                 goto finish;
                         if (r == 0) {
@@ -2325,10 +2317,8 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                         /* On the first try, read multiple characters, i.e. the shortest valid
                          * reply. Afterwards read byte-wise, since we don't want to read too much, and
                          * unnecessarily drop too many characters from the input queue. */
-                        ssize_t l = read(nonblock_input_fd, buf, first ? sizeof(buf) : 1);
+                        ssize_t l = read(STDIN_FILENO, buf, first ? sizeof(buf) : 1);
                         if (l < 0) {
-                                if (errno == EAGAIN)
-                                        continue;
                                 r = -errno;
                                 goto finish;
                         }
@@ -2369,7 +2359,6 @@ int terminal_get_size_by_dsr(
                 unsigned *ret_rows,
                 unsigned *ret_columns) {
 
-        _cleanup_close_ int nonblock_input_fd = -EBADF;
         int r;
 
         assert(input_fd >= 0);
@@ -2417,13 +2406,6 @@ int terminal_get_size_by_dsr(
         if (r < 0)
                 goto finish;
 
-        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
-         * else process the POLLIN. */
-
-        nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        if (r < 0)
-                goto finish;
-
         usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
         char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */
         size_t buf_full = 0;
@@ -2432,12 +2414,13 @@ int terminal_get_size_by_dsr(
         for (bool first = true;; first = false) {
                 if (buf_full == 0) {
                         usec_t n = now(CLOCK_MONOTONIC);
+
                         if (n >= end) {
                                 r = -EOPNOTSUPP;
                                 goto finish;
                         }
 
-                        r = fd_wait_for_event(nonblock_input_fd, POLLIN, usec_sub_unsigned(end, n));
+                        r = fd_wait_for_event(input_fd, POLLIN, usec_sub_unsigned(end, n));
                         if (r < 0)
                                 goto finish;
                         if (r == 0) {
@@ -2448,11 +2431,8 @@ int terminal_get_size_by_dsr(
                         /* On the first try, read multiple characters, i.e. the shortest valid
                          * reply. Afterwards read byte-wise, since we don't want to read too much, and
                          * unnecessarily drop too many characters from the input queue. */
-                        ssize_t l = read(nonblock_input_fd, buf, first ? sizeof(buf) : 1);
+                        ssize_t l = read(input_fd, buf, first ? sizeof(buf) : 1);
                         if (l < 0) {
-                                if (errno == EAGAIN)
-                                        continue;
-
                                 r = -errno;
                                 goto finish;
                         }
