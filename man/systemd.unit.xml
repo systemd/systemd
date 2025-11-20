@@ -719,7 +719,7 @@
         <listitem><para>Configures requirement dependencies, very similar in style to
         <varname>Requires=</varname>. However, this dependency type is stronger: in addition to the effects of
         <varname>Requires=</varname>, which already stops (or restarts) the configuring unit when a listed unit is
-        explicitly stopped (or restared), it also does so when a listed unit stops unexpectedly (which includes when it
+        explicitly stopped (or restarted), it also does so when a listed unit stops unexpectedly (which includes when it
         fails).
         Units can suddenly, unexpectedly enter inactive state for different reasons: the main process of a service unit
         might terminate on its own choice, the backing device of a device unit might be unplugged or the mount point of
