@@ -39,7 +39,6 @@ int dlopen_libapparmor(void) {
                         DLSYM_ARG(aa_policy_cache_replace_all),
                         DLSYM_ARG(aa_policy_cache_unref));
 }
-#endif
 
 bool mac_apparmor_use(void) {
         static int cached_use = -1;
@@ -57,14 +56,14 @@ bool mac_apparmor_use(void) {
         }
 
         r = parse_boolean(p);
-        if (r <= 0) {
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse /sys/module/apparmor/parameters/enabled, assuming AppArmor is not available: %m");
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse /sys/module/apparmor/parameters/enabled, assuming AppArmor is not available: %m");
+        if (r <= 0)
                 return (cached_use = false);
-        }
 
         if (dlopen_libapparmor() < 0)
                 return (cached_use = false);
 
         return (cached_use = true);
 }
+#endif
