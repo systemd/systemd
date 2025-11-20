@@ -163,17 +163,18 @@ a full list of these roles can be found in [external_man_links](source/_ext/exte
 ## Todo
 
 An incomplete list.
+- [ ] kernel-install.html -> `Compatibility with the kernel build system`
+- [ ] fix nested inline styles with _is_inside_of in all inline style tags
+- [ ] two successive <para> have the wrong indentation (hostnamectl.xml for example)
+- [ ] css styls for right sidebar, too wide
 
 - [ ] Generate `man_pages` file list in conf somehow
 - [ ] env vars in conf don’t work
   - [x] Do the substitutions in a safe manner
   - [ ] systemd needs to implement the env vars themselves
-- [ ] Headers after the `..only:: html`: directive are sometimes dropped
-- [ ]  `..only:: html` directive shows up in man and html
-  - `..only:: man` directive only shows up in man, so that’s useful at least
 - [ ] Some xml files contain invisible whitespace instead of proper spaces, eg. `U+00a0` in `man/libsystemd-pkgconfig.xml`, these will mess up conversion to .rst in some cases.
 - [x] Handle nested includes, eg in `man/libsystemd-pkgconfig.xml` used in `man/sd_machine_get_class.xml` -> seems to work fine
-- [ ] Ignore `man/directives-template.xml`
+- [x] Ignore `man/directives-template.xml`
 - [ ] Custom Link transformations:
   - [ ] `custom-man.xsl`
   - [x] `custom-html.xsl`
@@ -189,6 +190,6 @@ An incomplete list.
 
   - [ ] DBUS doc generation `tools/update-dbus-docs.py`
 - [ ] See whether `tools/update-man-rules.py` does anything we don’t do
-- [ ] Make sure the `global_substitutions` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build`
+- [x] Make sure the `global_substitutions` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build`
 - [ ] Make sure the `man_pages` we generate for Sphinx’s `conf.py` match the Meson rules in `man/rules/meson.build` -> [see this PR comment](https://github.com/systemd/systemd/pull/33673#discussion_r1672128044)
 - [ ] Re-implement check-api-docs
