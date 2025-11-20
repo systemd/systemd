@@ -2175,6 +2175,11 @@ int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_pol
                 if (r < 0)
                         return log_debug_errno(r, "Failed to decrypt image '%s': %m", i->path);
 
+                /* Do not use the image name derived from the backing file of the loop device */
+                r = free_and_strdup(&m->image_name, i->name);
+                if (r < 0)
+                        return r;
+
                 r = dissected_image_acquire_metadata(
                                 m,
                                 /* userns_fd= */ -EBADF,
