@@ -5330,6 +5330,7 @@ int mountfsd_mount_directory(
 int mountfsd_make_directory_fd(
                 int parent_fd,
                 const char *name,
+                mode_t mode,
                 DissectImageFlags flags,
                 int *ret_directory_fd) {
 
@@ -5364,6 +5365,7 @@ int mountfsd_make_directory_fd(
                         &error_id,
                         SD_JSON_BUILD_PAIR_UNSIGNED("parentFileDescriptor", 0),
                         SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_CONDITION(!IN_SET(mode, MODE_INVALID, 0700), "mode", SD_JSON_BUILD_UNSIGNED(mode)), /* suppress this field if default/unset */
                         SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", FLAGS_SET(flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH)));
         if (r < 0)
                 return r;
@@ -5389,6 +5391,7 @@ int mountfsd_make_directory_fd(
 
 int mountfsd_make_directory(
                 const char *path,
+                mode_t mode,
                 DissectImageFlags flags,
                 int *ret_directory_fd) {
 
@@ -5408,5 +5411,5 @@ int mountfsd_make_directory(
         if (fd < 0)
                 return log_error_errno(r, "Failed to open '%s': %m", parent);
 
-        return mountfsd_make_directory_fd(fd, dirname, flags, ret_directory_fd);
+        return mountfsd_make_directory_fd(fd, dirname, mode, flags, ret_directory_fd);
 }
