@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 zshcompletiondir = get_option('zshcompletiondir')
-if zshcompletiondir == ''
+if zshcompletiondir == 'no'
+        subdir_done()
+elif zshcompletiondir == ''
         zshcompletiondir = datadir / 'zsh/site-functions'
 endif
 
@@ -9,7 +11,7 @@ custom_target(
         input : '_systemctl.in',
         output : '_systemctl',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : zshcompletiondir != 'no',
+        install : true,
         install_dir : zshcompletiondir)
 
 foreach item : [
@@ -44,7 +46,7 @@ foreach item : [
         ['_varlinkctl',               ''],
 ]
 
-        if zshcompletiondir != 'no' and (item[1] == '' or conf.get(item[1]) == 1)
+        if item[1] == '' or conf.get(item[1]) == 1
                 install_data(item[0],
                              install_dir : zshcompletiondir)
         endif

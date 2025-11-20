@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 bashcompletiondir = get_option('bashcompletiondir')
-if bashcompletiondir == ''
+if bashcompletiondir == 'no'
+        subdir_done()
+elif bashcompletiondir == ''
         bash_completion = dependency('bash-completion', required : false)
         if bash_completion.found()
                 bashcompletiondir = bash_completion.get_variable(pkgconfig : 'completionsdir')
@@ -14,7 +16,7 @@ custom_target(
         input : 'systemctl.in',
         output : 'systemctl',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : bashcompletiondir != 'no',
+        install : true,
         install_dir : bashcompletiondir)
 
 foreach item : [
@@ -58,7 +60,7 @@ foreach item : [
         ['varlinkctl',          ''],
 ]
 
-        if bashcompletiondir != 'no' and (item[1] == '' or conf.get(item[1]) == 1)
+        if item[1] == '' or conf.get(item[1]) == 1
                 install_data(item[0],
                              install_dir : bashcompletiondir)
         endif
