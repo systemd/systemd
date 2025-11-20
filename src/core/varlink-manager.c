@@ -12,7 +12,6 @@
 #include "json-util.h"
 #include "manager.h"
 #include "pidref.h"
-#include "process-util.h"
 #include "selinux-access.h"
 #include "set.h"
 #include "strv.h"

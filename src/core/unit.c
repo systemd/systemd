@@ -11,7 +11,6 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "ansi-color.h"
-#include "bpf-firewall.h"
 #include "bpf-restrict-fs.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
