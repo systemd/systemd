@@ -2375,17 +2375,12 @@ int terminal_get_size_by_dsr(
         assert(input_fd >= 0);
         assert(output_fd >= 0);
 
-        /* Tries to determine the terminal dimension by means of ANSI sequences rather than TIOCGWINSZ
-         * ioctl(). Why bother with this? The ioctl() information is often incorrect on serial terminals
-         * (since there's no handshake or protocol to determine the right dimensions in RS232), but since the
-         * ANSI sequences are interpreted by the final terminal instead of an intermediary tty driver they
-         * should be more accurate.
+        /* Tries to determine the terminal dimension by means of ANSI sequences.
          *
-         * Unfortunately there's no direct ANSI sequence to query terminal dimensions. But we can hack around
-         * it: we position the cursor briefly at an absolute location very far down and very far to the
-         * right, and then read back where we actually ended up. Because cursor locations are capped at the
-         * terminal width/height we should then see the right values. In order to not risk integer overflows
-         * in terminal applications we'll use INT16_MAX-1 as location to jump to — hopefully a value that is
+         * We position the cursor briefly at an absolute location very far down and very far to the right,
+         * and then read back where we actually ended up. Because cursor locations are capped at the terminal
+         * width/height we should then see the right values. In order to not risk integer overflows in
+         * terminal applications we'll use INT16_MAX-1 as location to jump to — hopefully a value that is
          * large enough for any real-life terminals, but small enough to not overflow anything or be
          * recognized as a "niche" value. (Note that the dimension fields in "struct winsize" are 16bit only,
          * too). */
@@ -2650,8 +2645,13 @@ int terminal_fix_size(int input_fd, int output_fd) {
         unsigned rows, columns;
         int r;
 
-        /* Tries to update the current terminal dimensions to the ones reported via ANSI sequences */
-
+        /* Tries to update the current terminal dimensions to the ones reported via ANSI sequences.
+         *
+         * Why bother with this? The ioctl() information is often incorrect on serial terminals (since
+         * there's no handshake or protocol to determine the right dimensions in RS232), but since the ANSI
+         * sequences are interpreted by the final terminal instead of an intermediary tty driver they should
+         * be more accurate.
+         */
         r = terminal_verify_same(input_fd, output_fd);
         if (r < 0)
                 return r;
@@ -2660,7 +2660,12 @@ int terminal_fix_size(int input_fd, int output_fd) {
         if (ioctl(output_fd, TIOCGWINSZ, &ws) < 0)
                 return log_debug_errno(errno, "Failed to query terminal dimensions, ignoring: %m");
 
-        r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &columns);
+        r = terminal_get_size_by_csi18(input_fd, output_fd, &rows, &columns);
+        if (IN_SET(r, -EOPNOTSUPP, -EINVAL))
+                /* We get -EOPNOTSUPP if the query fails and -EINVAL when the received answer is invalid.
+                 * Try the fallback method. It is more involved and moves the cursor, but seems to have wider
+                 * support. */
+                r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &columns);
         if (r < 0)
                 return log_debug_errno(r, "Failed to acquire terminal dimensions via ANSI sequences, not adjusting terminal dimensions: %m");
 
