@@ -610,7 +610,7 @@ int rsa_oaep_encrypt_bytes(
         if (!duplabel)
                 return log_oom_debug();
 
-        if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, duplabel, strlen(duplabel) + 1) <= 0)
+        if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, duplabel, strlen(duplabel)) <= 0)
                 return log_openssl_errors("Failed to configure RSA-OAEP label");
         /* ctx owns this now, don't free */
         TAKE_PTR(duplabel);
@@ -1353,7 +1353,7 @@ static int rsa_pkey_generate_volume_keys_oaep(
                 return log_debug_errno(r, "Failed to generate random key: %m");
 
         /* Use RSA-OAEP with SHA-256 for secure PKCS#11 token enrollment */
-        r = rsa_oaep_encrypt_bytes(pkey, "SHA256", NULL, decrypted_key, decrypted_key_size, &saved_key, &saved_key_size);
+        r = rsa_oaep_encrypt_bytes(pkey, "SHA256", "", decrypted_key, decrypted_key_size, &saved_key, &saved_key_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to encrypt random key with RSA-OAEP: %m");
 

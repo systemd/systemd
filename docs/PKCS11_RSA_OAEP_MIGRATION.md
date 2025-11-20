@@ -23,7 +23,8 @@ done
 systemd-cryptenroll --migrate-to-oaep /dev/sda2
 ```
 
-Updates token metadata field `pkcs11-key-algorithm` from `rsa-pkcs1-v1.5` to `rsa-oaep-sha256`.
+Updates token metadata field `pkcs11-key-algorithm` to `rsa-oaep-sha256`.
+Note: Does not re-encrypt existing data (requires private key). Decryption uses automatic fallback.
 
 ### Verify
 
@@ -58,6 +59,12 @@ for device in $(lsblk -nrpo NAME,TYPE | awk '$2=="crypt" {print $1}'); do
     fi
 done
 ```
+
+## Compatibility Notes
+
+- New OAEP-encrypted tokens require systemd with OAEP support
+- Old PKCS#1 v1.5 tokens work with both old and new systemd
+- Migrated tokens (metadata only) work via fallback mechanism
 
 ## See Also
 
