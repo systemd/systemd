@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "apparmor-util.h"
 #include "fileio.h"
+#include "log.h"
 #include "parse-util.h"
 
 #if HAVE_APPARMOR
@@ -38,18 +39,31 @@ int dlopen_libapparmor(void) {
                         DLSYM_ARG(aa_policy_cache_replace_all),
                         DLSYM_ARG(aa_policy_cache_unref));
 }
-#endif
 
 bool mac_apparmor_use(void) {
         static int cached_use = -1;
+        int r;
 
-        if (cached_use < 0) {
-                _cleanup_free_ char *p = NULL;
+        if (cached_use >= 0)
+                return cached_use;
 
-                cached_use =
-                        read_one_line_file("/sys/module/apparmor/parameters/enabled", &p) >= 0 &&
-                        parse_boolean(p) > 0;
+        _cleanup_free_ char *p = NULL;
+        r = read_one_line_file("/sys/module/apparmor/parameters/enabled", &p);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_debug_errno(r, "Failed to read /sys/module/apparmor/parameters/enabled, assuming AppArmor is not available: %m");
+                return (cached_use = false);
         }
 
-        return cached_use;
+        r = parse_boolean(p);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse /sys/module/apparmor/parameters/enabled, assuming AppArmor is not available: %m");
+        if (r <= 0)
+                return (cached_use = false);
+
+        if (dlopen_libapparmor() < 0)
+                return (cached_use = false);
+
+        return (cached_use = true);
 }
+#endif
