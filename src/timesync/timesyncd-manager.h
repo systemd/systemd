@@ -77,7 +77,7 @@ typedef struct Manager {
         int nts_bytes_processed;
 
         enum {
-                NTS_HANDSHAKE_SETUP,
+                NTS_HANDSHAKE_CONNECTING,
                 NTS_HANDSHAKE_TLS,
                 NTS_HANDSHAKE_TX,
                 NTS_HANDSHAKE_RX,
