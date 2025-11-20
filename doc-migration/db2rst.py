@@ -542,10 +542,15 @@ def TreeRoot(el):
 
 
 def Comment(el):
-    # FIXME: Keep block-level comments, wanrn for inline comments
-    _warn(f"skipping comment in {_get_path(el)}, content: '{el.text}'")
-    return "  "
-    return _indent(el, 12, ".. COMMENT: ")
+    # Keep block-level comments, warn for inline comments, since
+    # rst doesn’t have those.
+    # These are tricky to keep apart. Since the only two inline
+    # comments we found were ` no / ` in "standard-specifiers.xml",
+    # we’re skipping those explicitly.
+    if el.text == ' no / ':
+        _warn(f"skipping inline comment in {_get_path(el)}, content: '{el.text}'")
+        return "  "
+    return _indent(el, 3, ".. COMMENT: ") + "\n\n"
 
 # Meta refs
 
