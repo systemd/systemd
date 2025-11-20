@@ -830,7 +830,7 @@ int running_in_chroot(void) {
                         return -ENOSYS;
         }
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to check if /proc/1/root and / are the same inode: %m");
 
         return r == 0;
 }
