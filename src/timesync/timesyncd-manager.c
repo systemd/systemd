@@ -186,10 +186,9 @@ static int manager_send_request(Manager *m) {
                 int randidx = m->nts_identifier[0] % (ELEMENTSOF(m->nts_cookies) - m->nts_missing_cookies);
                 swap_cookies(jar, &jar[randidx]);
 
-                /* Consume and invalidate the cookie; note that we operate the cookie jar as a
-                 * FIFO queue; the deeper we get into the cookie jar, the less fresh the cookies
-                 * are, and the less we want to eat them. */
-                m->nts_cookies[m->nts_missing_cookies++].data[0] ^= 1;
+                /* Consume and invalidate the cookie */
+                m->nts_cookies[m->nts_missing_cookies].data[0] ^= 1;
+                m->nts_missing_cookies++;
         } else {
 #else
         {
