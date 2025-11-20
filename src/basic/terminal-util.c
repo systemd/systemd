@@ -2071,7 +2071,9 @@ int terminal_get_cursor_position(
         }
 
 finish:
-        RET_GATHER(r, RET_NERRNO(tcsetattr(input_fd, TCSANOW, &old_termios)));
+        /* We ignore failure here and in similar cases below. We already got a reply and if cleanup fails,
+         * this doesn't change the validity of the result. */
+        (void) tcsetattr(input_fd, TCSANOW, &old_termios);
         return r;
 }
 
@@ -2357,7 +2359,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         }
 
 finish:
-        RET_GATHER(r, RET_NERRNO(tcsetattr(nonblock_input_fd, TCSANOW, &old_termios)));
+        (void) tcsetattr(nonblock_input_fd, TCSANOW, &old_termios);
         return r;
 }
 
@@ -2510,9 +2512,9 @@ int terminal_get_size_by_dsr(
 finish:
         /* Restore cursor position */
         if (saved_row > 0 && saved_column > 0)
-                RET_GATHER(r, terminal_set_cursor_position(output_fd, saved_row, saved_column));
+                (void) terminal_set_cursor_position(output_fd, saved_row, saved_column);
+        (void) tcsetattr(nonblock_input_fd, TCSANOW, &old_termios);
 
-        RET_GATHER(r, RET_NERRNO(tcsetattr(nonblock_input_fd, TCSANOW, &old_termios)));
         return r;
 }
 
@@ -2665,7 +2667,6 @@ int terminal_get_terminfo_by_dcs(int fd, char **ret_name) {
         }
 
 finish:
-        /* We ignore failure here. We already got a reply and if cleanup fails, we can't help that. */
         (void) tcsetattr(fd, TCSANOW, &old_termios);
         return r;
 }
