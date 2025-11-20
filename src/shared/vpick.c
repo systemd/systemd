@@ -471,16 +471,11 @@ static int make_choice(
         if (!p)
                 return log_oom_debug();
 
-        object_fd = openat(dir_fd, best_filename, O_CLOEXEC|O_PATH);
-        if (object_fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s/%s': %m",
-                                       empty_to_root(toplevel_path), skip_leading_slash(inode_path));
-
         return pin_choice(
                         toplevel_path,
                         toplevel_fd,
                         p,
-                        TAKE_FD(object_fd),
+                        /* _inode_fd= */ -EBADF,
                         best_tries_left,
                         best_tries_done,
                         &(const PickFilter) {
