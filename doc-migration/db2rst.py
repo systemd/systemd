@@ -282,10 +282,29 @@ def _has_no_text(el):
         if i.tail is not None and not i.tail.isspace():
             _warn("skipping tail of <%s>: %s" % (_get_path(i), i.tail))
 
+# rst doesn’t do in-place footnotes, so we need to generate the actual
+# include statement in the footnote section, while _include below
+# replaces the xi:include statement with a footnote anchor link, [#]_
+def _add_standard_conf_footnote():
+    new_footnote = ET.Element('{http://www.w3.org/2001/XInclude}include', attrib={"href": "standard-conf.xml", "xpointer": "usr-local-footnote"})
+    _footnotes.append(new_footnote)
 
 def _includes(el):
+    # There is a single file (standard-conf.xml) that includes bits of itself,
+    # but this is actually a footnote… and rst doesn’t do inline footnotes.
+    if not el.get('href'):
+        return "[#]_"
+    # Some files _just_ include the footnote, but not the surrounding section
+    if el.get('xpointer') == "usr-local-footnote":
+        _add_standard_conf_footnote()
+        return "[#]_"
     file_path_pathlib = Path(el.get('href'))
     file_extension = file_path_pathlib.suffix
+    # If th above standard-conf.xml include happens, also include the footnote # from that file to the footnotes section
+    if file_path_pathlib.match("standard-conf.xml"):
+        xpointer = el.get('xpointer')
+        if xpointer in ['conf', 'confd', 'main-conf']:
+            _add_standard_conf_footnote()
     include_files = FILES_USED_FOR_INCLUDES
     if file_extension == '.xml':
         if el.get('href') == 'version-info.xml':
@@ -509,7 +528,14 @@ def TreeRoot(el):
     if len(_footnotes) > 0:
         output += "\n\n.. rubric:: Footnotes"
         for index, footnote in enumerate(_footnotes, start=1):
-            output += f"\n\n.. [#f] {_remove_line_breaks(_conv(footnote))}"
+            # If this footnote is an include, convert to our custom
+            # preprocessor include, since rst also has trouble with
+            # these block level includes inside footnotes.
+            if footnote.get('href'):
+                output += f'\n\n.. [#] %% include="{footnote.get('href').replace('xml', 'rst')}" id="{footnote.get('xpointer')}" %%'
+            else:
+                # output += f"\n\n.. [#] {_remove_line_breaks(_conv(footnote))}"
+                output += f"\n\n.. [#] {_conv(footnote)}"
     # Reset footnotes list after rendering them
     _footnotes.clear()
     return output + '\n'
@@ -612,8 +638,16 @@ def arg(el):
 
 def footnote(el):
     # TODO: handle footnotes with multiple children?
+    id = el.get('id')
+    output = ""
+    # This is a special case that shouldn’t be rendered as a footnote
+    if id == "usr-local-footnote":
+        output += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % id
+        output += _conv(el.getchildren()[0])
+        output += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
+        return output
     _footnotes.append(el.getchildren()[0])
-    return f" [#f]_ "
+    return f" [#]_ "
 
 # general inline elements
 
@@ -1189,10 +1223,7 @@ def caution(el):
 
 
 def para(el):
-    isInsideList = False
-    for item in el.iterancestors(tag='listitem'):
-        isInsideList = True
-    if isInsideList:
+    if _is_inside_of(el, 'listitem'):
         return _concat(el) + "\n \n"
     return _block_separated_with_blank_line(el, False) + '\n\n \n\n'
 
