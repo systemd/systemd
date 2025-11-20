@@ -2260,7 +2260,6 @@ static int scan_background_color_response(
 }
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue) {
-        _cleanup_close_ int nonblock_input_fd = -EBADF;
         int r;
 
         assert(ret_red);
@@ -2280,24 +2279,23 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
                 return 0;
         }
 
+        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
+         * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
+        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        if (r < 0)
+                return r;
+
         struct termios old_termios;
-        if (tcgetattr(STDIN_FILENO, &old_termios) < 0)
+        if (tcgetattr(nonblock_input_fd, &old_termios) < 0)
                 return -errno;
 
         struct termios new_termios = old_termios;
         termios_disable_echo(&new_termios);
 
-        if (tcsetattr(STDIN_FILENO, TCSANOW, &new_termios) < 0)
+        if (tcsetattr(nonblock_input_fd, TCSANOW, &new_termios) < 0)
                 return -errno;
 
         r = loop_write(STDOUT_FILENO, ANSI_OSC "11;?" ANSI_ST, SIZE_MAX);
-        if (r < 0)
-                goto finish;
-
-        /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read() should someone
-         * else process the POLLIN. */
-
-        nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 goto finish;
 
@@ -2359,7 +2357,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         }
 
 finish:
-        RET_GATHER(r, RET_NERRNO(tcsetattr(STDIN_FILENO, TCSANOW, &old_termios)));
+        RET_GATHER(r, RET_NERRNO(tcsetattr(nonblock_input_fd, TCSANOW, &old_termios)));
         return r;
 }
 
