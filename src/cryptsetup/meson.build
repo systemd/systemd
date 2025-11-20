@@ -28,6 +28,13 @@ executables += [
                 'name' : 'systemd-cryptsetup-generator',
                 'sources' : files('cryptsetup-generator.c'),
         },
+        executable_template + {
+                'name' : 'systemd-cryptsetup-check-padding',
+                'sources' : files('cryptsetup-check-padding.c'),
+                'dependencies' : [
+                        libcryptsetup,
+                ],
+        },
 ]
 
 # symlink for backwards compatibility after rename

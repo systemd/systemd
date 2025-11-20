@@ -10,6 +10,7 @@ systemd_cryptenroll_sources = files(
         'cryptenroll-list.c',
         'cryptenroll-password.c',
         'cryptenroll-pkcs11.c',
+        'cryptenroll-pkcs11-migrate.c',
         'cryptenroll-recovery.c',
         'cryptenroll-tpm2.c',
         'cryptenroll-wipe.c',

@@ -37,6 +37,27 @@ bool pkcs11_uri_valid(const char *uri) {
 
 #if HAVE_P11KIT
 
+/* Compatibility definitions for OAEP constants not present in older PKCS#11 headers */
+#ifndef CKM_RSA_PKCS_OAEP
+#  define CKM_RSA_PKCS_OAEP 0x00000009UL
+#  define CKG_MGF1_SHA256 0x00000002UL
+#  define CKZ_DATA_SPECIFIED 0x00000001UL
+
+typedef struct {
+        CK_MECHANISM_TYPE hashAlg;
+        CK_ULONG mgf;
+        CK_ULONG source;
+        CK_VOID_PTR pSourceData;
+        CK_ULONG ulSourceDataLen;
+} CK_RSA_PKCS_OAEP_PARAMS;
+
+typedef CK_RSA_PKCS_OAEP_PARAMS *CK_RSA_PKCS_OAEP_PARAMS_PTR;
+#endif
+
+#ifndef CKM_SHA256
+#  define CKM_SHA256 0x00000250UL
+#endif
+
 static void *p11kit_dl = NULL;
 
 DLSYM_PROTOTYPE(p11_kit_module_get_name) = NULL;
@@ -1169,42 +1190,74 @@ static int pkcs11_token_decrypt_data_rsa(
                 void **ret_decrypted_data,
                 size_t *ret_decrypted_data_size) {
 
-        static const CK_MECHANISM mechanism = {
-                 .mechanism = CKM_RSA_PKCS
+        CK_RSA_PKCS_OAEP_PARAMS oaep_params = {
+                .hashAlg = CKM_SHA256,
+                .mgf = CKG_MGF1_SHA256,
+                .source = CKZ_DATA_SPECIFIED,
+                .pSourceData = NULL,
+                .ulSourceDataLen = 0
+        };
+        CK_MECHANISM mechanisms[] = {
+                {
+                        .mechanism = CKM_RSA_PKCS_OAEP,
+                        .pParameter = &oaep_params,
+                        .ulParameterLen = sizeof(oaep_params)
+                },
+                {
+                        .mechanism = CKM_RSA_PKCS
+                }
         };
         _cleanup_(erase_and_freep) CK_BYTE *dbuffer = NULL;
-        CK_ULONG dbuffer_size = 0;
+        CK_ULONG dbuffer_size;
         CK_RV rv;
 
-        rv = m->C_DecryptInit(session, (CK_MECHANISM*) &mechanism, object);
-        if (rv != CKR_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to initialize decryption on security token: %s", sym_p11_kit_strerror(rv));
+        for (size_t i = 0; i < ELEMENTSOF(mechanisms); i++) {
+                const char *mechanism_name = i == 0 ? "RSA-OAEP" : "RSA-PKCS1-v1.5";
 
-        dbuffer_size = encrypted_data_size; /* Start with something reasonable */
-        dbuffer = malloc(dbuffer_size);
-        if (!dbuffer)
-                return log_oom();
+                rv = m->C_DecryptInit(session, &mechanisms[i], object);
+                if (rv != CKR_OK) {
+                        log_debug("Failed to initialize %s decryption: %s", mechanism_name, sym_p11_kit_strerror(rv));
+                        continue;
+                }
 
-        rv = m->C_Decrypt(session, (CK_BYTE*) encrypted_data, encrypted_data_size, dbuffer, &dbuffer_size);
-        if (rv == CKR_BUFFER_TOO_SMALL) {
-                erase_and_free(dbuffer);
-
+                dbuffer_size = encrypted_data_size;
                 dbuffer = malloc(dbuffer_size);
                 if (!dbuffer)
                         return log_oom();
 
                 rv = m->C_Decrypt(session, (CK_BYTE*) encrypted_data, encrypted_data_size, dbuffer, &dbuffer_size);
+                if (rv == CKR_BUFFER_TOO_SMALL) {
+                        erase_and_free(dbuffer);
+
+                        dbuffer = malloc(dbuffer_size);
+                        if (!dbuffer)
+                                return log_oom();
+
+                        rv = m->C_Decrypt(session, (CK_BYTE*) encrypted_data, encrypted_data_size, dbuffer, &dbuffer_size);
+                }
+
+                if (rv == CKR_OK) {
+                        log_info("Successfully decrypted key with security token using %s.", mechanism_name);
+
+                        /* Emit deprecation warning for legacy padding */
+                        if (i == 1) { /* PKCS#1 v1.5 was used */
+                                log_warning("DEPRECATION WARNING: This LUKS volume uses legacy RSA-PKCS#1 v1.5 padding.");
+                                log_warning("This padding is vulnerable to Bleichenbacher padding oracle attacks.");
+                                log_warning("Run 'systemd-cryptenroll --migrate-to-oaep <device>' to migrate to secure RSA-OAEP.");
+                                log_warning("Support for legacy padding will be removed in systemd v260.");
+                        }
+
+                        *ret_decrypted_data = TAKE_PTR(dbuffer);
+                        *ret_decrypted_data_size = dbuffer_size;
+                        return 0;
+                }
+
+                log_debug("Failed to decrypt with %s: %s", mechanism_name, sym_p11_kit_strerror(rv));
+                erase_and_free(dbuffer);
+                dbuffer = NULL;
         }
-        if (rv != CKR_OK)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                       "Failed to decrypt key on security token: %s", sym_p11_kit_strerror(rv));
 
-        log_info("Successfully decrypted key with security token.");
-
-        *ret_decrypted_data = TAKE_PTR(dbuffer);
-        *ret_decrypted_data_size = dbuffer_size;
-        return 0;
+        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to decrypt key on security token with any supported mechanism.");
 }
 
 int pkcs11_token_decrypt_data(

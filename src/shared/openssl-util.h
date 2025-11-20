@@ -145,6 +145,7 @@ int kdf_ss_derive(const char *digest, const void *key, size_t key_size, const vo
 
 int kdf_kb_hmac_derive(const char *mode, const char *digest, const void *key, size_t key_size, const void *salt, size_t salt_size, const void *info, size_t info_size, const void *seed, size_t seed_size, size_t derive_size, void **ret);
 
+/* Encrypts buffer using PKCS#1 v1.5 padding for compatibility with PKCS#11 tokens. */
 int rsa_encrypt_bytes(EVP_PKEY *pkey, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
 
 int rsa_oaep_encrypt_bytes(const EVP_PKEY *pkey, const char *digest_alg, const char *label, const void *decrypted_key, size_t decrypted_key_size, void **ret_encrypt_key, size_t *ret_encrypt_key_size);
@@ -164,6 +165,7 @@ int ecc_pkey_new(int curve_id, EVP_PKEY **ret);
 int ecc_ecdh(const EVP_PKEY *private_pkey, const EVP_PKEY *peer_pkey, void **ret_shared_secret, size_t *ret_shared_secret_size);
 
 int pkey_generate_volume_keys(EVP_PKEY *pkey, void **ret_decrypted_key, size_t *ret_decrypted_key_size, void **ret_saved_key, size_t *ret_saved_key_size);
+int pkey_generate_volume_keys_oaep(EVP_PKEY *pkey, void **ret_decrypted_key, size_t *ret_decrypted_key_size, void **ret_saved_key, size_t *ret_saved_key_size);
 
 int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_size);
 
