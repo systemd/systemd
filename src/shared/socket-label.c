@@ -8,9 +8,32 @@
 #include "fs-util.h"
 #include "log.h"
 #include "mkdir-label.h"
+#include "parse-util.h"
 #include "selinux-util.h"
+#include "socket-label.h"
 #include "socket-util.h"
+#include "string-table.h"
 #include "umask-util.h"
+
+static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIND_IPV6_ONLY_MAX] = {
+        [SOCKET_ADDRESS_DEFAULT]   = "default",
+        [SOCKET_ADDRESS_BOTH]      = "both",
+        [SOCKET_ADDRESS_IPV6_ONLY] = "ipv6-only"
+};
+
+DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
+
+SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *n) {
+        int r;
+
+        r = parse_boolean(n);
+        if (r > 0)
+                return SOCKET_ADDRESS_IPV6_ONLY;
+        if (r == 0)
+                return SOCKET_ADDRESS_BOTH;
+
+        return socket_address_bind_ipv6_only_from_string(n);
+}
 
 int socket_address_listen(
                 const SocketAddress *a,

@@ -15,6 +15,7 @@
 #include "netlink-sock-diag.h"
 #include "netlink-util.h"
 #include "parse-util.h"
+#include "socket-label.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
 #include "string-util.h"
