@@ -7,9 +7,9 @@ Starting with systemd v257, PKCS#11 encrypted volumes use RSA-OAEP padding inste
 ## Timeline
 
 - **v257**: RSA-OAEP becomes default for new enrollments, automatic fallback for existing volumes
-- **v258**: Migration tools available, deprecation warnings enabled
-- **v259**: Stronger deprecation warnings, automatic migration prompts
-- **v260**: Legacy RSA-PKCS#1 v1.5 support removed
+- **v257+**: Migration tools available, deprecation warnings enabled
+- **Future versions**: Stronger deprecation warnings, automatic migration prompts
+- **TBD**: Legacy RSA-PKCS#1 v1.5 support may be removed
 
 ## Security Impact
 
@@ -22,11 +22,13 @@ RSA-PKCS#1 v1.5 padding is vulnerable to padding oracle attacks where an attacke
 Check if your volumes need migration:
 
 ```bash
-# Check specific device
+# Check specific device (works with both formats)
+systemd-cryptsetup-check-padding /dev/sda2
+# or
 systemd-cryptsetup-check-padding /dev/mapper/myvolume
 
-# Check all LUKS volumes
-for dev in /dev/mapper/*; do
+# Check all LUKS volumes (using block devices)
+for dev in $(lsblk -nrpo NAME,FSTYPE | awk '$2=="crypto_LUKS" {print $1}'); do
     systemd-cryptsetup-check-padding "$dev" 2>/dev/null
 done
 ```

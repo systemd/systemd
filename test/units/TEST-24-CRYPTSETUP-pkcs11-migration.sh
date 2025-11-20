@@ -31,19 +31,27 @@ echo -n "testpass" | cryptsetup luksFormat --type luks2 "$TESTDEV" -
 # Function to create a mock legacy PKCS#11 token
 create_legacy_token() {
     local device=$1
+    local token_id=$2
     local token_json
+
+    # Create a dummy encrypted key
+    local dummy_key=$(dd if=/dev/urandom bs=256 count=1 2>/dev/null | base64 -w0)
+
     token_json=$(cat <<EOF
 {
     "type": "systemd-pkcs11",
     "keyslots": ["0"],
     "pkcs11-uri": "$TOKEN_URL",
-    "pkcs11-key": "$(echo -n "mockkey" | base64)",
+    "pkcs11-key": "$dummy_key",
     "pkcs11-key-algorithm": "rsa-pkcs1-v1.5"
 }
 EOF
 )
-    # Add token to LUKS header (mock - would need actual cryptsetup token add in real test)
-    echo "$token_json" > "$TEMPDIR/token.json"
+    # Actually add token to LUKS header using cryptsetup
+    echo "$token_json" | cryptsetup token import --token-id "${token_id:-0}" "$device" || {
+        echo "Note: Could not add real token (expected in test environment)"
+        echo "$token_json" > "$TEMPDIR/token${token_id}.json"
+    }
 }
 
 # Function to check token algorithm
@@ -107,9 +115,9 @@ TESTDEV2="$TEMPDIR/test2.img"
 dd if=/dev/zero of="$TESTDEV2" bs=1M count=32 status=none
 echo -n "testpass" | cryptsetup luksFormat --type luks2 "$TESTDEV2" -
 
-# Add multiple mock tokens
-for _ in 1 2 3; do
-    create_legacy_token "$TESTDEV2"
+# Add multiple mock tokens (use different token IDs)
+for i in 1 2 3; do
+    create_legacy_token "$TESTDEV2" "$i"
 done
 
 systemd-cryptenroll --migrate-to-oaep "$TESTDEV2" 2>&1 | tee "$TEMPDIR/migrate3.log"

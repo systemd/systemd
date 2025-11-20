@@ -1326,6 +1326,44 @@ static int ecc_pkey_generate_volume_keys(
         return 0;
 }
 
+static int rsa_pkey_generate_volume_keys_oaep(
+                EVP_PKEY *pkey,
+                void **ret_decrypted_key,
+                size_t *ret_decrypted_key_size,
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
+
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_free_ void *saved_key = NULL;
+        size_t decrypted_key_size, saved_key_size;
+        int r;
+
+        r = rsa_pkey_to_suitable_key_size(pkey, &decrypted_key_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine RSA public key size.");
+
+        log_debug("Generating %zu bytes random key.", decrypted_key_size);
+
+        decrypted_key = malloc(decrypted_key_size);
+        if (!decrypted_key)
+                return log_oom_debug();
+
+        r = crypto_random_bytes(decrypted_key, decrypted_key_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to generate random key: %m");
+
+        /* Use RSA-OAEP with SHA-256 for secure PKCS#11 token enrollment */
+        r = rsa_oaep_encrypt_bytes(pkey, "SHA256", NULL, decrypted_key, decrypted_key_size, &saved_key, &saved_key_size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to encrypt random key with RSA-OAEP: %m");
+
+        *ret_decrypted_key = TAKE_PTR(decrypted_key);
+        *ret_decrypted_key_size = decrypted_key_size;
+        *ret_saved_key = TAKE_PTR(saved_key);
+        *ret_saved_key_size = saved_key_size;
+        return 0;
+}
+
 static int rsa_pkey_generate_volume_keys(
                 EVP_PKEY *pkey,
                 void **ret_decrypted_key,
@@ -1361,6 +1399,40 @@ static int rsa_pkey_generate_volume_keys(
         *ret_saved_key = TAKE_PTR(saved_key);
         *ret_saved_key_size = saved_key_size;
         return 0;
+}
+
+int pkey_generate_volume_keys_oaep(
+                EVP_PKEY *pkey,
+                void **ret_decrypted_key,
+                size_t *ret_decrypted_key_size,
+                void **ret_saved_key,
+                size_t *ret_saved_key_size) {
+
+        assert(pkey);
+        assert(ret_decrypted_key);
+        assert(ret_decrypted_key_size);
+        assert(ret_saved_key);
+        assert(ret_saved_key_size);
+
+#if OPENSSL_VERSION_MAJOR >= 3
+        int type = EVP_PKEY_get_base_id(pkey);
+#else
+        int type = EVP_PKEY_base_id(pkey);
+#endif
+        switch (type) {
+
+        case EVP_PKEY_RSA:
+                return rsa_pkey_generate_volume_keys_oaep(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
+
+        case EVP_PKEY_EC:
+                return ecc_pkey_generate_volume_keys(pkey, ret_decrypted_key, ret_decrypted_key_size, ret_saved_key, ret_saved_key_size);
+
+        case NID_undef:
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine a type of public key.");
+
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported public key type: %s", OBJ_nid2sn(type));
+        }
 }
 
 int pkey_generate_volume_keys(
