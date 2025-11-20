@@ -954,7 +954,7 @@ int manager_connect(Manager *m) {
 
                         /* Our current server name list is exhausted, let's find the next one to iterate.
                          * There are two scenarios: secure time servers are configured or not.
-                         * - If there is a NTSKE list: try that first, switching to the fallback list as backup.
+                         * - If there is a NTSKE list: try only that.
                          * - Otherwise, we try the runtime list first, then the system list, then the link list.
                          *   After having processed the link list we jump back to the system list if no
                          *   runtime server list. If all lists are empty, we change to the fallback list. */
@@ -963,25 +963,26 @@ int manager_connect(Manager *m) {
                                         f = m->nts_ke_servers;
                                 else
                                         f = NULL;
-                        }  else if (!m->current_server_name || m->current_server_name->type == SERVER_LINK) {
-                                f = m->runtime_servers;
-                                if (!f)
-                                        f = m->system_servers;
-                                if (!f)
-                                        f = m->link_servers;
-                        } else {
-                                f = m->link_servers;
-                                if (f)
-                                        restart = false;
-                                else {
+                        }  else {
+                                if (!m->current_server_name || m->current_server_name->type == SERVER_LINK) {
                                         f = m->runtime_servers;
                                         if (!f)
                                                 f = m->system_servers;
+                                        if (!f)
+                                                f = m->link_servers;
+                                } else {
+                                        f = m->link_servers;
+                                        if (f)
+                                                restart = false;
+                                        else {
+                                                f = m->runtime_servers;
+                                                if (!f)
+                                                        f = m->system_servers;
+                                        }
                                 }
+                                if (!f)
+                                        f = m->fallback_servers;
                         }
-
-                        if (!f)
-                                f = m->fallback_servers;
 
                         if (!f) {
                                 manager_set_server_name(m, NULL);
