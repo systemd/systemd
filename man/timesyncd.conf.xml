@@ -71,7 +71,7 @@
         all prior assignments will have no effect. This setting defaults to an empty list.
         If NTS servers have been configured, any other configured NTP servers (including per-interface NTP servers acquired
         from <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
-        will be ignored, with the exception of <varname>FallbackNTP=</varname> servers (see below).</para>
+        will be ignored, including <varname>FallbackNTP=</varname> servers.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
