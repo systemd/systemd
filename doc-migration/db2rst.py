@@ -1009,7 +1009,8 @@ def citerefentry(el):
         return extlink_formats[project]
 
     if project == 'url':
-        url = el.get("url")
+        refentry = el.xpath("refentrytitle")[0]
+        url = refentry.get("url")
         return f"`{refentrytitle}({manvolnum}) <{url}>`_"
 
     return f":ref:`{refentrytitle}({manvolnum})`"
