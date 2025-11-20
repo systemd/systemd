@@ -6,6 +6,7 @@
 #include "execute.h"
 #include "list.h"
 #include "pidref.h"
+#include "socket-label.h"
 #include "socket-util.h"
 #include "unit.h"
 

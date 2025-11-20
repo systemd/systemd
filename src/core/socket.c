@@ -1504,7 +1504,7 @@ static int socket_determine_selinux_label(Socket *s, char **ret) {
 static int socket_address_listen_do(
                 Socket *s,
                 const SocketAddress *address,
-                const char *label) {
+                const char *selinux_label) {
 
         assert(s);
         assert(address);
@@ -1520,7 +1520,8 @@ static int socket_address_listen_do(
                         s->transparent,
                         s->directory_mode,
                         s->socket_mode,
-                        label);
+                        selinux_label,
+                        s->smack);
 }
 
 #define log_address_error_errno(u, address, error, fmt)          \
