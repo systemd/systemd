@@ -7,7 +7,6 @@
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
 #include <unistd.h>
 
 #include "sd-json.h"
@@ -32,11 +31,9 @@
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "id128-util.h"
-#include "initrd-util.h"
 #include "lock-util.h"
 #include "log.h"
 #include "loop-util.h"
-#include "mkdir.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"

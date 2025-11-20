@@ -17,7 +17,6 @@
 #include "strv.h"
 #include "unit.h"
 #include "varlink-cgroup.h"
-#include "varlink-common.h"
 #include "varlink-execute.h"
 #include "varlink-unit.h"
 #include "varlink-util.h"

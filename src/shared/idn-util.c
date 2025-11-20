@@ -9,7 +9,7 @@
 
 #include "dlfcn-util.h"
 #include "idn-util.h"
-#include "log.h"
+#include "log.h"                /* IWYU pragma: keep */
 
 #if HAVE_LIBIDN || HAVE_LIBIDN2
 static void* idn_dl = NULL;

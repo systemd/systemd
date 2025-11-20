@@ -29,7 +29,6 @@
 #include "hostname-util.h"
 #include "image-policy.h"
 #include "kbd-util.h"
-#include "label.h"
 #include "label-util.h"
 #include "libcrypt-util.h"
 #include "locale-setup.h"

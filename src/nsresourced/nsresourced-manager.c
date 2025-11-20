@@ -8,6 +8,7 @@
 #include "bpf-dlopen.h"
 #if HAVE_VMLINUX_H
 #include "bpf-link.h"
+#include "bpf/userns-restrict/userns-restrict-skel.h"
 #endif
 #include "build-path.h"
 #include "common-signal.h"
@@ -26,7 +27,6 @@
 #include "set.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
