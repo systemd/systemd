@@ -74,7 +74,7 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
 
                 assert_cc(USEC_INFINITY > UINT32_MAX * USEC_PER_SEC);
                 if (timeout <= UINT32_MAX * USEC_PER_SEC)
-                        timeout /= USEC_PER_SEC;
+                        DIV_ROUND_UP(timeout, USEC_PER_SEC);
                 else {
                         if (timeout != USEC_INFINITY)
                                 log_info("Timeout is too long and will be treated as 'menu-force' instead.");
