@@ -10376,12 +10376,10 @@ static int vl_method_run(
                                         SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size));
 
                 /* Or if the disk would fit, but theres's not enough unallocated space */
-                uint64_t need_free = LESS_BY(size, current_size);
                 return sd_varlink_errorbo(
                                 link,
                                 "io.systemd.Repart.InsufficientFreeSpace",
                                 SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", current_size),
-                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("needFreeBytes", need_free),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size));
         }
         if (r < 0)
