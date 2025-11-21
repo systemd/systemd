@@ -561,19 +561,8 @@ static int setup_output(
                 return open_null_as(O_WRONLY, fileno);
 
         case EXEC_OUTPUT_TTY:
-                if (exec_input_is_terminal(i)) {
-                        r = fd_is_writable(STDIN_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdin is writable for TTY's %s, falling back to opening terminal.",
-                                                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                else
-                                        log_warning("Inherited stdin is not writable for TTY's %s, falling back to opening terminal.",
-                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
-                        }
+                if (exec_input_is_terminal(i))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
-                }
 
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
