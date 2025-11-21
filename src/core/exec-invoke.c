@@ -546,17 +546,8 @@ static int setup_output(
                         return fileno;
 
                 /* Duplicate from stdout if possible */
-                if (can_inherit_stderr_from_stdout(context)) {
-                        r = fd_is_writable(STDOUT_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdout is writable for stderr, falling back to /dev/null.");
-                                else
-                                        log_warning("Inherited stdout is not writable for stderr, falling back to /dev/null.");
-                                return open_null_as(O_WRONLY, fileno);
-                        }
+                if (can_inherit_stderr_from_stdout(context))
                         return RET_NERRNO(dup2(STDOUT_FILENO, fileno));
-                }
 
                 o = context->std_error;
 
