@@ -8,6 +8,8 @@
 
 void pam_log_setup(void);
 
+int errno_to_pam_error(int error) _const_;
+
 int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *format, ...) _printf_(4,5);
 
 int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char *format, ...) _printf_(4,5);
