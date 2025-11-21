@@ -1307,7 +1307,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                 r = sd_json_variant_append_arraybo(
                                 &janswer,
                                 SD_JSON_BUILD_PAIR_CONDITION(!!v, "rr", SD_JSON_BUILD_VARIANT(v)),
-                                SD_JSON_BUILD_PAIR("raw", SD_JSON_BUILD_BASE64(rri->rr->wire_format, rri->rr->wire_format_size)),
+                                SD_JSON_BUILD_PAIR_BASE64("raw", rri->rr->wire_format, rri->rr->wire_format_size),
                                 SD_JSON_BUILD_PAIR_CONDITION(rri->ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(rri->ifindex)));
                 if (r < 0)
                         return log_debug_errno(r, "Failed to append notification entry to array: %m");
@@ -1315,7 +1315,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
 
         r = varlink_many_notifybo(
                         m->varlink_query_results_subscription,
-                        SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(dns_transaction_state_to_string(q->state))),
+                        SD_JSON_BUILD_PAIR_STRING("state", dns_transaction_state_to_string(q->state)),
                         SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_DNSSEC_FAILED,
                                                      "result", SD_JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
                         SD_JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_RCODE_FAILURE,
@@ -1332,7 +1332,7 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
                                                             DNS_TRANSACTION_RCODE_FAILURE) &&
                                                      q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
                                                      "extendedDNSErrorMessage", SD_JSON_BUILD_STRING(q->answer_ede_msg)),
-                        SD_JSON_BUILD_PAIR("question", SD_JSON_BUILD_VARIANT(jquestion)),
+                        SD_JSON_BUILD_PAIR_VARIANT("question", jquestion),
                         SD_JSON_BUILD_PAIR_CONDITION(!!jcollected_questions,
                                                      "collectedQuestions", SD_JSON_BUILD_VARIANT(jcollected_questions)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!janswer,

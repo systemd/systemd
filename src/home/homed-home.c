@@ -2687,7 +2687,7 @@ int home_augment_status(
                 disk_ceiling = USER_DISK_SIZE_MAX;
 
         r = sd_json_buildo(&status,
-                           SD_JSON_BUILD_PAIR("state", SD_JSON_BUILD_STRING(home_state_to_string(state))),
+                           SD_JSON_BUILD_PAIR_STRING("state", home_state_to_string(state)),
                            SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
                            SD_JSON_BUILD_PAIR("useFallback", SD_JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
                            SD_JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),

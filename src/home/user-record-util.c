@@ -94,16 +94,16 @@ int user_record_synthesize(
 
         r = sd_json_buildo(
                         &h->json,
-                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(user_name)),
+                        SD_JSON_BUILD_PAIR_STRING("userName", user_name),
                         SD_JSON_BUILD_PAIR_CONDITION(!!rr, "realm", SD_JSON_BUILD_STRING(realm)),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("regular")),
                         SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
                                                            SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
-                                                                                              SD_JSON_BUILD_PAIR("imagePath", SD_JSON_BUILD_STRING(image_path)),
-                                                                                              SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(hd)),
-                                                                                              SD_JSON_BUILD_PAIR("storage", SD_JSON_BUILD_STRING(user_storage_to_string(storage))),
-                                                                                              SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(uid)),
-                                                                                              SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(gid)))))));
+                                                                                              SD_JSON_BUILD_PAIR_STRING("imagePath", image_path),
+                                                                                              SD_JSON_BUILD_PAIR_STRING("homeDirectory", hd),
+                                                                                              SD_JSON_BUILD_PAIR_STRING("storage", user_storage_to_string(storage)),
+                                                                                              SD_JSON_BUILD_PAIR_UNSIGNED("uid", uid),
+                                                                                              SD_JSON_BUILD_PAIR_UNSIGNED("gid", gid))))));
         if (r < 0)
                 return r;
 
@@ -154,9 +154,9 @@ int group_record_synthesize(GroupRecord *g, UserRecord *h) {
 
         r = sd_json_buildo(
                         &g->json,
-                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(un)),
+                        SD_JSON_BUILD_PAIR_STRING("groupName", un),
                         SD_JSON_BUILD_PAIR_CONDITION(!!rr, "realm", SD_JSON_BUILD_STRING(rr)),
-                        SD_JSON_BUILD_PAIR("description", SD_JSON_BUILD_STRING(description)),
+                        SD_JSON_BUILD_PAIR_STRING("description", description),
                         SD_JSON_BUILD_PAIR("binding", SD_JSON_BUILD_OBJECT(
                                                            SD_JSON_BUILD_PAIR(SD_ID128_TO_STRING(mid), SD_JSON_BUILD_OBJECT(
                                                                                               SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(user_record_gid(h))))))),
@@ -348,7 +348,7 @@ int user_record_add_binding(
 
         r = sd_json_buildo(
                         &new_binding_entry,
-                        SD_JSON_BUILD_PAIR("blobDirectory", SD_JSON_BUILD_STRING(blob)),
+                        SD_JSON_BUILD_PAIR_STRING("blobDirectory", blob),
                         SD_JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", SD_JSON_BUILD_STRING(image_path)),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", SD_JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
