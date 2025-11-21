@@ -60,8 +60,8 @@ static int build_user_json(Home *h, bool trusted, sd_json_variant **ret) {
                 return r;
 
         return sd_json_buildo(ret,
-                              SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(augmented->json)),
-                              SD_JSON_BUILD_PAIR("incomplete", SD_JSON_BUILD_BOOLEAN(augmented->incomplete)));
+                              SD_JSON_BUILD_PAIR_VARIANT("record", augmented->json),
+                              SD_JSON_BUILD_PAIR_BOOLEAN("incomplete", augmented->incomplete));
 }
 
 static bool home_user_match_lookup_parameters(LookupParameters *p, Home *h) {
@@ -176,7 +176,7 @@ static int build_group_json(Home *h, sd_json_variant **ret) {
         assert(!FLAGS_SET(g->mask, USER_RECORD_SECRET));
         assert(!FLAGS_SET(g->mask, USER_RECORD_PRIVILEGED));
 
-        return sd_json_buildo(ret, SD_JSON_BUILD_PAIR("record", SD_JSON_BUILD_VARIANT(g->json)));
+        return sd_json_buildo(ret, SD_JSON_BUILD_PAIR_VARIANT("record", g->json));
 }
 
 static bool home_group_match_lookup_parameters(LookupParameters *p, Home *h) {
