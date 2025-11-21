@@ -146,7 +146,7 @@ static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *use
         return 1;
 }
 
-static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
+static int on_spawn_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         Spawn *spawn = ASSERT_PTR(userdata);
         int ret = -EIO;
 
@@ -175,7 +175,7 @@ static int on_spawn_sigchld(sd_event_source *s, const siginfo_t *si, void *userd
 
 static int spawn_wait(Spawn *spawn) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *sigchld_source = NULL;
+        _cleanup_(sd_event_source_disable_unrefp) sd_event_source *child_source = NULL;
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *stdout_source = NULL;
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *stderr_source = NULL;
         int r;
@@ -214,11 +214,12 @@ static int spawn_wait(Spawn *spawn) {
                         return log_device_debug_errno(spawn->device, r, "Failed to create stderr event source: %m");
         }
 
-        r = event_add_child_pidref(e, &sigchld_source, &spawn->pidref, WEXITED, on_spawn_sigchld, spawn);
+        r = event_add_child_pidref(e, &child_source, &spawn->pidref, WEXITED, on_spawn_exit, spawn);
         if (r < 0)
                 return log_device_debug_errno(spawn->device, r, "Failed to create sigchild event source: %m");
-        /* SIGCHLD should be processed after IO is complete */
-        r = sd_event_source_set_priority(sigchld_source, SD_EVENT_PRIORITY_NORMAL + 1);
+
+        /* Child exit should be processed after IO is complete */
+        r = sd_event_source_set_priority(child_source, SD_EVENT_PRIORITY_NORMAL + 1);
         if (r < 0)
                 return log_device_debug_errno(spawn->device, r, "Failed to set priority to sigchild event source: %m");
 

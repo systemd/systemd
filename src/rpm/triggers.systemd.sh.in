@@ -19,6 +19,28 @@
 %transfiletriggerin -P 900899 -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
 {{SYSTEMD_UPDATE_HELPER_PATH}} user-reload-restart || :
 
+# %filetriggerpostun runs after a package was removed/upgraded/downgraded, which means it might run with
+# older versions of systemd or without systemd installed anymore at all, so we add checks to make sure the
+# systemd-update-helper binary is still installed and is recent enough.
+
+%filetriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
+if ! [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then
+  exit 0
+fi
+{ read -r -d '' -n 3 shebang; } <{{SYSTEMD_UPDATE_HELPER_PATH}}
+if ! [ "$shebang" = "#!/" ]; then
+  exec {{SYSTEMD_UPDATE_HELPER_PATH}} --stdin --system remove-units
+fi
+
+%filetriggerpostun -P 1000099 -- {{USER_DATA_UNIT_DIR}}/ /etc/systemd/user/
+if ! [ -x "{{SYSTEMD_UPDATE_HELPER_PATH}}" ]; then
+  exit 0
+fi
+{ read -r -d '' -n 3 shebang; } <{{SYSTEMD_UPDATE_HELPER_PATH}}
+if ! [ "$shebang" = "#!/" ]; then
+  exec {{SYSTEMD_UPDATE_HELPER_PATH}} --stdin --global remove-units
+fi
+
 %transfiletriggerpostun -P 1000100 -- {{SYSTEM_DATA_UNIT_DIR}}/ /etc/systemd/system/
 # On removal, we need to run daemon-reload after any units have been
 # removed.
