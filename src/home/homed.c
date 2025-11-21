@@ -32,8 +32,6 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask= */ NULL, SIGCHLD) >= 0);
-
         r = manager_new(&m);
         if (r < 0)
                 return log_error_errno(r, "Could not create manager: %m");
