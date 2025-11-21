@@ -182,6 +182,7 @@ Network.IgnoreCarrierLoss,                       config_parse_ignore_carrier_los
 Network.KeepConfiguration,                       config_parse_keep_configuration,                0,                                      offsetof(Network, keep_configuration)
 Network.IPv6SendRA,                              config_parse_router_prefix_delegation,          0,                                      offsetof(Network, router_prefix_delegation)
 Network.DHCPPrefixDelegation,                    config_parse_tristate,                          0,                                      offsetof(Network, dhcp_pd)
+Network.DHCPClientPersistLeases,                 config_parse_dhcp_client_persist_leases,        0,                                      offsetof(Network, dhcp_client_persist_leases)
 Address.Address,                                 config_parse_address_section,                   ADDRESS_ADDRESS,                        0
 Address.Peer,                                    config_parse_address_section,                   ADDRESS_PEER,                           0
 Address.Broadcast,                               config_parse_address_section,                   ADDRESS_BROADCAST,                      0
