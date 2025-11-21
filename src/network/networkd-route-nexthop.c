@@ -94,10 +94,11 @@ static void route_nexthop_hash_func_full(const RouteNextHop *nh, struct siphash 
         /* See nh_comp() in net/ipv4/fib_semantics.c of the kernel. */
 
         siphash24_compress_typesafe(nh->family, state);
-        if (!IN_SET(nh->family, AF_INET, AF_INET6))
-                return;
 
-        in_addr_hash_func(&nh->gw, nh->family, state);
+        /* We don't have the gateway yet for device-only routes, which are AF_UNSPEC */
+        if (IN_SET(nh->family, AF_INET, AF_INET6))
+                in_addr_hash_func(&nh->gw, nh->family, state);
+
         if (with_weight)
                 siphash24_compress_typesafe(nh->weight, state);
         siphash24_compress_typesafe(nh->ifindex, state);
@@ -115,12 +116,12 @@ static int route_nexthop_compare_func_full(const RouteNextHop *a, const RouteNex
         if (r != 0)
                 return r;
 
-        if (!IN_SET(a->family, AF_INET, AF_INET6))
-                return 0;
-
-        r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
-        if (r != 0)
-                return r;
+        /* We don't have the gateway yet for device-only routes, which are AF_UNSPEC */
+        if (IN_SET(a->family, AF_INET, AF_INET6)) {
+                r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+        }
 
         if (with_weight) {
                 r = CMP(a->weight, b->weight);
@@ -422,6 +423,10 @@ static bool route_nexthop_is_ready_to_configure(const RouteNextHop *nh, Manager 
         if (!link->network && !link_has_carrier(link))
                 return false;
 
+        /* For device-only nexthops (no gateway), we only need the link to be ready. */
+        if (!in_addr_is_set(nh->family, &nh->gw))
+                return true;
+
         return gateway_is_ready(link, onlink, nh->family, &nh->gw);
 }
 
@@ -539,6 +544,11 @@ static int append_nexthop_one(const Route *route, const RouteNextHop *nh, struct
         assert(rta);
         assert(*rta);
 
+        if (route->family == AF_INET6 && !in_addr_is_set(nh->family, &nh->gw))
+                return log_warning_errno(
+                                SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                "rtnl: Device-only multipath routes are not supported for IPv6");
+
         new_rta = realloc(*rta, RTA_ALIGN((*rta)->rta_len) + RTA_SPACE(sizeof(struct rtnexthop)));
         if (!new_rta)
                 return -ENOMEM;
@@ -553,30 +563,36 @@ static int append_nexthop_one(const Route *route, const RouteNextHop *nh, struct
 
         (*rta)->rta_len += sizeof(struct rtnexthop);
 
-        if (nh->family == route->family) {
-                r = rtattr_append_attribute(rta, RTA_GATEWAY, &nh->gw, FAMILY_ADDRESS_SIZE(nh->family));
-                if (r < 0)
-                        goto clear;
+        /* We don't have the gateway yet for device-only routes, which are AF_UNSPEC */
+        if (in_addr_is_set(nh->family, &nh->gw)) {
+                if (nh->family == route->family) {
+                        r = rtattr_append_attribute(rta, RTA_GATEWAY, &nh->gw, FAMILY_ADDRESS_SIZE(nh->family));
+                        if (r < 0)
+                                goto clear;
 
-                rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
-                rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(nh->family));
+                        rtnh = (struct rtnexthop *) ((uint8_t *) *rta + offset);
+                        rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(nh->family));
 
-        } else if (nh->family == AF_INET6) {
-                assert(route->family == AF_INET);
+                } else if (nh->family == AF_INET6) {
+                        assert(route->family == AF_INET);
 
-                r = rtattr_append_attribute(rta, RTA_VIA,
-                                            &(RouteVia) {
-                                                    .family = nh->family,
-                                                    .address = nh->gw,
-                                            }, sizeof(RouteVia));
-                if (r < 0)
-                        goto clear;
+                        r = rtattr_append_attribute(
+                                        rta,
+                                        RTA_VIA,
+                                        &(RouteVia) {
+                                                        .family = nh->family,
+                                                        .address = nh->gw,
+                                        },
+                                        sizeof(RouteVia));
+                        if (r < 0)
+                                goto clear;
 
-                rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
-                rtnh->rtnh_len += RTA_SPACE(sizeof(RouteVia));
+                        rtnh = (struct rtnexthop *) ((uint8_t *) *rta + offset);
+                        rtnh->rtnh_len += RTA_SPACE(sizeof(RouteVia));
 
-        } else if (nh->family == AF_INET)
-                assert_not_reached();
+                } else if (nh->family == AF_INET)
+                        assert_not_reached();
+        }
 
         return 0;
 
@@ -1080,10 +1096,30 @@ int config_parse_multipath_route(
                 }
         }
 
-        r = in_addr_from_string_auto(word, &nh->family, &nh->gw);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid multipath route gateway '%s', ignoring assignment: %m", rvalue);
+        /* If the entry is just @device, word will be empty. */
+        if (!isempty(word)) {
+                r = in_addr_from_string_auto(word, &nh->family, &nh->gw);
+                if (r < 0) {
+                        log_syntax(unit,
+                                   LOG_WARNING,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Invalid multipath route gateway '%s', ignoring assignment: %m",
+                                   rvalue);
+                        return 0;
+                }
+        }
+
+        /* Validate that at least gateway or device is specified. */
+        if (!in_addr_is_set(nh->family, &nh->gw) && nh->ifindex == 0 && !nh->ifname) {
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           0,
+                           "MultiPathRoute= requires either a gateway address or a device, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 

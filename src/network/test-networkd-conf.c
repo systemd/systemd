@@ -6,6 +6,8 @@
 #include "networkd-address.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
+#include "networkd-route-nexthop.h"
+#include "ordered-set.h"
 #include "set.h"
 #include "strv.h"
 #include "tests.h"
@@ -261,6 +263,216 @@ TEST(config_parse_match_strv) {
                                        "KEY=val",
                                        "KEY2=val with space",
                                        "KEY3=val with \\quotation\\")));
+}
+
+static int parse_mpr(const char *rvalue, OrderedSet **nexthops) {
+        return config_parse_multipath_route(
+                        "network", "filename", 1, "section", 1, "MultiPathRoute", 0, rvalue, nexthops, NULL);
+}
+
+static void test_config_parse_multipath_route_one(const char *rvalue, int expected_ret, size_t expected_size) {
+        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        int r;
+
+        r = parse_mpr(rvalue, &nexthops);
+        ASSERT_EQ(r, expected_ret);
+        if (expected_ret > 0)
+                ASSERT_EQ(ordered_set_size(nexthops), expected_size);
+}
+
+static void test_config_parse_multipath_route_verify(
+                const char *rvalue,
+                int expected_family,
+                const char *expected_gw,
+                const char *expected_ifname,
+                int expected_ifindex,
+                uint32_t expected_weight) {
+        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        RouteNextHop *nh;
+
+        ASSERT_EQ(parse_mpr(rvalue, &nexthops), 1);
+        ASSERT_EQ(ordered_set_size(nexthops), 1u);
+
+        nh = ordered_set_first(nexthops);
+        ASSERT_NOT_NULL(nh);
+        ASSERT_EQ(nh->family, expected_family);
+
+        if (expected_gw) {
+                union in_addr_union gw;
+                ASSERT_OK(in_addr_from_string(expected_family, expected_gw, &gw));
+                ASSERT_EQ(memcmp(&nh->gw, &gw, FAMILY_ADDRESS_SIZE(expected_family)), 0);
+        } else {
+                ASSERT_FALSE(in_addr_is_set(nh->family, &nh->gw));
+        }
+
+        if (expected_ifname)
+                ASSERT_STREQ(nh->ifname, expected_ifname);
+        else
+                ASSERT_NULL(nh->ifname);
+
+        ASSERT_EQ(nh->ifindex, expected_ifindex);
+        ASSERT_EQ(nh->weight, expected_weight);
+}
+
+TEST(config_parse_multipath_route_basic) {
+        /* Device only routes */
+        test_config_parse_multipath_route_verify("@wg0", AF_UNSPEC, NULL, "wg0", 0, 0);
+        test_config_parse_multipath_route_verify("@wg0 10", AF_UNSPEC, NULL, "wg0", 0, 9);
+        test_config_parse_multipath_route_verify("@eth0 255", AF_UNSPEC, NULL, "eth0", 0, 254);
+        test_config_parse_multipath_route_verify("@1 15", AF_UNSPEC, NULL, NULL, 1, 14);
+
+        /* Gateway with device */
+        test_config_parse_multipath_route_verify("10.0.0.1@eth0", AF_INET, "10.0.0.1", "eth0", 0, 0);
+        test_config_parse_multipath_route_verify("10.0.0.1@eth0 20", AF_INET, "10.0.0.1", "eth0", 0, 19);
+        test_config_parse_multipath_route_verify("2001:db8::1@wg0 15", AF_INET6, "2001:db8::1", "wg0", 0, 14);
+
+        /* Gateway without device */
+        test_config_parse_multipath_route_verify("192.168.1.1", AF_INET, "192.168.1.1", NULL, 0, 0);
+        test_config_parse_multipath_route_verify("192.168.1.1 100", AF_INET, "192.168.1.1", NULL, 0, 99);
+        test_config_parse_multipath_route_verify("fe80::1", AF_INET6, "fe80::1", NULL, 0, 0);
+
+        /* Interface index instead of name */
+        test_config_parse_multipath_route_verify("10.0.0.1@5", AF_INET, "10.0.0.1", NULL, 5, 0);
+        test_config_parse_multipath_route_verify("@10", AF_UNSPEC, NULL, NULL, 10, 0);
+        test_config_parse_multipath_route_verify("@10 50", AF_UNSPEC, NULL, NULL, 10, 49);
+
+        /* Empty value clears nexthops */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@wg0 15", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 1u);
+                ASSERT_EQ(parse_mpr("", &nexthops), 1);
+                ASSERT_NULL(nexthops);
+        }
+}
+
+TEST(config_parse_multipath_route_hash_collision_prevention) {
+        /* Make sure device-only/AF_UNSPEC routes do not collapse into a single entry. */
+
+        /* Different interfaces, same weight */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@wg0 15", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 1u);
+                ASSERT_EQ(parse_mpr("@wg1 15", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 2u);
+        }
+
+        /* Same interface, different weights */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@eth0 10", &nexthops), 1);
+                ASSERT_EQ(parse_mpr("@eth0 20", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 2u);
+        }
+
+        /* Interface name vs interface index */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@eth0 15", &nexthops), 1);
+                ASSERT_EQ(parse_mpr("@5 15", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 2u);
+        }
+
+        /* Mixing device-only and gateway routes */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@wg0 10", &nexthops), 1);
+                ASSERT_EQ(parse_mpr("10.0.0.1@eth0 20", &nexthops), 1);
+                ASSERT_EQ(parse_mpr("192.168.1.1 30", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 3u);
+        }
+
+        /* Large interface index */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@999999 10", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 1u);
+        }
+
+        /* IPv4 and IPv6 mixing */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("10.0.0.1@eth0 10", &nexthops), 1);
+                ASSERT_EQ(parse_mpr("2001:db8::1@eth0 20", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 2u);
+        }
+
+        /* Order independence (hash must be commutative) */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops1 = NULL, *nexthops2 = NULL;
+
+                ASSERT_EQ(parse_mpr("@wg0 10", &nexthops1), 1);
+                ASSERT_EQ(parse_mpr("@wg1 20", &nexthops1), 1);
+
+                ASSERT_EQ(parse_mpr("@wg1 20", &nexthops2), 1);
+                ASSERT_EQ(parse_mpr("@wg0 10", &nexthops2), 1);
+
+                ASSERT_EQ(ordered_set_size(nexthops1), 2u);
+                ASSERT_EQ(ordered_set_size(nexthops2), 2u);
+        }
+
+        /* Default weight handling */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@wg0", &nexthops), 1);
+                ASSERT_EQ(parse_mpr("@wg1", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 2u); /* Default weight distinct */
+        }
+}
+
+TEST(config_parse_multipath_route_duplicate_detection) {
+        /* Duplicate routes should be detected and rejected with a warning. */
+
+        /* Exact duplicates are rejected */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@wg0 15", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 1u);
+                ASSERT_EQ(parse_mpr("@wg0 15", &nexthops), 0);
+                ASSERT_EQ(ordered_set_size(nexthops), 1u);
+        }
+
+        /* Default weight vs explicit weight=1 are treated as identical */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@eth0", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 1u);
+                ASSERT_EQ(parse_mpr("@eth0 1", &nexthops), 0);
+                ASSERT_EQ(ordered_set_size(nexthops), 1u);
+        }
+
+        /* Weight=1 then default weight (reverse order), still detected as duplicate */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@wg0 1", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 1u);
+                ASSERT_EQ(parse_mpr("@wg0", &nexthops), 0);
+                ASSERT_EQ(ordered_set_size(nexthops), 1u);
+        }
+
+        /* Device-only vs gateway with device are semantically distinct, both accepted */
+        {
+                _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+                ASSERT_EQ(parse_mpr("@eth0 10", &nexthops), 1);
+                ASSERT_EQ(parse_mpr("10.0.0.1@eth0 10", &nexthops), 1);
+                ASSERT_EQ(ordered_set_size(nexthops), 2u);
+        }
+}
+
+TEST(config_parse_multipath_route_errors) {
+        /* Invalid input should be rejected */
+
+        /* Invalid gateway addresses */
+        test_config_parse_multipath_route_one("999.999.999.999", 0, 0);
+        test_config_parse_multipath_route_one("not-an-ip", 0, 0);
+        test_config_parse_multipath_route_one("10", 0, 0);
+
+        /* Invalid weights */
+        test_config_parse_multipath_route_one("@wg0 0", 0, 0);   /* Weight 0 */
+        test_config_parse_multipath_route_one("@wg0 257", 0, 0); /* Weight > 256 */
+        test_config_parse_multipath_route_one("@wg0 -1", 0, 0);  /* Negative */
+        test_config_parse_multipath_route_one("@wg0 abc", 0, 0); /* Non-numeric */
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
