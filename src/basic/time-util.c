@@ -1805,8 +1805,6 @@ int time_change_fd(void) {
 
         _cleanup_close_ int fd = -EBADF;
 
-        assert_cc(sizeof(time_t) == sizeof(TIME_T_MAX));
-
         /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever CLOCK_REALTIME makes a jump relative to
          * CLOCK_MONOTONIC. */
 
