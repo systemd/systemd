@@ -1,0 +1,32 @@
+<?xml version="1.0"?>
+<!DOCTYPE refsect1 PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+-->
+
+<refsect1>
+  <title/>
+
+  <para id="plural">When enabled for services running in per-user instances of the service manager
+  using mount options is disabled by default, due to the security implications. It is possible to use a
+  <ulink url="https://www.freedesktop.org/software/polkit/docs/latest/">polkit</ulink> policy to allow
+  specific mount options, for example:
+
+    <example id="example">
+      <title>A polkit policy that allows mounting the root partition with nosuid</title>
+
+      <para><filename index="false">/etc/polkit-1/rules.d/mountoptions.rules</filename>:
+      </para>
+      <programlisting>
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.systemd.mount-file-system.mount-untrusted-image-privately" &amp;&amp;
+            action.lookup("mount_options") == "root:nosuid") {
+        return polkit.Result.YES;
+    }
+});
+</programlisting>
+    </example>
+  </para>
+
+</refsect1>
