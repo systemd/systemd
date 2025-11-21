@@ -2319,8 +2319,10 @@ Features:
   ConditionConfigSearchPathNotEmpty= or different syntax? See the discussion starting at
   https://github.com/systemd/systemd/pull/15109#issuecomment-607740136.
 
-* BootLoaderSpec: Define a way how an installer can figure out whether a BLS
+* BootLoaderSpec: define a way how an installer can figure out whether a BLS
   compliant boot loader is installed.
+
+* BootLoaderSpec: document @saved pseudo-entry, update mention in BLI
 
 * think about requeuing jobs when daemon-reload is issued? use case:
   the initrd issues a reload after fstab from the host is accessible
