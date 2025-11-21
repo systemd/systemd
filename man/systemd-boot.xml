@@ -57,7 +57,7 @@
       <listitem><para>A <literal>Reboot Into Firmware Interface</literal> option, if supported by the UEFI
       firmware.</para></listitem>
 
-      <listitem><para>Secure Boot variables enrollment if the UEFI firmware is in setup-mode and files are provided
+      <listitem><para>Secure Boot variable enrollment if the UEFI firmware is in setup mode and files are provided
       on the ESP.</para></listitem>
     </itemizedlist>
 
@@ -97,7 +97,7 @@
       entropy pool initialization, providing a full entropy pool during early boot.</para></listitem>
 
       <listitem><para>The boot manager allows for Secure Boot variables to be enrolled if the UEFI firmware is
-      in setup-mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
+      in setup mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
     </itemizedlist>
 
     <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -386,8 +386,8 @@
     <para>During initialization, <command>systemd-boot</command> automatically loads all driver files placed
     in the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have
     an extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means
-    a suffix of <filename>x64.efi</filename>). This may be used to automatically load file system drivers and
-    similar, to extend the native firmware support.</para>
+    a suffix of <filename>x64.efi</filename>). This may be used e.g. to add support for hardware not
+    supported natively by the firmware.</para>
 
     <para>Enrollment of Secure Boot variables can be performed manually or automatically if files are available
     under <filename>/loader/keys/<replaceable>NAME</replaceable>/{db,dbx,KEK,PK}.auth</filename>, <replaceable>NAME</replaceable>
