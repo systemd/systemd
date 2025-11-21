@@ -49,6 +49,7 @@
 #include "io-util.h"
 #include "iovec-util.h"
 #include "json-util.h"
+#include "libmount-util.h"
 #include "loop-util.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
@@ -3906,6 +3907,10 @@ int dissected_image_acquire_metadata(
         BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
+
+        r = dlopen_libmount();
+        if (r < 0)
+                return r;
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized++) {
                 assert(paths[n_meta_initialized]);
