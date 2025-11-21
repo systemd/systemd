@@ -1082,6 +1082,13 @@ int device_enumerator_scan_subsystems(sd_device_enumerator *enumerator) {
                         r = log_debug_errno(k, "sd-device-enumerator: Failed to scan drivers: %m");
         }
 
+        /* PCI slots subsystem */
+        if (match_subsystem(enumerator, "slots")) {
+                k = enumerator_scan_dir_and_add_devices(enumerator, "bus", "pci", "slots");
+                if (k < 0)
+                        r = log_debug_errno(k, "sd-device-enumerator: Failed to scan PCI slots: %m");
+        }
+
         enumerator->scan_uptodate = true;
         enumerator->type = DEVICE_ENUMERATION_TYPE_SUBSYSTEMS;
 
@@ -1152,6 +1159,12 @@ int device_enumerator_scan_devices_and_subsystems(sd_device_enumerator *enumerat
                         k = enumerator_scan_dir(enumerator, "bus", "drivers", "drivers");
                         if (k < 0)
                                 r = log_debug_errno(k, "sd-device-enumerator: Failed to scan drivers: %m");
+                }
+
+                if (match_subsystem(enumerator, "slots")) {
+                        k = enumerator_scan_dir_and_add_devices(enumerator, "bus", "pci", "slots");
+                        if (k < 0)
+                                r = log_debug_errno(k, "sd-device-enumerator: Failed to scan PCI slots: %m");
                 }
         }
 
