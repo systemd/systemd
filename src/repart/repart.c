@@ -10368,7 +10368,6 @@ static int vl_method_run(
                                 need_free > context->total ? "io.systemd.Repart.DiskTooSmall" :
                                                              "io.systemd.Repart.InsufficientFreeSpace",
                                 JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", size, UINT64_MAX),
-                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", need_free, UINT64_MAX),
                                 JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", current_size, UINT64_MAX));
         }
         if (r < 0)
