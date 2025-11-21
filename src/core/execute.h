@@ -508,7 +508,7 @@ void exec_context_init(ExecContext *c);
 void exec_context_done(ExecContext *c);
 void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix);
 
-int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_root);
+int exec_context_destroy_runtime_directory(const ExecContext *c, const char *runtime_prefix);
 int exec_context_destroy_mount_ns_dir(Unit *u);
 
 const char* exec_context_fdname(const ExecContext *c, int fd_index) _pure_;
@@ -557,7 +557,7 @@ void exec_status_handoff(ExecStatus *s, const struct ucred *ucred, const dual_ti
 void exec_status_dump(const ExecStatus *s, FILE *f, const char *prefix);
 void exec_status_reset(ExecStatus *s);
 
-int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *name, bool create, ExecSharedRuntime **ret);
+int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool create, ExecSharedRuntime **ret);
 ExecSharedRuntime *exec_shared_runtime_destroy(ExecSharedRuntime *r);
 ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *r);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSharedRuntime*, exec_shared_runtime_unref);

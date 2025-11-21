@@ -35,4 +35,4 @@ static inline void open_file_free_many(OpenFile **head) {
 }
 
 const char* open_file_flags_to_string(OpenFileFlag t) _const_;
-OpenFileFlag open_file_flags_from_string(const char *t) _pure_;
+OpenFileFlag open_file_flags_from_string(const char *s) _pure_;

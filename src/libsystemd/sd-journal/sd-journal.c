@@ -2324,14 +2324,14 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
          SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE |         \
          SD_JOURNAL_ASSUME_IMMUTABLE)
 
-_public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, int flags) {
+_public_ int sd_journal_open_namespace(sd_journal **ret, const char *name_space, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return((flags & ~OPEN_ALLOWED_FLAGS) == 0, -EINVAL);
 
-        j = journal_new(flags, NULL, namespace);
+        j = journal_new(flags, NULL, name_space);
         if (!j)
                 return -ENOMEM;
 

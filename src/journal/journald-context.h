@@ -81,7 +81,7 @@ void client_context_maybe_refresh(
                 const struct ucred *ucred,
                 const char *label, size_t label_size,
                 const char *unit_id,
-                usec_t tstamp);
+                usec_t timestamp);
 
 void manager_refresh_client_contexts_on_reload(Manager *m, usec_t old_interval, unsigned old_burst);
 void client_context_acquire_default(Manager *m);

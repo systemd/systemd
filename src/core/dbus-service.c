@@ -51,7 +51,7 @@ static int property_get_open_files(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         OpenFile **open_files = ASSERT_PTR(userdata);
         int r;
@@ -79,7 +79,7 @@ static int property_get_extra_file_descriptors(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Service *s = ASSERT_PTR(userdata);
         int r;
@@ -107,7 +107,7 @@ static int property_get_exit_status_set(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         const ExitStatusSet *status_set = ASSERT_PTR(userdata);
         unsigned n;
@@ -159,7 +159,7 @@ static int property_get_exit_status_set(
         return sd_bus_message_close_container(reply);
 }
 
-static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_bus_error *error, bool is_image) {
+static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error, bool is_image) {
         MountInNamespaceFlags flags = 0;
         Unit *u = ASSERT_PTR(userdata);
         int r;
@@ -167,13 +167,13 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         assert(message);
 
         if (!MANAGER_IS_SYSTEM(u->manager))
-                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported by system manager");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_NOT_SUPPORTED, "Adding bind mounts at runtime is only supported by system manager");
 
-        r = unit_can_live_mount(u, error);
+        r = unit_can_live_mount(u, reterr_error);
         if (r < 0)
-                return log_unit_debug_errno(u, r, "Cannot schedule live mount operation: %s", bus_error_message(error, r));
+                return log_unit_debug_errno(u, r, "Cannot schedule live mount operation: %s", bus_error_message(reterr_error, r));
 
-        r = mac_selinux_unit_access_check(u, message, "start", error);
+        r = mac_selinux_unit_access_check(u, message, "start", reterr_error);
         if (r < 0)
                 return r;
 
@@ -186,15 +186,15 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
                 return r;
 
         if (!path_is_absolute(src) || !path_is_normalized(src))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path must be absolute and normalized");
 
         if (!is_image && isempty(dest))
                 dest = src;
         else if (!path_is_absolute(dest) || !path_is_normalized(dest))
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path must be absolute and normalized");
 
         if (is_image) {
-                r = bus_read_mount_options(message, error, &options, NULL, "");
+                r = bus_read_mount_options(message, reterr_error, &options, NULL, "");
                 if (r < 0)
                         return r;
         }
@@ -204,7 +204,7 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
                         is_image ? "mount-image" : "bind-mount",
                         N_("Authentication is required to mount on '$(unit)'."),
                         message,
-                        error);
+                        reterr_error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -217,34 +217,34 @@ static int bus_service_method_mount(sd_bus_message *message, void *userdata, sd_
         if (make_file_or_directory)
                 flags |= MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY;
 
-        r = unit_live_mount(u, src, dest, message, flags, options, error);
+        r = unit_live_mount(u, src, dest, message, flags, options, reterr_error);
         if (r < 0)
                 return r;
 
         return 1;
 }
 
-int bus_service_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_service_method_mount(message, userdata, error, false);
+int bus_service_method_bind_mount(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
+        return bus_service_method_mount(message, userdata, reterr_error, false);
 }
 
-int bus_service_method_mount_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        return bus_service_method_mount(message, userdata, error, true);
+int bus_service_method_mount_image(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
+        return bus_service_method_mount(message, userdata, reterr_error, true);
 }
 
-int bus_service_method_dump_file_descriptor_store(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+int bus_service_method_dump_file_descriptor_store(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Service *s = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
 
-        r = mac_selinux_unit_access_check(UNIT(s), message, "status", error);
+        r = mac_selinux_unit_access_check(UNIT(s), message, "status", reterr_error);
         if (r < 0)
                 return r;
 
         if (s->n_fd_store_max == 0 && s->n_fd_store == 0)
-                return sd_bus_error_setf(error, BUS_ERROR_FILE_DESCRIPTOR_STORE_DISABLED, "File descriptor store not enabled for %s.", UNIT(s)->id);
+                return sd_bus_error_setf(reterr_error, BUS_ERROR_FILE_DESCRIPTOR_STORE_DISABLED, "File descriptor store not enabled for %s.", UNIT(s)->id);
 
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
@@ -306,7 +306,7 @@ static int property_get_size_as_uint32(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         size_t *value = ASSERT_PTR(userdata);
         uint32_t sz = *value >= UINT32_MAX ? UINT32_MAX : (uint32_t) *value;
@@ -424,7 +424,7 @@ static int bus_set_transient_exit_status(
                 ExitStatusSet *status_set,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         const int32_t *status, *signal;
         size_t n_status, n_signal, i;
@@ -457,7 +457,7 @@ static int bus_set_transient_exit_status(
 
         for (i = 0; i < n_status; i++) {
                 if (status[i] < 0 || status[i] > 255)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid status code in %s: %"PRIi32, name, status[i]);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid status code in %s: %"PRIi32, name, status[i]);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         r = bitmap_set(&status_set->status, status[i]);
@@ -473,7 +473,7 @@ static int bus_set_transient_exit_status(
 
                 str = signal_to_string((int) signal[i]);
                 if (!str)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal in %s: %"PRIi32, name, signal[i]);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal in %s: %"PRIi32, name, signal[i]);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         r = bitmap_set(&status_set->signal, signal[i]);
@@ -495,7 +495,7 @@ static int bus_set_transient_exec_context_fd(
                 int verify_mode,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         int fd, r;
 
@@ -513,7 +513,7 @@ static int bus_set_transient_exec_context_fd(
         else
                 r = fd_vet_accmode(fd, verify_mode);
         if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "%s passed is of incompatible type: %m", name);
+                return sd_bus_error_set_errnof(reterr_error, r, "%s passed is of incompatible type: %m", name);
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                 int copy;
@@ -544,7 +544,7 @@ static int bus_service_set_transient_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Unit *u = UNIT(s);
         ServiceExecCommand ci;
@@ -557,37 +557,37 @@ static int bus_service_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "PermissionsStartOnly"))
-                return bus_set_transient_bool(u, name, &s->permissions_start_only, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->permissions_start_only, message, flags, reterr_error);
 
         if (streq(name, "RootDirectoryStartOnly"))
-                return bus_set_transient_bool(u, name, &s->root_directory_start_only, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->root_directory_start_only, message, flags, reterr_error);
 
         if (streq(name, "RemainAfterExit"))
-                return bus_set_transient_bool(u, name, &s->remain_after_exit, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->remain_after_exit, message, flags, reterr_error);
 
         if (streq(name, "GuessMainPID"))
-                return bus_set_transient_bool(u, name, &s->guess_main_pid, message, flags, error);
+                return bus_set_transient_bool(u, name, &s->guess_main_pid, message, flags, reterr_error);
 
         if (streq(name, "Type"))
-                return bus_set_transient_service_type(u, name, &s->type, message, flags, error);
+                return bus_set_transient_service_type(u, name, &s->type, message, flags, reterr_error);
 
         if (streq(name, "ExitType"))
-                return bus_set_transient_service_exit_type(u, name, &s->exit_type, message, flags, error);
+                return bus_set_transient_service_exit_type(u, name, &s->exit_type, message, flags, reterr_error);
 
         if (streq(name, "OOMPolicy"))
-                return bus_set_transient_oom_policy(u, name, &s->oom_policy, message, flags, error);
+                return bus_set_transient_oom_policy(u, name, &s->oom_policy, message, flags, reterr_error);
 
         if (streq(name, "RestartUSec"))
-                return bus_set_transient_usec(u, name, &s->restart_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->restart_usec, message, flags, reterr_error);
 
         if (streq(name, "RestartSteps"))
-                return bus_set_transient_unsigned(u, name, &s->restart_steps, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &s->restart_steps, message, flags, reterr_error);
 
         if (streq(name, "RestartMaxDelayUSec"))
-                return bus_set_transient_usec(u, name, &s->restart_max_delay_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->restart_max_delay_usec, message, flags, reterr_error);
 
         if (streq(name, "TimeoutStartUSec")) {
-                r = bus_set_transient_usec(u, name, &s->timeout_start_usec, message, flags, error);
+                r = bus_set_transient_usec(u, name, &s->timeout_start_usec, message, flags, reterr_error);
                 if (r >= 0 && !UNIT_WRITE_FLAGS_NOOP(flags))
                         s->start_timeout_defined = true;
 
@@ -595,38 +595,38 @@ static int bus_service_set_transient_property(
         }
 
         if (streq(name, "TimeoutStopUSec"))
-                return bus_set_transient_usec(u, name, &s->timeout_stop_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->timeout_stop_usec, message, flags, reterr_error);
 
         if (streq(name, "TimeoutAbortUSec")) {
-                r = bus_set_transient_usec(u, name, &s->timeout_abort_usec, message, flags, error);
+                r = bus_set_transient_usec(u, name, &s->timeout_abort_usec, message, flags, reterr_error);
                 if (r >= 0 && !UNIT_WRITE_FLAGS_NOOP(flags))
                         s->timeout_abort_set = true;
                 return r;
         }
 
         if (streq(name, "TimeoutStartFailureMode"))
-                return bus_set_transient_timeout_failure_mode(u, name, &s->timeout_start_failure_mode, message, flags, error);
+                return bus_set_transient_timeout_failure_mode(u, name, &s->timeout_start_failure_mode, message, flags, reterr_error);
 
         if (streq(name, "TimeoutStopFailureMode"))
-                return bus_set_transient_timeout_failure_mode(u, name, &s->timeout_stop_failure_mode, message, flags, error);
+                return bus_set_transient_timeout_failure_mode(u, name, &s->timeout_stop_failure_mode, message, flags, reterr_error);
 
         if (streq(name, "RuntimeMaxUSec"))
-                return bus_set_transient_usec(u, name, &s->runtime_max_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->runtime_max_usec, message, flags, reterr_error);
 
         if (streq(name, "RuntimeRandomizedExtraUSec"))
-                return bus_set_transient_usec(u, name, &s->runtime_rand_extra_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->runtime_rand_extra_usec, message, flags, reterr_error);
 
         if (streq(name, "WatchdogUSec"))
-                return bus_set_transient_usec(u, name, &s->watchdog_usec, message, flags, error);
+                return bus_set_transient_usec(u, name, &s->watchdog_usec, message, flags, reterr_error);
 
         if (streq(name, "FileDescriptorStoreMax"))
-                return bus_set_transient_unsigned(u, name, &s->n_fd_store_max, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &s->n_fd_store_max, message, flags, reterr_error);
 
         if (streq(name, "FileDescriptorStorePreserve"))
-                return bus_set_transient_exec_preserve_mode(u, name, &s->fd_store_preserve_mode, message, flags, error);
+                return bus_set_transient_exec_preserve_mode(u, name, &s->fd_store_preserve_mode, message, flags, reterr_error);
 
         if (streq(name, "NotifyAccess"))
-                return bus_set_transient_notify_access(u, name, &s->notify_access, message, flags, error);
+                return bus_set_transient_notify_access(u, name, &s->notify_access, message, flags, reterr_error);
 
         if (streq(name, "PIDFile")) {
                 _cleanup_free_ char *n = NULL;
@@ -644,7 +644,7 @@ static int bus_service_set_transient_property(
                         path_simplify(n);
 
                         if (!path_is_normalized(n))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "PIDFile= path '%s' is not valid", n);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "PIDFile= path '%s' is not valid", n);
 
                         e = path_startswith(n, "/var/run/");
                         if (e) {
@@ -671,43 +671,43 @@ static int bus_service_set_transient_property(
         }
 
         if (streq(name, "USBFunctionDescriptors"))
-                return bus_set_transient_path(u, name, &s->usb_function_descriptors, message, flags, error);
+                return bus_set_transient_path(u, name, &s->usb_function_descriptors, message, flags, reterr_error);
 
         if (streq(name, "USBFunctionStrings"))
-                return bus_set_transient_path(u, name, &s->usb_function_strings, message, flags, error);
+                return bus_set_transient_path(u, name, &s->usb_function_strings, message, flags, reterr_error);
 
         if (streq(name, "BusName"))
-                return bus_set_transient_bus_name(u, name, &s->bus_name, message, flags, error);
+                return bus_set_transient_bus_name(u, name, &s->bus_name, message, flags, reterr_error);
 
         if (streq(name, "Restart"))
-                return bus_set_transient_service_restart(u, name, &s->restart, message, flags, error);
+                return bus_set_transient_service_restart(u, name, &s->restart, message, flags, reterr_error);
 
         if (streq(name, "RestartMode"))
-                return bus_set_transient_service_restart_mode(u, name, &s->restart_mode, message, flags, error);
+                return bus_set_transient_service_restart_mode(u, name, &s->restart_mode, message, flags, reterr_error);
 
         if (streq(name, "RestartPreventExitStatus"))
-                return bus_set_transient_exit_status(u, name, &s->restart_prevent_status, message, flags, error);
+                return bus_set_transient_exit_status(u, name, &s->restart_prevent_status, message, flags, reterr_error);
 
         if (streq(name, "RestartForceExitStatus"))
-                return bus_set_transient_exit_status(u, name, &s->restart_force_status, message, flags, error);
+                return bus_set_transient_exit_status(u, name, &s->restart_force_status, message, flags, reterr_error);
 
         if (streq(name, "SuccessExitStatus"))
-                return bus_set_transient_exit_status(u, name, &s->success_status, message, flags, error);
+                return bus_set_transient_exit_status(u, name, &s->success_status, message, flags, reterr_error);
 
         ci = service_exec_command_from_string(name);
         if (ci < 0)
                 ci = service_exec_ex_command_from_string(name);
         if (ci >= 0)
-                return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, error);
+                return bus_set_transient_exec_command(u, name, &s->exec_command[ci], message, flags, reterr_error);
 
         if (streq(name, "StandardInputFileDescriptor"))
-                return bus_set_transient_exec_context_fd(u, name, &s->stdin_fd, &s->exec_context.stdio_as_fds, O_RDONLY, message, flags, error);
+                return bus_set_transient_exec_context_fd(u, name, &s->stdin_fd, &s->exec_context.stdio_as_fds, O_RDONLY, message, flags, reterr_error);
 
         if (streq(name, "StandardOutputFileDescriptor"))
-                return bus_set_transient_exec_context_fd(u, name, &s->stdout_fd, &s->exec_context.stdio_as_fds, O_WRONLY, message, flags, error);
+                return bus_set_transient_exec_context_fd(u, name, &s->stdout_fd, &s->exec_context.stdio_as_fds, O_WRONLY, message, flags, reterr_error);
 
         if (streq(name, "StandardErrorFileDescriptor"))
-                return bus_set_transient_exec_context_fd(u, name, &s->stderr_fd, &s->exec_context.stdio_as_fds, O_WRONLY, message, flags, error);
+                return bus_set_transient_exec_context_fd(u, name, &s->stderr_fd, &s->exec_context.stdio_as_fds, O_WRONLY, message, flags, reterr_error);
 
         if (streq(name, "OpenFile")) {
                 const char *path, *fdname;
@@ -744,7 +744,7 @@ static int bus_service_set_transient_property(
                         r = open_file_to_string(of, &ofs);
                         if (r < 0)
                                 return sd_bus_error_set_errnof(
-                                                error, r, "Failed to convert OpenFile= value to string: %m");
+                                                reterr_error, r, "Failed to convert OpenFile= value to string: %m");
 
                         LIST_APPEND(open_files, s->open_files, TAKE_PTR(of));
                         unit_write_settingf(u, flags | UNIT_ESCAPE_SPECIFIERS, name, "OpenFile=%s", ofs);
@@ -760,7 +760,7 @@ static int bus_service_set_transient_property(
         }
 
         if (streq(name, "ReloadSignal"))
-                return bus_set_transient_reload_signal(u, name, &s->reload_signal, message, flags, error);
+                return bus_set_transient_reload_signal(u, name, &s->reload_signal, message, flags, reterr_error);
 
         if (streq(name, "ExtraFileDescriptors")) {
                 r = sd_bus_message_enter_container(message, 'a', "(hs)");
@@ -781,10 +781,10 @@ static int bus_service_set_transient_property(
                          * Unlike OpenFile, StandardInput and friends, there isn't a good sane
                          * default for an arbitrary FD. */
                         if (isempty(fdname) || !fdname_is_valid(fdname))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid extra fd name: %s", fdname);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid extra fd name: %s", fdname);
 
                         if (s->n_extra_fds >= NOTIFY_FD_MAX)
-                                return sd_bus_error_set(error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many extra fds sent");
+                                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_LIMITS_EXCEEDED, "Too many extra fds sent");
 
                         if (UNIT_WRITE_FLAGS_NOOP(flags))
                                 continue;
@@ -814,7 +814,7 @@ static int bus_service_set_transient_property(
         }
 
         if (streq(name, "RootDirectoryFileDescriptor"))
-                return bus_set_transient_exec_context_fd(u, name, &s->root_directory_fd, &s->exec_context.root_directory_as_fd, O_DIRECTORY, message, flags, error);
+                return bus_set_transient_exec_context_fd(u, name, &s->root_directory_fd, &s->exec_context.root_directory_as_fd, O_DIRECTORY, message, flags, reterr_error);
 
         return 0;
 }
@@ -824,7 +824,7 @@ int bus_service_set_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Service *s = SERVICE(u);
         int r;
@@ -833,22 +833,22 @@ int bus_service_set_property(
         assert(name);
         assert(message);
 
-        r = bus_cgroup_set_property(u, &s->cgroup_context, name, message, flags, error);
+        r = bus_cgroup_set_property(u, &s->cgroup_context, name, message, flags, reterr_error);
         if (r != 0)
                 return r;
 
         if (u->transient && u->load_state == UNIT_STUB) {
                 /* This is a transient unit, let's allow a little more */
 
-                r = bus_service_set_transient_property(s, name, message, flags, error);
+                r = bus_service_set_transient_property(s, name, message, flags, reterr_error);
                 if (r != 0)
                         return r;
 
-                r = bus_exec_context_set_transient_property(u, &s->exec_context, name, message, flags, error);
+                r = bus_exec_context_set_transient_property(u, &s->exec_context, name, message, flags, reterr_error);
                 if (r != 0)
                         return r;
 
-                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, flags, error);
+                r = bus_kill_context_set_transient_property(u, &s->kill_context, name, message, flags, reterr_error);
                 if (r != 0)
                         return r;
         }

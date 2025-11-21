@@ -188,7 +188,7 @@ int userns_restrict_install(
 
 int userns_restrict_put_by_inode(
                 struct userns_restrict_bpf *obj,
-                uint64_t userns_inode,
+                uint64_t inode,
                 bool replace,
                 const int mount_fds[],
                 size_t n_mount_fds) {
@@ -196,17 +196,17 @@ int userns_restrict_put_by_inode(
 #if HAVE_VMLINUX_H
         _cleanup_close_ int inner_map_fd = -EBADF;
         _cleanup_free_ int *mnt_ids = NULL;
-        uint64_t ino = userns_inode;
+        uint64_t ino = inode;
         int r, outer_map_fd;
 
         assert(obj);
-        assert(userns_inode != 0);
+        assert(inode != 0);
         assert(n_mount_fds == 0 || mount_fds);
 
         /* The BPF map type BPF_MAP_TYPE_HASH_OF_MAPS only supports 32bit keys, and user namespace inode
          * numbers are 32bit too, even though ino_t is 64bit these days. Should we ever run into a 64bit
          * inode let's refuse early, we can't support this with the current BPF code for now. */
-        if (userns_inode > UINT32_MAX)
+        if (inode > UINT32_MAX)
                 return -EINVAL;
 
         mnt_ids = new(int, n_mount_fds);
@@ -319,27 +319,27 @@ int userns_restrict_put_by_fd(
 
 int userns_restrict_reset_by_inode(
                 struct userns_restrict_bpf *obj,
-                uint64_t ino) {
+                uint64_t inode) {
 
 #if HAVE_VMLINUX_H
         int r, outer_map_fd;
         unsigned u;
 
         assert(obj);
-        assert(ino != 0);
+        assert(inode != 0);
 
-        if (ino > UINT32_MAX) /* inodes larger than 32bit are definitely not included in our map, exit early */
+        if (inode > UINT32_MAX) /* inodes larger than 32bit are definitely not included in our map, exit early */
                 return 0;
 
         outer_map_fd = sym_bpf_map__fd(obj->maps.userns_mnt_id_hash);
         if (outer_map_fd < 0)
                 return log_debug_errno(outer_map_fd, "Failed to get outer BPF map fd: %m");
 
-        u = (uint32_t) ino;
+        u = (uint32_t) inode;
 
         r = sym_bpf_map_delete_elem(outer_map_fd, &u);
         if (r < 0)
-                return log_debug_errno(r, "Failed to remove entry for inode %" PRIu64 " from outer map: %m", ino);
+                return log_debug_errno(r, "Failed to remove entry for inode %" PRIu64 " from outer map: %m", inode);
 
         return 0;
 #else

@@ -80,9 +80,9 @@ typedef void* sd_event_child_handler_t;
 typedef int (*sd_event_inotify_handler_t)(sd_event_source *s, const struct inotify_event *event, void *userdata);
 typedef _sd_destroy_t sd_event_destroy_t;
 
-int sd_event_default(sd_event **e);
+int sd_event_default(sd_event **ret);
 
-int sd_event_new(sd_event **e);
+int sd_event_new(sd_event **ret);
 sd_event* sd_event_ref(sd_event *e);
 sd_event* sd_event_unref(sd_event *e);
 
@@ -100,9 +100,9 @@ int sd_event_add_exit(sd_event *e, sd_event_source **ret, sd_event_handler_t cal
 int sd_event_add_memory_pressure(sd_event *e, sd_event_source **ret, sd_event_handler_t callback, void *userdata);
 
 int sd_event_prepare(sd_event *e);
-int sd_event_wait(sd_event *e, uint64_t usec);
+int sd_event_wait(sd_event *e, uint64_t timeout);
 int sd_event_dispatch(sd_event *e);
-int sd_event_run(sd_event *e, uint64_t usec);
+int sd_event_run(sd_event *e, uint64_t timeout);
 int sd_event_loop(sd_event *e);
 int sd_event_exit(sd_event *e, int code);
 
@@ -162,7 +162,7 @@ int sd_event_source_send_child_signal(sd_event_source *s, int sig, const void *s
 #endif
 int sd_event_source_get_inotify_mask(sd_event_source *s, uint32_t *ret);
 int sd_event_source_get_inotify_path(sd_event_source *s, const char **ret);
-int sd_event_source_set_memory_pressure_type(sd_event_source *e, const char *ty);
+int sd_event_source_set_memory_pressure_type(sd_event_source *s, const char *ty);
 int sd_event_source_set_memory_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec);
 int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t callback);
 int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_destroy_t *ret);
