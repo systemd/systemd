@@ -69,16 +69,21 @@ void pam_log_setup(void) {
         log_set_target(LOG_TARGET_SYSLOG);
 }
 
+int errno_to_pam_error(int error) {
+        return ERRNO_VALUE(error) == ENOMEM ? PAM_BUF_ERR : PAM_SERVICE_ERR;
+}
+
 int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *format, ...) {
         va_list ap;
 
+        error = ERRNO_VALUE(error);
         LOCAL_ERRNO(error);
 
         va_start(ap, format);
         sym_pam_vsyslog(handle, level, format, ap);
         va_end(ap);
 
-        return error == -ENOMEM ? PAM_BUF_ERR : PAM_SERVICE_ERR;
+        return errno_to_pam_error(error);
 }
 
 int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char *format, ...) {
