@@ -2529,7 +2529,7 @@ int manager_init(Manager *m) {
 
         (void) manager_connect_notify(m);
 
-        (void) client_context_acquire_default(m);
+        client_context_acquire_default(m);
 
         r = manager_system_journal_open(m, /* flush_requested= */ false, /* relinquish_requested= */ false);
         if (r < 0)

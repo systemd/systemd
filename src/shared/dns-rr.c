@@ -878,7 +878,7 @@ static char *format_svc_param_value(DnsSvcParam *i) {
                 size_t offset = 0;
                 _cleanup_strv_free_ char **values_strv = NULL;
                 while (offset < i->length) {
-                        size_t sz = (uint8_t) i->value[offset++];
+                        size_t sz = i->value[offset++];
 
                         char *alpn = cescape_length((char *)&i->value[offset], sz);
                         if (!alpn)

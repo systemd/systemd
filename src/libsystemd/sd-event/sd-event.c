@@ -5311,7 +5311,7 @@ _public_ int sd_event_source_set_memory_pressure_type(sd_event_source *s, const 
         if (!space)
                 return -EINVAL;
 
-        size_t l = (char*) space - (char*) s->memory_pressure.write_buffer;
+        size_t l = space - (char*) s->memory_pressure.write_buffer;
         b = memdup_suffix0(s->memory_pressure.write_buffer, l);
         if (!b)
                 return -ENOMEM;
@@ -5357,7 +5357,7 @@ _public_ int sd_event_source_set_memory_pressure_period(sd_event_source *s, uint
         if (!space)
                 return -EINVAL;
 
-        size_t l = (char*) space - (char*) s->memory_pressure.write_buffer;
+        size_t l = space - (char*) s->memory_pressure.write_buffer;
         b = memdup_suffix0(s->memory_pressure.write_buffer, l);
         if (!b)
                 return -ENOMEM;
