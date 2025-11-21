@@ -406,11 +406,12 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         uint64_t flag;
                         const char *name;
                 } loader_flags[] = {
-                        { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                         },
+                        /* Match the order in the header file. */
                         { EFI_LOADER_FEATURE_CONFIG_TIMEOUT,          "Menu timeout control"                  },
                         { EFI_LOADER_FEATURE_CONFIG_TIMEOUT_ONE_SHOT, "One-shot menu timeout control"         },
                         { EFI_LOADER_FEATURE_ENTRY_DEFAULT,           "Default entry control"                 },
                         { EFI_LOADER_FEATURE_ENTRY_ONESHOT,           "One-shot entry control"                },
+                        { EFI_LOADER_FEATURE_BOOT_COUNTING,           "Boot counting"                         },
                         { EFI_LOADER_FEATURE_XBOOTLDR,                "Support for XBOOTLDR partition"        },
                         { EFI_LOADER_FEATURE_RANDOM_SEED,             "Support for passing random seed to OS" },
                         { EFI_LOADER_FEATURE_LOAD_DRIVER,             "Load drop-in drivers"                  },
@@ -430,18 +431,19 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         uint64_t flag;
                         const char *name;
                 } stub_flags[] = {
+                        /* Match the order in the header file. */
                         { EFI_STUB_FEATURE_REPORT_BOOT_PARTITION,     "Stub reports loader partition information"                   },
-                        { EFI_STUB_FEATURE_REPORT_STUB_PARTITION,     "Stub reports stub partition information"                     },
-                        { EFI_STUB_FEATURE_REPORT_URL,                "Stub reports network boot URL"                               },
                         { EFI_STUB_FEATURE_PICK_UP_CREDENTIALS,       "Picks up credentials from boot partition"                    },
                         { EFI_STUB_FEATURE_PICK_UP_SYSEXTS,           "Picks up system extension images from boot partition"        },
-                        { EFI_STUB_FEATURE_PICK_UP_CONFEXTS,          "Picks up configuration extension images from boot partition" },
                         { EFI_STUB_FEATURE_THREE_PCRS,                "Measures kernel+command line+sysexts"                        },
                         { EFI_STUB_FEATURE_RANDOM_SEED,               "Support for passing random seed to OS"                       },
                         { EFI_STUB_FEATURE_CMDLINE_ADDONS,            "Pick up .cmdline from addons"                                },
                         { EFI_STUB_FEATURE_CMDLINE_SMBIOS,            "Pick up .cmdline from SMBIOS Type 11"                        },
                         { EFI_STUB_FEATURE_DEVICETREE_ADDONS,         "Pick up .dtb from addons"                                    },
+                        { EFI_STUB_FEATURE_PICK_UP_CONFEXTS,          "Picks up configuration extension images from boot partition" },
                         { EFI_STUB_FEATURE_MULTI_PROFILE_UKI,         "Stub understands profile selector"                           },
+                        { EFI_STUB_FEATURE_REPORT_STUB_PARTITION,     "Stub reports stub partition information"                     },
+                        { EFI_STUB_FEATURE_REPORT_URL,                "Stub reports network boot URL"                               },
                 };
                 _cleanup_free_ char *fw_type = NULL, *fw_info = NULL, *loader = NULL, *loader_path = NULL, *stub = NULL, *stub_path = NULL,
                         *current_entry = NULL, *oneshot_entry = NULL, *default_entry = NULL, *sysfail_entry = NULL, *sysfail_reason = NULL;
