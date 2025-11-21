@@ -1392,9 +1392,6 @@ Features:
 * chase(): take inspiration from path_extract_filename() and return
   O_DIRECTORY if input path contains trailing slash.
 
-* document in boot loader spec that symlinks in XBOOTLDR/ESP are not OK even if
-  non-VFAT fs is used.
-
 * measure credentials picked up from SMBIOS to some suitable PCR
 
 * measure GPT and LUKS headers somewhere when we use them (i.e. in
