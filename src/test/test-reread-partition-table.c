@@ -4,6 +4,7 @@
 #include <sys/file.h>
 
 #include "blockdev-util.h"
+#include "capability-util.h"
 #include "fd-util.h"
 #include "loop-util.h"
 #include "memfd-util.h"
@@ -45,6 +46,8 @@ TEST(rereadpt) {
 
         if (detect_container() > 0)
                 return (void) log_tests_skipped("test not available in container");
+        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
+                return (void) log_tests_skipped("test requires privileges");
         if (running_in_chroot() > 0)
                 return (void) log_tests_skipped("test not available in chroot()");
 
