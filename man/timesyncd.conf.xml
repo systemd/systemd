@@ -73,7 +73,7 @@
         from <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
         will be ignored, including <varname>FallbackNTP=</varname> servers.</para>
 
-        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -155,7 +155,7 @@
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
         Defaults to 32 seconds.</para>
 
-        <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
     </variablelist>
