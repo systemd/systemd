@@ -728,6 +728,12 @@ static int service_verify(Service *s) {
         if (s->type == SERVICE_FORKING && exec_needs_pid_namespace(&s->exec_context, /* params= */ NULL))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service of Type=forking does not support PrivatePIDs=yes. Refusing.");
 
+        if ((exec_input_is_terminal(s->exec_context.std_input) ||
+             s->exec_context.std_output == EXEC_OUTPUT_TTY ||
+             s->exec_context.std_error == EXEC_OUTPUT_TTY) &&
+            !IN_SET((s->stdin_fd >= 0) + (s->stdout_fd >= 0) + (s->stderr_fd >= 0), 0, 3))
+                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has some of stdin/stdout/stderr tty fds passed in, but not the full set. Refusing.");
+
         if (s->usb_function_descriptors && !s->usb_function_strings)
                 log_unit_warning(UNIT(s), "Service has USBFunctionDescriptors= setting, but no USBFunctionStrings=. Ignoring.");
 
