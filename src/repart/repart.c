@@ -10381,7 +10381,6 @@ static int vl_method_run(
                                 link,
                                 "io.systemd.Repart.InsufficientFreeSpace",
                                 SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", current_size),
-                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("needFreeBytes", need_free),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size));
         }
         if (r < 0)
