@@ -106,7 +106,26 @@ Variables will be listed below using the Linux efivarfs naming,
   * `1 << 4` → The boot loader supports boot counting as described in [Automatic Boot Assessment](/AUTOMATIC_BOOT_ASSESSMENT).
   * `1 << 5` → The boot loader supports looking for boot menu entries in the Extended Boot Loader Partition.
   * `1 << 6` → The boot loader supports passing a random seed to the OS.
+  * `1 << 7` → The boot loader supports loading of drop-in drivers from the `/EFI/systemd/drivers/` directory on the ESP,
+               see [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html).
+  * `1 << 8` → The boot loader supports the `sort-key` field defined by the
+               [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification).
+  * `1 << 9` → The boot loader supports the `@saved` pseudo-entry
+  * `1 << 10` → The boot loader supports the `devicetree` field defined by the
+                [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification).
+  * `1 << 11` → The boot loader support automatic enrollment of SecureBoot keys,
+                see [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html).
+  * `1 << 12` → The boot loader will set EFI variable `ShimRetainProtocol-605dab50-e046-4300-abb6-3dd810dd8b23`
+                for `shim` to make its protocol available to the booted binary.
   * `1 << 13` → The boot loader honours `menu-disabled` option when set.
+  * `1 << 14` → The boot loader supports multi-profile Unified Kernel Images (UKIs)
+  * `1 << 15` → The boot loader sets the `LoaderDeviceURL` variable when appropriate.
+  * `1 << 16` → The boot loader supports the `uki` field defined by the
+                [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification).
+  * `1 << 17` → The boot loader supports the `uki-url` field defined by the
+                [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification).
+  * `1 << 18` → The boot loader reports active TPM2 PCR banks in the
+                EFI variable `LoaderTpm2ActivePcrBanks-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
 
 * The EFI variable `LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains binary random data,
