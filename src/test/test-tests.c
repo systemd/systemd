@@ -5,6 +5,7 @@
 
 #include "sd-id128.h"
 
+#include "errno-util.h"
 #include "tests.h"
 
 TEST(ASSERT) {

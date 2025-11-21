@@ -14,7 +14,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
-#include "parse-util.h"
 #include "reread-partition-table.h"
 #include "set.h"
 #include "string-util.h"

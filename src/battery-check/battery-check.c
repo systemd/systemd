@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
-#include <sys/socket.h>
+#include <sys/socket.h>         /* IWYU pragma: keep */
 
 #include "sd-messages.h"
 
