@@ -114,7 +114,7 @@ int verb_pcrs(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         (void) table_set_align_percent(table, table_get_cell(table, 0, 0), 100);
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         if (!alg) /* hide hash column if we couldn't acquire it */
                 (void) table_set_display(table, 0, 1);

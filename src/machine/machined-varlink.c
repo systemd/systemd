@@ -358,7 +358,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         if (gid_is_valid(p.gid))
                 r = group_lookup_gid(m, p.gid, &found_name, &found_description);
         else if (p.group_name)
-                r = group_lookup_name(m, p.group_name, (uid_t*) &found_gid, &found_description);
+                r = group_lookup_name(m, p.group_name, &found_gid, &found_description);
         else
                 return sd_varlink_error(link, "io.systemd.UserDatabase.EnumerationNotSupported", NULL);
         if (r == -ESRCH)

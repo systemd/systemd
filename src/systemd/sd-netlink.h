@@ -44,7 +44,7 @@ typedef _sd_destroy_t sd_netlink_destroy_t;
 /* bus */
 int sd_netlink_open(sd_netlink **ret);
 int sd_netlink_open_fd(sd_netlink **ret, int fd);
-int sd_netlink_increase_rxbuf(sd_netlink *nl, const size_t size);
+int sd_netlink_increase_rxbuf(sd_netlink *nl, size_t size);
 
 sd_netlink* sd_netlink_ref(sd_netlink *nl);
 sd_netlink* sd_netlink_unref(sd_netlink *nl);

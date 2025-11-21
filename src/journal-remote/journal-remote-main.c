@@ -713,7 +713,7 @@ static int create_remoteserver(
                 if (fd < 0)
                         return fd;
 
-                r = journal_remote_add_source(s, fd, (char*) arg_output, false);
+                r = journal_remote_add_source(s, fd, arg_output, false);
                 if (r < 0)
                         return r;
         }

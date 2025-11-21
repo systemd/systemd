@@ -740,7 +740,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
         secret = TAKE_PTR(h->secret); /* Take possession */
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ false);
+                home_count_bad_authentication(h, ret, /* save= */ false);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_error_errno(ret, "Fixation failed: %m");
@@ -831,7 +831,7 @@ static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_ACTIVATING, HOME_ACTIVATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -994,7 +994,7 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         flags = h->current_operation ? h->current_operation->call_flags : 0;
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -1069,7 +1069,7 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
@@ -1105,7 +1105,7 @@ static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_AUTHENTICATING, HOME_AUTHENTICATING_WHILE_ACTIVE, HOME_AUTHENTICATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                (void) home_count_bad_authentication(h, ret, /* save= */ true);
+                home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,

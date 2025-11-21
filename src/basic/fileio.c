@@ -1228,7 +1228,7 @@ int search_and_open(
 
         assert(path);
 
-        copy = strv_copy((char**) search);
+        copy = strv_copy(search);
         if (!copy)
                 return -ENOMEM;
 

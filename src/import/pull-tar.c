@@ -215,7 +215,7 @@ static void tar_pull_report_progress(TarPull *i, TarProgress p) {
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
 
         if (isatty_safe(STDERR_FILENO))
-                (void) draw_progress_bar("Total:", percent);
+                draw_progress_bar("Total:", percent);
 
         log_debug("Combined progress %u%%", percent);
 

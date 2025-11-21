@@ -136,7 +136,7 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
         packet->udp.len = htobe16(len - DHCP_IP_SIZE);
 
         packet->ip.check = packet->udp.len;
-        packet->udp.check = dhcp_packet_checksum((uint8_t*)&packet->ip.ttl, len - 8);
+        packet->udp.check = dhcp_packet_checksum(&packet->ip.ttl, len - 8);
 
         packet->ip.ttl = IPDEFTTL;
         packet->ip.check = 0;
@@ -201,7 +201,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
                 packet->ip.check = packet->udp.len;
                 packet->ip.ttl = 0;
 
-                if (dhcp_packet_checksum((uint8_t*)&packet->ip.ttl,
+                if (dhcp_packet_checksum(&packet->ip.ttl,
                                   be16toh(packet->udp.len) + 12))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "ignoring packet: invalid UDP checksum");

@@ -128,7 +128,7 @@ static int parse_field(
         if (length < field_len)
                 return 0;
 
-        if (memcmp(data, field, field_len))
+        if (memcmp(data, field, field_len) != 0)
                 return 0;
 
         nl = length - field_len;
@@ -770,7 +770,7 @@ static int get_display_realtime(sd_journal *j, usec_t *ret) {
         if (r < 0)
                 return r;
 
-        (void) parse_display_realtime(j, realtime, monotonic, ret);
+        parse_display_realtime(j, realtime, monotonic, ret);
 
         /* Restart all data before */
         sd_journal_restart_data(j);

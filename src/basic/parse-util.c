@@ -645,7 +645,7 @@ int safe_atod(const char *s, double *ret_d) {
                 return -EINVAL;
 
         if (ret_d)
-                *ret_d = (double) d;
+                *ret_d = d;
 
         return 0;
 }
@@ -710,7 +710,7 @@ int parse_ip_port(const char *s, uint16_t *ret) {
         if (l == 0)
                 return -EINVAL;
 
-        *ret = (uint16_t) l;
+        *ret = l;
 
         return 0;
 }

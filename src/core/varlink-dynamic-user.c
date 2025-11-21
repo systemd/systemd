@@ -186,7 +186,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
         if (gid_is_valid(p.gid))
                 r = dynamic_user_lookup_uid(m, (uid_t) p.gid, &found_name);
         else if (p.group_name)
-                r = dynamic_user_lookup_name(m, p.group_name, (uid_t*) &found_gid);
+                r = dynamic_user_lookup_name(m, p.group_name, &found_gid);
         else {
                 DynamicUser *d;
 
