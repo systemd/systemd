@@ -296,7 +296,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(1), 100);
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         if (use_ex)
                 r = list_sessions_table_add(table, reply);
@@ -337,7 +337,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error_property = SD_BUS_ERROR_NULL;
@@ -405,7 +405,7 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (;;) {
                 const char *seat;
@@ -579,7 +579,7 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (dual_timestamp_is_set(&i.timestamp)) {
                 r = table_add_cell(table, NULL, TABLE_FIELD, "Since");
@@ -770,7 +770,7 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (dual_timestamp_is_set(&i.timestamp)) {
                 r = table_add_cell(table, NULL, TABLE_FIELD, "Since");
@@ -869,7 +869,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_NA);
+        table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (!strv_isempty(i.sessions)) {
                 _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);

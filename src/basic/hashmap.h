@@ -89,10 +89,10 @@ int ordered_hashmap_ensure_replace(OrderedHashmap **h, const struct hash_ops *ha
 
 IteratedCache* _hashmap_iterated_cache_new(HashmapBase *h);
 static inline IteratedCache* hashmap_iterated_cache_new(Hashmap *h) {
-        return (IteratedCache*) _hashmap_iterated_cache_new(HASHMAP_BASE(h));
+        return _hashmap_iterated_cache_new(HASHMAP_BASE(h));
 }
 static inline IteratedCache* ordered_hashmap_iterated_cache_new(OrderedHashmap *h) {
-        return (IteratedCache*) _hashmap_iterated_cache_new(HASHMAP_BASE(h));
+        return _hashmap_iterated_cache_new(HASHMAP_BASE(h));
 }
 
 int hashmap_put(Hashmap *h, const void *key, void *value);

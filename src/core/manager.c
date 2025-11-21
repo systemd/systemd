@@ -4320,10 +4320,10 @@ void manager_recheck_dbus(Manager *m) {
                 if (MANAGER_IS_SYSTEM(m))
                         (void) bus_init_system(m);
         } else {
-                (void) bus_done_api(m);
+                bus_done_api(m);
 
                 if (MANAGER_IS_SYSTEM(m))
-                        (void) bus_done_system(m);
+                        bus_done_system(m);
         }
 }
 

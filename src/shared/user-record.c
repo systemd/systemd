@@ -318,7 +318,7 @@ static int json_dispatch_rlimit_value(const char *name, sd_json_variant *variant
                 uint64_t w;
 
                 w = sd_json_variant_unsigned(variant);
-                if (w == RLIM_INFINITY || (uint64_t) w != sd_json_variant_unsigned(variant))
+                if (w == RLIM_INFINITY || w != sd_json_variant_unsigned(variant))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE), "Resource limit value '%s' is out of range.", name);
 
                 *ret = (rlim_t) w;
