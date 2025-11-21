@@ -74,8 +74,10 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
                 arg1 = NULL;
         }
 
-        if (!arg1)
-                xsprintf(buf, USEC_FMT, MIN(timeout / USEC_PER_SEC, UINT32_MAX));
+        if (!arg1) {
+                timeout = DIV_ROUND_UP(timeout, USEC_PER_SEC);
+                xsprintf(buf, USEC_FMT, MIN(timeout, UINT32_MAX));
+        }
 
         char16_t *encoded = utf8_to_utf16(arg1 ?: buf, SIZE_MAX);
         if (!encoded)
