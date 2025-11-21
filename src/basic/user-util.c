@@ -1110,7 +1110,7 @@ int getpwnam_malloc(const char *name, struct passwd **ret) {
                         return -ENOMEM;
 
                 struct passwd *pw = NULL;
-                r = getpwnam_r(name, buf, (char*) buf + ALIGN(sizeof(struct passwd)), (size_t) bufsize, &pw);
+                r = getpwnam_r(name, buf, (char*) buf + ALIGN(sizeof(struct passwd)), bufsize, &pw);
                 if (r == 0) {
                         if (pw) {
                                 if (ret)
@@ -1151,7 +1151,7 @@ int getpwuid_malloc(uid_t uid, struct passwd **ret) {
                         return -ENOMEM;
 
                 struct passwd *pw = NULL;
-                r = getpwuid_r(uid, buf, (char*) buf + ALIGN(sizeof(struct passwd)), (size_t) bufsize, &pw);
+                r = getpwuid_r(uid, buf, (char*) buf + ALIGN(sizeof(struct passwd)), bufsize, &pw);
                 if (r == 0) {
                         if (pw) {
                                 if (ret)
@@ -1195,7 +1195,7 @@ int getgrnam_malloc(const char *name, struct group **ret) {
                         return -ENOMEM;
 
                 struct group *gr = NULL;
-                r = getgrnam_r(name, buf, (char*) buf + ALIGN(sizeof(struct group)), (size_t) bufsize, &gr);
+                r = getgrnam_r(name, buf, (char*) buf + ALIGN(sizeof(struct group)), bufsize, &gr);
                 if (r == 0) {
                         if (gr) {
                                 if (ret)
@@ -1234,7 +1234,7 @@ int getgrgid_malloc(gid_t gid, struct group **ret) {
                         return -ENOMEM;
 
                 struct group *gr = NULL;
-                r = getgrgid_r(gid, buf, (char*) buf + ALIGN(sizeof(struct group)), (size_t) bufsize, &gr);
+                r = getgrgid_r(gid, buf, (char*) buf + ALIGN(sizeof(struct group)), bufsize, &gr);
                 if (r == 0) {
                         if (gr) {
                                 if (ret)

@@ -12,7 +12,7 @@
 extern uint8_t __executable_start[];
 
 DISABLE_WARNING_REDUNDANT_DECLS;
-void free(void *p);
+void free(void *p); // NOLINT (readability-redundant-declaration)
 REENABLE_WARNING;
 
 static inline void freep(void *p) {

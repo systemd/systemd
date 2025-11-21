@@ -1441,7 +1441,7 @@ static int setup_pam(
 
                 /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only
                  * those fds are open here that have been opened by PAM. */
-                (void) close_many(params->fds, params->n_socket_fds + params->n_stashed_fds);
+                close_many(params->fds, params->n_socket_fds + params->n_stashed_fds);
 
                 /* Also close the 'exec_fd' in the child, since the service manager waits for the EOF induced
                  * by the execve() to wait for completion, and if we'd keep the fd open here in the child

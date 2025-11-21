@@ -861,7 +861,7 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
         if (!handle)
                 return NULL;
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = (Tpm2Context*)handle->tpm2_context;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = handle->tpm2_context;
         if (context)
                 tpm2_handle_cleanup(context->esys_context, handle->esys_handle, handle->flush);
 
@@ -6324,7 +6324,7 @@ int tpm2_list_devices(bool legend, bool quiet) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_header(t, legend);
+        table_set_header(t, legend);
 
         d = opendir("/sys/class/tpmrm");
         if (!d) {
