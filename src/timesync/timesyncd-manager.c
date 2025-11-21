@@ -963,10 +963,7 @@ int manager_connect(Manager *m) {
                          *   After having processed the link list we jump back to the system list if no
                          *   runtime server list. If all lists are empty, we change to the fallback list. */
                         if (m->nts_ke_servers) {
-                                if(!m->current_server_name)
-                                        f = m->nts_ke_servers;
-                                else
-                                        f = NULL;
+                                f = m->nts_ke_servers;
                         }  else {
                                 if (!m->current_server_name || m->current_server_name->type == SERVER_LINK) {
                                         f = m->runtime_servers;
