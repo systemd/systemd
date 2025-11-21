@@ -299,6 +299,10 @@
         group as a supplemental group (for which all polkit actions are allowed by default), but other
         privileges may be granted in the future as well when using this option.</para>
 
+        <para>Note that other (unprivileged) processes of the selected user will have privileges over the
+        invoked process. Consider not using this option in an environment where there might be malicious
+        processes running as the selected user.</para>
+
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
 
