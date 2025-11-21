@@ -1097,7 +1097,7 @@ static int oci_cgroup_memory_limit(const char *name, sd_json_variant *v, sd_json
                 return json_log(v, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "Memory limit too large: %" PRIu64, k);
 
-        *m = (uint64_t) k;
+        *m = k;
         return 0;
 }
 
@@ -1404,7 +1404,7 @@ static int oci_cgroup_block_io_throttle(const char *name, sd_json_variant *v, sd
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append(s->properties, "(sv)", pname, "a(st)", 1, path, (uint64_t) data.rate);
+                r = sd_bus_message_append(s->properties, "(sv)", pname, "a(st)", 1, path, data.rate);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
@@ -1451,9 +1451,9 @@ static int oci_cgroup_pids(const char *name, sd_json_variant *v, sd_json_dispatc
                         return json_log(k, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "pids limit not unsigned integer, refusing.");
 
-                m = (uint64_t) sd_json_variant_unsigned(k);
+                m = sd_json_variant_unsigned(k);
 
-                if ((uint64_t) m != sd_json_variant_unsigned(k))
+                if (m != sd_json_variant_unsigned(k))
                         return json_log(v, flags, SYNTHETIC_ERRNO(EINVAL),
                                         "pids limit out of range, refusing.");
         }
