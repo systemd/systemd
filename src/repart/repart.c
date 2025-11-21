@@ -10385,7 +10385,6 @@ static int vl_method_run(
                                 link,
                                 "io.systemd.Repart.InsufficientFreeSpace",
                                 JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", current_size, UINT64_MAX),
-                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", need_free, 0),
                                 JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", size, UINT64_MAX));
         }
         if (r < 0)
