@@ -58,11 +58,11 @@ int sd_lldp_rx_set_ifname(sd_lldp_rx *lldp_rx, const char *ifname);
 int sd_lldp_rx_get_ifname(sd_lldp_rx *lldp_rx, const char **ret);
 
 /* Controls how much and what to store in the neighbors database */
-int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t n);
+int sd_lldp_rx_set_neighbors_max(sd_lldp_rx *lldp_rx, uint64_t m);
 int sd_lldp_rx_match_capabilities(sd_lldp_rx *lldp_rx, uint16_t mask);
 int sd_lldp_rx_set_filter_address(sd_lldp_rx *lldp_rx, const struct ether_addr *address);
 
-int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***neighbors);
+int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret);
 
 sd_lldp_neighbor *sd_lldp_neighbor_ref(sd_lldp_neighbor *n);
 sd_lldp_neighbor *sd_lldp_neighbor_unref(sd_lldp_neighbor *n);

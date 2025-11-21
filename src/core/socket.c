@@ -3683,25 +3683,25 @@ static const char* const socket_timestamping_table[_SOCKET_TIMESTAMPING_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(socket_timestamping, SocketTimestamping);
 
-SocketTimestamping socket_timestamping_from_string_harder(const char *p) {
+SocketTimestamping socket_timestamping_from_string_harder(const char *s) {
         SocketTimestamping t;
         int r;
 
-        if (!p)
+        if (!s)
                 return _SOCKET_TIMESTAMPING_INVALID;
 
-        t = socket_timestamping_from_string(p);
+        t = socket_timestamping_from_string(s);
         if (t >= 0)
                 return t;
 
         /* Let's alternatively support the various other aliases parse_time() accepts for ns and µs here,
          * too. */
-        if (streq(p, "nsec"))
+        if (streq(s, "nsec"))
                 return SOCKET_TIMESTAMPING_NS;
-        if (STR_IN_SET(p, "usec", "µs", "μs")) /* Accept both small greek letter mu + micro sign unicode codepoints */
+        if (STR_IN_SET(s, "usec", "µs", "μs")) /* Accept both small greek letter mu + micro sign unicode codepoints */
                 return SOCKET_TIMESTAMPING_US;
 
-        r = parse_boolean(p);
+        r = parse_boolean(s);
         if (r < 0)
                 return _SOCKET_TIMESTAMPING_INVALID;
 

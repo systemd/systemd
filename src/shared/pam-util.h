@@ -73,7 +73,12 @@ void pam_bus_data_disconnectp(PamBusData **d);
 
 /* Use a different module name per different PAM module. They are all loaded in the same namespace, and this
  * helps avoid a clash in the internal data structures of sd-bus. It will be used as key for cache items. */
-int pam_acquire_bus_connection(pam_handle_t *handle, const char *module_name, bool debug, sd_bus **ret_bus, PamBusData **ret_bus_data);
+int pam_acquire_bus_connection(
+                pam_handle_t *handle,
+                const char *module_name,
+                bool debug,
+                sd_bus **ret_bus,
+                PamBusData **ret_pam_bus_data);
 int pam_get_bus_data(pam_handle_t *handle, const char *module_name, PamBusData **ret);
 
 void pam_cleanup_free(pam_handle_t *handle, void *data, int error_status);

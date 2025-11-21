@@ -2022,8 +2022,6 @@ static void do_idle_pipe_dance(int idle_pipe[static 4]) {
         idle_pipe[3] = safe_close(idle_pipe[3]);
 }
 
-static const char *exec_directory_env_name_to_string(ExecDirectoryType t);
-
 /* And this table also maps ExecDirectoryType, to the environment variable we pass the selected directory to
  * the service payload in. */
 static const char* const exec_directory_env_name_table[_EXEC_DIRECTORY_TYPE_MAX] = {
