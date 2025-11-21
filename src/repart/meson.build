@@ -16,6 +16,7 @@ executables += [
                 'dependencies' : [
                         libblkid_cflags,
                         libfdisk,
+                        libmount_cflags,
                         libopenssl,
                         threads,
                 ],
