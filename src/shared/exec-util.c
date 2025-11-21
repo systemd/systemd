@@ -523,22 +523,23 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
 
         execveat(executable_fd, "", argv, envp, AT_EMPTY_PATH);
 
-        if (IN_SET(errno, ENOSYS, ENOENT) || ERRNO_IS_PRIVILEGE(errno))
-                /* Old kernel or a script or an overzealous seccomp filter? Let's fall back to execve().
-                 *
-                 * fexecve(3): "If fd refers to a script (i.e., it is an executable text file that names a
-                 * script interpreter with a first line that begins with the characters #!) and the
-                 * close-on-exec flag has been set for fd, then fexecve() fails with the error ENOENT. This
-                 * error occurs because, by the time the script interpreter is executed, fd has already been
-                 * closed because of the close-on-exec flag. Thus, the close-on-exec flag can't be set on fd
-                 * if it refers to a script."
-                 *
-                 * Unfortunately, if we unset close-on-exec, the script will be executed just fine, but (at
-                 * least in case of bash) the script name, $0, will be shown as /dev/fd/nnn, which breaks
-                 * scripts which make use of $0. Thus, let's fall back to execve() in this case.
-                 */
+        /* Old kernel or a script or an overzealous seccomp filter? Let's fall back to execve().
+         *
+         * fexecve(3): "If fd refers to a script (i.e., it is an executable text file that names a
+         * script interpreter with a first line that begins with the characters #!) and the
+         * close-on-exec flag has been set for fd, then fexecve() fails with the error ENOENT. This
+         * error occurs because, by the time the script interpreter is executed, fd has already been
+         * closed because of the close-on-exec flag. Thus, the close-on-exec flag can't be set on fd
+         * if it refers to a script."
+         *
+         * Unfortunately, if we unset close-on-exec, the script will be executed just fine, but (at
+         * least in case of bash) the script name, $0, will be shown as /dev/fd/nnn, which breaks
+         * scripts which make use of $0. Thus, let's fall back to execve() in this case.
+         */
+        if (!IN_SET(errno, ENOSYS, ENOENT) && !ERRNO_IS_PRIVILEGE(errno))
+                return -errno;
 #endif
-                execve(executable, argv, envp);
+        execve(executable, argv, envp);
         return -errno;
 }
 

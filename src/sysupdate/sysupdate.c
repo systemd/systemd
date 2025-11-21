@@ -589,7 +589,7 @@ static int context_show_version(Context *c, const char *version) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Update '%s' not found.", version);
 
         if (arg_json_format_flags & (SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
-                (void) pager_open(arg_pager_flags);
+                pager_open(arg_pager_flags);
 
         if (!sd_json_format_enabled(arg_json_format_flags))
                 printf("%s%s%s Version: %s\n"

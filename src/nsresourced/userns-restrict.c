@@ -26,7 +26,7 @@
 
 struct userns_restrict_bpf *userns_restrict_bpf_free(struct userns_restrict_bpf *obj) {
 #if HAVE_VMLINUX_H
-        (void) userns_restrict_bpf__destroy(obj); /* this call is fine with NULL */
+        userns_restrict_bpf__destroy(obj); /* this call is fine with NULL */
 #endif
         return NULL;
 
