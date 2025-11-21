@@ -1258,6 +1258,9 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
                 if (r >= 0)
                         r = device_set_subsystem(device, subsystem);
                 /* use implicit names */
+                else if (({ const char *p = strstr(device->devpath, "/bus/");
+                            p && strstr(p, "/slots/"); }))
+                        r = device_set_subsystem(device, "slots");
                 else if (!isempty(path_startswith(device->devpath, "/module/")))
                         r = device_set_subsystem(device, "module");
                 else if (strstr(device->devpath, "/drivers/") || endswith(device->devpath, "/drivers"))
