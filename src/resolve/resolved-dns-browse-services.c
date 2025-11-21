@@ -364,18 +364,18 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
 
                 r = sd_json_buildo(
                                 &entry,
-                                SD_JSON_BUILD_PAIR(
+                                SD_JSON_BUILD_PAIR_STRING(
                                                 "updateFlag",
-                                                SD_JSON_BUILD_STRING(browse_service_update_event_to_string(
-                                                                BROWSE_SERVICE_UPDATE_ADDED))),
-                                SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(owner_family)),
+                                                browse_service_update_event_to_string(
+                                                                BROWSE_SERVICE_UPDATE_ADDED)),
+                                SD_JSON_BUILD_PAIR_INTEGER("family", owner_family),
                                 SD_JSON_BUILD_PAIR_CONDITION(
                                                 !isempty(name), "name", SD_JSON_BUILD_STRING(name)),
                                 SD_JSON_BUILD_PAIR_CONDITION(
                                                 !isempty(type), "type", SD_JSON_BUILD_STRING(type)),
                                 SD_JSON_BUILD_PAIR_CONDITION(
                                                 !isempty(domain), "domain", SD_JSON_BUILD_STRING(domain)),
-                                SD_JSON_BUILD_PAIR("ifindex", SD_JSON_BUILD_INTEGER(sb->ifindex)));
+                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", sb->ifindex));
                 if (r < 0) {
                         log_error_errno(r, "Failed to build JSON for new service: %m");
                         goto finish;
@@ -427,15 +427,15 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
 
                 r = sd_json_buildo(
                                 &entry,
-                                SD_JSON_BUILD_PAIR(
+                                SD_JSON_BUILD_PAIR_STRING(
                                                 "updateFlag",
-                                                SD_JSON_BUILD_STRING(browse_service_update_event_to_string(
-                                                                BROWSE_SERVICE_UPDATE_REMOVED))),
-                                SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(owner_family)),
-                                SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name ?: "")),
-                                SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(type ?: "")),
-                                SD_JSON_BUILD_PAIR("domain", SD_JSON_BUILD_STRING(domain ?: "")),
-                                SD_JSON_BUILD_PAIR("ifindex", SD_JSON_BUILD_INTEGER(sb->ifindex)));
+                                                browse_service_update_event_to_string(
+                                                                BROWSE_SERVICE_UPDATE_REMOVED)),
+                                SD_JSON_BUILD_PAIR_INTEGER("family", owner_family),
+                                SD_JSON_BUILD_PAIR_STRING("name", name ?: ""),
+                                SD_JSON_BUILD_PAIR_STRING("type", type ?: ""),
+                                SD_JSON_BUILD_PAIR_STRING("domain", domain ?: ""),
+                                SD_JSON_BUILD_PAIR_INTEGER("ifindex", sb->ifindex));
                 if (r < 0) {
                         log_error_errno(r, "Failed to build JSON for removed service: %m");
                         goto finish;
@@ -451,7 +451,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
         if (!sd_json_variant_is_blank_array(array)) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *vm = NULL;
 
-                r = sd_json_buildo(&vm, SD_JSON_BUILD_PAIR("browserServiceData", SD_JSON_BUILD_VARIANT(array)));
+                r = sd_json_buildo(&vm, SD_JSON_BUILD_PAIR_VARIANT("browserServiceData", array));
                 if (r < 0) {
                         log_error_errno(r,
                                         "Failed to build JSON object for browser service data: %m");

@@ -235,8 +235,8 @@ static int find_addr_records(
                 r = sd_json_buildo(
                                 &entry,
                                 SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(ifindex)),
-                                SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(family)),
-                                SD_JSON_BUILD_PAIR("address", SD_JSON_BUILD_BYTE_ARRAY(p, FAMILY_ADDRESS_SIZE(family))));
+                                SD_JSON_BUILD_PAIR_INTEGER("family", family),
+                                SD_JSON_BUILD_PAIR_BYTE_ARRAY("address", p, FAMILY_ADDRESS_SIZE(family)));
                 if (r < 0)
                         return r;
 
@@ -291,9 +291,9 @@ static void vl_method_resolve_hostname_complete(DnsQuery *query) {
 
         r = sd_varlink_replybo(
                         q->varlink_request,
-                        SD_JSON_BUILD_PAIR("addresses", SD_JSON_BUILD_VARIANT(array)),
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(normalized)),
-                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(dns_query_reply_flags_make(q))));
+                        SD_JSON_BUILD_PAIR_VARIANT("addresses", array),
+                        SD_JSON_BUILD_PAIR_STRING("name", normalized),
+                        SD_JSON_BUILD_PAIR_INTEGER("flags", dns_query_reply_flags_make(q)));
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send hostname reply: %m");
@@ -332,11 +332,11 @@ static int parse_as_address(sd_varlink *link, LookupParameters *p) {
                                            SD_JSON_BUILD_ARRAY(
                                                            SD_JSON_BUILD_OBJECT(
                                                                            SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(ifindex)),
-                                                                           SD_JSON_BUILD_PAIR("family", SD_JSON_BUILD_INTEGER(ff)),
-                                                                           SD_JSON_BUILD_PAIR("address", SD_JSON_BUILD_BYTE_ARRAY(&parsed, FAMILY_ADDRESS_SIZE(ff)))))),
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(canonical)),
-                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, true, true)|
-                                                                          SD_RESOLVED_SYNTHETIC)));
+                                                                           SD_JSON_BUILD_PAIR_INTEGER("family", ff),
+                                                                           SD_JSON_BUILD_PAIR_BYTE_ARRAY("address", &parsed, FAMILY_ADDRESS_SIZE(ff))))),
+                        SD_JSON_BUILD_PAIR_STRING("name", canonical),
+                        SD_JSON_BUILD_PAIR_INTEGER("flags", SD_RESOLVED_FLAGS_MAKE(dns_synthesize_protocol(p->flags), ff, true, true)|
+                                                                          SD_RESOLVED_SYNTHETIC));
 }
 
 static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -450,7 +450,7 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
                 r = sd_json_variant_append_arraybo(
                                 &array,
                                 SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(ifindex)),
-                                SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(normalized)));
+                                SD_JSON_BUILD_PAIR_STRING("name", normalized));
                 if (r < 0)
                         goto finish;
         }
@@ -460,8 +460,8 @@ static void vl_method_resolve_address_complete(DnsQuery *query) {
 
         r = sd_varlink_replybo(
                         q->varlink_request,
-                        SD_JSON_BUILD_PAIR("names", SD_JSON_BUILD_VARIANT(array)),
-                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(dns_query_reply_flags_make(q))));
+                        SD_JSON_BUILD_PAIR_VARIANT("names", array),
+                        SD_JSON_BUILD_PAIR_INTEGER("flags", dns_query_reply_flags_make(q)));
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send address reply: %m");
@@ -624,10 +624,10 @@ static int append_srv(
 
         r = sd_json_buildo(
                         &v,
-                        SD_JSON_BUILD_PAIR("priority", SD_JSON_BUILD_UNSIGNED(rr->srv.priority)),
-                        SD_JSON_BUILD_PAIR("weight", SD_JSON_BUILD_UNSIGNED(rr->srv.weight)),
-                        SD_JSON_BUILD_PAIR("port", SD_JSON_BUILD_UNSIGNED(rr->srv.port)),
-                        SD_JSON_BUILD_PAIR("hostname", SD_JSON_BUILD_STRING(normalized)));
+                        SD_JSON_BUILD_PAIR_UNSIGNED("priority", rr->srv.priority),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("weight", rr->srv.weight),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("port", rr->srv.port),
+                        SD_JSON_BUILD_PAIR_STRING("hostname", normalized));
         if (r < 0)
                 return r;
 
@@ -802,13 +802,13 @@ static void resolve_service_all_complete(DnsQuery *query) {
 
         r = sd_varlink_replybo(
                         query->varlink_request,
-                        SD_JSON_BUILD_PAIR("services", SD_JSON_BUILD_VARIANT(srv)),
+                        SD_JSON_BUILD_PAIR_VARIANT("services", srv),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_object(txt), "txt", SD_JSON_BUILD_VARIANT(txt)),
                         SD_JSON_BUILD_PAIR("canonical", SD_JSON_BUILD_OBJECT(
-                                                           SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
-                                                           SD_JSON_BUILD_PAIR("type", SD_JSON_BUILD_STRING(type)),
-                                                           SD_JSON_BUILD_PAIR("domain", SD_JSON_BUILD_STRING(domain)))),
-                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_UNSIGNED(dns_query_reply_flags_make(query))));
+                                                           SD_JSON_BUILD_PAIR_STRING("name", name),
+                                                           SD_JSON_BUILD_PAIR_STRING("type", type),
+                                                           SD_JSON_BUILD_PAIR_STRING("domain", domain))),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("flags", dns_query_reply_flags_make(query)));
 
 finish:
         if (r < 0) {
@@ -1087,7 +1087,7 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
                                 &array,
                                 SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_INTEGER(ifindex)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!!v, "rr", SD_JSON_BUILD_VARIANT(v)),
-                                SD_JSON_BUILD_PAIR("raw", SD_JSON_BUILD_BASE64(rr->wire_format, rr->wire_format_size)));
+                                SD_JSON_BUILD_PAIR_BASE64("raw", rr->wire_format, rr->wire_format_size));
                 if (r < 0)
                         goto finish;
 
@@ -1099,8 +1099,8 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
 
         r = sd_varlink_replybo(
                         q->varlink_request,
-                        SD_JSON_BUILD_PAIR("rrs", SD_JSON_BUILD_VARIANT(array)),
-                        SD_JSON_BUILD_PAIR("flags", SD_JSON_BUILD_INTEGER(dns_query_reply_flags_make(q))));
+                        SD_JSON_BUILD_PAIR_VARIANT("rrs", array),
+                        SD_JSON_BUILD_PAIR_INTEGER("flags", dns_query_reply_flags_make(q)));
 finish:
         if (r < 0) {
                 log_full_errno(ERRNO_IS_DISCONNECT(r) ? LOG_DEBUG : LOG_ERR, r, "Failed to send record reply: %m");
@@ -1292,7 +1292,7 @@ static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, s
                         return r;
         }
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("dump", SD_JSON_BUILD_VARIANT(list)));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("dump", list));
 }
 
 static int dns_server_dump_state_to_json_list(DnsServer *server, sd_json_variant **list) {
@@ -1344,7 +1344,7 @@ static int vl_method_dump_server_state(sd_varlink *link, sd_json_variant *parame
                         return r;
         }
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("dump", SD_JSON_BUILD_VARIANT(list)));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("dump", list));
 }
 
 static int vl_method_dump_statistics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
