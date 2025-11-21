@@ -2,13 +2,13 @@
 
 #include "sd-json.h"
 
+#include "alloc-util.h"
 #include "dns-answer.h"
 #include "dns-domain.h"
 #include "dns-packet.h"
 #include "dns-question.h"
 #include "dns-rr.h"
 #include "hashmap.h"
-#include "json-util.h"
 #include "local-addresses.h"
 #include "log.h"
 #include "machine.h"
