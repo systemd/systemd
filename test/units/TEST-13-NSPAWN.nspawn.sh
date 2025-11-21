@@ -1533,4 +1533,130 @@ testcase_cap_net_bind_service() {
     rm -fr "$root"
 }
 
+testcase_link_journal_directory() {
+    # Test that journal symlinks point to the persistent path
+    # for --directory.
+    local root machine_id journal_path symlink_target
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.journal-persist.XXX)"
+
+    create_dummy_container "$root"
+    machine_id="$(systemd-id128 new)"
+    echo "$machine_id" >"$root/etc/machine-id"
+    journal_path="/var/log/journal/$machine_id"
+
+    mkdir -p "$journal_path"
+
+    # Run container with journal linking
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --link-journal=try-guest \
+                   bash -c "exit 0"
+
+    # Verify the symlink was created and is not broken
+    test -L "$journal_path"
+    test -e "$journal_path"
+
+    # Verify the symlink points to the persistent path (e.g., /var/lib/machines/...)
+    # NOT to a temporary /tmp/nspawn-root-* path
+    symlink_target="$(readlink -f "$journal_path")"
+    [[ "$symlink_target" == "$root"* ]]
+    [[ "$symlink_target" != /tmp/nspawn-root-* ]]
+
+    rm -f "$journal_path"
+    rm -fr "$root"
+}
+
+testcase_link_journal_image() {
+    # Test that journal symlinks point to the persistent path
+    # for --image.
+    local root machine_id journal_path symlink_target image mnt_dir
+    local machine_name="test-journal-image"
+    local persistent_dir="/var/lib/machines/$machine_name"
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.journal-image-root.XXX)"
+    image="$(mktemp /var/lib/machines/TEST-13-NSPAWN.journal-image.XXX.img)"
+    mnt_dir="$(mktemp -d)"
+
+    mkdir -p "$persistent_dir"
+
+    create_dummy_container "$root"
+    dd if=/dev/zero of="$image" bs=1M count=256 status=none
+    mkfs.ext4 -q "$image"
+    mount -o loop "$image" "$mnt_dir"
+    cp -r "$root"/* "$mnt_dir/"
+    machine_id="$(systemd-id128 new)"
+    echo "$machine_id" >"$mnt_dir/etc/machine-id"
+    umount "$mnt_dir"
+    journal_path="/var/log/journal/$machine_id"
+
+    mkdir -p "$journal_path"
+
+    # Run container with journal linking
+    systemd-nspawn --register=no \
+                   --image="$image" \
+                   --machine="$machine_name" \
+                   --link-journal=try-guest \
+                   bash -c "exit 0"
+
+    # Verify the symlink was created and points to the persistent directory.
+    # Note: We don't check that the target exists, as journald hasn't run in this test
+    # to create the directory structure - that's journald's responsibility, not nspawn's.
+    test -L "$journal_path"
+    symlink_target="$(readlink "$journal_path")"
+    [[ "$symlink_target" == "$persistent_dir"* ]]
+
+    rm -f "$journal_path"
+    rm -f "$image"
+    rm -fr "$root"
+    rm -fr "$mnt_dir"
+    rm -fr "$persistent_dir"
+}
+
+testcase_link_journal_ephemeral() {
+    # Test that journal symlinks are NOT created for --ephemeral.
+    local root machine_id journal_path
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.journal-ephemeral.XXX)"
+
+    create_dummy_container "$root"
+    machine_id="$(systemd-id128 new)"
+    echo "$machine_id" >"$root/etc/machine-id"
+    journal_path="/var/log/journal/$machine_id"
+
+    # Run ephemeral container with journal linking
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   --ephemeral \
+                   --link-journal=try-guest \
+                   bash -c "exit 0"
+
+    # Verify the symlink was NOT created, as per existing logic
+    test ! -e "$journal_path"
+
+    rm -fr "$root"
+}
+
+testcase_link_journal_negative() {
+    # Test that no symlink is created when --link-journal is not used.
+    local root machine_id journal_path
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.journal-no-link.XXX)"
+
+    create_dummy_container "$root"
+    machine_id="$(systemd-id128 new)"
+    echo "$machine_id" >"$root/etc/machine-id"
+    journal_path="/var/log/journal/$machine_id"
+
+    # Run container WITHOUT journal linking
+    systemd-nspawn --register=no \
+                   --directory="$root" \
+                   bash -c "exit 0"
+
+    # Verify the symlink was NOT created
+    test ! -e "$journal_path"
+
+    rm -fr "$root"
+}
+
 run_testcases
