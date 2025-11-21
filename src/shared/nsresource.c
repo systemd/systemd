@@ -99,10 +99,10 @@ int nsresource_allocate_userns(const char *name, uint64_t size) {
                         "io.systemd.NamespaceResource.AllocateUserRange",
                         &reply,
                         &error_id,
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
-                        SD_JSON_BUILD_PAIR("mangleName", SD_JSON_BUILD_BOOLEAN(true)),
-                        SD_JSON_BUILD_PAIR("size", SD_JSON_BUILD_UNSIGNED(size)),
-                        SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)));
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("mangleName", true),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("size", size),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("userNamespaceFileDescriptor", userns_fd_idx));
         if (r < 0)
                 return log_debug_errno(r, "Failed to call AllocateUserRange() varlink call: %m");
         if (streq_ptr(error_id, "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"))
@@ -156,9 +156,9 @@ int nsresource_register_userns(const char *name, int userns_fd) {
                         "io.systemd.NamespaceResource.RegisterUserNamespace",
                         &reply,
                         &error_id,
-                        SD_JSON_BUILD_PAIR("name", SD_JSON_BUILD_STRING(name)),
-                        SD_JSON_BUILD_PAIR("mangleName", SD_JSON_BUILD_BOOLEAN(true)),
-                        SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)));
+                        SD_JSON_BUILD_PAIR_STRING("name", name),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("mangleName", true),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("userNamespaceFileDescriptor", userns_fd_idx));
         if (r < 0)
                 return log_debug_errno(r, "Failed to call RegisterUserNamespace() varlink call: %m");
         if (streq_ptr(error_id, "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"))
@@ -207,8 +207,8 @@ int nsresource_add_mount(int userns_fd, int mount_fd) {
                         "io.systemd.NamespaceResource.AddMountToUserNamespace",
                         &reply,
                         &error_id,
-                        SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)),
-                        SD_JSON_BUILD_PAIR("mountFileDescriptor", SD_JSON_BUILD_UNSIGNED(mount_fd_idx)));
+                        SD_JSON_BUILD_PAIR_UNSIGNED("userNamespaceFileDescriptor", userns_fd_idx),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("mountFileDescriptor", mount_fd_idx));
         if (r < 0)
                 return log_error_errno(r, "Failed to call AddMountToUserNamespace() varlink call: %m");
         if (streq_ptr(error_id, "io.systemd.NamespaceResource.UserNamespaceNotRegistered")) {
@@ -259,8 +259,8 @@ int nsresource_add_cgroup(int userns_fd, int cgroup_fd) {
                         "io.systemd.NamespaceResource.AddControlGroupToUserNamespace",
                         &reply,
                         &error_id,
-                        SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)),
-                        SD_JSON_BUILD_PAIR("controlGroupFileDescriptor", SD_JSON_BUILD_UNSIGNED(cgroup_fd_idx)));
+                        SD_JSON_BUILD_PAIR_UNSIGNED("userNamespaceFileDescriptor", userns_fd_idx),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("controlGroupFileDescriptor", cgroup_fd_idx));
         if (r < 0)
                 return log_debug_errno(r, "Failed to call AddControlGroupToUserNamespace() varlink call: %m");
         if (streq_ptr(error_id, "io.systemd.NamespaceResource.UserNamespaceNotRegistered")) {
@@ -336,8 +336,8 @@ int nsresource_add_netif_veth(
                         "io.systemd.NamespaceResource.AddNetworkToUserNamespace",
                         &reply,
                         &error_id,
-                        SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)),
-                        SD_JSON_BUILD_PAIR("networkNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(netns_fd_idx)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("userNamespaceFileDescriptor", userns_fd_idx),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("networkNamespaceFileDescriptor", netns_fd_idx),
                         SD_JSON_BUILD_PAIR("mode", JSON_BUILD_CONST_STRING("veth")),
                         SD_JSON_BUILD_PAIR_CONDITION(!!namespace_ifname, "namespaceInterfaceName", SD_JSON_BUILD_STRING(namespace_ifname)));
         if (r < 0)
@@ -406,7 +406,7 @@ int nsresource_add_netif_tap(
                         "io.systemd.NamespaceResource.AddNetworkToUserNamespace",
                         &reply,
                         &error_id,
-                        SD_JSON_BUILD_PAIR("userNamespaceFileDescriptor", SD_JSON_BUILD_UNSIGNED(userns_fd_idx)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("userNamespaceFileDescriptor", userns_fd_idx),
                         SD_JSON_BUILD_PAIR("mode", JSON_BUILD_CONST_STRING("tap")));
         if (r < 0)
                 return log_debug_errno(r, "Failed to call AddNetworkToUserNamespace() varlink call: %m");
