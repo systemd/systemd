@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "argv-util.h"
+#include "errno-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "path-util.h"

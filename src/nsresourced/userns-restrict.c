@@ -2,6 +2,10 @@
 
 #include <sys/stat.h>
 
+#if HAVE_VMLINUX_H
+#include "bpf/userns-restrict/userns-restrict-skel.h"
+#endif
+
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "fd-util.h"

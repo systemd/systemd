@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdlib.h>
-#include <sys/mman.h>
 #include <sys/timerfd.h>
 #include <threads.h>
 #include <unistd.h>
@@ -10,15 +9,14 @@
 #include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
+#include "hexdecoct.h"          /* IWYU pragma: keep */
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "hexdecoct.h"
 #include "io-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
