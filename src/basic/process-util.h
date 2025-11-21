@@ -86,7 +86,7 @@ int kill_and_sigcont(pid_t pid, int sig);
 int pid_is_kernel_thread(pid_t pid);
 int pidref_is_kernel_thread(const PidRef *pid);
 
-int getenv_for_pid(pid_t pid, const char *field, char **_value);
+int getenv_for_pid(pid_t pid, const char *field, char **ret);
 
 int pid_is_alive(pid_t pid);
 int pidref_is_alive(const PidRef *pidref);
@@ -121,7 +121,7 @@ int opinionated_personality(unsigned long *ret);
 const char* sigchld_code_to_string(int i) _const_;
 int sigchld_code_from_string(const char *s) _pure_;
 
-int sched_policy_to_string_alloc(int i, char **s);
+int sched_policy_to_string_alloc(int i, char **ret);
 int sched_policy_from_string(const char *s);
 
 static inline pid_t PTR_TO_PID(const void *p) {

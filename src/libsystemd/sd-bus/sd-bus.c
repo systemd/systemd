@@ -3971,18 +3971,18 @@ _public_ int sd_bus_default(sd_bus **ret) {
         return bus_default(bus_open, busp, ret);
 }
 
-_public_ int sd_bus_get_tid(sd_bus *b, pid_t *tid) {
+_public_ int sd_bus_get_tid(sd_bus *b, pid_t *ret) {
         assert_return(b, -EINVAL);
-        assert_return(tid, -EINVAL);
+        assert_return(ret, -EINVAL);
         assert_return(!bus_origin_changed(b), -ECHILD);
 
         if (b->tid != 0) {
-                *tid = b->tid;
+                *ret = b->tid;
                 return 0;
         }
 
         if (b->event)
-                return sd_event_get_tid(b->event, tid);
+                return sd_event_get_tid(b->event, ret);
 
         return -ENXIO;
 }

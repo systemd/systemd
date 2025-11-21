@@ -63,12 +63,12 @@ _public_ int sd_pid_get_user_unit(pid_t pid, char **ret_unit) {
         return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
 }
 
-_public_ int sd_pid_get_machine_name(pid_t pid, char **ret_name) {
+_public_ int sd_pid_get_machine_name(pid_t pid, char **ret_machine) {
         int r;
 
         assert_return(pid >= 0, -EINVAL);
 
-        r = cg_pid_get_machine_name(pid, ret_name);
+        r = cg_pid_get_machine_name(pid, ret_machine);
         return IN_SET(r, -ENXIO, -ENOMEDIUM) ? -ENODATA : r;
 }
 
@@ -196,7 +196,7 @@ _public_ int sd_pidfd_get_user_unit(int pidfd, char **ret_unit) {
         return 0;
 }
 
-_public_ int sd_pidfd_get_machine_name(int pidfd, char **ret_name) {
+_public_ int sd_pidfd_get_machine_name(int pidfd, char **ret_machine) {
         _cleanup_free_ char *name = NULL;
         pid_t pid;
         int r;
@@ -215,8 +215,8 @@ _public_ int sd_pidfd_get_machine_name(int pidfd, char **ret_name) {
         if (r < 0)
                 return r;
 
-        if (ret_name)
-                *ret_name = TAKE_PTR(name);
+        if (ret_machine)
+                *ret_machine = TAKE_PTR(name);
         return 0;
 }
 
@@ -469,7 +469,7 @@ _public_ int sd_uid_get_state(uid_t uid, char **ret_state) {
         return 0;
 }
 
-_public_ int sd_uid_get_display(uid_t uid, char **ret_session) {
+_public_ int sd_uid_get_display(uid_t uid, char **ret_display) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
@@ -485,8 +485,8 @@ _public_ int sd_uid_get_display(uid_t uid, char **ret_session) {
         if (isempty(s))
                 return -ENODATA;
 
-        if (ret_session)
-                *ret_session = TAKE_PTR(s);
+        if (ret_display)
+                *ret_display = TAKE_PTR(s);
         return 0;
 }
 
@@ -790,8 +790,8 @@ _public_ int sd_session_get_type(const char *session, char **ret_type) {
         return session_get_string(session, "TYPE", ret_type);
 }
 
-_public_ int sd_session_get_class(const char *session, char **ret_class) {
-        return session_get_string(session, "CLASS", ret_class);
+_public_ int sd_session_get_class(const char *session, char **ret_clazz) {
+        return session_get_string(session, "CLASS", ret_clazz);
 }
 
 _public_ int sd_session_get_desktop(const char *session, char **ret_desktop) {
@@ -1059,7 +1059,7 @@ _public_ int sd_get_machine_names(char ***ret_machines) {
         return r;
 }
 
-_public_ int sd_machine_get_class(const char *machine, char **ret_class) {
+_public_ int sd_machine_get_class(const char *machine, char **ret_clazz) {
         _cleanup_free_ char *c = NULL;
         int r;
 
@@ -1084,8 +1084,8 @@ _public_ int sd_machine_get_class(const char *machine, char **ret_class) {
                         return -EIO;
         }
 
-        if (ret_class)
-                *ret_class = TAKE_PTR(c);
+        if (ret_clazz)
+                *ret_clazz = TAKE_PTR(c);
 
         return 0;
 }
