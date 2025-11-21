@@ -29,6 +29,8 @@ executables += [
                 'sources' : systemd_portabled_sources,
                 'link_with' : portabled_link_with,
                 'dependencies' : [
+                        libcryptsetup_cflags,
+                        libmount,
                         libselinux_cflags,
                         threads,
                 ],

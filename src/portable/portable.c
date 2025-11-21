@@ -12,6 +12,7 @@
 #include "chase.h"
 #include "conf-files.h"
 #include "copy.h"
+#include "cryptsetup-util.h"
 #include "data-fd-util.h"
 #include "dirent-util.h"
 #include "discover-image.h"
@@ -419,6 +420,9 @@ static int portable_extract_by_path(
                  * there, and extract the metadata we need. The metadata is sent from the child back to us. */
 
                 BLOCK_SIGNALS(SIGCHLD);
+
+                /* Load some libraries before we fork workers off that want to use them */
+                (void) dlopen_cryptsetup();
 
                 r = mkdtemp_malloc("/tmp/inspect-XXXXXX", &tmpdir);
                 if (r < 0)
