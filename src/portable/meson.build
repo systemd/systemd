@@ -30,6 +30,8 @@ executables += [
                 'link_with' : portabled_link_with,
                 'dependencies' : [
                         libselinux_cflags,
+                        libmount_cflags,
+                        libcryptsetup_cflags,
                         threads,
                 ],
         },
