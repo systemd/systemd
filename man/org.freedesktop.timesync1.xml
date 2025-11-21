@@ -162,7 +162,7 @@ $ gdbus introspect --system \
     <title>History</title>
     <refsect2>
       <title>The Manager Object</title>
-      <para><varname>NTSKeyExchangeServers</varname> was added in version 259.</para>
+      <para><varname>NTSKeyExchangeServers</varname> was added in version 260.</para>
     </refsect2>
   </refsect1>
 
