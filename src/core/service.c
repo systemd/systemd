@@ -803,18 +803,6 @@ static int service_add_default_dependencies(Service *s) {
         return unit_add_two_dependencies_by_name(UNIT(s), UNIT_BEFORE, UNIT_CONFLICTS, SPECIAL_SHUTDOWN_TARGET, true, UNIT_DEPENDENCY_DEFAULT);
 }
 
-static void service_fix_stdio(Service *s) {
-        assert(s);
-
-        /* Note that EXEC_INPUT_NULL plays a special role here: it is the default value that is subject to
-         * automatic overriding triggered by other settings and an explicit choice the user can make.
-         * We don't distinguish between these cases currently. */
-
-        if (s->exec_context.std_input == EXEC_INPUT_NULL &&
-            s->exec_context.stdin_data_size > 0)
-                s->exec_context.std_input = EXEC_INPUT_DATA;
-}
-
 static int service_setup_bus_name(Service *s) {
         int r;
 
@@ -864,8 +852,6 @@ static int service_add_extras(Service *s) {
         /* Oneshot services have disabled start timeout by default */
         if (s->type == SERVICE_ONESHOT && !s->start_timeout_defined)
                 s->timeout_start_usec = USEC_INFINITY;
-
-        service_fix_stdio(s);
 
         r = unit_patch_contexts(UNIT(s));
         if (r < 0)
