@@ -1,0 +1,34 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eu
+
+MKOSI_DEBUG=${MKOSI_DEBUG:-0}
+NO_BUILD=${NO_BUILD:-0}
+
+if ((MKOSI_DEBUG)); then
+    set -x
+fi
+
+if [[ "${1:-}" == "build" ]] || ((NO_BUILD)); then
+    exit 0
+fi
+
+# Until the downstream APKBUILD file supports upstream build,
+# tentatively use the upstream one.
+#APKBUILD="pkg/$PKG_SUBDIR/extra-repos/systemd/systemd/APKBUILD"
+APKBUILD="$SRCDIR/mkosi/mkosi.images/build/mkosi.conf.d/$DISTRIBUTION/APKBUILD"
+if [[ ! -f "$APKBUILD" ]]; then
+    echo "APKBUILD not found at $APKBUILD, run mkosi once with -ff to make sure the APKBUILD is cloned" >&2
+    exit 1
+fi
+
+set +u
+
+# shellcheck source=/dev/null
+SYSTEMD_UPSTREAM=1 . "$APKBUILD"
+
+set -u
+
+# shellcheck disable=SC2086
+# shellcheck disable=SC2154
+mkosi-install $makedepends
