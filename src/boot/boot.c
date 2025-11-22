@@ -2288,15 +2288,6 @@ static void boot_entry_add_type2(
                                 }
                 }
 
-                _cleanup_free_ char16_t *id = NULL;
-                if (profile > 0) {
-                        if (profile_id)
-                                id = xasprintf("%ls@%ls", filename, profile_id);
-                        else
-                                id = xasprintf("%ls@%u", filename, profile);
-                } else
-                        id = xstrdup16(filename);
-
                 _cleanup_free_ char16_t *title = NULL;
                 if (profile_title)
                         title = xasprintf("%ls (%ls)", good_name, profile_title);
@@ -2310,8 +2301,6 @@ static void boot_entry_add_type2(
 
                 BootEntry *entry = xnew(BootEntry, 1);
                 *entry = (BootEntry) {
-                        .id = strtolower16(TAKE_PTR(id)),
-                        .id_without_profile = profile > 0 ? strtolower16(xstrdup16(filename)) : NULL,
                         .type = LOADER_TYPE2_UKI,
                         .title = TAKE_PTR(title),
                         .version = xstrdup16(good_version),
@@ -2325,8 +2314,24 @@ static void boot_entry_add_type2(
                         .call = call_image_start,
                 };
 
-                config_add_entry(config, entry);
                 boot_entry_parse_tries(entry, path, filename, u".efi");
+
+                /* If the filename had no tries suffixes then the id won't be set by the above call, do it now */
+                if (!entry->id)
+                        entry->id = strtolower16(xstrdup16(filename));
+
+                /* Ensure the secondary profiles IDs also have the tries suffix stripped, to match the primary */
+                if (profile > 0) {
+                        entry->id_without_profile = TAKE_PTR(entry->id);
+
+                        if (profile_id)
+                                entry->id = xasprintf("%ls@%ls", entry->id_without_profile, profile_id);
+                        else
+                                entry->id = xasprintf("%ls@%u", entry->id_without_profile, profile);
+
+                }
+
+                config_add_entry(config, entry);
 
                 if (!PE_SECTION_VECTOR_IS_SET(sections + SECTION_CMDLINE))
                         continue;
