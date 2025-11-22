@@ -145,7 +145,7 @@ static int parse_argv(
                 } else if ((p = startswith(argv[i], "area="))) {
 
                         if (!isempty(p) && !filename_is_valid(p))
-                                pam_syslog(handle, LOG_WARNING, "Area name specified among PAM module parameters is not valid, ignoring: %m");
+                                pam_syslog(handle, LOG_WARNING, "Area name specified among PAM module parameters is not valid, ignoring: %s", p);
                         else if (area)
                                 *area = p;
 
@@ -233,10 +233,9 @@ static int acquire_user_record(
                         return PAM_USER_UNKNOWN;
                 }
 
-                if (!uid_is_valid(ur->uid)) {
-                        pam_syslog_errno(handle, LOG_ERR, r, "User record of user '%s' has no UID, refusing: %m", username);
-                        return PAM_USER_UNKNOWN;
-                }
+                if (!uid_is_valid(ur->uid))
+                        return pam_syslog_pam_error(handle, LOG_ERR, PAM_USER_UNKNOWN,
+                                                    "User record of user '%s' has no UID, refusing.", username);
 
                 r = sd_json_variant_format(ur->json, 0, &formatted);
                 if (r < 0)
@@ -386,7 +385,7 @@ static int append_session_memory_max(pam_handle_t *handle, sd_bus_message *m, co
         r = parse_size(limit, 1024, &val);
         if (r < 0) {
                 pam_syslog(handle, LOG_WARNING, "Failed to parse systemd.memory_max, ignoring: %s", limit);
-                return PAM_SUCCESS;
+                return 0;
         }
 
         return sd_bus_message_append(m, "(sv)", "MemoryMax", "t", val);
@@ -510,7 +509,9 @@ static bool getenv_harder_bool(pam_handle_t *handle, const char *key, bool fallb
 
         r = parse_boolean(v);
         if (r < 0) {
-                pam_syslog(handle, LOG_WARNING, "Failed to parse environment variable value '%s' of '%s', falling back to using '%s'.", v, key, true_false(fallback));
+                pam_syslog(handle, LOG_WARNING,
+                           "Failed to parse environment variable value '%s' of '%s', falling back to using '%s'.",
+                           v, key, true_false(fallback));
                 return fallback;
         }
 
@@ -530,7 +531,9 @@ static uint32_t getenv_harder_uint32(pam_handle_t *handle, const char *key, uint
         uint32_t u;
         r = safe_atou32(v, &u);
         if (r < 0) {
-                pam_syslog(handle, LOG_WARNING, "Failed to parse environment variable value '%s' of '%s' as unsigned integer, falling back to using %" PRIu32 ".", v, key, fallback);
+                pam_syslog(handle, LOG_WARNING,
+                           "Failed to parse environment variable value '%s' of '%s' as unsigned integer, falling back to using %" PRIu32 ".",
+                           v, key, fallback);
                 return fallback;
         }
 
@@ -570,7 +573,7 @@ static int update_environment(pam_handle_t *handle, const char *key, const char 
         return PAM_SUCCESS;
 }
 
-static int propagate_credential_to_environment(pam_handle_t *handle, const char *credential, const char *varname) {
+static int propagate_credential_to_environment(pam_handle_t *handle, bool debug, const char *credential, const char *varname) {
         int r;
 
         assert(handle);
@@ -583,7 +586,7 @@ static int propagate_credential_to_environment(pam_handle_t *handle, const char 
 
         r = read_credential(credential, (void**) &value, /* ret_size= */ NULL);
         if (r < 0) {
-                log_debug_errno(r, "Failed to read credential '%s', ignoring: %m", credential);
+                pam_debug_syslog_errno(handle, debug, r, "Failed to read credential '%s', ignoring: %m", credential);
                 return PAM_SUCCESS;
         }
 
@@ -647,7 +650,6 @@ static int pam_putenv_and_log(pam_handle_t *handle, const char *e, bool debug) {
                                             "Failed to set PAM environment variable %s: @PAMERR@", e);
 
         pam_debug_syslog(handle, debug, "PAM environment variable %s set based on user record.", e);
-
         return PAM_SUCCESS;
 }
 
@@ -973,7 +975,7 @@ static void session_context_mangle(
         }
 
         if (c->seat && !streq(c->seat, "seat0") && c->vtnr != 0) {
-                pam_debug_syslog(handle, debug, "Ignoring vtnr %"PRIu32" for %s which is not seat0", c->vtnr, c->seat);
+                pam_debug_syslog(handle, debug, "Ignoring vtnr %"PRIu32" for %s which is not seat0.", c->vtnr, c->seat);
                 c->vtnr = 0;
         }
 
@@ -1115,7 +1117,7 @@ static int register_session(
 
                 r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
                 if (r < 0)
-                        log_debug_errno(r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
+                        pam_debug_syslog_errno(handle, debug, r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
                 else {
                         r = sd_varlink_set_allow_fd_passing_output(vl, true);
                         if (r < 0)
@@ -1341,7 +1343,7 @@ static int register_session(
         return PAM_SUCCESS;
 }
 
-static int import_shell_credentials(pam_handle_t *handle) {
+static int import_shell_credentials(pam_handle_t *handle, bool debug) {
 
         static const char *const propagate[] = {
                 "shell.prompt.prefix", "SHELL_PROMPT_PREFIX",
@@ -1354,7 +1356,7 @@ static int import_shell_credentials(pam_handle_t *handle) {
         assert(handle);
 
         STRV_FOREACH_PAIR(k, v, propagate) {
-                r = propagate_credential_to_environment(handle, *k, *v);
+                r = propagate_credential_to_environment(handle, debug, *k, *v);
                 if (r != PAM_SUCCESS)
                         return r;
         }
@@ -1749,7 +1751,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                        &default_capability_ambient_set) < 0)
                 return PAM_SESSION_ERR;
 
-        pam_debug_syslog(handle, debug, "pam-systemd initializing");
+        pam_debug_syslog(handle, debug, "pam-systemd: initializing...");
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         r = acquire_user_record(handle, &ur);
@@ -1792,7 +1794,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = import_shell_credentials(handle);
+        r = import_shell_credentials(handle, debug);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1835,7 +1837,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                        /* default_capability_ambient_set= */ NULL) < 0)
                 return PAM_SESSION_ERR;
 
-        pam_debug_syslog(handle, debug, "pam-systemd shutting down");
+        pam_debug_syslog(handle, debug, "pam-systemd: shutting down...");
 
         /* Only release session if it wasn't pre-existing when we
          * tried to create it */
@@ -1853,7 +1855,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
                 r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.Login");
                 if (r < 0)
-                        log_debug_errno(r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
+                        pam_debug_syslog_errno(handle, debug, r, "Failed to connect to logind via Varlink, falling back to D-Bus: %m");
                 else {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *vreply = NULL;
                         const char *error_id = NULL;

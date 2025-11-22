@@ -31,6 +31,8 @@ int dlopen_libpam(void);
 
 void pam_log_setup(void);
 
+int errno_to_pam_error(int error) _const_;
+
 int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *format, ...) _printf_(4,5);
 
 int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char *format, ...) _printf_(4,5);
@@ -45,8 +47,10 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
 /* Call pam_syslog_errno if debug is enabled */
 #define pam_debug_syslog_errno(handle, debug, error, fmt, ...)          \
         ({                                                              \
-                if (debug)                                              \
-                        pam_syslog_errno(handle, LOG_DEBUG, error, fmt, ## __VA_ARGS__); \
+                int _error = (error);                                   \
+                debug ?                                                 \
+                        pam_syslog_errno(handle, LOG_DEBUG, _error, fmt, ## __VA_ARGS__) : \
+                        errno_to_pam_error(_error);                     \
         })
 
 static inline int pam_log_oom(pam_handle_t *handle) {
