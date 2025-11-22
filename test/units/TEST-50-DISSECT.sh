@@ -26,6 +26,8 @@ at_exit() {
 
     rm -rf "$IMAGE_DIR"
 
+    rm -f /etc/polkit-1/rules.d/sysext-unpriv.rules
+
     loginctl disable-linger testuser
 }
 
