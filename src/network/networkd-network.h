@@ -414,6 +414,12 @@ typedef struct Network {
 
         /* NTP */
         char **ntp;
+
+        /* ModemManager support */
+        char **mm_simple_connect_props;
+        int mm_use_gateway;
+        uint32_t mm_route_metric;
+        bool mm_route_metric_set;
 } Network;
 
 Network *network_ref(Network *network);
