@@ -374,9 +374,12 @@ void manager_reload(Manager *manager, bool force) {
                         log_warning_errno(r, "Failed to read udev rules, using the previously loaded rules, ignoring: %m");
                 else
                         udev_rules_free_and_replace(manager->rules, rules);
-        }
+        } else
+                r = 0;
 
-        notify_ready(manager);
+        (void) notify_reload_resultf(r,
+                                     "READY=1\n"
+                                     "STATUS=Processing with %u children at max", manager->config.children_max);
 }
 
 void manager_revert(Manager *manager) {
