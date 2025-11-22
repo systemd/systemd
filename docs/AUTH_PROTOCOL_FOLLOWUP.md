@@ -66,6 +66,7 @@ This might be useful as we plumb through the protocol into other places, potenti
 - Remote desktop?
 - We could probably provide this as an API for apps to use?
 - Flatpak could use this for app locking?
+- machined / nspawn / vmspawn might want to proxy their login prompts through a GUI as well, maybe? Or maybe enable encrypted containers/VMs this way?
 
 Would be a pain for all of these services to have to maintain their own scheme for finding the DE to be able to pass in the JSON FD.
 
