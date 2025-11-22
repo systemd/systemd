@@ -50,6 +50,7 @@
 #include "initrd-util.h"
 #include "io-util.h"
 #include "json-util.h"
+#include "libmount-util.h"
 #include "list.h"
 #include "loop-util.h"
 #include "main-func.h"
@@ -6615,6 +6616,8 @@ static int partition_populate_filesystem(Context *context, Partition *p, const c
         /* We copy in a child process, since we have to mount the fs for that, and we don't want that fs to
          * appear in the host namespace. Hence we fork a child that has its own file system namespace and
          * detached mount propagation. */
+
+        (void) dlopen_libmount();
 
         r = safe_fork("(sd-copy)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
         if (r < 0)

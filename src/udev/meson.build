@@ -116,7 +116,8 @@ endif
 udev_dependencies = [
         libacl_cflags,
         libblkid_cflags,
-        libkmod,
+        libkmod_cflags,
+        libmount_cflags,
         threads,
 ]
 

@@ -49,6 +49,7 @@ executables += [
                 'dependencies' : [
                         libseccomp_cflags,
                         libselinux_cflags,
+                        libmount_cflags,
                 ],
         },
         nspawn_test_template + {

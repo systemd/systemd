@@ -202,6 +202,7 @@ executables += [
                         libkmod_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
+                        libmount_cflags,
                 ],
         },
         libexec_template + {
@@ -215,6 +216,7 @@ executables += [
                         libpam_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
+                        libmount_cflags,
                 ],
         },
         fuzz_template + {

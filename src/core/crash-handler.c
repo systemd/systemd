@@ -7,6 +7,7 @@
 
 #include "constants.h"
 #include "crash-handler.h"
+#include "dlfcn-util.h"
 #include "exit-status.h"
 #include "format-util.h"
 #include "log.h"
@@ -69,6 +70,9 @@ _noreturn_ static void crash(int sig, siginfo_t *siginfo, void *context) {
          * memory allocation, as we cannot rely on memory allocation still working at this point! (Note that
          * memory allocation is not async-signal-safe anyway — see signal-safety(7) for details —, and thus
          * is not permissible in signal handlers.) */
+
+        block_dlopen(); /* paranoia: never end up doing dlopen() as side-effect from some call anymore from
+                         * here */
 
         if (getpid_cached() != 1)
                 /* Pass this on immediately, if this is not PID 1 */

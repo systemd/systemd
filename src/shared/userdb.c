@@ -1977,21 +1977,22 @@ int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret)
 }
 
 int userdb_block_nss_systemd(int b) {
-        _cleanup_(dlclosep) void *dl = NULL;
-        int (*call)(bool b);
+        int r;
 
         /* Note that we might be called from libnss_systemd.so.2 itself, but that should be fine, really. */
 
-        dl = dlopen(LIBDIR "/libnss_systemd.so.2", RTLD_NOW|RTLD_NODELETE);
-        if (!dl) {
+        _cleanup_(dlclosep) void *dl = NULL;
+        const char *dle;
+        r = dlopen_safe(LIBDIR "/libnss_systemd.so.2", &dl, &dle);
+        if (r < 0) {
                 /* If the file isn't installed, don't complain loudly */
-                log_debug("Failed to dlopen(libnss_systemd.so.2), ignoring: %s", dlerror());
+                log_debug_errno(r, "Failed to dlopen(libnss_systemd.so.2), ignoring: %s", dle ?: STRERROR(r));
                 return 0;
         }
 
         log_debug("Loaded '%s' via dlopen()", LIBDIR "/libnss_systemd.so.2");
 
-        call = dlsym(dl, "_nss_systemd_block");
+        int (*call)(bool b) = dlsym(dl, "_nss_systemd_block");
         if (!call)
                 /* If the file is installed but lacks the symbol we expect, things are weird, let's complain */
                 return log_debug_errno(SYNTHETIC_ERRNO(ELIBBAD),

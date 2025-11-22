@@ -59,6 +59,7 @@
 #include "killall.h"
 #include "kmod-setup.h"
 #include "label-util.h"
+#include "libmount-util.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -3079,6 +3080,12 @@ int main(int argc, char *argv[]) {
 
         /* Make sure that if the user says "syslog" we actually log to the journal. */
         log_set_upgrade_syslog_to_journal(true);
+
+        r = dlopen_libmount();
+        if (r < 0) {
+                error_message = "Failed to load libmount.so";
+                goto finish;
+        }
 
         if (getpid_cached() == 1) {
                 /* When we run as PID 1 force system mode */
