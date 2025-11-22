@@ -528,6 +528,7 @@ int kdf_kb_hmac_derive(
 #endif
 }
 
+/* Encrypts key data using PKCS#1 v1.5 padding for compatibility with PKCS#11 tokens. */
 int rsa_encrypt_bytes(
                 EVP_PKEY *pkey,
                 const void *decrypted_key,
@@ -557,7 +558,7 @@ int rsa_encrypt_bytes(
                 return -ENOMEM;
 
         if (EVP_PKEY_encrypt(ctx, b, &l, decrypted_key, decrypted_key_size) <= 0)
-                return log_openssl_errors("Failed to determine encrypted key size");
+                return log_openssl_errors("Failed to encrypt key");
 
         *ret_encrypt_key = TAKE_PTR(b);
         *ret_encrypt_key_size = l;
@@ -605,11 +606,14 @@ int rsa_oaep_encrypt_bytes(
         if (EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) <= 0)
                 return log_openssl_errors("Failed to configure RSA-OAEP MD");
 
+        if (EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) <= 0)
+                return log_openssl_errors("Failed to configure RSA-OAEP MGF1");
+
         _cleanup_free_ char *duplabel = strdup(label);
         if (!duplabel)
                 return log_oom_debug();
 
-        if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, duplabel, strlen(duplabel) + 1) <= 0)
+        if (EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, duplabel, strlen(duplabel)) <= 0)
                 return log_openssl_errors("Failed to configure RSA-OAEP label");
         /* ctx owns this now, don't free */
         TAKE_PTR(duplabel);
@@ -650,8 +654,8 @@ int rsa_pkey_to_suitable_key_size(
         bits = EVP_PKEY_bits(pkey);
         log_debug("Bits in RSA key: %i", bits);
 
-        /* We use PKCS#1 padding for the RSA cleartext, hence let's leave some extra space for it, hence only
-         * generate a random key half the size of the RSA length */
+        /* For RSA encryption (both PKCS#1 v1.5 and OAEP), leave space for padding overhead by
+         * generating a random key half the size of the RSA length */
         suitable_key_size = bits / 8 / 2;
 
         if (suitable_key_size < 1)
@@ -1351,9 +1355,10 @@ static int rsa_pkey_generate_volume_keys(
         if (r < 0)
                 return log_debug_errno(r, "Failed to generate random key: %m");
 
-        r = rsa_encrypt_bytes(pkey, decrypted_key, decrypted_key_size, &saved_key, &saved_key_size);
+        /* Use RSA-OAEP with SHA-256 for secure PKCS#11 token enrollment */
+        r = rsa_oaep_encrypt_bytes(pkey, "SHA256", "", decrypted_key, decrypted_key_size, &saved_key, &saved_key_size);
         if (r < 0)
-                return log_debug_errno(r, "Failed to encrypt random key: %m");
+                return log_debug_errno(r, "Failed to encrypt random key with RSA-OAEP: %m");
 
         *ret_decrypted_key = TAKE_PTR(decrypted_key);
         *ret_decrypted_key_size = decrypted_key_size;
