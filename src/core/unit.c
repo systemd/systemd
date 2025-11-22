@@ -186,6 +186,9 @@ static void unit_init(Unit *u) {
         if (ec) {
                 exec_context_init(ec);
 
+                s->exec_context.std_output = u->manager->defaults.std_output;
+                s->exec_context.std_error = u->manager->defaults.std_error;
+
                 if (u->manager->defaults.oom_score_adjust_set) {
                         ec->oom_score_adjust = u->manager->defaults.oom_score_adjust;
                         ec->oom_score_adjust_set = true;
@@ -4453,6 +4456,13 @@ int unit_patch_contexts(Unit *u) {
 
                 FOREACH_ARRAY(d, ec->directories, _EXEC_DIRECTORY_TYPE_MAX)
                         exec_directory_sort(d);
+
+                /* Note that EXEC_INPUT_NULL plays a special role here: it is the default value that is subject to
+                 * automatic overriding triggered by other settings and an explicit choice the user can make.
+                 * We don't distinguish between these cases currently. */
+                if (s->exec_context.std_input == EXEC_INPUT_NULL &&
+                    s->exec_context.stdin_data_size > 0)
+                        s->exec_context.std_input = EXEC_INPUT_DATA;
         }
 
         cc = unit_get_cgroup_context(u);
