@@ -67,6 +67,18 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   const char *foo(const char *input);
   ```
 
+- Casts should be written like this:
+
+  ```c
+  (const char*) s;
+  ```
+
+  instead of this:
+
+  ```c
+  (const char *)s;
+  ```
+
 - Single-line `if` blocks should not be enclosed in `{}`. Write this:
 
   ```c
