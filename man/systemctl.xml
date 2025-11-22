@@ -1485,6 +1485,16 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             systemd listens on behalf of user configuration will stay
             accessible.</para>
 
+            <para>When unit aliasing is introduced during reload (e.g., converting
+            <filename>b.service</filename> to a symlink pointing to
+            <filename>a.service</filename>), the running state of the canonical
+            unit (<filename>a.service</filename>) is preserved. The old serialized
+            state of the now-aliased unit is discarded to prevent stale data from
+            corrupting the canonical unit's live state. Dependencies referencing
+            the alias name are automatically resolved to the canonical unit, and
+            the dependency graph is rebuilt from unit files, ensuring consistency.
+            </para>
+
             <para>This command should not be confused with the
             <command>reload</command> command.</para>
           </listitem>
