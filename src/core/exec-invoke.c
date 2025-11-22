@@ -628,7 +628,7 @@ static int setup_output(
                 assert(context->stdio_file[fileno]);
 
                 rw = context->std_input == EXEC_INPUT_FILE &&
-                        streq_ptr(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
+                        streq(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
 
                 if (rw)
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
