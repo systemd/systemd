@@ -313,7 +313,7 @@ int home_set_record(Home *h, UserRecord *hr) {
                 if (r < 0)
                         return r;
 
-                hr = new_hr;
+                hr = TAKE_PTR(new_hr);
         }
 
         other = hashmap_get(h->manager->homes_by_uid, UID_TO_PTR(hr->uid));
