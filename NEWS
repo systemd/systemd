@@ -27,8 +27,6 @@ CHANGES WITH 259 in spe:
           * libseccomp >= 2.4.0,
           * python >= 3.9.0.
 
-          Please provide feedback on systemd-devel if this would cause problems.
-
         * The parsing of RootImageOptions= and the mount image parameters of
           ExtensionImages= and MountImages= will be changed in the next version
           so that the last duplicated definition for a given partition wins and
