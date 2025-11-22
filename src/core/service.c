@@ -808,19 +808,11 @@ static void service_fix_stdio(Service *s) {
             s->exec_context.stdin_data_size > 0)
                 s->exec_context.std_input = EXEC_INPUT_DATA;
 
-        if (IN_SET(s->exec_context.std_input,
-                    EXEC_INPUT_TTY,
-                    EXEC_INPUT_TTY_FORCE,
-                    EXEC_INPUT_TTY_FAIL,
-                    EXEC_INPUT_SOCKET,
-                    EXEC_INPUT_NAMED_FD))
+        if (exec_input_is_inheritable(s->exec_context.std_input))
                 return;
 
-        /* We assume these listed inputs refer to bidirectional streams, and hence duplicating them from
-         * stdin to stdout/stderr makes sense and hence leaving EXEC_OUTPUT_INHERIT in place makes sense,
-         * too. Outputs such as regular files or sealed data memfds otoh don't really make sense to be
-         * duplicated for both input and output at the same time (since they then would cause a feedback
-         * loop), hence override EXEC_OUTPUT_INHERIT with the default stderr/stdout setting.  */
+        /* Override EXEC_OUTPUT_INHERIT with the default stderr/stdout setting if not applicable for
+         * given stdin mode. */
 
         if (s->exec_context.std_error == EXEC_OUTPUT_INHERIT &&
             s->exec_context.std_output == EXEC_OUTPUT_INHERIT)
