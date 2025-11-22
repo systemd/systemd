@@ -13,7 +13,7 @@ typedef enum SocketAddressBindIPv6Only {
 
 const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *s);
+SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *s) _pure_;
 
 int socket_address_listen(
                 const SocketAddress *a,

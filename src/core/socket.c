@@ -1026,16 +1026,13 @@ static void socket_close_fds(Socket *s) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket*, socket_close_fds, NULL);
 
-#define log_socket_option_errno(s, e, option)                                          \
-        ({                                                                             \
-                int _e_ = (e);                                                         \
-                log_unit_full_errno(                                                   \
-                                UNIT(s),                                               \
-                                ERRNO_IS_NOT_SUPPORTED(_e_) ? LOG_DEBUG : LOG_WARNING, \
-                                _e_,                                                   \
-                                "Failed to set %s socket option, ignoring: %m",        \
-                                option);                                               \
-        })
+#define log_socket_option_errno_full(s, e, debug, option)                               \
+        log_unit_full_errno(UNIT(s),                                                    \
+                            (debug) ? LOG_DEBUG : LOG_WARNING, e,                       \
+                            "Failed to set %s socket option, ignoring: %m",             \
+                            option);
+
+#define log_socket_option_errno(s, e, option) log_socket_option_errno_full(s, e, false, option)
 
 static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         int r;
@@ -1101,13 +1098,13 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         if (s->pass_pidfd) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSPIDFD, true);
                 if (r < 0)
-                        log_socket_option_errno(s, r, "SO_PASSPIDFD");
+                        log_socket_option_errno_full(s, r, ERRNO_IS_NEG_NOT_SUPPORTED(r), "SO_PASSPIDFD");
         }
 
         if (s->pass_sec) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSSEC, true);
                 if (r < 0)
-                        log_socket_option_errno(s, r, "SO_PASSSEC");
+                        log_socket_option_errno_full(s, r, ERRNO_IS_NEG_NOT_SUPPORTED(r), "SO_PASSSEC");
         }
 
         if (s->pass_pktinfo) {
@@ -1119,7 +1116,7 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         if (!s->pass_rights) {
                 r = setsockopt_int(fd, SOL_SOCKET, SO_PASSRIGHTS, false);
                 if (r < 0)
-                        log_socket_option_errno(s, r, "SO_PASSRIGHTS");
+                        log_socket_option_errno_full(s, r, ERRNO_IS_NEG_NOT_SUPPORTED(r), "SO_PASSRIGHTS");
         }
 
         if (s->timestamping != SOCKET_TIMESTAMPING_OFF) {
@@ -1139,13 +1136,13 @@ static void socket_apply_socket_options(Socket *s, SocketPort *p, int fd) {
         if (s->receive_buffer > 0) {
                 r = fd_set_rcvbuf(fd, s->receive_buffer, false);
                 if (r < 0)
-                        log_socket_option_errno(s, r, "SO_RCVBUF/SO_RCVBUFFORCE");
+                        log_socket_option_errno_full(s, r, ERRNO_IS_NEG_PRIVILEGE(r), "SO_RCVBUF/SO_RCVBUFFORCE");
         }
 
         if (s->send_buffer > 0) {
                 r = fd_set_sndbuf(fd, s->send_buffer, false);
                 if (r < 0)
-                        log_socket_option_errno(s, r, "SO_SNDBUF/SO_SNDBUFFORCE");
+                        log_socket_option_errno_full(s, r, ERRNO_IS_NEG_PRIVILEGE(r), "SO_SNDBUF/SO_SNDBUFFORCE");
         }
 
         if (s->mark >= 0) {
