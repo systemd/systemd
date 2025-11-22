@@ -428,8 +428,8 @@ static int setup_input(
 
                 assert(context->stdio_file[STDIN_FILENO]);
 
-                rw = (context->std_output == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDOUT_FILENO])) ||
-                        (context->std_error == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDERR_FILENO]));
+                rw = (context->std_output == EXEC_OUTPUT_FILE && streq(context->stdio_file[STDIN_FILENO], context->stdio_file[STDOUT_FILENO])) ||
+                        (context->std_error == EXEC_OUTPUT_FILE && streq(context->stdio_file[STDIN_FILENO], context->stdio_file[STDERR_FILENO]));
 
                 fd = acquire_path(context->stdio_file[STDIN_FILENO], rw ? O_RDWR : O_RDONLY, 0666 & ~context->umask);
                 if (fd < 0)
@@ -441,6 +441,33 @@ static int setup_input(
         default:
                 assert_not_reached();
         }
+}
+
+static bool can_inherit_stdout_from_stdin(
+                const ExecContext *context,
+                ExecInput i,
+                ExecOutput o) {
+
+        if (o != EXEC_OUTPUT_INHERIT)
+                return false;
+
+        /* /dev/null and memfd are made read only in setup_input(), hence we'll need to fall back. */
+        if (IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA))
+                return false;
+
+        /* Validate that stdin we're about to inherit is writable. Note that for stdio types other than
+         * extrinsic fd this check is unnecessary, as we're the one originally opened stdin in setup_input()
+         * so we know it's the case. */
+        if (context->stdio_as_fds) {
+                r = fd_vet_accmode(STDIN_FILENO, O_WRONLY);
+                assert(r <= 0); /* should be readable at least */
+                if (r < 0)
+                        log_warning_errno(r, "StandardOutput= is set to 'inherit' yet stdin fd is not writable, using fallback: %m");
+                        return false;
+                }
+        }
+
+        return true;
 }
 
 static bool can_inherit_stderr_from_stdout(
@@ -459,10 +486,10 @@ static bool can_inherit_stderr_from_stdout(
                 return false;
 
         if (e == EXEC_OUTPUT_NAMED_FD)
-                return streq_ptr(context->stdio_fdname[STDOUT_FILENO], context->stdio_fdname[STDERR_FILENO]);
+                return streq(exec_context_fdname(context, STDOUT_FILENO), exec_context_fdname(context, STDERR_FILENO));
 
         if (IN_SET(e, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND, EXEC_OUTPUT_FILE_TRUNCATE))
-                return streq_ptr(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
+                return streq(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
 
         return true;
 }
@@ -508,8 +535,7 @@ static int setup_output(
         o = fixup_output(context->std_output, socket_fd);
 
         if (fileno == STDERR_FILENO) {
-                ExecOutput e;
-                e = fixup_output(context->std_error, socket_fd);
+                ExecOutput e = fixup_output(context->std_error, socket_fd);
 
                 /* This expects the input and output are already set up */
 
@@ -523,17 +549,8 @@ static int setup_output(
                         return fileno;
 
                 /* Duplicate from stdout if possible */
-                if (can_inherit_stderr_from_stdout(context, o, e)) {
-                        r = fd_is_writable(STDOUT_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdout is writable for stderr, falling back to /dev/null.");
-                                else
-                                        log_warning("Inherited stdout is not writable for stderr, falling back to /dev/null.");
-                                return open_null_as(O_WRONLY, fileno);
-                        }
+                if (can_inherit_stderr_from_stdout(context, o, e))
                         return RET_NERRNO(dup2(STDOUT_FILENO, fileno));
-                }
 
                 o = e;
 
@@ -542,20 +559,8 @@ static int setup_output(
                 if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
                         return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
-                /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
-                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA)) {
-                        r = fd_is_writable(STDIN_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdin is writable for %s, falling back to /dev/null.",
-                                                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                else
-                                        log_warning("Inherited stdin is not writable for %s, falling back to /dev/null.",
-                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                return open_null_as(O_WRONLY, fileno);
-                        }
+                if (can_inherit_stdout_from_stdin(context, i, o))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
-                }
 
                 /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
                 if (getppid() != 1)
@@ -571,19 +576,8 @@ static int setup_output(
                 return open_null_as(O_WRONLY, fileno);
 
         case EXEC_OUTPUT_TTY:
-                if (exec_input_is_terminal(i)) {
-                        r = fd_is_writable(STDIN_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdin is writable for TTY's %s, falling back to opening terminal.",
-                                                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                else
-                                        log_warning("Inherited stdin is not writable for TTY's %s, falling back to opening terminal.",
-                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
-                        }
+                if (exec_input_is_terminal(i))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
-                }
 
                 return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
@@ -634,7 +628,7 @@ static int setup_output(
                 assert(context->stdio_file[fileno]);
 
                 rw = context->std_input == EXEC_INPUT_FILE &&
-                        streq_ptr(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
+                        streq(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
 
                 if (rw)
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
@@ -5732,7 +5726,7 @@ int exec_invoke(
 
         /* We need setresuid() if the caller asked us to apply sandboxing and the command isn't explicitly
          * excepted from either whole sandboxing or just setresuid() itself. */
-        needs_setuid = (params->flags & EXEC_APPLY_SANDBOXING) && !(command->flags & (EXEC_COMMAND_FULLY_PRIVILEGED|EXEC_COMMAND_NO_SETUID));
+        needs_setuid = needs_sandboxing && !FLAGS_SET(command->flags, EXEC_COMMAND_NO_SETUID);
 
         uint64_t capability_ambient_set = context->capability_ambient_set;
 
