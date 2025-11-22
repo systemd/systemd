@@ -3805,8 +3805,8 @@ static int parse_argv(int argc, char *argv[]) {
 
                         r = sd_json_variant_set_fieldbo(
                                         &arg_identity_extra_rlimits, t,
-                                        SD_JSON_BUILD_PAIR("cur", SD_JSON_BUILD_VARIANT(jcur)),
-                                        SD_JSON_BUILD_PAIR("max", SD_JSON_BUILD_VARIANT(jmax)));
+                                        SD_JSON_BUILD_PAIR_VARIANT("cur", jcur),
+                                        SD_JSON_BUILD_PAIR_VARIANT("max", jmax));
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set %s field: %m", rlimit_to_string(l));
 

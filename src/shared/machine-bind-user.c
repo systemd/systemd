@@ -139,11 +139,11 @@ static int convert_user(
         r = user_record_build(
                         &converted_user,
                         SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR("userName", SD_JSON_BUILD_STRING(u->user_name)),
-                                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(allocate_uid)),
-                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(allocate_uid)),
+                                        SD_JSON_BUILD_PAIR_STRING("userName", u->user_name),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", allocate_uid),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", allocate_uid),
                                         SD_JSON_BUILD_PAIR_CONDITION(u->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(u->disposition))),
-                                        SD_JSON_BUILD_PAIR("homeDirectory", SD_JSON_BUILD_STRING(h)),
+                                        SD_JSON_BUILD_PAIR_STRING("homeDirectory", h),
                                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn")),
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("shell", shell),
                                         SD_JSON_BUILD_PAIR_STRV("memberOf", groups),
@@ -156,8 +156,8 @@ static int convert_user(
         r = group_record_build(
                         &converted_group,
                         SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR("groupName", SD_JSON_BUILD_STRING(g->group_name)),
-                                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(allocate_uid)),
+                                        SD_JSON_BUILD_PAIR_STRING("groupName", g->group_name),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", allocate_uid),
                                         SD_JSON_BUILD_PAIR_CONDITION(g->disposition >= 0, "disposition", SD_JSON_BUILD_STRING(user_disposition_to_string(g->disposition))),
                                         SD_JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.NSpawn"))));
         if (r < 0)
