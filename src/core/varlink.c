@@ -61,9 +61,9 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
                 return -EINVAL;
 
         return sd_json_buildo(ret_v,
-                              SD_JSON_BUILD_PAIR("mode", SD_JSON_BUILD_STRING(mode)),
-                              SD_JSON_BUILD_PAIR("path", SD_JSON_BUILD_STRING(crt->cgroup_path)),
-                              SD_JSON_BUILD_PAIR("property", SD_JSON_BUILD_STRING(property)),
+                              SD_JSON_BUILD_PAIR_STRING("mode", mode),
+                              SD_JSON_BUILD_PAIR_STRING("path", crt->cgroup_path),
+                              SD_JSON_BUILD_PAIR_STRING("property", property),
                               SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit)),
                               SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_duration_usec)));
 }
@@ -126,7 +126,7 @@ static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_
                 return 0;
         }
 
-        r = sd_json_buildo(ret, SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr)));
+        r = sd_json_buildo(ret, SD_JSON_BUILD_PAIR_VARIANT("cgroups", arr));
         if (r < 0)
                 return r;
 
@@ -281,7 +281,7 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
                 return 0;
         }
 
-        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR("cgroups", SD_JSON_BUILD_VARIANT(arr)));
+        r = sd_json_buildo(&v, SD_JSON_BUILD_PAIR_VARIANT("cgroups", arr));
         if (r < 0)
                 return r;
 

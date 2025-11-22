@@ -365,7 +365,7 @@ static int exec_dir_build_json(sd_json_variant **ret, const char *name, void *us
 
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR("paths", SD_JSON_BUILD_VARIANT(v)),
+                        SD_JSON_BUILD_PAIR_VARIANT("paths", v),
                         SD_JSON_BUILD_PAIR_UNSIGNED("mode", exec_dir->mode),
                         SD_JSON_BUILD_PAIR("quota",
                                 SD_JSON_BUILD_OBJECT(
