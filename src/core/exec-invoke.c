@@ -459,7 +459,7 @@ static bool can_inherit_stderr_from_stdout(
                 return false;
 
         if (e == EXEC_OUTPUT_NAMED_FD)
-                return streq_ptr(context->stdio_fdname[STDOUT_FILENO], context->stdio_fdname[STDERR_FILENO]);
+                return streq(exec_context_fdname(context, STDOUT_FILENO), exec_context_fdname(context, STDERR_FILENO));
 
         if (IN_SET(e, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND, EXEC_OUTPUT_FILE_TRUNCATE))
                 return streq_ptr(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
