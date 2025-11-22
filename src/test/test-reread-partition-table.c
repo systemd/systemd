@@ -75,7 +75,7 @@ TEST(rereadpt) {
         if (ERRNO_IS_NEG_PRIVILEGE(r) || ERRNO_IS_NOT_SUPPORTED(r))
                 return (void) log_tests_skipped("loopback block devices not available");
         if (r < 0)
-                return (void) log_error_errno(r, "Failed to create loop device: %m");
+                return (void) log_tests_skipped_errno(r, "Failed to create loop device");
 
         _cleanup_free_ char *p = NULL;
         ASSERT_OK(partition_node_of(loop->node, 1, &p));
