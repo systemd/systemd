@@ -34,3 +34,6 @@ __pycache__/
 .vscode/
 /pkg/
 .aider*
+/doc-migration/.venv
+/doc-migration/build
+.venv
