@@ -460,8 +460,10 @@ static bool can_inherit_stderr_from_stdout(
         if (e != o)
                 return false;
 
+        /* Let's not shortcut named fds here, even though we in theory can by comparing fd names, since
+         * we have the named_iofds array readily available, and the inherit practice would simply be duplicative. */
         if (e == EXEC_OUTPUT_NAMED_FD)
-                return streq_ptr(context->stdio_fdname[STDOUT_FILENO], context->stdio_fdname[STDERR_FILENO]);
+                return false;
 
         if (IN_SET(e, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND, EXEC_OUTPUT_FILE_TRUNCATE))
                 return streq_ptr(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
@@ -4794,28 +4796,34 @@ static int exec_context_named_iofds(
 
         /* Note that socket fds are always placed at the beginning of the fds array, no need for extra
          * manipulation. */
-        for (size_t i = 0; i < p->n_socket_fds && targets > 0; i++)
+        for (size_t i = 0; i < p->n_socket_fds && targets > 0; i++) {
                 if (named_iofds[STDIN_FILENO] < 0 &&
                     c->std_input == EXEC_INPUT_NAMED_FD &&
                     streq(p->fd_names[i], stdio_fdname[STDIN_FILENO])) {
 
                         named_iofds[STDIN_FILENO] = p->fds[i];
                         targets--;
+                        continue;
+                }
 
-                } else if (named_iofds[STDOUT_FILENO] < 0 &&
-                           c->std_output == EXEC_OUTPUT_NAMED_FD &&
-                           streq(p->fd_names[i], stdio_fdname[STDOUT_FILENO])) {
+                /* Allow stdout and stderr to use the same named fd */
+
+                if (named_iofds[STDOUT_FILENO] < 0 &&
+                    c->std_output == EXEC_OUTPUT_NAMED_FD &&
+                    streq(p->fd_names[i], stdio_fdname[STDOUT_FILENO])) {
 
                         named_iofds[STDOUT_FILENO] = p->fds[i];
                         targets--;
+                }
 
-                } else if (named_iofds[STDERR_FILENO] < 0 &&
-                           c->std_error == EXEC_OUTPUT_NAMED_FD &&
-                           streq(p->fd_names[i], stdio_fdname[STDERR_FILENO])) {
+                if (named_iofds[STDERR_FILENO] < 0 &&
+                    c->std_error == EXEC_OUTPUT_NAMED_FD &&
+                    streq(p->fd_names[i], stdio_fdname[STDERR_FILENO])) {
 
                         named_iofds[STDERR_FILENO] = p->fds[i];
                         targets--;
                 }
+        }
 
         return targets == 0 ? 0 : -ENOENT;
 }
