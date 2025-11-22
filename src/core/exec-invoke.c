@@ -460,6 +460,41 @@ static bool can_inherit_stderr_from_stdout(const ExecContext *context) {
         return true;
 }
 
+static int maybe_inherit_stdout_from_stdin(const ExecContext *context, ExecInput i) {
+        int r;
+
+        assert(context);
+
+        if (context->std_output != EXEC_OUTPUT_INHERIT)
+                return 0;
+
+        /* If input got downgraded, inherit the original value */
+        if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
+                return open_terminal_as(exec_context_tty_path(context), O_WRONLY, STDOUT_FILENO);
+
+        if (!exec_input_is_inheritable(i))
+                goto fallback;
+
+        r = fd_is_writable(STDIN_FILENO);
+        if (r <= 0) {
+                if (r < 0)
+                        log_warning_errno(r, "Failed to check if inherited stdin is writable for stdout, using fallback: %m");
+                else
+                        log_warning("Inherited stdin is not writable for stdout, using fallback: %m");
+                goto fallback;
+        }
+
+        return RET_NERRNO(dup2(STDIN_FILENO, STDOUT_FILENO));
+
+fallback:
+        /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
+        if (getppid() != 1)
+                return STDOUT_FILENO;
+
+        /* We need to open /dev/null here anew, to get the right access mode. */
+        return open_null_as(O_WRONLY, STDOUT_FILENO);
+}
+
 static int setup_output(
                 const ExecContext *context,
                 const ExecParameters *params,
@@ -498,19 +533,15 @@ static int setup_output(
         }
 
         i = fixup_input(context, params->flags & EXEC_APPLY_TTY_STDIN);
-        o = context->std_output;
 
         if (fileno == STDERR_FILENO) {
-                ExecOutput e = context->std_error;
-
                 /* This expects the input and output are already set up */
 
                 /* Don't change the stderr file descriptor if we inherit all
                  * the way and are not on a tty */
-                if (e == EXEC_OUTPUT_INHERIT &&
-                    o == EXEC_OUTPUT_INHERIT &&
-                    i == EXEC_INPUT_NULL &&
-                    !exec_input_is_terminal(context->std_input) &&
+                if (context->std_error == EXEC_OUTPUT_INHERIT &&
+                    context->std_output == EXEC_OUTPUT_INHERIT &&
+                    i == EXEC_INPUT_NULL && !exec_input_is_terminal(context->std_input) &&
                     getppid() != 1)
                         return fileno;
 
@@ -527,34 +558,16 @@ static int setup_output(
                         return RET_NERRNO(dup2(STDOUT_FILENO, fileno));
                 }
 
-                o = e;
+                o = context->std_error;
 
-        } else if (o == EXEC_OUTPUT_INHERIT) {
-                /* If input got downgraded, inherit the original value */
-                if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
-                        return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
+        } else {
+                assert(fileno == STDOUT_FILENO);
 
-                /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
-                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA)) {
-                        r = fd_is_writable(STDIN_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdin is writable for %s, falling back to /dev/null.",
-                                                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                else
-                                        log_warning("Inherited stdin is not writable for %s, falling back to /dev/null.",
-                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                return open_null_as(O_WRONLY, fileno);
-                        }
-                        return RET_NERRNO(dup2(STDIN_FILENO, fileno));
-                }
+                r = maybe_inherit_stdout_from_stdin(context, i);
+                if (r != 0)
+                        return r;
 
-                /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
-                if (getppid() != 1)
-                        return fileno;
-
-                /* We need to open /dev/null here anew, to get the right access mode. */
-                return open_null_as(O_WRONLY, fileno);
+                o = context->std_output;
         }
 
         switch (o) {
