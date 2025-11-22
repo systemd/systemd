@@ -1,6 +1,6 @@
-# Proposal for advanced JSON Login - Part 2
+# Authentication API
 
-The [advanced JSON login protocol](https://pad.gnome.org/ktbmfv4FQ8SbFb-lc4K8Dw) mechanism allows us to start moving away from PAM. Here's how that would work, at a high level
+For now this is just a dumping ground of ideas how to take the [advanced JSON login protocol](AUTH_PROTOCOL.md) and turn it into an API to be used by the rest of the system. Eventually I expect that this would morph into a doc page that more conherently explains the components I propose here and explains how they all work together to provide a new `systemd-authd` (name TBD?) component.
 
 ## `io.systemd.AuthenticationProvider`
 
