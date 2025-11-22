@@ -502,7 +502,7 @@ static int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpConte
                            /* netns_fd= */ -EBADF,
                            /* userns_fd= */ -EBADF,
                            root_fd,
-                           NULL);
+                           /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

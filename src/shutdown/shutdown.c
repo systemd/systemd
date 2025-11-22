@@ -228,8 +228,6 @@ int sync_with_progress(int fd) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         int r;
 
-        BLOCK_SIGNALS(SIGCHLD);
-
         /* Due to the possibility of the sync operation hanging, we fork a child process and monitor
          * the progress. If the timeout lapses, the assumption is that the particular sync stalled. */
 
@@ -252,7 +250,7 @@ int sync_with_progress(int fd) {
          * SYNC_PROGRESS_ATTEMPTS lapse without progress being made,
          * we assume that the sync is stalled */
         for (unsigned checks = 0; checks < SYNC_PROGRESS_ATTEMPTS; checks++) {
-                r = wait_for_terminate_with_timeout(pidref.pid, SYNC_TIMEOUT_USEC);
+                r = pidref_wait_for_terminate_full(&pidref, SYNC_TIMEOUT_USEC, /* ret= */ NULL);
                 if (r == 0)
                         /* Sync finished without error (sync() call itself does not return an error code) */
                         return 0;
