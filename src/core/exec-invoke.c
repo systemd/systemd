@@ -428,8 +428,8 @@ static int setup_input(
 
                 assert(context->stdio_file[STDIN_FILENO]);
 
-                rw = (context->std_output == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDOUT_FILENO])) ||
-                        (context->std_error == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDERR_FILENO]));
+                rw = (context->std_output == EXEC_OUTPUT_FILE && streq(context->stdio_file[STDIN_FILENO], context->stdio_file[STDOUT_FILENO])) ||
+                        (context->std_error == EXEC_OUTPUT_FILE && streq(context->stdio_file[STDIN_FILENO], context->stdio_file[STDERR_FILENO]));
 
                 fd = acquire_path(context->stdio_file[STDIN_FILENO], rw ? O_RDWR : O_RDONLY, 0666 & ~context->umask);
                 if (fd < 0)
@@ -464,7 +464,7 @@ static bool can_inherit_stderr_from_stdout(
                 return false;
 
         if (IN_SET(e, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND, EXEC_OUTPUT_FILE_TRUNCATE))
-                return streq_ptr(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
+                return streq(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
 
         return true;
 }
@@ -636,7 +636,7 @@ static int setup_output(
                 assert(context->stdio_file[fileno]);
 
                 rw = context->std_input == EXEC_INPUT_FILE &&
-                        streq_ptr(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
+                        streq(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
 
                 if (rw)
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
