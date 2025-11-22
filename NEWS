@@ -27,6 +27,29 @@ CHANGES WITH 259 in spe:
           * libseccomp >= 2.4.0,
           * python >= 3.9.0.
 
+        * /run/udev/control AF_UNIX socket file will be removed in v260. Since
+          v258, systemd-udevd and udevadm have used Varlink IPC to communicate,
+          and traditional home-grown IPC through /run/udev/control has been
+          deprecated. In v260, the deprecated IPC support will be dropped.
+          Historically, the existence of the socket file has been sometimes used
+          for checking if udevd is running, e.g. in RPM scripts, though that's
+          not reliable as the file may exist without udevd running. Please make
+          sure to update your software to not use the file for checking the
+          availability of udevd. Several possible replacements are:
+
+          * udevadm control --ping : Checking if systemd-udevd is running.
+            Requires privilege, but usable even if systemd-udevd is running
+            without systemd, like systemd-less initrd.
+          * systemctl is-active systemd-udevd.service : Checking if
+            systemd-udevd is running. Can be usable without privilege.
+          * systemctl is-active systemd-udevd-varlink.socket : May be used for
+            checking if systemd-udevd is startable.
+          * systemd-detect-virt --container : Checking if systemd-udevd should
+            be available. The service systemd-udevd.service should not be
+            started in container environments.
+          * test -w /sys, stat /sys, and so on : Checking if /sys is writable.
+            The service systemd-udevd requires /sys is writable.
+
         * The parsing of RootImageOptions= and the mount image parameters of
           ExtensionImages= and MountImages= will be changed in the next version
           so that the last duplicated definition for a given partition wins and
