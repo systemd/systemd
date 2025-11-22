@@ -480,6 +480,16 @@ static inline bool exec_context_has_tty(const ExecContext *context) {
                 context->std_error == EXEC_OUTPUT_TTY;
 }
 
+static inline bool exec_input_is_inheritable(ExecInput i) {
+        /* We assume these listed inputs refer to bidirectional streams, and hence duplicating them from
+         * stdin to stdout/stderr makes sense and hence allowing EXEC_OUTPUT_INHERIT makes sense, too.
+         * Outputs such as regular files or sealed data memfds otoh don't really make sense to be
+         * duplicated for both input and output at the same time (since they then would cause a feedback
+         * loop). */
+
+        return exec_input_is_terminal(i) || IN_SET(i, EXEC_INPUT_SOCKET, EXEC_INPUT_NAMED_FD);
+}
+
 int exec_spawn(
                 Unit *unit,
                 ExecCommand *command,
