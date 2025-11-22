@@ -6,7 +6,6 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "bitfield.h"
-#include "bootspec.h"
 #include "boot-entry.h"
 #include "constants.h"
 #include "creds-util.h"
@@ -14,7 +13,6 @@
 #include "dirent-util.h"
 #include "dlfcn-util.h"
 #include "efi-api.h"
-#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -42,7 +40,6 @@
 #include "sync-util.h"
 #include "time-util.h"
 #include "tpm2-pcr.h"
-#include "tmpfile-util.h"
 #include "tpm2-util.h"
 #include "virt.h"
 

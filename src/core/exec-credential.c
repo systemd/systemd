@@ -22,12 +22,12 @@
 #include "ordered-set.h"
 #include "path-lookup.h"
 #include "path-util.h"
-#include "process-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
 #include "siphash24.h"
 #include "stat-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
 

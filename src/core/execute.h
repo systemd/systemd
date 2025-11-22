@@ -6,7 +6,6 @@
 #include "sd-id128.h"
 
 #include "bus-unit-util.h"
-#include "cgroup-util.h"
 #include "core-forward.h"
 #include "cpu-set-util.h"
 #include "exec-util.h"
