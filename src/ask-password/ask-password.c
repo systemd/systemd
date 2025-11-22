@@ -371,7 +371,7 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
 
         sd_json_variant_sensitive(vl);
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("passwords", SD_JSON_BUILD_VARIANT(vl)));
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("passwords", vl));
 }
 
 static int vl_server(void) {
