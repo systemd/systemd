@@ -308,7 +308,6 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
 static int fixup_input(
                 const ExecContext *context,
-                int socket_fd,
                 bool apply_tty_stdin) {
 
         ExecInput std_input;
@@ -320,21 +319,10 @@ static int fixup_input(
         if (exec_input_is_terminal(std_input) && !apply_tty_stdin)
                 return EXEC_INPUT_NULL;
 
-        if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
-                return EXEC_INPUT_NULL;
-
         if (std_input == EXEC_INPUT_DATA && context->stdin_data_size == 0)
                 return EXEC_INPUT_NULL;
 
         return std_input;
-}
-
-static int fixup_output(ExecOutput output, int socket_fd) {
-
-        if (output == EXEC_OUTPUT_SOCKET && socket_fd < 0)
-                return EXEC_OUTPUT_INHERIT;
-
-        return output;
 }
 
 static int setup_input(
@@ -361,7 +349,7 @@ static int setup_input(
                 return STDIN_FILENO;
         }
 
-        i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
+        i = fixup_input(context, params->flags & EXEC_APPLY_TTY_STDIN);
 
         switch (i) {
 
@@ -445,15 +433,16 @@ static int setup_input(
         }
 }
 
-static bool can_inherit_stderr_from_stdout(
-                const ExecContext *context,
-                ExecOutput o,
-                ExecOutput e) {
+static bool can_inherit_stderr_from_stdout(const ExecContext *context) {
+        ExecOutput o, e;
 
         assert(context);
 
         /* Returns true, if given the specified STDERR and STDOUT output we can directly dup() the stdout fd to the
          * stderr fd */
+
+        o = context->std_output;
+        e = context->std_error;
 
         if (e == EXEC_OUTPUT_INHERIT)
                 return true;
@@ -508,12 +497,11 @@ static int setup_output(
                 return STDERR_FILENO;
         }
 
-        i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
-        o = fixup_output(context->std_output, socket_fd);
+        i = fixup_input(context, params->flags & EXEC_APPLY_TTY_STDIN);
+        o = context->std_output;
 
         if (fileno == STDERR_FILENO) {
-                ExecOutput e;
-                e = fixup_output(context->std_error, socket_fd);
+                ExecOutput e = context->std_error;
 
                 /* This expects the input and output are already set up */
 
@@ -527,7 +515,7 @@ static int setup_output(
                         return fileno;
 
                 /* Duplicate from stdout if possible */
-                if (can_inherit_stderr_from_stdout(context, o, e)) {
+                if (can_inherit_stderr_from_stdout(context)) {
                         r = fd_is_writable(STDOUT_FILENO);
                         if (r <= 0) {
                                 if (r < 0)
