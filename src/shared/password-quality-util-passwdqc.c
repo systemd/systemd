@@ -1,14 +1,17 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "password-quality-util-passwdqc.h"
+
+#if HAVE_PASSWDQC
+
+#include <passwdqc.h>
+
 #include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "errno-util.h"
 #include "log.h"
 #include "memory-util.h"
-#include "password-quality-util-passwdqc.h"
 #include "strv.h"
-
-#if HAVE_PASSWDQC
 
 static void *passwdqc_dl = NULL;
 

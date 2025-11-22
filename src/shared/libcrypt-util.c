@@ -7,7 +7,7 @@
 #include "errno-util.h"
 #include "libcrypt-util.h"
 #include "log.h"
-#include "random-util.h"
+#include "random-util.h"        /* IWYU pragma: keep */
 #include "string-util.h"
 #include "strv.h"
 

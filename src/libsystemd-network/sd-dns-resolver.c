@@ -6,8 +6,6 @@
 #include "errno-util.h"
 #include "siphash24.h"
 #include "socket-netlink.h"
-#include "stdio-util.h"
-#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "unaligned.h"

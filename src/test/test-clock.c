@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "clock-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "log.h"

@@ -4,7 +4,7 @@
 
 #include "alloc-util.h"
 #include "bitmap.h"
-#include "dns-answer.h"
+#include "dns-answer.h"                 /* IWYU pragma: keep */
 #include "dns-domain.h"
 #include "dns-packet.h"
 #include "dns-rr.h"
