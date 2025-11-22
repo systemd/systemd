@@ -186,6 +186,9 @@ static void unit_init(Unit *u) {
         if (ec) {
                 exec_context_init(ec);
 
+                s->exec_context.std_output = u->manager->defaults.std_output;
+                s->exec_context.std_error = u->manager->defaults.std_error;
+
                 if (u->manager->defaults.oom_score_adjust_set) {
                         ec->oom_score_adjust = u->manager->defaults.oom_score_adjust;
                         ec->oom_score_adjust_set = true;
