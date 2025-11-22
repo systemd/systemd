@@ -443,6 +443,35 @@ static int setup_input(
         }
 }
 
+static bool can_inherit_stdout_from_stdin(
+                const ExecContext *context,
+                ExecInput i,
+                ExecOutput o) {
+
+        int r;
+
+        if (o != EXEC_OUTPUT_INHERIT)
+                return false;
+
+        /* /dev/null and memfd are made read only in setup_input(), hence we'll need to fall back. */
+        if (IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA))
+                return false;
+
+        /* Validate that stdin we're about to inherit is writable. Note that for stdio types other than
+         * extrinsic fd this check is unnecessary, as we're the one originally opened stdin in setup_input()
+         * so we know it's the case. */
+        if (context->stdio_as_fds) {
+                r = fd_vet_accmode(STDIN_FILENO, O_WRONLY);
+                assert(r <= 0); /* should be readable at least */
+                if (r < 0) {
+                        log_warning_errno(r, "StandardOutput= is set to 'inherit' yet stdin fd is not writable, using fallback: %m");
+                        return false;
+                }
+        }
+
+        return true;
+}
+
 static bool can_inherit_stderr_from_stdout(
                 const ExecContext *context,
                 ExecOutput o,
@@ -534,20 +563,8 @@ static int setup_output(
                 if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
                         return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
 
-                /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
-                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA)) {
-                        r = fd_is_writable(STDIN_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdin is writable for %s, falling back to /dev/null.",
-                                                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                else
-                                        log_warning("Inherited stdin is not writable for %s, falling back to /dev/null.",
-                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                return open_null_as(O_WRONLY, fileno);
-                        }
+                if (can_inherit_stdout_from_stdin(context, i, o))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
-                }
 
                 /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
                 if (getppid() != 1)
