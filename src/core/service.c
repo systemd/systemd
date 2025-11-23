@@ -2749,6 +2749,34 @@ static void service_enter_reload_post(Service *s) {
                 service_reload_finish(s, SERVICE_SUCCESS);
 }
 
+static int service_check_reload_signal_handler(Service *s, bool fatal) {
+        int r;
+
+        assert(s);
+
+        if (!pidref_is_set(&s->main_pid))
+                return 0;
+
+        r = pidref_has_sigcgt(&s->main_pid, s->reload_signal);
+        if (r < 0) {
+                if (r != -ESRCH)
+                        log_unit_warning_errno(UNIT(s), r, "Failed to check for reload signal handler: %m");
+                return fatal ? r : 0;
+        }
+
+        if (r == 0) {
+                log_unit_warning(
+                                UNIT(s),
+                                "Main process " PID_FMT " lacks handler for reload signal %s%s",
+                                s->main_pid.pid,
+                                signal_to_string(s->reload_signal),
+                                fatal ? ", refusing to reload." : ".");
+                return fatal ? -ENOTSUP : 0;
+        }
+
+        return 1;
+}
+
 static void service_enter_reload_signal(Service *s) {
         int r;
 
@@ -2772,6 +2800,13 @@ static void service_enter_reload_signal(Service *s) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to install timer: %m");
                         goto fail;
                 }
+
+                /* This is naturally racy, but that's fine. The issue we're looking for is almost always a
+                 * static programming error (handler not yet installed), but if a user wants to shoot
+                 * themself in the foot intentionally by racing with us, who are we to stop them :-) */
+                r = service_check_reload_signal_handler(s, /* fatal= */ true);
+                if (r < 0)
+                        goto fail;
 
                 r = pidref_kill_and_sigcont(&s->main_pid, s->reload_signal);
                 if (r < 0) {
@@ -4846,6 +4881,8 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                 return;
 
         if (strv_contains(tags, "READY=1")) {
+                /* service_enter_start_post() transitions us out of SERVICE_START, so capture the state early. */
+                bool service_start_transition = s->state == SERVICE_START;
 
                 if (s->notify_state == NOTIFY_RELOADING)
                         s->notify_state = NOTIFY_RELOAD_READY;
@@ -4877,6 +4914,10 @@ static void service_notify_message_process_state(Service *s, char * const *tags)
                 if (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD) &&
                     s->state == SERVICE_START)
                         service_enter_start_post(s);
+
+                /* Only check for a reload handler before leaving SERVICE_START. */
+                if (s->type == SERVICE_NOTIFY_RELOAD && service_start_transition)
+                        (void) service_check_reload_signal_handler(s, /* fatal= */ false);
 
                 /* Sending READY=1 while we are reloading informs us that the reloading is complete. */
                 if (s->state == SERVICE_RELOAD_NOTIFY)
