@@ -16,6 +16,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "utf8.h"
+#include "bus-label.h"
 
 typedef int (*push_env_func_t)(
                 const char *filename,
