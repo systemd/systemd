@@ -25,12 +25,11 @@
 
     <para>Operating systems using the
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> system and
-    service manager are organized based on a file system hierarchy inspired by UNIX,
-    as described in <ulink url="https://uapi-group.org/specifications/specs/linux_file_system_hierarchy/">
-    Linux File System Hierarchy</ulink>.
-    Additional requirements on <emphasis>when</emphasis> given parts of the hierarchy
-    must be available during boot are listed in
-    <ulink url="https://systemd.io/MOUNT_REQUIREMENTS/">Mount Requirements</ulink>.</para>
+    service manager are organized based on a file system hierarchy inspired by UNIX, as described in <ulink
+    url="https://uapi-group.org/specifications/specs/linux_file_system_hierarchy/"> UAPI.9 Linux File System
+    Hierarchy</ulink>.  Additional requirements on <emphasis>when</emphasis> given parts of the hierarchy
+    must be available during boot are listed in <ulink url="https://systemd.io/MOUNT_REQUIREMENTS/">Mount
+    Requirements</ulink>.</para>
 
     <para>Many of the paths described here can be queried
     with the

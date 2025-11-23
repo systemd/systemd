@@ -966,7 +966,7 @@ stored sock 0:8   4213190 -      socket:[4213190] ro
       <para>This command analyzes the specified image policy string, as per
       <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
       policy is normalized and simplified. For each currently defined partition identifier (as per the <ulink
-      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
+      url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable
       Partitions Specification</ulink>) the effect of the image policy string is shown in tabular form.</para>
 
       <example>

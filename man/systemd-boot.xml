@@ -39,12 +39,12 @@
 
     <itemizedlist>
       <listitem><para>Boot entries defined with <ulink
-      url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> Type #1
+      url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> Type #1
       description files located in <filename>/loader/entries/</filename> on the ESP and the Extended Boot
       Loader Partition. These usually describe Linux kernel images with associated initrd images, but
       alternatively may also describe other arbitrary EFI executables.</para></listitem>
 
-      <listitem><para>Unified kernel images, <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot
+      <listitem><para>Unified kernel images, <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot
       Loader Specification</ulink> Type #2, which are executable EFI binaries in
       <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader Partition.</para></listitem>
 
@@ -373,11 +373,11 @@
     <citerefentry><refentrytitle>loader.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
 
     <para>Boot entry description files following the <ulink
-    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> are read from
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> are read from
     <filename>/loader/entries/</filename> on the ESP and the Extended Boot Loader partition.</para>
 
     <para>Unified kernel boot entries following the <ulink
-    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink> are read from
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink> are read from
     <filename>/EFI/Linux/</filename> on the ESP and the Extended Boot Loader partition.</para>
 
     <para>Optionally, a random seed for early boot entropy pool provisioning is stored in
@@ -657,7 +657,7 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
     <title>Boot Counting</title>
 
     <para><command>systemd-boot</command> implements a simple boot counting mechanism on top of the <ulink
-    url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>, for automatic and unattended
+    url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>, for automatic and unattended
     fallback to older kernel versions/boot loader entries when a specific entry continuously fails. Any boot loader
     entry file and unified kernel image file that contains a <literal>+</literal> followed by one or two numbers (if
     two they need to be separated by a <literal>-</literal>), before the <filename>.conf</filename> or
@@ -742,7 +742,7 @@ uki-url http://example.com/somedir/fooos.efi</programlisting>
       <member><citerefentry><refentrytitle>systemd-boot-random-seed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>kernel-install</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
-      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink></member>
       <member><ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink></member>
       <member><ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink></member>
     </simplelist></para>
