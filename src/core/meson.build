@@ -139,6 +139,7 @@ libcore_static = static_library(
                         librt,
                         libseccomp_cflags,
                         libselinux_cflags,
+                        libcryptsetup_cflags,
                         threads,
                         userspace],
         build_by_default : false)
