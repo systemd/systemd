@@ -12,6 +12,7 @@
 #include "build.h"
 #include "discover-image.h"
 #include "env-util.h"
+#include "fd-util.h"
 #include "json-util.h"
 #include "hexdecoct.h"
 #include "import-common.h"
@@ -167,6 +168,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
                         pull,
                         url,
                         normalized,
+                        -EBADF,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                         arg_verify,
                         &arg_checksum);
@@ -234,6 +236,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
                         pull,
                         url,
                         normalized,
+                        -EBADF,
                         arg_offset,
                         arg_size_max,
                         arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
@@ -250,7 +253,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
-static int pull_direct(const char *url, const char *local, ImportType type) {
+static int pull_direct(const char *url, int local_fd, ImportType type) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(tar_pull_unrefp) TarPull *tar_pull = NULL;
         _cleanup_(raw_pull_unrefp) RawPull *raw_pull = NULL;
@@ -261,8 +264,8 @@ static int pull_direct(const char *url, const char *local, ImportType type) {
         if (!http_url_is_valid(url) && !file_url_is_valid(url))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "URL '%s' is not valid.", url);
 
-        if (!path_is_absolute(local) || !path_is_valid(local))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Local path name '%s' is not valid.", local);
+        //if (!path_is_absolute(local) || !path_is_valid(local))
+        //        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Local path name '%s' is not valid.", local);
 
         if (!FLAGS_SET(arg_import_flags, IMPORT_SYNC))
                 log_info("File system synchronization on completion is off.");
@@ -279,10 +282,11 @@ static int pull_direct(const char *url, const char *local, ImportType type) {
                 r = tar_pull_start(
                                 tar_pull,
                                 url,
-                                local,
+                                NULL,
+                                local_fd,
                                 arg_import_flags & IMPORT_PULL_FLAGS_MASK_TAR,
                                 arg_verify,
-                                arg_checksum);
+                                &arg_checksum);
         } else if (type == IMPORT_RAW) {
                 r = raw_pull_new(&raw_pull, event, arg_image_root, on_raw_finished, event);
                 if (r < 0)
@@ -291,12 +295,13 @@ static int pull_direct(const char *url, const char *local, ImportType type) {
                 r = raw_pull_start(
                                 raw_pull,
                                 url,
-                                local,
+                                NULL,
+                                local_fd,
                                 arg_offset,
                                 arg_size_max,
                                 arg_import_flags & IMPORT_PULL_FLAGS_MASK_RAW,
                                 arg_verify,
-                                arg_checksum);
+                                &arg_checksum);
         } else {
                 assert_not_reached ();
         }
@@ -689,7 +694,7 @@ typedef struct MethodPullParameters {
         bool fsync;
         const char *checksum;
         const char *source;
-        const char *destination;
+        unsigned destination_fd_index;
         uint64_t offset;
         uint64_t size_max;
         bool subvolume;
@@ -705,8 +710,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 { "fsync",          SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodPullParameters, fsync),       0 },
                 { "checksum",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, checksum),    SD_JSON_MANDATORY },
                 { "source",         SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, source),      SD_JSON_MANDATORY },
-                { "destination",    SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, destination), SD_JSON_MANDATORY },
-                { "cacheDirectory", SD_JSON_VARIANT_STRING,  NULL,                          0,                                           0 },
+                { "destinationFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, offsetof(MethodPullParameters, destination_fd_index), SD_JSON_MANDATORY },
                 { "instances",      SD_JSON_VARIANT_ARRAY,   NULL,                          0,                                           0 },
                 { "offset",         SD_JSON_VARIANT_NUMBER,  sd_json_dispatch_uint64,       offsetof(MethodPullParameters, offset),      0 },
                 { "maxSize",        SD_JSON_VARIANT_NUMBER,  sd_json_dispatch_uint64,       offsetof(MethodPullParameters, size_max),    0 },
@@ -715,8 +719,9 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
         };
 
         MethodPullParameters p = {
-                .fsync = true,
                 .mode = _IMPORT_TYPE_INVALID,
+                .fsync = true,
+                .destination_fd_index = UINT_MAX,
                 .offset = UINT64_MAX,
                 .size_max = UINT64_MAX,
                 .subvolume = false,
@@ -728,6 +733,10 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
+
+        int destination_fd = sd_varlink_take_fd(link, p.destination_fd_index);
+        if (destination_fd < 0)
+                return sd_varlink_error(link, "io.systemd.PullWorker.InvalidParameters", NULL);
 
         SET_FLAG(arg_import_flags, IMPORT_SYNC, p.fsync);
 
@@ -752,7 +761,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r < 0)
                 return sd_varlink_error(link, "io.systemd.PullWorker.InvalidParameters", NULL);
 
-        r = pull_direct(p.source, p.destination, p.mode);
+        r = pull_direct(p.source, TAKE_FD(destination_fd), p.mode);
         if (r < 0)
                 return sd_varlink_error(link, "io.systemd.PullWorker.PullError", NULL);
 
@@ -763,7 +772,7 @@ static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
         int r;
 
-        r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, /* userdata= */ NULL);
+        r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_ALLOW_FD_PASSING_INPUT, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 

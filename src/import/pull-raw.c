@@ -52,6 +52,7 @@ typedef struct RawPull {
 
         char *local; /* In PULL_DIRECT mode the path we are supposed to place things in, otherwise the
                       * image name of the final copy we make */
+        int local_fd;
 
         char *final_path;
         char *temp_path;
@@ -726,17 +727,20 @@ static int raw_pull_job_on_open_disk_raw(PullJob *j) {
 
         if (p->flags & IMPORT_DIRECT) {
 
-                if (!p->local) { /* If no local name specified, the pull job will write its data to stdout */
+                if (p->local_fd >= 0)
+                        j->disk_fd = p->local_fd;
+                else if (!p->local) { /* If no local name specified, the pull job will write its data to stdout */
                         j->disk_fd = STDOUT_FILENO;
                         j->close_disk_fd = false;
                         return 0;
+                } else {
+
+                        (void) mkdir_parents_label(p->local, 0700);
+
+                        j->disk_fd = open(p->local, O_RDWR|O_NOCTTY|O_CLOEXEC|(p->offset == UINT64_MAX ? O_TRUNC|O_CREAT : 0), 0664);
+                        if (j->disk_fd < 0)
+                                return log_error_errno(errno, "Failed to open destination '%s': %m", p->local);
                 }
-
-                (void) mkdir_parents_label(p->local, 0700);
-
-                j->disk_fd = open(p->local, O_RDWR|O_NOCTTY|O_CLOEXEC|(p->offset == UINT64_MAX ? O_TRUNC|O_CREAT : 0), 0664);
-                if (j->disk_fd < 0)
-                        return log_error_errno(errno, "Failed to open destination '%s': %m", p->local);
 
                 if (p->offset == UINT64_MAX)
                         (void) import_set_nocow_and_log(j->disk_fd, p->local);
@@ -816,6 +820,7 @@ int raw_pull_start(
                 RawPull *p,
                 const char *url,
                 const char *local,
+                int local_fd,
                 uint64_t offset,
                 uint64_t size_max,
                 ImportFlags flags,
@@ -846,6 +851,7 @@ int raw_pull_start(
         r = free_and_strdup(&p->local, local);
         if (r < 0)
                 return r;
+        p->local_fd = local_fd;
 
         p->flags = flags;
         p->verify = verify;

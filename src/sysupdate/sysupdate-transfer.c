@@ -1108,7 +1108,6 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
                 r = sd_json_variant_append_arraybo(
                         &instances_array,
                         SD_JSON_BUILD_PAIR_STRING("version", (*instance)->metadata.version),
-                        SD_JSON_BUILD_PAIR_STRING("cacheDirectory", ""),
                         SD_JSON_BUILD_PAIR_STRING("location", (*instance)->path));
                 if (r < 0)
                         return log_error_errno(r, "Failed to append instance info to pull request: %m");
@@ -1118,6 +1117,27 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
         r = sd_varlink_connect_exec(&pull_link, SYSTEMD_PULL_PATH, /* argv= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect systemd-pull: %m");
+
+        r = sd_varlink_set_allow_fd_passing_output(pull_link, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enable varlink fd passing for write: %m");
+
+        char *destination_path = t->target.type == RESOURCE_PARTITION ? t->target.path : t->temporary_path;
+        if (RESOURCE_IS_TAR(i->resource->type)) {
+                (void) rm_rf(destination_path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
+                r = RET_NERRNO(mkdir(destination_path, 0755));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create directory %s: %m", destination_path);
+        }
+
+        int destination_flags = O_CLOEXEC|(RESOURCE_IS_TAR(i->resource->type) ? O_DIRECTORY|O_NOFOLLOW : O_RDWR|O_NOCTTY|(t->target.type != RESOURCE_PARTITION ? O_TRUNC|O_CREAT : 0));
+        int destination_fd = open(destination_path, destination_flags, 0664);
+        if (destination_fd < 0)
+                return log_error_errno(errno, "Failed to open %s: %m", destination_path);
+
+        int destination_fd_index = sd_varlink_push_fd(pull_link, TAKE_FD(destination_fd));
+        if (destination_fd_index < 0)
+                return log_error_errno(destination_fd_index, "Failed to push destination fd into varlink socket: %m");
 
         const char *error_id = NULL;
         r = varlink_callbo_and_log(
@@ -1130,8 +1150,7 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
                 SD_JSON_BUILD_PAIR_BOOLEAN("fsync", fsync),
                 SD_JSON_BUILD_PAIR_STRING("checksum", digest),
                 SD_JSON_BUILD_PAIR_STRING("source", i->path),
-                SD_JSON_BUILD_PAIR_STRING("destination", t->target.type == RESOURCE_PARTITION ? t->target.path : t->temporary_path),
-                SD_JSON_BUILD_PAIR_STRING("cacheDirectory", ""),
+                SD_JSON_BUILD_PAIR_UNSIGNED("destinationFileDescriptor", destination_fd_index),
                 SD_JSON_BUILD_PAIR_ARRAY("instances", instances_array),
                 SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "offset", SD_JSON_BUILD_UNSIGNED(t->partition_info.start)),
                 SD_JSON_BUILD_PAIR_CONDITION(t->target.type == RESOURCE_PARTITION, "maxSize", SD_JSON_BUILD_UNSIGNED(t->partition_info.size)),
