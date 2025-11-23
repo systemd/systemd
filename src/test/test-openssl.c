@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "openssl-util.h"
+#include "random-util.h"
 #include "tests.h"
 
 TEST(openssl_pkey_from_pem) {
@@ -477,6 +478,35 @@ TEST(ecc_ecdh) {
         assert_se(memcmp_nn(secretAB, secretAB_size, secretBA, secretBA_size) == 0);
         assert_se(memcmp_nn(secretAC, secretAC_size, secretCA, secretCA_size) == 0);
         assert_se(memcmp_nn(secretAC, secretAC_size, secretAB, secretAB_size) != 0);
+}
+
+TEST(rsa_encrypt_pkcs1) {
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free_ void *cipher = NULL, *plain2 = NULL;
+        size_t cipher_size, plain2_size;
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *genctx = NULL;
+
+        genctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, NULL);
+        assert_se(genctx);
+        assert_se(EVP_PKEY_keygen_init(genctx) == 1);
+        assert_se(EVP_PKEY_CTX_set_rsa_keygen_bits(genctx, 2048) == 1);
+        assert_se(EVP_PKEY_keygen(genctx, &pkey) == 1);
+
+        uint8_t plain[32];
+        assert_se(crypto_random_bytes(plain, sizeof(plain)) >= 0);
+
+        assert_se(rsa_encrypt_bytes(pkey, plain, sizeof(plain), &cipher, &cipher_size) >= 0);
+
+        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(pkey, NULL);
+        assert_se(ctx);
+        assert_se(EVP_PKEY_decrypt_init(ctx) == 1);
+        assert_se(EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PADDING) == 1);
+        assert_se(EVP_PKEY_decrypt(ctx, NULL, &plain2_size, cipher, cipher_size) == 1);
+        plain2 = malloc(plain2_size);
+        assert_se(plain2);
+        assert_se(EVP_PKEY_decrypt(ctx, plain2, &plain2_size, cipher, cipher_size) == 1);
+        assert_se(plain2_size == sizeof(plain));
+        assert_se(memcmp(plain, plain2, sizeof(plain)) == 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
