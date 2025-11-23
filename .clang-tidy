@@ -4,7 +4,13 @@ Checks: '
     -*,
     misc-header-include-cycle,
     readability-duplicate-include,
+    readability-misleading-indentation,
+    readability-named-parameter,
+    readability-inconsistent-declaration-parameter-name,
     bugprone-argument-comment,
+    bugprone-sizeof-expression,
+    bugprone-tautological-type-limits,
+    bugprone-integer-division,
     misc-include-cleaner
 '
 CheckOptions:

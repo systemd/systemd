@@ -71,7 +71,7 @@ void bus_send_pending_reload_message(Manager *m) {
         return;
 }
 
-static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         sd_bus *bus;
 
@@ -161,7 +161,7 @@ failed:
 }
 
 #if HAVE_SELINUX
-static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = userdata;
         const char *verb, *path;
         Unit *u = NULL;
@@ -189,7 +189,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
                 return 0;
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
-                r = mac_selinux_access_check(message, verb, error);
+                r = mac_selinux_access_check(message, verb, reterr_error);
                 if (r < 0)
                         return r;
 
@@ -214,7 +214,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         if (!u)
                 return 0;
 
-        r = mac_selinux_unit_access_check(u, message, verb, error);
+        r = mac_selinux_unit_access_check(u, message, verb, reterr_error);
         if (r < 0)
                 return r;
 
@@ -222,7 +222,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
 }
 #endif
 
-static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_bus_error *error) {
+static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_bus_error *reterr_error) {
         Unit *u = NULL;  /* just to appease gcc, initialization is not really necessary */
         int r;
 
@@ -246,7 +246,7 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
                 if (!u)
                         return 0;
         } else {
-                r = manager_load_unit_from_dbus_path(m, path, error, &u);
+                r = manager_load_unit_from_dbus_path(m, path, reterr_error, &u);
                 if (r < 0)
                         return 0;
                 assert(u);
@@ -256,7 +256,7 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
         return 1;
 }
 
-static int bus_unit_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_unit_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
 
         assert(bus);
@@ -264,10 +264,10 @@ static int bus_unit_find(sd_bus *bus, const char *path, const char *interface, v
         assert(interface);
         assert(found);
 
-        return find_unit(m, bus, path, (Unit**) found, error);
+        return find_unit(m, bus, path, (Unit**) found, reterr_error);
 }
 
-static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         Unit *u;
         int r;
@@ -277,7 +277,7 @@ static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *in
         assert(interface);
         assert(found);
 
-        r = find_unit(m, bus, path, &u, error);
+        r = find_unit(m, bus, path, &u, reterr_error);
         if (r <= 0)
                 return r;
 
@@ -288,7 +288,7 @@ static int bus_unit_interface_find(sd_bus *bus, const char *path, const char *in
         return 1;
 }
 
-static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         Unit *u;
         int r;
@@ -298,7 +298,7 @@ static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *inter
         assert(interface);
         assert(found);
 
-        r = find_unit(m, bus, path, &u, error);
+        r = find_unit(m, bus, path, &u, reterr_error);
         if (r <= 0)
                 return r;
 
@@ -312,7 +312,7 @@ static int bus_unit_cgroup_find(sd_bus *bus, const char *path, const char *inter
         return 1;
 }
 
-static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         CGroupContext *c;
         Unit *u;
@@ -323,7 +323,7 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
         assert(interface);
         assert(found);
 
-        r = find_unit(m, bus, path, &u, error);
+        r = find_unit(m, bus, path, &u, reterr_error);
         if (r <= 0)
                 return r;
 
@@ -338,7 +338,7 @@ static int bus_cgroup_context_find(sd_bus *bus, const char *path, const char *in
         return 1;
 }
 
-static int bus_unit_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_unit_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         Unit *u;
         int r;
@@ -348,7 +348,7 @@ static int bus_unit_exec_context_find(sd_bus *bus, const char *path, const char 
         assert(interface);
         assert(found);
 
-        r = find_unit(m, bus, path, &u, error);
+        r = find_unit(m, bus, path, &u, reterr_error);
         if (r <= 0)
                 return r;
 
@@ -362,7 +362,7 @@ static int bus_unit_exec_context_find(sd_bus *bus, const char *path, const char 
         return 1;
 }
 
-static int bus_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_exec_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         ExecContext *c;
         int r;
 
@@ -372,7 +372,7 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
         assert(found);
 
         Unit *u;
-        r = bus_unit_exec_context_find(bus, path, interface, userdata, (void**) &u, error);
+        r = bus_unit_exec_context_find(bus, path, interface, userdata, (void**) &u, reterr_error);
         if (r <= 0)
                 return r;
 
@@ -384,7 +384,7 @@ static int bus_exec_context_find(sd_bus *bus, const char *path, const char *inte
         return 1;
 }
 
-static int bus_kill_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *error) {
+static int bus_kill_context_find(sd_bus *bus, const char *path, const char *interface, void *userdata, void **found, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
         KillContext *c;
         Unit *u;
@@ -395,7 +395,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
         assert(interface);
         assert(found);
 
-        r = find_unit(m, bus, path, &u, error);
+        r = find_unit(m, bus, path, &u, reterr_error);
         if (r <= 0)
                 return r;
 
@@ -410,7 +410,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
         return 1;
 }
 
-static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
+static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
         _cleanup_strv_free_ char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;

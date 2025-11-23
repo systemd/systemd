@@ -685,10 +685,10 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
         return 0;
 }
 
-int parse_nice(const char *p, int *ret) {
+int parse_nice(const char *s, int *ret) {
         int n, r;
 
-        r = safe_atoi(p, &n);
+        r = safe_atoi(s, &n);
         if (r < 0)
                 return r;
 

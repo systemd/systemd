@@ -30,12 +30,12 @@ int icmp6_send(int fd, const struct in6_addr *dst, const struct iovec *iov, size
 
 int icmp6_receive(
                 int fd,
-                void *iov_base,
-                size_t iov_len,
+                void *buffer,
+                size_t size,
                 struct in6_addr *ret_sender,
                 triple_timestamp *ret_timestamp) {
 
-        assert_se(read (fd, iov_base, iov_len) == (ssize_t) iov_len);
+        assert_se(read(fd, buffer, size) == (ssize_t) size);
 
         if (ret_timestamp)
                 triple_timestamp_now(ret_timestamp);

@@ -537,8 +537,10 @@ int fexecve_or_execve(int executable_fd, const char *executable, char *const arg
                  * least in case of bash) the script name, $0, will be shown as /dev/fd/nnn, which breaks
                  * scripts which make use of $0. Thus, let's fall back to execve() in this case.
                  */
-#endif
                 execve(executable, argv, envp);
+#else
+        execve(executable, argv, envp);
+#endif
         return -errno;
 }
 

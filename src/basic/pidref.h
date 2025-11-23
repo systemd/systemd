@@ -96,7 +96,7 @@ int pidref_kill(const PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(const PidRef *pidref, int sig);
 int pidref_sigqueue(const PidRef *pidref, int sig, int value);
 
-int pidref_wait(PidRef *pidref, siginfo_t *siginfo, int options);
+int pidref_wait(PidRef *pidref, siginfo_t *ret, int options);
 int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret);
 
 static inline void pidref_done_sigkill_wait(PidRef *pidref) {

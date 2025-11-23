@@ -162,15 +162,15 @@ int serialize_usec(FILE *f, const char *key, usec_t usec) {
         return serialize_item_format(f, key, USEC_FMT, usec);
 }
 
-int serialize_dual_timestamp(FILE *f, const char *name, const dual_timestamp *t) {
+int serialize_dual_timestamp(FILE *f, const char *key, const dual_timestamp *t) {
         assert(f);
-        assert(name);
+        assert(key);
         assert(t);
 
         if (!dual_timestamp_is_set(t))
                 return 0;
 
-        return serialize_item_format(f, name, USEC_FMT " " USEC_FMT, t->realtime, t->monotonic);
+        return serialize_item_format(f, key, USEC_FMT " " USEC_FMT, t->realtime, t->monotonic);
 }
 
 int serialize_strv(FILE *f, const char *key, char * const *l) {
