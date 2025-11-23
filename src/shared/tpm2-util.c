@@ -13,6 +13,7 @@
 #include "dirent-util.h"
 #include "dlfcn-util.h"
 #include "efi-api.h"
+#include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -742,9 +743,12 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 if (!filename_is_valid(fn))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name '%s' not valid, refusing.", driver);
 
-                context->tcti_dl = dlopen(fn, RTLD_NOW|RTLD_NODELETE);
-                if (!context->tcti_dl)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOPKG), "Failed to load %s: %s", fn, dlerror());
+                const char *dle = NULL;
+                r = dlopen_safe(fn, &context->tcti_dl, &dle);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to load %s: %s", fn, dle ?: STRERROR(r));
+                        return -ENOPKG; /* Turn into recognizable error */
+                }
 
                 log_debug("Loaded '%s' via dlopen()", fn);
 
