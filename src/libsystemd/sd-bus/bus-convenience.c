@@ -10,12 +10,12 @@
 #include "bus-type.h"
 #include "string-util.h"
 
-_public_ int sd_bus_message_send(sd_bus_message *reply) {
-        assert_return(reply, -EINVAL);
-        assert_return(reply->bus, -EINVAL);
-        assert_return(!bus_origin_changed(reply->bus), -ECHILD);
+_public_ int sd_bus_message_send(sd_bus_message *m) {
+        assert_return(m, -EINVAL);
+        assert_return(m->bus, -EINVAL);
+        assert_return(!bus_origin_changed(m->bus), -ECHILD);
 
-        return sd_bus_send(reply->bus, reply, NULL);
+        return sd_bus_send(m->bus, m, NULL);
 }
 
 _public_ int sd_bus_emit_signal_tov(
@@ -325,7 +325,7 @@ _public_ int sd_bus_reply_method_errorf(
 _public_ int sd_bus_reply_method_errno(
                 sd_bus_message *call,
                 int error,
-                const sd_bus_error *p) {
+                const sd_bus_error *e) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
 
@@ -341,8 +341,8 @@ _public_ int sd_bus_reply_method_errno(
         if (call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED)
                 return 0;
 
-        if (sd_bus_error_is_set(p))
-                return sd_bus_reply_method_error(call, p);
+        if (sd_bus_error_is_set(e))
+                return sd_bus_reply_method_error(call, e);
 
         sd_bus_error_set_errno(&berror, error);
 

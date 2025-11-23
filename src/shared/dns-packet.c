@@ -452,7 +452,7 @@ static int dns_packet_extend(DnsPacket *p, size_t add, void **ret, size_t *start
                 *start = p->size;
 
         if (ret)
-                *ret = (uint8_t*) DNS_PACKET_DATA(p) + p->size;
+                *ret = DNS_PACKET_DATA(p) + p->size;
 
         p->size += add;
         return 0;
@@ -1392,7 +1392,7 @@ int dns_packet_read(DnsPacket *p, size_t sz, const void **ret, size_t *start) {
                 return -EMSGSIZE;
 
         if (ret)
-                *ret = (uint8_t*) DNS_PACKET_DATA(p) + p->rindex;
+                *ret = DNS_PACKET_DATA(p) + p->rindex;
 
         if (start)
                 *start = p->rindex;

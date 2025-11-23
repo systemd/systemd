@@ -70,35 +70,35 @@ typedef struct TarPull {
         RateLimit progress_ratelimit;
 } TarPull;
 
-TarPull* tar_pull_unref(TarPull *i) {
-        if (!i)
+TarPull* tar_pull_unref(TarPull *p) {
+        if (!p)
                 return NULL;
 
-        pidref_done_sigkill_wait(&i->tar_pid);
+        pidref_done_sigkill_wait(&p->tar_pid);
 
-        pull_job_unref(i->tar_job);
-        pull_job_unref(i->checksum_job);
-        pull_job_unref(i->signature_job);
-        pull_job_unref(i->settings_job);
+        pull_job_unref(p->tar_job);
+        pull_job_unref(p->checksum_job);
+        pull_job_unref(p->signature_job);
+        pull_job_unref(p->settings_job);
 
-        curl_glue_unref(i->glue);
-        sd_event_unref(i->event);
+        curl_glue_unref(p->glue);
+        sd_event_unref(p->event);
 
-        if (i->temp_path) {
-                import_remove_tree(i->temp_path, &i->userns_fd, i->flags);
-                free(i->temp_path);
+        if (p->temp_path) {
+                import_remove_tree(p->temp_path, &p->userns_fd, p->flags);
+                free(p->temp_path);
         }
-        unlink_and_free(i->settings_temp_path);
+        unlink_and_free(p->settings_temp_path);
 
-        free(i->final_path);
-        free(i->settings_path);
-        free(i->image_root);
-        free(i->local);
+        free(p->final_path);
+        free(p->settings_path);
+        free(p->image_root);
+        free(p->local);
 
-        safe_close(i->tree_fd);
-        safe_close(i->userns_fd);
+        safe_close(p->tree_fd);
+        safe_close(p->userns_fd);
 
-        return mfree(i);
+        return mfree(p);
 }
 
 int tar_pull_new(
@@ -110,7 +110,7 @@ int tar_pull_new(
 
         _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(tar_pull_unrefp) TarPull *i = NULL;
+        _cleanup_(tar_pull_unrefp) TarPull *p = NULL;
         _cleanup_free_ char *root = NULL;
         int r;
 
@@ -133,11 +133,11 @@ int tar_pull_new(
         if (r < 0)
                 return r;
 
-        i = new(TarPull, 1);
-        if (!i)
+        p = new(TarPull, 1);
+        if (!p)
                 return -ENOMEM;
 
-        *i = (TarPull) {
+        *p = (TarPull) {
                 .on_finished = on_finished,
                 .userdata = userdata,
                 .image_root = TAKE_PTR(root),
@@ -150,43 +150,43 @@ int tar_pull_new(
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
         };
 
-        i->glue->on_finished = pull_job_curl_on_finished;
-        i->glue->userdata = i;
+        p->glue->on_finished = pull_job_curl_on_finished;
+        p->glue->userdata = p;
 
-        *ret = TAKE_PTR(i);
+        *ret = TAKE_PTR(p);
 
         return 0;
 }
 
-static void tar_pull_report_progress(TarPull *i, TarProgress p) {
+static void tar_pull_report_progress(TarPull *p, TarProgress progress) {
         unsigned percent;
 
-        assert(i);
+        assert(p);
 
-        switch (p) {
+        switch (progress) {
 
         case TAR_DOWNLOADING: {
                 unsigned remain = 85;
 
                 percent = 0;
 
-                if (i->checksum_job) {
-                        percent += i->checksum_job->progress_percent * 5 / 100;
+                if (p->checksum_job) {
+                        percent += p->checksum_job->progress_percent * 5 / 100;
                         remain -= 5;
                 }
 
-                if (i->signature_job) {
-                        percent += i->signature_job->progress_percent * 5 / 100;
+                if (p->signature_job) {
+                        percent += p->signature_job->progress_percent * 5 / 100;
                         remain -= 5;
                 }
 
-                if (i->settings_job) {
-                        percent += i->settings_job->progress_percent * 5 / 100;
+                if (p->settings_job) {
+                        percent += p->settings_job->progress_percent * 5 / 100;
                         remain -= 5;
                 }
 
-                if (i->tar_job)
-                        percent += i->tar_job->progress_percent * remain / 100;
+                if (p->tar_job)
+                        percent += p->tar_job->progress_percent * remain / 100;
                 break;
         }
 
@@ -206,94 +206,94 @@ static void tar_pull_report_progress(TarPull *i, TarProgress p) {
                 assert_not_reached();
         }
 
-        if (percent == i->last_percent)
+        if (percent == p->last_percent)
                 return;
 
-        if (!ratelimit_below(&i->progress_ratelimit))
+        if (!ratelimit_below(&p->progress_ratelimit))
                 return;
 
         sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
 
         if (isatty_safe(STDERR_FILENO))
-                (void) draw_progress_bar("Total:", percent);
+                draw_progress_bar("Total:", percent);
 
         log_debug("Combined progress %u%%", percent);
 
-        i->last_percent = percent;
+        p->last_percent = percent;
 }
 
 static int tar_pull_determine_path(
-                TarPull *i,
+                TarPull *p,
                 const char *suffix,
                 char **field /* input + output (!) */) {
         int r;
 
-        assert(i);
+        assert(p);
         assert(field);
 
         if (*field)
                 return 0;
 
-        assert(i->tar_job);
+        assert(p->tar_job);
 
-        r = pull_make_path(i->tar_job->url, i->tar_job->etag, i->image_root, ".tar-", suffix, field);
+        r = pull_make_path(p->tar_job->url, p->tar_job->etag, p->image_root, ".tar-", suffix, field);
         if (r < 0)
                 return log_oom();
 
         return 1;
 }
 
-static int tar_pull_make_local_copy(TarPull *i) {
+static int tar_pull_make_local_copy(TarPull *p) {
         _cleanup_(rm_rf_subvolume_and_freep) char *t = NULL;
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ char *path = NULL;
         const char *source;
         int r;
 
-        assert(i);
-        assert(i->tar_job);
+        assert(p);
+        assert(p->tar_job);
 
-        if (!i->local)
+        if (!p->local)
                 return 0;
 
         /* Creates a copy/clone of the original downloaded version (which is supposed to remain untouched)
          * under a local image name (which may then be modified) */
 
-        assert(i->final_path);
+        assert(p->final_path);
 
-        p = path_join(i->image_root, i->local);
-        if (!p)
+        path = path_join(p->image_root, p->local);
+        if (!path)
                 return log_oom();
 
-        if (FLAGS_SET(i->flags, IMPORT_PULL_KEEP_DOWNLOAD)) {
-                r = tempfn_random(p, NULL, &t);
+        if (FLAGS_SET(p->flags, IMPORT_PULL_KEEP_DOWNLOAD)) {
+                r = tempfn_random(path, NULL, &t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate temporary filename for %s: %m", p);
+                        return log_error_errno(r, "Failed to generate temporary filename for %s: %m", path);
 
-                if (FLAGS_SET(i->flags, IMPORT_FOREIGN_UID)) {
+                if (FLAGS_SET(p->flags, IMPORT_FOREIGN_UID)) {
                         /* Copy in userns */
 
-                        r = import_make_foreign_userns(&i->userns_fd);
+                        r = import_make_foreign_userns(&p->userns_fd);
                         if (r < 0)
                                 return r;
 
                         /* Usually, tar_pull_job_on_open_disk_tar() would allocate ->tree_fd for us, but if
                          * already downloaded the image before, and are just making a copy of the original
                          * download, we need to open ->tree_fd now */
-                        if (i->tree_fd < 0) {
-                                _cleanup_close_ int directory_fd = open(i->final_path, O_DIRECTORY|O_CLOEXEC);
+                        if (p->tree_fd < 0) {
+                                _cleanup_close_ int directory_fd = open(p->final_path, O_DIRECTORY|O_CLOEXEC);
                                 if (directory_fd < 0)
-                                        return log_error_errno(errno, "Failed to open '%s': %m", i->final_path);
+                                        return log_error_errno(errno, "Failed to open '%s': %m", p->final_path);
 
                                 struct stat st;
                                 if (fstat(directory_fd, &st) < 0)
-                                        return log_error_errno(errno, "Failed to stat '%s': %m", i->final_path);
+                                        return log_error_errno(errno, "Failed to stat '%s': %m", p->final_path);
 
                                 if (uid_is_foreign(st.st_uid)) {
-                                        r = mountfsd_mount_directory_fd(directory_fd, i->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &i->tree_fd);
+                                        r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &p->tree_fd);
                                         if (r < 0)
                                                 return r;
                                 } else
-                                        i->tree_fd = TAKE_FD(directory_fd);
+                                        p->tree_fd = TAKE_FD(directory_fd);
                         }
 
                         _cleanup_close_ int directory_fd = -EBADF;
@@ -302,71 +302,71 @@ static int tar_pull_make_local_copy(TarPull *i) {
                                 return r;
 
                         _cleanup_close_ int copy_fd = -EBADF;
-                        r = mountfsd_mount_directory_fd(directory_fd, i->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
+                        r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
                         if (r < 0)
                                 return r;
 
-                        r = import_copy_foreign(i->tree_fd, copy_fd, &i->userns_fd);
+                        r = import_copy_foreign(p->tree_fd, copy_fd, &p->userns_fd);
                         if (r < 0)
                                 return r;
                 } else {
                         /* Copy locally */
-                        if (i->flags & IMPORT_BTRFS_SUBVOL)
+                        if (p->flags & IMPORT_BTRFS_SUBVOL)
                                 r = btrfs_subvol_snapshot_at(
-                                                AT_FDCWD, i->final_path,
+                                                AT_FDCWD, p->final_path,
                                                 AT_FDCWD, t,
-                                                (i->flags & IMPORT_BTRFS_QUOTA ? BTRFS_SNAPSHOT_QUOTA : 0)|
+                                                (p->flags & IMPORT_BTRFS_QUOTA ? BTRFS_SNAPSHOT_QUOTA : 0)|
                                                 BTRFS_SNAPSHOT_FALLBACK_COPY|
                                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY|
                                                 BTRFS_SNAPSHOT_RECURSIVE);
                         else
-                                r = copy_tree(i->final_path, t, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree(p->final_path, t, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_HARDLINKS, NULL, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create original download image: %m");
                 }
 
                 source = t;
         } else
-                source = i->final_path;
+                source = p->final_path;
 
         r = install_file(AT_FDCWD, source,
-                         AT_FDCWD, p,
-                         (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
-                         (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY|INSTALL_GRACEFUL : 0) |
-                         (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
+                         AT_FDCWD, path,
+                         (p->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
+                         (p->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY|INSTALL_GRACEFUL : 0) |
+                         (p->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
         if (r < 0)
-                return log_error_errno(r, "Failed to install local image '%s': %m", p);
+                return log_error_errno(r, "Failed to install local image '%s': %m", path);
 
         t = mfree(t);
 
         clear_progress_bar(/* prefix= */ NULL);
-        log_info("Created new local image '%s'.", i->local);
+        log_info("Created new local image '%s'.", p->local);
 
-        if (FLAGS_SET(i->flags, IMPORT_PULL_SETTINGS)) {
+        if (FLAGS_SET(p->flags, IMPORT_PULL_SETTINGS)) {
                 _cleanup_free_ char *local_settings = NULL;
-                assert(i->settings_job);
+                assert(p->settings_job);
 
-                r = tar_pull_determine_path(i, ".nspawn", &i->settings_path);
+                r = tar_pull_determine_path(p, ".nspawn", &p->settings_path);
                 if (r < 0)
                         return r;
 
-                local_settings = strjoin(i->image_root, "/", i->local, ".nspawn");
+                local_settings = strjoin(p->image_root, "/", p->local, ".nspawn");
                 if (!local_settings)
                         return log_oom();
 
-                if (FLAGS_SET(i->flags, IMPORT_PULL_KEEP_DOWNLOAD))
+                if (FLAGS_SET(p->flags, IMPORT_PULL_KEEP_DOWNLOAD))
                         r = copy_file_atomic(
-                                        i->settings_path,
+                                        p->settings_path,
                                         local_settings,
                                         0664,
                                         COPY_REFLINK |
-                                        (FLAGS_SET(i->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
-                                        (FLAGS_SET(i->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
+                                        (FLAGS_SET(p->flags, IMPORT_FORCE) ? COPY_REPLACE : 0) |
+                                        (FLAGS_SET(p->flags, IMPORT_SYNC) ? COPY_FSYNC_FULL : 0));
                 else
-                        r = install_file(AT_FDCWD, i->settings_path,
+                        r = install_file(AT_FDCWD, p->settings_path,
                                          AT_FDCWD, local_settings,
-                                         (i->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
-                                         (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
+                                         (p->flags & IMPORT_FORCE ? INSTALL_REPLACE : 0) |
+                                         (p->flags & IMPORT_SYNC ? INSTALL_SYNCFS : 0));
                 if (r == -EEXIST)
                         log_warning_errno(r, "Settings file %s already exists, not replacing.", local_settings);
                 else if (r == -ENOENT)
@@ -380,17 +380,17 @@ static int tar_pull_make_local_copy(TarPull *i) {
         return 0;
 }
 
-static bool tar_pull_is_done(TarPull *i) {
-        assert(i);
-        assert(i->tar_job);
+static bool tar_pull_is_done(TarPull *p) {
+        assert(p);
+        assert(p->tar_job);
 
-        if (!PULL_JOB_IS_COMPLETE(i->tar_job))
+        if (!PULL_JOB_IS_COMPLETE(p->tar_job))
                 return false;
-        if (i->checksum_job && !PULL_JOB_IS_COMPLETE(i->checksum_job))
+        if (p->checksum_job && !PULL_JOB_IS_COMPLETE(p->checksum_job))
                 return false;
-        if (i->signature_job && !PULL_JOB_IS_COMPLETE(i->signature_job))
+        if (p->signature_job && !PULL_JOB_IS_COMPLETE(p->signature_job))
                 return false;
-        if (i->settings_job && !PULL_JOB_IS_COMPLETE(i->settings_job))
+        if (p->settings_job && !PULL_JOB_IS_COMPLETE(p->settings_job))
                 return false;
 
         return true;
@@ -400,23 +400,23 @@ static void tar_pull_job_on_finished(PullJob *j) {
         int r;
 
         assert(j);
-        TarPull *i = ASSERT_PTR(j->userdata);
+        TarPull *p = ASSERT_PTR(j->userdata);
 
         if (j->error != 0) {
                 clear_progress_bar(/* prefix= */ NULL);
 
-                if (j == i->tar_job) {
+                if (j == p->tar_job) {
                         if (j->error == ENOMEDIUM) /* HTTP 404 */
                                 r = log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
                         else
                                 r = log_error_errno(j->error, "Failed to retrieve image file.");
                         goto finish;
-                } else if (j == i->checksum_job) {
+                } else if (j == p->checksum_job) {
                         r = log_error_errno(j->error, "Failed to retrieve SHA256 checksum, cannot verify. (Try --verify=no?)");
                         goto finish;
-                } else if (j == i->signature_job)
+                } else if (j == p->signature_job)
                         log_debug_errno(j->error, "Signature job for %s failed, proceeding for now.", j->url);
-                else if (j == i->settings_job)
+                else if (j == p->settings_job)
                         log_info_errno(j->error, "Settings file could not be retrieved, proceeding without.");
                 else
                         assert("unexpected job");
@@ -425,15 +425,15 @@ static void tar_pull_job_on_finished(PullJob *j) {
         /* This is invoked if either the download completed successfully, or the download was skipped because
          * we already have the etag. */
 
-        if (!tar_pull_is_done(i))
+        if (!tar_pull_is_done(p))
                 return;
 
-        if (i->signature_job && i->signature_job->error != 0) {
+        if (p->signature_job && p->signature_job->error != 0) {
                 VerificationStyle style;
 
-                assert(i->checksum_job);
+                assert(p->checksum_job);
 
-                r = verification_style_from_url(i->checksum_job->url, &style);
+                r = verification_style_from_url(p->checksum_job->url, &style);
                 if (r < 0) {
                         log_error_errno(r, "Failed to determine verification style from checksum URL: %m");
                         goto finish;
@@ -443,37 +443,37 @@ static void tar_pull_job_on_finished(PullJob *j) {
                                                             * in per-directory verification mode, since only
                                                             * then the signature is detached, and thus a file
                                                             * of its own. */
-                        r = log_error_errno(i->signature_job->error,
+                        r = log_error_errno(p->signature_job->error,
                                             "Failed to retrieve signature file, cannot verify. (Try --verify=no?)");
                         goto finish;
                 }
         }
 
-        pull_job_close_disk_fd(i->tar_job);
-        pull_job_close_disk_fd(i->settings_job);
+        pull_job_close_disk_fd(p->tar_job);
+        pull_job_close_disk_fd(p->settings_job);
 
-        if (pidref_is_set(&i->tar_pid)) {
-                r = pidref_wait_for_terminate_and_check("tar", &i->tar_pid, WAIT_LOG);
+        if (pidref_is_set(&p->tar_pid)) {
+                r = pidref_wait_for_terminate_and_check("tar", &p->tar_pid, WAIT_LOG);
                 if (r < 0)
                         goto finish;
-                pidref_done(&i->tar_pid);
+                pidref_done(&p->tar_pid);
                 if (r != EXIT_SUCCESS) {
                         r = -EIO;
                         goto finish;
                 }
         }
 
-        if (!i->tar_job->etag_exists) {
+        if (!p->tar_job->etag_exists) {
                 /* This is a new download, verify it, and move it into place */
 
-                tar_pull_report_progress(i, TAR_VERIFYING);
+                tar_pull_report_progress(p, TAR_VERIFYING);
 
                 clear_progress_bar(/* prefix= */ NULL);
-                r = pull_verify(i->verify,
-                                i->tar_job,
-                                i->checksum_job,
-                                i->signature_job,
-                                i->settings_job,
+                r = pull_verify(p->verify,
+                                p->tar_job,
+                                p->checksum_job,
+                                p->signature_job,
+                                p->settings_job,
                                 /* roothash_job = */ NULL,
                                 /* roothash_signature_job = */ NULL,
                                 /* verity_job = */ NULL);
@@ -481,87 +481,87 @@ static void tar_pull_job_on_finished(PullJob *j) {
                         goto finish;
         }
 
-        if (i->flags & IMPORT_DIRECT) {
-                assert(!i->settings_job);
-                assert(i->local);
-                assert(!i->temp_path);
+        if (p->flags & IMPORT_DIRECT) {
+                assert(!p->settings_job);
+                assert(p->local);
+                assert(!p->temp_path);
 
-                tar_pull_report_progress(i, TAR_FINALIZING);
+                tar_pull_report_progress(p, TAR_FINALIZING);
 
-                r = import_mangle_os_tree_fd(i->tree_fd, i->userns_fd, i->flags);
+                r = import_mangle_os_tree_fd(p->tree_fd, p->userns_fd, p->flags);
                 if (r < 0)
                         goto finish;
 
                 r = install_file(
-                                AT_FDCWD, i->local,
+                                AT_FDCWD, p->local,
                                 AT_FDCWD, NULL,
-                                (i->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY|INSTALL_GRACEFUL : 0) |
-                                (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
+                                (p->flags & IMPORT_READ_ONLY ? INSTALL_READ_ONLY|INSTALL_GRACEFUL : 0) |
+                                (p->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
                 if (r < 0) {
-                        log_error_errno(r, "Failed to finalize '%s': %m", i->local);
+                        log_error_errno(r, "Failed to finalize '%s': %m", p->local);
                         goto finish;
                 }
         } else {
-                r = tar_pull_determine_path(i, NULL, &i->final_path);
+                r = tar_pull_determine_path(p, NULL, &p->final_path);
                 if (r < 0)
                         goto finish;
 
-                if (!i->tar_job->etag_exists) {
+                if (!p->tar_job->etag_exists) {
                         /* This is a new download, verify it, and move it into place */
 
-                        assert(i->temp_path);
-                        assert(i->final_path);
+                        assert(p->temp_path);
+                        assert(p->final_path);
 
-                        tar_pull_report_progress(i, TAR_FINALIZING);
+                        tar_pull_report_progress(p, TAR_FINALIZING);
 
-                        r = import_mangle_os_tree_fd(i->tree_fd, i->userns_fd, i->flags);
+                        r = import_mangle_os_tree_fd(p->tree_fd, p->userns_fd, p->flags);
                         if (r < 0)
                                 goto finish;
 
                         r = install_file(
-                                        AT_FDCWD, i->temp_path,
-                                        AT_FDCWD, i->final_path,
-                                        (i->flags & IMPORT_PULL_KEEP_DOWNLOAD ? INSTALL_READ_ONLY|INSTALL_GRACEFUL : 0) |
-                                        (i->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
+                                        AT_FDCWD, p->temp_path,
+                                        AT_FDCWD, p->final_path,
+                                        (p->flags & IMPORT_PULL_KEEP_DOWNLOAD ? INSTALL_READ_ONLY|INSTALL_GRACEFUL : 0) |
+                                        (p->flags & IMPORT_SYNC ? INSTALL_SYNCFS|INSTALL_GRACEFUL : 0));
                         if (r < 0) {
-                                log_error_errno(r, "Failed to rename to final image name to %s: %m", i->final_path);
+                                log_error_errno(r, "Failed to rename to final image name to %s: %m", p->final_path);
                                 goto finish;
                         }
 
-                        i->temp_path = mfree(i->temp_path);
+                        p->temp_path = mfree(p->temp_path);
 
-                        if (i->settings_job &&
-                            i->settings_job->error == 0) {
+                        if (p->settings_job &&
+                            p->settings_job->error == 0) {
 
                                 /* Also move the settings file into place, if it exists. Note that we do so only if we also
                                  * moved the tar file in place, to keep things strictly in sync. */
-                                assert(i->settings_temp_path);
+                                assert(p->settings_temp_path);
 
                                 /* Regenerate final name for this auxiliary file, we might know the etag of the file now, and
                                  * we should incorporate it in the file name if we can */
-                                i->settings_path = mfree(i->settings_path);
+                                p->settings_path = mfree(p->settings_path);
 
-                                r = tar_pull_determine_path(i, ".nspawn", &i->settings_path);
+                                r = tar_pull_determine_path(p, ".nspawn", &p->settings_path);
                                 if (r < 0)
                                         goto finish;
 
                                 r = install_file(
-                                                AT_FDCWD, i->settings_temp_path,
-                                                AT_FDCWD, i->settings_path,
+                                                AT_FDCWD, p->settings_temp_path,
+                                                AT_FDCWD, p->settings_path,
                                                 INSTALL_READ_ONLY|INSTALL_GRACEFUL|
-                                                (i->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
+                                                (p->flags & IMPORT_SYNC ? INSTALL_FSYNC_FULL : 0));
                                 if (r < 0) {
-                                        log_error_errno(r, "Failed to rename settings file to %s: %m", i->settings_path);
+                                        log_error_errno(r, "Failed to rename settings file to %s: %m", p->settings_path);
                                         goto finish;
                                 }
 
-                                i->settings_temp_path = mfree(i->settings_temp_path);
+                                p->settings_temp_path = mfree(p->settings_temp_path);
                         }
                 }
 
-                tar_pull_report_progress(i, TAR_COPYING);
+                tar_pull_report_progress(p, TAR_COPYING);
 
-                r = tar_pull_make_local_copy(i);
+                r = tar_pull_make_local_copy(p);
                 if (r < 0)
                         goto finish;
         }
@@ -569,10 +569,10 @@ static void tar_pull_job_on_finished(PullJob *j) {
         r = 0;
 
 finish:
-        if (i->on_finished)
-                i->on_finished(i, r, i->userdata);
+        if (p->on_finished)
+                p->on_finished(p, r, p->userdata);
         else
-                sd_event_exit(i->event, r);
+                sd_event_exit(p->event, r);
 }
 
 static int tar_pull_job_on_open_disk_tar(PullJob *j) {
@@ -581,30 +581,30 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
 
         assert(j);
 
-        TarPull *i = ASSERT_PTR(j->userdata);
-        assert(i->tar_job == j);
-        assert(!pidref_is_set(&i->tar_pid));
-        assert(i->tree_fd < 0);
+        TarPull *p = ASSERT_PTR(j->userdata);
+        assert(p->tar_job == j);
+        assert(!pidref_is_set(&p->tar_pid));
+        assert(p->tree_fd < 0);
 
-        if (i->flags & IMPORT_DIRECT)
-                where = i->local;
+        if (p->flags & IMPORT_DIRECT)
+                where = p->local;
         else {
-                if (!i->temp_path) {
-                        r = tempfn_random_child(i->image_root, "tar", &i->temp_path);
+                if (!p->temp_path) {
+                        r = tempfn_random_child(p->image_root, "tar", &p->temp_path);
                         if (r < 0)
                                 return log_oom();
                 }
 
-                where = i->temp_path;
+                where = p->temp_path;
         }
 
         (void) mkdir_parents_label(where, 0700);
 
-        if (FLAGS_SET(i->flags, IMPORT_DIRECT|IMPORT_FORCE))
+        if (FLAGS_SET(p->flags, IMPORT_DIRECT|IMPORT_FORCE))
                 (void) rm_rf(where, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
 
-        if (FLAGS_SET(i->flags, IMPORT_FOREIGN_UID)) {
-                r = import_make_foreign_userns(&i->userns_fd);
+        if (FLAGS_SET(p->flags, IMPORT_FOREIGN_UID)) {
+                r = import_make_foreign_userns(&p->userns_fd);
                 if (r < 0)
                         return r;
 
@@ -613,32 +613,32 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                 if (r < 0)
                         return r;
 
-                r = mountfsd_mount_directory_fd(directory_fd, i->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &i->tree_fd);
+                r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &p->tree_fd);
                 if (r < 0)
                         return r;
         } else {
-                if (i->flags & IMPORT_BTRFS_SUBVOL)
+                if (p->flags & IMPORT_BTRFS_SUBVOL)
                         r = btrfs_subvol_make_fallback(AT_FDCWD, where, 0755);
                 else
                         r = RET_NERRNO(mkdir(where, 0755));
-                if (r == -EEXIST && (i->flags & IMPORT_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
+                if (r == -EEXIST && (p->flags & IMPORT_DIRECT)) /* EEXIST is OK if in direct mode, but not otherwise,
                                                                  * because in that case our temporary path collided */
                         r = 0;
                 if (r < 0)
                         return log_error_errno(r, "Failed to create directory/subvolume %s: %m", where);
 
-                if (r > 0 && (i->flags & IMPORT_BTRFS_QUOTA)) { /* actually btrfs subvol */
-                        if (!(i->flags & IMPORT_DIRECT))
-                                (void) import_assign_pool_quota_and_warn(i->image_root);
+                if (r > 0 && (p->flags & IMPORT_BTRFS_QUOTA)) { /* actually btrfs subvol */
+                        if (!(p->flags & IMPORT_DIRECT))
+                                (void) import_assign_pool_quota_and_warn(p->image_root);
                         (void) import_assign_pool_quota_and_warn(where);
                 }
 
-                i->tree_fd = open(where, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
-                if (i->tree_fd < 0)
+                p->tree_fd = open(where, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                if (p->tree_fd < 0)
                         return log_error_errno(errno, "Failed to open '%s': %m", where);
         }
 
-        j->disk_fd = import_fork_tar_x(i->tree_fd, i->userns_fd, &i->tar_pid);
+        j->disk_fd = import_fork_tar_x(p->tree_fd, p->userns_fd, &p->tar_pid);
         if (j->disk_fd < 0)
                 return j->disk_fd;
 
@@ -646,43 +646,43 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
 }
 
 static int tar_pull_job_on_open_disk_settings(PullJob *j) {
-        TarPull *i;
+        TarPull *p;
         int r;
 
         assert(j);
         assert(j->userdata);
 
-        i = j->userdata;
-        assert(i->settings_job == j);
+        p = j->userdata;
+        assert(p->settings_job == j);
 
-        if (!i->settings_temp_path) {
-                r = tempfn_random_child(i->image_root, "settings", &i->settings_temp_path);
+        if (!p->settings_temp_path) {
+                r = tempfn_random_child(p->image_root, "settings", &p->settings_temp_path);
                 if (r < 0)
                         return log_oom();
         }
 
-        (void) mkdir_parents_label(i->settings_temp_path, 0700);
+        (void) mkdir_parents_label(p->settings_temp_path, 0700);
 
-        j->disk_fd = open(i->settings_temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
+        j->disk_fd = open(p->settings_temp_path, O_RDWR|O_CREAT|O_EXCL|O_NOCTTY|O_CLOEXEC, 0664);
         if (j->disk_fd < 0)
-                return log_error_errno(errno, "Failed to create %s: %m", i->settings_temp_path);
+                return log_error_errno(errno, "Failed to create %s: %m", p->settings_temp_path);
 
         return 0;
 }
 
 static void tar_pull_job_on_progress(PullJob *j) {
-        TarPull *i;
+        TarPull *p;
 
         assert(j);
         assert(j->userdata);
 
-        i = j->userdata;
+        p = j->userdata;
 
-        tar_pull_report_progress(i, TAR_DOWNLOADING);
+        tar_pull_report_progress(p, TAR_DOWNLOADING);
 }
 
 int tar_pull_start(
-                TarPull *i,
+                TarPull *p,
                 const char *url,
                 const char *local,
                 ImportFlags flags,
@@ -691,7 +691,7 @@ int tar_pull_start(
 
         int r;
 
-        assert(i);
+        assert(p);
         assert(verify == _IMPORT_VERIFY_INVALID || verify < _IMPORT_VERIFY_MAX);
         assert(verify == _IMPORT_VERIFY_INVALID || verify >= 0);
         assert((verify < 0) || !iovec_is_set(checksum));
@@ -705,72 +705,72 @@ int tar_pull_start(
         if (local && !pull_validate_local(local, flags))
                 return -EINVAL;
 
-        if (i->tar_job)
+        if (p->tar_job)
                 return -EBUSY;
 
-        r = free_and_strdup(&i->local, local);
+        r = free_and_strdup(&p->local, local);
         if (r < 0)
                 return r;
 
-        i->flags = flags;
-        i->verify = verify;
+        p->flags = flags;
+        p->verify = verify;
 
         /* Set up download job for TAR file */
-        r = pull_job_new(&i->tar_job, url, i->glue, i);
+        r = pull_job_new(&p->tar_job, url, p->glue, p);
         if (r < 0)
                 return r;
 
-        i->tar_job->on_finished = tar_pull_job_on_finished;
-        i->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
+        p->tar_job->on_finished = tar_pull_job_on_finished;
+        p->tar_job->on_open_disk = tar_pull_job_on_open_disk_tar;
 
         if (iovec_is_set(checksum)) {
-                if (!iovec_memdup(checksum, &i->tar_job->expected_checksum))
+                if (!iovec_memdup(checksum, &p->tar_job->expected_checksum))
                         return -ENOMEM;
 
-                i->tar_job->calc_checksum = true;
+                p->tar_job->calc_checksum = true;
         } else
-                i->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
+                p->tar_job->calc_checksum = verify != IMPORT_VERIFY_NO;
 
         if (!FLAGS_SET(flags, IMPORT_DIRECT)) {
-                r = pull_find_old_etags(url, i->image_root, DT_DIR, ".tar-", NULL, &i->tar_job->old_etags);
+                r = pull_find_old_etags(url, p->image_root, DT_DIR, ".tar-", NULL, &p->tar_job->old_etags);
                 if (r < 0)
                         return r;
         }
 
         /* Set up download of checksum/signature files */
         r = pull_make_verification_jobs(
-                        &i->checksum_job,
-                        &i->signature_job,
+                        &p->checksum_job,
+                        &p->signature_job,
                         verify,
                         url,
-                        i->glue,
+                        p->glue,
                         tar_pull_job_on_finished,
-                        i);
+                        p);
         if (r < 0)
                 return r;
 
         /* Set up download job for the settings file (.nspawn) */
         if (FLAGS_SET(flags, IMPORT_PULL_SETTINGS)) {
                 r = pull_make_auxiliary_job(
-                                &i->settings_job,
+                                &p->settings_job,
                                 url,
                                 tar_strip_suffixes,
                                 ".nspawn",
                                 verify,
-                                i->glue,
+                                p->glue,
                                 tar_pull_job_on_open_disk_settings,
                                 tar_pull_job_on_finished,
-                                i);
+                                p);
                 if (r < 0)
                         return r;
         }
 
         PullJob *j;
         FOREACH_ARGUMENT(j,
-                         i->tar_job,
-                         i->checksum_job,
-                         i->signature_job,
-                         i->settings_job) {
+                         p->tar_job,
+                         p->checksum_job,
+                         p->signature_job,
+                         p->settings_job) {
 
                 if (!j)
                         continue;

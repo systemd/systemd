@@ -1607,7 +1607,7 @@ static void config_load_type1_entries(
                                 /* offset= */ 0,
                                 /* size= */ 0,
                                 &content,
-                                /* content_size= */ NULL);
+                                /* ret_size= */ NULL);
                 if (err != EFI_SUCCESS)
                         continue;
 
@@ -2900,7 +2900,7 @@ static void export_loader_variables(
 
         assert(loaded_image);
 
-        (void) efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
+        efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeInitUSec", init_usec);
         (void) efivar_set_str16(MAKE_GUID_PTR(LOADER), u"LoaderInfo", u"systemd-boot " GIT_VERSION, 0);
         (void) efivar_set_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", loader_features, 0);
 }

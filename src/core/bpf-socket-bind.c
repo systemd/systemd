@@ -16,7 +16,7 @@
 
 static struct socket_bind_bpf *socket_bind_bpf_free(struct socket_bind_bpf *obj) {
         /* socket_bind_bpf__destroy handles object == NULL case */
-        (void) socket_bind_bpf__destroy(obj);
+        socket_bind_bpf__destroy(obj);
 
         return NULL;
 }

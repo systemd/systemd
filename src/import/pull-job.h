@@ -84,7 +84,7 @@ typedef struct PullJob {
         bool force_memory;
 } PullJob;
 
-int pull_job_new(PullJob **job, const char *url, CurlGlue *glue, void *userdata);
+int pull_job_new(PullJob **ret, const char *url, CurlGlue *glue, void *userdata);
 PullJob* pull_job_unref(PullJob *job);
 
 int pull_job_begin(PullJob *j);

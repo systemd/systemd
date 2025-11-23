@@ -596,7 +596,7 @@ enum {
         ASSERT_SIGNAL_FORK_PARENT = 1, /* We are in the parent process */
 };
 
-int assert_signal_internal(int *ret_status);
+int assert_signal_internal(int *ret_signal);
 
 #ifdef __COVERITY__
 #  define ASSERT_SIGNAL(expr, signal) __coverity_check__(((expr), false))

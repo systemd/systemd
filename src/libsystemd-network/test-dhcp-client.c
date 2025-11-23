@@ -219,7 +219,7 @@ int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link, const 
         discover->ip.ttl = 0;
         discover->ip.check = discover->udp.len;
 
-        udp_check = ~dhcp_packet_checksum((uint8_t*)&discover->ip.ttl, len - 8);
+        udp_check = ~dhcp_packet_checksum(&discover->ip.ttl, len - 8);
         assert_se(udp_check == 0xffff);
 
         discover->ip.ttl = IPDEFTTL;

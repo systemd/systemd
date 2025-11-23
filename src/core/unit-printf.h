@@ -3,8 +3,8 @@
 
 #include "core-forward.h"
 
-int unit_name_printf(const Unit *u, const char* text, char **ret);
-int unit_full_printf_full(const Unit *u, const char *text, size_t max_length, char **ret);
+int unit_name_printf(const Unit *u, const char *format, char **ret);
+int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, char **ret);
 int unit_full_printf(const Unit *u, const char *text, char **ret);
 int unit_path_printf(const Unit *u, const char *text, char **ret);
 int unit_fd_printf(const Unit *u, const char *text, char **ret);
