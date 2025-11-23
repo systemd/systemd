@@ -51,7 +51,7 @@
     and type #2 (<filename><replaceable>ESP</replaceable>/EFI/Linux/*.uki</filename>
     and <filename><replaceable>XBOOTLDR</replaceable>/EFI/Linux/*.uki</filename>).
     Those files are described by the
-    <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader
+    <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader
     Specification</ulink>.</para>
 
     <para>Note: the behaviour of <command>systemd-boot</command> is also influenced by EFI variables. Some of

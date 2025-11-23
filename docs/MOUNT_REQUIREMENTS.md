@@ -11,7 +11,7 @@ This document describes the requirements placed by systemd
 on the time when various parts of the file system hierarchy
 must be available and mounted during boot.
 This document should be read in conjunction with
-[Linux File System Hierarchy](https://uapi-group.org/specifications/specs/linux_file_system_hierarchy/),
+[UAPI.9 Linux File System Hierarchy](https://uapi-group.org/specifications/specs/linux_file_system_hierarchy/),
 which describes the role of the mount points discussed here.
 
 If the file system backing a mount point is located on external or remote media

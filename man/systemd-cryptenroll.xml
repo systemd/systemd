@@ -84,8 +84,8 @@
       <option>--tpm2-public-key-pcrs=</option>, <option>--tpm2-signature=</option> described below.
       </para>
 
-      <para>See <ulink url="https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/">Linux TPM
-      PCR Registry</ulink> for an authoritative list of PCRs and how they are updated. The table below
+      <para>See <ulink url="https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/">UAPI.7 Linux
+      TPM PCR Registry</ulink> for an authoritative list of PCRs and how they are updated. The table below
       contains a quick reference, describing in particular the PCRs modified by systemd.</para>
 
       <table>
@@ -218,7 +218,7 @@
       through the certificates measured into PCR 7. Validation through certificates hashes is typically
       preferable over validation through direct measurements as it is less brittle in context of OS/firmware
       updates: the measurements will change on every update, but signatures should remain unchanged. See the
-      <ulink url="https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/">Linux TPM PCR
+      <ulink url="https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/">UAPI.7 Linux TPM PCR
       Registry</ulink> for more discussion.</para>
     </refsect2>
   </refsect1>

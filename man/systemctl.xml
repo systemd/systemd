@@ -1755,7 +1755,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             </para>
 
             <para>To load a kernel, an enumeration is performed following the
-            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>,
+            <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">UAPI.1 Boot Loader Specification</ulink>,
             and the default boot entry is loaded. For this step to succeed, the system must be using UEFI
             and the boot loader entries must be configured appropriately. <command>bootctl list</command>
             may be used to list boot entries, see
@@ -2646,7 +2646,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         are applied to file system in the indicated disk image. This option is similar to
         <option>--root=</option>, but operates on file systems stored in disk images or block devices. The
         disk image should either contain just a file system or a set of file systems within a GPT partition
-        table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable Partitions
+        table, following the <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2 Discoverable Partitions
         Specification</ulink>. For further information on supported disk images, see
         <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         switch of the same name.</para>
