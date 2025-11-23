@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <limits.h>
 #include <linux/oom.h>
 #include <pthread.h>
 #include <spawn.h>
@@ -20,6 +21,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "argv-util.h"
+#include "bitfield.h"
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "env-file.h"
@@ -842,6 +844,62 @@ int get_process_umask(pid_t pid, mode_t *ret) {
                 return r;
 
         return parse_mode(m, ret);
+}
+
+#define SIGCGT_MASK_BITS (sizeof(uint64_t) * CHAR_BIT)
+
+int pid_get_sigcgt(pid_t pid, uint64_t *mask) {
+        _cleanup_free_ char *field = NULL;
+        unsigned long long tmp;
+        int r;
+
+        assert(mask);
+
+        r = procfs_file_get_field(pid, "status", "SigCgt", &field);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        r = safe_atollu_full(field, 16, &tmp);
+        if (r < 0)
+                return r;
+
+        *mask = (uint64_t) tmp;
+        return 0;
+}
+
+int pid_has_sigcgt(pid_t pid, int sig) {
+        uint64_t mask;
+        int r;
+
+        if (sig <= 0 || (unsigned) sig > SIGCGT_MASK_BITS)
+                return -EINVAL;
+
+        r = pid_get_sigcgt(pid, &mask);
+        if (r < 0)
+                return r;
+
+        return BIT_SET(mask, sig - 1);
+}
+
+int pidref_has_sigcgt(PidRef *pr, int sig) {
+        int result, r;
+
+        if (!pidref_is_set(pr))
+                return -ESRCH;
+        if (pidref_is_remote(pr))
+                return -EREMOTE;
+
+        result = pid_has_sigcgt(pr->pid, sig);
+        if (result < 0)
+                return result;
+
+        r = pidref_verify(pr);
+        if (r < 0)
+                return r;
+
+        return result;
 }
 
 int wait_for_terminate(pid_t pid, siginfo_t *ret) {
