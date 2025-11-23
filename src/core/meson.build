@@ -139,6 +139,7 @@ libcore_static = static_library(
                         librt,
                         libseccomp_cflags,
                         libselinux_cflags,
+                        libcryptsetup_cflags,
                         threads,
                         userspace],
         build_by_default : false)
@@ -202,6 +203,7 @@ executables += [
                         libkmod_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
+                        libmount_cflags,
                 ],
         },
         libexec_template + {
@@ -215,6 +217,7 @@ executables += [
                         libpam_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
+                        libmount_cflags,
                 ],
         },
         fuzz_template + {
