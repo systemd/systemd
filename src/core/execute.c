@@ -263,7 +263,8 @@ bool exec_needs_mount_namespace(
 
         assert(context);
 
-        if (context->root_image)
+        if (context->root_image ||
+            context->root_mstack)
                 return true;
 
         if (context->root_directory_as_fd)
@@ -684,6 +685,7 @@ void exec_context_done(ExecContext *c) {
         iovec_done(&c->root_hash_sig);
         c->root_hash_sig_path = mfree(c->root_hash_sig_path);
         c->root_verity = mfree(c->root_verity);
+        c->root_mstack = mfree(c->root_mstack);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -1202,6 +1204,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->root_verity)
                 fprintf(f, "%sRootVerity: %s\n", prefix, c->root_verity);
+
+        if (c->root_mstack)
+                fprintf(f, "%sRootMStack: %s\n", prefix, c->root_mstack);
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);
@@ -2058,9 +2063,9 @@ bool exec_context_restrict_filesystems_set(const ExecContext *c) {
 bool exec_context_with_rootfs(const ExecContext *c) {
         assert(c);
 
-        /* Checks if RootDirectory=, RootImage= or RootDirectoryFileDescriptor= are used */
+        /* Checks if RootDirectory=, RootImage=, RootMStack= or RootDirectoryFileDescriptor= are used */
 
-        return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd;
+        return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd || c->root_mstack;
 }
 
 bool exec_context_with_rootfs_strict(const ExecContext *c) {
@@ -2070,7 +2075,7 @@ bool exec_context_with_rootfs_strict(const ExecContext *c) {
          * true in more cases: when a root directory is explicitly configured, even if it's our usual
          * root. */
 
-        return c->root_directory || c->root_image || c->root_directory_as_fd;
+        return c->root_directory || c->root_image || c->root_directory_as_fd || c->root_mstack;
 }
 
 int exec_context_has_vpicked_extensions(const ExecContext *context) {
