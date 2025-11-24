@@ -47,6 +47,7 @@ executables += [
                         include_directories('.')
                 ],
                 'dependencies' : [
+                        libmount_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
                 ],

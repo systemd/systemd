@@ -11,6 +11,7 @@
 #include "sd-varlink.h"
 
 #include "argv-util.h"
+#include "blkid-util.h"
 #include "blockdev-util.h"
 #include "build.h"
 #include "bus-unit-util.h"
@@ -18,6 +19,7 @@
 #include "capability-util.h"
 #include "chase.h"
 #include "conf-parser.h"
+#include "cryptsetup-util.h"
 #include "devnum-util.h"
 #include "discover-image.h"
 #include "dissect-image.h"
@@ -33,6 +35,7 @@
 #include "image-policy.h"
 #include "initrd-util.h"
 #include "label-util.h"                 /* IWYU pragma: keep */
+#include "libmount-util.h"
 #include "log.h"
 #include "loop-util.h"
 #include "main-func.h"
@@ -522,6 +525,8 @@ static int unmerge(
 
         bool need_to_reload;
         int r;
+
+        (void) dlopen_libmount();
 
         r = need_reload(image_class, hierarchies, no_reload);
         if (r < 0)
@@ -2099,6 +2104,10 @@ static int merge(ImageClass image_class,
                  Hashmap *images) {
         pid_t pid;
         int r;
+
+        (void) dlopen_cryptsetup();
+        (void) dlopen_libblkid();
+        (void) dlopen_libmount();
 
         r = safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pid);
         if (r < 0)

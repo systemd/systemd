@@ -14,6 +14,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "chase.h"
+#include "cryptsetup-util.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
 #include "devnum-util.h"
@@ -5551,6 +5552,8 @@ static int service_live_mount(
                                 dst,
                                 u->id);
         }
+
+        (void) dlopen_cryptsetup();
 
         service_unwatch_control_pid(s);
         s->live_mount_result = SERVICE_SUCCESS;
