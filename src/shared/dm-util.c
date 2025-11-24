@@ -7,7 +7,14 @@
 #include "dm-util.h"
 #include "fd-util.h"
 #include "string-util.h"
+#include "log.h"
+#include "dlfcn-util.h" //ELF_NOTE_DLOPEN
 
+#if HAVE_LIBDEVMAPPER
+static void *devmapper_dl = NULL;
+DLSYM_PROTOTYPE(dm_task_set_name) = NULL;
+DLSYM_PROTOTYPE(dm_task_create) = NULL;
+#endif
 int dm_deferred_remove_cancel(const char *name) {
         _cleanup_close_ int fd = -EBADF;
 
@@ -50,4 +57,25 @@ int dm_deferred_remove_cancel(const char *name) {
                 return -errno;
 
         return 0;
+}
+
+int dlopen_libdevmapper(void) {
+#if HAVE_LIBDEVMAPPER
+        int r;
+
+        ELF_NOTE_DLOPEN("devmapper",
+                        "Support for device mapper",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libdevmapper.so.1.02");
+
+        r = dlopen_many_sym_or_warn(
+                        &devmapper_dl, "libdevmapper.so.1.02", LOG_DEBUG,
+                        DLSYM_ARG(dm_task_set_name),
+                        DLSYM_ARG(dm_task_create));
+        if (r <= 0)
+                return r;
+        return 0;
+#else
+    return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "devmapper support is not compiled in.");
+#endif
 }
