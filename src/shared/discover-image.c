@@ -171,13 +171,13 @@ static char** image_settings_path(Image *image, RuntimeScope scope) {
                 SD_PATH_SYSTEM_CONFIGURATION,
                 SD_PATH_SYSTEM_RUNTIME,
                 SD_PATH_SYSTEM_LIBRARY_PRIVATE,
-                UINT64_MAX
+                _SD_PATH_INVALID
         };
         static const uint64_t user_locations[] = {
                 SD_PATH_USER_CONFIGURATION,
                 SD_PATH_USER_RUNTIME,
                 SD_PATH_USER_LIBRARY_PRIVATE,
-                UINT64_MAX
+                _SD_PATH_INVALID
         };
         const uint64_t *locations;
 
@@ -194,7 +194,7 @@ static char** image_settings_path(Image *image, RuntimeScope scope) {
                 assert_not_reached();
         }
 
-        for (size_t k = 0; locations[k] != UINT64_MAX; k++) {
+        for (size_t k = 0; locations[k] != _SD_PATH_INVALID; k++) {
                 _cleanup_free_ char *s = NULL;
                 r = sd_path_lookup(locations[k], "systemd/nspawn", &s);
                 if (r == -ENXIO)
