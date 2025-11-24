@@ -794,6 +794,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("WorkingDirectory", working_directory_build_json, c),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RootDirectory", c->root_directory),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RootImage", c->root_image),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RootMStack", c->root_mstack),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("RootImageOptions", root_image_options_build_json, c->root_image_options),
                         SD_JSON_BUILD_PAIR_BOOLEAN("RootEphemeral", c->root_ephemeral),
                         JSON_BUILD_PAIR_BASE64_NON_EMPTY("RootHash", c->root_hash.iov_base, c->root_hash.iov_len),
