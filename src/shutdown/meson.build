@@ -1,5 +1,9 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+if conf.get('HAVE_LIBMOUNT') != 1
+        subdir_done()
+endif
+
 systemd_shutdown_sources = files(
         'detach-dm.c',
         'detach-loopback.c',
