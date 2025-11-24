@@ -457,7 +457,7 @@ static int intro(void) {
         /* let's move into our own mount namespace with all propagation from the host turned off, so
          * that /proc/self/mountinfo is static and constant for the whole time our test runs. */
 
-        if (running_in_chroot() > 0) {
+        if (running_in_chroot() != 0) {
                 /* We cannot remount file system with MS_PRIVATE when running in chroot. */
                 log_notice("Running in chroot, proceeding in originating mount namespace.");
                 return EXIT_SUCCESS;

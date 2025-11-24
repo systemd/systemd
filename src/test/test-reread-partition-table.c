@@ -49,7 +49,7 @@ TEST(rereadpt) {
                 return (void) log_tests_skipped("test not available in container");
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
                 return (void) log_tests_skipped("test requires privileges");
-        if (running_in_chroot() > 0)
+        if (running_in_chroot() != 0)
                 return (void) log_tests_skipped("test not available in chroot()");
 
         _cleanup_free_ char *sfdisk_path = NULL;
