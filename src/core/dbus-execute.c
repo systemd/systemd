@@ -1258,6 +1258,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("RootHashSignaturePath", "s", NULL, offsetof(ExecContext, root_hash_sig_path), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootVerity", "s", NULL, offsetof(ExecContext, root_verity), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RootEphemeral", "b", bus_property_get_bool, offsetof(ExecContext, root_ephemeral), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("RootMStack", "s", NULL, offsetof(ExecContext, root_mstack), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExtensionDirectories", "as", NULL, offsetof(ExecContext, extension_directories), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ExtensionImages", "a(sba(ss))", property_get_extension_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MountImages", "a(ssba(ss))", property_get_mount_images, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1881,6 +1882,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RootImage"))
                 return bus_set_transient_path(u, name, &c->root_image, message, flags, reterr_error);
+
+        if (streq(name, "RootMStack"))
+                return bus_set_transient_path(u, name, &c->root_mstack, message, flags, reterr_error);
 
         if (streq(name, "RootImageOptions")) {
                 _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
