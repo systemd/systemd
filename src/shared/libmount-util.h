@@ -70,6 +70,15 @@ int libmount_parse_fstab(struct libmnt_table **ret_table, struct libmnt_iter **r
 int libmount_is_leaf(
                 struct libmnt_table *table,
                 struct libmnt_fs *fs);
+#else
+
+struct libmnt_monitor;
+
+static inline void *sym_mnt_unref_monitor(struct libmnt_monitor *p) {
+        assert(p == NULL);
+        return NULL;
+}
+
 #endif
 
 int dlopen_libmount(void);
