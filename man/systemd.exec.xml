@@ -174,9 +174,9 @@
         or loopback file instead of a directory. The device node or file system image file needs to contain a
         file system without a partition table, or a file system within an MBR/MS-DOS or GPT partition table
         with only a single Linux-compatible partition, or a set of file systems within a GPT partition table
-        that follows the
-        <ulink url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">
-          Discoverable Partitions Specification</ulink>.</para>
+        that follows the <ulink
+        url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
+        Discoverable Partitions Specification</ulink>.</para>
 
         <para>When <varname>DevicePolicy=</varname> is set to <literal>closed</literal> or
         <literal>strict</literal>, or set to <literal>auto</literal> and <varname>DeviceAllow=</varname> is
