@@ -38,7 +38,7 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_FIELD_COMMENT("A download of a raw disk image"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(pull_raw));
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 ImageVerify,
                 SD_VARLINK_FIELD_COMMENT("No verification"),
                 SD_VARLINK_DEFINE_ENUM_VALUE(no),

@@ -1148,6 +1148,7 @@ static int transfer_acquire_instance_varlink(Transfer *t, Instance *i, const cha
                 SD_JSON_BUILD_PAIR_STRING("version", i->metadata.version),
                 SD_JSON_BUILD_PAIR_STRING("mode", RESOURCE_IS_TAR(i->resource->type) ? "tar" : "raw"),
                 SD_JSON_BUILD_PAIR_BOOLEAN("fsync", fsync),
+                SD_JSON_BUILD_PAIR_STRING("verify", "checksum"),
                 SD_JSON_BUILD_PAIR_STRING("checksum", digest),
                 SD_JSON_BUILD_PAIR_STRING("source", i->path),
                 SD_JSON_BUILD_PAIR_UNSIGNED("destinationFileDescriptor", destination_fd_index),

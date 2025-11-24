@@ -688,10 +688,12 @@ static int pull_main(int argc, char *argv[]) {
 }
 
 static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_type, ImportType, import_type_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_import_verify, ImportVerify, import_verify_from_string);
 
 typedef struct MethodPullParameters {
         ImportType mode;
         bool fsync;
+        ImportVerify verify;
         const char *checksum;
         const char *source;
         unsigned destination_fd_index;
@@ -708,7 +710,8 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 { "version",        SD_JSON_VARIANT_STRING,  NULL,                          0,                                           0 },
                 { "mode",           SD_JSON_VARIANT_STRING,  json_dispatch_import_type,     offsetof(MethodPullParameters, mode),        SD_JSON_MANDATORY },
                 { "fsync",          SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(MethodPullParameters, fsync),       0 },
-                { "checksum",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, checksum),    SD_JSON_MANDATORY },
+                { "verify",         SD_JSON_VARIANT_STRING,  json_dispatch_import_verify,   offsetof(MethodPullParameters, verify),      SD_JSON_MANDATORY },
+                { "checksum",       SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, checksum),    0 },
                 { "source",         SD_JSON_VARIANT_STRING,  sd_json_dispatch_const_string, offsetof(MethodPullParameters, source),      SD_JSON_MANDATORY },
                 { "destinationFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint, offsetof(MethodPullParameters, destination_fd_index), SD_JSON_MANDATORY },
                 { "instances",      SD_JSON_VARIANT_ARRAY,   NULL,                          0,                                           0 },
@@ -721,6 +724,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
         MethodPullParameters p = {
                 .mode = _IMPORT_TYPE_INVALID,
                 .fsync = true,
+                .verify = _IMPORT_VERIFY_INVALID,
                 .destination_fd_index = UINT_MAX,
                 .offset = UINT64_MAX,
                 .size_max = UINT64_MAX,
@@ -753,9 +757,12 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         SET_FLAG(arg_import_flags, IMPORT_BTRFS_SUBVOL, p.subvolume);
 
-        r = set_checksum(p.checksum);
-        if (r < 0)
-                return sd_varlink_error(link, "io.systemd.PullWorker.InvalidParameters", NULL);
+        arg_verify = p.verify;
+        if (p.verify == IMPORT_VERIFY_CHECKSUM) {
+                r = set_checksum(p.checksum);
+                if (r < 0)
+                        return sd_varlink_error(link, "io.systemd.PullWorker.InvalidParameters", NULL);
+        }
 
         r = check_argv (true, true);
         if (r < 0)
