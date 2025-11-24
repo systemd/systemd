@@ -38,6 +38,7 @@ bool fstab_enabled_full(int enabled) {
 }
 
 int fstab_has_fstype(const char *fstype) {
+#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
@@ -65,6 +66,9 @@ int fstab_has_fstype(const char *fstype) {
                 if (streq_ptr(sym_mnt_fs_get_fstype(fs), fstype))
                         return true;
         }
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 bool fstab_is_extrinsic(const char *mount, const char *opts) {
@@ -92,6 +96,7 @@ bool fstab_is_extrinsic(const char *mount, const char *opts) {
         return false;
 }
 
+#if HAVE_LIBMOUNT
 static int fstab_is_same_node(const char *what_fstab, const char *path) {
         _cleanup_free_ char *node = NULL;
 
@@ -110,8 +115,10 @@ static int fstab_is_same_node(const char *what_fstab, const char *path) {
 
         return false;
 }
+#endif
 
 int fstab_has_mount_point_prefix_strv(char * const *prefixes) {
+#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
@@ -147,9 +154,13 @@ int fstab_has_mount_point_prefix_strv(char * const *prefixes) {
                 if (path_startswith_strv(path, prefixes))
                         return true;
         }
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int fstab_is_mount_point_full(const char *where, const char *path) {
+#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r;
@@ -184,6 +195,9 @@ int fstab_is_mount_point_full(const char *where, const char *path) {
                 if (r > 0 || (r < 0 && !ERRNO_IS_DEVICE_ABSENT(r)))
                         return r;
         }
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int fstab_filter_options(

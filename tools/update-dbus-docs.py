@@ -331,8 +331,8 @@ def main():
             print(item, file=sys.stderr)
             sys.exit(77 if arguments.test else 1)
 
-    if not os.path.exists(f'{arguments.build_dir}/systemd'):
-        sys.exit(f"{arguments.build_dir}/systemd doesn't exist. Use --build-dir=.")
+    if not os.path.exists(f'{arguments.build_dir}'):
+        sys.exit(f"{arguments.build_dir} doesn't exist.")
 
     missing_version = []
     stats = {page.split('/')[-1] : process(page, missing_version) for page in arguments.pages}
