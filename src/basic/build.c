@@ -250,6 +250,11 @@ const char* const systemd_features =
         " -LIBARCHIVE"
 #endif
 
+#if HAVE_LIBDEVMAPPER
+        " +LIBDEVMAPPER"
+#else
+        " -LIBDEVMAPPER"
+#endif
         ;
 
 static char* systemd_features_with_color(void) {
