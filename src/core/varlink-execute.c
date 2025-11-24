@@ -798,6 +798,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         SD_JSON_BUILD_PAIR_CALLBACK("RootImagePolicy", image_policy_build_json, c->root_image_policy),
                         SD_JSON_BUILD_PAIR_CALLBACK("MountImagePolicy", image_policy_build_json, c->mount_image_policy),
                         SD_JSON_BUILD_PAIR_CALLBACK("ExtensionImagePolicy", image_policy_build_json, c->extension_image_policy),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RootMStack", c->root_mstack),
                         JSON_BUILD_PAIR_YES_NO("MountAPIVFS", exec_context_get_effective_mount_apivfs(c)),
                         SD_JSON_BUILD_PAIR_BOOLEAN("BindLogSockets", exec_context_get_effective_bind_log_sockets(c)),
                         SD_JSON_BUILD_PAIR_STRING("ProtectProc", protect_proc_to_string(c->protect_proc)),
