@@ -73,7 +73,7 @@ static bool arg_no_block = false;
 static bool arg_wait = false;
 static const char *arg_unit = NULL;
 static char *arg_description = NULL;
-static const char *arg_slice = NULL;
+static char *arg_slice = NULL;
 static bool arg_slice_inherit = false;
 static bool arg_expand_environment = true;
 static bool arg_send_sighup = false;
@@ -81,7 +81,7 @@ static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 static const char *arg_host = NULL;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static const char *arg_service_type = NULL;
-static const char *arg_exec_user = NULL;
+static char *arg_exec_user = NULL;
 static const char *arg_exec_group = NULL;
 static int arg_nice = 0;
 static bool arg_nice_set = false;
@@ -123,6 +123,8 @@ static bool arg_via_shell = false;
 static bool arg_empower = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_slice, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_exec_user, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_path_property, strv_freep);
@@ -453,7 +455,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SLICE:
-                        arg_slice = optarg;
+                        r = free_and_strdup_warn(&arg_slice, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SLICE_INHERIT:
@@ -490,7 +494,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_EXEC_USER:
-                        arg_exec_user = optarg;
+                        r = free_and_strdup_warn(&arg_exec_user, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_EXEC_GROUP:
@@ -979,7 +985,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case ARG_SLICE:
-                        arg_slice = optarg;
+                        r = free_and_strdup_warn(&arg_slice, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SLICE_INHERIT:
@@ -987,7 +995,9 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case 'u':
-                        arg_exec_user = optarg;
+                        r = free_and_strdup_warn(&arg_exec_user, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'g':
@@ -2756,15 +2766,19 @@ static int start_transient_scope(sd_bus *bus) {
         }
 
         if (arg_exec_user) {
-                const char *home, *shell;
+                const char *un = arg_exec_user, *home, *shell;
                 uid_t uid;
                 gid_t gid;
 
-                r = get_user_creds(&arg_exec_user, &uid, &gid, &home, &shell,
+                r = get_user_creds(&un, &uid, &gid, &home, &shell,
                                    USER_CREDS_CLEAN|USER_CREDS_SUPPRESS_PLACEHOLDER|USER_CREDS_PREFER_NSS);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user '%s': %s",
                                                arg_exec_user, STRERROR_USER(r));
+
+                r = free_and_strdup_warn(&arg_exec_user, un);
+                if (r < 0)
+                        return r;
 
                 if (home) {
                         r = strv_extendf(&user_env, "HOME=%s", home);
