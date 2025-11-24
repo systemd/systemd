@@ -3,6 +3,6 @@
 Description=Test for User
 
 [Service]
-ExecStart=sh -x -c 'test "$$USER" = "nobody"'
+ExecStart=bash -x -c 'test "$$USER" = "nobody"'
 Type=oneshot
 User=nobody

@@ -121,7 +121,7 @@ After=basic.target
 
 [Service]
 Type=oneshot
-ExecStart=sh -c 'echo "$EXPECTED_OUTPUT"  > "$guest_output"'
+ExecStart=bash -c 'echo "$EXPECTED_OUTPUT"  > "$guest_output"'
 ExecStartPost=systemctl --no-block exit 0
 TimeoutStopSec=15s
 

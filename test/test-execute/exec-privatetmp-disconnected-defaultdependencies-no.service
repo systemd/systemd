@@ -4,10 +4,10 @@ Description=Test for PrivateTmp=disconnected with DefaultDependencies=no
 DefaultDependencies=no
 
 [Service]
-ExecStart=sh -x -c 'test ! -f /tmp/test-exec_privatetmp'
+ExecStart=bash -x -c 'test ! -f /tmp/test-exec_privatetmp'
 ExecStart=touch /tmp/test-exec_privatetmp_disconnected
-ExecStart=sh -x -c '(! touch /var/tmp/test-exec_privatetmp_disconnected)'
-ExecStart=sh -x -c 'test $$TMPDIR = /tmp'
+ExecStart=bash -x -c '(! touch /var/tmp/test-exec_privatetmp_disconnected)'
+ExecStart=bash -x -c 'test $$TMPDIR = /tmp'
 Type=oneshot
 ProtectSystem=strict
 PrivateTmp=disconnected

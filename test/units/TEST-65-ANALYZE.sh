@@ -1146,7 +1146,7 @@ Description=Test unit for systemd-analyze unit-shell
 [Service]
 Type=notify
 NotifyAccess=all
-ExecStart=sh -c "echo 'Hello from test unit' >/tmp/testfile; systemd-notify --ready; sleep infinity"
+ExecStart=bash -c "echo 'Hello from test unit' >/tmp/testfile; systemd-notify --ready; sleep infinity"
 PrivateTmp=disconnected
 EOF
 # Start the service
