@@ -2553,13 +2553,11 @@ static int setup_hostname(void) {
         return 0;
 }
 
-static int setup_journal(const char *root_dir, const char *persistent_path, uid_t chown_uid, uid_t chown_range) {
+static int setup_journal(const char *directory, uid_t uid_shift, uid_t uid_range) {
         _cleanup_free_ char *d = NULL;
         sd_id128_t this_id;
         bool try;
         int r;
-
-        assert(root_dir);
 
         /* Don't link journals in ephemeral mode */
         if (arg_ephemeral)
@@ -2569,17 +2567,6 @@ static int setup_journal(const char *root_dir, const char *persistent_path, uid_
                 return 0;
 
         try = arg_link_journal_try || arg_link_journal == LINK_AUTO;
-
-        if (!persistent_path) {
-                if (try) {
-                        log_debug("No persistent path available, skipping journal linking.");
-                        return 0;
-                } else
-                        return log_error_errno(
-                                        SYNTHETIC_ERRNO(ENOENT),
-                                        "Journal linking requested but no persistent directory available. "
-                                        "Use --directory, or --link-journal=auto/try-guest/try-host for optional linking.");
-        }
 
         r = sd_id128_get_machine(&this_id);
         if (r < 0)
@@ -2594,7 +2581,7 @@ static int setup_journal(const char *root_dir, const char *persistent_path, uid_
         }
 
         FOREACH_STRING(dirname, "/var", "/var/log", "/var/log/journal") {
-                r = userns_mkdir(root_dir, dirname, 0755, 0, 0);
+                r = userns_mkdir(directory, dirname, 0755, 0, 0);
                 if (r < 0) {
                         bool ignore = r == -EROFS && try;
                         log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
@@ -2607,12 +2594,8 @@ static int setup_journal(const char *root_dir, const char *persistent_path, uid_
         if (!p)
                 return log_oom();
 
-        _cleanup_free_ char *q = path_join(persistent_path, p);
+        _cleanup_free_ char *q = path_join(directory, p);
         if (!q)
-                return log_oom();
-
-        _cleanup_free_ char *container_path = path_join(root_dir, p);
-        if (!container_path)
                 return log_oom();
 
         if (path_is_mount_point(p) > 0) {
@@ -2623,14 +2606,12 @@ static int setup_journal(const char *root_dir, const char *persistent_path, uid_
                                        "%s: already a mount point, refusing to use for journal", p);
         }
 
-        if (path_is_mount_point(container_path) > 0) {
+        if (path_is_mount_point(q) > 0) {
                 if (try)
                         return 0;
 
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(EEXIST),
-                                "%s: already a mount point, refusing to use for journal",
-                                container_path);
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "%s: already a mount point, refusing to use for journal", q);
         }
 
         r = readlink_and_make_absolute(p, &d);
@@ -2638,9 +2619,9 @@ static int setup_journal(const char *root_dir, const char *persistent_path, uid_
                 if (IN_SET(arg_link_journal, LINK_GUEST, LINK_AUTO) &&
                     path_equal(d, q)) {
 
-                        r = userns_mkdir(root_dir, p, 0755, 0, 0);
+                        r = userns_mkdir(directory, p, 0755, 0, 0);
                         if (r < 0)
-                                log_warning_errno(r, "Failed to create directory %s: %m", container_path);
+                                log_warning_errno(r, "Failed to create directory %s: %m", q);
                         return 0;
                 }
 
@@ -2670,9 +2651,9 @@ static int setup_journal(const char *root_dir, const char *persistent_path, uid_
                                 return log_error_errno(errno, "Failed to symlink %s to %s: %m", q, p);
                 }
 
-                r = userns_mkdir(root_dir, p, 0755, 0, 0);
+                r = userns_mkdir(directory, p, 0755, 0, 0);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to create directory %s: %m", container_path);
+                        log_warning_errno(r, "Failed to create directory %s: %m", q);
                 return 0;
         }
 
@@ -2692,25 +2673,25 @@ static int setup_journal(const char *root_dir, const char *persistent_path, uid_
         } else if (access(p, F_OK) < 0)
                 return 0;
 
-        if (dir_is_empty(container_path, /* ignore_hidden_or_backup= */ false) == 0)
-                log_warning("%s is not empty, proceeding anyway.", container_path);
+        if (dir_is_empty(q, /* ignore_hidden_or_backup= */ false) == 0)
+                log_warning("%s is not empty, proceeding anyway.", q);
 
-        r = userns_mkdir(root_dir, p, 0755, 0, 0);
+        r = userns_mkdir(directory, p, 0755, 0, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to create %s: %m", container_path);
+                return log_error_errno(r, "Failed to create %s: %m", q);
 
         return mount_custom(
-                        root_dir,
+                        directory,
                         &(CustomMount) {
                                 .type = CUSTOM_MOUNT_BIND,
-                                .options = (char*) (uid_is_valid(chown_uid) ? "rootidmap" : NULL),
+                                .options = (char*) (uid_is_valid(uid_shift) ? "rootidmap" : NULL),
                                 .source = p,
                                 .destination = p,
                                 .destination_uid = UID_INVALID,
                         },
                         /* n = */ 1,
-                        chown_uid,
-                        chown_range,
+                        uid_shift,
+                        uid_range,
                         arg_selinux_apifs_context,
                         MOUNT_NON_ROOT_ONLY);
 }
@@ -3882,7 +3863,6 @@ static DissectImageFlags determine_dissect_image_flags(void) {
 static int outer_child(
                 Barrier *barrier,
                 const char *directory,
-                const char *persistent_path,
                 int mount_fd,
                 DissectedImage *dissected_image,
                 int fd_outer_socket,
@@ -4289,7 +4269,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        r = setup_journal(directory, persistent_path, chown_uid, chown_range);
+        r = setup_journal(directory, chown_uid, chown_range);
         if (r < 0)
                 return r;
 
@@ -5090,7 +5070,6 @@ static int load_oci_bundle(void) {
 
 static int run_container(
                 const char *directory,
-                const char *persistent_path,
                 int mount_fd,
                 DissectedImage *dissected_image,
                 int userns_fd,
@@ -5241,7 +5220,6 @@ static int run_container(
 
                 r = outer_child(&barrier,
                                 directory,
-                                persistent_path,
                                 mount_fd,
                                 dissected_image,
                                 fd_outer_socket_pair[1],
@@ -5954,7 +5932,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_free_ char *persistent_path_storage = NULL;
 
         log_setup();
 
@@ -6420,47 +6397,6 @@ static int run(int argc, char *argv[]) {
                         arg_architecture = dissected_image_architecture(dissected_image);
         }
 
-        /* Journal linking creates symlinks from the host's /var/log/journal/<uuid> to a persistent directory
-         * that survives container restarts, allowing journalctl -M to read container logs. But where that
-         * persistent directory is can be quite different depending on the mode:
-         *
-         * For --directory: The directory itself is the persistent location.
-         * For --image: Use /var/lib/machines/<machine-name> if it exists as a directory.
-         *
-         * Otherwise, we skip journal linking.
-         */
-        const char *persistent_path;
-        if (arg_directory)
-                persistent_path = arg_directory;
-        else if (arg_image) {
-                persistent_path_storage = path_join("/var/lib/machines", arg_machine);
-                if (!persistent_path_storage) {
-                        r = log_oom();
-                        goto finish;
-                }
-
-                /* Validate that the persistent path exists and is actually a directory. We cannot create it
-                 * ourselves as that would conflict with image management. */
-                struct stat st;
-                if (stat(persistent_path_storage, &st) < 0) {
-                        if (errno == ENOENT)
-                                log_debug("Persistent directory %s does not exist, skipping journal linking.",
-                                          persistent_path_storage);
-                        else
-                                log_warning_errno(
-                                                errno,
-                                                "Failed to access persistent directory %s, skipping journal linking: %m",
-                                                persistent_path_storage);
-                        persistent_path = NULL;
-                } else if (!S_ISDIR(st.st_mode)) {
-                        log_warning("%s exists but is not a directory, skipping journal linking.",
-                                    persistent_path_storage);
-                        persistent_path = NULL;
-                } else
-                        persistent_path = persistent_path_storage;
-        } else
-                assert_not_reached();
-
         /* Create a temporary place to mount stuff. */
         r = mkdtemp_malloc("/tmp/nspawn-root-XXXXXX", &rootdir);
         if (r < 0) {
@@ -6507,7 +6443,6 @@ static int run(int argc, char *argv[]) {
         for (;;) {
                 r = run_container(
                                 rootdir,
-                                persistent_path,
                                 mount_fd,
                                 dissected_image,
                                 userns_fd,
