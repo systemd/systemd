@@ -110,7 +110,7 @@ static int reply_query_state(DnsQuery *q) {
 
         case DNS_TRANSACTION_DNSSEC_FAILED:
                 return sd_varlink_errorbo(q->varlink_request, "io.systemd.Resolve.DNSSECValidationFailed",
-                                       SD_JSON_BUILD_PAIR("result", SD_JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
+                                       SD_JSON_BUILD_PAIR_STRING("result", dnssec_result_to_string(q->answer_dnssec_result)),
                                        SD_JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0,
                                                                     "extendedDNSErrorCode", SD_JSON_BUILD_INTEGER(q->answer_ede_rcode)),
                                        SD_JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
@@ -135,11 +135,11 @@ static int reply_query_state(DnsQuery *q) {
                 /* We return this as NXDOMAIN. This is only generated when a host doesn't implement LLMNR/TCP, and we
                  * thus quickly know that we cannot resolve an in-addr.arpa or ip6.arpa address. */
                 return sd_varlink_errorbo(q->varlink_request, "io.systemd.Resolve.DNSError",
-                                       SD_JSON_BUILD_PAIR("rcode", SD_JSON_BUILD_INTEGER(DNS_RCODE_NXDOMAIN)));
+                                       SD_JSON_BUILD_PAIR_INTEGER("rcode", DNS_RCODE_NXDOMAIN));
 
         case DNS_TRANSACTION_RCODE_FAILURE:
                 return sd_varlink_errorbo(q->varlink_request, "io.systemd.Resolve.DNSError",
-                                       SD_JSON_BUILD_PAIR("rcode", SD_JSON_BUILD_INTEGER(q->answer_rcode)),
+                                       SD_JSON_BUILD_PAIR_INTEGER("rcode", q->answer_rcode),
                                        SD_JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0,
                                                                     "extendedDNSErrorCode", SD_JSON_BUILD_INTEGER(q->answer_ede_rcode)),
                                        SD_JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
@@ -1249,7 +1249,7 @@ static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *
 
         /* Send a ready message to the connecting client, to indicate that we are now listinening, and all
          * queries issued after the point the client sees this will also be reported to the client. */
-        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR("ready", SD_JSON_BUILD_BOOLEAN(true)));
+        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("ready", true));
         if (r < 0)
                 return log_error_errno(r, "Failed to report monitor to be established: %m");
 

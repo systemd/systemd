@@ -596,17 +596,17 @@ static int vl_method_mount_image(
 
                 r = sd_json_variant_append_arraybo(
                                 &aj,
-                                SD_JSON_BUILD_PAIR("designator", SD_JSON_BUILD_STRING(partition_designator_to_string(d))),
-                                SD_JSON_BUILD_PAIR("writable", SD_JSON_BUILD_BOOLEAN(pp->rw)),
-                                SD_JSON_BUILD_PAIR("growFileSystem", SD_JSON_BUILD_BOOLEAN(pp->growfs)),
+                                SD_JSON_BUILD_PAIR_STRING("designator", partition_designator_to_string(d)),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("writable", pp->rw),
+                                SD_JSON_BUILD_PAIR_BOOLEAN("growFileSystem", pp->growfs),
                                 SD_JSON_BUILD_PAIR_CONDITION(pp->partno > 0, "partitionNumber", SD_JSON_BUILD_INTEGER(pp->partno)),
                                 SD_JSON_BUILD_PAIR_CONDITION(pp->architecture > 0, "architecture", SD_JSON_BUILD_STRING(architecture_to_string(pp->architecture))),
                                 SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(pp->uuid), "partitionUuid", SD_JSON_BUILD_UUID(pp->uuid)),
-                                SD_JSON_BUILD_PAIR("fileSystemType", SD_JSON_BUILD_STRING(dissected_partition_fstype(pp))),
+                                SD_JSON_BUILD_PAIR_STRING("fileSystemType", dissected_partition_fstype(pp)),
                                 SD_JSON_BUILD_PAIR_CONDITION(!!pp->label, "partitionLabel", SD_JSON_BUILD_STRING(pp->label)),
-                                SD_JSON_BUILD_PAIR("size", SD_JSON_BUILD_UNSIGNED(pp->size)),
-                                SD_JSON_BUILD_PAIR("offset", SD_JSON_BUILD_UNSIGNED(pp->offset)),
-                                SD_JSON_BUILD_PAIR("mountFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx)),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("size", pp->size),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("offset", pp->offset),
+                                SD_JSON_BUILD_PAIR_INTEGER("mountFileDescriptor", fd_idx),
                                 JSON_BUILD_PAIR_STRV_NON_EMPTY("mountPoint", l));
                 if (r < 0)
                         return r;
@@ -616,10 +616,10 @@ static int vl_method_mount_image(
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR("partitions", SD_JSON_BUILD_VARIANT(aj)),
-                        SD_JSON_BUILD_PAIR("imagePolicy", SD_JSON_BUILD_STRING(ps)),
-                        SD_JSON_BUILD_PAIR("imageSize", SD_JSON_BUILD_UNSIGNED(di->image_size)),
-                        SD_JSON_BUILD_PAIR("sectorSize", SD_JSON_BUILD_UNSIGNED(di->sector_size)),
+                        SD_JSON_BUILD_PAIR_VARIANT("partitions", aj),
+                        SD_JSON_BUILD_PAIR_STRING("imagePolicy", ps),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("imageSize", di->image_size),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("sectorSize", di->sector_size),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(di->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(di->image_uuid)));
 }
 
@@ -997,7 +997,7 @@ static int vl_method_mount_directory(
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR("mountFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx)));
+                        SD_JSON_BUILD_PAIR_INTEGER("mountFileDescriptor", fd_idx));
 }
 
 typedef struct MakeDirectoryParameters {
@@ -1117,7 +1117,7 @@ static int vl_method_make_directory(
 
         return sd_varlink_replybo(
                         link,
-                        SD_JSON_BUILD_PAIR("directoryFileDescriptor", SD_JSON_BUILD_INTEGER(fd_idx)));
+                        SD_JSON_BUILD_PAIR_INTEGER("directoryFileDescriptor", fd_idx));
 
 fail:
         (void) unlinkat(parent_fd, t ?: p.name, AT_REMOVEDIR);

@@ -701,8 +701,8 @@ static int synthetic_root_user_build(UserRecord **ret) {
         return user_record_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("userName", JSON_BUILD_CONST_STRING("root")),
-                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(0)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(0)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", 0),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", 0),
                         SD_JSON_BUILD_PAIR("homeDirectory", JSON_BUILD_CONST_STRING("/root")),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
@@ -711,10 +711,10 @@ static int synthetic_nobody_user_build(UserRecord **ret) {
         return user_record_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("userName", JSON_BUILD_CONST_STRING(NOBODY_USER_NAME)),
-                        SD_JSON_BUILD_PAIR("uid", SD_JSON_BUILD_UNSIGNED(UID_NOBODY)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("uid", UID_NOBODY),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
                         SD_JSON_BUILD_PAIR("shell", JSON_BUILD_CONST_STRING(NOLOGIN)),
-                        SD_JSON_BUILD_PAIR("locked", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("locked", true),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
 
@@ -1228,7 +1228,7 @@ static int synthetic_root_group_build(GroupRecord **ret) {
         return group_record_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("groupName", JSON_BUILD_CONST_STRING("root")),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(0)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", 0),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
 
@@ -1236,7 +1236,7 @@ static int synthetic_nobody_group_build(GroupRecord **ret) {
         return group_record_buildo(
                         ret,
                         SD_JSON_BUILD_PAIR("groupName", JSON_BUILD_CONST_STRING(NOBODY_GROUP_NAME)),
-                        SD_JSON_BUILD_PAIR("gid", SD_JSON_BUILD_UNSIGNED(GID_NOBODY)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("gid", GID_NOBODY),
                         SD_JSON_BUILD_PAIR("disposition", JSON_BUILD_CONST_STRING("intrinsic")));
 }
 

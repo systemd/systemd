@@ -1770,8 +1770,8 @@ static int json_addon(
 
         r = sd_json_variant_append_arraybo(
                         array,
-                        SD_JSON_BUILD_PAIR(addon_str, SD_JSON_BUILD_STRING(addon->location)),
-                        SD_JSON_BUILD_PAIR("options", SD_JSON_BUILD_STRING(addon->cmdline)));
+                        SD_JSON_BUILD_PAIR_STRING(addon_str, addon->location),
+                        SD_JSON_BUILD_PAIR_STRING("options", addon->cmdline));
         if (r < 0)
                 return log_oom();
 
