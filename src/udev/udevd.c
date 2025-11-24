@@ -8,10 +8,14 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "acl-util.h"
+#include "blkid-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "label-util.h"
+#include "libmount-util.h"
 #include "log.h"
+#include "module-util.h"
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "terminal-util.h"
@@ -51,6 +55,12 @@ int run_udevd(int argc, char *argv[]) {
         r = RET_NERRNO(mkdir("/run/udev", 0755));
         if (r < 0 && r != -EEXIST)
                 return log_error_errno(r, "Failed to create /run/udev: %m");
+
+        /* Load some shared libraries before we fork any workers */
+        (void) dlopen_libacl();
+        (void) dlopen_libblkid();
+        (void) dlopen_libkmod();
+        (void) dlopen_libmount();
 
         if (arg_daemonize) {
                 pid_t pid;
