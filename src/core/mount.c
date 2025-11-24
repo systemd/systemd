@@ -60,7 +60,9 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
 };
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
+#if HAVE_LIBMOUNT
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
+#endif
 static void mount_enter_dead(Mount *m, MountResult f, bool flush_result);
 static void mount_enter_mounted(Mount *m, MountResult f);
 static void mount_cycle_clear(Mount *m);
@@ -1744,6 +1746,7 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
         return 0;
 }
 
+#if HAVE_LIBMOUNT
 static int mount_setup_new_unit(
                 Manager *m,
                 const char *name,
@@ -1924,8 +1927,10 @@ static int mount_setup_unit(
 
         return 0;
 }
+#endif
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
+#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_set_free_ Set *devices = NULL;
@@ -1965,6 +1970,9 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         }
 
         return 0;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 static void mount_shutdown(Manager *m) {
@@ -2042,6 +2050,7 @@ static bool mount_is_mounted(Mount *m) {
         return UNIT(m)->perpetual || FLAGS_SET(m->proc_flags, MOUNT_PROC_IS_MOUNTED);
 }
 
+#if HAVE_LIBMOUNT
 static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         Job *j;
@@ -2060,8 +2069,10 @@ static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
 
         return 0;
 }
+#endif
 
 static void mount_enumerate(Manager *m) {
+#if HAVE_LIBMOUNT
         int r;
 
         assert(m);
@@ -2154,9 +2165,14 @@ static void mount_enumerate(Manager *m) {
 
 fail:
         mount_shutdown(m);
+#else
+        log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot enumerate mounts, as libmount support is not compiled in");
+        mount_shutdown(m);
+#endif
 }
 
 static int drain_libmount(Manager *m) {
+#if HAVE_LIBMOUNT
         bool rescan = false;
         int r;
 
@@ -2180,6 +2196,9 @@ static int drain_libmount(Manager *m) {
         } while (r == 0);
 
         return rescan;
+#else
+        return 0;
+#endif
 }
 
 static int mount_process_proc_self_mountinfo(Manager *m) {
@@ -2294,6 +2313,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         return 0;
 }
 
+#if HAVE_LIBMOUNT
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
@@ -2301,6 +2321,7 @@ static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, 
 
         return mount_process_proc_self_mountinfo(m);
 }
+#endif
 
 static void mount_reset_failed(Unit *u) {
         Mount *m = MOUNT(u);
