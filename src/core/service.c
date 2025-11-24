@@ -5887,8 +5887,9 @@ int service_determine_exec_selinux_label(Service *s, char **ret) {
 
         if (s->exec_context.root_image ||
             s->exec_context.n_extension_images > 0 ||
-            !strv_isempty(s->exec_context.extension_directories)) /* We cannot chase paths through images */
-                return log_unit_debug_errno(UNIT(s), SYNTHETIC_ERRNO(ENODATA), "Service with RootImage=, ExtensionImages= or ExtensionDirectories= set, cannot determine socket SELinux label before activation, ignoring.");
+            !strv_isempty(s->exec_context.extension_directories) ||
+            s->exec_context.root_mstack) /* We cannot chase paths through images */
+                return log_unit_debug_errno(UNIT(s), SYNTHETIC_ERRNO(ENODATA), "Service with RootImage=, ExtensionImages=, ExtensionDirectories= or RootMStack= set cannot determine socket SELinux label before activation, ignoring.");
 
         ExecCommand *c = s->exec_command[SERVICE_EXEC_START];
         if (!c)
