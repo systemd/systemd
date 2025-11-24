@@ -5,7 +5,27 @@ from sphinx.util.typing import ExtensionMetadata
 from sphinx.util import logging
 
 logger = logging.getLogger(__name__)
-logger.info('Hello, this is an extension!')
+logger.info('AutoTOC Extension running…')
+
+FILES_USED_ONLY_FOR_INCLUDES = [
+  'docs/cgroup-sandboxing',
+  'docs/common-variables',
+  'docs/ethtool-link-mode',
+  'docs/libsystemd-pkgconfig',
+  'docs/standard-conf',
+  'docs/standard-options',
+  'docs/standard-specifiers',
+  'docs/supported-controllers',
+  'docs/system-only',
+  'docs/system-or-user-ns',
+  'docs/system-or-user-ns-mountfsd',
+  'docs/tc',
+  'docs/threads-aware',
+  'docs/unit-states',
+  'docs/user-system-options',
+  'docs/version-info',
+  'docs/vpick'
+]
 
 def find_files(root_dir):
     for subdir, _, files in os.walk(root_dir + '/docs'):
@@ -32,18 +52,6 @@ def generate_toctree(app: Sphinx):
 systemd — System and Service Manager
 ===================================
 
-.. manual reference to a doc by its reference label
-   see: https://www.sphinx-doc.org/en/master/usage/referencing.html#cross-referencing-arbitrary-locations
-.. Manual links
-.. ------------
-.. :ref:`busctl(1)`
-.. :ref:`systemd(1)`
-.. OR using the toctree to pull in files
-   https://www.sphinx-doc.org/en/master/usage/restructuredtext/directives.html#directive-toctree
-.. This only works if we restructure our headings to match
-   https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html#sections
-   and then only have single top-level heading with the command name
-
 .. toctree::
    :maxdepth: 1\n
 """)
@@ -51,15 +59,14 @@ systemd — System and Service Manager
         # Implement a christmas-tree-style order
         for file in sorted(find_files(root_dir),
                            key=lambda x: (len(x.split('/')), x)):
-            index_file.write(f"   {file}\n")
+            if file not in FILES_USED_ONLY_FOR_INCLUDES:
+                index_file.write(f"   {file}\n")
 
         index_file.write("""
 Indices and tables
 ==================
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search` """)
+* :ref:`genindex`""")
 
 
 def setup(app: Sphinx) -> ExtensionMetadata:
