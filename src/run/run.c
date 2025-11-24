@@ -1098,6 +1098,12 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 arg_exec_user = getusername_malloc();
                 if (!arg_exec_user)
                         return log_oom();
+
+                if (arg_empower) {
+                        r = safe_getcwd(&arg_working_directory);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get current working directory: %m");
+                }
         }
 
         if (!arg_working_directory) {
