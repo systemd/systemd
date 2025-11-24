@@ -102,6 +102,7 @@ TEST(rereadpt) {
         uint64_t size;
         ASSERT_OK(blockdev_get_device_size(pfd, &size));
         ASSERT_EQ(size, 20U*1024U*1024U);
+        safe_close(pfd);
 
         /* No change */
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
@@ -139,14 +140,13 @@ TEST(rereadpt) {
         ASSERT_ERROR(reread_partition_table_fd(loop->fd, /* flags= */ 0), EBUSY);
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
 
-        safe_close(pfd);
-
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
 
         pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         ASSERT_OK_ERRNO(pfd);
         ASSERT_OK(blockdev_get_device_size(pfd, &size));
         ASSERT_EQ(size, 15U*1024U*1024U);
+        safe_close(pfd);
 
         /* No change */
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
@@ -161,7 +161,6 @@ TEST(rereadpt) {
         ASSERT_ERROR(reread_partition_table_fd(loop->fd, /* flags= */ 0), EBUSY);
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
-        pfd = safe_close(pfd);
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
         ASSERT_ERROR_ERRNO(access(p, F_OK), ENOENT);
 }
