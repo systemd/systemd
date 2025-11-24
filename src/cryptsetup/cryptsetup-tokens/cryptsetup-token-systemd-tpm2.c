@@ -7,6 +7,7 @@
 #include "cryptsetup-token-util.h"
 #include "hexdecoct.h"
 #include "json-util.h"
+#include "libfido2-util.h"
 #include "luks2-tpm2.h"
 #include "memory-util.h"
 #include "string-util.h"
@@ -42,7 +43,7 @@ _public_ int cryptsetup_token_open_pin(
                 void *usrptr /* plugin defined parameter passed to crypt_activate_by_token*() API */) {
 
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *pin_string = NULL;
-        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {}, fido2_salt = {};
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -52,6 +53,8 @@ _public_ int cryptsetup_token_open_pin(
         uint16_t pcr_bank, primary_alg;
         ssize_t base64_encoded_size;
         TPM2Flags flags = 0;
+        Fido2EnrollFlags fido2_flags;
+        _cleanup_free_ char *fido2_rp = NULL;
         const char *json;
         int r;
 
@@ -96,7 +99,11 @@ _public_ int cryptsetup_token_open_pin(
                         &salt,
                         &srk,
                         &pcrlock_nv,
-                        &flags);
+                        &flags,
+                        &fido2_cid,
+                        &fido2_salt,
+                        &fido2_rp,
+                        &fido2_flags);
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
@@ -121,6 +128,11 @@ _public_ int cryptsetup_token_open_pin(
                         &srk,
                         &pcrlock_nv,
                         flags,
+                        params.fido2_device,
+                        &fido2_cid,
+                        &fido2_salt,
+                        fido2_rp,
+                        fido2_flags,
                         &decrypted_key);
         if (r < 0)
                 return log_debug_open_error(cd, r);
@@ -176,12 +188,14 @@ _public_ void cryptsetup_token_dump(
                 struct crypt_device *cd /* is always LUKS2 context */,
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
-        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *pubkey_str = NULL;
-        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+        _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *pubkey_str = NULL, *fido2_cid_str = NULL, *fido2_salt_str = NULL;
+        _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {}, fido2_salt = {};
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
         uint16_t pcr_bank, primary_alg;
         TPM2Flags flags = 0;
+        Fido2EnrollFlags fido2_flags;
+        _cleanup_free_ char *fido2_rp = NULL;
         int r;
 
         assert(json);
@@ -210,7 +224,11 @@ _public_ void cryptsetup_token_dump(
                         &salt,
                         &srk,
                         &pcrlock_nv,
-                        &flags);
+                        &flags,
+                        &fido2_cid,
+                        &fido2_salt,
+                        &fido2_rp,
+                        &fido2_flags);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON fields: %m");
 
@@ -226,16 +244,31 @@ _public_ void cryptsetup_token_dump(
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
-        crypt_log(cd, "\ttpm2-hash-pcrs:   %s\n", strna(hash_pcrs_str));
-        crypt_log(cd, "\ttpm2-pcr-bank:    %s\n", strna(tpm2_hash_alg_to_string(pcr_bank)));
+        r = crypt_dump_buffer_to_hex_string(fido2_cid.iov_base, fido2_cid.iov_len, &fido2_cid_str);
+        if (r < 0)
+                return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
+
+        r = crypt_dump_buffer_to_hex_string(fido2_salt.iov_base, fido2_salt.iov_len, &fido2_salt_str);
+        if (r < 0)
+                return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
+
+        crypt_log(cd, "\ttpm2-hash-pcrs:           %s\n", strna(hash_pcrs_str));
+        crypt_log(cd, "\ttpm2-pcr-bank:            %s\n", strna(tpm2_hash_alg_to_string(pcr_bank)));
         crypt_log(cd, "\ttpm2-pubkey:" CRYPT_DUMP_LINE_SEP "%s\n", pubkey_str);
-        crypt_log(cd, "\ttpm2-pubkey-pcrs: %s\n", strna(pubkey_pcrs_str));
-        crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
-        crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
-        crypt_log(cd, "\ttpm2-pcrlock:     %s\n", true_false(flags & TPM2_FLAGS_USE_PCRLOCK));
-        crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(iovec_is_set(&salt)));
-        crypt_log(cd, "\ttpm2-srk:         %s\n", true_false(iovec_is_set(&srk)));
-        crypt_log(cd, "\ttpm2-pcrlock-nv:  %s\n", true_false(iovec_is_set(&pcrlock_nv)));
+        crypt_log(cd, "\ttpm2-pubkey-pcrs:         %s\n", strna(pubkey_pcrs_str));
+        crypt_log(cd, "\ttpm2-primary-alg:         %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
+        crypt_log(cd, "\ttpm2-pin:                 %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
+        crypt_log(cd, "\ttpm2-pcrlock:             %s\n", true_false(flags & TPM2_FLAGS_USE_PCRLOCK));
+        crypt_log(cd, "\ttpm2-fido2:               %s\n", true_false(flags & TPM2_FLAGS_USE_FIDO2));
+        crypt_log(cd, "\ttpm2-salt:                %s\n", true_false(iovec_is_set(&salt)));
+        crypt_log(cd, "\ttpm2-srk:                 %s\n", true_false(iovec_is_set(&srk)));
+        crypt_log(cd, "\ttpm2-pcrlock-nv:          %s\n", true_false(iovec_is_set(&pcrlock_nv)));
+        crypt_log(cd, "\tfido2-credential:" CRYPT_DUMP_LINE_SEP "%s\n", fido2_cid_str);
+        crypt_log(cd, "\tfido2-salt:               %s\n", fido2_salt_str);
+        crypt_log(cd, "\tfido2-rp:                 %s\n", true_false(iovec_is_set(&fido2_salt)));
+        crypt_log(cd, "\tfido2-clientPin-required: %s\n", true_false(fido2_flags & FIDO2ENROLL_PIN));
+        crypt_log(cd, "\tfido2-up-required:        %s\n", true_false(fido2_flags & FIDO2ENROLL_UP));
+        crypt_log(cd, "\tfido2-uv-required:        %s\n", true_false(fido2_flags & FIDO2ENROLL_UV));
 
         FOREACH_ARRAY(p, policy_hash, n_policy_hash) {
                 _cleanup_free_ char *policy_hash_str = NULL;
@@ -377,6 +410,52 @@ _public_ int cryptsetup_token_validate(
                         crypt_log_debug(cd, "TPM2 PIN policy is not a boolean.");
                         return 1;
                 }
+        }
+
+        w = sd_json_variant_by_key(v, "tpm2-fido2");
+        if (w) {
+                if (!sd_json_variant_is_boolean(w)) {
+                        crypt_log_debug(cd, "TPM2 FIDO2 policy is not a boolean.");
+                        return 1;
+                }
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-credential");
+        if (w) {
+                r = sd_json_variant_unbase64(w, NULL, NULL);
+                if (r < 0)
+                        return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'fido2-credential' field: %m");
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-salt");
+        if (w) {
+                r = sd_json_variant_unbase64(w, NULL, NULL);
+                if (r < 0)
+                        return crypt_log_debug_errno(cd, r, "Failed to decode base64 encoded salt: %m.");
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-rp");
+        if (w && !sd_json_variant_is_string(w)) {
+                 crypt_log_debug(cd, "FIDO2 token data's 'fido2-rp' field is not a string.");
+                return 1;
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-clientPin-required");
+        if (w && !sd_json_variant_is_boolean(w)) {
+                crypt_log_debug(cd, "FIDO2 token data's 'fido2-clientPin-required' field is not a boolean.");
+                return 1;
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-up-required");
+        if (w && !sd_json_variant_is_boolean(w)) {
+                crypt_log_debug(cd, "FIDO2 token data's 'fido2-up-required' field is not a boolean.");
+                return 1;
+        }
+
+        w = sd_json_variant_by_key(v, "fido2-uv-required");
+        if (w && !sd_json_variant_is_boolean(w)) {
+                crypt_log_debug(cd, "FIDO2 token data's 'fido2-uv-required' field is not a boolean.");
+                return 1;
         }
 
         return 0;

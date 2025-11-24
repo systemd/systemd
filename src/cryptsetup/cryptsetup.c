@@ -118,6 +118,7 @@ static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_signature = NULL;
 static bool arg_tpm2_pin = false;
 static char *arg_tpm2_pcrlock = NULL;
+static bool arg_tpm2_fido2 = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 static unsigned arg_tpm2_measure_pcr = UINT_MAX; /* This and the following field is about measuring the unlocked volume key to the local TPM */
 static char **arg_tpm2_measure_banks = NULL;
@@ -512,6 +513,20 @@ static int parse_one_option(const char *option) {
                 r = free_and_strdup(&arg_tpm2_pcrlock, val);
                 if (r < 0)
                         return log_oom();
+
+        } else if ((val = startswith(option, "tpm2-fido2="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_tpm2_fido2 = r;
+
+                /* Turn on FIDO2 as side-effect, if not turned on yet. */
+                if (!arg_fido2_device && !arg_fido2_device_auto)
+                        arg_fido2_device_auto = true;
 
         } else if ((val = startswith(option, "tpm2-measure-pcr="))) {
                 unsigned pcr;
@@ -1958,6 +1973,7 @@ static int attach_luks2_by_tpm2_via_plugin(
                 .device = arg_tpm2_device,
                 .signature_path = arg_tpm2_signature,
                 .pcrlock_path = arg_tpm2_pcrlock,
+                .fido2_device = arg_fido2_device,
         };
 
         if (!use_token_plugins())
@@ -1998,6 +2014,14 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
         assert(name);
         assert(arg_tpm2_device || arg_tpm2_device_auto);
 
+        if (arg_tpm2_fido2) {
+                assert(arg_fido2_device || arg_fido2_device_auto);
+
+                if (arg_fido2_cid && !key_file && !iovec_is_set(key_data))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "FIDO2 mode with manual parameters selected, but no keyfile specified, refusing.");
+        }
+
         friendly = friendly_disk_name(crypt_get_device_name(cd), name);
         if (!friendly)
                 return log_oom();
@@ -2008,6 +2032,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                         r = acquire_tpm2_key(
                                         name,
+                                        friendly,
                                         arg_tpm2_device,
                                         arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT_LEGACY : arg_tpm2_pcr_mask,
                                         UINT16_MAX,
@@ -2023,7 +2048,12 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* salt= */ NULL,
                                         /* srk= */ NULL,
                                         /* pcrlock_nv= */ NULL,
-                                        arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
+                                        (arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0)|(arg_tpm2_fido2 ? TPM2_FLAGS_USE_FIDO2 : 0),
+                                        arg_fido2_device,
+                                        arg_fido2_cid,
+                                        /* fido2_salt= */ key_data,
+                                        arg_fido2_rp_id,
+                                        arg_fido2_manual_flags,
                                         until,
                                         "cryptsetup.tpm2-pin",
                                         arg_ask_password_flags,
@@ -2066,12 +2096,14 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * works. */
 
                         for (;;) {
-                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {}, fido2_cid = {}, fido2_salt = {};
                                 struct iovec *blobs = NULL, *policy_hash = NULL;
+                                _cleanup_free_ char *fido2_rp = NULL;
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 size_t n_blobs = 0, n_policy_hash = 0;
                                 uint16_t pcr_bank, primary_alg;
                                 TPM2Flags tpm2_flags;
+                                Fido2EnrollFlags fido2_flags;
 
                                 CLEANUP_ARRAY(blobs, n_blobs, iovec_array_free);
                                 CLEANUP_ARRAY(policy_hash, n_policy_hash, iovec_array_free);
@@ -2093,6 +2125,10 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &srk,
                                                 &pcrlock_nv,
                                                 &tpm2_flags,
+                                                &fido2_cid,
+                                                &fido2_salt,
+                                                &fido2_rp,
+                                                &fido2_flags,
                                                 &keyslot,
                                                 &token);
                                 if (r == -ENXIO)
@@ -2113,6 +2149,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                                 r = acquire_tpm2_key(
                                                 name,
+                                                friendly,
                                                 arg_tpm2_device,
                                                 hash_pcr_mask,
                                                 pcr_bank,
@@ -2130,6 +2167,11 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &srk,
                                                 &pcrlock_nv,
                                                 tpm2_flags,
+                                                arg_fido2_device,
+                                                &fido2_cid,
+                                                &fido2_salt,
+                                                fido2_rp,
+                                                fido2_flags,
                                                 until,
                                                 "cryptsetup.tpm2-pin",
                                                 arg_ask_password_flags,
