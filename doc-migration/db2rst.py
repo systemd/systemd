@@ -706,15 +706,20 @@ def quote(el):
     return "“%s”" % _concat(el).strip()
 
 
+def _nearest_varlist_class(el):
+    """Return the nearest enclosing variablelist class, or '' if none."""
+    for varlist in el.iterancestors(tag='variablelist'):
+        c = varlist.attrib.get('class', '')
+        if c:
+            return c
+    return ''
+
 def varname(el):
     if _is_inside_of(el, 'term'):
         return _concat(el).strip()
 
-    classname = ''
-    for varlist in el.iterancestors(tag='variablelist'):
-        if varlist.attrib.get('class', '') != '':
-            classname = varlist.attrib['class']
-    if len(classname) > 0:
+    classname = _nearest_varlist_class(el)
+    if classname:
         return f":directive:{classname}:var:`%s`" % _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
@@ -730,11 +735,8 @@ def option(el):
             result = "%s" % _concat(el).strip()
         return result
 
-    classname = ''
-    for varlist in el.iterancestors(tag='variablelist'):
-        if varlist.attrib.get('class', '') != '':
-            classname = varlist.attrib['class']
-    if len(classname) > 0:
+    classname = _nearest_varlist_class(el)
+    if classname:
         return f":directive:{classname}:option:`%s`" % _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
@@ -743,11 +745,8 @@ def constant(el):
     if _is_inside_of(el, 'term'):
         return _concat(el).strip()
 
-    classname = ''
-    for varlist in el.iterancestors(tag='variablelist'):
-        if varlist.attrib.get('class', '') != '':
-            classname = varlist.attrib['class']
-    if len(classname) > 0:
+    classname = _nearest_varlist_class(el)
+    if classname:
         return f":directive:{classname}:constant:`%s`" % _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
