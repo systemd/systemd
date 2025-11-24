@@ -34,6 +34,7 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "mstack.h"
 #include "namespace.h"
 #include "namespace-util.h"
 #include "nsflags.h"
@@ -1296,6 +1297,13 @@ static int create_temporary_mount_point(RuntimeScope scope, char **ret) {
         return 0;
 }
 
+static bool namespace_with_rootfs(const NamespaceParameters *p) {
+        /* Returns true, if we have a root dir, root image or too mstack, and hence the root mount is
+         * changed */
+
+        return p->root_image || p->root_directory || p->root_directory_fd >= 0 || p->root_mstack;
+}
+
 static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) {
         static const char devnodes[] =
                 "/dev/null\0"
@@ -1360,7 +1368,7 @@ static int mount_private_dev(const MountEntry *m, const NamespaceParameters *p) 
 
         /* We assume /run/systemd/journal/ is available if not changing root, which isn't entirely accurate
          * but shouldn't matter, as either way the user would get ENOENT when accessing /dev/log */
-        if ((!p->root_image && !p->root_directory && p->root_directory_fd < 0) || p->bind_log_sockets) {
+        if (!namespace_with_rootfs(p) || p->bind_log_sockets) {
                 const char *devlog = strjoina(temporary_mount, "/dev/log");
                 if (symlink("/run/systemd/journal/dev-log", devlog) < 0)
                         log_debug_errno(errno,
@@ -2497,10 +2505,22 @@ static bool home_read_only(
         return false;
 }
 
+static bool namespace_read_only(const NamespaceParameters *p) {
+        assert(p);
+
+        return root_read_only(p->read_only_paths,
+                              p->protect_system) &&
+                home_read_only(p->read_only_paths, p->inaccessible_paths, p->empty_directories,
+                               p->bind_mounts, p->n_bind_mounts, p->temporary_filesystems, p->n_temporary_filesystems,
+                               p->protect_home) &&
+                strv_isempty(p->read_write_paths);
+}
+
 int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
         _cleanup_strv_free_ char **hierarchies = NULL;
         _cleanup_(mount_list_done) MountList ml = {};
         _cleanup_close_ int userns_fd = -EBADF;
@@ -2518,6 +2538,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES |
                 DISSECT_IMAGE_ALLOW_USERSPACE_VERITY |
                 DISSECT_IMAGE_VERITY_SHARE;
+        MStackFlags mstack_flags = 0;
         int r;
 
         assert(p);
@@ -2531,12 +2552,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         if (p->root_image) {
                 /* Make the whole image read-only if we can determine that we only access it in a read-only fashion. */
-                if (root_read_only(p->read_only_paths,
-                                   p->protect_system) &&
-                    home_read_only(p->read_only_paths, p->inaccessible_paths, p->empty_directories,
-                                   p->bind_mounts, p->n_bind_mounts, p->temporary_filesystems, p->n_temporary_filesystems,
-                                   p->protect_home) &&
-                    strv_isempty(p->read_write_paths))
+                if (namespace_read_only(p))
                         dissect_image_flags |= DISSECT_IMAGE_READ_ONLY;
 
                 SET_FLAG(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE, p->verity && p->verity->data_path);
@@ -2620,6 +2636,24 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                         return r;
                         }
                 }
+
+        } else if (p->root_mstack) {
+                if (namespace_read_only(p))
+                        mstack_flags |= MSTACK_RDONLY;
+
+                r = mstack_load(p->root_mstack, /* dir_fd= */ -EBADF, &mstack);
+                if (r < 0)
+                        return r;
+
+                if (p->runtime_scope != RUNTIME_SCOPE_SYSTEM) {
+                        userns_fd = namespace_open_by_type(NAMESPACE_USER);
+                        if (userns_fd < 0)
+                                return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
+                }
+
+                r = mstack_open_images(mstack, userns_fd, p->root_image_policy, /* image_filter= */ NULL, mstack_flags);
+                if (r < 0)
+                        return r;
         }
 
         if (p->root_directory)
@@ -3014,6 +3048,15 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                                 return r;
                 }
 
+        } else if (p->root_mstack) {
+                r = mstack_make_mounts(mstack, root, mstack_flags);
+                if (r < 0)
+                        return r;
+
+                r = mstack_bind_mounts(mstack, root, /* where_fd= */ -EBADF, mstack_flags, /* ret_root_fd= */ NULL);
+                if (r < 0)
+                        return r;
+
         } else {
                 /* Let's mount the main root directory to the root directory to use */
                 r = mount_nofollow_verbose(LOG_DEBUG, "/", root, NULL, MS_BIND|MS_REC, NULL);
@@ -3022,7 +3065,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
         }
 
         /* Try to set up the new root directory before mounting anything else there. */
-        if (p->root_image || p->root_directory || p->root_directory_fd >= 0)
+        if (namespace_with_rootfs(p))
                 (void) base_filesystem_create(root, UID_INVALID, GID_INVALID);
 
         /* Now make the magic happen */
