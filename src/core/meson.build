@@ -1,5 +1,36 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
+load_fragment_gperf_gperf = custom_target(
+        input : 'load-fragment-gperf.gperf.in',
+        output: 'load-fragment-gperf.gperf',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'])
+
+libcore_build_dir = meson.current_build_dir()
+core_includes = [includes, include_directories('.')]
+
+systemd_pc = custom_target(
+        input : 'systemd.pc.in',
+        output : 'systemd.pc',
+        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+        install : pkgconfigdatadir != 'no',
+        install_tag : 'devel',
+        install_dir : pkgconfigdatadir)
+
+if conf.get('HAVE_LIBMOUNT') != 1
+        libcore = disabler()
+
+        core_test_template = test_template + {
+                'link_with' : [
+                        libcore,
+                        libshared,
+                ],
+                'include_directories' : core_includes,
+                'suite' : 'core',
+        }
+
+        subdir_done()
+endif
+
 libcore_sources = files(
         'audit-fd.c',
         'automount.c',
@@ -84,11 +115,6 @@ endif
 
 sources += libcore_sources
 
-load_fragment_gperf_gperf = custom_target(
-        input : 'load-fragment-gperf.gperf.in',
-        output: 'load-fragment-gperf.gperf',
-        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'])
-
 load_fragment_gperf_c = custom_target(
         input : load_fragment_gperf_gperf,
         output : 'load-fragment-gperf.c',
@@ -123,7 +149,6 @@ man_page_depends += bpf_delegate_xml
 
 generated_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc]
 libcore_sources += [load_fragment_gperf_c, load_fragment_gperf_nulstr_c, bpf_delegate_configs_inc]
-libcore_build_dir = meson.current_build_dir()
 libcore_name = 'systemd-core-@0@'.format(shared_lib_tag)
 
 libcore_static = static_library(
@@ -154,8 +179,6 @@ libcore = shared_library(
         link_with : libshared,
         install : true,
         install_dir : pkglibdir)
-
-core_includes = [includes, include_directories('.')]
 
 systemd_sources = files(
         'main.c',
@@ -256,14 +279,6 @@ foreach item : in_files
                 install : (dir == pkgconfigfiledir) ? install_sysconfdir_samples : (dir != 'no'),
                 install_dir : dir)
 endforeach
-
-systemd_pc = custom_target(
-        input : 'systemd.pc.in',
-        output : 'systemd.pc',
-        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : pkgconfigdatadir != 'no',
-        install_tag : 'devel',
-        install_dir : pkgconfigdatadir)
 
 install_data('org.freedesktop.systemd1.conf',
              install_dir : dbuspolicydir)

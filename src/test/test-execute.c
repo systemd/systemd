@@ -1612,7 +1612,7 @@ static int intro(void) {
         if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
                 return log_tests_skipped("not privileged");
 
-        if (running_in_chroot() > 0)
+        if (running_in_chroot() != 0)
                 return log_tests_skipped("running in chroot");
 
         if (enter_cgroup_subroot(NULL) == -ENOMEDIUM)

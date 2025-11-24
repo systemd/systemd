@@ -54,7 +54,7 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libblkid, HAVE_BLKID);
         ASSERT_DLOPEN(dlopen_libfido2, HAVE_LIBFIDO2);
         ASSERT_DLOPEN(dlopen_libkmod, HAVE_KMOD);
-        ASSERT_DLOPEN(dlopen_libmount, true);
+        ASSERT_DLOPEN(dlopen_libmount, HAVE_LIBMOUNT);
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
         ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SECCOMP);
         ASSERT_DLOPEN(dlopen_libselinux, HAVE_SELINUX);

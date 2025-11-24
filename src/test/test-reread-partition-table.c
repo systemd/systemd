@@ -47,9 +47,9 @@ TEST(rereadpt) {
 
         if (detect_container() > 0)
                 return (void) log_tests_skipped("test not available in container");
-        if (geteuid() != 0 || have_effective_cap(CAP_SYS_ADMIN) <= 0)
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0)
                 return (void) log_tests_skipped("test requires privileges");
-        if (running_in_chroot() > 0)
+        if (running_in_chroot() != 0)
                 return (void) log_tests_skipped("test not available in chroot()");
 
         _cleanup_free_ char *sfdisk_path = NULL;
@@ -97,11 +97,12 @@ TEST(rereadpt) {
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
 
-        _cleanup_close_ int pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        ASSERT_OK_ERRNO(pfd);
+        _cleanup_close_ int pfd = -EBADF;
+        ASSERT_OK_ERRNO(pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
         uint64_t size;
         ASSERT_OK(blockdev_get_device_size(pfd, &size));
         ASSERT_EQ(size, 20U*1024U*1024U);
+        pfd = safe_close(pfd);
 
         /* No change */
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
@@ -122,11 +123,14 @@ TEST(rereadpt) {
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
 
+        ASSERT_OK_ERRNO(pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
         ASSERT_OK(blockdev_get_device_size(pfd, &size));
         ASSERT_EQ(size, 30U*1024U*1024U);
+        pfd = safe_close(pfd);
 
         /* No change */
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
+        ASSERT_OK_ERRNO(pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
 
         /* Move */
         log_notice("MOVING BY 50M");
@@ -137,19 +141,19 @@ TEST(rereadpt) {
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
         ASSERT_ERROR(reread_partition_table_fd(loop->fd, /* flags= */ 0), EBUSY);
+        pfd = safe_close(pfd);
+
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
-
-        safe_close(pfd);
-
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
 
-        pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
-        ASSERT_OK_ERRNO(pfd);
+        pfd = ASSERT_OK_ERRNO(open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
         ASSERT_OK(blockdev_get_device_size(pfd, &size));
         ASSERT_EQ(size, 15U*1024U*1024U);
+        pfd = safe_close(pfd);
 
         /* No change */
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
+        pfd = ASSERT_OK_ERRNO(open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
 
         /* Remove */
         log_notice("REMOVING");
@@ -159,9 +163,9 @@ TEST(rereadpt) {
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
         ASSERT_ERROR(reread_partition_table_fd(loop->fd, /* flags= */ 0), EBUSY);
+        pfd = safe_close(pfd);
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
-        pfd = safe_close(pfd);
         ASSERT_OK(reread_partition_table_fd(loop->fd, /* flags= */ 0));
         ASSERT_ERROR_ERRNO(access(p, F_OK), ENOENT);
 }
