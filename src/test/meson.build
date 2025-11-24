@@ -576,6 +576,7 @@ executables += [
                 'sources' : files('test-namespace.c'),
                 'dependencies' : [
                         threads,
+                        libmount_cflags,
                 ],
         },
         core_test_template + {
