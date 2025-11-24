@@ -1753,6 +1753,33 @@ int openssl_load_private_key(
 
         return 0;
 }
+
+int openssl_extract_public_key(EVP_PKEY *private_key, EVP_PKEY **ret) {
+        int r;
+
+        assert(private_key);
+        assert(ret);
+
+        _cleanup_(memstream_done) MemStream m = {};
+        FILE *tf = memstream_init(&m);
+        if (!tf)
+                return log_oom();
+
+        if (i2d_PUBKEY_fp(tf, private_key) != 1)
+                return -EIO;
+
+        _cleanup_(erase_and_freep) char *buf = NULL;
+        size_t len;
+        r = memstream_finalize(&m, &buf, &len);
+        if (r < 0)
+                return r;
+
+        const unsigned char *t = (unsigned char*) buf;
+        if (!d2i_PUBKEY(ret, &t, len))
+                return -EIO;
+
+        return 0;
+}
 #endif
 
 int parse_openssl_certificate_source_argument(
