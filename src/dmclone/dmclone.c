@@ -18,10 +18,12 @@
   You should have received a copy of the GNU Lesser General Public License
   along with systemd; If not, see <http://www.gnu.org/licenses/>.
  ***/
+#include <fcntl.h>
 #include <getopt.h>
 #include <stdio.h>
-
 #include <sys/ioctl.h>
+#include <sys/stat.h>
+
 #include "conf-files.h"
 #include "main-func.h"
 #include "errno-util.h"
@@ -41,23 +43,24 @@
 #include "build.h"
 
 static uint64_t get_size(const char *dev_path) {
-        int fd, block_size;
+        uint64_t block_size_bytes;
         uint64_t device_size_sectors;
-        
+        int fd;
+
         fd = open(dev_path, O_RDONLY);
         if (fd < 0) {
                 log_error("Error opening device");
                 return 1;
         }
-        
+
         /* Use BLKGETSIZE64 ioctl to get block size in bytes */
-        if (ioctl(fd, BLKGETSIZE64, &block_size) < 0) {
+        if (ioctl(fd, BLKGETSIZE64, &block_size_bytes) < 0) {
                 log_error("Error with ioctl(BLKGETSIZE64)");
                 close(fd);
                 return 1;
         }
         close(fd);
-        device_size_sectors = block_size / 512;
+        device_size_sectors = block_size_bytes / 512;
         return device_size_sectors;
 }
 
@@ -67,6 +70,8 @@ static int dm_clone_task(const char *clone_name, const char *source_dev, const c
         struct dm_task *dmt;
         uint32_t cookie = 0;
         uint16_t udev_flags = 0;
+        uint64_t device_size_sectors;
+        char cmd[256];
         int r;
 
         dmt = dm_task_create(DM_DEVICE_CREATE);
@@ -81,14 +86,13 @@ static int dm_clone_task(const char *clone_name, const char *source_dev, const c
                 return 1;
         }
 
-        uint64_t device_size_sectors = get_size(source_dev);
+        device_size_sectors = get_size(source_dev);
 
         /* Build dm-clone target parameters:
          * Format: <metadata_dev> <dest_dev> <source_dev> <region_size> <version> <options>
          * region_size: 8 sectors (4KB regions)
          * version: 1
          * options: no_hydration (disable initial background hydration) */
-        char cmd[256];
         snprintf(cmd, sizeof(cmd), "%s %s %s 8 1 no_hydration", metadata_dev, dest_dev, source_dev);
 
         if (!dm_task_add_target(dmt, 0, device_size_sectors, "clone", cmd)) {
@@ -154,9 +158,9 @@ static int clone_device(const char *clone_name, const char *source_dev, const ch
                 const char *metadata_dev, const char *options) {
 
         char clone_dev_path[256];
-        snprintf(clone_dev_path, sizeof(clone_dev_path), "/dev/mapper/%s", clone_name);
-        
         struct stat st;
+
+        snprintf(clone_dev_path, sizeof(clone_dev_path), "/dev/mapper/%s", clone_name);
         if (stat(clone_dev_path, &st) >= 0) {
                 log_error("device %s already exists", clone_dev_path);
                 return 1;
@@ -262,9 +266,8 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         int r;
-        log_setup();
-        log_info("Hello World");
 
+        log_setup();
         umask(0022);
 
         r = parse_argv(argc, argv);
