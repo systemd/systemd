@@ -38,6 +38,7 @@
 #include "user-util.h"
 
 int umount_recursive_full(const char *prefix, int flags, char **keep) {
+#if HAVE_LIBMOUNT
         _cleanup_fclose_ FILE *f = NULL;
         int n = 0, r;
 
@@ -110,6 +111,9 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
         }
 
         return n;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 #define MS_CONVERTIBLE_FLAGS (MS_RDONLY|MS_NOSUID|MS_NODEV|MS_NOEXEC|MS_NOSYMFOLLOW|MS_RELATIME|MS_NOATIME|MS_STRICTATIME|MS_NODIRATIME)
@@ -175,11 +179,6 @@ int bind_remount_recursive_with_mountinfo(
                 char **deny_list,
                 FILE *proc_self_mountinfo) {
 
-        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
-        _cleanup_set_free_ Set *done = NULL;
-        unsigned n_tries = 0;
-        int r;
-
         assert(prefix);
 
         if ((flags_mask & ~MS_CONVERTIBLE_FLAGS) == 0 && strv_isempty(deny_list) && !skip_mount_set_attr) {
@@ -205,6 +204,12 @@ int bind_remount_recursive_with_mountinfo(
                 } else
                         return 0; /* Nice, this worked! */
         }
+
+#if HAVE_LIBMOUNT
+        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
+        _cleanup_set_free_ Set *done = NULL;
+        unsigned n_tries = 0;
+        int r;
 
         if (!proc_self_mountinfo) {
                 r = fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo_opened);
@@ -404,6 +409,9 @@ int bind_remount_recursive_with_mountinfo(
                         log_trace("Remounted %s.", x);
                 }
         }
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int bind_remount_one_with_mountinfo(
@@ -411,12 +419,6 @@ int bind_remount_one_with_mountinfo(
                 unsigned long new_flags,
                 unsigned long flags_mask,
                 FILE *proc_self_mountinfo) {
-
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        unsigned long flags = 0;
-        struct libmnt_fs *fs;
-        const char *opts;
-        int r;
 
         assert(path);
         assert(proc_self_mountinfo);
@@ -437,6 +439,13 @@ int bind_remount_one_with_mountinfo(
                 } else
                         return 0; /* Nice, this worked! */
         }
+
+#if HAVE_LIBMOUNT
+        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        unsigned long flags = 0;
+        struct libmnt_fs *fs;
+        const char *opts;
+        int r;
 
         rewind(proc_self_mountinfo);
 
@@ -481,6 +490,9 @@ int bind_remount_one_with_mountinfo(
         }
 
         return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask) {
@@ -859,6 +871,16 @@ int mount_option_mangle(
                 unsigned long *ret_mount_flags,
                 char **ret_remaining_options) {
 
+        assert(ret_mount_flags);
+        assert(ret_remaining_options);
+
+        if (!options) {
+                *ret_mount_flags = mount_flags;
+                *ret_remaining_options = NULL;
+                return 0;
+        }
+
+#if HAVE_LIBMOUNT
         const struct libmnt_optmap *map;
         _cleanup_free_ char *ret = NULL;
         int r;
@@ -875,9 +897,6 @@ int mount_option_mangle(
          * then '*ret_remaining_options' is set to NULL instead of empty string.
          * The validity of options stored in '*ret_remaining_options' is not checked.
          * If 'options' is NULL, this just copies 'mount_flags' to *ret_mount_flags. */
-
-        assert(ret_mount_flags);
-        assert(ret_remaining_options);
 
         r = dlopen_libmount();
         if (r < 0)
@@ -922,6 +941,9 @@ int mount_option_mangle(
         *ret_remaining_options = TAKE_PTR(ret);
 
         return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 static int mount_in_namespace_legacy(
@@ -1640,6 +1662,7 @@ void sub_mount_array_free(SubMount *s, size_t n) {
         free(s);
 }
 
+#if HAVE_LIBMOUNT
 static int sub_mount_compare(const SubMount *a, const SubMount *b) {
         assert(a);
         assert(b);
@@ -1659,9 +1682,10 @@ static void sub_mount_drop(SubMount *s, size_t n) {
                         m = i;
         }
 }
+#endif
 
 int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts) {
-
+#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         SubMount *mounts = NULL;
@@ -1738,6 +1762,9 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
         *ret_mounts = TAKE_PTR(mounts);
         *ret_n_mounts = n;
         return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int bind_mount_submounts(
@@ -2015,6 +2042,7 @@ int path_get_mount_info_at(
                 char **ret_options,
                 char **ret_source) {
 
+#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         int r, mnt_id;
@@ -2077,6 +2105,9 @@ int path_get_mount_info_at(
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(ESTALE), "Cannot find mount ID %i from /proc/self/mountinfo.", mnt_id);
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
+#endif
 }
 
 int path_is_network_fs_harder_at(int dir_fd, const char *path) {
