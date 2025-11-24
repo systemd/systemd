@@ -21,7 +21,7 @@ static inline bool efi_guid_equal(const EFI_GUID *a, const EFI_GUID *b) {
 
 typedef struct {
         EFI_GUID SignatureOwner;
-        uint8_t	SignatureData[];
+        uint8_t SignatureData[];
 } EFI_SIGNATURE_DATA;
 
 typedef struct {
