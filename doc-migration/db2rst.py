@@ -688,7 +688,7 @@ def cmdsynopsis(el):
 def command(el):
     # Only enclose in backticks if it’s not part of a term
     # (which is already enclosed in backticks)
-    if _is_inside_of(el, 'term') or _is_inside_of(el, 'cmdsynopsis'):
+    if _is_inside_of(el, 'term') or _is_inside_of(el, 'cmdsynopsis') or _is_inside_of(el, 'programlisting'):
         return _concat(el).strip()
     return "``%s``" % _concat(el).strip()
 
@@ -774,12 +774,13 @@ def replaceable(el):
     isRepeat = False
     result = ''
     isInsideTerm = _is_inside_of(el, 'term')
+    isInsideProgramlisting = _is_inside_of(el, 'programlisting')
     for arg in el.iterancestors(tag='arg'):
         if arg.get("choice") == 'opt':
             isInsideArg = True
         if arg.get("rep") == 'repeat':
             isRepeat = True
-    if isInsideArg or isInsideTerm:
+    if isInsideArg or isInsideTerm or isInsideProgramlisting:
         result = f"{_concat(el).strip()}{'...' if isRepeat else ''}"
         # result = f"*[%s{'...' if isRepeat else ''}]*" % _concat(el).strip()
     else:
@@ -1070,25 +1071,26 @@ def informalexample(el):
 def programlisting(el):
     # TODO: newlines at the end aren't applied properly
     xi_include = el.find('.//{http://www.w3.org/2001/XInclude}include')
-    if len(el.getchildren()) == 0:
-        if xi_include is not None:
-            return _includes(xi_include)
-        else:
-            # Use depth-aware indentation system
-            depth = _get_listitem_depth(el)
-
-            if depth > 0:
-                # Inside list context: calculate indentation based on depth
-                directive_indent = " " * (2 * depth)  # 2 spaces per nesting level
-                code_indent = 3 + (2 * depth)  # 3 base + 2 per nesting level
-            else:
-                # Not in list context: no extra indentation
-                directive_indent = ""
-                code_indent = 3
-
-            return f"\n\n{directive_indent}.. code-block:: sh\n \n{_indent(el, code_indent)}\n \n"
+    # Systemd programlistings do include child elements, so just render them
+    # if len(el.getchildren()) == 0:
+    if xi_include is not None:
+        return _includes(xi_include)
     else:
-        return _concat(el)
+        # Use depth-aware indentation system
+        depth = _get_listitem_depth(el)
+
+        if depth > 0:
+            # Inside list context: calculate indentation based on depth
+            directive_indent = " " * (2 * depth)  # 2 spaces per nesting level
+            code_indent = 3 + (2 * depth)  # 3 base + 2 per nesting level
+        else:
+            # Not in list context: no extra indentation
+            directive_indent = ""
+            code_indent = 3
+
+        return f"\n\n{directive_indent}.. code-block:: sh\n \n{_indent(el, code_indent)}\n \n"
+    # else:
+    #     return _concat(el)
 
 
 def screen(el):
