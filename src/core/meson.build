@@ -133,6 +133,7 @@ libcore_static = static_library(
         implicit_include_directories : false,
         c_args : ['-fvisibility=default'],
         dependencies : [libaudit_cflags,
+                        libbpf_cflags,
                         libdl,
                         libm,
                         libmount_cflags,
@@ -200,6 +201,7 @@ executables += [
                 'dependencies' : [
                         libapparmor_cflags,
                         libkmod_cflags,
+                        libmount_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
                 ],
