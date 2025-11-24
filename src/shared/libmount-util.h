@@ -1,11 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "shared-forward.h"
+
+#if HAVE_LIBMOUNT
+
 /* This needs to be after sys/mount.h */
 #include <libmount.h> /* IWYU pragma: export */
 
 #include "dlfcn-util.h"
-#include "shared-forward.h"
 
 extern DLSYM_PROTOTYPE(mnt_free_iter);
 extern DLSYM_PROTOTYPE(mnt_free_table);
@@ -39,8 +42,6 @@ extern DLSYM_PROTOTYPE(mnt_table_parse_stream);
 extern DLSYM_PROTOTYPE(mnt_table_parse_swaps);
 extern DLSYM_PROTOTYPE(mnt_unref_monitor);
 
-int dlopen_libmount(void);
-
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_table*, sym_mnt_free_table, mnt_free_tablep, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(struct libmnt_iter*, sym_mnt_free_iter, mnt_free_iterp, NULL);
 
@@ -55,14 +56,12 @@ static inline int libmount_parse_mountinfo(
                 FILE *source,
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
-
         return libmount_parse_full("/proc/self/mountinfo", source, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
 static inline int libmount_parse_with_utab(
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
-
         return libmount_parse_full(NULL, NULL, MNT_ITER_FORWARD, ret_table, ret_iter);
 }
 
@@ -71,3 +70,6 @@ int libmount_parse_fstab(struct libmnt_table **ret_table, struct libmnt_iter **r
 int libmount_is_leaf(
                 struct libmnt_table *table,
                 struct libmnt_fs *fs);
+#endif
+
+int dlopen_libmount(void);
