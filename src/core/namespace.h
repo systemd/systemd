@@ -130,6 +130,7 @@ typedef struct NamespaceParameters {
         int root_directory_fd;
         const char *root_directory;
         const char *root_image;
+        const char *root_mstack;
         const MountOptions *root_image_options;
         const ImagePolicy *root_image_policy;
 
