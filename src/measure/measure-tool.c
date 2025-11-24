@@ -15,7 +15,6 @@
 #include "hexdecoct.h"
 #include "log.h"
 #include "main-func.h"
-#include "memstream-util.h"
 #include "openssl-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -890,25 +889,10 @@ static int build_policy_digest(bool sign) {
                                         "Failed to extract public key from certificate %s.",
                                         arg_certificate);
         } else if (sign) {
-                _cleanup_(memstream_done) MemStream m = {};
-                FILE *tf;
-
                 /* No public key was specified, let's derive it automatically, if we can, when signing */
-
-                tf = memstream_init(&m);
-                if (!tf)
-                        return log_oom();
-
-                if (i2d_PUBKEY_fp(tf, privkey) != 1)
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to extract public key from private key file '%s'.", arg_private_key);
-
-                fflush(tf);
-                rewind(tf);
-
-                if (!d2i_PUBKEY_fp(tf, &pubkey))
-                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to parse extracted public key of private key file '%s'.", arg_private_key);
+                r = openssl_extract_public_key(privkey, &pubkey);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to extract public key from private key file '%s': %m", arg_private_key);
         }
 
         r = pcr_states_allocate(&pcr_states);
