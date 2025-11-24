@@ -5,9 +5,9 @@ Description=Test DynamicUser with static User= whose uid and gid are different
 
 [Service]
 Type=oneshot
-ExecStart=sh -x -c 'test "$$(id -nG)" = "games" && test "$$(id -ng)" = "games" && test "$$(id -nu)" = "games"'
+ExecStart=bash -x -c 'test "$$(id -nG)" = "games" && test "$$(id -ng)" = "games" && test "$$(id -nu)" = "games"'
 # Multiple ExecStart= lines causes the issue #9702.
-ExecStart=sh -x -c 'test "$$(id -nG)" = "games" && test "$$(id -ng)" = "games" && test "$$(id -nu)" = "games"'
+ExecStart=bash -x -c 'test "$$(id -nG)" = "games" && test "$$(id -ng)" = "games" && test "$$(id -nu)" = "games"'
 DynamicUser=yes
 User=games
 ReadWritePaths=-/coverage

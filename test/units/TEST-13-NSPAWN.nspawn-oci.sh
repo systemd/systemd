@@ -305,7 +305,7 @@ cat >"$OCI/config.json" <<EOF
     "hooks" : {
         "prestart" : [
             {
-                "path" : "/bin/sh",
+                "path" : "/bin/bash",
                 "args" : [
                     "-xec",
                     "echo \$PRESTART_FOO >/prestart"
@@ -325,7 +325,7 @@ cat >"$OCI/config.json" <<EOF
         ],
         "poststart" : [
             {
-                "path" : "/bin/sh",
+                "path" : "/bin/bash",
                 "args" : [
                     "touch",
                     "/poststart"
@@ -334,7 +334,7 @@ cat >"$OCI/config.json" <<EOF
         ],
         "poststop" : [
             {
-                "path" : "/bin/sh",
+                "path" : "/bin/bash",
                 "args" : [
                     "touch",
                     "/poststop"
@@ -436,7 +436,7 @@ INVALID_SNIPPETS=(
     '"linux" : { "readonlyPaths" : [ "/foo", 1 ] }'
     '"linux" : { "readonlyPaths" : [ "/foo", "bar" ] }'
     # Invalid hooks
-    '"hooks" : { "prestart" : [ { "path" : "/bin/sh", "timeout" : 0 } ] }'
+    '"hooks" : { "prestart" : [ { "path" : "/bin/bash", "timeout" : 0 } ] }'
     # Invalid annotations
     '"annotations" : { "" : "bar" }'
     '"annotations" : { "foo" : 1 }'
@@ -453,7 +453,7 @@ for snippet in "${INVALID_SNIPPETS[@]}"; do
     $snippet
 }
 EOF
-    (! systemd-nspawn --oci-bundle="$OCI" sh -c 'echo hello')
+    (! systemd-nspawn --oci-bundle="$OCI" bash -c 'echo hello')
 done
 
 # Invalid OCI bundle version
@@ -465,4 +465,4 @@ cat >"$OCI/config.json" <<EOF
     }
 }
 EOF
-(! systemd-nspawn --oci-bundle="$OCI" sh -c 'echo hello')
+(! systemd-nspawn --oci-bundle="$OCI" bash -c 'echo hello')

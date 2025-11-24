@@ -356,7 +356,7 @@ systemd-run \
     -p DynamicUser=yes \
     -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
     -p NotifyAccess=all \
-    sh -c 'touch /tmp/a && touch /var/tmp/b && ! test -f /tmp/b && ! test -f /var/tmp/a && systemd-notify --ready && sleep infinity'
+    bash -c 'touch /tmp/a && touch /var/tmp/b && ! test -f /tmp/b && ! test -f /var/tmp/a && systemd-notify --ready && sleep infinity'
 (! ls /tmp/systemd-private-"$(tr -d '-' < /proc/sys/kernel/random/boot_id)"-test-07-dynamic-user-tmp.service-* &>/dev/null)
 (! ls /var/tmp/systemd-private-"$(tr -d '-' < /proc/sys/kernel/random/boot_id)"-test-07-dynamic-user-tmp.service-* &>/dev/null)
 systemctl is-active test-07-dynamic-user-tmp.service

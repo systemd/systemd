@@ -78,7 +78,7 @@ ExecStart=test -f %S/private/xxx/foo
 ExecStart=test -f %S/private/xxx/yyy/foo
 ExecStart=test -f %S/private/xxx/zzz/foo
 
-ExecStart=sh -x -c 'test "$$STATE_DIRECTORY" = "%S/aaa:%S/aaa/bbb:%S/aaa/ccc:%S/abc:%S/quux/pief:%S/waldo:%S/xxx:%S/xxx/yyy:%S/xxx/zzz"'
+ExecStart=bash -x -c 'test "$$STATE_DIRECTORY" = "%S/aaa:%S/aaa/bbb:%S/aaa/ccc:%S/abc:%S/quux/pief:%S/waldo:%S/xxx:%S/xxx/yyy:%S/xxx/zzz"'
 
 Type=oneshot
 DynamicUser=yes

@@ -363,7 +363,7 @@ Type=notify
 RemainAfterExit=yes
 MountAPIVFS=yes
 PrivateTmp=yes
-ExecStart=sh -c ' \\
+ExecStart=bash -c ' \\
     systemd-notify --ready; \\
     while [ ! -f /tmp/img/usr/lib/os-release ] || ! grep -q -F MARKER /tmp/img/usr/lib/os-release; do \\
         sleep 0.1; \\
