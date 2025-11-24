@@ -270,7 +270,7 @@ static bool privileged_execution(void) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return false;
 
-        return become_root() || arg_empower;
+        return become_root();
 }
 
 static int add_timer_property(const char *name, const char *val) {
@@ -883,6 +883,36 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static double shell_prompt_hue(void) {
+        if (privileged_execution())
+                return 0; /* red */
+
+        if (arg_empower)
+                return 30; /* orange */
+
+        return 60; /* yellow */
+}
+
+static Glyph shell_prompt_glyph(void) {
+        if (privileged_execution())
+                return GLYPH_SUPERHERO;
+
+        if (arg_empower)
+                return GLYPH_PUMPKIN;
+
+        return GLYPH_IDCARD;
+}
+
+static Glyph pty_window_glyph(void) {
+        if (privileged_execution())
+                return GLYPH_RED_CIRCLE;
+
+        if (arg_empower)
+                return GLYPH_ORANGE_CIRCLE;
+
+        return GLYPH_YELLOW_CIRCLE;
+}
+
 static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
         enum {
@@ -1236,14 +1266,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 return log_oom();
 
         if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
-                double hue;
-
-                if (privileged_execution())
-                        hue = 0; /* red */
-                else
-                        hue = 60 /* yellow */;
-
-                r = terminal_tint_color(hue, &arg_background);
+                r = terminal_tint_color(shell_prompt_hue(), &arg_background);
                 if (r < 0)
                         log_debug_errno(r, "Unable to get terminal background color, not tinting background: %m");
         }
@@ -1255,7 +1278,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (!arg_shell_prompt_prefix)
                                 return log_oom();
                 } else if (emoji_enabled()) {
-                        arg_shell_prompt_prefix = strjoin(glyph(privileged_execution() ? GLYPH_SUPERHERO : GLYPH_IDCARD), " ");
+                        arg_shell_prompt_prefix = strjoin(glyph(shell_prompt_glyph()), " ");
                         if (!arg_shell_prompt_prefix)
                                 return log_oom();
                 }
@@ -1280,7 +1303,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                  * this for root though, under the assumption that if a regular user temporarily transitions into
                  * another regular user it's a better default that the full user environment is uniformly
                  * available. */
-                if (arg_lightweight < 0 && privileged_execution())
+                if (arg_lightweight < 0 && (privileged_execution() || arg_empower))
                         arg_lightweight = true;
 
                 if (arg_lightweight >= 0) {
@@ -2290,9 +2313,7 @@ static int run_context_setup_ptyfwd(RunContext *c) {
         if (!isempty(arg_background))
                 (void) pty_forward_set_background_color(c->forward, arg_background);
 
-        (void) pty_forward_set_window_title(c->forward,
-                                            privileged_execution() ? GLYPH_RED_CIRCLE : GLYPH_YELLOW_CIRCLE,
-                                            arg_host, arg_cmdline);
+        (void) pty_forward_set_window_title(c->forward, pty_window_glyph(), arg_host, arg_cmdline);
         return 0;
 }
 
@@ -3033,6 +3054,8 @@ static bool shall_make_executable_absolute(void) {
         if (strv_isempty(arg_cmdline))
                 return false;
         if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return false;
+        if (!empty_or_root(arg_root_directory))
                 return false;
 
         FOREACH_STRING(f, "RootDirectory=", "RootImage=", "ExecSearchPath=", "MountImages=", "ExtensionImages=")
