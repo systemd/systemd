@@ -32,6 +32,7 @@
 #include "constants.h"
 #include "copy.h"
 #include "coredump-util.h"
+#include "cryptsetup-util.h"
 #include "dissect-image.h"
 #include "dynamic-user.h"
 #include "env-util.h"
@@ -5817,6 +5818,11 @@ int exec_invoke(
                         return log_error_errno(r, "Failed to mount bpffs in bpffs_prepare(): %m");
                 }
         }
+
+        /* Load a bunch of libraries we'll possibly need later, before we turn off dlopen() */
+        (void) dlopen_bpf();
+        (void) dlopen_cryptsetup();
+        (void) dlopen_libseccomp();
 
         /* Let's now disable further dlopen()ing of libraries, since we are about to do namespace
          * shenanigans, and do not want to mix resources from host and namespace */

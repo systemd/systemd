@@ -212,6 +212,8 @@ executables += [
                 'link_with' : executor_libs,
                 'dependencies' : [
                         libapparmor_cflags,
+                        libbpf_cflags,
+                        libmount,
                         libpam_cflags,
                         libseccomp_cflags,
                         libselinux_cflags,
