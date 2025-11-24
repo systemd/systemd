@@ -1003,6 +1003,7 @@ def citerefentry(el):
         'debian': f':debian:`{refentrytitle}({manvolnum})`',
         'freebsd': f':freebsd:`{refentrytitle}({manvolnum})`',
         'dbus': f':dbus:`{refentrytitle}({manvolnum})`',
+        'openssl': f':openssl:`{refentrytitle}({manvolnum})`',
     }
 
     if project in extlink_formats:

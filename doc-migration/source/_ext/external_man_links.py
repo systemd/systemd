@@ -12,6 +12,7 @@ extlink_formats: Dict[str, str] = {
     'debian': 'https://manpages.debian.org/unstable/{refentrytitle}/{refentrytitle}.{manvolnum}.en.html',
     'freebsd': 'https://www.freebsd.org/cgi/man.cgi?query={refentrytitle}&sektion={manvolnum}',
     'dbus': 'https://dbus.freedesktop.org/doc/dbus-specification.html#{refentrytitle}',
+    'openssl': 'https://docs.openssl.org/master/man{manvolnum}/{refentrytitle}',
 }
 
 
