@@ -2037,14 +2037,14 @@ static int manager_add_bus_objects(Manager *m) {
 static bool manager_is_idle(void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-	return hashmap_isempty(m->jobs);
+        return hashmap_isempty(m->jobs);
 }
 
 static void manager_check_idle(Manager *m) {
-	assert(m);
+        assert(m);
 
-	if (!hashmap_isempty(m->jobs))
-		return;
+        if (!hashmap_isempty(m->jobs))
+                return;
 
         hashmap_clear(m->targets);
         log_debug("Cleared target cache");

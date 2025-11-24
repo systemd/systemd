@@ -655,7 +655,7 @@ static int check_describe_finished(sd_bus_message *reply, void *userdata, sd_bus
         _cleanup_(version_done) Version v = {};
         _cleanup_free_ char *update = NULL;
         const sd_bus_error *e;
-	sd_bus_error error = {};
+        sd_bus_error error = {};
         const char *lnk = NULL;
         char *current;
         int r;

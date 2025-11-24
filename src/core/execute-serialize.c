@@ -2622,7 +2622,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-hash-sig="))) {
                         iovec_done(&c->root_hash_sig);
-                        r= unbase64mem(val, &c->root_hash_sig.iov_base, &c->root_hash_sig.iov_len);
+                        r = unbase64mem(val, &c->root_hash_sig.iov_base, &c->root_hash_sig.iov_len);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-ephemeral="))) {
