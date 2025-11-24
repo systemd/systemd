@@ -3034,6 +3034,8 @@ static bool shall_make_executable_absolute(void) {
                 return false;
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return false;
+        if (!empty_or_root(arg_root_directory))
+                return false;
 
         FOREACH_STRING(f, "RootDirectory=", "RootImage=", "ExecSearchPath=", "MountImages=", "ExtensionImages=")
                 if (strv_find_startswith(arg_property, f))
