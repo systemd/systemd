@@ -390,7 +390,7 @@ void manager_revert(Manager *manager) {
         manager_kill_workers(manager, SIGTERM);
 }
 
-static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
+static int on_worker_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
         _cleanup_(worker_freep) Worker *worker = ASSERT_PTR(userdata);
         sd_device *dev = worker->event ? ASSERT_PTR(worker->event->dev) : NULL;
 
@@ -452,11 +452,11 @@ static int worker_new(Worker **ret, Manager *manager, sd_device_monitor *worker_
         if (r < 0)
                 return r;
 
-        r = event_add_child_pidref(manager->event, &worker->child_event_source, &worker->pidref, WEXITED, on_sigchld, worker);
+        r = event_add_child_pidref(manager->event, &worker->child_event_source, &worker->pidref, WEXITED, on_worker_exit, worker);
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(worker->child_event_source, EVENT_PRIORITY_WORKER_SIGCHLD);
+        r = sd_event_source_set_priority(worker->child_event_source, EVENT_PRIORITY_WORKER_EXIT);
         if (r < 0)
                 return r;
 
@@ -1362,9 +1362,6 @@ static int manager_setup_event(Manager *manager) {
         int r;
 
         assert(manager);
-
-        /* block SIGCHLD for listening child events. */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         r = sd_event_default(&e);
         if (r < 0)

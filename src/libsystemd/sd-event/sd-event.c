@@ -1570,6 +1570,30 @@ static int child_exit_callback(sd_event_source *s, const siginfo_t *si, void *us
         return sd_event_exit(sd_event_source_get_event(s), PTR_TO_INT(userdata));
 }
 
+static int verify_sigchld(int options) {
+        int r;
+
+        if ((options & (WSTOPPED|WCONTINUED)) != 0) {
+                /* Caller must block SIGCHLD before using us to watch for WSTOPPED or WCONTINUED. */
+
+                r = signal_is_blocked(SIGCHLD);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EBUSY;
+        }
+
+        /* We don't want the Linux autoreaping logic to take effect, so check if it is enabled. */
+
+        r = autoreaping_enabled();
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return -EBUSY;
+
+        return 0;
+}
+
 _public_ int sd_event_add_child(
                 sd_event *e,
                 sd_event_source **ret,
@@ -1592,18 +1616,11 @@ _public_ int sd_event_add_child(
         if (!callback)
                 callback = child_exit_callback;
 
+        /* As an optimization we only do these checks on the first child event source created. */
         if (e->n_online_child_sources == 0) {
-                /* Caller must block SIGCHLD before using us to watch children, even if pidfd is available,
-                 * for compatibility with pre-pidfd and because we don't want the reap the child processes
-                 * ourselves, i.e. call waitid(), and don't want Linux' default internal logic for that to
-                 * take effect.
-                 *
-                 * (As an optimization we only do this check on the first child event source created.) */
-                r = signal_is_blocked(SIGCHLD);
+                r = verify_sigchld(options);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -EBUSY;
         }
 
         r = hashmap_ensure_allocated(&e->child_sources, NULL);
@@ -1617,8 +1634,8 @@ _public_ int sd_event_add_child(
         if (!s)
                 return -ENOMEM;
 
-        /* We always take a pidfd here if we can, even if we wait for anything else than WEXITED, so that we
-         * pin the PID, and make regular waitid() handling race-free. */
+        /* We always take a pidfd here, even if we wait for anything else than WEXITED, so that we pin the
+         * PID, and make regular waitid() handling race-free. */
 
         s->child.pidfd = pidfd_open(pid, 0);
         if (s->child.pidfd < 0)
@@ -1685,11 +1702,9 @@ _public_ int sd_event_add_child_pidfd(
                 callback = child_exit_callback;
 
         if (e->n_online_child_sources == 0) {
-                r = signal_is_blocked(SIGCHLD);
+                r = verify_sigchld(options);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        return -EBUSY;
         }
 
         r = hashmap_ensure_allocated(&e->child_sources, NULL);

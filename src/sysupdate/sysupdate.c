@@ -1877,9 +1877,6 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        /* SIGCHLD signal must be blocked for sd_event_add_child to work */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
-
         return sysupdate_main(argc, argv);
 }
 

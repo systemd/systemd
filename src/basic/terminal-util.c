@@ -1673,7 +1673,7 @@ int openpt_allocate_in_namespace(
                         /* netns_fd= */ -EBADF,
                         usernsfd,
                         rootfd,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
