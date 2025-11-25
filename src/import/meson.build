@@ -79,7 +79,7 @@ executables += [
         executable_template + {
                 'name' : 'importctl',
                 'public' : true,
-                'sources' : files('importctl.c'),
+                'sources' : files('importctl.c', 'oci-util.c'),
         },
         generator_template + {
                 'name' : 'systemd-import-generator',
