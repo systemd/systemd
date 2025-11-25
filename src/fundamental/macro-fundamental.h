@@ -483,3 +483,10 @@ assert_cc(STRLEN(__FILE__) > STRLEN(RELATIVE_SOURCE_PATH) + 1);
 #else
 #  define ENUM_TYPE_S64(id) id
 #endif
+
+/* This macro is used to have a const-returning and non-const returning version of a function based on
+ * whether its first argument is const or not (e.g. strstr()). */
+#define const_generic(ptr, call)                              \
+        _Generic(0 ? (ptr) : (void*) 1,                       \
+                 const void*: (const typeof(*call)*) (call),  \
+                 void*: (call))
