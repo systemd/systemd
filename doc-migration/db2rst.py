@@ -747,6 +747,17 @@ def _infer_role_type_from_name(name: str):
         return 'constant'
     return None
 
+def _make_id(name: str) -> str:
+    """Generate a docutils-like id from a directive name."""
+    s = (name or '').strip().lower()
+    # remove trailing '=' and surrounding punctuation first
+    s = re.sub(r'[=]+$', '', s)
+    # replace any run of non-alphanumeric with a single hyphen
+    s = re.sub(r'[^0-9a-z]+', '-', s)
+    # strip leading/trailing hyphens
+    s = s.strip('-')
+    return s
+
 def _collect_term_names(vle):
     """Collect plain text of all term children in a varlistentry."""
     names = []
@@ -954,13 +965,17 @@ def varlistentry(el):
     for i in el:
         if i.tag == 'term':
             if not first_term_emitted:
-                # Emit all definition markers ABOVE the title to avoid content/indentation issues
+                # Emit one canonical label and definition marker per term ABOVE the title
                 if group and term_names:
+                    # Compute composite heading id to match the actual section id
+                    composite_anchor = "-".join(_make_id(n) for n in term_names)
+                    # Emit one definition per term, carrying the composite anchor
                     for name in term_names:
                         role_type = _infer_role_type_from_name(name)
-                        s += "\n.. directive-def::\n"
+                        s += ".. directive-def::\n"
                         s += f"   :group: {group}\n"
                         s += f"   :name: {name}\n"
+                        s += f"   :anchor: {composite_anchor}\n"
                         if role_type:
                             s += f"   :type: {role_type}\n"
                         s += "\n"

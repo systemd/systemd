@@ -10,6 +10,7 @@ from sphinx.util.docutils import SphinxRole, SphinxDirective
 from sphinx.util.typing import ExtensionMetadata
 from sphinx.util import logging
 from docutils.parsers.rst import directives as rst_directives
+import re
 
 logger = logging.getLogger(__name__)
 logger.info('Custom Directive/Roles Extension loaded')
@@ -81,13 +82,15 @@ class DirectiveDefinition(SphinxDirective):
     option_spec = {
         'group': rst_directives.unchanged_required,
         'name': rst_directives.unchanged_required,
-        'type': rst_directives.unchanged,  # optional: option|var|constant
+        'type': rst_directives.unchanged,    # optional: option|var|constant
+        'anchor': rst_directives.unchanged,  # optional: composite heading id
     }
 
     def run(self) -> List[nodes.Node]:
         group = (self.options.get('group') or '').strip()
         name = (self.options.get('name') or '').strip()
         role_type = (self.options.get('type') or '').strip() or None
+        anchor = (self.options.get('anchor') or '').strip() or None
 
         if not group or not name:
             logger.warning("directive-def: missing required :group: or :name: at %s:%s",
@@ -114,6 +117,7 @@ class DirectiveDefinition(SphinxDirective):
             'group': group,
             'name': name,
             'type': role_type,
+            'anchor': anchor,
             'docname': self.env.docname,
             'lineno': self.lineno,
             'target_id': target_id,
@@ -183,6 +187,51 @@ def create_reference_node(app: Sphinx, dir_info: Dict[str, Any], from_doc_name: 
     return ref_node
 
 
+def make_canonical_id(name: str) -> str:
+    """Match db2rst _make_id behavior for stable per-term anchors."""
+    s = (name or '').strip().lower()
+    s = re.sub(r'[=]+$', '', s)
+    s = re.sub(r'[^0-9a-z]+', '-', s)
+    s = s.strip('-')
+    return s
+
+
+def doc_slug_from_docname(docname: str) -> str:
+    """Derive a per-doc slug matching db2rst: strip path, keep stem, replace '.' with '-'."""
+    # docname is like 'docs/systemd.exec' (without extension)
+    base = docname.split('/')[-1] if '/' in docname else docname
+    return base.replace('.', '-')
+
+
+def create_canonical_reference_node(app: Sphinx, docname: str, from_doc_name: str, name: str) -> nodes.reference:
+    """Create a reference to the canonical per-term anchor (#<doc-slug>-<make_id(name)>) in a doc."""
+    ref_node = nodes.reference('', '')
+    ref_node['refdocname'] = docname
+    anchor = f"{doc_slug_from_docname(docname)}-{make_canonical_id(name)}"
+    ref_node['refuri'] = app.builder.get_relative_uri(from_doc_name, docname) + '#' + anchor
+
+    metadata: Dict[str, Any] = app.builder.env.metadata.get(docname, {})
+    title: str = metadata.get('title', 'Unknown Title')
+    manvolnum: str = metadata.get('manvolnum', 'Unknown Volume')
+
+    ref_node.append(nodes.Text(f'{title}({manvolnum})'))
+    return ref_node
+
+
+def create_heading_reference_node(app: Sphinx, docname: str, from_doc_name: str, anchor: str) -> nodes.reference:
+    """Create a reference to a known section heading id (#anchor) in a doc."""
+    ref_node = nodes.reference('', '')
+    ref_node['refdocname'] = docname
+    ref_node['refuri'] = app.builder.get_relative_uri(from_doc_name, docname) + '#' + anchor
+
+    metadata: Dict[str, Any] = app.builder.env.metadata.get(docname, {})
+    title: str = metadata.get('title', 'Unknown Title')
+    manvolnum: str = metadata.get('manvolnum', 'Unknown Volume')
+
+    ref_node.append(nodes.Text(f'{title}({manvolnum})'))
+    return ref_node
+
+
 def render_reference_node(references: List[nodes.reference]) -> nodes.paragraph:
     para = nodes.paragraph()
     for i, ref_node in enumerate(references):
@@ -242,14 +291,14 @@ def process_items(app: Sphinx, doctree: nodes.document, from_doc_name: str) -> N
     for d in getattr(env, 'directive_defs', []):
         defs_by_group.setdefault(d['group'], []).append(d)
 
-    # Collect all occurrences by name across all groups.
-    occ_by_name: Dict[str, List[nodes.reference]] = {}
+    # Collect all occurrence docnames by directive name across all groups.
+    occ_docs_by_name: Dict[str, Set[str]] = {}
     for dir_info in getattr(env, 'directives', []):
         name = dir_info.get('text')
-        if not name:
+        docname = dir_info.get('docname')
+        if not name or not docname:
             continue
-        ref_node = create_reference_node(app, dir_info, from_doc_name)
-        occ_by_name.setdefault(name, []).append(ref_node)
+        occ_docs_by_name.setdefault(name, set()).add(docname)
 
     logger.debug('process_items: collected %d occurrences across %d groups; %d definitions across %d groups',
                  len(getattr(env, 'directives', [])), len(grouped_directives),
@@ -275,7 +324,7 @@ def process_items(app: Sphinx, doctree: nodes.document, from_doc_name: str) -> N
             section += nodes.title(text=directive_meta['title'])
             section += nodes.paragraph(text=directive_meta['description'])
 
-            # Build entries strictly from definitions; attach any occurrences by name regardless of their source group.
+            # Build entries strictly from definitions; attach any occurrences by name using canonical anchors, deduped per doc.
             directive_references: Dict[Tuple[str, str], List[nodes.reference]] = {}
 
             for d in defs_by_group.get(dir_id, []):
@@ -283,12 +332,23 @@ def process_items(app: Sphinx, doctree: nodes.document, from_doc_name: str) -> N
                 role_type = d.get('type') or 'option'
                 key = (name, role_type)
 
-                # Start with the definition anchor
-                def_ref = create_reference_node(app, d, from_doc_name)
-                refs = [def_ref]
+                # Start with the definition anchor (canonical per-term id on the definition doc)
+                refs: List[nodes.reference] = []
+                seen_docs: Set[str] = set()
 
-                # Append all occurrence refs (may come from other groups)
-                refs.extend(occ_by_name.get(name, []))
+                def_doc = d['docname']
+                # Prefer composite heading id provided by the converter; fallback to simple normalized name
+                anchor = d.get('anchor') or make_canonical_id(name)
+
+                refs.append(create_heading_reference_node(app, def_doc, from_doc_name, anchor))
+                seen_docs.add(def_doc)
+
+                # Append all occurrence docs (may come from other groups), but only one per doc and using the same heading anchor
+                for odoc in sorted(occ_docs_by_name.get(name, set())):
+                    if odoc in seen_docs:
+                        continue
+                    refs.append(create_heading_reference_node(app, odoc, from_doc_name, anchor))
+                    seen_docs.add(odoc)
 
                 directive_references[key] = refs
 
