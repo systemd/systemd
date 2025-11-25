@@ -370,7 +370,7 @@ static int make_choice(
                 }
 
                 if (FLAGS_SET(flags, PICK_TRIES)) {
-                        char *plus = strrchr(e, '+');
+                        char *plus = (char*)strrchr(e, '+');
                         if (plus) {
                                 r = parse_tries(plus, &found_tries_left, &found_tries_done);
                                 if (r < 0)
@@ -381,7 +381,7 @@ static int make_choice(
                 }
 
                 if (FLAGS_SET(flags, PICK_ARCHITECTURE)) {
-                        char *underscore = strrchr(e, '_');
+                        char *underscore = (char*)strrchr(e, '_');
                         Architecture a;
 
                         a = underscore ? architecture_from_string(underscore + 1) : _ARCHITECTURE_INVALID;

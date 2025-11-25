@@ -7,14 +7,14 @@
 #include "basic-forward.h"
 #include "string-util-fundamental.h" /* IWYU pragma: export */
 
-static inline char* strstr_ptr(const char *haystack, const char *needle) {
+static inline const char* strstr_ptr(const char *haystack, const char *needle) {
         if (!haystack || !needle)
                 return NULL;
         return strstr(haystack, needle);
 }
 
-static inline char* strstrafter(const char *haystack, const char *needle) {
-        char *p;
+static inline const char* strstrafter(const char *haystack, const char *needle) {
+        const char *p;
 
         /* Returns NULL if not found, or pointer to first character after needle if found */
 
