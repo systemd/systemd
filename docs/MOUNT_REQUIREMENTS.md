@@ -44,12 +44,12 @@ if a mount point is *not* split out,
 but a given subtree is part of the parent mount,
 the requirements for that subtree are trivially satisfied by the parent.
 
-A "mount point" in this document means the whole subtree of the hierachy,
+A "mount point" in this document means the whole subtree of the hierarchy,
 until a mountpoint lower in the hierarchy which is conceptually separate.
 For example, on a system with a custom mount point located below `/var/spool/`,
 most of `/var/` would be in category 2/early,
 but the additional mount would be in category 3/regular.
-Conversly, if some part of `/usr/` that is normally part of that subtree
+Conversely, if some part of `/usr/` that is normally part of that subtree
 was split out to a separate mount,
 this mount point would fall into category 1/initrd
 and configuration would need to be provided for it to be mounted in the initrd.
