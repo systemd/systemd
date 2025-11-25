@@ -50,7 +50,7 @@ def generate_toctree(app: Sphinx):
         index_file.write(""".. SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd — System and Service Manager
-===================================
+====================================
 
 .. toctree::
    :maxdepth: 1\n
@@ -66,6 +66,7 @@ systemd — System and Service Manager
 Indices and tables
 ==================
 
+* :doc:`directives`
 * :ref:`genindex`""")
 
 

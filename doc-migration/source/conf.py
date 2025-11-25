@@ -13,6 +13,8 @@ project = 'systemd'
 copyright = '2024, systemd'
 author = 'systemd'
 
+language = 'en'
+
 
 sys.path.append(os.path.abspath("./_ext"))
 
@@ -24,7 +26,8 @@ sys.path.append(os.path.abspath("./_ext"))
 extensions = ['directive_roles', 'external_man_links', 'autogen_index']
 
 templates_path = ['_templates']
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+include_patterns = ['index.rst', 'directives.rst', 'docs/*.rst']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store', 'includes/*.rst']
 
 
 # -- Options for HTML output -------------------------------------------------
