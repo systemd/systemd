@@ -1108,7 +1108,7 @@ int digest_and_sign(
                 bool invalid_digest = ERR_GET_REASON(ERR_peek_last_error()) == EVP_R_INVALID_DIGEST;
                 r = log_openssl_errors("Failed to initialize signature context");
                 return invalid_digest ? -EADDRNOTAVAIL : r;
-}
+        }
 
         /* Determine signature size */
         size_t ss;
