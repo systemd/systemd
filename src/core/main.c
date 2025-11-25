@@ -59,7 +59,6 @@
 #include "killall.h"
 #include "kmod-setup.h"
 #include "label-util.h"
-#include "libmount-util.h"
 #include "limits-util.h"
 #include "load-fragment.h"
 #include "log.h"
@@ -3308,12 +3307,6 @@ int main(int argc, char *argv[]) {
                                    "  systemd.unified_cgroup_hierarchy=0");
 
                 error_message = "Detected unsupported legacy cgroup hierarchy, refusing execution";
-                goto finish;
-        }
-
-        r = dlopen_libmount();
-        if (r < 0) {
-                error_message = "Failed to load libmount.so";
                 goto finish;
         }
 
