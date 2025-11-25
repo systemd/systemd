@@ -165,7 +165,7 @@ int proc_cmdline_strv(char ***ret) {
 static char *mangle_word(const char *word, ProcCmdlineFlags flags) {
         char *c;
 
-        c = startswith(word, "rd.");
+        c = (char*) startswith(word, "rd.");
         if (c) {
                 /* Filter out arguments that are intended only for the initrd */
 
@@ -181,6 +181,8 @@ static char *mangle_word(const char *word, ProcCmdlineFlags flags) {
 
         return (char*) word;
 }
+
+#define mangle_word(word, flags) const_generic(word, const char*, mangle_word(word, flags))
 
 static int proc_cmdline_parse_strv(char **args, proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
         int r;
