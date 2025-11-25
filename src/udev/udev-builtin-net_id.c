@@ -950,7 +950,7 @@ static int names_pci(UdevEvent *event, const char *prefix) {
 }
 
 static int get_usb_specifier(sd_device *dev, char **ret) {
-        char *ports, *config, *interf, *s, *buf;
+        char *ports, *config, *interf, *buf;
         const char *sysname;
         int r;
 
@@ -962,26 +962,26 @@ static int get_usb_specifier(sd_device *dev, char **ret) {
                 return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
 
         /* get USB port number chain, configuration, interface */
-        s = strchr(sysname, '-');
+        const char *s = strchr(sysname, '-');
         if (!s)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "sysname \"%s\" does not have '-' in the expected place.", sysname);
 
         ports = strdupa_safe(s + 1);
-        s = strchr(ports, ':');
+        char *t = strchr(ports, ':');
         if (!s)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "sysname \"%s\" does not have ':' in the expected place.", sysname);
 
-        *s = '\0';
-        config = s + 1;
+        *t = '\0';
+        config = t + 1;
         s = strchr(config, '.');
         if (!s)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "sysname \"%s\" does not have '.' in the expected place.", sysname);
 
-        *s = '\0';
-        interf = s + 1;
+        *t = '\0';
+        interf = t + 1;
 
         /* prefix every port number in the chain with "u" */
         string_replace_char(ports, '.', 'u');
