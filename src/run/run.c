@@ -1128,6 +1128,24 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
+        if (!arg_working_directory) {
+                if (arg_exec_user || arg_area) {
+                        /* When switching to a specific user or an area, also switch to its home directory. */
+                        arg_working_directory = strdup("~");
+                        if (!arg_working_directory)
+                                return log_oom();
+                } else {
+                        /* When elevating privileges without this being specified, then stay in the current directory */
+                        r = safe_getcwd(&arg_working_directory);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get current working directory: %m");
+                }
+        } else {
+                /* Root was not suppressed earlier, to allow the above check to work properly. */
+                if (empty_or_root(arg_working_directory))
+                        arg_working_directory = mfree(arg_working_directory);
+        }
+
         if (!arg_exec_user && (arg_area || arg_empower)) {
                 /* If the user specifies --area= but not --user= then consider this an area switch request,
                  * and default to logging into our own account.
@@ -1138,30 +1156,6 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 arg_exec_user = getusername_malloc();
                 if (!arg_exec_user)
                         return log_oom();
-
-                if (arg_empower && !arg_working_directory) {
-                        r = safe_getcwd(&arg_working_directory);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get current working directory: %m");
-                }
-        }
-
-        if (!arg_working_directory) {
-                if (arg_exec_user) {
-                        /* When switching to a specific user, also switch to its home directory. */
-                        arg_working_directory = strdup("~");
-                        if (!arg_working_directory)
-                                return log_oom();
-                } else {
-                        /* When switching to root without this being specified, then stay in the current directory */
-                        r = safe_getcwd(&arg_working_directory);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to get current working directory: %m");
-                }
-        } else {
-                /* Root was not suppressed earlier, to allow the above check to work properly. */
-                if (empty_or_root(arg_working_directory))
-                        arg_working_directory = mfree(arg_working_directory);
         }
 
         arg_service_type = "exec";
