@@ -9,6 +9,7 @@ from sphinx.domains import Domain
 from sphinx.util.docutils import SphinxRole, SphinxDirective
 from sphinx.util.typing import ExtensionMetadata
 from sphinx.util import logging
+from docutils.parsers.rst import directives as rst_directives
 
 logger = logging.getLogger(__name__)
 logger.info('Custom Directive/Roles Extension loaded')
@@ -70,6 +71,58 @@ class InlineDirectiveRole(SphinxRole):
 class ListDirectiveRoles(SphinxDirective):
     def run(self) -> List[nodes.Node]:
         return [directive_list('')]
+
+
+class DirectiveDefinition(SphinxDirective):
+    """Invisible block directive that defines a directive (group/name/type)."""
+    has_content = False
+    required_arguments = 0
+    optional_arguments = 0
+    option_spec = {
+        'group': rst_directives.unchanged_required,
+        'name': rst_directives.unchanged_required,
+        'type': rst_directives.unchanged,  # optional: option|var|constant
+    }
+
+    def run(self) -> List[nodes.Node]:
+        group = (self.options.get('group') or '').strip()
+        name = (self.options.get('name') or '').strip()
+        role_type = (self.options.get('type') or '').strip() or None
+
+        if not group or not name:
+            logger.warning("directive-def: missing required :group: or :name: at %s:%s",
+                           self.env.docname, self.lineno)
+            return []
+
+        # Validate group id against conf if possible
+        cfg_ids = {d.get('id') for d in (self.env.config.directives_data or []) if isinstance(d, dict)}
+        if group not in cfg_ids:
+            logger.warning("directive-def: unknown group '%s' in %s:%s (known: %s%s)",
+                           group, self.env.docname, self.lineno,
+                           ', '.join(sorted(list(cfg_ids))[:10]),
+                           '…' if len(cfg_ids) > 10 else '')
+
+        safe_name = nodes.make_id(name)
+        serial = self.env.new_serialno('dirdef')
+        target_id = f'dirdef-{serial}-{safe_name}'
+        target_node = nodes.target('', '', ids=[target_id])
+
+        if not hasattr(self.env, 'directive_defs'):
+            self.env.directive_defs = []
+
+        self.env.directive_defs.append({
+            'group': group,
+            'name': name,
+            'type': role_type,
+            'docname': self.env.docname,
+            'lineno': self.lineno,
+            'target_id': target_id,
+        })
+
+        logger.debug("directive-def: recorded group=%s name=%s type=%s at %s:%s -> %s",
+                     group, name, role_type, self.env.docname, self.lineno, target_id)
+
+        return [target_node]
 
 
 def get_directive_metadata(app: Sphinx) -> Dict[str, Dict[str, Any]]:
@@ -185,9 +238,22 @@ def process_items(app: Sphinx, doctree: nodes.document, from_doc_name: str) -> N
     env = app.builder.env
     directive_lookup: Dict[str, Dict[str, Any]] = get_directive_metadata(app)
     grouped_directives: Dict[str, List[Dict[str, Any]]] = group_directives_by_id(env)
+    defs_by_group: Dict[str, List[Dict[str, Any]]] = {}
+    for d in getattr(env, 'directive_defs', []):
+        defs_by_group.setdefault(d['group'], []).append(d)
 
-    logger.debug('process_items: collected %d occurrences across %d groups',
-                 len(getattr(env, 'directives', [])), len(grouped_directives))
+    # Collect all occurrences by name across all groups.
+    occ_by_name: Dict[str, List[nodes.reference]] = {}
+    for dir_info in getattr(env, 'directives', []):
+        name = dir_info.get('text')
+        if not name:
+            continue
+        ref_node = create_reference_node(app, dir_info, from_doc_name)
+        occ_by_name.setdefault(name, []).append(ref_node)
+
+    logger.debug('process_items: collected %d occurrences across %d groups; %d definitions across %d groups',
+                 len(getattr(env, 'directives', [])), len(grouped_directives),
+                 len(getattr(env, 'directive_defs', [])), len(defs_by_group))
 
     render_map = {
         'option': render_option,
@@ -198,7 +264,9 @@ def process_items(app: Sphinx, doctree: nodes.document, from_doc_name: str) -> N
     for node in doctree.findall(directive_list):
         content: List[nodes.section] = []
 
-        for dir_id, directives in grouped_directives.items():
+        # Render all configured groups (and those with definitions). Ignore groups that only have occurrences.
+        all_group_ids = sorted(set(directive_lookup.keys()) | set(defs_by_group.keys()))
+        for dir_id in all_group_ids:
             directive_meta = directive_lookup.get(
                 dir_id, {'title': 'Unknown', 'description': 'No description available.'})
 
@@ -207,16 +275,22 @@ def process_items(app: Sphinx, doctree: nodes.document, from_doc_name: str) -> N
             section += nodes.title(text=directive_meta['title'])
             section += nodes.paragraph(text=directive_meta['description'])
 
-            # Group by (directive_text, role_type)
+            # Build entries strictly from definitions; attach any occurrences by name regardless of their source group.
             directive_references: Dict[Tuple[str, str], List[nodes.reference]] = {}
 
-            for dir_info in directives:
-                directive_text: str = dir_info['text']
-                role_type: str = dir_info.get('role_type') or 'option'
-                key = (directive_text, role_type)
+            for d in defs_by_group.get(dir_id, []):
+                name = d['name']
+                role_type = d.get('type') or 'option'
+                key = (name, role_type)
 
-                ref_node = create_reference_node(app, dir_info, from_doc_name)
-                directive_references.setdefault(key, []).append(ref_node)
+                # Start with the definition anchor
+                def_ref = create_reference_node(app, d, from_doc_name)
+                refs = [def_ref]
+
+                # Append all occurrence refs (may come from other groups)
+                refs.extend(occ_by_name.get(name, []))
+
+                directive_references[key] = refs
 
             for (directive_text, role_type), references in sorted(directive_references.items()):
                 render_fn = render_map.get(role_type, render_option)
@@ -233,7 +307,7 @@ def process_items(app: Sphinx, doctree: nodes.document, from_doc_name: str) -> N
 class DirectiveDomain(Domain):
     """Sphinx domain to resolve :directive:<id>:<type>:`...` roles.
 
-    Sphinx treast the first segment as a domain, so we provide a 'directive'
+    Sphinx treats the first segment as a domain, so we provide a 'directive'
     domain and handle dynamic role names of the form '<id>:<type>'.
     """
     name = 'directive'
@@ -287,8 +361,9 @@ def on_builder_inited(app: Sphinx) -> None:
 
 
 def on_env_before_read_docs(app: Sphinx, env, docnames) -> None:
-    # Reset per-build collection of directives to avoid stale state
+    # Reset per-build collection of directives/definitions to avoid stale state
     env.directives = []
+    env.directive_defs = []
     logger.debug("directive extension: env.directives reset")
 
 
@@ -298,7 +373,12 @@ def on_env_purge_doc(app: Sphinx, env, docname: str) -> None:
         before = len(env.directives)
         env.directives = [d for d in env.directives if d.get('docname') != docname]
         after = len(env.directives)
-        logger.debug("directive extension: purged %d entries for %s", before - after, docname)
+        logger.debug("directive extension: purged %d occurrence entries for %s", before - after, docname)
+    if hasattr(env, 'directive_defs'):
+        before = len(env.directive_defs)
+        env.directive_defs = [d for d in env.directive_defs if d.get('docname') != docname]
+        after = len(env.directive_defs)
+        logger.debug("directive extension: purged %d definition entries for %s", before - after, docname)
 
 
 def setup(app: Sphinx) -> ExtensionMetadata:
@@ -309,6 +389,7 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     app.add_domain(DirectiveDomain)
 
     app.add_directive('list_directive_roles', ListDirectiveRoles)
+    app.add_directive('directive-def', DirectiveDefinition)
     app.connect('doctree-resolved', process_items)
 
     # Diagnostics and lifecycle

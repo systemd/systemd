@@ -714,6 +714,48 @@ def _nearest_varlist_class(el):
             return c
     return ''
 
+def _nearest_directive_group(el):
+    """Return the nearest ancestor whose id matches a configured group id;
+    if none, return the nearest variablelist@class that matches."""
+    valid_ids = {d.get('id') for d in (conf.directives_data or []) if isinstance(d, dict)}
+    for anc in el.iterancestors():
+        # Prefer explicit ids first (any element)
+        aid = anc.attrib.get('id', '')
+        if aid and aid in valid_ids:
+            return aid
+        # Only consider class on variablelist elements
+        if anc.tag == 'variablelist':
+            cid = anc.attrib.get('class', '')
+            if cid and cid in valid_ids:
+                return cid
+    return ''
+
+def _infer_role_type_from_name(name: str):
+    """Best-effort inference of directive role type from name."""
+    n = (name or '').strip()
+    if not n:
+        return None
+    if n.startswith('$'):
+        return 'var'
+    if n.endswith('=') or '--' in n or n.startswith('-'):
+        return 'option'
+    # Constants are commonly all-caps with underscores or known prefixes
+    if n.startswith('SIG') or n.startswith('AF_'):
+        return 'constant'
+    letters = n.replace('_', '')
+    if letters and letters.upper() == letters and any(ch.isalpha() for ch in letters):
+        return 'constant'
+    return None
+
+def _collect_term_names(vle):
+    """Collect plain text of all term children in a varlistentry."""
+    names = []
+    for term in vle.iterchildren(tag='term'):
+        text = _concat(term).strip()
+        if text:
+            names.append(text)
+    return names
+
 def varname(el):
     if _is_inside_of(el, 'term'):
         return _concat(el).strip()
@@ -900,25 +942,39 @@ def variablelist(el):
 
 def varlistentry(el):
     s = ""
-    id = el.get("id")
-    if id is not None:
-        s += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % id
+    entry_id = el.get("id")
+    if entry_id is not None:
+        s += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % entry_id
+
+    # Determine group once for this entry (nearest id wins, then nearest variablelist@class)
+    group = _nearest_directive_group(el)
+    term_names = _collect_term_names(el)
+    first_term_emitted = False
+
     for i in el:
         if i.tag == 'term':
-            s += _conv(i) + '\n\n'
+            if not first_term_emitted:
+                # Emit all definition markers ABOVE the title to avoid content/indentation issues
+                if group and term_names:
+                    for name in term_names:
+                        role_type = _infer_role_type_from_name(name)
+                        s += "\n.. directive-def::\n"
+                        s += f"   :group: {group}\n"
+                        s += f"   :name: {name}\n"
+                        if role_type:
+                            s += f"   :type: {role_type}\n"
+                        s += "\n"
+                # Render the visible heading/title (first term renders title for all terms)
+                s += _conv(i) + '\n\n'
+                first_term_emitted = True
+            else:
+                # Skip subsequent term nodes; the first one already rendered a combined title
+                pass
         else:
-            # TODO: this no longer seems necessary
-            # Handle nested list items, this is mainly for
-            # options that have options
-            # if i.tag == 'listitem':
-            #     global _indent_next_listItem_by
-            #     s += _indent(i, _indent_next_listItem_by, None, True) + "!"
-            #     _indent_next_listItem_by = 0
-            # else:
-                # s += _indent(i, 0, None, True)
-                s += _conv(i)
-    if id is not None:
-        s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % id
+            s += _conv(i)
+
+    if entry_id is not None:
+        s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % entry_id
     return s
 
 
