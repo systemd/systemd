@@ -861,7 +861,7 @@ static int manager_assess_image(
                 const char *dir_path,
                 const char *dentry_name) {
 
-        char *luks_suffix, *directory_suffix;
+        const char *luks_suffix, *directory_suffix;
         _cleanup_free_ char *path = NULL;
         struct stat st;
         int r;

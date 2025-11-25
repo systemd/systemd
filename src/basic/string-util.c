@@ -1348,7 +1348,7 @@ char* strdupcspn(const char *a, const char *reject) {
         return strndup(a, strcspn(a, reject));
 }
 
-char* find_line_startswith(const char *haystack, const char *needle) {
+char* find_line_startswith_internal(const char *haystack, const char *needle) {
         char *p;
 
         assert(haystack);
@@ -1357,7 +1357,7 @@ char* find_line_startswith(const char *haystack, const char *needle) {
         /* Finds the first line in 'haystack' that starts with the specified string. Returns a pointer to the
          * first character after it */
 
-        p = strstr(haystack, needle);
+        p = (char*) strstr(haystack, needle);
         if (!p)
                 return NULL;
 
@@ -1371,7 +1371,7 @@ char* find_line_startswith(const char *haystack, const char *needle) {
         return p + strlen(needle);
 }
 
-char* find_line(const char *haystack, const char *needle) {
+char* find_line_internal(const char *haystack, const char *needle) {
         char *p;
 
         assert(haystack);
@@ -1380,7 +1380,7 @@ char* find_line(const char *haystack, const char *needle) {
         /* Finds the first line in 'haystack' that match the specified string. Returns a pointer to the
          * beginning of the line */
 
-        p = find_line_startswith(haystack, needle);
+        p = (char*) find_line_startswith(haystack, needle);
         if (!p)
                 return NULL;
 
@@ -1390,7 +1390,7 @@ char* find_line(const char *haystack, const char *needle) {
         return NULL;
 }
 
-char* find_line_after(const char *haystack, const char *needle) {
+char* find_line_after_internal(const char *haystack, const char *needle) {
         char *p;
 
         assert(haystack);
@@ -1399,7 +1399,7 @@ char* find_line_after(const char *haystack, const char *needle) {
         /* Finds the first line in 'haystack' that match the specified string. Returns a pointer to the
          * next line after it */
 
-        p = find_line_startswith(haystack, needle);
+        p = (char*) find_line_startswith(haystack, needle);
         if (!p)
                 return NULL;
 
@@ -1499,7 +1499,7 @@ ssize_t strlevenshtein(const char *x, const char *y) {
         return t1[yl];
 }
 
-char* strrstr(const char *haystack, const char *needle) {
+char* strrstr_internal(const char *haystack, const char *needle) {
         /* Like strstr() but returns the last rather than the first occurrence of "needle" in "haystack". */
 
         if (!haystack || !needle)
@@ -1508,7 +1508,7 @@ char* strrstr(const char *haystack, const char *needle) {
         /* Special case: for the empty string we return the very last possible occurrence, i.e. *after* the
          * last char, not before. */
         if (*needle == 0)
-                return strchr(haystack, 0);
+                return (char*) strchr(haystack, 0);
 
         for (const char *p = strstr(haystack, needle), *q; p; p = q) {
                 q = strstr(p + 1, needle);
