@@ -5507,7 +5507,7 @@ static int service_live_mount(
                 sd_bus_message *message,
                 MountInNamespaceFlags flags,
                 const MountOptions *options,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Service *s = ASSERT_PTR(SERVICE(u));
         _cleanup_(pidref_done) PidRef worker = PIDREF_NULL;
@@ -5523,7 +5523,7 @@ static int service_live_mount(
         if (s->state != SERVICE_RUNNING || !pidref_is_set(&s->main_pid)) {
                 log_unit_warning(u, "Service is not running, cannot live mount.");
                 return sd_bus_error_setf(
-                                error,
+                                reterr_error,
                                 BUS_ERROR_UNIT_INACTIVE,
                                 "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: service not running",
                                 src,
@@ -5534,7 +5534,7 @@ static int service_live_mount(
         if (mount_point_is_credentials(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], dst)) {
                 log_unit_warning(u, "Refusing to live mount over credential mount '%s'.", dst);
                 return sd_bus_error_setf(
-                                error,
+                                reterr_error,
                                 SD_BUS_ERROR_INVALID_ARGS,
                                 "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: cannot mount over credential mount",
                                 src,
@@ -5545,7 +5545,7 @@ static int service_live_mount(
         if (path_startswith_strv(dst, s->exec_context.inaccessible_paths)) {
                 log_unit_warning(u, "%s is not accessible to this unit, cannot live mount.", dst);
                 return sd_bus_error_setf(
-                                error,
+                                reterr_error,
                                 SD_BUS_ERROR_INVALID_ARGS,
                                 "Live mounting '%s' on '%s' for unit '%s' cannot be scheduled: destination is not accessible to this unit",
                                 src,
@@ -5563,7 +5563,7 @@ static int service_live_mount(
         r = service_arm_timer(s, /* relative= */ true, s->timeout_start_usec);
         if (r < 0) {
                 log_unit_error_errno(u, r, "Failed to install timer: %m");
-                sd_bus_error_set_errnof(error, r,
+                sd_bus_error_set_errnof(reterr_error, r,
                                         "Live mounting '%s' on '%s' for unit '%s': failed to install timer: %m",
                                         src, dst, u->id);
                 goto fail;
@@ -5580,7 +5580,7 @@ static int service_live_mount(
                 log_unit_error_errno(u, r,
                                      "Failed to fork process to mount '%s' on '%s' in unit's namespace: %m",
                                      src, dst);
-                sd_bus_error_set_errnof(error, r,
+                sd_bus_error_set_errnof(reterr_error, r,
                                         "Live mounting '%s' on '%s' for unit '%s': failed to fork off helper process into namespace: %m",
                                         src, dst, u->id);
                 goto fail;
@@ -5615,7 +5615,7 @@ static int service_live_mount(
         r = unit_watch_pidref(u, &worker, /* exclusive= */ true);
         if (r < 0) {
                 log_unit_warning_errno(u, r, "Failed to watch live mount helper process: %m");
-                sd_bus_error_set_errnof(error, r,
+                sd_bus_error_set_errnof(reterr_error, r,
                                         "Live mounting '%s' on '%s' for unit '%s': failed to watch live mount helper process: %m",
                                         src, dst, u->id);
                 goto fail;
@@ -5632,13 +5632,13 @@ fail:
         return r;
 }
 
-static int service_can_live_mount(Unit *u, sd_bus_error *error) {
+static int service_can_live_mount(Unit *u, sd_bus_error *reterr_error) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
         /* Ensure that the unit runs in a private mount namespace */
         if (!exec_needs_mount_namespace(&s->exec_context, /* params= */ NULL, s->exec_runtime))
                 return sd_bus_error_setf(
-                                error,
+                                reterr_error,
                                 SD_BUS_ERROR_INVALID_ARGS,
                                 "Unit '%s' not running in private mount namespace, cannot live mount.",
                                 u->id);
