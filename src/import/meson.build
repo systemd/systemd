@@ -6,6 +6,7 @@ endif
 
 systemd_importd_sources = files(
         'importd.c',
+        'oci-util.c',
 )
 systemd_importd_extract_sources = files(
         'import-common.c',
