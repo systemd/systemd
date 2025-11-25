@@ -1051,6 +1051,9 @@ int fido2_generate_hmac_hash(
                         break;
 
                 case FIDO_ERR_PIN_REQUIRED:
+                /* When FIPS mode is enabled PIN will be mandatory, and the hardware returns 'missing
+                 * parameter' which is not very helpful */
+                case FIDO_ERR_MISSING_PARAMETER:
                         if (!has_client_pin)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Token asks for client PIN check but doesn't advertise 'clientPin' feature.");
