@@ -1698,7 +1698,7 @@ int pidref_safe_fork_full(
 
         /* let's disable dlopen() in the child, as a paranoia safety precaution: children should not live for
          * long and only do minimal work before exiting or exec()ing. Doing dlopen() is not either. If people
-         * want dlopen() they should do it before forking. This is a safety precuation in particular for
+         * want dlopen() they should do it before forking. This is a safety precaution in particular for
          * cases where the child does namespace shenanigans: we should never end up loading a module from a
          * foreign environment. Note that this has no effect on NSS! (i.e. it only has effect on uses of our
          * dlopen_safe(), which we use comprehensively in our codebase, but glibc NSS doesn't bother, of
