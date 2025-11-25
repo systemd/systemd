@@ -962,7 +962,7 @@ static int get_usb_specifier(sd_device *dev, char **ret) {
                 return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
 
         /* get USB port number chain, configuration, interface */
-        s = strchr(sysname, '-');
+        s = (char*)strchr(sysname, '-');
         if (!s)
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "sysname \"%s\" does not have '-' in the expected place.", sysname);
