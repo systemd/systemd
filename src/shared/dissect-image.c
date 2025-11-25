@@ -4192,16 +4192,16 @@ finish:
         return r;
 }
 
-Architecture dissected_image_architecture(DissectedImage *img) {
-        assert(img);
+Architecture dissected_image_architecture(DissectedImage *m) {
+        assert(m);
 
-        if (img->partitions[PARTITION_ROOT].found &&
-            img->partitions[PARTITION_ROOT].architecture >= 0)
-                return img->partitions[PARTITION_ROOT].architecture;
+        if (m->partitions[PARTITION_ROOT].found &&
+            m->partitions[PARTITION_ROOT].architecture >= 0)
+                return m->partitions[PARTITION_ROOT].architecture;
 
-        if (img->partitions[PARTITION_USR].found &&
-            img->partitions[PARTITION_USR].architecture >= 0)
-                return img->partitions[PARTITION_USR].architecture;
+        if (m->partitions[PARTITION_USR].found &&
+            m->partitions[PARTITION_USR].architecture >= 0)
+                return m->partitions[PARTITION_USR].architecture;
 
         return _ARCHITECTURE_INVALID;
 }

@@ -56,8 +56,8 @@ int netlink_get_policy_set_and_header_size(
                 size_t *ret_header_size);
 
 const NLAPolicy *policy_set_get_policy(const NLAPolicySet *policy_set, uint16_t attr_type);
-const NLAPolicySet *policy_set_get_policy_set(const NLAPolicySet *type_system, uint16_t attr_type);
-const NLAPolicySetUnion *policy_set_get_policy_set_union(const NLAPolicySet *type_system, uint16_t attr_type);
+const NLAPolicySet *policy_set_get_policy_set(const NLAPolicySet *policy_set, uint16_t attr_type);
+const NLAPolicySetUnion *policy_set_get_policy_set_union(const NLAPolicySet *policy_set, uint16_t attr_type);
 uint16_t policy_set_union_get_match_attribute(const NLAPolicySetUnion *policy_set_union);
-const NLAPolicySet *policy_set_union_get_policy_set_by_string(const NLAPolicySetUnion *type_system_union, const char *string);
-const NLAPolicySet *policy_set_union_get_policy_set_by_family(const NLAPolicySetUnion *type_system_union, int family);
+const NLAPolicySet *policy_set_union_get_policy_set_by_string(const NLAPolicySetUnion *policy_set_union, const char *string);
+const NLAPolicySet *policy_set_union_get_policy_set_by_family(const NLAPolicySetUnion *policy_set_union, int family);

@@ -67,7 +67,7 @@ static inline int socket_address_unlink(const SocketAddress *a) {
 bool socket_address_can_accept(const SocketAddress *a) _pure_;
 
 int socket_address_verify(const SocketAddress *a, bool strict) _pure_;
-int socket_address_print(const SocketAddress *a, char **p);
+int socket_address_print(const SocketAddress *a, char **ret);
 bool socket_address_matches_fd(const SocketAddress *a, int fd);
 
 bool socket_address_equal(const SocketAddress *a, const SocketAddress *b) _pure_;
@@ -87,7 +87,7 @@ int getsockname_pretty(int fd, char **ret);
 
 int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **_ret);
 
-int netlink_family_to_string_alloc(int b, char **s);
+int netlink_family_to_string_alloc(int i, char **ret);
 int netlink_family_from_string(const char *s) _pure_;
 
 bool sockaddr_equal(const union sockaddr_union *a, const union sockaddr_union *b);
@@ -101,7 +101,7 @@ static inline int fd_increase_rxbuf(int fd, size_t n) {
         return fd_set_rcvbuf(fd, n, true);
 }
 
-int ip_tos_to_string_alloc(int i, char **s);
+int ip_tos_to_string_alloc(int i, char **ret);
 int ip_tos_from_string(const char *s);
 
 typedef enum {

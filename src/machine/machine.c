@@ -804,16 +804,16 @@ void machine_add_to_gc_queue(Machine *m) {
         manager_enqueue_gc(m->manager);
 }
 
-MachineState machine_get_state(Machine *s) {
-        assert(s);
+MachineState machine_get_state(Machine *m) {
+        assert(m);
 
-        if (s->class == MACHINE_HOST)
+        if (m->class == MACHINE_HOST)
                 return MACHINE_RUNNING;
 
-        if (s->stopping)
+        if (m->stopping)
                 return MACHINE_CLOSING;
 
-        if (s->scope_job)
+        if (m->scope_job)
                 return MACHINE_OPENING;
 
         return MACHINE_RUNNING;
