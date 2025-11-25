@@ -80,6 +80,8 @@ executables += [
                 'name' : 'importctl',
                 'public' : true,
                 'sources' : files('importctl.c'),
+                'objects': ['systemd-importd'],
+                'dependencies' : common_deps,
         },
         generator_template + {
                 'name' : 'systemd-import-generator',
