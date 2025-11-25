@@ -1239,6 +1239,47 @@ extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
 run_systemd_sysext "$fake_root" unmerge
 )
 
+( init_trap
+: "Check if refresh skips correctly"
+fake_root=${roots_dir:+"$roots_dir/refresh-skip"}
+hierarchy=/opt
+
+findmnt --kernel=listmount >/dev/null || {
+    echo >&2 "Can't run test on old kernel, skipping test."
+    exit 0
+}
+
+prepare_root "$fake_root" "$hierarchy"
+prepare_extension_image "$fake_root" "$hierarchy"
+prepare_hierarchy "$fake_root" "$hierarchy"
+
+run_systemd_sysext "$fake_root" merge
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+# The mountinfo ID gets reused and is useless here, we require a unique ID from listmount
+MOUNTID1=$(findmnt --kernel=listmount -o UNIQ-ID --raw --noheadings --target "$fake_root$hierarchy")
+run_systemd_sysext "$fake_root" refresh
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+MOUNTID2=$(findmnt --kernel=listmount -o UNIQ-ID --raw --noheadings --target "$fake_root$hierarchy")
+if [ "$MOUNTID1" != "$MOUNTID2" ]; then
+    echo >&2 "Unexpected remount with 'refresh'"
+    exit 1
+fi
+rm -rf "$fake_root/var/lib/extensions/test-extension2"
+cp -ar "$fake_root/var/lib/extensions/test-extension" "$fake_root/var/lib/extensions/test-extension2"
+rm -rf "$fake_root/var/lib/extensions/test-extension"
+mv "$fake_root/var/lib/extensions/test-extension2" "$fake_root/var/lib/extensions/test-extension"
+run_systemd_sysext "$fake_root" refresh
+extension_verify_after_merge "$fake_root" "$hierarchy" -e -h
+MOUNTID3=$(findmnt --kernel=listmount -o UNIQ-ID --raw --noheadings --target "$fake_root$hierarchy")
+if [ "$MOUNTID2" = "$MOUNTID3" ]; then
+    echo >&2 "Unexpected skip with 'refresh'"
+    exit 1
+fi
+
+run_systemd_sysext "$fake_root" unmerge
+extension_verify_after_unmerge "$fake_root" "$hierarchy" -h
+)
+
 } # End of run_sysext_tests
 
 
