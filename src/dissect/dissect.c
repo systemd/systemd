@@ -1204,7 +1204,7 @@ static int action_dissect(
         }
 
         if (!sd_json_format_enabled(arg_json_format_flags)) {
-                (void) table_set_header(t, arg_legend);
+                table_set_header(t, arg_legend);
 
                 r = table_print(t, NULL);
                 if (r < 0)

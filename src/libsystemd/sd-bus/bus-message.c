@@ -4000,7 +4000,7 @@ static int message_skip_fields(
                         if (r < 0)
                                 return r;
 
-                        r = message_skip_fields(m, ri, UINT32_MAX, (const char**) &s);
+                        r = message_skip_fields(m, ri, UINT32_MAX, &s);
                         if (r < 0)
                                 return r;
 
@@ -4191,7 +4191,7 @@ static int message_parse_fields(sd_bus_message *m) {
                         break;
 
                 default:
-                        r = message_skip_fields(m, &ri, UINT32_MAX, (const char **) &signature);
+                        r = message_skip_fields(m, &ri, UINT32_MAX, &signature);
                 }
                 if (r < 0)
                         return r;

@@ -123,7 +123,7 @@ int boot_config_load_type1(
                 BootConfig *config,
                 FILE *f,
                 const char *root,
-                const BootEntrySource source,
+                BootEntrySource source,
                 const char *dir,
                 const char *id);
 

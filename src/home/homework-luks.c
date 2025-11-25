@@ -3342,7 +3342,7 @@ int home_resize_luks(
         crypto_offset = sym_crypt_get_data_offset(setup->crypt_device);
         if (crypto_offset > UINT64_MAX/512U)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "LUKS2 data offset out of range, refusing.");
-        crypto_offset_bytes = (uint64_t) crypto_offset * 512U;
+        crypto_offset_bytes = crypto_offset * 512U;
         if (setup->partition_size <= crypto_offset_bytes)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Weird, old crypto payload offset doesn't actually fit in partition size?");
 
