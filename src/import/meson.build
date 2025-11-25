@@ -18,6 +18,7 @@ executables += [
                 'dbus' : true,
                 'sources' : files(
                         'importd.c',
+                        'oci-util.c',
                 ),
                 'extract' : files(
                         'oci-util.c',
