@@ -1,11 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "libmount-util.h"
-
-#if HAVE_LIBMOUNT
 #include <stdio.h>
 
 #include "fstab-util.h"
+#include "libmount-util.h"
 #include "log.h"
 
 static void *libmount_dl = NULL;
@@ -41,10 +39,8 @@ DLSYM_PROTOTYPE(mnt_table_parse_mtab) = NULL;
 DLSYM_PROTOTYPE(mnt_table_parse_stream) = NULL;
 DLSYM_PROTOTYPE(mnt_table_parse_swaps) = NULL;
 DLSYM_PROTOTYPE(mnt_unref_monitor) = NULL;
-#endif
 
 int dlopen_libmount(void) {
-#if HAVE_LIBMOUNT
         ELF_NOTE_DLOPEN("mount",
                         "Support for mount enumeration",
                         ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
@@ -85,12 +81,8 @@ int dlopen_libmount(void) {
                         DLSYM_ARG(mnt_table_parse_stream),
                         DLSYM_ARG(mnt_table_parse_swaps),
                         DLSYM_ARG(mnt_unref_monitor));
-#else
-        return -EOPNOTSUPP;
-#endif
 }
 
-#if HAVE_LIBMOUNT
 int libmount_parse_full(
                 const char *path,
                 FILE *source,
@@ -159,4 +151,3 @@ int libmount_is_leaf(
 
         return r == 1;
 }
-#endif
