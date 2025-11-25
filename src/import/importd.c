@@ -29,6 +29,7 @@
 #include "json-util.h"
 #include "main-func.h"
 #include "notify-recv.h"
+#include "oci-util.h"
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-lookup.h"
@@ -58,6 +59,7 @@ typedef enum TransferType {
         TRANSFER_EXPORT_RAW,
         TRANSFER_PULL_TAR,
         TRANSFER_PULL_RAW,
+        TRANSFER_PULL_OCI,
         _TRANSFER_TYPE_MAX,
         _TRANSFER_TYPE_INVALID = -EINVAL,
 } TransferType;
@@ -127,6 +129,7 @@ static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
         [TRANSFER_EXPORT_RAW] = "export-raw",
         [TRANSFER_PULL_TAR]   = "pull-tar",
         [TRANSFER_PULL_RAW]   = "pull-raw",
+        [TRANSFER_PULL_OCI]   = "pull-oci",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
@@ -497,6 +500,7 @@ static int transfer_start(Transfer *t) {
 
                 case TRANSFER_PULL_TAR:
                 case TRANSFER_PULL_RAW:
+                case TRANSFER_PULL_OCI:
                         cmd[k++] = SYSTEMD_PULL_PATH;
                         break;
 
@@ -516,6 +520,10 @@ static int transfer_start(Transfer *t) {
                 case TRANSFER_EXPORT_RAW:
                 case TRANSFER_PULL_RAW:
                         cmd[k++] = "raw";
+                        break;
+
+                case TRANSFER_PULL_OCI:
+                        cmd[k++] = "oci";
                         break;
 
                 case TRANSFER_IMPORT_FS:
@@ -1053,7 +1061,7 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         return 1;
 }
 
-static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
+static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
         const char *remote, *local, *verify;
@@ -1078,7 +1086,24 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
                         return 1; /* Will call us back */
         }
 
-        if (endswith(sd_bus_message_get_member(msg), "Ex")) {
+        if (streq(sd_bus_message_get_member(msg), "PullOci")) {
+                const char *sclass;
+
+                r = sd_bus_message_read(msg, "ssst", &remote, &local, &sclass, &flags);
+                if (r < 0)
+                        return r;
+
+                class = image_class_from_string(sclass);
+                if (class < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Image class '%s' not known", sclass);
+
+                if (flags & ~(IMPORT_FORCE|IMPORT_READ_ONLY))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Flags 0x%" PRIx64 " invalid", flags);
+
+                verify = NULL;
+        } else if (endswith(sd_bus_message_get_member(msg), "Ex")) {
                 const char *sclass;
 
                 r = sd_bus_message_read(msg, "sssst", &remote, &local, &sclass, &verify, &flags);
@@ -1106,9 +1131,21 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
                 SET_FLAG(flags, IMPORT_FORCE, force);
         }
 
-        if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
+        type = startswith(sd_bus_message_get_member(msg), "PullTar") ? TRANSFER_PULL_TAR :
+                startswith(sd_bus_message_get_member(msg), "PullRaw") ? TRANSFER_PULL_RAW :
+                streq(sd_bus_message_get_member(msg), "PullOci") ? TRANSFER_PULL_OCI : _TRANSFER_TYPE_INVALID;
+        assert(type >= 0);
+
+        if (type == TRANSFER_PULL_OCI) {
+                r = oci_ref_valid(remote);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Reference '%s' is invalid", remote);
+        } else if (!http_url_is_valid(remote) && !file_url_is_valid(remote))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "URL %s is invalid", remote);
+                                         "URL '%s' is invalid", remote);
 
         if (isempty(local))
                 local = NULL;
@@ -1116,22 +1153,22 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Local image name %s is invalid", local);
 
-        if (isempty(verify))
+        if (type == TRANSFER_PULL_OCI)
+                v = _IMPORT_VERIFY_INVALID;
+        else if (isempty(verify))
                 v = IMPORT_VERIFY_SIGNATURE;
-        else
+        else {
                 v = import_verify_from_string(verify);
-        if (v < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Unknown verification mode %s", verify);
+                if (v < 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                                 "Unknown verification mode %s", verify);
+        }
 
         if (class == IMAGE_MACHINE) {
                 r = image_setup_pool(m->runtime_scope, class, m->use_btrfs_subvol, m->use_btrfs_quota);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to set up machine pool: %m");
         }
-
-        type = startswith(sd_bus_message_get_member(msg), "PullTar") ?
-                TRANSFER_PULL_TAR : TRANSFER_PULL_RAW;
 
         if (manager_find(m, type, remote))
                 return sd_bus_error_setf(error, BUS_ERROR_TRANSFER_IN_PROGRESS,
@@ -1613,52 +1650,53 @@ static const sd_bus_vtable manager_vtable[] = {
                                  SD_BUS_PARAM(transfer_path),
                                  method_export_tar_or_raw,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("PullTar",
-                                 "sssb",
-                                 SD_BUS_PARAM(url)
-                                 SD_BUS_PARAM(local_name)
-                                 SD_BUS_PARAM(verify_mode)
-                                 SD_BUS_PARAM(force),
-                                 "uo",
-                                 SD_BUS_PARAM(transfer_id)
-                                 SD_BUS_PARAM(transfer_path),
-                                 method_pull_tar_or_raw,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("PullTarEx",
-                                 "sssst",
-                                 SD_BUS_PARAM(url)
-                                 SD_BUS_PARAM(local_name)
-                                 SD_BUS_PARAM(class)
-                                 SD_BUS_PARAM(verify_mode)
-                                 SD_BUS_PARAM(flags),
-                                 "uo",
-                                 SD_BUS_PARAM(transfer_id)
-                                 SD_BUS_PARAM(transfer_path),
-                                 method_pull_tar_or_raw,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("PullRaw",
-                                 "sssb",
-                                 SD_BUS_PARAM(url)
-                                 SD_BUS_PARAM(local_name)
-                                 SD_BUS_PARAM(verify_mode)
-                                 SD_BUS_PARAM(force),
-                                 "uo",
-                                 SD_BUS_PARAM(transfer_id)
-                                 SD_BUS_PARAM(transfer_path),
-                                 method_pull_tar_or_raw,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
-        SD_BUS_METHOD_WITH_NAMES("PullRawEx",
-                                 "sssst",
-                                 SD_BUS_PARAM(url)
-                                 SD_BUS_PARAM(local_name)
-                                 SD_BUS_PARAM(class)
-                                 SD_BUS_PARAM(verify_mode)
-                                 SD_BUS_PARAM(flags),
-                                 "uo",
-                                 SD_BUS_PARAM(transfer_id)
-                                 SD_BUS_PARAM(transfer_path),
-                                 method_pull_tar_or_raw,
-                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("PullTar",
+                                SD_BUS_ARGS("s", url,
+                                            "s", local_name,
+                                            "s", verify_mode,
+                                            "b", force),
+                                SD_BUS_RESULT("u", transfer_id,
+                                              "o", transfer_path),
+                                method_pull_tar_or_raw_or_oci,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("PullTarEx",
+                                SD_BUS_ARGS("s", url,
+                                            "s", local_name,
+                                            "s", class,
+                                            "s", verify_mode,
+                                            "t", flags),
+                                SD_BUS_RESULT("u", transfer_id,
+                                              "o", transfer_path),
+                                method_pull_tar_or_raw_or_oci,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("PullRaw",
+                                SD_BUS_ARGS("s", url,
+                                            "s", local_name,
+                                            "s", verify_mode,
+                                            "b", force),
+                                SD_BUS_RESULT("u", transfer_id,
+                                              "o", transfer_path),
+                                method_pull_tar_or_raw_or_oci,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("PullRawEx",
+                                SD_BUS_ARGS("s", url,
+                                            "s", local_name,
+                                            "s", class,
+                                            "s", verify_mode,
+                                            "t", flags),
+                                SD_BUS_RESULT("u", transfer_id,
+                                              "o", transfer_path),
+                                method_pull_tar_or_raw_or_oci,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("PullOci",
+                                SD_BUS_ARGS("s", ref,
+                                            "s", local_name,
+                                            "s", class,
+                                            "t", flags),
+                                SD_BUS_RESULT("u", transfer_id,
+                                              "o", transfer_path),
+                                method_pull_tar_or_raw_or_oci,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ListTransfers",
                                  NULL,,
                                  "a(usssdo)",
@@ -1864,7 +1902,13 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
-        if (!http_url_is_valid(p.remote) && !file_url_is_valid(p.remote))
+        if (p.type == IMPORT_OCI) {
+                r = oci_ref_valid(p.remote);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return sd_varlink_error_invalid_parameter_name(link, "remote");
+        } else if (!http_url_is_valid(p.remote) && !file_url_is_valid(p.remote))
                 return sd_varlink_error_invalid_parameter_name(link, "remote");
 
         if (p.local && !image_name_is_valid(p.local))
@@ -1874,8 +1918,8 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         TransferType tt =
                 p.type == IMPORT_TAR ? TRANSFER_PULL_TAR :
-                p.type == IMPORT_RAW ? TRANSFER_PULL_RAW : _TRANSFER_TYPE_INVALID;
-
+                p.type == IMPORT_RAW ? TRANSFER_PULL_RAW :
+                p.type == IMPORT_OCI ? TRANSFER_PULL_OCI : _TRANSFER_TYPE_INVALID;
         assert(tt >= 0);
 
         if (manager_find(m, tt, p.remote))
