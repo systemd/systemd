@@ -696,15 +696,6 @@ int generator_hook_up_mkfs(
         return generator_add_symlink(dir, where_unit, "requires", unit);
 }
 
-static void free_dmclone_args(char **args, int count) {
-    for (int i = 0; i < count; i++) {
-        if (args[i] != NULL) {
-            free(args[i]);
-            args[i] = NULL;
-        }
-    }
-}
-
 int generator_hook_up_dmclone(
                 const char *dir,
                 const char *what,
