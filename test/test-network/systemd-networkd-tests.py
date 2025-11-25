@@ -8923,7 +8923,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.teardown_nftset('addr6', 'network6', 'ifindex')
 
-    def verify_dhcp4_6rd(self, tunnel_name, address_prefix, border_router):
+    def verify_dhcp4_6rd(self, tunnel_name, address_prefix, address_prefix_re, border_router):
         print('### ip -4 address show dev veth-peer scope global')
         output = check_output('ip -4 address show dev veth-peer scope global')
         print(output)
@@ -9088,7 +9088,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output(f'ip -6 address show dev {tunnel_name}')
         print(output)
         self.assertRegex(output, 'inet6 2001:db8:6464:[0-9a-f]+0[23]:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*:[0-9a-f]*/64 (metric 256 |)scope global dynamic')
-        self.assertRegex(output, fr'inet6 ::{address_prefix}[0-9]+/96 scope global')
+        self.assertRegex(output, fr'inet6 ::{address_prefix_re}/96 scope global')
 
         print(f'### ip -6 route show dev {tunnel_name}')
         output = check_output(f'ip -6 route show dev {tunnel_name}')
@@ -9100,7 +9100,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         output = check_output('ip -6 route show default')
         print(output)
         self.assertIn('default', output)
-        self.assertIn(f'via ::{border_router} dev {tunnel_name}', output)
+        self.assertRegex(output, fr'via ::{border_router} dev {tunnel_name}')
 
     def test_dhcp4_6rd(self):
         def get_dhcp_6rd_prefix(link):
@@ -9160,13 +9160,13 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         self.wait_online(f'{tunnel_name}:routable')
 
-        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.1', '10.0.0.1')
+        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.1', '(10.100.100.1[0-9][0-9]|a64:64[6-9a-c][0-9a-f])', '(10.0.0.1|a00:1)')
 
         # Test case for reconfigure
         networkctl_reconfigure('dummy98', 'dummy99')
         self.wait_online('dummy98:routable', 'dummy99:degraded')
 
-        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.1', '10.0.0.1')
+        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.1', '(10.100.100.1[0-9][0-9]|a64:64[6-9a-c][0-9a-f])', '(10.0.0.1|a00:1)')
 
         # Change the address range and (border) router, then if check the same tunnel is reused.
         stop_dnsmasq()
@@ -9180,7 +9180,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.wait_online('veth99:routable', 'test1:routable', 'dummy97:routable', 'dummy98:routable', 'dummy99:degraded',
                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable')
 
-        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.2', '10.0.0.2')
+        self.verify_dhcp4_6rd(tunnel_name, '10.100.100.2', '(10.100.100.2[0-5][0-9]|a64:64[c-f][0-9a-f])', '(10.0.0.2|a00:2)')
 
 class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
 
