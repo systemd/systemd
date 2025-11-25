@@ -170,7 +170,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         if (!b->anonymous_auth) {
                 l = lines[i++];
                 if (lines[i] - l == 4 + 2) {
-                        if (memcmp(l, "DATA", 4))
+                        if (memcmp(l, "DATA", 4) != 0)
                                 return -EPERM;
                 } else if (lines[i] - l == 3 + 32 + 2) {
                         /*
@@ -182,7 +182,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
                          * wrong reply. We ignore the "<id>" parameter, though,
                          * since it has no real value.
                          */
-                        if (memcmp(l, "OK ", 3))
+                        if (memcmp(l, "OK ", 3) != 0)
                                 return -EPERM;
                 } else
                         return -EPERM;
@@ -193,7 +193,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
 
         if (lines[i] - l != 3 + 32 + 2)
                 return -EPERM;
-        if (memcmp(l, "OK ", 3))
+        if (memcmp(l, "OK ", 3) != 0)
                 return -EPERM;
 
         b->auth = b->anonymous_auth ? BUS_AUTH_ANONYMOUS : BUS_AUTH_EXTERNAL;

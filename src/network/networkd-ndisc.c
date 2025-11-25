@@ -2198,7 +2198,7 @@ static int ndisc_dnr_compare_func(const NDiscDNR *a, const NDiscDNR *b) {
                 strcmp_ptr(a->resolver.dohpath, b->resolver.dohpath) ||
                 CMP(a->resolver.family, b->resolver.family) ||
                 CMP(a->resolver.n_addrs, b->resolver.n_addrs) ||
-                memcmp(a->resolver.addrs, b->resolver.addrs, sizeof(a->resolver.addrs[0]) * a->resolver.n_addrs);
+                memcmp(a->resolver.addrs, b->resolver.addrs, sizeof(a->resolver.addrs[0]) * a->resolver.n_addrs) != 0;
 }
 
 static void ndisc_dnr_hash_func(const NDiscDNR *x, struct siphash *state) {

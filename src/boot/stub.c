@@ -1235,7 +1235,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         /* Pick up the arguments passed to us, split out the prefixing profile parameter, and return the rest
          * as potential command line to use. */
-        (void) process_arguments(image, loaded_image, &profile, &cmdline);
+        process_arguments(image, loaded_image, &profile, &cmdline);
 
         /* Find the sections we want to operate on, both the basic ones, and the one appropriate for the
          * selected profile. */
