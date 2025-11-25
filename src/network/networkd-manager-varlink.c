@@ -12,6 +12,7 @@
 #include "lldp-rx-internal.h"
 #include "network-util.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-dhcp4.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -275,6 +276,7 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
                 manager->persistent_storage_fd = safe_close(manager->persistent_storage_fd);
 
         manager_toggle_dhcp4_server_state(manager, ready);
+        manager_enable_dhcp4_client_persistent_storage(manager, ready);
 
         return sd_varlink_reply(vlink, NULL);
 }

@@ -82,7 +82,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         fd = mkostemp_safe(lease_file);
         assert_se(fd >= 0);
 
-        r = dhcp_lease_save(client->lease, lease_file);
+        r = dhcp_lease_save(client->lease, AT_FDCWD, lease_file);
         assert_se(r >= 0);
 
         r = dhcp_lease_load(&lease, lease_file);
