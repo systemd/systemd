@@ -34,6 +34,7 @@
 #include "networkd-state-file.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "random-util.h"
 #include "set.h"
 #include "socket-util.h"
 #include "string-table.h"
@@ -1145,6 +1146,36 @@ static int dhcp_lease_acquired(sd_dhcp_client *client, Link *link) {
         return dhcp4_request_address_and_routes(link, true);
 }
 
+static usec_t calculate_expired_lease_lifetime_fuzzed(Link *link) {
+        /* Generates a randomised lifetime value within a range, specified by the user(this is mainly to
+         * combat network congestion when multiple client are involved.
+         * If options not specified, it defaults to set values e.g 2min and 0 fuzz.
+         * This will only apply when the option to use saved expired lease is active,
+         * it does not alter the normal dhcp operations, otherwise */
+        usec_t lifetime, min_lifetime, range;
+        uint64_t fuzz_value;
+
+        assert(link);
+        assert(link->network);
+
+        lifetime = link->network->expired_lease_extension_lifetime;
+        fuzz_value = link->network->expired_lease_extension_fuzz;
+
+        if (link->network->expired_lease_extension_fuzz == 0)
+                return lifetime;
+
+        range = (lifetime *  fuzz_value) / 100;
+        min_lifetime = lifetime - range;
+
+        /* Keep minimum lease time at 60s */
+        if (min_lifetime < 60 * USEC_PER_SEC) {
+                min_lifetime = 60 * USEC_PER_SEC;
+                range = lifetime - min_lifetime;
+        }
+
+        return min_lifetime + random_u64_range(2 * range + 1);
+}
+
 static int dhcp4_validate_saved_lease(Link *link, sd_dhcp_lease *lease) {
         usec_t lifetime, timestamp_realtime, expiration_realtime;
         usec_t now_realtime;
@@ -1194,15 +1225,12 @@ static int dhcp4_validate_saved_lease(Link *link, sd_dhcp_lease *lease) {
         }
 
         /* using expired lease, set short lifetime */
-        /* Extending lease by 1 minute
-           TODO: Might need to set some fuzzing/randomness to this value. Congestion could
-           occur at scale */
         if (use_expired)
-                remaining_lifetime = 1 * USEC_PER_MINUTE;
+                remaining_lifetime = calculate_expired_lease_lifetime_fuzzed(link);
 
         r = sd_dhcp_client_update_lease_lifetime(link->dhcp_client, lease, remaining_lifetime);
         if (r < 0)
-                log_link_warning_errno(link, r, "Failed to update the lease lifetime: %m");
+                return log_link_warning_errno(link, r, "Failed to update the lease lifetime: %m");
 
         return 1;
 }
@@ -1251,7 +1279,7 @@ static int dhcp4_load_saved_lease(Link *link) {
         return 1;
 }
 
-static bool dhcp_client_persist_leases(Link *link) {
+int is_dhcp_client_persist_leases(Link *link) {
         assert(link);
         assert(link->manager);
         assert(link->network);
@@ -1339,7 +1367,7 @@ void manager_enable_dhcp4_client_persistent_storage(Manager *manager, bool start
                 if (!link->dhcp_client)
                         continue;
 
-                if(!dhcp_client_persist_leases(link))
+                if(!is_dhcp_client_persist_leases(link))
                         continue;
 
                 r = sd_dhcp_client_stop(link->dhcp_client);
@@ -1451,9 +1479,8 @@ static int dhcp4_handler(sd_dhcp_client *client, int event, void *userdata) {
 
                                 /* This entire section could be in a function? */
 
-                                /* Single minute Extension
-                                 * TODO: Add fuzzing/randomness if required for this extension value. */
-                                usec_t extension = 1 * USEC_PER_MINUTE;
+                                /* Fuzzed lifetime extension */
+                                usec_t extension = calculate_expired_lease_lifetime_fuzzed(link);
 
                                 r = sd_dhcp_client_update_lease_lifetime(client, link->dhcp_lease, extension);
                                 if (r < 0)
@@ -2024,7 +2051,7 @@ int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
         if (sd_dhcp_client_is_running(link->dhcp_client) > 0)
                 return 0;
 
-        if (dhcp_client_persist_leases(link) && link->manager->persistent_storage_ready) {
+        if (is_dhcp_client_persist_leases(link) && link->manager->persistent_storage_ready) {
                 r = dhcp_configure_with_saved_lease(link);
                 if (r < 0)
                         log_link_debug_errno(link, r, "Failed to configure client with saved lease: %m");

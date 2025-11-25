@@ -2661,9 +2661,6 @@ int sd_dhcp_client_update_lease_lifetime(sd_dhcp_client *client, sd_dhcp_lease *
         if (r < 0)
                 return r;
 
-        log_dhcp_client(client, "Loaded time unto lease, expires in %s",
-                     FORMAT_TIMESPAN(lifetime, USEC_PER_SEC));
-
         return 0;
 }
 

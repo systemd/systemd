@@ -113,9 +113,9 @@ typedef struct Network {
         bool default_route_on_device;
         AddressFamily ip_masquerade;
         usec_t ipv4_dad_timeout_usec;
-
-        /*Included struct for persist leases */
         DHCPClientPersistLeases dhcp_client_persist_leases;
+        usec_t expired_lease_extension_lifetime;
+        uint64_t expired_lease_extension_fuzz;
 
         /* Protocol independent settings */
         UseDomains use_domains;
@@ -453,6 +453,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_activation_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_link_group);
 CONFIG_PARSER_PROTOTYPE(config_parse_ignore_carrier_loss);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_client_persist_leases);
+CONFIG_PARSER_PROTOTYPE(config_parse_expired_lease_extension_options);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
