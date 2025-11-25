@@ -24,16 +24,16 @@ static const char* const socket_address_bind_ipv6_only_table[_SOCKET_ADDRESS_BIN
 
 DEFINE_STRING_TABLE_LOOKUP(socket_address_bind_ipv6_only, SocketAddressBindIPv6Only);
 
-SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *n) {
+SocketAddressBindIPv6Only socket_address_bind_ipv6_only_or_bool_from_string(const char *s) {
         int r;
 
-        r = parse_boolean(n);
+        r = parse_boolean(s);
         if (r > 0)
                 return SOCKET_ADDRESS_IPV6_ONLY;
         if (r == 0)
                 return SOCKET_ADDRESS_BOTH;
 
-        return socket_address_bind_ipv6_only_from_string(n);
+        return socket_address_bind_ipv6_only_from_string(s);
 }
 
 int socket_address_listen(

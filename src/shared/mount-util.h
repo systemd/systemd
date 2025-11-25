@@ -17,9 +17,9 @@ int bind_mount_submounts(
 
 int repeat_unmount(const char *path, int flags);
 
-int umount_recursive_full(const char *target, int flags, char **keep);
-static inline int umount_recursive(const char *target, int flags) {
-        return umount_recursive_full(target, flags, NULL);
+int umount_recursive_full(const char *prefix, int flags, char **keep);
+static inline int umount_recursive(const char *prefix, int flags) {
+        return umount_recursive_full(prefix, flags, NULL);
 }
 
 int bind_remount_recursive_with_mountinfo(const char *prefix, unsigned long new_flags, unsigned long flags_mask, char **deny_list, FILE *proc_self_mountinfo);
@@ -80,7 +80,7 @@ int mount_option_mangle(
                 unsigned long *ret_mount_flags,
                 char **ret_remaining_options);
 
-int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **dest);
+int mode_to_inaccessible_node(const char *runtime_dir, mode_t mode, char **ret);
 int mount_flags_to_string(unsigned long flags, char **ret);
 
 /* Useful for usage with _cleanup_(), unmounts, removes a directory and frees the pointer */
@@ -148,9 +148,15 @@ typedef enum RemountIdmapping {
 int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned flags, struct mount_attr *attr);
 int open_tree_try_drop_idmap(int dir_fd, const char *path, unsigned flags);
 
-int make_userns(uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
+int make_userns(uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest_owner, RemountIdmapping idmapping);
 int remount_idmap_fd(char **p, int userns_fd, uint64_t extra_mount_attr_set);
-int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
+int remount_idmap(
+                char **p,
+                uid_t uid_shift,
+                uid_t uid_range,
+                uid_t source_owner,
+                uid_t dest_owner,
+                RemountIdmapping idmapping);
 
 /* Creates a mount point (without any parents) based on the source path or mode - i.e., a file or a directory */
 int make_mount_point_inode_from_mode(int dir_fd, const char *dest, mode_t source_mode, mode_t target_mode);

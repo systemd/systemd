@@ -457,7 +457,7 @@ static TableData *table_data_new(
 int table_add_cell_full(
                 Table *t,
                 TableCell **ret_cell,
-                TableDataType type,
+                TableDataType dt,
                 const void *data,
                 size_t minimum_width,
                 size_t maximum_width,
@@ -470,12 +470,12 @@ int table_add_cell_full(
         TableData *p;
 
         assert(t);
-        assert(type >= 0);
-        assert(type < _TABLE_DATA_TYPE_MAX);
+        assert(dt >= 0);
+        assert(dt < _TABLE_DATA_TYPE_MAX);
 
         /* Special rule: patch NULL data fields to the empty field */
         if (!data)
-                type = TABLE_EMPTY;
+                dt = TABLE_EMPTY;
 
         /* Determine the cell adjacent to the current one, but one row up */
         if (t->n_cells >= t->n_columns)
@@ -499,15 +499,15 @@ int table_add_cell_full(
         assert(align_percent <= 100);
         assert(ellipsize_percent <= 100);
 
-        uppercase = type == TABLE_HEADER;
+        uppercase = dt == TABLE_HEADER;
 
         /* Small optimization: Pretty often adjacent cells in two subsequent lines have the same data and
          * formatting. Let's see if we can reuse the cell data and ref it once more. */
 
-        if (p && table_data_matches(p, type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase))
+        if (p && table_data_matches(p, dt, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase))
                 d = table_data_ref(p);
         else {
-                d = table_data_new(type, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase);
+                d = table_data_new(dt, data, minimum_width, maximum_width, weight, align_percent, ellipsize_percent, uppercase);
                 if (!d)
                         return -ENOMEM;
         }

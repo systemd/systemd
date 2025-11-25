@@ -159,17 +159,17 @@ void strv_free_many(char ***strvs, size_t n) {
         free(strvs);
 }
 
-char** strv_copy_n(char * const *l, size_t m) {
+char** strv_copy_n(char * const *l, size_t n) {
         _cleanup_strv_free_ char **result = NULL;
         char **k;
 
-        result = new(char*, MIN(strv_length(l), m) + 1);
+        result = new(char*, MIN(strv_length(l), n) + 1);
         if (!result)
                 return NULL;
 
         k = result;
         STRV_FOREACH(i, l) {
-                if (m == 0)
+                if (n == 0)
                         break;
 
                 *k = strdup(*i);
@@ -177,8 +177,8 @@ char** strv_copy_n(char * const *l, size_t m) {
                         return NULL;
                 k++;
 
-                if (m != SIZE_MAX)
-                        m--;
+                if (n != SIZE_MAX)
+                        n--;
         }
 
         *k = NULL;

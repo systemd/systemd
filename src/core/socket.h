@@ -181,7 +181,7 @@ typedef struct Socket {
 
 SocketPeer *socket_peer_ref(SocketPeer *p);
 SocketPeer *socket_peer_unref(SocketPeer *p);
-int socket_acquire_peer(Socket *s, int fd, SocketPeer **p);
+int socket_acquire_peer(Socket *s, int fd, SocketPeer **ret);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPeer*, socket_peer_unref);
 
@@ -196,7 +196,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(SocketPort*, socket_port_free);
 
 void socket_free_ports(Socket *s);
 
-int socket_port_to_address(const SocketPort *s, char **ret);
+int socket_port_to_address(const SocketPort *p, char **ret);
 
 int socket_load_service_unit(Socket *s, int cfd, Unit **ret);
 
@@ -211,11 +211,11 @@ const char* socket_result_to_string(SocketResult i) _const_;
 SocketResult socket_result_from_string(const char *s) _pure_;
 
 const char* socket_port_type_to_string(SocketPort *p) _pure_;
-SocketType socket_port_type_from_string(const char *p) _pure_;
+SocketType socket_port_type_from_string(const char *s) _pure_;
 
 const char* socket_timestamping_to_string(SocketTimestamping p) _const_;
-SocketTimestamping socket_timestamping_from_string(const char *p) _pure_;
-SocketTimestamping socket_timestamping_from_string_harder(const char *p) _pure_;
+SocketTimestamping socket_timestamping_from_string(const char *s) _pure_;
+SocketTimestamping socket_timestamping_from_string_harder(const char *s) _pure_;
 
 const char* socket_defer_trigger_to_string(SocketDeferTrigger i) _const_;
 SocketDeferTrigger socket_defer_trigger_from_string(const char *s) _pure_;

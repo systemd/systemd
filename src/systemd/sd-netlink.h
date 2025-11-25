@@ -61,7 +61,7 @@ int sd_netlink_get_timeout(sd_netlink *nl, uint64_t *ret);
 int sd_netlink_process(sd_netlink *nl, sd_netlink_message **ret);
 int sd_netlink_wait(sd_netlink *nl, uint64_t timeout);
 
-int sd_netlink_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, uint16_t match,
+int sd_netlink_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, uint16_t type,
                          sd_netlink_message_handler_t callback,
                          sd_netlink_destroy_t destroy_callback,
                          void *userdata, const char *description);
