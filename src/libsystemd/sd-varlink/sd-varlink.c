@@ -2797,13 +2797,13 @@ _public_ int sd_varlink_dispatch(sd_varlink *v, sd_json_variant *parameters, con
         return 0;
 }
 
-_public_ int sd_varlink_bind_reply(sd_varlink *v, sd_varlink_reply_t callback) {
+_public_ int sd_varlink_bind_reply(sd_varlink *v, sd_varlink_reply_t reply) {
         assert_return(v, -EINVAL);
 
-        if (callback && v->reply_callback && callback != v->reply_callback)
+        if (reply && v->reply_callback && reply != v->reply_callback)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
-        v->reply_callback = callback;
+        v->reply_callback = reply;
 
         return 0;
 }
@@ -4085,23 +4085,23 @@ _public_ int sd_varlink_server_bind_method_many_internal(sd_varlink_server *s, .
         return r;
 }
 
-_public_ int sd_varlink_server_bind_connect(sd_varlink_server *s, sd_varlink_connect_t callback) {
+_public_ int sd_varlink_server_bind_connect(sd_varlink_server *s, sd_varlink_connect_t connect) {
         assert_return(s, -EINVAL);
 
-        if (callback && s->connect_callback && callback != s->connect_callback)
+        if (connect && s->connect_callback && connect != s->connect_callback)
                 return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
-        s->connect_callback = callback;
+        s->connect_callback = connect;
         return 0;
 }
 
-_public_ int sd_varlink_server_bind_disconnect(sd_varlink_server *s, sd_varlink_disconnect_t callback) {
+_public_ int sd_varlink_server_bind_disconnect(sd_varlink_server *s, sd_varlink_disconnect_t disconnect) {
         assert_return(s, -EINVAL);
 
-        if (callback && s->disconnect_callback && callback != s->disconnect_callback)
+        if (disconnect && s->disconnect_callback && disconnect != s->disconnect_callback)
                 return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
-        s->disconnect_callback = callback;
+        s->disconnect_callback = disconnect;
         return 0;
 }
 

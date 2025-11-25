@@ -144,32 +144,32 @@ char ascii_toupper(char x) {
         return x;
 }
 
-char* ascii_strlower(char *t) {
-        assert(t);
+char* ascii_strlower(char *s) {
+        assert(s);
 
-        for (char *p = t; *p; p++)
+        for (char *p = s; *p; p++)
                 *p = ascii_tolower(*p);
 
-        return t;
+        return s;
 }
 
-char* ascii_strupper(char *t) {
-        assert(t);
+char* ascii_strupper(char *s) {
+        assert(s);
 
-        for (char *p = t; *p; p++)
+        for (char *p = s; *p; p++)
                 *p = ascii_toupper(*p);
 
-        return t;
+        return s;
 }
 
-char* ascii_strlower_n(char *t, size_t n) {
+char* ascii_strlower_n(char *s, size_t n) {
         if (n <= 0)
-                return t;
+                return s;
 
         for (size_t i = 0; i < n; i++)
-                t[i] = ascii_tolower(t[i]);
+                s[i] = ascii_tolower(s[i]);
 
-        return t;
+        return s;
 }
 
 int ascii_strcasecmp_n(const char *a, const char *b, size_t n) {

@@ -97,7 +97,7 @@ void manager_load_config(Manager *m);
 int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata);
 
 /* Defined in generated journald-gperf.c */
-const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* journald_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 const char* storage_to_string(Storage s) _const_;
 Storage storage_from_string(const char *s) _pure_;

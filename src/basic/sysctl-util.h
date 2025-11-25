@@ -6,7 +6,7 @@
 #include "stdio-util.h"
 
 char* sysctl_normalize(char *s);
-int sysctl_read(const char *property, char **value);
+int sysctl_read(const char *property, char **ret);
 int sysctl_write_full(const char *property, const char *value, Hashmap **shadow);
 int sysctl_writef(const char *property, const char *format, ...) _printf_(2, 3);
 static inline int sysctl_write(const char *property, const char *value) {

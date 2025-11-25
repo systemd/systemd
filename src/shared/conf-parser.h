@@ -77,7 +77,7 @@ int config_parse_many(
                 ConfigParseFlags flags,
                 void *userdata,
                 Hashmap **ret_stats_by_path,  /* possibly NULL */
-                char ***ret_drop_in_files);   /* possibly NULL */
+                char ***ret_dropin_files);   /* possibly NULL */
 
 int config_parse_standard_file_with_dropins_full(
                 const char *root,

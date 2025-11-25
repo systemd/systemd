@@ -157,8 +157,8 @@ int netlink_message_append_hw_addr(sd_netlink_message *m, unsigned short type, c
 int netlink_message_append_in_addr_union(sd_netlink_message *m, unsigned short type, int family, const union in_addr_union *data);
 int netlink_message_append_sockaddr_union(sd_netlink_message *m, unsigned short type, const union sockaddr_union *data);
 
-int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *data);
-int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short type, int family, union in_addr_union *data);
+int netlink_message_read_hw_addr(sd_netlink_message *m, unsigned short type, struct hw_addr_data *ret);
+int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short type, int family, union in_addr_union *ret);
 
 void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, const void *data, size_t data_length);
 int rtattr_append_attribute(struct rtattr **rta, unsigned short type, const void *data, size_t data_length);
@@ -168,4 +168,4 @@ void netlink_seal_message(sd_netlink *nl, sd_netlink_message *m);
 size_t netlink_get_reply_callback_count(sd_netlink *nl);
 
 /* TODO: to be exported later */
-int sd_netlink_sendv(sd_netlink *nl, sd_netlink_message **messages, size_t msgcnt, uint32_t **ret_serial);
+int sd_netlink_sendv(sd_netlink *nl, sd_netlink_message **messages, size_t msgcount, uint32_t **ret_serial);

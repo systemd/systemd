@@ -91,6 +91,6 @@ int list_ovmf_config(char ***ret);
 int load_ovmf_config(const char *path, OvmfConfig **ret);
 int find_ovmf_config(int search_sb, OvmfConfig **ret);
 int find_qemu_binary(char **ret_qemu_binary);
-int vsock_fix_child_cid(int vsock_fd, unsigned *machine_cid, const char *machine);
+int vsock_fix_child_cid(int vhost_device_fd, unsigned *machine_cid, const char *machine);
 
 char* escape_qemu_value(const char *s);

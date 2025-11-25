@@ -161,7 +161,7 @@ bool manager_shall_kill(Manager *m, const char *user);
 
 int manager_get_idle_hint(Manager *m, dual_timestamp *t);
 
-int manager_get_user_by_pid(Manager *m, pid_t pid, User **user);
+int manager_get_user_by_pid(Manager *m, pid_t pid, User **ret);
 int manager_get_session_by_pidref(Manager *m, const PidRef *pid, Session **ret);
 int manager_get_session_by_leader(Manager *m, const PidRef *pid, Session **ret);
 
@@ -171,7 +171,7 @@ bool manager_is_on_external_power(void);
 bool manager_all_buttons_ignored(Manager *m);
 
 /* gperf lookup function */
-const struct ConfigPerfItem* logind_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
+const struct ConfigPerfItem* logind_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 int manager_set_lid_switch_ignore(Manager *m, usec_t until);
 

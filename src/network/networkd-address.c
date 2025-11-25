@@ -826,7 +826,7 @@ static int address_update(Address *address) {
                         return r;
         }
 
-        link_update_operstate(link, /* also_update_bond_master = */ true);
+        link_update_operstate(link, /* also_update_master = */ true);
         link_check_ready(link);
         return 0;
 }
@@ -901,7 +901,7 @@ static int address_drop(Address *in, bool removed_by_us) {
                 }
         }
 
-        link_update_operstate(link, /* also_update_bond_master = */ true);
+        link_update_operstate(link, /* also_update_master = */ true);
         link_check_ready(link);
         return 0;
 }
