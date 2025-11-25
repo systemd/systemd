@@ -34,8 +34,9 @@
 
 bool is_name_to_handle_at_fatal_error(int err);
 
-int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
+int name_to_handle_at_loop(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, uint64_t *ret_unique_mnt_id, int flags);
 int name_to_handle_at_try_fid(int fd, const char *path, struct file_handle **ret_handle, int *ret_mnt_id, int flags);
+int name_to_handle_at_try_unique_mntid_fid(int fd, const char *path, struct file_handle **ret_handle, uint64_t *ret_mnt_id, int flags);
 
 bool file_handle_equal(const struct file_handle *a, const struct file_handle *b);
 
@@ -44,6 +45,7 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret);
 static inline int path_get_mnt_id(const char *path, int *ret) {
         return path_get_mnt_id_at(AT_FDCWD, path, ret);
 }
+int path_get_unique_mnt_id_at(int dir_fd, const char *path, uint64_t *ret);
 
 int is_mount_point_at(int fd, const char *filename, int flags);
 int path_is_mount_point_full(const char *path, const char *root, int flags);
