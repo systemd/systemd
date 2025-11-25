@@ -1267,11 +1267,36 @@ void portable_changes_free(PortableChange *changes, size_t n_changes) {
 }
 
 static const char *root_setting_from_image(ImageType type) {
-        return IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "RootDirectory=" : "RootImage=";
+        switch (type) {
+        case IMAGE_DIRECTORY:
+        case IMAGE_SUBVOLUME:
+                return "RootDirectory=";
+
+        case IMAGE_RAW:
+        case IMAGE_BLOCK:
+                return "RootImage=";
+
+        case IMAGE_MSTACK:
+                return "RootMStack=";
+
+        default:
+                return NULL;
+        }
 }
 
 static const char *extension_setting_from_image(ImageType type) {
-        return IN_SET(type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) ? "ExtensionDirectories=" : "ExtensionImages=";
+        switch (type) {
+        case IMAGE_DIRECTORY:
+        case IMAGE_SUBVOLUME:
+                return "ExtensionDirectories=";
+
+        case IMAGE_RAW:
+        case IMAGE_BLOCK:
+                return "ExtensionImages=";
+
+        default:
+                return NULL;
+        }
 }
 
 static int make_marker_text(const char *image_path, OrderedHashmap *extension_images, char **ret_text) {
@@ -1401,6 +1426,8 @@ static int install_chroot_dropin(
                 Image *ext;
 
                 root_type = root_setting_from_image(type);
+                if (!root_type)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image type '%s' not supported as portable service.", image_type_to_string(type));
 
                 r = path_extract_filename(m->image_path ?: image_path, &base_name);
                 if (r < 0)
@@ -1453,15 +1480,19 @@ static int install_chroot_dropin(
 
                 if (m->image_path && !path_equal(m->image_path, image_path))
                         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
-                                _cleanup_free_ char *extension_base_name = NULL;
 
+                                const char *extension_setting = extension_setting_from_image(ext->type);
+                                if (!extension_setting)
+                                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image type '%s' not supported for extensions: %m", image_type_to_string(ext->type));
+
+                                _cleanup_free_ char *extension_base_name = NULL;
                                 r = path_extract_filename(ext->path, &extension_base_name);
                                 if (r < 0)
                                         return log_debug_errno(r, "Failed to extract basename from '%s': %m", ext->path);
 
                                 if (!strextend(&text,
                                                "\n",
-                                               extension_setting_from_image(ext->type),
+                                               extension_setting,
                                                ext->path,
                                                /* With --force tell PID1 to avoid enforcing that the image <name> and
                                                 * extension-release.<name> have to match. */
