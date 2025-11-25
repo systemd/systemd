@@ -832,7 +832,6 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 void *userdata) {
 
         char **suboption_value = data;
-        char* p;
 
         assert(filename);
         assert(lvalue);
@@ -843,7 +842,7 @@ int config_parse_dhcp_server_relay_agent_suboption(
                 return 0;
         }
 
-        p = startswith(rvalue, "string:");
+        const char *p = startswith(rvalue, "string:");
         if (!p) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Failed to parse %s=%s'. Invalid format, ignoring.", lvalue, rvalue);
