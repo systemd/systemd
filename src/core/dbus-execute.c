@@ -86,7 +86,7 @@ static int property_get_environment_files(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
@@ -116,7 +116,7 @@ static int property_get_cpu_affinity(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_(cpu_set_done) CPUSet s = {};
@@ -146,7 +146,7 @@ static int property_get_numa_mask(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_free_ uint8_t *array = NULL;
@@ -167,7 +167,7 @@ static int property_get_numa_policy(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
         ExecContext *c = ASSERT_PTR(userdata);
         int32_t policy;
 
@@ -186,7 +186,7 @@ static int property_get_syscall_filter(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
@@ -221,7 +221,7 @@ static int property_get_syscall_log(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
@@ -256,7 +256,7 @@ static int property_get_syscall_archs(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
@@ -283,7 +283,7 @@ static int property_get_selinux_context(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
 
@@ -300,7 +300,7 @@ static int property_get_apparmor_profile(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
 
@@ -317,7 +317,7 @@ static int property_get_smack_process_label(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
 
@@ -334,7 +334,7 @@ static int property_get_address_families(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
@@ -369,7 +369,7 @@ static int property_get_working_directory(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         const char *wd;
@@ -395,7 +395,7 @@ static int property_get_stdio_fdname(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         int fileno;
@@ -423,7 +423,7 @@ static int property_get_input_data(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
 
@@ -441,7 +441,7 @@ static int property_get_restrict_filesystems(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_free_ char **l = NULL; /* Strings are owned by 'c->restrict_filesystems'! */
@@ -476,7 +476,7 @@ static int property_get_bind_paths(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         bool ro;
@@ -516,7 +516,7 @@ static int property_get_temporary_filesystems(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
@@ -548,7 +548,7 @@ static int property_get_log_extra_fields(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
@@ -592,7 +592,7 @@ static int property_get_log_filter_patterns(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = userdata;
         int r;
@@ -624,7 +624,7 @@ static int property_get_set_credential(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         ExecSetCredential *sc;
@@ -670,7 +670,7 @@ static int property_get_load_credential(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         ExecLoadCredential *lc;
@@ -704,7 +704,7 @@ static int property_get_import_credential(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         ExecImportCredential *ic;
@@ -734,7 +734,7 @@ static int property_get_import_credential_ex(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         ExecImportCredential *ic;
@@ -764,7 +764,7 @@ static int property_get_root_hash(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
 
@@ -782,7 +782,7 @@ static int property_get_root_hash_sig(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
 
@@ -800,7 +800,7 @@ static int property_get_root_image_options(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
@@ -831,7 +831,7 @@ static int property_get_mount_images(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
@@ -888,7 +888,7 @@ static int property_get_extension_images(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
@@ -944,7 +944,7 @@ static int property_get_exec_dir(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecDirectory *d = ASSERT_PTR(userdata);
         int r;
@@ -973,7 +973,7 @@ static int property_get_exec_dir_symlink(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecDirectory *d = ASSERT_PTR(userdata);
         int r;
@@ -1009,7 +1009,7 @@ static int property_get_exec_quota(sd_bus *bus,
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         QuotaLimit *q = ASSERT_PTR(userdata);
 
@@ -1026,7 +1026,7 @@ static int property_get_image_policy(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ImagePolicy **pp = ASSERT_PTR(userdata);
         _cleanup_free_ char *s = NULL;
@@ -1050,7 +1050,7 @@ static int property_get_private_tmp(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         PrivateTmp *p = ASSERT_PTR(userdata);
         int b = *p != PRIVATE_TMP_NO;
@@ -1065,7 +1065,7 @@ static int property_get_private_users(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         PrivateUsers *p = ASSERT_PTR(userdata);
         int b = *p != PRIVATE_USERS_NO;
@@ -1080,7 +1080,7 @@ static int property_get_protect_control_groups(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ProtectControlGroups *p = ASSERT_PTR(userdata);
         int b = *p != PROTECT_CONTROL_GROUPS_NO;
@@ -1095,7 +1095,7 @@ static int property_get_protect_hostname(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ProtectHostname *p = ASSERT_PTR(userdata);
         int b = *p != PROTECT_HOSTNAME_NO;
@@ -1110,7 +1110,7 @@ static int property_get_protect_hostname_ex(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         ExecContext *c = ASSERT_PTR(userdata);
 
@@ -1124,7 +1124,7 @@ static int property_get_unsigned_as_uint16(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         unsigned *value = ASSERT_PTR(userdata);
 
@@ -1141,7 +1141,7 @@ static int property_get_bpf_delegate_commands(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         uint64_t *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *s = NULL;
@@ -1162,7 +1162,7 @@ static int property_get_bpf_delegate_maps(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         uint64_t *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *s = NULL;
@@ -1183,7 +1183,7 @@ static int property_get_bpf_delegate_programs(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         uint64_t *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *s = NULL;
@@ -1204,7 +1204,7 @@ static int property_get_bpf_delegate_attachments(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         uint64_t *u = ASSERT_PTR(userdata);
         _cleanup_free_ char *s = NULL;
@@ -1431,7 +1431,7 @@ static int property_get_quota_usage(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         Unit *u = ASSERT_PTR(userdata);
         ExecContext *c = ASSERT_PTR(unit_get_exec_context(u));
@@ -1565,7 +1565,7 @@ int bus_property_get_exec_command(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *ret_error) {
+                sd_bus_error *reterr_error) {
 
         ExecCommand *c = (ExecCommand*) userdata;
         int r;
@@ -1591,7 +1591,7 @@ int bus_property_get_exec_command_list(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *ret_error) {
+                sd_bus_error *reterr_error) {
 
         ExecCommand *exec_command = *(ExecCommand**) userdata;
         int r;
@@ -1619,7 +1619,7 @@ int bus_property_get_exec_ex_command_list(
                 const char *property,
                 sd_bus_message *reply,
                 void *userdata,
-                sd_bus_error *ret_error) {
+                sd_bus_error *reterr_error) {
 
         ExecCommand *exec_command = *(ExecCommand**) userdata;
         int r;
@@ -1654,7 +1654,7 @@ int bus_set_transient_exec_command(
                 ExecCommand **exec_command,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         const char *ex_prop = endswith(ASSERT_PTR(name), "Ex");
         size_t n = 0;
@@ -1663,7 +1663,7 @@ int bus_set_transient_exec_command(
         assert(u);
         assert(exec_command);
         assert(message);
-        assert(error);
+        assert(reterr_error);
 
         /* Drop Ex from the written setting. E.g. ExecStart=, not ExecStartEx=. */
         const char *written_name = ex_prop ? strndupa_safe(name, ex_prop - name) : name;
@@ -1707,12 +1707,12 @@ int bus_set_transient_exec_command(
 
                 if (!FLAGS_SET(command_flags, EXEC_COMMAND_VIA_SHELL)) {
                         if (!filename_or_absolute_path_is_valid(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                                          "\"%s\" is neither a valid executable name nor an absolute path",
                                                          path);
 
                         if (strv_isempty(argv))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                                          "\"%s\" argv cannot be empty", name);
                 } else {
                         /* Always normalize path and argv0 to be "sh" */
@@ -1862,7 +1862,7 @@ int bus_exec_context_set_transient_property(
                 const char *name,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
-                sd_bus_error *error) {
+                sd_bus_error *reterr_error) {
 
         const char *suffix;
         int r;
@@ -1875,25 +1875,25 @@ int bus_exec_context_set_transient_property(
         flags |= UNIT_PRIVATE;
 
         if (streq(name, "User"))
-                return bus_set_transient_user_relaxed(u, name, &c->user, message, flags, error);
+                return bus_set_transient_user_relaxed(u, name, &c->user, message, flags, reterr_error);
 
         if (streq(name, "Group"))
-                return bus_set_transient_user_relaxed(u, name, &c->group, message, flags, error);
+                return bus_set_transient_user_relaxed(u, name, &c->group, message, flags, reterr_error);
 
         if (streq(name, "SetLoginEnvironment"))
-                return bus_set_transient_tristate(u, name, &c->set_login_environment, message, flags, error);
+                return bus_set_transient_tristate(u, name, &c->set_login_environment, message, flags, reterr_error);
 
         if (streq(name, "TTYPath"))
-                return bus_set_transient_path(u, name, &c->tty_path, message, flags, error);
+                return bus_set_transient_path(u, name, &c->tty_path, message, flags, reterr_error);
 
         if (streq(name, "RootImage"))
-                return bus_set_transient_path(u, name, &c->root_image, message, flags, error);
+                return bus_set_transient_path(u, name, &c->root_image, message, flags, reterr_error);
 
         if (streq(name, "RootImageOptions")) {
                 _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
                 _cleanup_free_ char *format_str = NULL;
 
-                r = bus_read_mount_options(message, error, &options, &format_str, " ");
+                r = bus_read_mount_options(message, reterr_error, &options, &format_str, " ");
                 if (r < 0)
                         return r;
 
@@ -1950,7 +1950,7 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RootHashPath")) {
                 iovec_done(&c->root_hash);
-                return bus_set_transient_path(u, "RootHash", &c->root_hash_path, message, flags, error);
+                return bus_set_transient_path(u, "RootHash", &c->root_hash_path, message, flags, reterr_error);
         }
 
         if (streq(name, "RootHashSignature")) {
@@ -1989,29 +1989,29 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "RootHashSignaturePath")) {
                 iovec_done(&c->root_hash_sig);
-                return bus_set_transient_path(u, "RootHashSignature", &c->root_hash_sig_path, message, flags, error);
+                return bus_set_transient_path(u, "RootHashSignature", &c->root_hash_sig_path, message, flags, reterr_error);
         }
 
         if (streq(name, "RootVerity"))
-                return bus_set_transient_path(u, name, &c->root_verity, message, flags, error);
+                return bus_set_transient_path(u, name, &c->root_verity, message, flags, reterr_error);
 
         if (streq(name, "RootDirectory"))
-                return bus_set_transient_path(u, name, &c->root_directory, message, flags, error);
+                return bus_set_transient_path(u, name, &c->root_directory, message, flags, reterr_error);
 
         if (streq(name, "RootEphemeral"))
-                return bus_set_transient_bool(u, name, &c->root_ephemeral, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->root_ephemeral, message, flags, reterr_error);
 
         if (streq(name, "SyslogIdentifier"))
-                return bus_set_transient_string(u, name, &c->syslog_identifier, message, flags, error);
+                return bus_set_transient_string(u, name, &c->syslog_identifier, message, flags, reterr_error);
 
         if (streq(name, "LogLevelMax"))
-                return bus_set_transient_log_level(u, name, &c->log_level_max, message, flags, error);
+                return bus_set_transient_log_level(u, name, &c->log_level_max, message, flags, reterr_error);
 
         if (streq(name, "LogRateLimitIntervalUSec"))
-                return bus_set_transient_usec(u, name, &c->log_ratelimit.interval, message, flags, error);
+                return bus_set_transient_usec(u, name, &c->log_ratelimit.interval, message, flags, reterr_error);
 
         if (streq(name, "LogRateLimitBurst"))
-                return bus_set_transient_unsigned(u, name, &c->log_ratelimit.burst, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &c->log_ratelimit.burst, message, flags, reterr_error);
 
         if (streq(name, "LogFilterPatterns")) {
                 /* Use _cleanup_free_, not _cleanup_strv_free_, as we don't want the content of the strv
@@ -2069,34 +2069,34 @@ int bus_exec_context_set_transient_property(
         }
 
         if (streq(name, "Personality"))
-                return bus_set_transient_personality(u, name, &c->personality, message, flags, error);
+                return bus_set_transient_personality(u, name, &c->personality, message, flags, reterr_error);
 
         if (streq(name, "StandardInput"))
-                return bus_set_transient_std_input(u, name, &c->std_input, message, flags, error);
+                return bus_set_transient_std_input(u, name, &c->std_input, message, flags, reterr_error);
 
         if (streq(name, "StandardOutput"))
-                return bus_set_transient_std_output(u, name, &c->std_output, message, flags, error);
+                return bus_set_transient_std_output(u, name, &c->std_output, message, flags, reterr_error);
 
         if (streq(name, "StandardError"))
-                return bus_set_transient_std_output(u, name, &c->std_error, message, flags, error);
+                return bus_set_transient_std_output(u, name, &c->std_error, message, flags, reterr_error);
 
         if (streq(name, "IgnoreSIGPIPE"))
-                return bus_set_transient_bool(u, name, &c->ignore_sigpipe, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->ignore_sigpipe, message, flags, reterr_error);
 
         if (streq(name, "TTYVHangup"))
-                return bus_set_transient_bool(u, name, &c->tty_vhangup, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->tty_vhangup, message, flags, reterr_error);
 
         if (streq(name, "TTYReset"))
-                return bus_set_transient_bool(u, name, &c->tty_reset, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->tty_reset, message, flags, reterr_error);
 
         if (streq(name, "TTYVTDisallocate"))
-                return bus_set_transient_bool(u, name, &c->tty_vt_disallocate, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->tty_vt_disallocate, message, flags, reterr_error);
 
         if (streq(name, "TTYRows"))
-                return bus_set_transient_unsigned(u, name, &c->tty_rows, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &c->tty_rows, message, flags, reterr_error);
 
         if (streq(name, "TTYColumns"))
-                return bus_set_transient_unsigned(u, name, &c->tty_cols, message, flags, error);
+                return bus_set_transient_unsigned(u, name, &c->tty_cols, message, flags, reterr_error);
 
         if (streq(name, "PrivateTmp")) {
                 int v;
@@ -2122,7 +2122,7 @@ int bus_exec_context_set_transient_property(
 
                 t = private_tmp_from_string(s);
                 if (t < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->private_tmp = t;
@@ -2157,7 +2157,7 @@ int bus_exec_context_set_transient_property(
 
                 t = private_users_from_string(s);
                 if (t < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->private_users = t;
@@ -2193,7 +2193,7 @@ int bus_exec_context_set_transient_property(
 
                 t = protect_control_groups_from_string(s);
                 if (t < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->protect_control_groups = t;
@@ -2214,7 +2214,7 @@ int bus_exec_context_set_transient_property(
 
                 t = private_pids_from_string(s);
                 if (t < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->private_pids = t;
@@ -2249,11 +2249,11 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!isempty(h) && !hostname_is_valid(h, /* flags = */ 0))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname in %s setting: %s", name, h);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid hostname in %s setting: %s", name, h);
 
                 ProtectHostname t = protect_hostname_from_string(s);
                 if (t < 0 || (t == PROTECT_HOSTNAME_NO && !isempty(h)))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s setting: %s", name, s);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->protect_hostname = t;
@@ -2271,157 +2271,157 @@ int bus_exec_context_set_transient_property(
         }
 
         if (streq(name, "PrivateDevices"))
-                return bus_set_transient_bool(u, name, &c->private_devices, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->private_devices, message, flags, reterr_error);
 
         if (streq(name, "PrivateMounts"))
-                return bus_set_transient_tristate(u, name, &c->private_mounts, message, flags, error);
+                return bus_set_transient_tristate(u, name, &c->private_mounts, message, flags, reterr_error);
 
         if (streq(name, "MountAPIVFS"))
-                return bus_set_transient_tristate(u, name, &c->mount_apivfs, message, flags, error);
+                return bus_set_transient_tristate(u, name, &c->mount_apivfs, message, flags, reterr_error);
 
         if (streq(name, "BindLogSockets"))
-                return bus_set_transient_tristate(u, name, &c->bind_log_sockets, message, flags, error);
+                return bus_set_transient_tristate(u, name, &c->bind_log_sockets, message, flags, reterr_error);
 
         if (streq(name, "PrivateNetwork"))
-                return bus_set_transient_bool(u, name, &c->private_network, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->private_network, message, flags, reterr_error);
 
         if (streq(name, "PrivateIPC"))
-                return bus_set_transient_bool(u, name, &c->private_ipc, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->private_ipc, message, flags, reterr_error);
 
         if (streq(name, "NoNewPrivileges"))
-                return bus_set_transient_bool(u, name, &c->no_new_privileges, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->no_new_privileges, message, flags, reterr_error);
 
         if (streq(name, "SyslogLevelPrefix"))
-                return bus_set_transient_bool(u, name, &c->syslog_level_prefix, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->syslog_level_prefix, message, flags, reterr_error);
 
         if (streq(name, "MemoryDenyWriteExecute"))
-                return bus_set_transient_bool(u, name, &c->memory_deny_write_execute, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->memory_deny_write_execute, message, flags, reterr_error);
 
         if (streq(name, "RestrictRealtime"))
-                return bus_set_transient_bool(u, name, &c->restrict_realtime, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->restrict_realtime, message, flags, reterr_error);
 
         if (streq(name, "RestrictSUIDSGID"))
-                return bus_set_transient_bool(u, name, &c->restrict_suid_sgid, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->restrict_suid_sgid, message, flags, reterr_error);
 
         if (streq(name, "DynamicUser"))
-                return bus_set_transient_bool(u, name, &c->dynamic_user, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->dynamic_user, message, flags, reterr_error);
 
         if (streq(name, "RemoveIPC"))
-                return bus_set_transient_bool(u, name, &c->remove_ipc, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->remove_ipc, message, flags, reterr_error);
 
         if (streq(name, "ProtectKernelTunables"))
-                return bus_set_transient_bool(u, name, &c->protect_kernel_tunables, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->protect_kernel_tunables, message, flags, reterr_error);
 
         if (streq(name, "ProtectKernelModules"))
-                return bus_set_transient_bool(u, name, &c->protect_kernel_modules, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->protect_kernel_modules, message, flags, reterr_error);
 
         if (streq(name, "ProtectKernelLogs"))
-                return bus_set_transient_bool(u, name, &c->protect_kernel_logs, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->protect_kernel_logs, message, flags, reterr_error);
 
         if (streq(name, "ProtectClock"))
-                return bus_set_transient_bool(u, name, &c->protect_clock, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->protect_clock, message, flags, reterr_error);
 
         if (streq(name, "CPUSchedulingResetOnFork"))
-                return bus_set_transient_bool(u, name, &c->cpu_sched_reset_on_fork, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->cpu_sched_reset_on_fork, message, flags, reterr_error);
 
         if (streq(name, "NonBlocking"))
-                return bus_set_transient_bool(u, name, &c->non_blocking, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->non_blocking, message, flags, reterr_error);
 
         if (streq(name, "LockPersonality"))
-                return bus_set_transient_bool(u, name, &c->lock_personality, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->lock_personality, message, flags, reterr_error);
 
         if (streq(name, "MemoryKSM"))
-                return bus_set_transient_tristate(u, name, &c->memory_ksm, message, flags, error);
+                return bus_set_transient_tristate(u, name, &c->memory_ksm, message, flags, reterr_error);
 
         if (streq(name, "UtmpIdentifier"))
-                return bus_set_transient_string(u, name, &c->utmp_id, message, flags, error);
+                return bus_set_transient_string(u, name, &c->utmp_id, message, flags, reterr_error);
 
         if (streq(name, "UtmpMode"))
-                return bus_set_transient_utmp_mode(u, name, &c->utmp_mode, message, flags, error);
+                return bus_set_transient_utmp_mode(u, name, &c->utmp_mode, message, flags, reterr_error);
 
         if (streq(name, "PAMName"))
-                return bus_set_transient_string(u, name, &c->pam_name, message, flags, error);
+                return bus_set_transient_string(u, name, &c->pam_name, message, flags, reterr_error);
 
         if (streq(name, "TimerSlackNSec"))
-                return bus_set_transient_nsec(u, name, &c->timer_slack_nsec, message, flags, error);
+                return bus_set_transient_nsec(u, name, &c->timer_slack_nsec, message, flags, reterr_error);
 
         if (streq(name, "ProtectSystem"))
-                return bus_set_transient_protect_system(u, name, &c->protect_system, message, flags, error);
+                return bus_set_transient_protect_system(u, name, &c->protect_system, message, flags, reterr_error);
 
         if (streq(name, "ProtectHome"))
-                return bus_set_transient_protect_home(u, name, &c->protect_home, message, flags, error);
+                return bus_set_transient_protect_home(u, name, &c->protect_home, message, flags, reterr_error);
 
         if (streq(name, "KeyringMode"))
-                return bus_set_transient_keyring_mode(u, name, &c->keyring_mode, message, flags, error);
+                return bus_set_transient_keyring_mode(u, name, &c->keyring_mode, message, flags, reterr_error);
 
         if (streq(name, "ProtectProc"))
-                return bus_set_transient_protect_proc(u, name, &c->protect_proc, message, flags, error);
+                return bus_set_transient_protect_proc(u, name, &c->protect_proc, message, flags, reterr_error);
 
         if (streq(name, "ProcSubset"))
-                return bus_set_transient_proc_subset(u, name, &c->proc_subset, message, flags, error);
+                return bus_set_transient_proc_subset(u, name, &c->proc_subset, message, flags, reterr_error);
 
         if (streq(name, "PrivateBPF"))
-                return bus_set_transient_private_bpf(u, name, &c->private_bpf, message, flags, error);
+                return bus_set_transient_private_bpf(u, name, &c->private_bpf, message, flags, reterr_error);
 
         if (streq(name, "BPFDelegateCommands"))
-                return bus_set_transient_bpf_delegate_commands(u, name, &c->bpf_delegate_commands, message, flags, error);
+                return bus_set_transient_bpf_delegate_commands(u, name, &c->bpf_delegate_commands, message, flags, reterr_error);
 
         if (streq(name, "BPFDelegateMaps"))
-                return bus_set_transient_bpf_delegate_maps(u, name, &c->bpf_delegate_maps, message, flags, error);
+                return bus_set_transient_bpf_delegate_maps(u, name, &c->bpf_delegate_maps, message, flags, reterr_error);
 
         if (streq(name, "BPFDelegatePrograms"))
-                return bus_set_transient_bpf_delegate_programs(u, name, &c->bpf_delegate_programs, message, flags, error);
+                return bus_set_transient_bpf_delegate_programs(u, name, &c->bpf_delegate_programs, message, flags, reterr_error);
 
         if (streq(name, "BPFDelegateAttachments"))
-                return bus_set_transient_bpf_delegate_attachments(u, name, &c->bpf_delegate_attachments, message, flags, error);
+                return bus_set_transient_bpf_delegate_attachments(u, name, &c->bpf_delegate_attachments, message, flags, reterr_error);
 
         if (streq(name, "RuntimeDirectoryPreserve"))
-                return bus_set_transient_exec_preserve_mode(u, name, &c->runtime_directory_preserve_mode, message, flags, error);
+                return bus_set_transient_exec_preserve_mode(u, name, &c->runtime_directory_preserve_mode, message, flags, reterr_error);
 
         if (streq(name, "UMask"))
-                return bus_set_transient_mode_t(u, name, &c->umask, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &c->umask, message, flags, reterr_error);
 
         if (streq(name, "RuntimeDirectoryMode"))
-                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_RUNTIME].mode, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_RUNTIME].mode, message, flags, reterr_error);
 
         if (streq(name, "StateDirectoryAccounting"))
-                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_STATE].exec_quota.quota_accounting, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_STATE].exec_quota.quota_accounting, message, flags, reterr_error);
 
         if (streq(name, "CacheDirectoryAccounting"))
-                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_CACHE].exec_quota.quota_accounting, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_CACHE].exec_quota.quota_accounting, message, flags, reterr_error);
 
         if (streq(name, "LogsDirectoryAccounting"))
-                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_LOGS].exec_quota.quota_accounting, message, flags, error);
+                return bus_set_transient_bool(u, name, &c->directories[EXEC_DIRECTORY_LOGS].exec_quota.quota_accounting, message, flags, reterr_error);
 
         if (streq(name, "StateDirectoryMode"))
-                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_STATE].mode, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_STATE].mode, message, flags, reterr_error);
 
         if (streq(name, "CacheDirectoryMode"))
-                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_CACHE].mode, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_CACHE].mode, message, flags, reterr_error);
 
         if (streq(name, "LogsDirectoryMode"))
-                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_LOGS].mode, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_LOGS].mode, message, flags, reterr_error);
 
         if (streq(name, "ConfigurationDirectoryMode"))
-                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_CONFIGURATION].mode, message, flags, error);
+                return bus_set_transient_mode_t(u, name, &c->directories[EXEC_DIRECTORY_CONFIGURATION].mode, message, flags, reterr_error);
 
         if (streq(name, "SELinuxContext"))
-                return bus_set_transient_string(u, name, &c->selinux_context, message, flags, error);
+                return bus_set_transient_string(u, name, &c->selinux_context, message, flags, reterr_error);
 
         if (streq(name, "SecureBits"))
-                return bus_set_transient_secure_bits(u, name, &c->secure_bits, message, flags, error);
+                return bus_set_transient_secure_bits(u, name, &c->secure_bits, message, flags, reterr_error);
 
         if (streq(name, "CapabilityBoundingSet"))
-                return bus_set_transient_capability(u, name, &c->capability_bounding_set, message, flags, error);
+                return bus_set_transient_capability(u, name, &c->capability_bounding_set, message, flags, reterr_error);
 
         if (streq(name, "AmbientCapabilities"))
-                return bus_set_transient_capability(u, name, &c->capability_ambient_set, message, flags, error);
+                return bus_set_transient_capability(u, name, &c->capability_ambient_set, message, flags, reterr_error);
 
         if (streq(name, "RestrictNamespaces"))
-                return bus_set_transient_namespace_flag(u, name, &c->restrict_namespaces, message, flags, error);
+                return bus_set_transient_namespace_flag(u, name, &c->restrict_namespaces, message, flags, reterr_error);
 
         if (streq(name, "DelegateNamespaces"))
-                return bus_set_transient_namespace_flag(u, name, &c->delegate_namespaces, message, flags, error);
+                return bus_set_transient_namespace_flag(u, name, &c->delegate_namespaces, message, flags, reterr_error);
 
         if (streq(name, "RestrictFileSystems")) {
                 int allow_list;
@@ -2481,16 +2481,16 @@ int bus_exec_context_set_transient_property(
         }
 
         if (streq(name, "MountFlags"))
-                return bus_set_transient_mount_propagation_flag(u, name, &c->mount_propagation_flag, message, flags, error);
+                return bus_set_transient_mount_propagation_flag(u, name, &c->mount_propagation_flag, message, flags, reterr_error);
 
         if (streq(name, "NetworkNamespacePath"))
-                return bus_set_transient_path(u, name, &c->network_namespace_path, message, flags, error);
+                return bus_set_transient_path(u, name, &c->network_namespace_path, message, flags, reterr_error);
 
         if (streq(name, "UserNamespacePath"))
-                return bus_set_transient_path(u, name, &c->user_namespace_path, message, flags, error);
+                return bus_set_transient_path(u, name, &c->user_namespace_path, message, flags, reterr_error);
 
         if (streq(name, "IPCNamespacePath"))
-                return bus_set_transient_path(u, name, &c->ipc_namespace_path, message, flags, error);
+                return bus_set_transient_path(u, name, &c->ipc_namespace_path, message, flags, reterr_error);
 
         if (streq(name, "SupplementaryGroups")) {
                 _cleanup_strv_free_ char **l = NULL;
@@ -2501,7 +2501,7 @@ int bus_exec_context_set_transient_property(
 
                 STRV_FOREACH(p, l)
                         if (!isempty(*p) && !valid_user_group_name(*p, VALID_USER_ALLOW_NUMERIC|VALID_USER_RELAX|VALID_USER_WARN))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                                         "Invalid supplementary group names");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -2556,7 +2556,7 @@ int bus_exec_context_set_transient_property(
                                 return r;
 
                         if (!credential_name_valid(id))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential ID is invalid: %s", id);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Credential ID is invalid: %s", id);
 
                         isempty = false;
 
@@ -2613,10 +2613,10 @@ int bus_exec_context_set_transient_property(
                                 break;
 
                         if (!credential_name_valid(id))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential ID is invalid: %s", id);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Credential ID is invalid: %s", id);
 
                         if (!(path_is_absolute(source) ? path_is_normalized(source) : credential_name_valid(source)))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential source is invalid: %s", source);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Credential source is invalid: %s", source);
 
                         isempty = false;
 
@@ -2662,12 +2662,12 @@ int bus_exec_context_set_transient_property(
                                 break;
 
                         if (!credential_glob_valid(glob))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential name or glob is invalid: %s", glob);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Credential name or glob is invalid: %s", glob);
 
                         rename = empty_to_null(rename);
 
                         if (rename && !credential_name_valid(rename))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Credential name is invalid: %s", rename);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Credential name is invalid: %s", rename);
 
                         empty = false;
 
@@ -2701,7 +2701,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!log_level_is_valid(level))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Log level value out of range");
+                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Log level value out of range");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->syslog_priority = (c->syslog_priority & LOG_FACMASK) | level;
@@ -2718,7 +2718,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!log_facility_unshifted_is_valid(facility))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Log facility value out of range");
+                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Log facility value out of range");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->syslog_priority = (facility << 3) | LOG_PRI(c->syslog_priority);
@@ -2735,7 +2735,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!isempty(n) && !log_namespace_name_valid(n))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Log namespace name not valid");
+                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Log namespace name not valid");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
@@ -2780,20 +2780,20 @@ int bus_exec_context_set_transient_property(
                                 break;
 
                         if (memchr(p, 0, sz))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains zero byte");
+                                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains zero byte");
 
                         eq = memchr(p, '=', sz);
                         if (!eq)
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains no '=' character");
+                                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Journal field contains no '=' character");
                         if (!journal_field_valid(p, eq - (const char*) p, false))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field invalid");
+                                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Journal field invalid");
 
                         copy = memdup_suffix0(p, sz);
                         if (!copy)
                                 return -ENOMEM;
 
                         if (!utf8_is_valid(copy))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Journal field is not valid UTF-8");
+                                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Journal field is not valid UTF-8");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
@@ -2822,7 +2822,7 @@ int bus_exec_context_set_transient_property(
 #if HAVE_SECCOMP
 
         if (streq(name, "SystemCallErrorNumber"))
-                return bus_set_transient_errno(u, name, &c->syscall_errno, message, flags, error);
+                return bus_set_transient_errno(u, name, &c->syscall_errno, message, flags, reterr_error);
 
         if (streq(name, "SystemCallFilter")) {
                 int allow_list;
@@ -3123,7 +3123,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!mpol_is_valid(type))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NUMAPolicy value: %i", type);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NUMAPolicy value: %i", type);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags))
                         c->numa_policy.type = type;
@@ -3138,7 +3138,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!nice_is_valid(q))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid Nice value: %i", q);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid Nice value: %i", q);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->nice = q;
@@ -3157,7 +3157,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!sched_policy_is_valid(q))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling policy: %i", q);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling policy: %i", q);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *s = NULL;
@@ -3185,7 +3185,7 @@ int bus_exec_context_set_transient_property(
                 /* On Linux RR/FIFO range from 1 to 99 and OTHER/BATCH may only be 0. Policy might be set
                  * later so we do not check the precise range, but only the generic outer bounds. */
                 if (p < 0 || p > 99)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling priority: %i", p);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid CPU scheduling priority: %i", p);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->cpu_sched_priority = p;
@@ -3204,7 +3204,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!ioprio_class_is_valid(q))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid IO scheduling class: %i", q);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid IO scheduling class: %i", q);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *s = NULL;
@@ -3229,7 +3229,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!ioprio_priority_is_valid(p))
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid IO scheduling priority: %i", p);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid IO scheduling priority: %i", p);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->ioprio = ioprio_normalize(ioprio_prio_value(ioprio_prio_class(c->ioprio), p));
@@ -3259,7 +3259,7 @@ int bus_exec_context_set_transient_property(
                                 is_home = true;
                         else {
                                 if (!path_is_absolute(s))
-                                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                                                 "WorkingDirectory= expects an absolute path or '~'");
 
                                 r = path_simplify_alloc(s, &simplified);
@@ -3267,7 +3267,7 @@ int bus_exec_context_set_transient_property(
                                         return r;
 
                                 if (!path_is_normalized(simplified))
-                                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
+                                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
                                                                 "WorkingDirectory= expects a normalized path or '~'");
                         }
                 }
@@ -3294,7 +3294,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!isempty(s) && !fdname_is_valid(s))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid file descriptor name");
+                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid file descriptor name");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
 
@@ -3340,9 +3340,9 @@ int bus_exec_context_set_transient_property(
 
                 if (!isempty(s)) {
                         if (!path_is_absolute(s))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute", s);
                         if (!path_is_normalized(s))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not normalized", s);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -3446,7 +3446,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!strv_env_is_valid(l))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
+                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid environment block.");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -3480,7 +3480,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!strv_env_name_or_assignment_is_valid(l))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UnsetEnvironment= list.");
+                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UnsetEnvironment= list.");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -3513,7 +3513,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!oom_score_adjust_is_valid(oa))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "OOM score adjust value out of range");
+                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "OOM score adjust value out of range");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->oom_score_adjust = oa;
@@ -3577,7 +3577,7 @@ int bus_exec_context_set_transient_property(
                                 return r;
 
                         if (!path_is_absolute(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Path %s is not absolute.", path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 _cleanup_free_ char *q = NULL, *buf = NULL;
@@ -3632,7 +3632,7 @@ int bus_exec_context_set_transient_property(
                         return r;
 
                 if (!strv_env_name_is_valid(l))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PassEnvironment= block.");
+                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PassEnvironment= block.");
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -3673,7 +3673,7 @@ int bus_exec_context_set_transient_property(
                         offset = i[0] == '-';
                         offset += i[offset] == '+';
                         if (!path_is_absolute(i + offset))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
 
                         path_simplify(i + offset);
                 }
@@ -3721,7 +3721,7 @@ int bus_exec_context_set_transient_property(
 
                 STRV_FOREACH(p, l)
                         if (!path_is_absolute(*p) || !path_is_normalized(*p) || strchr(*p, ':'))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid %s", name);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (strv_isempty(l)) {
@@ -3750,13 +3750,13 @@ int bus_exec_context_set_transient_property(
 
                 STRV_FOREACH(p, l) {
                         if (!path_is_normalized(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is not normalized: %s", name, *p);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is not normalized: %s", name, *p);
 
                         if (path_is_absolute(*p))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is absolute: %s", name, *p);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "%s= path is absolute: %s", name, *p);
 
                         if (path_startswith(*p, "private"))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "%s= path can't be 'private': %s", name, *p);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "%s= path can't be 'private': %s", name, *p);
                 }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -3877,11 +3877,11 @@ int bus_exec_context_set_transient_property(
                 while ((r = sd_bus_message_read(message, "(ssbt)", &source, &destination, &ignore_enoent, &mount_flags)) > 0) {
 
                         if (!path_is_absolute(source))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
                         if (!path_is_absolute(destination))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not absolute.", destination);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not absolute.", destination);
                         if (!IN_SET(mount_flags, 0, MS_REC))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mount flags.");
+                                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Unknown mount flags.");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = bind_mount_add(&c->bind_mounts, &c->n_bind_mounts,
@@ -3935,7 +3935,7 @@ int bus_exec_context_set_transient_property(
                 while ((r = sd_bus_message_read(message, "(ss)", &path, &options)) > 0) {
 
                         if (!path_is_absolute(path))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Mount point %s is not absolute.", path);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Mount point %s is not absolute.", path);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 r = temporary_filesystem_add(&c->temporary_filesystems, &c->n_temporary_filesystems, path, options);
@@ -4064,13 +4064,13 @@ int bus_exec_context_set_transient_property(
                                 break;
 
                         if (!path_is_absolute(source))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
                         if (!path_is_normalized(source))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
                         if (!path_is_absolute(destination))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not absolute.", destination);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not absolute.", destination);
                         if (!path_is_normalized(destination))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
 
                         /* Need to store them in the unit with the escapes, so that they can be parsed again */
                         source_escaped = shell_escape(source, ":");
@@ -4090,7 +4090,7 @@ int bus_exec_context_set_transient_property(
                                 return -ENOMEM;
                         free_and_replace(format_str, tuple);
 
-                        r = bus_read_mount_options(message, error, &options, &format_str, ":");
+                        r = bus_read_mount_options(message, reterr_error, &options, &format_str, ":");
                         if (r < 0)
                                 return r;
 
@@ -4163,9 +4163,9 @@ int bus_exec_context_set_transient_property(
                                 break;
 
                         if (!path_is_absolute(source))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not absolute.", source);
                         if (!path_is_normalized(source))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
 
                         /* Need to store them in the unit with the escapes, so that they can be parsed again */
                         source_escaped = shell_escape(source, ":");
@@ -4180,7 +4180,7 @@ int bus_exec_context_set_transient_property(
                                 return -ENOMEM;
                         free_and_replace(format_str, tuple);
 
-                        r = bus_read_mount_options(message, error, &options, &format_str, ":");
+                        r = bus_read_mount_options(message, reterr_error, &options, &format_str, ":");
                         if (r < 0)
                                 return r;
 
@@ -4244,22 +4244,22 @@ int bus_exec_context_set_transient_property(
 
                 while ((r = sd_bus_message_read(message, "(sst)", &source, &destination, &symlink_flags)) > 0) {
                         if ((symlink_flags & ~_EXEC_DIRECTORY_FLAGS_PUBLIC) != 0)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid 'flags' parameter '%" PRIu64 "'", symlink_flags);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid 'flags' parameter '%" PRIu64 "'", symlink_flags);
                         if (!path_is_valid(source))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not valid.", source);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not valid.", source);
                         if (path_is_absolute(source))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is absolute.", source);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is absolute.", source);
                         if (!path_is_normalized(source))
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Source path %s is not normalized.", source);
                         if (isempty(destination))
                                 destination = NULL;
                         else {
                                 if (!path_is_valid(destination))
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid.", destination);
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not valid.", destination);
                                 if (path_is_absolute(destination))
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is absolute.", destination);
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is absolute.", destination);
                                 if (!path_is_normalized(destination))
-                                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
+                                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Destination path %s is not normalized.", destination);
                         }
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
@@ -4310,7 +4310,7 @@ int bus_exec_context_set_transient_property(
 
                 r = image_policy_from_string(s, &p);
                 if (r < 0)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse image policy string: %s", s);
+                        return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Failed to parse image policy string: %s", s);
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         _cleanup_free_ char *t = NULL;

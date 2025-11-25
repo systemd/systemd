@@ -600,8 +600,8 @@ typedef struct UnitVTable {
         bool (*can_reload)(Unit *u);
 
         /* Add a bind/image mount into the unit namespace while it is running. */
-        int (*live_mount)(Unit *u, const char *src, const char *dst, sd_bus_message *message, MountInNamespaceFlags flags, const MountOptions *options, sd_bus_error *error);
-        int (*can_live_mount)(Unit *u, sd_bus_error *error);
+        int (*live_mount)(Unit *u, const char *src, const char *dst, sd_bus_message *message, MountInNamespaceFlags flags, const MountOptions *options, sd_bus_error *reterr_error);
+        int (*can_live_mount)(Unit *u, sd_bus_error *reterr_error);
 
         /* Serialize state and file descriptors that should be carried over into the new
          * instance after reexecution. */
@@ -661,7 +661,7 @@ typedef struct UnitVTable {
         void (*bus_name_owner_change)(Unit *u, const char *new_owner);
 
         /* Called for each property that is being set */
-        int (*bus_set_property)(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *error);
+        int (*bus_set_property)(Unit *u, const char *name, sd_bus_message *message, UnitWriteFlags flags, sd_bus_error *reterr_error);
 
         /* Called after at least one property got changed to apply the necessary change */
         int (*bus_commit_properties)(Unit *u);
@@ -1021,7 +1021,7 @@ int unit_warn_leftover_processes(Unit *u, bool start);
 
 bool unit_needs_console(Unit *u);
 
-int unit_pid_attachable(Unit *unit, PidRef *pid, sd_bus_error *error);
+int unit_pid_attachable(Unit *unit, PidRef *pid, sd_bus_error *reterr_error);
 
 static inline bool unit_has_job_type(Unit *u, JobType type) {
         return u && u->job && u->job->type == type;
@@ -1065,8 +1065,15 @@ void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret_ne
 void unit_set_freezer_state(Unit *u, FreezerState state);
 void unit_freezer_complete(Unit *u, FreezerState kernel_state);
 
-int unit_can_live_mount(Unit *u, sd_bus_error *error);
-int unit_live_mount(Unit *u, const char *src, const char *dst, sd_bus_message *message, MountInNamespaceFlags flags, const MountOptions *options, sd_bus_error *error);
+int unit_can_live_mount(Unit *u, sd_bus_error *reterr_error);
+int unit_live_mount(
+                Unit *u,
+                const char *src,
+                const char *dst,
+                sd_bus_message *message,
+                MountInNamespaceFlags flags,
+                const MountOptions *options,
+                sd_bus_error *reterr_error);
 
 Condition *unit_find_failed_condition(Unit *u);
 
