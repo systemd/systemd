@@ -1134,7 +1134,7 @@ static int swap_load_proc_swaps(Manager *m, bool set_flags) {
 
                 device_found_node(m, d, DEVICE_FOUND_SWAP, DEVICE_FOUND_SWAP);
 
-                (void) swap_process_new(m, d, prio, set_flags);
+                swap_process_new(m, d, prio, set_flags);
         }
 
         return 0;

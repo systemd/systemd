@@ -435,7 +435,7 @@ _public_ int sd_bus_creds_get_unit(sd_bus_creds *c, const char **ret) {
                 if (r < 0)
                         return r;
 
-                r = cg_path_get_unit(shifted, (char**) &c->unit);
+                r = cg_path_get_unit(shifted, &c->unit);
                 if (r < 0)
                         return r;
         }
@@ -462,7 +462,7 @@ _public_ int sd_bus_creds_get_user_unit(sd_bus_creds *c, const char **ret) {
                 if (r < 0)
                         return r;
 
-                r = cg_path_get_user_unit(shifted, (char**) &c->user_unit);
+                r = cg_path_get_user_unit(shifted, &c->user_unit);
                 if (r < 0)
                         return r;
         }
@@ -489,7 +489,7 @@ _public_ int sd_bus_creds_get_slice(sd_bus_creds *c, const char **ret) {
                 if (r < 0)
                         return r;
 
-                r = cg_path_get_slice(shifted, (char**) &c->slice);
+                r = cg_path_get_slice(shifted, &c->slice);
                 if (r < 0)
                         return r;
         }
@@ -516,7 +516,7 @@ _public_ int sd_bus_creds_get_user_slice(sd_bus_creds *c, const char **ret) {
                 if (r < 0)
                         return r;
 
-                r = cg_path_get_user_slice(shifted, (char**) &c->user_slice);
+                r = cg_path_get_user_slice(shifted, &c->user_slice);
                 if (r < 0)
                         return r;
         }
@@ -543,7 +543,7 @@ _public_ int sd_bus_creds_get_session(sd_bus_creds *c, const char **ret) {
                 if (r < 0)
                         return r;
 
-                r = cg_path_get_session(shifted, (char**) &c->session);
+                r = cg_path_get_session(shifted, &c->session);
                 if (r < 0)
                         return r;
         }
