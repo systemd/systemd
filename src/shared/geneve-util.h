@@ -14,4 +14,4 @@ typedef enum GeneveDF {
 } GeneveDF;
 
 const char* geneve_df_to_string(GeneveDF d) _const_;
-GeneveDF geneve_df_from_string(const char *d) _pure_;
+GeneveDF geneve_df_from_string(const char *s) _pure_;

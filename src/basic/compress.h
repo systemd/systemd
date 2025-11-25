@@ -13,9 +13,9 @@ typedef enum Compression {
 } Compression;
 
 const char* compression_to_string(Compression compression) _const_;
-Compression compression_from_string(const char *compression) _pure_;
+Compression compression_from_string(const char *s) _pure_;
 const char* compression_lowercase_to_string(Compression compression) _const_;
-Compression compression_lowercase_from_string(const char *compression) _pure_;
+Compression compression_lowercase_from_string(const char *s) _pure_;
 
 bool compression_supported(Compression c);
 
@@ -58,9 +58,9 @@ int compress_stream_xz(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncom
 int compress_stream_lz4(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size);
 int compress_stream_zstd(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size);
 
-int decompress_stream_xz(int fdf, int fdt, uint64_t max_size);
-int decompress_stream_lz4(int fdf, int fdt, uint64_t max_size);
-int decompress_stream_zstd(int fdf, int fdt, uint64_t max_size);
+int decompress_stream_xz(int fdf, int fdt, uint64_t max_bytes);
+int decompress_stream_lz4(int fdf, int fdt, uint64_t max_bytes);
+int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes);
 
 int dlopen_lz4(void);
 int dlopen_zstd(void);

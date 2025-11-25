@@ -54,7 +54,8 @@ static bool rtnl_message_type_is_nsid(uint16_t type) {
         return IN_SET(type, RTM_NEWNSID, RTM_DELNSID, RTM_GETNSID);
 }
 
-#define DEFINE_RTNL_MESSAGE_SETTER(class, header_type, element, name, value_type) \
+#define DEFINE_RTNL_MESSAGE_SETTER(class, header_type, element, name, value_type)  \
+        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */ \
         int sd_rtnl_message_##class##_set_##name(sd_netlink_message *m, value_type value) { \
                 assert_return(m, -EINVAL);                              \
                 assert_return(m->hdr, -EINVAL);                         \
@@ -66,6 +67,7 @@ static bool rtnl_message_type_is_nsid(uint16_t type) {
         }
 
 #define DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(class, header_type, family_element, element, name, value_type) \
+        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */                          \
         int sd_rtnl_message_##class##_set_##name(sd_netlink_message *m, value_type value) { \
                 assert_return(m, -EINVAL);                              \
                 assert_return(m->hdr, -EINVAL);                         \

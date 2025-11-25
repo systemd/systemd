@@ -435,21 +435,21 @@ int boot_config_load_type1(
                 const char *root,
                 const BootEntrySource source,
                 const char *dir,
-                const char *fname) {
+                const char *filename) {
         int r;
 
         assert(config);
         assert(f);
         assert(root);
         assert(dir);
-        assert(fname);
+        assert(filename);
 
         if (!GREEDY_REALLOC(config->entries, config->n_entries + 1))
                 return log_oom();
 
         BootEntry *entry = config->entries + config->n_entries;
 
-        r = boot_entry_load_type1(f, root, source, dir, fname, entry);
+        r = boot_entry_load_type1(f, root, source, dir, filename, entry);
         if (r < 0)
                 return r;
         config->n_entries++;

@@ -79,7 +79,7 @@ void close_many_and_free(int *fds, size_t n_fds);
 
 int fclose_nointr(FILE *f);
 FILE* safe_fclose(FILE *f);
-DIR* safe_closedir(DIR *f);
+DIR* safe_closedir(DIR *d);
 
 static inline void closep(int *fd) {
         safe_close(*fd);

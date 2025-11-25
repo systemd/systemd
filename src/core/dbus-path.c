@@ -148,7 +148,7 @@ int bus_path_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitWriteFlags mode,
+                UnitWriteFlags flags,
                 sd_bus_error *reterr_error) {
 
         Path *p = PATH(u);
@@ -158,7 +158,7 @@ int bus_path_set_property(
         assert(message);
 
         if (u->transient && u->load_state == UNIT_STUB)
-                return bus_path_set_transient_property(p, name, message, mode, reterr_error);
+                return bus_path_set_transient_property(p, name, message, flags, reterr_error);
 
         return 0;
 }

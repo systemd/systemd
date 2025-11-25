@@ -147,7 +147,7 @@ const char* dns_type_to_string(int type);
 int dns_type_from_string(const char *s);
 
 const char* dns_class_to_string(uint16_t class);
-int dns_class_from_string(const char *name);
+int dns_class_from_string(const char *s);
 
 /* https://tools.ietf.org/html/draft-ietf-dane-protocol-23#section-7.2 */
 const char* tlsa_cert_usage_to_string(uint8_t cert_usage);

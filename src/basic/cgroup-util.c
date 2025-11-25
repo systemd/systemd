@@ -1628,18 +1628,18 @@ int cg_mask_to_string(CGroupMask mask, char **ret) {
         return 0;
 }
 
-int cg_mask_from_string(const char *value, CGroupMask *ret) {
+int cg_mask_from_string(const char *s, CGroupMask *ret) {
         CGroupMask m = 0;
 
         assert(ret);
-        assert(value);
+        assert(s);
 
         for (;;) {
                 _cleanup_free_ char *n = NULL;
                 CGroupController v;
                 int r;
 
-                r = extract_first_word(&value, &n, NULL, 0);
+                r = extract_first_word(&s, &n, NULL, 0);
                 if (r < 0)
                         return r;
                 if (r == 0)

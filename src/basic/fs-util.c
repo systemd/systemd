@@ -528,7 +528,7 @@ int mknodat_atomic(int atfd, const char *path, mode_t mode, dev_t dev) {
         return 0;
 }
 
-int mkfifoat_atomic(int atfd, const char *path, mode_t mode) {
+int mkfifoat_atomic(int dir_fd, const char *path, mode_t mode) {
         _cleanup_free_ char *t = NULL;
         int r;
 
@@ -539,12 +539,12 @@ int mkfifoat_atomic(int atfd, const char *path, mode_t mode) {
         if (r < 0)
                 return r;
 
-        if (mkfifoat(atfd, t, mode) < 0)
+        if (mkfifoat(dir_fd, t, mode) < 0)
                 return -errno;
 
-        r = RET_NERRNO(renameat(atfd, t, atfd, path));
+        r = RET_NERRNO(renameat(dir_fd, t, dir_fd, path));
         if (r < 0) {
-                (void) unlinkat(atfd, t, 0);
+                (void) unlinkat(dir_fd, t, 0);
                 return r;
         }
 

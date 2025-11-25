@@ -27,31 +27,33 @@ typedef void* (*mfree_func_t)(void *p);
                 0;                               \
         })
 
-#define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)             \
-        scope type *name##_ref(type *p) {                       \
-                if (!p)                                         \
-                        return NULL;                            \
-                                                                \
-                /* For type check. */                           \
-                unsigned *q = &p->n_ref;                        \
-                assert(*q > 0);                                 \
-                assert_se(*q < UINT_MAX);                       \
-                                                                \
-                (*q)++;                                         \
-                return p;                                       \
+#define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)                                     \
+        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */      \
+        scope type *name##_ref(type *p) {                                               \
+                if (!p)                                                                 \
+                        return NULL;                                                    \
+                                                                                        \
+                /* For type check. */                                                   \
+                unsigned *q = &p->n_ref;                                                \
+                assert(*q > 0);                                                         \
+                assert_se(*q < UINT_MAX);                                               \
+                                                                                        \
+                (*q)++;                                                                 \
+                return p;                                                               \
         }
 
-#define _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, scope) \
-        scope type *name##_unref(type *p) {                      \
-                if (!p)                                          \
-                        return NULL;                             \
-                                                                 \
-                assert(p->n_ref > 0);                            \
-                p->n_ref--;                                      \
-                if (p->n_ref > 0)                                \
-                        return NULL;                             \
-                                                                 \
-                return free_func(p);                             \
+#define _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, scope)                        \
+        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */      \
+        scope type *name##_unref(type *p) {                                             \
+                if (!p)                                                                 \
+                        return NULL;                                                    \
+                                                                                        \
+                assert(p->n_ref > 0);                                                   \
+                p->n_ref--;                                                             \
+                if (p->n_ref > 0)                                                       \
+                        return NULL;                                                    \
+                                                                                        \
+                return free_func(p);                                                    \
         }
 
 #define DEFINE_TRIVIAL_REF_FUNC(type, name)     \

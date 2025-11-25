@@ -1607,7 +1607,7 @@ static void config_load_type1_entries(
                                 /* offset= */ 0,
                                 /* size= */ 0,
                                 &content,
-                                /* content_size= */ NULL);
+                                /* ret_size= */ NULL);
                 if (err != EFI_SUCCESS)
                         continue;
 

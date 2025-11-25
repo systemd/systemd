@@ -465,7 +465,7 @@ static void log_command_line(Unit *unit, const char *msg, const char *executable
                         LOG_UNIT_INVOCATION_ID(unit));
 }
 
-static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***l);
+static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***ret);
 
 int exec_spawn(
                 Unit *unit,

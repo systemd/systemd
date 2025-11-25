@@ -51,7 +51,7 @@ int parse_acl(
                 acl_t *ret_acl_access_exec,
                 acl_t *ret_acl_default,
                 bool want_mask);
-int acls_for_file(const char *path, acl_type_t type, acl_t new, acl_t *ret);
+int acls_for_file(const char *path, acl_type_t type, acl_t acl, acl_t *ret);
 int fd_add_uid_acl_permission(int fd, uid_t uid, unsigned mask);
 
 int fd_acl_make_read_only(int fd);

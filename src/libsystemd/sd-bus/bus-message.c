@@ -700,12 +700,12 @@ _public_ int sd_bus_message_new_method_errno(
                 sd_bus_message *call,
                 sd_bus_message **ret,
                 int error,
-                const sd_bus_error *p) {
+                const sd_bus_error *e) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error berror = SD_BUS_ERROR_NULL;
 
-        if (sd_bus_error_is_set(p))
-                return sd_bus_message_new_method_error(call, ret, p);
+        if (sd_bus_error_is_set(e))
+                return sd_bus_message_new_method_error(call, ret, e);
 
         sd_bus_error_set_errno(&berror, error);
 

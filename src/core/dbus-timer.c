@@ -358,7 +358,7 @@ int bus_timer_set_property(
                 Unit *u,
                 const char *name,
                 sd_bus_message *message,
-                UnitWriteFlags mode,
+                UnitWriteFlags flags,
                 sd_bus_error *reterr_error) {
 
         Timer *t = TIMER(u);
@@ -368,7 +368,7 @@ int bus_timer_set_property(
         assert(message);
 
         if (u->transient && u->load_state == UNIT_STUB)
-                return bus_timer_set_transient_property(t, name, message, mode, reterr_error);
+                return bus_timer_set_transient_property(t, name, message, flags, reterr_error);
 
         return 0;
 }

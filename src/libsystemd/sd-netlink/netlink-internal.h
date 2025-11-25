@@ -175,7 +175,7 @@ int sd_nfnl_socket_open(sd_netlink **ret);
 int sd_nfnl_send_batch(
                 sd_netlink *nfnl,
                 sd_netlink_message **messages,
-                size_t msgcount,
+                size_t n_messages,
                 uint32_t **ret_serials);
 int sd_nfnl_call_batch(
                 sd_netlink *nfnl,
@@ -199,7 +199,7 @@ int sd_nfnl_nft_message_new_rule(sd_netlink *nfnl, sd_netlink_message **ret,
                                  int nfproto, const char *table, const char *chain);
 int sd_nfnl_nft_message_new_set(sd_netlink *nfnl, sd_netlink_message **ret,
                                 int nfproto, const char *table, const char *set_name,
-                                uint32_t setid, uint32_t klen);
+                                uint32_t set_id, uint32_t klen);
 int sd_nfnl_nft_message_new_setelems(sd_netlink *nfnl, sd_netlink_message **ret,
                                      int add, int nfproto, const char *table, const char *set_name);
 int sd_nfnl_nft_message_append_setelem(sd_netlink_message *m,
