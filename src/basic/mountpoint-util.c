@@ -559,7 +559,7 @@ bool fstype_can_uid_gid(const char *fstype) {
 int dev_is_devtmpfs(void) {
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
         int mount_id, r;
-        char *e;
+        const char *e;
 
         r = path_get_mnt_id("/dev", &mount_id);
         if (r < 0)

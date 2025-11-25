@@ -153,7 +153,7 @@ int get_possible_units(
                         _cleanup_free_ char *u = NULL;
                         char *eq;
 
-                        eq = memchr(data, '=', size);
+                        eq = (char*)memchr(data, '=', size);
                         if (eq) {
                                 size -= eq - (char*) data + 1;
                                 data = ++eq;

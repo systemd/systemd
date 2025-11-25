@@ -553,7 +553,8 @@ static int open_mmap(const char *database, int *ret_fd, struct stat *ret_st, voi
 }
 
 static const char* find_id(const void *p, sd_id128_t id) {
-        CatalogItem *f = NULL, key = { .id = id };
+        const CatalogItem *f = NULL;
+        CatalogItem key = { .id = id };
         const CatalogHeader *h = ASSERT_PTR(p);
         const char *loc;
 

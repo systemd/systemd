@@ -635,7 +635,7 @@ static void add_id_with_usb_revision(UdevEvent *event, char *path) {
         /* When the path contains the USB revision, let's adds ID_PATH_WITH_USB_REVISION property and
          * drop the version specifier for later use. */
 
-        p = strstrafter(path, "-usbv");
+        p = (char*)strstrafter(path, "-usbv");
         if (!p)
                 return;
         if (!ascii_isdigit(p[0]))

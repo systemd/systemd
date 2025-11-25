@@ -349,7 +349,7 @@ static int strip_edit_temp_file(EditFile *e) {
                 /* Trim out the lines between the two markers */
                 char *contents_start, *contents_end;
 
-                contents_start = strstrafter(tmp, e->context->marker_start) ?: tmp;
+                contents_start = (char*)(strstrafter(tmp, e->context->marker_start) ?: tmp);
 
                 contents_end = strstr(contents_start, e->context->marker_end);
                 if (contents_end)

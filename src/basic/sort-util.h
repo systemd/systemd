@@ -13,7 +13,7 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                 (typeof((b)[0])*) xbsearch_r((const void*) _k, (b), (n), sizeof((b)[0]), (comparison_userdata_fn_t) _func_, userdata); \
         })
 
-void* bsearch_safe(const void *key, const void *base, size_t nmemb, size_t size, comparison_fn_t compar);
+const void* bsearch_safe(const void *key, const void *base, size_t nmemb, size_t size, comparison_fn_t compar);
 
 #define typesafe_bsearch(k, b, n, func)                                 \
         ({                                                              \
