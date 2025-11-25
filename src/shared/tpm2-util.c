@@ -865,7 +865,7 @@ Tpm2Handle *tpm2_handle_free(Tpm2Handle *handle) {
         if (!handle)
                 return NULL;
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = (Tpm2Context*)handle->tpm2_context;
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *context = handle->tpm2_context;
         if (context)
                 tpm2_handle_cleanup(context->esys_context, handle->esys_handle, handle->flush);
 
@@ -6328,7 +6328,7 @@ int tpm2_list_devices(bool legend, bool quiet) {
         if (!t)
                 return log_oom();
 
-        (void) table_set_header(t, legend);
+        table_set_header(t, legend);
 
         d = opendir("/sys/class/tpmrm");
         if (!d) {
@@ -9145,7 +9145,7 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
                     size_t passlen,
                     const void *salt,
                     size_t saltlen,
-                    uint8_t ret_key[static SHA256_DIGEST_SIZE]) {
+                    uint8_t ret[static SHA256_DIGEST_SIZE]) {
 
         _cleanup_(erase_and_freep) uint8_t *buffer = NULL;
         uint8_t u[SHA256_DIGEST_SIZE];
@@ -9176,8 +9176,8 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
         hmac_sha256(pass, passlen, buffer, saltlen + sizeof(block_cnt), u);
 
         /* dk needs to be an unmodified u as u gets modified in the loop */
-        memcpy(ret_key, u, SHA256_DIGEST_SIZE);
-        uint8_t *dk = ret_key;
+        memcpy(ret, u, SHA256_DIGEST_SIZE);
+        uint8_t *dk = ret;
 
         for (size_t i = 1; i < PBKDF2_HMAC_SHA256_ITERATIONS; i++) {
                 hmac_sha256(pass, passlen, u, sizeof(u), u);

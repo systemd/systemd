@@ -2126,7 +2126,7 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         r = table_add_many(table,
                            TABLE_HEADER, "pcr",
@@ -2272,7 +2272,7 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
         if (!table)
                 return log_oom();
 
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         r = table_add_many(table,
                            TABLE_HEADER, "pcr",

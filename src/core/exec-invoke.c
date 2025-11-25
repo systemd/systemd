@@ -1443,7 +1443,7 @@ static int setup_pam(
 
                 /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only
                  * those fds are open here that have been opened by PAM. */
-                (void) close_many(params->fds, params->n_socket_fds + params->n_stashed_fds);
+                close_many(params->fds, params->n_socket_fds + params->n_stashed_fds);
 
                 /* Also close the 'exec_fd' in the child, since the service manager waits for the EOF induced
                  * by the execve() to wait for completion, and if we'd keep the fd open here in the child
@@ -2023,8 +2023,6 @@ static void do_idle_pipe_dance(int idle_pipe[static 4]) {
 
         idle_pipe[3] = safe_close(idle_pipe[3]);
 }
-
-static const char *exec_directory_env_name_to_string(ExecDirectoryType t);
 
 /* And this table also maps ExecDirectoryType, to the environment variable we pass the selected directory to
  * the service payload in. */

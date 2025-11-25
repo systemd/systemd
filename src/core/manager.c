@@ -2132,7 +2132,7 @@ int manager_add_job_full(
                 JobMode mode,
                 TransactionAddFlags extra_flags,
                 Set *affected_jobs,
-                sd_bus_error *error,
+                sd_bus_error *reterr_error,
                 Job **ret) {
 
         _cleanup_(transaction_abort_and_freep) Transaction *tr = NULL;
@@ -2145,16 +2145,16 @@ int manager_add_job_full(
         assert((extra_flags & ~_TRANSACTION_FLAGS_MASK_PUBLIC) == 0);
 
         if (mode == JOB_ISOLATE && type != JOB_START)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Isolate is only valid for start.");
 
         if (mode == JOB_ISOLATE && !unit->allow_isolate)
-                return sd_bus_error_set(error, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
+                return sd_bus_error_set(reterr_error, BUS_ERROR_NO_ISOLATION, "Operation refused, unit may not be isolated.");
 
         if (mode == JOB_TRIGGERING && type != JOB_STOP)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=triggering is only valid for stop.");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=triggering is only valid for stop.");
 
         if (mode == JOB_RESTART_DEPENDENCIES && type != JOB_START)
-                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=restart-dependencies is only valid for start.");
+                return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "--job-mode=restart-dependencies is only valid for start.");
 
         tr = transaction_new(mode == JOB_REPLACE_IRREVERSIBLY, ++m->last_transaction_id);
         if (!tr)
@@ -2176,7 +2176,7 @@ int manager_add_job_full(
                         (mode == JOB_IGNORE_DEPENDENCIES ? TRANSACTION_IGNORE_ORDER : 0) |
                         (mode == JOB_RESTART_DEPENDENCIES ? TRANSACTION_PROPAGATE_START_AS_RESTART : 0) |
                         extra_flags,
-                        error);
+                        reterr_error);
         if (r < 0)
                 return r;
 
@@ -2192,7 +2192,7 @@ int manager_add_job_full(
                         return r;
         }
 
-        r = transaction_activate(tr, m, mode, affected_jobs, error);
+        r = transaction_activate(tr, m, mode, affected_jobs, reterr_error);
         if (r < 0)
                 return r;
 
@@ -2212,10 +2212,10 @@ int manager_add_job(
         JobType type,
         Unit *unit,
         JobMode mode,
-        sd_bus_error *error,
+        sd_bus_error *reterr_error,
         Job **ret) {
 
-        return manager_add_job_full(m, type, unit, mode, 0, NULL, error, ret);
+        return manager_add_job_full(m, type, unit, mode, 0, NULL, reterr_error, ret);
 }
 
 int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, sd_bus_error *e, Job **ret) {
@@ -4320,10 +4320,10 @@ void manager_recheck_dbus(Manager *m) {
                 if (MANAGER_IS_SYSTEM(m))
                         (void) bus_init_system(m);
         } else {
-                (void) bus_done_api(m);
+                bus_done_api(m);
 
                 if (MANAGER_IS_SYSTEM(m))
-                        (void) bus_done_system(m);
+                        bus_done_system(m);
         }
 }
 

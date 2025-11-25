@@ -1799,14 +1799,14 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const sd_dhcp_client_id *clie
         return 0;
 }
 
-int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **tz) {
+int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **ret) {
         assert_return(lease, -EINVAL);
-        assert_return(tz, -EINVAL);
+        assert_return(ret, -EINVAL);
 
         if (!lease->timezone)
                 return -ENODATA;
 
-        *tz = lease->timezone;
+        *ret = lease->timezone;
         return 0;
 }
 

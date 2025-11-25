@@ -26,7 +26,7 @@
 
 struct userns_restrict_bpf *userns_restrict_bpf_free(struct userns_restrict_bpf *obj) {
 #if HAVE_VMLINUX_H
-        (void) userns_restrict_bpf__destroy(obj); /* this call is fine with NULL */
+        userns_restrict_bpf__destroy(obj); /* this call is fine with NULL */
 #endif
         return NULL;
 
@@ -317,29 +317,27 @@ int userns_restrict_put_by_fd(
 #endif
 }
 
-int userns_restrict_reset_by_inode(
-                struct userns_restrict_bpf *obj,
-                uint64_t ino) {
+int userns_restrict_reset_by_inode(struct userns_restrict_bpf *obj, uint64_t userns_inode) {
 
 #if HAVE_VMLINUX_H
         int r, outer_map_fd;
         unsigned u;
 
         assert(obj);
-        assert(ino != 0);
+        assert(userns_inode != 0);
 
-        if (ino > UINT32_MAX) /* inodes larger than 32bit are definitely not included in our map, exit early */
+        if (userns_inode > UINT32_MAX) /* inodes larger than 32bit are definitely not included in our map, exit early */
                 return 0;
 
         outer_map_fd = sym_bpf_map__fd(obj->maps.userns_mnt_id_hash);
         if (outer_map_fd < 0)
                 return log_debug_errno(outer_map_fd, "Failed to get outer BPF map fd: %m");
 
-        u = (uint32_t) ino;
+        u = (uint32_t) userns_inode;
 
         r = sym_bpf_map_delete_elem(outer_map_fd, &u);
         if (r < 0)
-                return log_debug_errno(r, "Failed to remove entry for inode %" PRIu64 " from outer map: %m", ino);
+                return log_debug_errno(r, "Failed to remove entry for inode %" PRIu64 " from outer map: %m", userns_inode);
 
         return 0;
 #else
