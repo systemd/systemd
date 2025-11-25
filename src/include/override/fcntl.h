@@ -17,3 +17,8 @@
 #ifndef AT_HANDLE_FID
 #define AT_HANDLE_FID AT_REMOVEDIR
 #endif
+
+/* This is defined since glibc-2.42. */
+#ifndef AT_HANDLE_MNT_ID_UNIQUE
+#define AT_HANDLE_MNT_ID_UNIQUE 0x001  /* Return the u64 unique mount ID. */
+#endif
