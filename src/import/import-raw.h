@@ -6,10 +6,10 @@
 
 typedef struct RawImport RawImport;
 
-typedef void (*RawImportFinished)(RawImport *import, int error, void *userdata);
+typedef void (*RawImportFinished)(RawImport *i, int error, void *userdata);
 
-int raw_import_new(RawImport **import, sd_event *event, const char *image_root, RawImportFinished on_finished, void *userdata);
-RawImport* raw_import_unref(RawImport *import);
+int raw_import_new(RawImport **ret, sd_event *event, const char *image_root, RawImportFinished on_finished, void *userdata);
+RawImport* raw_import_unref(RawImport *i);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawImport*, raw_import_unref);
 
