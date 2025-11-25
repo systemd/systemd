@@ -12,7 +12,5 @@ void bus_manager_send_finished(Manager *m, usec_t firmware_usec, usec_t loader_u
 void bus_manager_send_reloading(Manager *m, bool active);
 void bus_manager_send_change_signal(Manager *m);
 
-int verify_run_space_and_log(const char *message);
-
 int bus_property_get_oom_policy(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *ret_error);
 int bus_property_get_emergency_action(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *ret_error);
