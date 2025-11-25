@@ -1044,7 +1044,7 @@ def section(el):
 
 
 def title(el):
-    return _make_title(_concat(el).strip(), _get_title_level(el) + 2)
+    return _make_title(_concat(el).strip(), _get_title_level(el) + 2) + "\n\n"
 
 # bibliographic elements
 
