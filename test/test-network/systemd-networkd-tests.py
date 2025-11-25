@@ -432,7 +432,8 @@ def save_active_units():
             'systemd-resolved-varlink.socket',
             'systemd-resolved.service',
             'systemd-timesyncd.service',
-            'firewalld.service'
+            'firewalld.service',
+            'nftables.service',
     ]:
         if call(f'systemctl is-active --quiet {u}') == 0:
             call(f'systemctl stop {u}')
