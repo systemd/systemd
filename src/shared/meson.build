@@ -115,7 +115,6 @@ shared_sources = files(
         'libaudit-util.c',
         'libcrypt-util.c',
         'libfido2-util.c',
-        'libmount-util.c',
         'local-addresses.c',
         'locale-setup.c',
         'log-assert-critical.c',
@@ -239,10 +238,6 @@ shared_sources = files(
         'xml.c',
 )
 
-if conf.get('ENABLE_NSS') == 1
-        shared_sources += files('nss-util.c')
-endif
-
 if get_option('tests') != 'false'
         shared_sources += files('tests.c')
 endif
@@ -257,6 +252,10 @@ syscall_list_inc = custom_target(
 generated_sources += syscall_list_inc
 shared_sources += syscall_list_inc
 
+if conf.get('ENABLE_NSS') == 1
+        shared_sources += files('nss-util.c')
+endif
+
 if conf.get('ENABLE_UTMP') == 1
         shared_sources += files('utmp-wtmp.c')
 endif
@@ -267,6 +266,10 @@ endif
 
 if conf.get('HAVE_PAM') == 1
         shared_sources += files('pam-util.c')
+endif
+
+if conf.get('HAVE_LIBMOUNT') == 1
+        shared_sources += files('libmount-util.c')
 endif
 
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
