@@ -3039,7 +3039,7 @@ static void process_q_overflow(sd_journal *j) {
                 if (m->is_root) /* Never GC root directories */
                         continue;
 
-                log_debug("Directory '%s' hasn't been seen in this enumeration, removing.", f->path);
+                log_debug("Directory '%s' hasn't been seen in this enumeration, removing.", m->path);
                 directory_free(m);
         }
 
