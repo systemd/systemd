@@ -8,7 +8,7 @@
 #include "fd-util.h"
 #include "string-util.h"
 #include "log.h"
-#include "dlfcn-util.h" //ELF_NOTE_DLOPEN
+#include "dlfcn-util.h" /* ELF_NOTE_DLOPEN */
 
 #if HAVE_LIBDEVMAPPER
 static void *devmapper_dl = NULL;
