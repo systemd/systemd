@@ -1849,7 +1849,7 @@ int vsock_parse_cid(const char *s, unsigned *ret) {
 int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
         /* AF_VSOCK socket in vsock:cid:port notation */
         _cleanup_free_ char *n = NULL;
-        char *e, *cid_start;
+        const char *e, *cid_start;
         unsigned port, cid;
         int type, r;
 
