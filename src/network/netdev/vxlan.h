@@ -38,9 +38,11 @@ typedef struct VxLan {
         unsigned max_fdb;
         unsigned flow_label;
 
-        uint16_t dest_port;
-
         usec_t fdb_ageing;
+
+        struct ifla_vxlan_port_range port_range;
+
+        uint16_t dest_port;
 
         bool learning;
         bool arp_proxy;
@@ -54,12 +56,10 @@ typedef struct VxLan {
         bool remote_csum_rx;
         bool group_policy;
         bool generic_protocol_extension;
-        bool inherit;
         bool independent;
         bool external; /* a.k.a collect metadata mode */
         bool vnifilter;
-
-        struct ifla_vxlan_port_range port_range;
+        bool inherit:1;
 } VxLan;
 
 DEFINE_NETDEV_CAST(VXLAN, VxLan);

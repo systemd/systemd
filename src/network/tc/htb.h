@@ -21,14 +21,16 @@ CONFIG_PARSER_PROTOTYPE(config_parse_htb_u32);
 typedef struct HierarchyTokenBucketClass {
         TClass meta;
 
+        uint64_t rate;
+        uint64_t ceil_rate;
+
         uint32_t priority;
         uint32_t quantum;
         uint32_t mtu;
-        uint16_t overhead;
-        uint64_t rate;
         uint32_t buffer;
-        uint64_t ceil_rate;
         uint32_t ceil_buffer;
+
+        uint16_t overhead;
 } HierarchyTokenBucketClass;
 
 DEFINE_TCLASS_CAST(HTB, HierarchyTokenBucketClass);

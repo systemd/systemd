@@ -26,47 +26,48 @@ typedef enum IPv6FlowLabel {
 typedef struct Tunnel {
         NetDev meta;
 
-        uint8_t encap_limit;
+        /* Large structs and unions */
+        union in_addr_union local;
+        union in_addr_union remote;
+        struct in6_addr sixrd_prefix;
 
+        /* 4-byte integers and enums */
         int family;
         int ipv6_flowlabel;
         int allow_localremote;
         int gre_erspan_sequence;
         int isatap;
+        int pmtudisc;
 
         unsigned ttl;
         unsigned tos;
         unsigned flags;
 
+        uint32_t erspan_index;    /* version 1 */
         uint32_t key;
         uint32_t ikey;
         uint32_t okey;
 
-        uint8_t erspan_version;
-        uint32_t erspan_index;    /* version 1 */
-        uint8_t erspan_direction; /* version 2 */
-        uint16_t erspan_hwid;     /* version 2 */
-
         NetDevLocalAddressType local_type;
-        union in_addr_union local;
-        union in_addr_union remote;
-
         TunnelMode mode;
         FooOverUDPEncapType fou_encap_type;
 
-        int pmtudisc;
+        /* 2-byte integers */
+        uint16_t erspan_hwid;     /* version 2 */
+        uint16_t encap_src_port;
+        uint16_t fou_destination_port;
+
+        /* 1-byte integers and booleans */
+        uint8_t encap_limit;
+        uint8_t erspan_version;
+        uint8_t erspan_direction; /* version 2 */
+        uint8_t sixrd_prefixlen;
         bool ignore_df;
         bool copy_dscp;
         bool independent;
         bool fou_tunnel;
         bool assign_to_loopback;
         bool external; /* a.k.a collect metadata mode */
-
-        uint16_t encap_src_port;
-        uint16_t fou_destination_port;
-
-        struct in6_addr sixrd_prefix;
-        uint8_t sixrd_prefixlen;
 } Tunnel;
 
 int dhcp4_pd_create_6rd_tunnel(Link *link, link_netlink_message_handler_t callback);

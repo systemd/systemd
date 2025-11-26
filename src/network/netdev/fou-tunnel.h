@@ -18,17 +18,17 @@ typedef enum FooOverUDPEncapType {
 typedef struct FouTunnel {
         NetDev meta;
 
-        uint8_t fou_protocol;
+        union in_addr_union local;
+        union in_addr_union peer;
+
+        int local_family;
+        int peer_family;
+        FooOverUDPEncapType fou_encap_type;
 
         uint16_t port;
         uint16_t peer_port;
 
-        int local_family;
-        int peer_family;
-
-        FooOverUDPEncapType fou_encap_type;
-        union in_addr_union local;
-        union in_addr_union peer;
+        uint8_t fou_protocol;
 } FouTunnel;
 
 DEFINE_NETDEV_CAST(FOU, FouTunnel);

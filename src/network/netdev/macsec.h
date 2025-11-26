@@ -62,14 +62,14 @@ typedef struct ReceiveChannel {
 typedef struct MACsec {
         NetDev meta;
 
-        uint16_t port;
-        int encrypt;
-        uint8_t encoding_an;
-
         OrderedHashmap *receive_channels;
         OrderedHashmap *receive_channels_by_section;
         OrderedHashmap *transmit_associations_by_section;
         OrderedHashmap *receive_associations_by_section;
+
+        int encrypt;
+        uint16_t port;
+        uint8_t encoding_an;
 } MACsec;
 
 DEFINE_NETDEV_CAST(MACSEC, MACsec);

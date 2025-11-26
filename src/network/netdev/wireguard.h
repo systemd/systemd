@@ -19,31 +19,35 @@ typedef struct WireguardIPmask {
 } WireguardIPmask;
 
 typedef struct WireguardPeer {
+        /* Pointers and other 8-byte aligned types */
         Wireguard *wireguard;
         ConfigSection *section;
-
-        uint8_t public_key[WG_KEY_LEN];
-        uint8_t preshared_key[WG_KEY_LEN];
         char *public_key_file;
         char *preshared_key_file;
-        uint32_t flags;
-        uint16_t persistent_keepalive_interval;
-
-        union sockaddr_union endpoint;
         char *endpoint_host;
         char *endpoint_port;
-
-        unsigned n_retries;
         sd_event_source *resolve_retry_event_source;
         sd_resolve_query *resolve_query;
-
-        uint32_t route_table;
-        uint32_t route_priority;
-        bool route_table_set;
-        bool route_priority_set;
-
         LIST_HEAD(WireguardIPmask, ipmasks);
         LIST_FIELDS(struct WireguardPeer, peers);
+
+        /* Large structs and arrays */
+        union sockaddr_union endpoint;
+        uint8_t public_key[WG_KEY_LEN];
+        uint8_t preshared_key[WG_KEY_LEN];
+
+        /* 4-byte integers */
+        uint32_t flags;
+        unsigned n_retries;
+        uint32_t route_table;
+        uint32_t route_priority;
+
+        /* 2-byte integers */
+        uint16_t persistent_keepalive_interval;
+
+        /* Booleans */
+        bool route_table_set;
+        bool route_priority_set;
 } WireguardPeer;
 
 typedef struct Wireguard {

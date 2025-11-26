@@ -17,13 +17,14 @@ typedef struct BridgeMDB {
         Network *network;
         ConfigSection *section;
 
-        BridgeMDBEntryType type;
-
         struct ether_addr l2_addr;
 
-        int family;
-        union in_addr_union group_addr;
         uint16_t vlan_id;
+        union in_addr_union group_addr;
+        int family;
+
+        BridgeMDBEntryType type;
+
 } BridgeMDB;
 
 void network_drop_invalid_bridge_mdb_entries(Network *network);

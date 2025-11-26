@@ -32,8 +32,8 @@ typedef struct BridgeFDB {
         struct ether_addr mac_addr;
         union in_addr_union destination_addr;
         NeighborCacheEntryFlags ntf_flags;
-        char *outgoing_ifname;
         int outgoing_ifindex;
+        char *outgoing_ifname;
 } BridgeFDB;
 
 void network_drop_invalid_bridge_fdb_entries(Network *network);

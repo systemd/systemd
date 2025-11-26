@@ -35,8 +35,8 @@ typedef struct DUID {
 
         uint8_t raw_data_len;
         uint8_t raw_data[MAX_DUID_DATA_LEN];
-        usec_t llt_time;
         bool set;
+        usec_t llt_time;
 } DUID;
 
 uint32_t link_get_dhcp4_route_table(Link *link);

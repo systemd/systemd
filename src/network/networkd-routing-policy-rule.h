@@ -8,42 +8,46 @@
 #include "networkd-util.h"
 
 typedef struct RoutingPolicyRule {
+        /* Pointers and other 8-byte aligned types */
         Manager *manager;
         Network *network;
         ConfigSection *section;
-        NetworkConfigSource source;
-        NetworkConfigState state;
+        char *iif; /* FRA_IIFNAME */
+        char *oif; /* FRA_OIFNAME */
 
-        unsigned n_ref;
-
-        /* struct fib_rule_hdr */
-        AddressFamily address_family; /* Used when parsing Family= */
-        int family; /* Automatically determined by From=, To=, and Family= */
-        uint8_t tos;
-        uint8_t action;
-        uint32_t flags;
-
-        /* attributes */
+        /* Large structs */
         struct in_addr_prefix to; /* FRA_DST */
         struct in_addr_prefix from; /* FRA_SRC */
-        char *iif; /* FRA_IIFNAME */
+        struct fib_rule_uid_range uid_range; /* FRA_UID_RANGE */
+        struct fib_rule_port_range sport; /* FRA_SPORT_RANGE */
+        struct fib_rule_port_range dport; /* FRA_DPORT_RANGE */
+
+        /* 64-bit integers */
+        uint64_t tunnel_id; /* FRA_TUN_ID */
+
+        /* 32-bit integers and enums */
+        NetworkConfigSource source;
+        NetworkConfigState state;
+        unsigned n_ref;
+        AddressFamily address_family; /* Used when parsing Family= */
+        int family; /* Automatically determined by From=, To=, and Family= */
+        uint32_t flags;
         uint32_t priority_goto; /* FRA_GOTO */
-        bool priority_set;
         uint32_t priority; /* FRA_PRIORITY */
         uint32_t fwmark; /* FRA_FWMARK */
         uint32_t realms; /* FRA_FLOW (IPv4 only) */
-        uint64_t tunnel_id; /* FRA_TUN_ID */
         int32_t suppress_ifgroup; /* FRA_SUPPRESS_IFGROUP */
         int32_t suppress_prefixlen; /* FRA_SUPPRESS_PREFIXLEN */
         uint32_t table; /* FRA_TABLE, also used in struct fib_rule_hdr */
         uint32_t fwmask; /* FRA_FWMASK */
-        char *oif; /* FRA_OIFNAME */
-        bool l3mdev; /* FRA_L3MDEV */
-        struct fib_rule_uid_range uid_range; /* FRA_UID_RANGE */
+
+        /* 8-bit integers and booleans */
+        uint8_t tos;
+        uint8_t action;
         uint8_t protocol; /* FRA_PROTOCOL */
         uint8_t ipproto; /* FRA_IP_PROTO */
-        struct fib_rule_port_range sport; /* FRA_SPORT_RANGE */
-        struct fib_rule_port_range dport; /* FRA_DPORT_RANGE */
+        bool l3mdev; /* FRA_L3MDEV */
+        bool priority_set:1;
 } RoutingPolicyRule;
 
 int fr_act_type_from_string(const char *s) _pure_;
