@@ -1033,6 +1033,9 @@ static void automount_reset_failed(Unit *u) {
 static bool automount_supported(void) {
         static int supported = -1;
 
+        if (!unit_type_supported(UNIT_MOUNT))
+                return false;
+
         if (supported < 0)
                 supported = access("/dev/autofs", F_OK) >= 0;
 

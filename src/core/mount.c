@@ -240,34 +240,6 @@ static void mount_done(Unit *u) {
         m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
 }
 
-static int update_parameters_proc_self_mountinfo(
-                Mount *m,
-                const char *what,
-                const char *options,
-                const char *fstype) {
-
-        MountParameters *p;
-        int r, q, w;
-
-        assert(m);
-
-        p = &m->parameters_proc_self_mountinfo;
-
-        r = free_and_strdup(&p->what, what);
-        if (r < 0)
-                return r;
-
-        q = free_and_strdup(&p->options, options);
-        if (q < 0)
-                return q;
-
-        w = free_and_strdup(&p->fstype, fstype);
-        if (w < 0)
-                return w;
-
-        return r > 0 || q > 0 || w > 0;
-}
-
 static int mount_add_mount_dependencies(Mount *m) {
         MountParameters *pm;
         int r;
@@ -1747,6 +1719,34 @@ static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *user
 }
 
 #if HAVE_LIBMOUNT
+static int update_parameters_proc_self_mountinfo(
+                Mount *m,
+                const char *what,
+                const char *options,
+                const char *fstype) {
+
+        MountParameters *p;
+        int r, q, w;
+
+        assert(m);
+
+        p = &m->parameters_proc_self_mountinfo;
+
+        r = free_and_strdup(&p->what, what);
+        if (r < 0)
+                return r;
+
+        q = free_and_strdup(&p->options, options);
+        if (q < 0)
+                return q;
+
+        w = free_and_strdup(&p->fstype, fstype);
+        if (w < 0)
+                return w;
+
+        return r > 0 || q > 0 || w > 0;
+}
+
 static int mount_setup_new_unit(
                 Manager *m,
                 const char *name,
@@ -1927,10 +1927,8 @@ static int mount_setup_unit(
 
         return 0;
 }
-#endif
 
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
-#if HAVE_LIBMOUNT
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
         _cleanup_set_free_ Set *devices = NULL;
@@ -1970,10 +1968,8 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         }
 
         return 0;
-#else
-        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "libmount support not compiled in");
-#endif
 }
+#endif
 
 static void mount_shutdown(Manager *m) {
         assert(m);
@@ -2025,6 +2021,7 @@ static void mount_enumerate_perpetual(Manager *m) {
         int r;
 
         assert(m);
+        assert(unit_type_supported(UNIT_MOUNT));
 
         /* Whatever happens, we know for sure that the root directory is around, and cannot go away. Let's
          * unconditionally synthesize it here and mark it as perpetual. */
@@ -2044,13 +2041,13 @@ static void mount_enumerate_perpetual(Manager *m) {
         unit_add_to_dbus_queue(u);
 }
 
+#if HAVE_LIBMOUNT
 static bool mount_is_mounted(Mount *m) {
         assert(m);
 
         return UNIT(m)->perpetual || FLAGS_SET(m->proc_flags, MOUNT_PROC_IS_MOUNTED);
 }
 
-#if HAVE_LIBMOUNT
 static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         Job *j;
@@ -2072,16 +2069,11 @@ static int mount_on_ratelimit_expire(sd_event_source *s, void *userdata) {
 #endif
 
 static void mount_enumerate(Manager *m) {
+        assert(m);
+        assert(unit_type_supported(UNIT_MOUNT));
+
 #if HAVE_LIBMOUNT
         int r;
-
-        assert(m);
-
-        r = dlopen_libmount();
-        if (r < 0) {
-                log_error_errno(r, "Cannot enumerate mounts, as libmount is not available: %m");
-                goto fail;
-        }
 
         sym_mnt_init_debug(0);
 
@@ -2164,22 +2156,19 @@ static void mount_enumerate(Manager *m) {
         return;
 
 fail:
-        mount_shutdown(m);
-#else
-        log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Cannot enumerate mounts, as libmount support is not compiled in");
-        mount_shutdown(m);
 #endif
+        mount_shutdown(m);
 }
 
 static int drain_libmount(Manager *m) {
-#if HAVE_LIBMOUNT
-        bool rescan = false;
-        int r;
-
         assert(m);
 
         if (!m->mount_monitor)
                 return false;
+
+#if HAVE_LIBMOUNT
+        bool rescan = false;
+        int r;
 
         /* Drain all events and verify that the event is valid.
          *
@@ -2196,14 +2185,13 @@ static int drain_libmount(Manager *m) {
         } while (r == 0);
 
         return rescan;
+
 #else
-        return 0;
+        assert_not_reached();
 #endif
 }
 
 static int mount_process_proc_self_mountinfo(Manager *m) {
-        _cleanup_set_free_ Set *around = NULL, *gone = NULL;
-        const char *what;
         int r;
 
         assert(m);
@@ -2212,6 +2200,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         if (r <= 0)
                 return r;
 
+#if HAVE_LIBMOUNT
         r = mount_load_proc_self_mountinfo(m, true);
         if (r < 0) {
                 /* Reset flags, just in case, for later calls */
@@ -2222,6 +2211,8 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         }
 
         manager_dispatch_load_queue(m);
+
+        _cleanup_set_free_ Set *around = NULL, *gone = NULL;
 
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
                 Mount *mount = MOUNT(u);
@@ -2302,6 +2293,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
                 mount->proc_flags = 0;
         }
 
+        const char *what;
         SET_FOREACH(what, gone) {
                 if (set_contains(around, what))
                         continue;
@@ -2311,6 +2303,9 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
         }
 
         return 0;
+#else
+        assert_not_reached();
+#endif
 }
 
 #if HAVE_LIBMOUNT
@@ -2408,6 +2403,10 @@ static int mount_test_startable(Unit *u) {
                 return -ENOENT;
 
         return true;
+}
+
+static bool mount_supported(void) {
+        return dlopen_libmount() >= 0;
 }
 
 static int mount_subsystem_ratelimited(Manager *m) {
@@ -2554,6 +2553,7 @@ const UnitVTable mount_vtable = {
         .enumerate_perpetual = mount_enumerate_perpetual,
         .enumerate = mount_enumerate,
         .shutdown = mount_shutdown,
+        .supported = mount_supported,
         .subsystem_ratelimited = mount_subsystem_ratelimited,
 
         .status_message_formats = {
