@@ -1246,6 +1246,8 @@ node /org/freedesktop/login1/session/1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RemoteUser = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b ExtraDeviceAccess = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Service = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Desktop = '...';
@@ -1347,6 +1349,8 @@ node /org/freedesktop/login1/session/1 {
     <variablelist class="dbus-property" generated="True" extra-ref="RemoteHost"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RemoteUser"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="ExtraDeviceAccess"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Service"/>
 
@@ -1537,6 +1541,10 @@ node /org/freedesktop/login1/session/1 {
       <para><varname>RemoteHost</varname> and <varname>RemoteUser</varname> encode the remote host and user
       if this is a remote session, or an empty string otherwise.</para>
 
+      <para><varname>ExtraDeviceAccess</varname> encodes whether the session is granted access to additional
+      hardware devices, typically useful for for graphical, remote session. If true, the session is granted
+      access to all devices tagged with <literal>xaccess</literal> in udev.</para>
+
       <para><varname>Service</varname> encodes the PAM service name that registered the session.</para>
 
       <para><varname>Desktop</varname> describes the desktop environment running in the session (if
@@ -1671,6 +1679,7 @@ node /org/freedesktop/login1/session/1 {
       <para><function>SetTTY()</function> was added in version 254.</para>
       <para><function>SetClass()</function> was added in version 256.</para>
       <para><varname>LeaderPIDFDId</varname> was added in version 258.</para>
+      <para><varname>ExtraDeviceAccess</varname> was added in version 260.</para>
     </refsect2>
   </refsect1>
 
