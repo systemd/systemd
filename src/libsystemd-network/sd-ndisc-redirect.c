@@ -21,7 +21,7 @@ static sd_ndisc_redirect* ndisc_redirect_free(sd_ndisc_redirect *rd) {
         return mfree(rd);
 }
 
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_redirect, sd_ndisc_redirect, ndisc_redirect_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_redirect, sd_ndisc_redirect, rd, ndisc_redirect_free);
 
 sd_ndisc_redirect* ndisc_redirect_new(ICMP6Packet *packet) {
         sd_ndisc_redirect *rd;

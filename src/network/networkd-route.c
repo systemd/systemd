@@ -74,7 +74,7 @@ static Route* route_free(Route *route) {
         return mfree(route);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(Route, route, route_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(Route, route, route, route_free);
 
 static void route_hash_func(const Route *route, struct siphash *state) {
         assert(route);

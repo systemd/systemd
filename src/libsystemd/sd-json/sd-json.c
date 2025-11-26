@@ -154,7 +154,7 @@ static JsonSource* json_source_new(const char *name) {
         return s;
 }
 
-DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(JsonSource, json_source, mfree);
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(JsonSource, json_source, j, mfree);
 
 static bool json_source_equal(JsonSource *a, JsonSource *b) {
         if (a == b)
@@ -5938,4 +5938,4 @@ static const char* const sd_json_variant_type_table[_SD_JSON_VARIANT_TYPE_MAX] =
         [SD_JSON_VARIANT_NULL]     = "null",
 };
 
-_DEFINE_STRING_TABLE_LOOKUP(sd_json_variant_type, sd_json_variant_type_t, _public_);
+_DEFINE_STRING_TABLE_LOOKUP(sd_json_variant_type, sd_json_variant_type_t, t, _public_);

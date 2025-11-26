@@ -581,12 +581,12 @@ static const char *progress_phase_table[_PROGRESS_PHASE_MAX] = {
         [PROGRESS_REREADING_TABLE]            = "rereading-table",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(empty_mode, EmptyMode);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(append_mode, AppendMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(empty_mode, EmptyMode, i);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(append_mode, AppendMode, i);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(encrypt_mode, EncryptMode, ENCRYPT_KEY_FILE);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(verity_mode, VerityMode, i);
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(minimize_mode, MinimizeMode, MINIMIZE_BEST);
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(progress_phase, ProgressPhase, i);
 
 static uint64_t round_down_size(uint64_t v, uint64_t p) {
         return (v / p) * p;

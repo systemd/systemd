@@ -4,11 +4,10 @@
 #include "efi-string.h"
 #include "macro-fundamental.h"
 
-#define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,scope)                          \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */      \
-        scope const char* name##_to_string(type i) {                                    \
-                assert(i >= 0 && i < (type) ELEMENTSOF(name##_table));                  \
-                return name##_table[i];                                                 \
+#define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg, scope)                   \
+        scope const char* name##_to_string(type arg) {                                  \
+                assert(arg >= 0 && arg < (type) ELEMENTSOF(name##_table));              \
+                return name##_table[arg];                                               \
         }
 
 #define _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name, type, scope)    \
@@ -21,13 +20,13 @@
                 return (type) -1;                                     \
         }
 
-#define _DEFINE_STRING_TABLE_LOOKUP(name, type, scope)             \
-        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, scope)   \
+#define _DEFINE_STRING_TABLE_LOOKUP(name, type, arg, scope)              \
+        _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg, scope)    \
         _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name, type, scope)
 
-#define DEFINE_STRING_TABLE_LOOKUP(name, type) _DEFINE_STRING_TABLE_LOOKUP(name, type,)
-#define DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type) _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,)
+#define DEFINE_STRING_TABLE_LOOKUP(name, type, arg) _DEFINE_STRING_TABLE_LOOKUP(name, type, arg,)
+#define DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg) _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg,)
 #define DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name, type) _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name, type,)
-#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name, type) _DEFINE_STRING_TABLE_LOOKUP(name, type, static)
-#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(name,type) _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name,type,static)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP(name, type, arg) _DEFINE_STRING_TABLE_LOOKUP(name, type, arg, static)
+#define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg) _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, arg, static)
 #define DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(name, type) _DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(name, type, static)

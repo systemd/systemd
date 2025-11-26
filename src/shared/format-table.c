@@ -252,7 +252,7 @@ static TableData *table_data_free(TableData *d) {
         return mfree(d);
 }
 
-DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(TableData, table_data, table_data_free);
+DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(TableData, table_data, t, table_data_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(TableData*, table_data_unref);
 
 Table *table_unref(Table *t) {

@@ -494,7 +494,7 @@ static struct udev_device* udev_device_free(struct udev_device *udev_device) {
  *
  * Returns: #NULL
  **/
-DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_device, udev_device, udev_device_free);
+DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(struct udev_device, udev_device, udev_device, udev_device_free);
 
 /**
  * udev_device_get_devpath:

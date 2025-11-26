@@ -74,7 +74,7 @@ static const char * const networkd_dhcp_type_table[_DHCP_TYPE_MAX] = {
         [DHCP_TYPE_LINK_LOCAL] = "no",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_dhcp_type, DHCPType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_dhcp_type, DHCPType, i);
 
 static const char * const networkd_ipv6ra_type_table[_DHCP_TYPE_MAX] = {
         [DHCP_TYPE_NONE]       = "no",
@@ -84,7 +84,7 @@ static const char * const networkd_ipv6ra_type_table[_DHCP_TYPE_MAX] = {
         /* We omit the other entries, to leave the default in effect */
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_ipv6ra_type, DHCPType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_ipv6ra_type, DHCPType, i);
 
 static const char * const networkd_link_local_type_table[_DHCP_TYPE_MAX] = {
         [DHCP_TYPE_NONE]       = "no",
@@ -94,7 +94,7 @@ static const char * const networkd_link_local_type_table[_DHCP_TYPE_MAX] = {
         /* We omit the other entries, to leave the default in effect */
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_link_local_type, DHCPType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_link_local_type, DHCPType, i);
 
 static Address* address_free(Address *address) {
         if (!address)

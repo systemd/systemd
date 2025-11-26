@@ -872,7 +872,7 @@ static LoopDevice* loop_device_free(LoopDevice *d) {
         return mfree(d);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(LoopDevice, loop_device, loop_device_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(LoopDevice, loop_device, d, loop_device_free);
 
 void loop_device_relinquish(LoopDevice *d) {
         assert(d);

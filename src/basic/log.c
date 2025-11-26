@@ -1500,7 +1500,7 @@ static const char *const log_target_table[_LOG_TARGET_MAX] = {
         [LOG_TARGET_NULL]             = "null",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget);
+DEFINE_STRING_TABLE_LOOKUP(log_target, LogTarget, target);
 
 void log_received_signal(int level, const struct signalfd_siginfo *si) {
         assert(si);

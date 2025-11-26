@@ -211,7 +211,7 @@ static QDisc* qdisc_free(QDisc *qdisc) {
         return mfree(qdisc);
 }
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(QDisc, qdisc, qdisc_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(QDisc, qdisc, qdisc, qdisc_free);
 
 static const char *qdisc_get_tca_kind(const QDisc *qdisc) {
         assert(qdisc);

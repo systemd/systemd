@@ -2034,7 +2034,7 @@ static const char* const exec_directory_env_name_table[_EXEC_DIRECTORY_TYPE_MAX]
         [EXEC_DIRECTORY_CONFIGURATION] = "CONFIGURATION_DIRECTORY",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(exec_directory_env_name, ExecDirectoryType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(exec_directory_env_name, ExecDirectoryType, i);
 
 static int build_environment(
                 const ExecContext *c,

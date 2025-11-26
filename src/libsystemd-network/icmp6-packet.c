@@ -9,7 +9,7 @@
 #include "log.h"
 #include "socket-util.h"
 
-DEFINE_TRIVIAL_REF_UNREF_FUNC(ICMP6Packet, icmp6_packet, mfree);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(ICMP6Packet, icmp6_packet, p, mfree);
 
 static ICMP6Packet* icmp6_packet_new(size_t size) {
         ICMP6Packet *p;

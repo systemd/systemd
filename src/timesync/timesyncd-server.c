@@ -13,7 +13,7 @@ static const char * const server_type_table[_SERVER_TYPE_MAX] = {
         [SERVER_RUNTIME]  = "runtime",
 };
 
-DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(server_type, ServerType);
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(server_type, ServerType, i);
 
 int server_address_new(
                 ServerName *n,

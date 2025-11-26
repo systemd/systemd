@@ -252,7 +252,7 @@ static const char* const hostname_source_table[] = {
         [HOSTNAME_DEFAULT]   = "default",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(hostname_source, HostnameSource);
+DEFINE_STRING_TABLE_LOOKUP(hostname_source, HostnameSource, source);
 
 int hostname_substitute_wildcards(char *name) {
         static const sd_id128_t key = SD_ID128_MAKE(98,10,ad,df,8d,7d,4f,b5,89,1b,4b,56,ac,c2,26,8f);

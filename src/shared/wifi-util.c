@@ -157,7 +157,7 @@ static const char * const nl80211_iftype_table[NUM_NL80211_IFTYPES] = {
         [NL80211_IFTYPE_NAN]        = "nan",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(nl80211_iftype, enum nl80211_iftype);
+DEFINE_STRING_TABLE_LOOKUP(nl80211_iftype, enum nl80211_iftype, iftype);
 
 static const char * const nl80211_cmd_table[__NL80211_CMD_AFTER_LAST] = {
         [NL80211_CMD_GET_WIPHY] = "get_wiphy",
@@ -307,4 +307,4 @@ static const char * const nl80211_cmd_table[__NL80211_CMD_AFTER_LAST] = {
         [NL80211_CMD_COLOR_CHANGE_COMPLETED] = "color_change_completed",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(nl80211_cmd, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(nl80211_cmd, int, cmd);

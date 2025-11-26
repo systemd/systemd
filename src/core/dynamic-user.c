@@ -29,7 +29,7 @@
 /* Takes a value generated randomly or by hashing and turns it into a UID in the right range */
 #define UID_CLAMP_INTO_RANGE(rnd) (((uid_t) (rnd) % (DYNAMIC_UID_MAX - DYNAMIC_UID_MIN + 1)) + DYNAMIC_UID_MIN)
 
-DEFINE_TRIVIAL_REF_FUNC(DynamicUser, dynamic_user);
+DEFINE_TRIVIAL_REF_FUNC(DynamicUser, dynamic_user, user);
 
 DynamicUser* dynamic_user_free(DynamicUser *d) {
         if (!d)
