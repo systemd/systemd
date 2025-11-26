@@ -7,7 +7,7 @@
 # Vladimir Yerilov <openmindead@gmail.com>, 2020.
 # Alexey Rubtsov <rushills@gmail.com>, 2021.
 # Olga Smirnova <mistresssilvara@hotmail.com>, 2022.
-# Andrei Stepanov <adem4ik@gmail.com>, 2023.
+# Andrei Stepanov <adem4ik@gmail.com>, 2023, 2025.
 # "Sergey A." <sw@atrus.ru>, 2023, 2024.
 # "Sergey A." <Ser82-png@yandex.ru>, 2024, 2025.
 msgid ""
@@ -15,7 +15,7 @@ msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
 "PO-Revision-Date: 2025-11-26 18:31+0000\n"
-"Last-Translator: \"Sergey A.\" <Ser82-png@yandex.ru>\n"
+"Last-Translator: Andrei Stepanov <adem4ik@gmail.com>\n"
 "Language-Team: Russian <https://translate.fedoraproject.org/projects/systemd/"
 "main/ru/>\n"
 "Language: ru\n"
