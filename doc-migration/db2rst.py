@@ -1307,9 +1307,17 @@ def caution(el):
 
 
 def para(el):
+    s = ""
+    entry_id = el.get("id")
+    if entry_id is not None:
+        s += "\n\n.. inclusion-marker-do-not-remove %s\n\n" % entry_id
     if _is_inside_of(el, 'listitem'):
-        return _concat(el) + "\n \n"
-    return _block_separated_with_blank_line(el, False) + '\n\n \n\n'
+        s += _concat(el) + "\n \n"
+    else:
+        s += _block_separated_with_blank_line(el, False) + '\n\n \n\n'
+    if entry_id is not None:
+        s += "\n\n.. inclusion-end-marker-do-not-remove %s\n\n" % entry_id
+    return s
 
 
 def simpara(el):
